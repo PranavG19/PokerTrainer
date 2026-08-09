@@ -1,5 +1,5 @@
 import type { Card } from './cards.js';
-import { equityVsRandom } from './equity.js';
+import { DISPLAY_ITERATIONS, equityVsRandom } from './equity.js';
 
 export type Severity = 'free' | 'notable' | 'serious';
 
@@ -32,7 +32,7 @@ export function gradeDecision(input: {
 }): Grade {
   const { hole, board, pot, toCall, bb, chosen, opponents, seed } = input;
 
-  const eq = equityVsRandom(hole, board, opponents, 2000, seed ?? 1);
+  const eq = equityVsRandom(hole, board, opponents, DISPLAY_ITERATIONS, seed ?? 1);
   const equity = eq.win + eq.tie * 0.5;
 
   const required = potOddsRequired(pot, toCall);
@@ -102,17 +102,20 @@ function buildMessage(
   toCall: number,
   evLossBb: number,
 ): string {
-  const eqPct = Math.round(equity * 100);
+  // "pot share", never "equity": this is win + tie/2, while the stats sheet shows raw Win% with
+  // Tie% beside it. Both are right, but calling them the same thing put "66% equity" on screen
+  // next to "Win 70%" and a learner has no way to reconcile two numbers for one quantity.
+  const sharePct = Math.round(equity * 100);
   const reqPct = Math.round(required * 100);
 
   if (action === 'call') {
-    return `Calling ${toCall} into a ${pot} pot needs ${reqPct}% equity; you had ${eqPct}%.`;
+    return `Calling ${toCall} into a ${pot} pot needs ${reqPct}% pot share; you had ${sharePct}%.`;
   }
   if (action === 'fold') {
-    return `Folding with ${eqPct}% equity when only ${reqPct}% was needed costs ~${evLossBb.toFixed(1)} bb.`;
+    return `Folding with ${sharePct}% pot share when only ${reqPct}% was needed costs ~${evLossBb.toFixed(1)} bb.`;
   }
   if (action === 'check') {
-    return `Checking ${eqPct}% equity on a later street misses value worth ~${evLossBb.toFixed(1)} bb.`;
+    return `Checking ${sharePct}% pot share on a later street misses value worth ~${evLossBb.toFixed(1)} bb.`;
   }
-  return `Betting with only ${eqPct}% equity against this action risks ~${evLossBb.toFixed(1)} bb.`;
+  return `Betting with only ${sharePct}% pot share against this action risks ~${evLossBb.toFixed(1)} bb.`;
 }

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { DISPLAY_ITERATIONS, equityVsRandom } from '../../src/core/equity.js';
 import { gradeDecision, potOddsRequired } from '../../src/core/coach.js';
 
 describe('potOddsRequired', () => {
@@ -219,5 +220,51 @@ describe('gradeDecision', () => {
     expect(g).toHaveProperty('evLossBb');
     expect(g).toHaveProperty('message');
     expect(g).toHaveProperty('principle');
+  });
+});
+
+describe('display consistency', () => {
+  /**
+   * The coach line and the stats sheet both show the hero's equity, from two separate call sites.
+   * Monte Carlo at different iteration counts returns different numbers for the same spot, so if
+   * they ever diverge the app contradicts itself on screen — measured 70% on the sheet beside
+   * "66% equity" in the coach line before both were pinned to DISPLAY_ITERATIONS.
+   */
+  it('the coach grades at exactly the iteration count the stats sheet displays', () => {
+    const hole = ['Qs', 'Qh'];
+    const board = ['8c', '9h', '8s', 'Js'];
+    const seed = 43;
+
+    // What the sheet renders, and the pot share the coach reasons about.
+    const shown = equityVsRandom(hole, board, 3, DISPLAY_ITERATIONS, seed);
+    const potShare = shown.win + shown.tie * 0.5;
+
+    // What the coach graded against, recovered from its own message.
+    const grade = gradeDecision({
+      hole,
+      board,
+      street: 'turn',
+      pot: 300,
+      toCall: 100,
+      stack: 4000,
+      bb: 50,
+      chosen: 'fold',
+      opponents: 3,
+      seed,
+    });
+
+    expect(grade.message).not.toBeNull();
+    const quoted = Number(/(\d+)% pot share/.exec(grade.message ?? '')?.[1]);
+    expect(Number.isFinite(quoted), `no pot share in "${grade.message}"`).toBe(true);
+    // Same iteration count AND the same definition, so the two figures are reconcilable.
+    expect(quoted).toBe(Math.round(potShare * 100));
+    // And the coach must not call it "equity" — that is the sheet's Win% label.
+    expect(grade.message).not.toMatch(/% equity/);
+  });
+
+  it('a different iteration count really would disagree, so the shared constant is load-bearing', () => {
+    const a = equityVsRandom(['Qs', 'Qh'], ['8c', '9h', '8s', 'Js'], 3, 800, 43);
+    const b = equityVsRandom(['Qs', 'Qh'], ['8c', '9h', '8s', 'Js'], 3, DISPLAY_ITERATIONS, 43);
+    expect(Math.round(a.win * 100)).not.toBe(Math.round(b.win * 100));
   });
 });
