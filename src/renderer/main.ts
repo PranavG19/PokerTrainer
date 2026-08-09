@@ -3,7 +3,15 @@ import './styles-panels.css';
 import './styles-screens.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
-import { deserialize, recordHand, serialize } from '../core/session.js';
+import {
+  deserialize,
+  rebuy,
+  recordHand,
+  recordPrediction,
+  serialize,
+  setCoachedMode,
+} from '../core/session.js';
+import type { PredictOutcome } from '../core/predict.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderTable, type TableHandle } from './screens/table.js';
@@ -77,13 +85,32 @@ async function boot(): Promise<void> {
     // The table screen stays mounted showing the result; only the persisted totals changed.
   }
 
+  async function onRebuy(): Promise<void> {
+    session = rebuy(session);
+    await io.saveState(serialize(session));
+  }
+
+  async function onPrediction(outcome: PredictOutcome): Promise<void> {
+    session = recordPrediction(session, outcome);
+    await io.saveState(serialize(session));
+  }
+
+  async function onCoachedModeChange(on: boolean): Promise<void> {
+    session = setCoachedMode(session, on);
+    await io.saveState(serialize(session));
+  }
+
   function startTable(): void {
     teardownTable();
     table = renderTable({
       seed,
       bankroll: session.bankroll,
       handNumber: session.stats.handsPlayed + 1,
+      coachedMode: session.coachedMode,
       onHandComplete: (r) => void onHandComplete(r),
+      onRebuy: () => void onRebuy(),
+      onPrediction: (outcome) => void onPrediction(outcome),
+      onCoachedModeChange: (on) => void onCoachedModeChange(on),
       // Hero busted out: drop back to home, where a fresh table can be started.
       onSessionOver: () => {
         teardownTable();

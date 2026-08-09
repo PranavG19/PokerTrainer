@@ -1,5 +1,7 @@
 import type { Card } from './cards.js';
 import type { Grade, Severity } from './coach.js';
+import type { Calibration, PredictOutcome } from './predict.js';
+import { emptyCalibration, tally } from './predict.js';
 
 /** Bound the log so the on-disk JSON cannot grow without limit. */
 export const MAX_HAND_LOG = 500;
@@ -39,7 +41,13 @@ export interface SessionStats {
 export interface SessionState {
   bankroll: number;
   hands: HandRecord[];
+  /** How many times the hero has topped their table stack back up after busting. */
+  rebuys: number;
   stats: SessionStats;
+  /** Prediction accuracy in coached mode. Lives outside `stats` because it counts decisions, not hands. */
+  calibration: Calibration;
+  /** Persisted so the toggle survives a restart. Default false keeps uncoached play unchanged. */
+  coachedMode: boolean;
 }
 
 export interface SessionSummary {
@@ -55,8 +63,37 @@ export function emptySession(): SessionState {
   return {
     bankroll: DEFAULT_BANKROLL,
     hands: [],
+    rebuys: 0,
     stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {}, leakCostBb: {} },
+    calibration: emptyCalibration(),
+    coachedMode: false,
   };
+}
+
+/** One graded prediction. Per decision, not per hand, so it cannot live in recordHand. */
+export function recordPrediction(state: SessionState, outcome: PredictOutcome): SessionState {
+  return { ...state, calibration: tally(state.calibration, outcome) };
+}
+
+export function setCoachedMode(state: SessionState, on: boolean): SessionState {
+  return { ...state, coachedMode: on };
+}
+
+/**
+ * Count a rebuy. The bankroll is deliberately UNCHANGED.
+ *
+ * `bankroll` here is total net worth — pocket plus the chips sitting on the table — which is why
+ * sitting down for 5000 never debited it and why every hand's `net` is applied directly. A rebuy
+ * moves 5000 from pocket to table: an internal transfer that leaves net worth alone. The money was
+ * already debited hand by hand as it was lost, which is exactly what emptied the stack; debiting
+ * again would count the same 5000 twice and destroy value the player still holds.
+ *
+ * No free value: busting requires `net` totalling -5000, so bankroll after N bust-and-rebuy cycles
+ * is DEFAULT_BANKROLL - 5000*N plus whatever is currently on the table. Rebuying can only ever
+ * follow a loss that already moved the bankroll down.
+ */
+export function rebuy(state: SessionState): SessionState {
+  return { ...state, rebuys: state.rebuys + 1 };
 }
 
 /** Drops silent grades — a grade with no principle is not a leak. */
@@ -77,8 +114,10 @@ export function recordHand(state: SessionState, record: HandRecord): SessionStat
   }
 
   return {
+    ...state,
     bankroll: state.bankroll + record.net,
     hands: [...state.hands, structuredClone(record)].slice(-MAX_HAND_LOG),
+    rebuys: state.rebuys,
     stats: {
       handsPlayed: state.stats.handsPlayed + 1,
       vpipHands: state.stats.vpipHands + (record.vpip ? 1 : 0),
@@ -117,7 +156,10 @@ export function serialize(state: SessionState): Record<string, unknown> {
   return {
     bankroll: state.bankroll,
     hands: structuredClone(state.hands),
+    rebuys: state.rebuys,
     stats: { ...state.stats, leaks: { ...state.stats.leaks }, leakCostBb: { ...state.stats.leakCostBb } },
+    calibration: { ...state.calibration },
+    coachedMode: state.coachedMode,
   };
 }
 
@@ -131,6 +173,8 @@ export function deserialize(raw: unknown): SessionState {
   return {
     bankroll: asNumber(obj.bankroll, DEFAULT_BANKROLL),
     hands: asArray(obj.hands).map(parseHand).slice(-MAX_HAND_LOG),
+    // Legacy saves predate rebuys; 0 is the honest reading, not a missing field.
+    rebuys: Math.max(0, Math.floor(asNumber(obj.rebuys, 0))),
     stats: {
       handsPlayed: asNumber(stats.handsPlayed, 0),
       vpipHands: asNumber(stats.vpipHands, 0),
@@ -139,6 +183,20 @@ export function deserialize(raw: unknown): SessionState {
       leaks: parseLeaks(stats.leaks),
       leakCostBb: parseLeaks(stats.leakCostBb),
     },
+    calibration: parseCalibration(obj.calibration),
+    // Legacy saves predate coached mode, and it must default OFF: an unasked-for gate on the
+    // action buttons would look like a broken app.
+    coachedMode: obj.coachedMode === true,
+  };
+}
+
+function parseCalibration(raw: unknown): Calibration {
+  const obj = asRecord(raw);
+  const count = (value: unknown): number => Math.max(0, Math.floor(asNumber(value, 0)));
+  return {
+    total: count(obj.total),
+    correct: count(obj.correct),
+    sureWrong: count(obj.sureWrong),
   };
 }
 

@@ -173,6 +173,15 @@ button.hand-row {
   color: var(--text-lo);
 }
 
+.rebuy-summary {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .leak-list {
   list-style: none;
   background: var(--surface);
@@ -240,4 +249,12 @@ button.hand-row {
 
 .counter .stat-value {
   font-size: 20px;
+}
+
+.calibration {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 14px;
+  color: var(--text-hi);
 }

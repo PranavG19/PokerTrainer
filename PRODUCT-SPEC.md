@@ -1,5 +1,7 @@
 # Poker Trainer — Product Spec
 
+**Version 2.** Revised against a five-angle adversarial review (30 findings) of v1, preserved at `PRODUCT-SPEC-v1-superseded.md`. Four root causes drove the revision: severity was computed by multiplying two quantities measured at different granularities (fixed in G0/G1); the bank was sized and costed in the wrong unit (fixed in B0–B7); the method's generative core had been inverted into recognition (fixed in G5/G5a); and several guarantees were claimed more strongly than they were secured (fixed in T3a/T4/T8 and the security section). Sections that correct v1 say so inline, so the reasoning is auditable rather than silently overwritten.
+
 **Status:** design-complete at feature level. Supersedes `SPEC.md` (which described the vibe-coded prototype; that file is left in place as a record, not a plan).
 **Grounding:** `research/TEACHING-METHOD.md` (pedagogy), `research/DESIGN-NOTES.md` (visual language).
 **Scope of this document:** features, modes, screens, teaching architecture, and the tutor/grader interlock. Not implementation decomposition.
@@ -60,7 +62,7 @@ Phases order *content*, not access. All are visible and enterable at any time; t
 | phase | installs | advances when |
 |---|---|---|
 | **0 · Rules** | betting order, hand rankings, what the actions mean | you can act without asking what an action does |
-| **1 · Eyes** | perception: 7-cards-to-best-5 under 2 s, texture dimensions, blockers, nut-advantage direction, range role | fluency gates pass |
+| **1 · Eyes** | perception: 7-cards-to-best-5 under 2 s, texture dimensions, blockers, nut-advantage direction, range role, **anomaly trigger** | fluency gates pass |
 | **2 · Arithmetic** | pot odds in natural frequencies, MDF, alpha, combos, SPR, the variance table | each reproducible to a number under time |
 | **3 · Principles** | indifference, range vs nut advantage, equity realisation, polarity→size, blockers-as-selection, capped ranges, protecting the check range, domination | you can state each mechanism in your own sentence |
 | **4 · Nodes** | the ~50 situated rules; the long middle of the product | per-KC mastery bars fill |
@@ -103,7 +105,7 @@ Charts belong to phase 4. They remain *reachable* in phase 0 (see Decision N3).
 
 **Live play**
 23. As a learner, I want to play actual hands against opponents from day one, ungraded.
-24. As a learner in a graded whole-task block, I want the pot outcome hidden and feedback batched to the end.
+24. As a learner at the Table in any mode, I want the pot outcome hidden — stacks move, but no "you won 14 bb" and no session P&L — because that number is the misleading signal, and in a graded whole-task block I additionally want feedback batched to the end.
 25. As a learner, I want opponents whose tendencies are learnable but whose labels are hidden until the hand ends.
 26. As a learner, I want opponent parameters jittered per session so I learn to classify rather than memorise three caricatures.
 27. As a learner in an off-bank position, I want to be told it's ungraded rather than given a fabricated grade.
@@ -151,7 +153,7 @@ Charts belong to phase 4. They remain *reachable* in phase 0 (see Decision N3).
 
 ### Session assembly
 
-**S1 — One button, adaptive length.** "Start session" takes a duration (15 / 30 / 50 min, default 30) and assembles blocks proportionally from the method's six ingredients:
+**S1 — One button, two lengths.** "Start session" takes a duration (**30 or 50 min**, default 30 — see S2a for why 15 is not offered) and assembles blocks proportionally from the method's six ingredients:
 
 | block | share of 50 min | scales |
 |---|---|---|
@@ -164,41 +166,74 @@ Charts belong to phase 4. They remain *reachable* in phase 0 (see Decision N3).
 
 **S2 — Degradation order is explicit.** Under time pressure, cut in this order: whole-task → warm-up length → graded spot count. Never cut decay probes (they are the only retention measurement) and never cut remediation below one contrast set (an un-remediated T2 is worse than an ungraded one, because it enters the spacing queue without a repair).
 
+**S2a — Session lengths are 30 and 50 minutes. There is no 15-minute session.** At 15 minutes the non-scaling floors — one warm-up block (~4 min), four decay probes (~3 min), one contrast set (~5 min), scoreboard (~2 min) — consume ~14 of the 15 minutes, leaving room for roughly one graded spot, which cannot satisfy Q1's interleaving constraint (≥7 classes, no consecutive repeats). Since S2 forbids cutting the floors, a 15-minute "session" degrades the graded block to near zero, i.e. it is a warm-up mislabelled as practice.
+
+Instead, short sittings are served by **free-roam mode** (S3), where drills and a few graded spots run without decay probes, remediation floors, or a scoreboard. This is the honest version: a 15-minute sitting is practice, not a session, and the app calls it that. **A 30-minute session** allocates ~14 min of graded spots (≈11 spots), which clears the interleaving constraint.
+
+**S2b — Warm-up floor reconciled.** S1's "min 1 block" for warm-up wins over S2's "cut warm-up length second": the cut order applies to warm-up *length above* one block, never below it. One block is the floor because a partial PLM block is not a fluency measurement.
+
 **S3 — Free-roam is first-class.** Modes entered outside a session behave identically except: decay probes never fire, and remediation defers to the next session rather than firing inline. Every decision is logged with `mode` so the recommender can distinguish structured from casual reps.
 
 **S4 — Sessions are resumable, not restartable.** Quitting mid-session persists position; reopening offers resume or discard. Discard keeps the graded decisions already logged — they happened.
 
 ### Grading
 
-**G1 — Dual-axis severity. This resolves a defect in the method as written.**
+**G0 — The granularity rule, and the defect it repairs.**
 
-The method tiers on RW alone. Under its own reach table that inverts: a 0.6 bb BTN-RFI error (reach 0.092) scores RW 5.5 → *severe, interrupt*, while a 10 bb river blunder at an exact node (reach 0.0015) scores RW 1.5 → *bottom of the leak tier*. T4 would require ΔEV > 133 bb and **could never fire postflop at 100 bb**. As specified, the coach interrupts marginal opens and shrugs at stack-offs.
+**ΔEV and reach are measured at different granularities and must never be multiplied into a per-decision severity input.** ΔEV is a property of a *specific holding at a specific node*. Reach is a property of a *node class*. Their product overstates by a factor of P(holding | node), so `RW` was never a coherent per-decision quantity — which is why every attempt to tier on it produces a pathology (interrupting marginal preflop opens, shrugging at stack-offs, T4 unreachable postflop). Adding a second axis and taking `max` does not repair this: `max` is monotonic upward and therefore *structurally incapable* of fixing an over-fire, and a pot-fraction axis calibrated for postflop pots is catastrophic against a 1.5 bb preflop pot (T4 would begin at ΔEV 0.75 bb, so a routine open/fold error would trigger block-and-rewind).
 
-Decision: **tier = max(tier_RW, tier_absolute)**, where `tier_absolute` is keyed to ΔEV as a fraction of pot.
+Decision, and it governs everything below:
 
-| tier | RW (bb/100) | ΔEV as pot fraction | coach action |
-|---|---|---|---|
-| **T0 free** | < 0.1 | < 2% | nothing, ever. Not logged as a leak, not in the tag histogram. |
-| **T1 noise** | 0.1 – 1.0 | 2 – 8% | logged silently; weekly aggregate only |
-| **T2 leak** | 1.0 – 5.0 | 8 – 20% | end-of-block correction; fires contrast set; enters spacing queue |
-| **T3 severe** | 5 – 20 | 20 – 50% | in-hand interrupt; immediate re-serve; scheduled day 2 and 7 |
-| **T4 catastrophic** | > 20 | > 50% | block, rewind, worked example, forced re-decision |
+- **Per-decision severity is a function of ΔEV alone**, with bands calibrated per street (G1).
+- **RW is an aggregate statistic**, computed over a node *class* across many decisions, used only for study prioritisation in the weekly report and the recommender (G2). It never determines what the coach says about a single decision.
 
-The pot-fraction axis also implements the method's ε (2% of pot) as the T0 floor, replacing a bb figure that doesn't calibrate across streets. The method's separate "magnitude flag at ΔEV ≥ 3 bb" override becomes redundant and is dropped — the absolute axis subsumes it and does so per-street.
+This is a deliberate departure from the method, which tiers on RW directly. The method is right that reach-weighting is how you *prioritise study*, and wrong that it can grade a single decision.
 
-**G2 — Reach is pooled, fixed, and versioned.** Computed at `(street × action class)` granularity — "faces any flop c-bet", not "faces BTN c-bet on K72r from BB". Exact-node reach is what produces the inversion above and is also unmeasurable at a solo learner's volume. Reach values are computed once against a **frozen reference bot population**, shipped in the bank, and carry a `referencePopId`. Live bots are jittered; reach never reads from them. Changing the reference population is a bank version bump, because it silently re-tiers every historical decision otherwise.
+**G1 — Per-decision severity: one axis, per-street bands.**
 
-**G3 — Silence is declared, once, verbatim, on first launch,** and restated in the phase-0 screen: *"No comment means your decision cost under 0.1 bb/100. Silence is not praise."* The tutor rail is subject to the same rule — it does not congratulate a T0.
+`severity(ΔEV, street)` — a pure function, no reach term. Bands are expressed as a fraction of the **pot as it stands at the moment of decision, before the learner's own action** (the single denominator definition; no other pot is ever used, and this is what the boundary tests assert against).
 
-**G4 — Right-for-the-wrong-reason is T3 unconditionally,** overriding both axes, whenever ΔEV ≈ 0 and the reason grader returns `hand-strength` or `none`. This is the only case where silence installs a false rule, because the action, the verdict, and the chips all confirm it.
+| tier | preflop (pot ≈ 1.5–7 bb) | flop | turn | river | coach action |
+|---|---|---|---|---|---|
+| **T0 free** | < 0.10 bb | < 3% | < 2.5% | < 2% | nothing, ever. Not logged as a leak, not in the tag histogram. |
+| **T1 noise** | 0.10 – 0.35 bb | 3 – 10% | 2.5 – 9% | 2 – 8% | logged silently; weekly aggregate only |
+| **T2 leak** | 0.35 – 1.2 bb | 10 – 25% | 9 – 22% | 8 – 20% | end-of-block correction; fires contrast set; enters spacing queue |
+| **T3 severe** | 1.2 – 3.0 bb | 25 – 60% | 22 – 55% | 20 – 50% | in-hand interrupt; immediate re-serve; scheduled day 2, 7, 21 |
+| **T4 catastrophic** | > 3.0 bb | > 60% | > 55% | > 50% | block, rewind, worked example, forced re-decision |
 
-**G5 — The reason field is a closed set plus optional free text.** A dropdown/keyboard-selected principle name (from the phase-3 principle list plus `pot odds`, `MDF`, `alpha`, `I'm guessing`) is **required**; a free-text line is optional and, when present, is what the reason grader classifies. Rationale: closed-set selection is deterministically assertable in tests and works with no API key; free text is where the generation benefit and the wrong-reason detection live. With no key, `G4` degrades to firing only when the closed-set choice is `I'm guessing` — stated as a known reduction in Failure modes.
+**Preflop is banded in absolute bb, not pot fraction.** The preflop pot is too small and too variable (1.5 bb walk vs 7 bb four-bet pot) for a fraction to calibrate; a 0.6 bb BTN-RFI boundary error lands T2 — an end-of-block correction, not an interrupt — which is the intended behaviour and the thing the previous design got wrong. Postflop bands narrow slightly by street because pots grow while stacks don't, so an equal pot fraction represents a larger share of remaining stack.
+
+Sanity checks, which are also the required boundary tests: a 0.6 bb preflop open error → **T2** (not an interrupt). A 10 bb river blunder into a 40 bb pot → 25% → **T3** (interrupt). A stack-off blunder of 60 bb into a 40 bb pot → 150% → **T4** (reachable postflop, as it must be). A 0.02 bb flop deviation → **T0** (silent).
+
+**G2 — RW is an aggregate, and its granularity is fixed and versioned.** Computed at `(street × action class)` granularity — "faces any flop c-bet", not "faces BTN c-bet on K72r from BB" — as `mean(ΔEV over decisions in that class) × reach(class) × 100`. Reach is computed once against a **frozen reference bot population**, shipped in the bank with a `referencePopId`, and never read from the live jittered bots. Uses: the weekly leak report, the study-priority ordering, and scoreboard metric #2. Non-uses: per-decision severity, silence, interrupts, contrast triggering. Changing the reference population is a bank version bump.
+
+**G3 — Silence is declared verbatim, in the unit the grader actually uses.** On first launch and on the phase-0 screen: *"No comment means that decision cost almost nothing — under 2% of the pot. Silence is not praise."* The contract is stated in the same quantity `severity()` consumes, so it cannot be falsified by the grader (the previous version promised a bb/100 threshold while grading on something else). The tutor rail is subject to the same rule and does not congratulate a T0.
+
+**G4 — Right-for-the-wrong-reason is T3 unconditionally,** overriding the severity function, whenever ΔEV is T0/T1 and the reason grader returns `hand-strength` or `none`. This is the only case where silence installs a false rule, because the action, the verdict, and the chips all confirm it.
+
+**G5 — The reason field is free text, required. The closed set is a fallback, not the default.**
+
+The learner types one line, and it must reference their **range** or the **price**. This is the generative act the method calls non-negotiable, and it is required on every graded spot in a session block.
+
+A closed-set principle picker exists and is used in exactly three cases: (a) no API key is configured, (b) the tutor is unreachable after one retry, (c) the learner has typed nothing for 15 s and the budget expires. Rationale for the ordering — and this reverses v1 of this spec: closed-set *selection* is the answer-matching item class that the method's own citations measure at near-zero transfer, so making it the default path would ship the recognition task the product exists to replace. Test determinism is bought instead by the null-tutor stub and the reason-grader's recorded corpus, not by degrading the learner's task.
+
+**G5a — The five-state protocol is implemented in full, with its time budgets.** Each state's budget is displayed as a thin bar; expiry advances the state rather than failing the spot.
+
+| state | budget | content |
+|---|---|---|
+| 1 CLASSIFY | ≤6 s | one word from the closed spot-type set. **Never labelled by the app.** Scored independently of action accuracy. |
+| 2 COMMIT | ≤20 s | action + size + `SURE`/`GUESS` |
+| 3 REASON | ≤15 s | one typed line referencing RANGE or PRICE |
+| 4 GATE | 8 s, 2 attempts | **pre-reveal** self-explanation prompt, ≤12 words, fired only when severity ≥ T2. Logged as `gateAttempts: 0|1|2`. |
+| 5 REVEAL | — | EV per action, ΔEV, tier, one error tag, correction if the tier calls for it |
+
+State 4 is a *pre-reveal* forced retrieval at the moment of maximum error signal; it was absent from v1 of this spec and its omission removed the second of the method's two generation demands. There is **no skip button** — "I don't know" is a commitment and scores as a miss.
 
 **G6 — Corrections are three chunks, ≤60 words, task-as-subject, ending in a next action.** Enforced by a guard (see T4), not by prompt instruction.
 
 **G7 — One error tag per decision, upstream wins:** `RANGE > TEXTURE > PRICE > BLOCKERS > SIZING > DEPTH-POSITION > PURITY`. Reports aggregate by tag, never by trait — *"SIZING: 1.9 bb/100 across 340 decisions"*, never *"you're too loose"*.
 
-**G8 — Confidence routing, 2×2.** SURE-correct → principle name only. SURE-wrong → full causal chain, immediate re-serve, scheduled day 2 and 7, difficulty up; this is the highest-value event in the system. GUESS-correct → full elaboration (the lucky guess that inflates every metric). GUESS-wrong → terse correction plus a worked example, higher repetition. Remediation queue ranks by **confidence × RW**, not RW alone. Self-reported confidence is cross-checked against response latency and flagged when they disagree persistently.
+**G8 — Confidence routing, 2×2.** SURE-correct → principle name only. SURE-wrong → full causal chain, immediate re-serve, scheduled day 2 and 7, difficulty up; this is the highest-value event in the system. GUESS-correct → full elaboration (the lucky guess that inflates every metric). GUESS-wrong → terse correction plus a worked example, higher repetition. Remediation queue ranks by **confidence × class-level RW** — the aggregate from G2, since a per-decision RW does not exist under G0. Self-reported confidence is cross-checked against response latency and flagged when they disagree persistently.
 
 **G9 — Mixed nodes have two channels.** Support (was the action ever taken here?) tiers normally. Weight is scored at exactly zero, with one line explaining that the solver mixes because the actions are worth the same. Frequencies are **purified to modal** everywhere before phase 4, and the learner is told the frequency was discarded on purpose.
 
@@ -206,17 +241,40 @@ The pot-fraction axis also implements the method's ε (2% of pot) as the T0 floo
 
 ### The spot bank
 
-**B1 — Offline batch, shipped as data.** An open-source postflop solver (`bupticybee/TexasSolver` or `b-inary/postflop-solver`) runs as a **build-time job**, not at runtime. Runtime cost per flop tree is ~172 s and ~1.6 GB — live solving is not a design option. Output is a versioned, read-only artifact.
+**B0 — Solve, node, and spot are three different units. Costing or sizing the bank in the wrong one is the error this section exists to prevent.**
+
+| unit | definition | rough count in v1 |
+|---|---|---|
+| **solve** | one solver run over one action tree from one starting configuration (flop + both ranges + stack depth + bet-size set). The unit of *build cost*. | 200–400 |
+| **node** | a decision point reachable inside a solve: an action history at a street, including every turn/river runout. The unit of *coverage*. | ~10⁴–10⁵, essentially free once the solve exists |
+| **spot** | one presentation to the learner: `(node × holding)`. The unit of *practice supply* and of "novel instance". | ~10⁶+ |
+
+A single solve yields per-hand EVs for **every holding in the range at every node in its subtree**. So the practice supply is the product of nodes and holdings, not the count of solves. v1 of this spec sized the bank at "300–600 nodes" and then claimed "novel instances only" as the defence against memorisation — those two statements were incompatible at the *node* level and are trivially compatible at the *spot* level. Every downstream rule now names which unit it means.
+
+**B1 — Offline batch, shipped as data, using one specific solver.** **`b-inary/postflop-solver`** (Rust, AGPL-3.0). This is not interchangeable with `bupticybee/TexasSolver`: verified against the source, `postflop-solver` exposes `expected_values_detail(player)` returning per-action-per-hand EVs (`src/game/interpreter.rs:713`), which is the exact substrate `severity()` consumes, while TexasSolver's documented output is a strategy-frequency JSON dump with no documented per-hand EV field. Choosing TexasSolver leaves the grading layer with no substrate.
+
+**B1a — The build harness is a first-class deliverable, not a clause.** A bespoke Rust program that, per solve: constructs the tree, solves to a target exploitability, then walks every node — `apply_history` / `play` to navigate, **`cache_normalized_weights()` after each mutation** (the EV accessor panics without it), `expected_values_detail()` to read per-hand EVs — and serialises to the bank format. Constraints inherited from the crate: development suspended since Oct 2023, 32-bit floats, and the author states breaking changes ship without version bumps, so the dependency is **pinned to a specific commit** and vendored.
+
+**B1b — Build cost is stated in solves, and it is not one overnight run.** At the published benchmark (~172 s, ~1.6 GB for a 1–2-bets-plus-allin flop tree, 6 threads), 200–400 solves is **10–19 hours** of wall clock, serialised by memory rather than cores — 1.6 GB per concurrent solve caps parallelism on a typical machine at 2–4. Turn and river nodes inside a solved flop are free; a second bet size per street inflates the tree and the benchmark. B2's two-config disagreement check doubles everything. Plan a multi-day incremental build with resumable per-solve outputs, not a night.
+
+**B1c — Persistence policy, which resolves the "few MB vs multi-GB" contradiction.** Two artifacts. The **served set** stores per-hand action EVs only at nodes the curriculum serves (~16 KB/node → a few MB; this is what the app loads at runtime). The **subtree set** stores continuation values needed for fold counterfactuals (G10), mixed-node support detection (G9), and blame assignment — multi-GB, generated by the same build, and **not shipped**; features depending on it either read it in a local dev configuration or are scoped out (see B7).
 
 **B2 — Per-node provenance is mandatory.** Each node carries `solverConfigId`, tree description (bet sizes, depth), iteration count, achieved exploitability, and `referencePopId`. Where two configs disagree materially at a node, the app **surfaces the disagreement** and grades the node as mixed rather than picking a winner.
 
-**B3 — Preflop is a coarse purified blueprint,** not solver output (both candidate engines are postflop-only). Source: published range sets or a small self-written preflop CFR. This is not a compromise — the method argues a finer memorised blueprint directly cannibalises the re-solving skill that is the actual target. Six hand classes, three verbal rules per position, ~12 boundary combos per position.
+**B3 — Preflop is a coarse purified blueprint,** not solver output (the engine is postflop-only). Source: published range sets or a small self-written preflop CFR. This is not a compromise — the method argues a finer memorised blueprint directly cannibalises the re-solving skill that is the actual target. Six hand classes, three verbal rules per position, ~12 boundary combos per position. **Consequence, stated rather than hidden:** preflop nodes carry no solver ΔEV, so cross-street blame assignment cannot separate preflop from postflop attribution (see B7).
 
-**B4 — Off-bank positions are never graded.** They get bots, equity display, and explicit silence: *"ungraded — no solver data for this node."* This is the method's own epistemology made structural: in spots you've never had graded, you have a hunch, not an intuition.
+**B4 — Off-bank positions are never graded.** They get bots and explicit silence: *"ungraded — no solver data for this node."* **Equity is not displayed pre-commit anywhere** (see T8). This is the method's own epistemology made structural: in spots you've never had graded, you have a hunch, not an intuition.
 
-**B5 — Bank scope, v1:** 6-max, 100 bb primary with 40 bb and 200 bb sets for depth-interleaving; the ~50 phase-4 nodes plus their contrast-set variants; one to two bet sizes per street. Target ~300–600 solved nodes. Node coverage is a first-class product constraint, tracked and displayed — the learner can see which node families are gradeable.
+**B5 — Bank scope, v1, stated in solves.** 6-max. Depths 40/100/200 bb. The six flop-texture classes the method names for c-bet (dry-ace-high, dry-king-high, low-connected, paired, monotone, broadway-two-tone), each represented by several distinct flops rather than one canonical board. Primary node families: BTN-vs-BB SRP, BB defence vs 3-bet, SB squeeze, turn probe, river bluff-catch. One to two bet sizes per street. **Target 200–400 solves**, which yields ~10⁴–10⁵ nodes and effectively unbounded spots. Coverage is displayed: the learner can see which node families are gradeable.
 
-**B6 — Contrast sets are generated from the bank, not authored.** Each variant toggles **exactly one** of `{suitedness, kicker/gap, position, players-behind, range-asymmetry, board texture, stack depth}`. Two variables changed means no feature is attributable. Generation fails loudly rather than emitting a two-variable pair; four variants on one simultaneous screen for rule extraction, then six novel variants distributed sequentially.
+**B6 — Contrast sets require an engineered grid, and the grid is a build input.** Each variant toggles **exactly one** of `{suitedness, kicker/gap, position, players-behind, range-asymmetry, board texture, stack depth}`. Two of those seven — board texture and stack depth — require a *separately solved* tree, so contrast coverage is a property of which solves were built, not a search over whatever happens to exist. Therefore:
+
+- The build takes an explicit **contrast-axis manifest**: for each of the ~50 phase-4 concepts, the base node plus the specific one-variable neighbours required. Those neighbours are solved *because* the manifest lists them.
+- A **neighbour graph is precomputed at build time** (not searched at runtime — this also removes the 50 ms runtime budget concern) and the build **fails** if a manifested concept lacks its four rule-extraction neighbours. Missing neighbours are a build error, not a runtime fallback.
+- Per-concept coverage is honest: most concepts will have neighbours on a *subset* of the seven axes. The manifest records which axes are available per concept, and the generator only offers toggles that exist.
+- Runtime fallback to a worked example remains, but is now the rare case rather than the common one, which is what S2's "never cut remediation below one contrast set" requires to be satisfiable.
+
+**B7 — Explicitly scoped out of v1, with the reason.** **Cross-street blame assignment by counterfactual ablation.** The method calls this poker's structural advantage over other tutoring domains, and it is genuinely unbuildable here: it needs solver EVs at preflop nodes (which B3 does not provide) and continuation values at arbitrary live-hand states (which the served set does not hold). Blame assignment is therefore **scoped to single on-bank postflop nodes**, and the method's multi-KC coupling claim — that one turn fold moves the estimate for river bluff-catching — is **not implemented in v1**. A decision touching multiple KCs credits them all equally, which the method warns against; the alternative is a false precision. This is the largest single capability loss in the spec and it is named here rather than in a footnote.
 
 ### The tutor
 
@@ -234,9 +292,24 @@ With no key, the app is fully functional and makes zero network calls. With a ke
 | **Interrogator** | the same, plus learner's reason | one question, ≤20 words | no |
 | **Reason grader** | free-text reason, node | one of `range` / `price` / `hand-strength` / `none` | `reasonRefs` only |
 | **Negotiator** | learner request, KC state, gate state | what's missing and the real next step | `override` event |
-| **Answerer** | learner question, post-commit node state | an answer | `hintRequested` event |
+| **Answerer (post-commit)** | learner question, post-commit node state | an answer | `hintRequested` event |
+| **Rules answerer (pre-commit)** | learner question + **rules-only context** (see T3a) | an answer | nothing |
 
-**T4 — The guard is a pure function and the primary oracle.** Every tutor output passes: word count ≤60 (corrections) or ≤20 (questions); ban-list lint (no second-person trait attribution, no praise adjacent to a correction, no streak/rank/percentile language, no per-hand fold reveal); **number provenance** — every numeral in the output must appear in the input payload; and task-as-grammatical-subject. Fail → one regeneration, then fall back to the fixed string table. Guard failures are logged and visible in settings.
+**T3a — The pre-commit tutor payload is solver-free by construction.** Tutor requests originate in the main process, which *holds* the solver data — so "the payload is absent from the renderer" (T7) says nothing about what the model sees. Without this rule, a learner could ask a "rules question" pre-commit and get a strategically loaded answer, and number-provenance would not catch it because a qualitative hint ("the aggressive line looks right here") contains no numerals.
+
+Decision: the pre-commit rules path is served by a **separate request builder** whose input type physically cannot carry solver fields — it receives the rules vocabulary and the *visible* table state (positions, stacks, pot, board, the learner's own cards) and nothing else. No ΔEV, no action EVs, no best action, no equity. Enforced by the type: the rules-request struct has no fields for them, so a leak requires changing the type rather than forgetting a check. The IPC test asserts on **both** the spot-presentation payload and every tutor request payload.
+
+**T4 — The guard is a pure function and a *necessary* oracle. It is not sufficient, and here is exactly what it does and does not secure.**
+
+Every tutor output passes, and all four checks are mechanically decidable:
+1. **Word count** — ≤60 (corrections), ≤20 (questions).
+2. **Ban-list lint** — regex over forbidden constructions: second-person trait attribution, praise adjacent to a correction, streak/rank/percentile language, per-hand fold reveal.
+3. **Number provenance** — every numeral in the output must appear in the input payload.
+4. **No leading second-person pronoun** — a checkable proxy for the method's "task as grammatical subject." **The full property is not pure-function decidable** (it needs a dependency parse plus semantic classification of the subject), so v1 of this spec overclaimed it as a guard check and as a test assertion. The proxy is what ships; the full property is a writing rule for the prompt and the fixed string table, not an enforced invariant.
+
+**What the guard cannot secure, stated plainly because v1 leaned on it as though it could:** number provenance is *string membership*, so it passes output that is false using only permitted numerals (payload has pot 10 and bet 5; "risking 10 to win 5" inverts the relationship and passes) and it passes false claims containing no numerals at all ("your range is uncapped here" when it is capped). The guard bounds *form*, not *truth*. Truth is bounded instead by keeping the tutor downstream of the grader (T2) and by the pre-commit type restriction (T3a) — and residually it is not bounded at all, which is a real limitation of putting a language model in this seat.
+
+Fail → one regeneration, then fall back to the fixed string table. Guard failures are logged and visible in settings.
 
 **T5 — Mute matrix.**
 
@@ -255,6 +328,36 @@ Rules questions are always allowed because a zero-context beginner is otherwise 
 **T6 — Hints are priced.** An answer mid-spot logs `hintRequested` and drops that concept one fading rung. Cost is shown before the answer, and it's reversible by clearing the rung on the next three consecutive correct.
 
 **T7 — Fading ladder is per concept, never global.** Rungs 0–4: worked examples → full correction → principle name only → bare "incorrect" → batched self-marked review (where the 13×13 grid becomes a legitimate lookup index). Drop exactly one rung on that concept alone when accuracy falls under 70%. **A global difficulty level is forbidden** — it strips scaffolding from concepts never learned.
+
+**T8 — Equity is never displayed before a commit, anywhere.** The method's per-hand protocol makes an equity readout part of what must be unreachable pre-commit, and equity is a strong proxy for the correct action — so displaying it pre-commit defeats the same mechanism the solver lockout protects, while sitting outside T7's "solver payload absent from the renderer" guarantee (equity is computed renderer-side in a worker). Decision: equity is shown **post-reveal in Spot mode**, **post-hand at the Table**, and **never in assessment**. This corrects v1 of this spec, where B4 granted "equity display" at off-bank positions and P4 implied equity was normally visible pre-commit in Spot mode.
+
+### The practice queue
+
+**Q1 — Interleaving is a queue-construction rule, not an adjective.** v1 of this spec used the word "interleaved" twice and specified no mechanism, which invites exactly the "randomise everything" default the method identifies as wrong. The rule:
+
+- **No two consecutive spots may share a spot class.** Hard constraint on queue assembly; the generator retries or reorders rather than emitting a same-class pair.
+- A 20-spot block spans **≥7 classes** and interleaves stack depths 40/100/200 so depth is a cue to read rather than a mode announced in a heading.
+- **Queues are built from confusion sets, not syllabi:** items with near-identical surface features and different correct actions (K7s-CO / K7o-CO / K9s-CO / K7s-UTG / K7s-vs-UTG-open).
+
+**Q2 — Interleaving is conditional, and the negative case is specified.** Interleaving pays at *high between-category similarity* and reverses at low similarity (the method cites word learning at g = −0.39, favouring blocking). Therefore: **never interleave across low-similarity module boundaries** — preflop RFI is not mixed with pot-odds arithmetic, variance, or bankroll content in the same block. Those are blocked by module. Blocking is also correct, and only correct, on the first exposure to a genuinely new concept (fading rung 0).
+
+**Q3 — In-session accuracy cost is pre-framed in writing before the first interleaved block:** accuracy drops 20–30 points relative to blocked practice, and that is the intended trade.
+
+**Q4 — The spacing schedule is implemented in full, and gaps are flat, not expanding.** Per concept, embedded unannounced in the normal queue — never a "review session."
+
+| day | reps | mode |
+|---|---|---|
+| 0 | 10 | blocked micro-block, first exposure |
+| 1–2 | 4 | interleaved |
+| 7 | 4 | interleaved |
+| 21 | 3 | interleaved |
+| 30–45 | 2 | **decay probe**, unannounced, feedback withheld to session end |
+
+v1 of this spec implemented only "day 2 and 7" and dropped the day-21 and day-30–45 waves, which are the ones carrying durable retention (the optimum gap is ~5–10% of the target retention interval, so ~18–36 days for "still correct in a year"). **Do not build 1/2/4/8/16** — equally spaced retrieval beats expanding for long-term retention, and expanding intervals are convention rather than evidence. Remediation is never compressed into 1/2/3-day chains, which is massing wearing spacing's clothes.
+
+**Q5 — Mastered concepts never exit rotation.** One decay-probe miss reopens the contrast set and resets to a 7-day gap. Two misses return the concept to active learning with 6 remaining opportunities — not a full reset.
+
+**Q6 — The debiasing A/B is mandatory and both halves are required.** Around hour 10: train one boundary family **interleaved** and a matched family **blocked**, test both unannounced at day 7, show the scores side by side with the concepts named — *and separately* explain why blocking felt more effective (fluency during study is not retrievability later). v1 of this spec dropped this entirely while independently naming chart-grinding reversion as its own largest risk; this is the method's only prescribed countermeasure. The learner's interpretation is **pre-committed in writing before the test**, because at ~15 items per condition the result can come out the wrong way by chance and an uncommitted learner will read a null as vindication. Expect to re-run it, and expect reversion under pressure regardless.
 
 ### The lexicon
 
@@ -276,6 +379,12 @@ Rules questions are always allowed because a zero-context beginner is otherwise 
 
 **O5 — The gift ledger auto-populates from observed showdowns,** in action-with-a-holding form. This removes the method's own worry that a motivated learner inflates a hand-kept ledger.
 
+**O6 — The pot outcome is hidden at the Table in every mode, not only in graded whole-task blocks.** Stacks update, but no per-hand "you won 14 bb" and no running session P&L. Rationale: v1 of this spec scoped outcome-hiding to the graded block and left the always-open free-roam table showing pot results — which reinstalls the σ ≈ 100 bb/100 signal the entire method exists to delete, for a beginner, before any perception or arithmetic is built. The method's evidence is not merely that unaided play teaches slowly but that it can teach *negatively*. The always-open Table stays (it is the adherence floor), but it does not show the misleading signal.
+
+**O7 — The robustness drill: four continuations.** On a graded spot, after reveal, the learner evaluates their line against four opponent continuations — equilibrium-ish, fold-biased, call-biased, raise-biased. A line best against exactly one and bad against the others is a leak; a line fine against all four is robust. This buys exploitability intuition with zero exploitability computation, and it is available from the served set without extra solves (the four continuations are re-weightings, not new trees). Labelled a heuristic, never a bound.
+
+**O8 — The two-speed switch is installed, not taught.** Default: recognise `node + texture + role` and play the trained line. Deliberate: engage only when a slot is anomalous. The anomaly trigger is drilled as a phase-1 PLM (`is this standard? y/n`, 15% seeded anomalies) with an explicit trigger list — off-tree sizing, unfamiliar texture class, stack depth outside the trained range, a read that contradicts the frame. v1 of this spec omitted both the drill and the switch.
+
 ### Reads and deviation
 
 **R1 — Two independent gates.** Go/no-go: `n ≥ 20` of that observable AND raw frequency ≥15 points off baseline. Magnitude: `w = n/(n+10)`, deviate by `w × full exploit`. The app teaches the trap explicitly — **shrinkage is sign-preserving, so it is a magnitude control and never a go/no-go control.**
@@ -292,7 +401,9 @@ Rules questions are always allowed because a zero-context beginner is otherwise 
 
 ### Progress display
 
-**P1 — Four numbers, and only four:** graded decisions this week (target 200+); assessment-mode RW EV loss in bb/100; fluent categories passing a gate; SURE-wrong count this week.
+**P1 — Five numbers, and only five:** graded decisions this week (target 200+); assessment-mode RW EV loss in bb/100 (the class-level aggregate from G2); fluent categories passing a gate; SURE-wrong count this week; and **win rate vs the bot population**, shown only above 2,000 hands against a fixed bot config.
+
+The fifth is the ground-truth loop, added because the other four are all measured against the training artifacts themselves — the method concedes solver-EV-loss is a different construct from winning, so a product with no humans in it needs *some* outcome signal or it cannot see its own proxy gap. It is framed as an instrument, never a promise: displayed with its confidence band, never as a trend line, and never as a target. It is the one place an outcome number is permitted, and it is permitted because it is aggregated over thousands of hands rather than attached to a decision.
 
 **P2 — Per-KC mastery bars are the primary progress surface.** Task-level, so they don't violate the feedback law, and they carry the instructional payload: they show that "folds too much to big bets" is one skill expressed at twenty nodes rather than twenty charts. This is also the deliberate adherence concession — see Open questions.
 
@@ -326,7 +437,7 @@ Rules questions are always allowed because a zero-context beginner is otherwise 
 | **API call fails / times out** | One retry, then fixed string table for that event. Rail shows a one-line notice. Never blocks the spot; the decision is already graded by the engine. |
 | **Guard rejects tutor output twice** | Fixed string table. Logged; visible in settings diagnostics. |
 | **Off-bank position in Spot mode** | Cannot happen — Spot mode draws only from the bank. Off-bank exists only at the Table. |
-| **Off-bank position at the Table** | Equity shown, no grade, explicit "ungraded" marker. Not logged as a decision. |
+| **Off-bank position at the Table** | No grade, explicit "ungraded" marker, equity shown only after the hand (T8). Not logged as a decision. |
 | **Empty spacing queue** (first ~3 weeks) | Decay-probe block is skipped and its time reallocated to graded spots. The block is not shown as empty. |
 | **No concepts due, no gates open** | Recommender suggests the earliest unpassed fluency gate; if all pass, the weakest KC by posterior; if none, assessment. |
 | **Learner quits mid-spot** | The commit is either complete (logged, graded) or absent (discarded). No partial decision is ever persisted. |
@@ -348,6 +459,7 @@ Rules questions are always allowed because a zero-context beginner is otherwise 
 
 - **Key storage:** OS keychain via Electron's `safeStorage`, never in the profile JSON, never in plain text, never in a log, never in a crash report, never in the replay cache. Redacted from any diagnostic export.
 - **Egress allowlist:** exactly one host, the configured model provider. Any other outbound request is a bug and is asserted against in tests. With no key configured, the allowlist is empty and any request fails the test suite.
+- **Chromium and Electron are silenced explicitly, because the app-level allowlist does not govern them.** `autoUpdater` never initialised; `crashReporter` never started; no remote fonts, stylesheets, scripts, or source maps (all assets bundled local); safe-browsing, spellcheck download, and domain-reliability disabled via command-line switches. Enforcement and test both sit at **`session.webRequest.onBeforeRequest` plus a loopback proxy**, so the check covers the whole browser process rather than only the app's own HTTP client — v1 of this spec asserted "any outbound request" while specifying an app-level allowlist, which would not have caught a single one of these sources.
 - **What is sent, per call:** current node (hole cards, board, action history, stacks, pot), the learner's commit and confidence, their typed reason text, engine-computed numbers for that node, and lexicon entries when quoted. Bounded to one node — never a decision log, never session history, never bulk export.
 - **What is never sent:** the decision log, session history, the profile file, the API key in any prompt, and anything at all during a PLM drill or assessment block (structurally — the rail is closed and the IPC channel is not connected in those modes).
 - **Renderer isolation:** `contextIsolation` on, `nodeIntegration` off, network calls made from the main process only. The renderer cannot reach the network or the filesystem directly. This makes the mute matrix structural rather than merely enforced in UI code: pre-commit, the main process has not sent the solver payload to the renderer, so no renderer bug can leak it.
@@ -393,9 +505,25 @@ Single-user, single-window, single-process-of-record. Genuine concurrency is lim
 - **Decision records** are immutable once written. Corrections to grading (e.g. a bank fix) append a superseding record rather than editing history.
 - **Lexicon entries** are immutable and additive (L3).
 - **Concepts** are never deleted; a frozen KC (25-opportunity cap) stays visible with its error signature.
-- **Deletes** are hard, human-gated, and confirmed: delete profile, reset KC.
+- **Deletes.** Exactly one hard delete exists: **delete profile**, human-gated and confirmed, which destroys the decision log (the only irreplaceable artifact). **"Reset KC" is not a delete** — v1 of this spec listed it as one, contradicting both record immutability and "concepts are never deleted." It clears a KC's *derived* posterior and scaffolding rung, leaves every underlying decision record intact, is fully recomputable from the log, and is therefore reversible and not human-gated.
+- **Derived aggregates are recoverable by definition, not merely written carefully.** Gates and the recommender read precomputed per-KC aggregates rather than the raw log, so a crash between the log append and the aggregate write would otherwise leave a correct log and a stale aggregate with no repair path. Decision: every aggregate is a **pure function of the log**, each carries the offset of the last record it incorporated, and startup replays any tail beyond that offset. Aggregates are a cache, never a source of truth.
 - **Bank upgrades** are additive and versioned. Old decisions keep their `bankVersion`. A node removed from the bank keeps its historical decisions and stops being served.
-- **Incremental shipping order:** phase 1 (Drill + fluency gates, no solver needed — the evaluator and Monte Carlo equity suffice) → phase 2–3 (Arithmetic, Principles, no bank needed) → Table + bots → the bank + Spot + grading → tutor → Dossier + reads. **The perception layer ships first because it has no solver dependency**, and the tutor ships late because the guard and fixed string table have to exist first anyway.
+- **Incremental shipping order:** **Drill tier A** (P0 card floor, P1a–e texture dimensions, P5 blockers — pure combinatorics, no bank) → phase 2–3 (Arithmetic, Principles, no bank) → Table + bots → **the bank build** → **Drill tier B** (P2, P3, P4, P6, P7 — bank-dependent labels, see D1) → Spot + grading → tutor → Dossier + reads. The tutor ships late because the guard and fixed string table must exist first regardless.
+
+**D1 — Perception drills split into two tiers by label provenance, and only tier A ships before the bank.** v1 of this spec claimed "the perception layer ships first because it has no solver dependency." That is true of three drill families and false of five, and the false half includes the flagship:
+
+| drill | label source | tier |
+|---|---|---|
+| P0 best-5-of-7 | hand evaluator | **A** — pure combinatorics |
+| P1a–e pairedness / connectivity / suitedness / high-card class / overpair-availability | board combinatorics; overpair-availability = count of pocket pairs beating the board | **A** |
+| P5 blockers | combinatorics over the nut-making holdings | **A** |
+| P2 STATIC / SEMI / DYNAMIC | **needs a defined boundary that exists nowhere in the method.** Derived from the bank: equity-shift distribution across runouts, thresholded, then hand-audited | **B** |
+| P3 nut-advantage direction | range-vs-range nut-region comparison at a node — needs bank ranges plus a "nut" threshold definition | **B** |
+| P4 range role (7 labels, the flagship) | the holding's position in the range's equity distribution at that node — needs bank output | **B** |
+| P6 nut-changing runouts | per-runout equity recomputation against the node's ranges | **B** |
+| P7 anomaly trigger | requires a notion of "standard action," which only the grader defines | **B** |
+
+**Every tier-B label is a build-time artifact with a written derivation function and a hand-audited sample, and the derivation is a build gate:** if a meaningful fraction of boards come out ambiguous under the threshold, the taxonomy is not ready and that drill does not ship. This is not optional polish — perceptual learning installs whatever boundaries it is shown and resists later verbal correction, so a fuzzy STATIC/SEMI/DYNAMIC boundary is a permanent installation. The method names this as the single largest risk in the whole design; this spec makes it a gate rather than an aspiration.
 
 ## Failure modes
 
@@ -422,16 +550,21 @@ Multiplayer, accounts, cloud sync, telemetry, real money, leaderboards, XP, stre
 | claim | oracle |
 |---|---|
 | hand evaluator is correct | differential against a published 7-card evaluator over exhaustive/large random samples — an external reference, not our own expectation table |
-| tier assignment is correct | spec-literal table driven from the G1 matrix as data; the boundary cases (RW 0.099/0.101, pot fraction 1.9%/2.1%) asserted directly, and the previously-inverted cases (0.6 bb BTN RFI, 10 bb river) asserted to their intended tiers |
+| tier assignment is correct | spec-literal table driven from the G1 per-street matrix as data. Required cases, each asserted to its intended tier: 0.6 bb preflop open → **T2, not an interrupt**; 10 bb river into a 40 bb pot → T3; 60 bb stack-off into 40 bb → **T4, proving T4 is reachable postflop**; 0.02 bb flop deviation → T0. Denominator is pot-before-the-learner's-action, so every boundary is computable. |
+| severity never reads reach | property test: `severity()` is a pure function of `(ΔEV, street, pot)`; a mutation injecting a reach term must fail. This is the G0 invariant and it is the one most likely to be silently reintroduced. |
 | solver EVs are sane | independent equity/Monte Carlo cross-check at nodes with analytically known answers; bank build fails on a mismatch beyond tolerance |
-| pre-commit solver data is unreachable | assert on the **IPC payload**, not the DOM — the number must be absent from what the renderer received, so no CSS or DOM check can pass a leak |
-| no network without a key | fail the test run on any outbound request; assert the allowlist is empty |
+| pre-commit solver data is unreachable | assert on **both** IPC payloads — the spot presentation *and* every tutor request. The pre-commit rules-request type has no solver fields, so the assertion is a type-level check plus a runtime payload snapshot. No DOM or CSS check can pass a leak. |
+| equity is not shown pre-commit | assert the equity value is absent from the pre-commit renderer payload in Spot mode and from the Table during a live hand |
+| no network without a key | loopback proxy plus `session.webRequest.onBeforeRequest`; the run fails on *any* request from the browser process, not just the app's HTTP client. Separately assert autoUpdater and crashReporter are never initialised. |
 | guard enforces the feedback law | corpus of recorded tutor outputs, including adversarial ones, replayed through the guard; mutation testing on the guard itself, since it's the enforcement point |
-| tutor invents no numbers | number-provenance property test over the recorded corpus: every numeral in output ∈ numerals in payload |
+| tutor invents no numbers | number-provenance property test over the recorded corpus. **Known incomplete:** this cannot catch a false relationship among permitted numerals, nor a false numeral-free claim (see T4). No oracle in this spec closes that gap. |
 | deals are reproducible | same seed → identical board and hole cards, asserted |
-| session degradation is correct | 15/30/50-minute assemblies asserted against the S1 table and the S2 drop order |
-| contrast sets differ in exactly one variable | property test over generated sets: Hamming distance on the seven-variable vector is exactly 1 |
+| session assembly is correct | 30- and 50-minute assemblies asserted against the S1 table and the S2 drop order; assert that no 15-minute session can be constructed (S2a) |
+| the queue actually interleaves | property test over assembled blocks: no two consecutive spots share a class, ≥7 classes per 20-spot block, depths mixed — the Q1 constraint, which v1 of this spec left unspecified |
+| spacing waves fire at the right times | simulated 60-day timeline asserts reps land at day 0/1–2/7/21/30–45 per concept, and that intervals are flat rather than expanding |
+| contrast sets differ in exactly one variable | property test over generated sets: Hamming distance on the seven-variable vector is exactly 1. Build-time assertion that every manifested concept has its four rule-extraction neighbours. |
 | fluency gates require speed, not just accuracy | a simulated learner at 10/10 accuracy but above the RT threshold must fail the gate |
+| tier-B drill labels are unambiguous | build gate: sample of each tier-B category hand-audited against its derivation function; a category exceeding an ambiguity threshold blocks that drill from shipping (D1) |
 
 **Tutor nondeterminism, three layers:** a **null tutor** returning fixtures (all e2e runs against it — the entire teaching machine is testable with no model present); a **replay cache** keyed by prompt hash for deterministic transcripts in CI; and the **guard as oracle**, which converts "did the coach behave" from a judgment call into an assertion.
 
@@ -441,13 +574,18 @@ Multiplayer, accounts, cloud sync, telemetry, real money, leaderboards, XP, stre
 
 ## Open questions
 
-None blocking in a mandatory section. Six known risks, carried deliberately:
+None blocking in a mandatory section. Nine known risks, carried deliberately. The first two are **pre-build experiments, not carried risks** — they are cheap, they gate months of work, and they should be run before the bank build starts.
 
-1. **Adherence is the largest untested assumption, and P2 is a deliberate deviation from the method.** Hours 1–7 are near-zero poker, silence means most decisions produce nothing, every motivational surface is banned, and assessment is pre-framed as looking worse than practice. For a solo learner that's a churn cliff. The concessions — always-open Table from minute one, per-KC bars as the primary progress display — are adherence choices, not research-backed ones, and are labelled as such. **No citation supports them and none is claimed.**
-2. **Reason grading depends on a model that may not be good enough.** `G4`, the single sharpest rule in the method, needs a text classifier that can tell *"my range is capped here"* from *"I have top pair."* If the chosen model is unreliable at that, `G4` degrades to the closed-set-only version and the method's best rule is materially weakened. Measure classifier agreement against hand-labelled reasons before trusting it.
-3. **Reach pooling (G2) is a decided trade, not a solved problem.** Pooling reintroduces exactly the bias per-node weighting was meant to remove — it tells you that you over-fold somewhere, not where. The alternative inverts the tiers. Instrument tier distribution and revisit if T3 rate strays far from a few percent of decisions.
-4. **N=1 statistics bound what the learner model can honestly claim.** ~8 opportunities per KC per week means no per-KC success band, no per-KC calibration curve, no data-driven KC splitting. P6 and P7 substitute honest heuristics. The KC graph is therefore **authored and hand-tuned**, where the method wants it discovered from error curves — a real loss, and the reason the 60–120 KC cap matters.
-5. **The 85% target-success figure is derived for stochastic-gradient binary classifiers**, not humans making multi-action decisions with mixed-strategy optima. It's an instrument setting to tune, not a law. At a node with three near-equal actions the correct error rate is genuinely undefined.
-6. **AGPL and the local-only break are both stated tradeoffs, not resolved constraints.** The solver posture (build-time tool, output-only distribution) should be re-examined before any public build. The tutor's network access is a knowing override of the original local-only parameter, scoped as narrowly as the feature allows.
+1. **The product optimises a proxy and, as of v1 of this spec, contained no instrument to see the gap. Now partly fixed; the residue is real.** The method concedes that EV loss against a solver is not the same construct as winning against humans — a learner can drive assessment RW to near zero and exploit nobody. Since there are no humans in the product, both scoreboard metrics were measured against the training artifacts themselves. **Added: `win rate vs the bot population` as a ground-truth loop** (scoreboard metric #5, shown only above the sample size where it means anything, and explicitly *not* a promise). **Pre-build experiment, one weekend:** play the existing bots on solver-recommended lines vs deliberately-off-but-plausible lines and confirm that solver-adherence actually predicts win-rate ranking against that population. If it doesn't track even against the trainer's own bots, the promise is dead before a single node is solved.
+2. **Adherence is the highest-probability project-killer and the mitigations remain unsupported.** Hours 1–7 are near-zero poker, silence means most decisions produce nothing, every motivational surface is banned, and assessment is pre-framed as looking worse than practice. The concessions — always-open Table, per-KC bars as the primary progress surface — are adherence choices with **no citation behind them, and none is claimed**. **Pre-build experiment, two weeks:** run the austere loop by hand on paper — forced classify, commit, typed reason, delayed feedback, genuine silence on small errors, one delayed weekly self-test. If the builder-as-user can't sustain the crudest version, no amount of Electron polish rescues it, and that is knowable for two weeks instead of six months.
+3. **Reason grading carries the sharpest rule in the design on a classifier of unknown accuracy.** `G4` fires the harshest event (T3, interrupt, re-serve) on a *classification*, so at 80% accuracy roughly one in five well-reasoned decisions gets punished — which erodes trust in the loudest channel — while false negatives let the false rule install silently, defeating G4's purpose. At 60% it is noise. **Gate:** hand-label ~100 real reason lines and measure agreement *before* enabling G4's escalation. Until that measurement exists, G4 logs but does not interrupt.
+4. **The reads/exploitation pillar is arithmetically sound and epistemically unvalidatable.** R1–R5 match the method's tables exactly (independently verified). But what the learner drills is classification of six known generators with a published answer key, and real opponents are non-stationary, continuously distributed, and correlated in their leaks. There is no cheap experiment that tests read-transfer without humans, which the product excludes by design. **This is the pillar to defer if scope must be cut** — it is gated behind months of prerequisites anyway, and shipping it later costs nothing.
+5. **Bank memorisation is bounded at the spot level, not eliminated.** B0's node/spot distinction makes "novel instance" achievable (a few hundred solves yield ~10⁶ spots), but *nodes* still repeat, and a learner can plausibly learn "on this node class, bet" without the underlying structure. Novelty is enforced on `(node × holding)` and on runout, and the D1 tier-B drills attack structure directly — but the honest statement is that node-level familiarity accumulates and the product cannot fully prevent it. Instrument accuracy on first-exposure vs repeat nodes and watch the gap.
+6. **N=1 statistics bound what the learner model can honestly claim, and the authored KC graph is now unfalsifiable in-product.** ~8 opportunities per KC per week means no per-KC success band, no per-KC calibration curve, and no data-driven KC splitting. The deeper cost, understated in v1 of this spec: error-curve splitting is the *detector* for a miscut KC, so without it a conflated KC (a "flop c-bet" that should split by texture) cannot be detected — and its mastery bar, which is the primary instructional surface, then teaches a wrong skill decomposition the learner can't self-correct. The 25-opportunity freeze bounds wheel-spinning but says nothing about mis-definition.
+7. **Cross-street blame assignment is scoped out (B7)** — the method's claimed structural advantage over other tutoring domains, unbuildable here because preflop carries no solver ΔEV and the served set holds no arbitrary-state continuations. Multi-KC credit is therefore uniform, which the method explicitly warns against.
+8. **Simulated observation streams change what is taught, not just how long it takes.** R6 replaces 1,000 live hands with generated observation sets. v1 of this spec framed that purely as a time saving; the real cost is that *experiencing* a sparse stream teaches felt data scarcity, while reading a table of 20 observations teaches gate arithmetic. Mitigation: deliver observations **sequentially, one at a time**, never as a table, so the scarcity is felt rather than summarised.
+9. **Two mechanisms are kept despite the method flagging them as weak.** Simultaneous four-variant presentation for rule extraction rests on a claim the method itself marks `[recalled]` and calls its weakest link — if simultaneity carries no benefit over sequential, the neighbour-graph machinery is effort spent on an unconfirmed premise. And the 85% target-success figure is derived for stochastic-gradient binary classifiers, not humans making multi-action decisions with mixed-strategy optima; at a node with three near-equal actions the correct error rate is genuinely undefined.
 
-Also inherited from the source document and worth keeping visible: **zero perceptual-learning studies have ever been run on poker.** Every transfer claim in phase 1 is inferred from butterflies, ECGs, histopathology, and cockpit instruments. The largest single risk is the **taxonomy** — perceptual learning installs whatever boundaries you present and resists later verbal correction, so if STATIC/SEMI/DYNAMIC or the seven role labels are fuzzy or solver-inconsistent, the fuzziness is installed permanently. Validate every label against the bank before showing a single trial.
+**AGPL and the local-only break** are stated tradeoffs rather than resolved constraints. The solver posture (build-time tool, pinned and vendored, output-only distribution) should be re-examined before any public build. The tutor's network access is a knowing override of the original local-only parameter, scoped to one host and one node's payload per call.
+
+Also inherited from the source document and worth keeping visible: **zero perceptual-learning studies have ever been run on poker.** Every transfer claim in phase 1 is inferred from butterflies, ECGs, histopathology, and cockpit instruments. The largest single risk is the **taxonomy** — perceptual learning installs whatever boundaries you present and resists later verbal correction, so if STATIC/SEMI/DYNAMIC or the seven role labels are fuzzy or solver-inconsistent, the fuzziness is installed permanently. D1 makes label validation a **build gate** rather than an aspiration, which is the only defence available.

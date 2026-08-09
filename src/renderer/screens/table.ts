@@ -15,8 +15,17 @@ import { gradeDecision } from '../../core/coach.js';
 import { ARCHETYPES, archetypeForSeat, decideAction } from '../../core/ai.js';
 import { mulberry32 } from '../../core/rng.js';
 import type { GradeRecord, HandRecord } from '../../core/session.js';
+import type { PredictOutcome } from '../../core/predict.js';
+import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { renderCard, renderCardRow } from '../components/card.js';
 import { renderCoachPanel, showGrade, clearCoach } from '../components/coachPanel.js';
+import {
+  clearPredictPanel,
+  committedPrediction,
+  renderPredictPanel,
+  resetCommit,
+  showPredictResult,
+} from '../components/predictPanel.js';
 import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
 
 const SB = 25;
@@ -36,8 +45,12 @@ export function renderTable(opts: {
   seed: number;
   bankroll: number;
   handNumber: number;
+  coachedMode?: boolean;
   onHandComplete: (record: HandRecord) => void;
   onSessionOver?: () => void;
+  onRebuy?: () => void;
+  onPrediction?: (outcome: PredictOutcome) => void;
+  onCoachedModeChange?: (on: boolean) => void;
 }): TableHandle {
   const root = document.createElement('div');
   root.className = 'table-screen';
@@ -72,6 +85,11 @@ export function renderTable(opts: {
 
   const coach = renderCoachPanel();
   root.appendChild(coach);
+
+  let coachedMode = opts.coachedMode === true;
+  // Built once, but only in the DOM while coached mode is on: with it detached there is no panel
+  // to query and no gate to leak, so uncoached play is byte-for-byte the old behaviour.
+  const predict = renderPredictPanel(() => renderControls());
 
   // Controls come before the stats sheet: at 760px tall the sheet would otherwise push the
   // action pills below the fold, leaving a player with no visible way to act.
@@ -116,7 +134,24 @@ export function renderTable(opts: {
     root.dataset.awaiting = v;
   }
 
-  function recordHeroGrade(chosen: ActionKind, betSize?: number): void {
+  /** In the DOM only while coached mode is on; kept directly above the controls it gates. */
+  function syncPredictMount(): void {
+    if (coachedMode) {
+      if (predict.parentElement === null) root.insertBefore(predict, controls);
+      return;
+    }
+    predict.remove();
+    clearPredictPanel(predict);
+  }
+
+  function setCoachedMode(on: boolean): void {
+    coachedMode = on;
+    syncPredictMount();
+    opts.onCoachedModeChange?.(on);
+    render();
+  }
+
+  function recordHeroGrade(chosen: ActionKind, betSize?: number): Grade {
     const hero = heroSeat();
     const toCall = Math.max(0, state.currentBet - hero.committed);
     const opponents = state.seats.filter((s) => !s.folded && s.id !== hero.id).length;
@@ -141,6 +176,7 @@ export function renderTable(opts: {
         evLossBb: grade.evLossBb,
       });
     }
+    return grade;
   }
 
   function finishHand(): void {
@@ -186,6 +222,10 @@ export function renderTable(opts: {
   function heroAct(action: Action): void {
     if (state.toAct !== 0 || settled) return;
     if (!legalActions(state).includes(action.kind)) return;
+    // The lockout, not a hint: with no commitment the action does not happen at all, so the
+    // keyboard shortcuts cannot walk around the disabled buttons either.
+    const prediction = coachedMode ? committedPrediction(predict) : null;
+    if (coachedMode && prediction === null) return;
 
     if (state.street === 'preflop') {
       const hero = heroSeat();
@@ -195,7 +235,14 @@ export function renderTable(opts: {
       if (action.kind === 'raise' || action.kind === 'bet') heroPfr = true;
     }
 
-    recordHeroGrade(action.kind, action.amount);
+    const grade = recordHeroGrade(action.kind, action.amount);
+    if (prediction !== null) {
+      const outcome = predictOutcome(prediction, action.kind, grade.severity === 'free');
+      showPredictResult(predict, outcome, predictResultText(prediction, action.kind, outcome));
+      opts.onPrediction?.(outcome);
+      // Fresh commitment for the next street; the reveal line stays up until the next hand.
+      resetCommit(predict);
+    }
     state = applyAction(state, action);
     advance();
   }
@@ -207,9 +254,23 @@ export function renderTable(opts: {
     heroPfr = false;
     settled = false;
     clearCoach(coach);
+    clearPredictPanel(predict);
     state = startHand(state);
     heroStartStack = state.seats[0].stack + state.seats[0].committed;
     advance();
+  }
+
+  /**
+   * Top the busted hero back up and deal on. Same table: handNumber, the dealer rotation and the
+   * session's recorded stats all carry over, because only the hero's stack changed. nextHand()
+   * re-reads heroStartStack after the top-up, so the next hand's `net` is measured from 5000 and
+   * the injected chips are never mistaken for a win.
+   */
+  function rebuyAndContinue(): void {
+    if (heroSeat().stack !== 0) return;
+    state.seats[0].stack = START_STACK;
+    opts.onRebuy?.();
+    nextHand();
   }
 
   // ── rendering ──────────────────────────────────────────────────────
@@ -241,6 +302,13 @@ export function renderTable(opts: {
   function renderControls(): void {
     controls.replaceChildren();
 
+    // Before the showdown branch so the toggle is reachable at every point in a hand.
+    const modeToggle = pill(`Coach ${coachedMode ? 'on' : 'off'}`, 'coach-mode-toggle', () =>
+      setCoachedMode(!coachedMode),
+    );
+    modeToggle.dataset.on = String(coachedMode);
+    controls.appendChild(modeToggle);
+
     if (state.winners !== null) {
       const summary = document.createElement('div');
       summary.className = 'winner-summary';
@@ -251,13 +319,14 @@ export function renderTable(opts: {
       controls.appendChild(summary);
 
       // A busted hero sits out every future hand, so "Next hand" would be a no-op forever.
-      // End the session explicitly instead of leaving a dead button.
+      // Offer a rebuy at the same table, or an explicit end of session — never a dead button.
       if (heroSeat().stack === 0) {
         const over = document.createElement('div');
         over.className = 'winner-summary';
         over.dataset.testid = 'session-over';
-        over.textContent = 'You are out of chips. Start a new session to keep playing.';
+        over.textContent = `You are out of chips. Rebuy for ${START_STACK} to keep this table, or start a new session.`;
         controls.appendChild(over);
+        controls.appendChild(pill(`Rebuy ${START_STACK}`, 'btn-rebuy', () => rebuyAndContinue()));
         controls.appendChild(
           pill('New session', 'new-session', () => opts.onSessionOver?.()),
         );
@@ -273,19 +342,21 @@ export function renderTable(opts: {
     const heroTurn = state.toAct === 0;
     const hero = heroSeat();
     const toCall = Math.max(0, state.currentBet - hero.committed);
+    // Coached mode only: no committed prediction, no acting. `true` when the gate is open.
+    const committed = !coachedMode || committedPrediction(predict) !== null;
 
     const fold = pill('Fold', 'btn-fold', () => heroAct({ kind: 'fold' }));
-    fold.disabled = !heroTurn || !legal.includes('fold');
+    fold.disabled = !heroTurn || !committed || !legal.includes('fold');
     controls.appendChild(fold);
 
     const check = pill('Check', 'btn-check', () => heroAct({ kind: 'check' }));
-    check.disabled = !heroTurn || !legal.includes('check');
+    check.disabled = !heroTurn || !committed || !legal.includes('check');
     controls.appendChild(check);
 
     const call = pill(toCall > 0 ? `Call ${toCall}` : 'Call', 'btn-call', () =>
       heroAct({ kind: legal.includes('call') ? 'call' : 'allin' }),
     );
-    call.disabled = !heroTurn || !(legal.includes('call') || legal.includes('allin'));
+    call.disabled = !heroTurn || !committed || !(legal.includes('call') || legal.includes('allin'));
     controls.appendChild(call);
 
     const canRaise = legal.includes('raise') || legal.includes('bet');
@@ -333,7 +404,7 @@ export function renderTable(opts: {
       const amount = clamp(parseInt(slider.value, 10) || min, min, max);
       heroAct({ kind: legal.includes('raise') ? 'raise' : 'bet', amount });
     });
-    raise.disabled = !heroTurn || !canRaise;
+    raise.disabled = !heroTurn || !committed || !canRaise;
     controls.appendChild(raise);
 
     const statsToggle = pill('Stats', 'stats-toggle', () => toggleStatsSheet(stats));
@@ -358,6 +429,9 @@ export function renderTable(opts: {
   }
   window.addEventListener('keydown', onKey);
 
+  // A restored coachedMode=true must arm the gate on the very first render, not only once the
+  // toggle is clicked.
+  syncPredictMount();
   advance();
 
   return {
