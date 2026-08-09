@@ -488,3 +488,22 @@ body {
   max-height: none;
   border-radius: 16px;
 }
+
+/* The window is 760px tall; the table must fit without scrolling or the controls vanish. */
+.table-screen {
+  gap: 12px;
+}
+
+.table-screen .card {
+  width: 52px;
+  height: 72px;
+}
+
+.table-screen .card.small {
+  width: 34px;
+  height: 48px;
+}
+
+.table-screen .board-wrap {
+  min-height: 72px;
+}

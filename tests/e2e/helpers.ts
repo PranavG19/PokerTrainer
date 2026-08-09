@@ -2,8 +2,10 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(__dirname, '../..');
+// package.json is "type": "module", so the transpiled spec has no __dirname.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 export interface LaunchedApp {
   app: ElectronApplication;
