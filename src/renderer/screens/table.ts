@@ -89,7 +89,12 @@ export function renderTable(opts: {
   let coachedMode = opts.coachedMode === true;
   // Built once, but only in the DOM while coached mode is on: with it detached there is no panel
   // to query and no gate to leak, so uncoached play is byte-for-byte the old behaviour.
-  const predict = renderPredictPanel(() => renderControls());
+  // Committing must refresh the stats sheet too, not just the buttons: the withheld win% is
+  // released by the same commitment that unlocks the actions.
+  const predict = renderPredictPanel(() => {
+    refreshStats();
+    renderControls();
+  });
 
   // Controls come before the stats sheet: at 760px tall the sheet would otherwise push the
   // action pills below the fold, leaving a player with no visible way to act.
@@ -289,14 +294,27 @@ export function renderTable(opts: {
       ...state.seats.map((seat) => renderSeat(seat, state, showdown)),
     );
 
+    refreshStats();
+
+    renderControls();
+  }
+
+  /**
+   * In coached mode the win% IS the answer, so showing it before the hero commits defeats the
+   * gate: feedback effects collapse when the answer is available pre-response. Withhold it until
+   * the prediction is in — an empty hole makes the sheet render "—" instead of a number.
+   */
+  function refreshStats(): void {
+    const hero = heroSeat();
+    const withheld =
+      coachedMode && state.toAct === 0 && !settled && committedPrediction(predict) === null;
     updateStatsSheet(stats, {
-      hole: hero.hole,
+      hole: withheld ? [] : hero.hole,
       board: state.board,
       opponents: Math.max(1, state.seats.filter((s) => !s.folded && s.id !== 0).length),
       seed: opts.seed + state.handNumber,
     });
-
-    renderControls();
+    stats.dataset.withheld = String(withheld);
   }
 
   function renderControls(): void {

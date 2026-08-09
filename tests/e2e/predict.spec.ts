@@ -565,3 +565,88 @@ test.describe('coached mode does not break the table', () => {
     });
   });
 });
+
+test.describe('the answer is withheld until the commitment', () => {
+  /**
+   * The gate is worthless if the answer is on screen while you commit: the win% sheet IS the
+   * answer, and feedback effects collapse when it is available pre-response. Found by looking at
+   * a screenshot — every prediction test passed while the equity sat visible above the panel.
+   */
+  const statsSheet = '[data-testid="stats-sheet"]';
+  const winPct = '[data-testid="win-pct"]';
+
+  async function readSheet(page: Page): Promise<{ win: string; cats: number; withheld: string }> {
+    return page.evaluate(() => ({
+      win: document.querySelector('[data-testid="win-pct"]')?.textContent ?? '',
+      cats: document.querySelectorAll('.stats-cat').length,
+      withheld:
+        (document.querySelector('[data-testid="stats-sheet"]') as HTMLElement | null)?.dataset
+          .withheld ?? '',
+    }));
+  }
+
+  test('18. coached mode hides the win% and the category breakdown until both halves are in', async () => {
+    const { page, close } = await launchApp({ seed: 42, userDataDir: freshUserDataDir() });
+    try {
+      await openTable(page);
+      await waitForIdle(page);
+      await enableCoachedMode(page);
+      await page.locator('[data-testid="stats-toggle"]').click();
+      await expect(page.locator(statsSheet)).toHaveAttribute('data-open', 'true');
+
+      const pending = await readSheet(page);
+      expect(pending.withheld, 'withheld while the commitment is pending').toBe('true');
+      expect(pending.win).not.toMatch(/\d/);
+      expect(pending.cats, 'no made-hand breakdown either — that leaks the answer too').toBe(0);
+
+      // A HALF commitment must not release it: action without confidence is not a commitment.
+      await page.locator('[data-testid="predict-call"]').click();
+      const half = await readSheet(page);
+      expect(half.withheld, 'still withheld after only the action half').toBe('true');
+      expect(half.win).not.toMatch(/\d/);
+
+      await page.locator('[data-testid="confidence-sure"]').click();
+      const done = await readSheet(page);
+      expect(done.withheld, 'released once both halves are committed').toBe('false');
+      expect(done.win, 'the win% is a real number after committing').toMatch(/^\d+%$/);
+      expect(done.cats).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+
+  test('19. with coached mode OFF the win% is visible immediately, as before', async () => {
+    const { page, close } = await launchApp({ seed: 42, userDataDir: freshUserDataDir() });
+    try {
+      await openTable(page);
+      await waitForIdle(page);
+      await expect(page.locator(winPct)).toHaveText(/^\d+%$/);
+      const sheet = await readSheet(page);
+      expect(sheet.withheld).toBe('false');
+    } finally {
+      await close();
+    }
+  });
+
+  test('20. the answer is withheld again on the next street, not just the first decision', async () => {
+    const { page, close } = await launchApp({ seed: 42, userDataDir: freshUserDataDir() });
+    try {
+      await openTable(page);
+      await waitForIdle(page);
+      await enableCoachedMode(page);
+
+      await page.locator('[data-testid="predict-call"]').click();
+      await page.locator('[data-testid="confidence-guess"]').click();
+      expect((await readSheet(page)).withheld).toBe('false');
+
+      await page.locator(sel.btnCall).click();
+      const awaiting = await waitForIdle(page);
+      test.skip(awaiting !== 'hero', 'hand ended before a second hero decision');
+
+      // A fresh decision means a fresh commitment, so the answer goes back behind the gate.
+      expect((await readSheet(page)).withheld, 'withheld again on the next decision').toBe('true');
+    } finally {
+      await close();
+    }
+  });
+});
