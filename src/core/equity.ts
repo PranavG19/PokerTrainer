@@ -13,6 +13,14 @@ export interface EquityResult {
 }
 
 /**
+ * The iteration count for anything the player SEES. Monte Carlo at two different counts returns two
+ * different numbers for the same spot, so the coach line and the stats sheet must share this or they
+ * contradict each other on screen — measured 56% vs 55% on one turn spot, and 70% vs 66% on another.
+ * The AI deliberately uses fewer (see ai.ts): its estimates are never shown.
+ */
+export const DISPLAY_ITERATIONS = 2000;
+
+/**
  * Monte Carlo equity vs N random opponents.
  * Deterministic given seed (uses mulberry32, never Math.random).
  */

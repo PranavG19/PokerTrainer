@@ -308,8 +308,11 @@ export function renderTable(opts: {
     const hero = heroSeat();
     const withheld =
       coachedMode && state.toAct === 0 && !settled && committedPrediction(predict) === null;
+    // A folded hero has no equity in the pot; showing a win% for a hand they are not contesting
+    // teaches the opposite of "your fold ended your claim on this pot".
+    const noStake = hero.folded;
     updateStatsSheet(stats, {
-      hole: withheld ? [] : hero.hole,
+      hole: withheld || noStake ? [] : hero.hole,
       board: state.board,
       opponents: Math.max(1, state.seats.filter((s) => !s.folded && s.id !== 0).length),
       seed: opts.seed + state.handNumber,

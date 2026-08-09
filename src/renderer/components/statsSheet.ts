@@ -1,5 +1,5 @@
 import type { Card } from '../../core/cards.js';
-import { equityVsRandom } from '../../core/equity.js';
+import { DISPLAY_ITERATIONS, equityVsRandom } from '../../core/equity.js';
 
 /**
  * 800 iterations, not the 2000 the core grader defaults to. The tradeoff:
@@ -11,7 +11,7 @@ import { equityVsRandom } from '../../core/equity.js';
  *   readout meant to convey magnitude ("you're ahead") — but it is why gradeDecision, whose
  *   output is scored in bb, keeps its own 2000-iteration estimate instead of reusing this one.
  */
-const ITERATIONS = 800;
+
 
 /** Categories rarer than this are noise on a beginner's screen. */
 const MIN_SHOWN_CHANCE = 0.01;
@@ -84,7 +84,7 @@ export function updateStatsSheet(
     return;
   }
 
-  const eq = equityVsRandom(opts.hole, opts.board, opts.opponents, ITERATIONS, opts.seed);
+  const eq = equityVsRandom(opts.hole, opts.board, opts.opponents, DISPLAY_ITERATIONS, opts.seed);
 
   winValue.textContent = `${Math.round(eq.win * 100)}%`;
   tieValue.textContent = `${Math.round(eq.tie * 100)}%`;
