@@ -323,3 +323,168 @@ body {
 .list-row:last-child {
   border-bottom: none;
 }
+
+/* ─── App shell ─── */
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--surface-hi);
+}
+
+.tab[data-active='true'] {
+  color: var(--text-hi);
+  background: var(--surface-hi);
+}
+
+.screen {
+  flex: 1;
+  padding: 20px;
+}
+
+/* ─── Table screen (R2) ─── */
+.table-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.seats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.seat {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+}
+
+.seat[data-to-act='true'] {
+  border-color: var(--mint);
+}
+
+.seat[data-folded='true'] {
+  opacity: 0.4;
+}
+
+.seat-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-hi);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+}
+
+.seat-archetype {
+  font-size: 11px;
+  color: var(--text-lo);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.seat-committed {
+  font-size: 12px;
+  color: var(--chip-blind);
+}
+
+.dealer-button {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-hi);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.table-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.board-wrap {
+  min-height: 92px;
+}
+
+.hero-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.hero-cards {
+  display: flex;
+  gap: 8px;
+}
+
+/* ─── Controls (R3) ─── */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.pill {
+  background: var(--surface-hi);
+  color: var(--text-hi);
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pill:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.raise-slider {
+  accent-color: var(--mint);
+}
+
+.raise-amount {
+  color: var(--text-lo);
+  font-size: 13px;
+  min-width: 44px;
+}
+
+.winner-summary {
+  color: var(--mint);
+  font-size: 14px;
+  width: 100%;
+  text-align: center;
+}
+
+/*
+ * The stats sheet is a fixed bottom sheet by default (phone-derived design), but on the desktop
+ * table it would cover the action pills — unclickable buttons, not just a failing test. Put it
+ * back in flow so controls always remain reachable.
+ */
+.table-screen .stats-sheet {
+  position: static;
+  max-height: none;
+  border-radius: 16px;
+}
