@@ -558,6 +558,20 @@ body {
   padding: 8px 14px;
 }
 
+/*
+ * Coached mode adds a panel to an already-full 640px column. Measured 674px of content — a
+ * scrollbar at the app's own documented minimum — so the predict panel is trimmed here rather
+ * than the controls, which must stay reachable (same rule as the block above).
+ */
+.table-screen .predict {
+  padding: 6px 12px;
+  gap: 4px;
+}
+
+.table-screen .predict-choice {
+  padding: 5px 12px;
+}
+
 /* The collapsed sheet only needs to show the win%/tie headline. */
 .table-screen .stats-sheet {
   padding: 10px 16px;

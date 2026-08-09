@@ -92,3 +92,68 @@
   font-size: 12px;
   color: var(--text-lo);
 }
+
+/* ─── Predict panel (prediction-before-reveal) ─── */
+/* Only in the DOM while coached mode is on, so uncoached play keeps its exact height budget. */
+.predict {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 10px 16px;
+  border-left: 3px solid var(--mint);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.predict-prompt {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.predict-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.predict-choice {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.predict-choice[data-selected='true'] {
+  background: var(--mint);
+  color: var(--ink);
+}
+
+.predict-result {
+  font-size: 13px;
+  color: var(--text-hi);
+}
+
+.predict-result[hidden] {
+  display: none;
+}
+
+.predict-result[data-outcome='match'] {
+  color: var(--mint);
+}
+
+.predict-result[data-outcome='sure-wrong'] {
+  color: var(--red);
+  font-weight: 500;
+}
+
+.predict-result[data-outcome='guess-wrong'],
+.predict-result[data-outcome='deviated'] {
+  color: var(--text-lo);
+}
+
+/* Confidence pills read as a distinct group inside the single row. */
+.predict-confidence {
+  margin-left: 4px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}

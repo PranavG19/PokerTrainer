@@ -1,5 +1,6 @@
 import type { SessionState } from '../../core/session.js';
 import { computeStats } from '../../core/session.js';
+import { calibrationLine } from '../../core/predict.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_WIDTH = 320;
@@ -14,6 +15,8 @@ export function renderProfile(opts: { session: SessionState }): HTMLElement {
   root.dataset.testid = 'profile-screen';
 
   root.appendChild(section('Session', renderGraph(bankrollSeries(opts.session))));
+  root.appendChild(section('Rebuys', renderRebuys(opts.session.rebuys)));
+  root.appendChild(section('Prediction calibration', renderCalibration(opts.session)));
   root.appendChild(section('Leaks by concept', renderLeaks(summary.leaks)));
   root.appendChild(
     section(
@@ -103,6 +106,46 @@ function graphPoints(series: number[]): string {
 }
 
 const round = (n: number): string => n.toFixed(1);
+
+/**
+ * Deliberately not a `.counter` in the Lifetime grid: that grid's exact key set is pinned by
+ * screens.spec.ts, and a rebuy is a bankroll event rather than a play statistic.
+ */
+function renderRebuys(rebuys: number): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'rebuy-summary';
+
+  const value = document.createElement('div');
+  value.className = 'stat-value';
+  value.dataset.testid = 'rebuy-count';
+  value.textContent = String(rebuys);
+  wrap.appendChild(value);
+
+  const caption = document.createElement('div');
+  caption.className = 'graph-caption';
+  caption.dataset.testid = 'rebuy-caption';
+  caption.textContent =
+    rebuys === 0 ? 'No rebuys' : `${rebuys} rebuy${rebuys === 1 ? '' : 's'} this session`;
+  wrap.appendChild(caption);
+
+  return wrap;
+}
+
+/**
+ * Not a `.counter` and not a `.graph-caption`: screens.spec.ts pins the exact key set of the
+ * Lifetime counter grid and reads the first `.graph-caption` on the page, and prediction accuracy
+ * is neither a lifetime play statistic nor a chart label.
+ */
+function renderCalibration(session: SessionState): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'calibration';
+  wrap.dataset.testid = 'calibration';
+  wrap.dataset.total = String(session.calibration.total);
+  wrap.dataset.correct = String(session.calibration.correct);
+  wrap.dataset.sureWrong = String(session.calibration.sureWrong);
+  wrap.textContent = calibrationLine(session.calibration);
+  return wrap;
+}
 
 function renderLeaks(leaks: { principle: string; count: number; costBb: number }[]): HTMLElement {
   const list = document.createElement('ol');
