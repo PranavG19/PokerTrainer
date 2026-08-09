@@ -159,7 +159,9 @@ export function startHand(state: TableState): TableState {
   for (const seat of s.seats) {
     seat.hole = [];
     seat.committed = 0;
-    seat.folded = false;
+    // A busted seat sits out: dealing it in would let it win a pot it put nothing into.
+    // Chip totals stay correct either way, which is why conservation checks never caught this.
+    seat.folded = seat.stack === 0;
     seat.allIn = false;
   }
 
@@ -205,12 +207,12 @@ export function startHand(state: TableState): TableState {
 
   s.currentBet = s.bb;
 
-  // Deal 2 hole cards, starting left of dealer
-  let dealStart = nextSeat(n, s.dealer);
+  // Deal 2 hole cards, starting left of dealer. Seats sitting out get none.
+  const dealStart = nextSeat(n, s.dealer);
   for (let round = 0; round < 2; round++) {
     let cur = dealStart;
     for (let p = 0; p < n; p++) {
-      s.seats[cur].hole.push(s.deck.pop()!);
+      if (!s.seats[cur].folded) s.seats[cur].hole.push(s.deck.pop()!);
       cur = nextSeat(n, cur);
     }
   }
@@ -225,8 +227,8 @@ export function startHand(state: TableState): TableState {
     s.toAct = nextSeat(n, bbIdx);
   }
 
-  // If toAct is all-in, advance
-  if (s.seats[s.toAct].allIn) {
+  // If toAct cannot act — all-in, or sitting out with no chips — advance to someone who can.
+  if (s.seats[s.toAct].allIn || s.seats[s.toAct].folded) {
     s.toAct = nextCanAct(s.seats, s.toAct);
   }
 

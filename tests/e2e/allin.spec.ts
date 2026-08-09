@@ -342,9 +342,18 @@ test.describe('all-in committed through the UI', () => {
         const awaiting = await waitForIdle(page);
 
         const fresh = await snapshot(page);
-        expect(fresh.heroCards, `seed ${seed} redeal`).toHaveLength(2);
-        for (const card of fresh.heroCards) expect(card).toMatch(FACE_UP_CARD);
-        expect(fresh.heroCards).not.toEqual(settled.heroCards);
+        const heroBusted = settled.stacks[0] === 0;
+
+        if (heroBusted) {
+          // A seat with no chips sits out rather than free-rolling: it is dealt no cards and
+          // cannot win a pot it put nothing into. (startHand marks stack === 0 as folded.)
+          expect(fresh.heroCards, `seed ${seed} busted hero sits out`).toHaveLength(0);
+          expect(fresh.stacks[0]).toBe(0);
+        } else {
+          expect(fresh.heroCards, `seed ${seed} redeal`).toHaveLength(2);
+          for (const card of fresh.heroCards) expect(card).toMatch(FACE_UP_CARD);
+          expect(fresh.heroCards).not.toEqual(settled.heroCards);
+        }
         expect(chipTotal(fresh), `seed ${seed} conservation on the new hand`).toBe(CHIPS_IN_PLAY);
 
         // A fresh hand, not the old one still on screen.
@@ -353,7 +362,8 @@ test.describe('all-in committed through the UI', () => {
           expect(fresh.board.length).toBeLessThanOrEqual(3);
         }
 
-        // And it can be played to completion from either stack size.
+        // And it still runs to completion from either stack size — including with the hero
+        // sitting out, where the villains play it out between themselves.
         await playToShowdown(page);
         await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
         await expect(page.locator(winnerSummary)).toBeVisible();
