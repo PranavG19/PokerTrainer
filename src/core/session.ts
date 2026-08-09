@@ -32,6 +32,8 @@ export interface SessionStats {
   pfrHands: number;
   evLossBb: number;
   leaks: Record<string, number>;
+  /** Total bb lost per principle. Ranking by count alone buries one 20bb blunder under five 0.6bb ones. */
+  leakCostBb: Record<string, number>;
 }
 
 export interface SessionState {
@@ -46,14 +48,14 @@ export interface SessionSummary {
   vpip: number;
   pfr: number;
   evLossBb: number;
-  leaks: { principle: string; count: number }[];
+  leaks: { principle: string; count: number; costBb: number }[];
 }
 
 export function emptySession(): SessionState {
   return {
     bankroll: DEFAULT_BANKROLL,
     hands: [],
-    stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {} },
+    stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {}, leakCostBb: {} },
   };
 }
 
@@ -66,9 +68,11 @@ export function gradeRecordsFrom(grades: Grade[]): GradeRecord[] {
 
 export function recordHand(state: SessionState, record: HandRecord): SessionState {
   const leaks = { ...state.stats.leaks };
+  const leakCostBb = { ...state.stats.leakCostBb };
   let evLossBb = state.stats.evLossBb;
   for (const grade of record.grades) {
     leaks[grade.principle] = (leaks[grade.principle] ?? 0) + 1;
+    leakCostBb[grade.principle] = (leakCostBb[grade.principle] ?? 0) + grade.evLossBb;
     evLossBb += grade.evLossBb;
   }
 
@@ -81,20 +85,25 @@ export function recordHand(state: SessionState, record: HandRecord): SessionStat
       pfrHands: state.stats.pfrHands + (record.pfr ? 1 : 0),
       evLossBb,
       leaks,
+      leakCostBb,
     },
   };
 }
 
 export function computeStats(state: SessionState): SessionSummary {
-  const { handsPlayed, vpipHands, pfrHands, evLossBb, leaks } = state.stats;
+  const { handsPlayed, vpipHands, pfrHands, evLossBb, leaks, leakCostBb } = state.stats;
   return {
     handsPlayed,
     vpip: percent(vpipHands, handsPlayed),
     pfr: percent(pfrHands, handsPlayed),
     evLossBb,
+    // Ranked by total cost, not frequency: what to study next is the most expensive
+    // leak, not the most common one.
     leaks: Object.entries(leaks)
-      .map(([principle, count]) => ({ principle, count }))
-      .sort((a, b) => b.count - a.count || a.principle.localeCompare(b.principle)),
+      .map(([principle, count]) => ({ principle, count, costBb: leakCostBb[principle] ?? 0 }))
+      .sort(
+        (a, b) => b.costBb - a.costBb || b.count - a.count || a.principle.localeCompare(b.principle),
+      ),
   };
 }
 
@@ -108,7 +117,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
   return {
     bankroll: state.bankroll,
     hands: structuredClone(state.hands),
-    stats: { ...state.stats, leaks: { ...state.stats.leaks } },
+    stats: { ...state.stats, leaks: { ...state.stats.leaks }, leakCostBb: { ...state.stats.leakCostBb } },
   };
 }
 
@@ -128,6 +137,7 @@ export function deserialize(raw: unknown): SessionState {
       pfrHands: asNumber(stats.pfrHands, 0),
       evLossBb: asNumber(stats.evLossBb, 0),
       leaks: parseLeaks(stats.leaks),
+      leakCostBb: parseLeaks(stats.leakCostBb),
     },
   };
 }
