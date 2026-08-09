@@ -334,6 +334,9 @@ export function renderTable(opts: {
     else if (key === 'c') {
       if (legal.includes('check')) heroAct({ kind: 'check' });
       else if (legal.includes('call')) heroAct({ kind: 'call' });
+      // Facing a bet bigger than the stack there is no 'call' — an all-in IS the call, which is
+      // what btn-call does. Without this the C shortcut was silently dead in exactly that spot.
+      else if (legal.includes('allin')) heroAct({ kind: 'allin' });
     } else if (key === 'r' && (legal.includes('raise') || legal.includes('bet'))) {
       heroAct({ kind: legal.includes('raise') ? 'raise' : 'bet', amount: minRaiseTo(state) });
     } else if (key === 'a' && legal.includes('allin')) heroAct({ kind: 'allin' });
