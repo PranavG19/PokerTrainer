@@ -34,7 +34,14 @@ describe('emptySession', () => {
     const s = emptySession();
     expect(s.bankroll).toBe(DEFAULT_BANKROLL);
     expect(s.hands).toEqual([]);
-    expect(s.stats).toEqual({ handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {} });
+    expect(s.stats).toEqual({
+      handsPlayed: 0,
+      vpipHands: 0,
+      pfrHands: 0,
+      evLossBb: 0,
+      leaks: {},
+      leakCostBb: {},
+    });
   });
 
   it('returns a fresh object each call', () => {
@@ -124,7 +131,7 @@ describe('leak aggregation', () => {
     expect(s.stats.evLossBb).toBeCloseTo(4.75, 10);
   });
 
-  it('computeStats sorts leaks by count descending', () => {
+  it('computeStats sorts leaks by total cost descending', () => {
     const s = playHands([
       hand({
         grades: [
@@ -135,9 +142,52 @@ describe('leak aggregation', () => {
       }),
     ]);
     expect(computeStats(s).leaks).toEqual([
-      { principle: 'pot odds', count: 2 },
-      { principle: 'ranges', count: 1 },
+      { principle: 'pot odds', count: 2, costBb: 2 },
+      { principle: 'ranges', count: 1, costBb: 1 },
     ]);
+  });
+
+  it('ranks one expensive leak above several cheap ones', () => {
+    // The whole point of cost-ranking: five 0.6bb slips are not the priority
+    // over a single 20bb blunder, but count-ranking would say they are.
+    const s = playHands([
+      hand({
+        grades: [
+          { severity: 'notable', principle: 'pot odds', evLossBb: 0.6 },
+          { severity: 'notable', principle: 'pot odds', evLossBb: 0.6 },
+          { severity: 'notable', principle: 'pot odds', evLossBb: 0.6 },
+          { severity: 'notable', principle: 'pot odds', evLossBb: 0.6 },
+          { severity: 'notable', principle: 'pot odds', evLossBb: 0.6 },
+          { severity: 'serious', principle: 'value or bluff', evLossBb: 20 },
+        ],
+      }),
+    ]);
+    const { leaks } = computeStats(s);
+    expect(leaks[0]).toEqual({ principle: 'value or bluff', count: 1, costBb: 20 });
+    expect(leaks[1].principle).toBe('pot odds');
+    expect(leaks[1].count).toBe(5);
+    expect(leaks[1].costBb).toBeCloseTo(3, 5);
+  });
+
+  it('leak cost accumulates across hands and survives a round trip', () => {
+    const s = playHands([
+      hand({ grades: [{ severity: 'notable', principle: 'pot odds', evLossBb: 1.5 }] }),
+      hand({ handNumber: 2, grades: [{ severity: 'serious', principle: 'pot odds', evLossBb: 2.5 }] }),
+    ]);
+    expect(s.stats.leakCostBb).toEqual({ 'pot odds': 4 });
+    expect(deserialize(serialize(s)).stats.leakCostBb).toEqual({ 'pot odds': 4 });
+  });
+
+  it('a save file predating leakCostBb still loads', () => {
+    // Older saves have leaks but no leakCostBb; costs read as 0 rather than NaN.
+    const legacy = {
+      bankroll: 12000,
+      hands: [],
+      stats: { handsPlayed: 3, vpipHands: 1, pfrHands: 0, evLossBb: 2, leaks: { 'pot odds': 2 } },
+    };
+    const s = deserialize(legacy);
+    expect(s.stats.leakCostBb).toEqual({});
+    expect(computeStats(s).leaks).toEqual([{ principle: 'pot odds', count: 2, costBb: 0 }]);
   });
 
   it('no grades means no leaks', () => {

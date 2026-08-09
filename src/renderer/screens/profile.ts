@@ -104,7 +104,7 @@ function graphPoints(series: number[]): string {
 
 const round = (n: number): string => n.toFixed(1);
 
-function renderLeaks(leaks: { principle: string; count: number }[]): HTMLElement {
+function renderLeaks(leaks: { principle: string; count: number; costBb: number }[]): HTMLElement {
   const list = document.createElement('ol');
   list.className = 'leak-list';
   list.dataset.testid = 'leak-list';
@@ -117,7 +117,7 @@ function renderLeaks(leaks: { principle: string; count: number }[]): HTMLElement
     return list;
   }
 
-  const worst = leaks[0].count;
+  const worst = Math.max(leaks[0].costBb, 0.001);
   for (const leak of leaks) {
     const item = document.createElement('li');
     item.className = 'list-row leak-row';
@@ -131,16 +131,18 @@ function renderLeaks(leaks: { principle: string; count: number }[]): HTMLElement
 
     const bar = document.createElement('span');
     bar.className = 'leak-bar';
-    bar.style.width = `${(leak.count / worst) * 100}%`;
+    bar.style.width = `${Math.min(100, (leak.costBb / worst) * 100)}%`;
     const track = document.createElement('span');
     track.className = 'leak-track';
     track.appendChild(bar);
     item.appendChild(track);
 
-    const count = document.createElement('span');
-    count.className = 'leak-count';
-    count.textContent = String(leak.count);
-    item.appendChild(count);
+    const cost = document.createElement('span');
+    cost.className = 'leak-count';
+    cost.dataset.testid = 'leak-cost';
+    // Cost first: it is what ranks the list and what the student should study next.
+    cost.textContent = `${leak.costBb.toFixed(1)} bb · ${leak.count}×`;
+    item.appendChild(cost);
 
     list.appendChild(item);
   }
