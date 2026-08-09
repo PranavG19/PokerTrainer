@@ -84,6 +84,11 @@ async function boot(): Promise<void> {
       bankroll: session.bankroll,
       handNumber: session.stats.handsPlayed + 1,
       onHandComplete: (r) => void onHandComplete(r),
+      // Hero busted out: drop back to home, where a fresh table can be started.
+      onSessionOver: () => {
+        teardownTable();
+        render();
+      },
     });
     screen.replaceChildren(table.root);
   }

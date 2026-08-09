@@ -37,6 +37,7 @@ export function renderTable(opts: {
   bankroll: number;
   handNumber: number;
   onHandComplete: (record: HandRecord) => void;
+  onSessionOver?: () => void;
 }): TableHandle {
   const root = document.createElement('div');
   root.className = 'table-screen';
@@ -248,6 +249,20 @@ export function renderTable(opts: {
         .map((w) => `${state.seats[w.seatId].name} wins ${w.amount} (${w.description})`)
         .join(' · ');
       controls.appendChild(summary);
+
+      // A busted hero sits out every future hand, so "Next hand" would be a no-op forever.
+      // End the session explicitly instead of leaving a dead button.
+      if (heroSeat().stack === 0) {
+        const over = document.createElement('div');
+        over.className = 'winner-summary';
+        over.dataset.testid = 'session-over';
+        over.textContent = 'You are out of chips. Start a new session to keep playing.';
+        controls.appendChild(over);
+        controls.appendChild(
+          pill('New session', 'new-session', () => opts.onSessionOver?.()),
+        );
+        return;
+      }
 
       const next = pill('Next hand', 'next-hand', () => nextHand());
       controls.appendChild(next);
