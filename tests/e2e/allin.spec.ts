@@ -328,50 +328,36 @@ test.describe('all-in committed through the UI', () => {
     });
   });
 
-  test('scenario 8: next-hand recovers from both a doubled hero and a busted hero', async () => {
-    // Both extremes of an all-in result: SEED_HERO_WINS triples the hero's stack,
-    // SEED_HERO_BUSTS leaves it at 0.
-    for (const seed of [SEED_HERO_WINS, SEED_HERO_BUSTS]) {
-      await withApp(seed, async (page) => {
-        await sitDown(page);
-        await shoveAllIn(page);
-        expect(await waitForIdle(page), `seed ${seed}`).toBe('handover');
-        const settled = await snapshot(page);
+  test('scenario 8: next-hand deals a fresh playable hand after a won all-in', async () => {
+    // The busted-hero branch is scenario 9: a hero on 0 chips has no next-hand button at all,
+    // because it would sit out every future hand.
+    await withApp(SEED_HERO_WINS, async (page) => {
+      await sitDown(page);
+      await shoveAllIn(page);
+      expect(await waitForIdle(page)).toBe('handover');
+      const settled = await snapshot(page);
+      expect(settled.stacks[0], 'seed 42 is pinned to win the shove').toBeGreaterThan(0);
 
-        await page.locator(nextHand).click();
-        const awaiting = await waitForIdle(page);
+      await page.locator(nextHand).click();
+      const awaiting = await waitForIdle(page);
 
-        const fresh = await snapshot(page);
-        const heroBusted = settled.stacks[0] === 0;
+      const fresh = await snapshot(page);
+      expect(fresh.heroCards, 'redeal').toHaveLength(2);
+      for (const card of fresh.heroCards) expect(card).toMatch(FACE_UP_CARD);
+      expect(fresh.heroCards).not.toEqual(settled.heroCards);
+      expect(chipTotal(fresh), 'conservation on the new hand').toBe(CHIPS_IN_PLAY);
 
-        if (heroBusted) {
-          // A seat with no chips sits out rather than free-rolling: it is dealt no cards and
-          // cannot win a pot it put nothing into. (startHand marks stack === 0 as folded.)
-          expect(fresh.heroCards, `seed ${seed} busted hero sits out`).toHaveLength(0);
-          expect(fresh.stacks[0]).toBe(0);
-        } else {
-          expect(fresh.heroCards, `seed ${seed} redeal`).toHaveLength(2);
-          for (const card of fresh.heroCards) expect(card).toMatch(FACE_UP_CARD);
-          expect(fresh.heroCards).not.toEqual(settled.heroCards);
-        }
-        expect(chipTotal(fresh), `seed ${seed} conservation on the new hand`).toBe(CHIPS_IN_PLAY);
+      // A fresh hand, not the old one still on screen.
+      if (awaiting === 'hero') {
+        await expect(page.locator(winnerSummary)).toHaveCount(0);
+        expect(fresh.board.length).toBeLessThanOrEqual(3);
+      }
 
-        // A fresh hand, not the old one still on screen.
-        if (awaiting === 'hero') {
-          await expect(page.locator(winnerSummary)).toHaveCount(0);
-          expect(fresh.board.length).toBeLessThanOrEqual(3);
-        }
-
-        // And it still runs to completion from either stack size — including with the hero
-        // sitting out, where the villains play it out between themselves.
-        await playToShowdown(page);
-        await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
-        await expect(page.locator(winnerSummary)).toBeVisible();
-        expect(chipTotal(await snapshot(page)), `seed ${seed} conservation after hand 2`).toBe(
-          CHIPS_IN_PLAY,
-        );
-      });
-    }
+      await playToShowdown(page);
+      await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
+      await expect(page.locator(winnerSummary)).toBeVisible();
+      expect(chipTotal(await snapshot(page)), 'conservation after hand 2').toBe(CHIPS_IN_PLAY);
+    });
   });
 
   /**
@@ -436,5 +422,40 @@ test.describe('all-in committed through the UI', () => {
     expect(found.summary).not.toContain('You wins');
     expect(found.bankrollAfter).toBeLessThan(found.bankrollBefore);
     expect(found.bankrollBefore - found.bankrollAfter).toBe(START_STACK);
+  });
+
+  /**
+   * Terminal state. A busted hero sits out every future hand, so "Next hand" would be a button
+   * that silently does nothing forever — the app looked alive but was a permanent no-op. The
+   * session must end explicitly and offer a way back.
+   */
+  test('scenario 9: a busted hero ends the session and can start a fresh one', async () => {
+    await withApp(SEED_HERO_BUSTS, async (page) => {
+      await sitDown(page);
+      await shoveAllIn(page);
+      expect(await waitForIdle(page)).toBe('handover');
+
+      const busted = await snapshot(page);
+      expect(busted.stacks[0], 'seed 2 is pinned to bust the hero').toBe(0);
+
+      // The dead button is gone, replaced by an explicit end-of-session state.
+      await expect(page.locator(nextHand)).toHaveCount(0);
+      const over = page.locator('[data-testid="session-over"]');
+      await expect(over).toBeVisible();
+      expect((await over.textContent())?.length ?? 0).toBeGreaterThan(20);
+
+      // And the way out actually works: back to home, then a fresh playable table.
+      await page.locator('[data-testid="new-session"]').click();
+      await page.waitForSelector(homeScreen);
+
+      await page.locator(sel.newHand).click();
+      await page.waitForSelector(tableScreen);
+      await waitForIdle(page);
+      const fresh = await snapshot(page);
+      expect(fresh.stacks[0], 'a new session restores a full stack').toBe(START_STACK);
+      expect(fresh.heroCards).toHaveLength(2);
+      expect(chipTotal(fresh)).toBe(CHIPS_IN_PLAY);
+      await shot(page, 'allin-session-over-recovered');
+    });
   });
 });
