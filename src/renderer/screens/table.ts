@@ -83,19 +83,22 @@ export function renderTable(opts: {
   root.appendChild(stats);
 
   // ── mutable hand state ─────────────────────────────────────────────
-  let state: TableState = startHand(
-    createTable({
-      seats: SEAT_NAMES.map((name, i) => ({
-        name,
-        stack: START_STACK,
-        isHero: i === 0,
-        avatar: name[0],
-      })),
-      sb: SB,
-      bb: BB,
-      seed: opts.seed,
-    }),
-  );
+  const table = createTable({
+    seats: SEAT_NAMES.map((name, i) => ({
+      name,
+      stack: START_STACK,
+      isHero: i === 0,
+      avatar: name[0],
+    })),
+    sb: SB,
+    bb: BB,
+    seed: opts.seed,
+  });
+  // Continue the session's numbering. The shuffle is keyed on seed + handNumber, so restarting
+  // at 1 on every re-mount would both duplicate handNumber in the saved log and re-deal a hand
+  // the player has already seen.
+  table.handNumber = opts.handNumber - 1;
+  let state: TableState = startHand(table);
 
   // One long-lived stream so villain decisions stay deterministic across a session.
   const aiRng = mulberry32(opts.seed ^ 0x5eed);
