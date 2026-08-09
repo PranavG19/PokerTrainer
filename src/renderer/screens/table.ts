@@ -72,12 +72,15 @@ export function renderTable(opts: {
   const coach = renderCoachPanel();
   root.appendChild(coach);
 
-  const stats = renderStatsSheet();
-  root.appendChild(stats);
-
+  // Controls come before the stats sheet: at 760px tall the sheet would otherwise push the
+  // action pills below the fold, leaving a player with no visible way to act.
   const controls = document.createElement('div');
   controls.className = 'controls';
   root.appendChild(controls);
+
+  const stats = renderStatsSheet();
+  toggleStatsSheet(stats, false);
+  root.appendChild(stats);
 
   // ── mutable hand state ─────────────────────────────────────────────
   let state: TableState = startHand(
