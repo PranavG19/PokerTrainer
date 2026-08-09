@@ -44,6 +44,12 @@ interface HiddenState {
   _seed: number;
   _startStacks: number[];
   _streetActed: boolean[]; // who has acted this street (for round-closure)
+  /**
+   * Seats barred from raising because an all-in lifted currentBet without being a full
+   * raise. They already matched the previous bet, so the action was never reopened for
+   * them: they may only call the difference or fold.
+   */
+  _raiseCapped: boolean[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -133,6 +139,7 @@ export function createTable(opts: {
   h(state)._seed = opts.seed;
   h(state)._startStacks = seats.map((s) => s.stack);
   h(state)._streetActed = seats.map(() => false);
+  h(state)._raiseCapped = seats.map(() => false);
 
   return state;
 }
@@ -225,6 +232,7 @@ export function startHand(state: TableState): TableState {
 
   // Reset street-acted tracker
   h(s)._streetActed = s.seats.map(() => false);
+  h(s)._raiseCapped = s.seats.map(() => false);
 
   // If nobody can act (all all-in from blinds), advance immediately
   if (canActCount(s.seats) === 0) {
@@ -241,6 +249,7 @@ export function legalActions(state: TableState): ActionKind[] {
 
   const actions: ActionKind[] = ['fold'];
   const toCall = state.currentBet - seat.committed;
+  const capped = h(state)._raiseCapped?.[seat.id] === true;
 
   if (toCall <= 0) {
     actions.push('check');
@@ -276,7 +285,9 @@ export function legalActions(state: TableState): ActionKind[] {
       const minTotal = minRaiseTo(state);
       const costToMinRaise = minTotal - seat.committed;
       if (seat.stack > toCall) {
-        if (seat.stack < costToMinRaise) {
+        if (capped) {
+          // Betting was not reopened for this seat by the short all-in: call or fold only.
+        } else if (seat.stack < costToMinRaise) {
           // Not enough for a full min raise, but more than call → can all-in
           actions.push('allin');
         } else {
@@ -361,16 +372,20 @@ export function applyAction(state: TableState, action: Action): TableState {
 
       if (allInTotal > s.currentBet) {
         const raiseIncrement = allInTotal - s.currentBet;
-        if (raiseIncrement >= s.minRaise) {
+        const isFullRaise = raiseIncrement >= s.minRaise;
+        if (isFullRaise) {
           s.minRaise = raiseIncrement;
           s.lastAggressor = seatIdx;
+        } else {
+          // An all-in short of a full raise lifts the bet but does not reopen the betting:
+          // anyone who already matched the old bet may only call the difference or fold.
+          for (const other of s.seats) {
+            if (other.id !== seatIdx && !other.folded && h(s)._streetActed[other.id]) {
+              h(s)._raiseCapped[other.id] = true;
+            }
+          }
         }
-        // Even if not a full raise, it reopens action only if it IS a full raise
-        // For under-raise all-in, action is NOT reopened
         s.currentBet = allInTotal;
-        if (raiseIncrement >= s.minRaise || s.lastAggressor === null) {
-          s.lastAggressor = seatIdx;
-        }
       }
       seat.committed = allInTotal;
       s.log.push(`${seat.name} all-in ${allInTotal}`);
@@ -388,7 +403,7 @@ export function applyAction(state: TableState, action: Action): TableState {
   }
 
   // Determine if betting round is complete
-  if (isRoundComplete(s, seatIdx)) {
+  if (isRoundComplete(s)) {
     advanceStreet(s);
   } else {
     // Advance toAct to next player who can act
@@ -398,7 +413,7 @@ export function applyAction(state: TableState, action: Action): TableState {
   return s;
 }
 
-function isRoundComplete(state: TableState, justActed: number): boolean {
+function isRoundComplete(state: TableState): boolean {
   const active = state.seats.filter((s) => !s.folded && !s.allIn);
 
   // If no one can act, round is over
@@ -407,17 +422,13 @@ function isRoundComplete(state: TableState, justActed: number): boolean {
   // All active must have matched the current bet
   if (active.some((s) => s.committed < state.currentBet)) return false;
 
-  // Everyone has matched. Has everyone had a turn?
-  if (state.lastAggressor !== null) {
-    // Round ends when action would return to the aggressor
-    const nextPlayer = nextCanAct(state.seats, justActed);
-    return nextPlayer === state.lastAggressor;
-  }
-
-  // No aggressor (checks only, or preflop no raise above BB)
-  // Round ends when everyone who can act has acted
-  const allActed = active.every((s) => h(state)._streetActed[s.id]);
-  return allActed;
+  // Everyone has matched, so the round ends once everyone who can act has had a
+  // turn. A raise is already covered by the matched check above: it leaves the
+  // others short of currentBet, which is what owes them a fresh turn. Comparing
+  // against lastAggressor instead breaks when the aggressor is all-in (action can
+  // never return to a seat that cannot act) and when an all-in for less lifts
+  // currentBet without reopening the betting.
+  return active.every((s) => h(state)._streetActed[s.id]);
 }
 
 function advanceStreet(state: TableState): void {
@@ -429,6 +440,7 @@ function advanceStreet(state: TableState): void {
   state.minRaise = state.bb;
   state.lastAggressor = null;
   h(state)._streetActed = state.seats.map(() => false);
+  h(state)._raiseCapped = state.seats.map(() => false);
 
   const streetOrder: Street[] = ['preflop', 'flop', 'turn', 'river', 'showdown'];
   const idx = streetOrder.indexOf(state.street);
