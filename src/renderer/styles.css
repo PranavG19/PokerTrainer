@@ -507,3 +507,59 @@ body {
 .table-screen .board-wrap {
   min-height: 72px;
 }
+
+/*
+ * Fit the table into the documented 900x640 minimum (SPEC.md). The pre-tightening stack measured
+ * 694px of content — a scrollbar at the app's own minimum size, with the win% readout cut off.
+ * Trimmed from the vertical slack (chrome padding, seat pods, hero row) rather than the controls,
+ * which must stay reachable. Height budget at 900x640, coach panel visible: ~600px.
+ */
+.tabs {
+  padding: 8px 20px;
+}
+
+.tab {
+  padding: 6px 14px;
+}
+
+.screen {
+  padding: 10px 20px;
+}
+
+.table-screen {
+  gap: 8px;
+}
+
+.table-screen .seats {
+  gap: 8px;
+}
+
+.table-screen .seat {
+  padding: 6px;
+  gap: 3px;
+}
+
+.table-screen .seat-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+
+.table-screen .table-centre {
+  gap: 6px;
+}
+
+.table-screen .controls {
+  padding-top: 0;
+  gap: 6px;
+}
+
+.table-screen .pill {
+  padding: 8px 14px;
+}
+
+/* The collapsed sheet only needs to show the win%/tie headline. */
+.table-screen .stats-sheet {
+  padding: 10px 16px;
+  gap: 8px;
+}
