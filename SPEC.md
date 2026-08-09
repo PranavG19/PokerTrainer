@@ -10,7 +10,7 @@ Local-only Electron Texas Hold'em with a teaching layer. Minimal, dark, Offsuit-
 | Stack | **Electron + vanilla TS + Vite**, no React | "Super simple." A 6-max table is ~10 components; React earns nothing here and adds build surface. |
 | Renderer | **DOM + CSS**, no canvas | Cards are rounded rects with text. DOM is inspectable by Playwright → agent-testable. Canvas would be opaque to tests. |
 | Hand evaluation | **Own evaluator** (7-card, ranked) | Zero deps, fully unit-testable, no license question. `pokersolver` exists but a 5-of-7 evaluator is ~120 lines and we must test it anyway. |
-| Equity / win% | **Monte Carlo in a worker**, 2000 iters | Matches Offsuit's "Win 71%" sheet. Exact enumeration is too slow for preflop; 2000 iters gives ±1%. |
+| Equity / win% | **Monte Carlo on the main thread** | Matches Offsuit's "Win 71%" sheet. Exact enumeration is too slow for preflop. Measured cost: 13ms at the stats sheet's 800 iters, 20ms at 2000, 8ms postflop — under the 50ms input-blocking threshold, and a long-task observer recorded none, so the originally-planned worker would add build surface and message plumbing for no gain. The AI uses 300 iters because it runs on every villain turn. |
 | Persistence | **JSON file in `app.getPath('userData')`** | No cloud, no DB, no network. Survives restart. Trivially assertable in tests. |
 | AI | **3 rule-based archetypes** (nit / TAG / station) | Needed for the teaching layer's exploitation ladder — the student must have someone to read. Deterministic given a seed → testable. |
 | RNG | **Seeded PRNG (mulberry32)**, seed injectable via `--seed` | The single most important testability decision. Deterministic deals = e2e assertions on exact hands. |
