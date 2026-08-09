@@ -1,0 +1,243 @@
+/* Home (R8) and Profile (R9) screens. Palette comes from styles.css — no new colors. */
+
+/* ─── Home ─── */
+.home-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  padding: 56px 40px 40px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.home-bankroll {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.home-bankroll .bankroll {
+  font-size: 64px;
+  letter-spacing: -2px;
+}
+
+.session-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 20px;
+  border: none;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text-hi);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.session-card:hover {
+  background: var(--surface-hi);
+}
+
+.session-card-title {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.session-card-meta {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.home-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hand-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.hand-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  background: transparent;
+  color: var(--text-hi);
+  font: inherit;
+  text-align: left;
+}
+
+button.hand-row {
+  cursor: pointer;
+}
+
+.hand-number {
+  font-size: 13px;
+  color: var(--text-lo);
+  min-width: 40px;
+}
+
+.hand-cards {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.hand-net {
+  font-size: 17px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.net-up {
+  color: var(--mint);
+}
+
+.net-down {
+  color: var(--red);
+}
+
+.empty-state {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty-state-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-hi);
+}
+
+.empty-state-body {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.5;
+}
+
+/* ─── Profile ─── */
+.profile-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 56px 40px 40px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.graph-wrap {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-graph {
+  width: 100%;
+  height: 120px;
+  display: block;
+}
+
+.session-graph-line {
+  fill: none;
+  stroke: var(--mint);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-caption {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.leak-list {
+  list-style: none;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 4px 16px;
+}
+
+.leak-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.leak-principle {
+  font-size: 14px;
+  color: var(--text-hi);
+  min-width: 120px;
+}
+
+.leak-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+
+.leak-bar {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--red);
+}
+
+.leak-count {
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+  min-width: 20px;
+  text-align: right;
+}
+
+.leak-empty {
+  list-style: none;
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--text-lo);
+}
+
+.counter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 20px 16px;
+}
+
+.counter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.counter .stat-value {
+  font-size: 20px;
+}

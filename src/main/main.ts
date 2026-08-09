@@ -23,7 +23,8 @@ function createWindow(): void {
     titleBarStyle: 'hiddenInset',
     show: false,
     webPreferences: {
-      preload: path.join(import.meta.dirname, 'preload.js'),
+      // .cjs: Electron's sandboxed preload requires CommonJS, but the package is "type": "module".
+      preload: path.join(import.meta.dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },

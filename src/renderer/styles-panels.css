@@ -1,0 +1,94 @@
+/* ─── Stats sheet (R5) ─── */
+.stats-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px 24px;
+}
+
+.stats-header {
+  display: flex;
+  align-items: baseline;
+  gap: 32px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.stats-win-value {
+  font-size: 48px;
+  font-weight: 300;
+  line-height: 1.1;
+  color: var(--mint);
+}
+
+.stats-tie .stat-value {
+  line-height: 1.1;
+}
+
+/* Collapsed: the win% headline stays, the category breakdown folds away. */
+.stats-sheet[data-open='false'] .stats-body {
+  display: none;
+}
+
+.stats-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stats-cat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-cat-pct {
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--text-hi);
+}
+
+/* ─── Coach panel (R6) ─── */
+/* Silence rule: severity 'free' leaves the panel hidden with an empty message element. */
+.coach {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px 18px;
+  border-left: 3px solid var(--text-lo);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coach[hidden] {
+  display: none;
+}
+
+.coach[data-severity='notable'] {
+  border-left-color: var(--chip-blind);
+}
+
+.coach[data-severity='serious'] {
+  border-left-color: var(--red);
+}
+
+.coach-message {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-hi);
+}
+
+.coach[data-severity='serious'] .coach-message {
+  color: var(--red);
+}
+
+.coach-principle {
+  font-size: 12px;
+  color: var(--text-lo);
+}

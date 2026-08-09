@@ -1,0 +1,419 @@
+import type { Card } from '../../core/cards.js';
+import type { Action, ActionKind, Seat, TableState } from '../../core/table.js';
+import {
+  applyAction,
+  createTable,
+  isHandOver,
+  legalActions,
+  maxRaiseTo,
+  minRaiseTo,
+  settle,
+  startHand,
+} from '../../core/table.js';
+import type { Grade } from '../../core/coach.js';
+import { gradeDecision } from '../../core/coach.js';
+import { ARCHETYPES, archetypeForSeat, decideAction } from '../../core/ai.js';
+import { mulberry32 } from '../../core/rng.js';
+import type { GradeRecord, HandRecord } from '../../core/session.js';
+import { renderCard, renderCardRow } from '../components/card.js';
+import { renderCoachPanel, showGrade, clearCoach } from '../components/coachPanel.js';
+import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
+
+const SB = 25;
+const BB = 50;
+const START_STACK = 5000;
+const AI_DELAY_MS = 450;
+
+/** Villains sit at 1..3 so archetypeForSeat gives one nit, one tag, one station. */
+const SEAT_NAMES = ['You', 'Ada', 'Bo', 'Cy'];
+
+export interface TableHandle {
+  root: HTMLElement;
+  destroy: () => void;
+}
+
+export function renderTable(opts: {
+  seed: number;
+  bankroll: number;
+  handNumber: number;
+  onHandComplete: (record: HandRecord) => void;
+}): TableHandle {
+  const root = document.createElement('div');
+  root.className = 'table-screen';
+  root.dataset.testid = 'table-screen';
+
+  const seatsWrap = document.createElement('div');
+  seatsWrap.className = 'seats';
+  root.appendChild(seatsWrap);
+
+  const centre = document.createElement('div');
+  centre.className = 'table-centre';
+  root.appendChild(centre);
+
+  const potEl = document.createElement('div');
+  potEl.className = 'pot';
+  potEl.dataset.testid = 'pot';
+  centre.appendChild(potEl);
+
+  const boardWrap = document.createElement('div');
+  boardWrap.dataset.testid = 'board';
+  boardWrap.className = 'board-wrap';
+  centre.appendChild(boardWrap);
+
+  const heroWrap = document.createElement('div');
+  heroWrap.className = 'hero-wrap';
+  root.appendChild(heroWrap);
+
+  const heroCards = document.createElement('div');
+  heroCards.className = 'hero-cards';
+  heroCards.dataset.testid = 'hero-cards';
+  heroWrap.appendChild(heroCards);
+
+  const coach = renderCoachPanel();
+  root.appendChild(coach);
+
+  const stats = renderStatsSheet();
+  root.appendChild(stats);
+
+  const controls = document.createElement('div');
+  controls.className = 'controls';
+  root.appendChild(controls);
+
+  // ── mutable hand state ─────────────────────────────────────────────
+  let state: TableState = startHand(
+    createTable({
+      seats: SEAT_NAMES.map((name, i) => ({
+        name,
+        stack: START_STACK,
+        isHero: i === 0,
+        avatar: name[0],
+      })),
+      sb: SB,
+      bb: BB,
+      seed: opts.seed,
+    }),
+  );
+
+  // One long-lived stream so villain decisions stay deterministic across a session.
+  const aiRng = mulberry32(opts.seed ^ 0x5eed);
+  let grades: GradeRecord[] = [];
+  let heroVpip = false;
+  let heroPfr = false;
+  let heroStartStack = state.seats[0].stack + state.seats[0].committed;
+  let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  let settled = false;
+
+  const heroSeat = (): Seat => state.seats[0];
+
+  function setAwaiting(v: 'hero' | 'ai' | 'handover'): void {
+    root.dataset.awaiting = v;
+  }
+
+  function recordHeroGrade(chosen: ActionKind, betSize?: number): void {
+    const hero = heroSeat();
+    const toCall = Math.max(0, state.currentBet - hero.committed);
+    const opponents = state.seats.filter((s) => !s.folded && s.id !== hero.id).length;
+    const grade: Grade = gradeDecision({
+      hole: hero.hole,
+      board: state.board,
+      street: state.street,
+      pot: state.pot,
+      toCall,
+      stack: hero.stack,
+      bb: state.bb,
+      chosen,
+      betSize,
+      opponents: Math.max(1, opponents),
+      seed: opts.seed + state.handNumber,
+    });
+    showGrade(coach, grade);
+    if (grade.principle !== null) {
+      grades.push({
+        severity: grade.severity,
+        principle: grade.principle,
+        evLossBb: grade.evLossBb,
+      });
+    }
+  }
+
+  function finishHand(): void {
+    if (settled) return;
+    settled = true;
+    state = settle(state);
+    setAwaiting('handover');
+    render();
+
+    const hero = heroSeat();
+    opts.onHandComplete({
+      handNumber: state.handNumber,
+      hole: hero.hole,
+      board: state.board,
+      net: hero.stack - heroStartStack,
+      vpip: heroVpip,
+      pfr: heroPfr,
+      grades,
+    });
+  }
+
+  function advance(): void {
+    if (isHandOver(state)) {
+      finishHand();
+      return;
+    }
+    if (state.toAct === 0) {
+      setAwaiting('hero');
+      render();
+      return;
+    }
+    setAwaiting('ai');
+    render();
+    pendingTimer = setTimeout(() => {
+      pendingTimer = null;
+      // decideAction throws if it is not this seat's turn; advance() guarantees it is.
+      const action = decideAction(state, state.toAct, aiRng);
+      state = applyAction(state, action);
+      advance();
+    }, AI_DELAY_MS);
+  }
+
+  function heroAct(action: Action): void {
+    if (state.toAct !== 0 || settled) return;
+    if (!legalActions(state).includes(action.kind)) return;
+
+    if (state.street === 'preflop') {
+      const hero = heroSeat();
+      const voluntary = action.kind === 'call' || action.kind === 'raise' || action.kind === 'bet' || action.kind === 'allin';
+      // The big blind's forced post is not voluntary; only extra chips count as VPIP.
+      if (voluntary && hero.committed <= state.bb) heroVpip = true;
+      if (action.kind === 'raise' || action.kind === 'bet') heroPfr = true;
+    }
+
+    recordHeroGrade(action.kind, action.amount);
+    state = applyAction(state, action);
+    advance();
+  }
+
+  function nextHand(): void {
+    if (pendingTimer !== null) clearTimeout(pendingTimer);
+    grades = [];
+    heroVpip = false;
+    heroPfr = false;
+    settled = false;
+    clearCoach(coach);
+    state = startHand(state);
+    heroStartStack = state.seats[0].stack + state.seats[0].committed;
+    advance();
+  }
+
+  // ── rendering ──────────────────────────────────────────────────────
+  function render(): void {
+    potEl.textContent = `Pot ${state.pot}`;
+
+    boardWrap.replaceChildren(renderCardRow(state.board));
+
+    const hero = heroSeat();
+    heroCards.replaceChildren(
+      ...hero.hole.map((c: Card) => renderCard(c)),
+    );
+
+    const showdown = state.winners !== null;
+    seatsWrap.replaceChildren(
+      ...state.seats.map((seat) => renderSeat(seat, state, showdown)),
+    );
+
+    updateStatsSheet(stats, {
+      hole: hero.hole,
+      board: state.board,
+      opponents: Math.max(1, state.seats.filter((s) => !s.folded && s.id !== 0).length),
+      seed: opts.seed + state.handNumber,
+    });
+
+    renderControls();
+  }
+
+  function renderControls(): void {
+    controls.replaceChildren();
+
+    if (state.winners !== null) {
+      const summary = document.createElement('div');
+      summary.className = 'winner-summary';
+      summary.dataset.testid = 'winner-summary';
+      summary.textContent = state.winners
+        .map((w) => `${state.seats[w.seatId].name} wins ${w.amount} (${w.description})`)
+        .join(' · ');
+      controls.appendChild(summary);
+
+      const next = pill('Next hand', 'next-hand', () => nextHand());
+      controls.appendChild(next);
+      return;
+    }
+
+    const legal = legalActions(state);
+    const heroTurn = state.toAct === 0;
+    const hero = heroSeat();
+    const toCall = Math.max(0, state.currentBet - hero.committed);
+
+    const fold = pill('Fold', 'btn-fold', () => heroAct({ kind: 'fold' }));
+    fold.disabled = !heroTurn || !legal.includes('fold');
+    controls.appendChild(fold);
+
+    const check = pill('Check', 'btn-check', () => heroAct({ kind: 'check' }));
+    check.disabled = !heroTurn || !legal.includes('check');
+    controls.appendChild(check);
+
+    const call = pill(toCall > 0 ? `Call ${toCall}` : 'Call', 'btn-call', () =>
+      heroAct({ kind: legal.includes('call') ? 'call' : 'allin' }),
+    );
+    call.disabled = !heroTurn || !(legal.includes('call') || legal.includes('allin'));
+    controls.appendChild(call);
+
+    const canRaise = legal.includes('raise') || legal.includes('bet');
+    const min = canRaise ? minRaiseTo(state) : 0;
+    const max = canRaise ? maxRaiseTo(state) : 0;
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.dataset.testid = 'raise-slider';
+    slider.className = 'raise-slider';
+    slider.min = String(min);
+    slider.max = String(max);
+    slider.value = String(min);
+    slider.disabled = !heroTurn || !canRaise || max <= min;
+    controls.appendChild(slider);
+
+    const amountLabel = document.createElement('span');
+    amountLabel.className = 'raise-amount';
+    amountLabel.dataset.testid = 'raise-amount';
+    amountLabel.textContent = String(min);
+    slider.addEventListener('input', () => {
+      amountLabel.textContent = slider.value;
+    });
+    controls.appendChild(amountLabel);
+
+    const setPreset = (fraction: number): void => {
+      const target = fraction === Infinity ? max : clamp(Math.round(state.pot * fraction), min, max);
+      slider.value = String(target);
+      amountLabel.textContent = slider.value;
+    };
+
+    const presets: [string, string, number][] = [
+      ['½', 'preset-half', 0.5],
+      ['¾', 'preset-threequarter', 0.75],
+      ['Pot', 'preset-pot', 1],
+      ['All-in', 'preset-allin', Infinity],
+    ];
+    for (const [label, testid, fraction] of presets) {
+      const b = pill(label, testid, () => setPreset(fraction));
+      b.disabled = !heroTurn || !canRaise;
+      controls.appendChild(b);
+    }
+
+    const raise = pill('Raise', 'btn-raise', () => {
+      const amount = clamp(parseInt(slider.value, 10) || min, min, max);
+      heroAct({ kind: legal.includes('raise') ? 'raise' : 'bet', amount });
+    });
+    raise.disabled = !heroTurn || !canRaise;
+    controls.appendChild(raise);
+
+    const statsToggle = pill('Stats', 'stats-toggle', () => toggleStatsSheet(stats));
+    controls.appendChild(statsToggle);
+  }
+
+  // ── keyboard (R3) ──────────────────────────────────────────────────
+  function onKey(e: KeyboardEvent): void {
+    if (state.toAct !== 0 || state.winners !== null) return;
+    const legal = legalActions(state);
+    const key = e.key.toLowerCase();
+    if (key === 'f' && legal.includes('fold')) heroAct({ kind: 'fold' });
+    else if (key === 'c') {
+      if (legal.includes('check')) heroAct({ kind: 'check' });
+      else if (legal.includes('call')) heroAct({ kind: 'call' });
+    } else if (key === 'r' && (legal.includes('raise') || legal.includes('bet'))) {
+      heroAct({ kind: legal.includes('raise') ? 'raise' : 'bet', amount: minRaiseTo(state) });
+    } else if (key === 'a' && legal.includes('allin')) heroAct({ kind: 'allin' });
+  }
+  window.addEventListener('keydown', onKey);
+
+  advance();
+
+  return {
+    root,
+    destroy: () => {
+      if (pendingTimer !== null) clearTimeout(pendingTimer);
+      window.removeEventListener('keydown', onKey);
+    },
+  };
+}
+
+function renderSeat(seat: Seat, state: TableState, showdown: boolean): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'seat';
+  el.dataset.testid = 'seat';
+  el.dataset.seatId = String(seat.id);
+  if (seat.folded) el.dataset.folded = 'true';
+  if (seat.allIn) el.dataset.allin = 'true';
+  if (state.toAct === seat.id && state.winners === null) el.dataset.toAct = 'true';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'seat-avatar';
+  avatar.textContent = seat.avatar;
+  el.appendChild(avatar);
+
+  const name = document.createElement('div');
+  name.className = 'seat-name';
+  name.textContent = seat.name;
+  el.appendChild(name);
+
+  if (!seat.isHero) {
+    const archetype = archetypeForSeat(seat.id);
+    const tag = document.createElement('div');
+    tag.className = 'seat-archetype';
+    tag.dataset.testid = 'seat-archetype';
+    tag.textContent = ARCHETYPES[archetype].label;
+    tag.title = ARCHETYPES[archetype].description;
+    el.appendChild(tag);
+  }
+
+  const stack = document.createElement('div');
+  stack.className = 'seat-stack';
+  stack.dataset.testid = 'seat-stack';
+  stack.textContent = String(seat.stack);
+  el.appendChild(stack);
+
+  // Villain cards stay face-down until showdown; the hero always sees their own.
+  if (seat.hole.length > 0) {
+    const faceDown = !seat.isHero && !(showdown && !seat.folded);
+    el.appendChild(renderCardRow(seat.hole, { faceDown, small: true }));
+  }
+
+  if (seat.committed > 0) {
+    const chips = document.createElement('div');
+    chips.className = 'seat-committed';
+    chips.dataset.testid = 'seat-committed';
+    chips.textContent = String(seat.committed);
+    el.appendChild(chips);
+  }
+
+  if (state.dealer === seat.id) {
+    const btn = document.createElement('div');
+    btn.className = 'dealer-button';
+    btn.dataset.testid = 'dealer-button';
+    btn.textContent = 'D';
+    el.appendChild(btn);
+  }
+
+  return el;
+}
+
+function pill(label: string, testid: string, onClick: () => void): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.className = 'pill';
+  b.dataset.testid = testid;
+  b.textContent = label;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, n));
+}
