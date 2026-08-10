@@ -51,6 +51,14 @@ interface Viewport {
   scrollX: number;
   scrollY: number;
   scrollHeight: number;
+  /**
+   * BOTH AXES, because for a long time this file measured only height and a real overflow shipped
+   * behind that gap: the tab bar outgrew the documented 900px minimum when the eleventh tab landed —
+   * twelve labels needed 968px of bar in a 900px window, so Settings sat off screen — and it stayed
+   * green through the whole suite because nothing here read scrollWidth. Width is now part of the
+   * shared reading, so every test in this file gets the assertion for free.
+   */
+  scrollWidth: number;
 }
 
 interface Geometry {
@@ -102,6 +110,7 @@ async function readGeometry(page: Page, testIds: readonly string[]): Promise<Geo
         scrollX: window.scrollX,
         scrollY: window.scrollY,
         scrollHeight: document.documentElement.scrollHeight,
+        scrollWidth: document.documentElement.scrollWidth,
       },
       boxes,
     };
@@ -283,6 +292,10 @@ test.describe('layout', () => {
         viewport.scrollHeight,
         `content is ${viewport.scrollHeight}px tall in a ${viewport.innerHeight}px viewport — a scrollbar means the table overflowed`,
       ).toBeLessThanOrEqual(viewport.innerHeight + 1);
+      expect(
+        viewport.scrollWidth,
+        `content is ${viewport.scrollWidth}px wide in a ${viewport.innerWidth}px viewport`,
+      ).toBeLessThanOrEqual(viewport.innerWidth + 1);
     });
   });
 
@@ -300,6 +313,54 @@ test.describe('layout', () => {
         viewport.scrollHeight,
         `content is ${viewport.scrollHeight}px tall in a ${viewport.innerHeight}px viewport — a scrollbar means the table overflowed`,
       ).toBeLessThanOrEqual(viewport.innerHeight + 1);
+      expect(
+        viewport.scrollWidth,
+        `content is ${viewport.scrollWidth}px wide in a ${viewport.innerWidth}px viewport`,
+      ).toBeLessThanOrEqual(viewport.innerWidth + 1);
+    });
+  });
+
+  /**
+   * THE TAB BAR, MEASURED AS A WHOLE, at the documented minimum.
+   *
+   * This is the one piece of chrome that grows every time a feature ships, and no individual
+   * feature's tests own it — which is how it came to overflow. Measured at the twelfth tab: 840px of
+   * label boxes plus 88px of gap plus 40px of bar padding = 968px in a 900px window, with the last
+   * tab ending at 948px. Every other layout test in the app passed throughout.
+   *
+   * So the assertion is on the LAST TAB'S RIGHT EDGE rather than on the document width. A document
+   * assertion can be satisfied by a bar that clips or scrolls internally while a tab is still
+   * unreachable; the right edge is the fact that matters, because a tab you cannot see is a tab you
+   * cannot click, and N1 forbids the surface being locked away.
+   */
+  test('3c. every tab is reachable at the documented minimum 900x640', async () => {
+    await withTable(async ({ app, page }) => {
+      await useViewport(app, page, MIN_WIDTH, MIN_HEIGHT);
+      const bar = await page.evaluate(() => {
+        const tabs = Array.from(document.querySelectorAll('.tab')) as HTMLElement[];
+        const rects = tabs.map((tab) => tab.getBoundingClientRect());
+        return {
+          count: tabs.length,
+          labels: tabs.map((tab) => tab.textContent ?? ''),
+          rightmost: Math.max(...rects.map((r) => r.right)),
+          bottommost: Math.max(...rects.map((r) => r.bottom)),
+          offscreen: tabs
+            .filter((_, i) => rects[i].right > window.innerWidth + 1)
+            .map((tab) => tab.textContent ?? ''),
+        };
+      });
+
+      // A sanity floor: if the bar ever renders no tabs the assertions below would pass vacuously.
+      expect(bar.count, 'no tabs rendered, so this test proves nothing').toBeGreaterThanOrEqual(10);
+      expect(
+        bar.offscreen,
+        `${bar.offscreen.length} of ${bar.count} tabs extend past the ${MIN_WIDTH}px viewport (rightmost edge ${Math.round(bar.rightmost)}px): ${bar.offscreen.join(', ')}`,
+      ).toEqual([]);
+      // And the bar must not have solved it by growing downward into the screen's budget.
+      expect(
+        bar.bottommost,
+        `the tab bar is ${Math.round(bar.bottommost)}px tall, which it takes out of every screen below it`,
+      ).toBeLessThanOrEqual(52);
     });
   });
 
