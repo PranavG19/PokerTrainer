@@ -136,8 +136,21 @@ describe('T7 — the five rungs and their order', () => {
     expect(state.rung).toBe(0);
   });
 
+  /**
+   * TEN FADES, NOT NINE, AND THE COUNT IS THE ENTIRE TEST. With 9 this assertion could not detect the
+   * property in its own title: 9 fades from rung 0 land on rung 4 whether the ladder saturates or
+   * WRAPS, because 9 mod 5 === 4. An adversarial pass made `fadedRung` wrap (`rung === 4 ? 0 : rung + 1`)
+   * and all 38 tests stayed green.
+   *
+   * 10 separates them: saturating stays at 4, wrapping returns to 0. Only multiples of 5 (and counts
+   * whose residue is not 4) can tell the two readings apart, so the fixture size is load-bearing rather
+   * than arbitrary — hence the extra assertion below, which fails loudly if someone "tidies" the count
+   * back to a value that cannot discriminate.
+   */
   it('fading saturates at batched self-marked review rather than wrapping', () => {
-    const state = deriveState(CONCEPT, Array.from({ length: 9 }, () => faded()));
+    const fades = 10;
+    expect(fades % 5, 'a fade count whose residue is 4 cannot distinguish saturating from wrapping').not.toBe(4);
+    const state = deriveState(CONCEPT, Array.from({ length: fades }, () => faded()));
     expect(state.rung).toBe(4);
   });
 });
@@ -164,9 +177,16 @@ describe('T6 — hints are priced, and the price is shown before the answer', ()
 
   it('rejects a hint event whose quoted price does not match the price charged', () => {
     const before = atRung(3);
-    expect(() =>
-      applyEvent(before, { kind: 'hintRequested', conceptId: CONCEPT, at: T0, quotedRungAfter: 3 }),
-    ).toThrow(/price shown before the answer/);
+    // droppedRung(3) === 2, so the honest quote is 2. Both a too-HIGH and a too-LOW quote must throw:
+    // an `!==` check is symmetric, and a one-sided `>` or `<` mutation silently accepts the other
+    // direction — a hint shown at a price that is not the price charged, which is the exact clause the
+    // throw makes structural. Quoted-too-high (3) says the answer costs more support than it does;
+    // quoted-too-low (1) hides part of the cost, which is the worse of the two for story 22.
+    for (const quotedRungAfter of [3, 1] as const) {
+      expect(() =>
+        applyEvent(before, { kind: 'hintRequested', conceptId: CONCEPT, at: T0, quotedRungAfter }),
+      ).toThrow(/price shown before the answer/);
+    }
     // And the mismatch is caught rather than silently charged.
     expect(before.rung).toBe(3);
   });
@@ -267,6 +287,28 @@ describe('T6 — hints are priced, and the price is shown before the answer', ()
     const sixMore = [...threeMore, graded(true), graded(true), graded(true)];
     expect(deriveState(CONCEPT, sixMore).rung).toBe(4);
     expect(deriveState(CONCEPT, sixMore).hintDebt).toBe(0);
+  });
+
+  it('applies the repayment before the accuracy drop when a single attempt triggers both', () => {
+    // applyGraded runs repayHintDebt then applyAccuracyRule. On an interior rung the two commute — a
+    // +1 repay and a -1 drop net to -1 in either order — which is why a naive swap survives every
+    // other test. They diverge only at the rung-4 BOUNDARY, where the repay's fadedRung SATURATES:
+    //   base is rung 4 with a hint outstanding (climb → hint → one more fade back up to 4, debt 1).
+    //   Then 7 wrong + 3 correct: the last correct both completes the 3-streak AND leaves the window
+    //   at 3/10 < 70%. Shipped (repay-first): repay saturates at rung 4, then the drop takes it to 3.
+    //   Swapped (drop-first): drop to 3, then repay climbs back to 4 — a different ladder position.
+    // Pinning rung 3 here is what makes the order load-bearing rather than incidental.
+    const climb: FadingEvent[] = Array.from({ length: 4 }, () => faded());
+    const s4 = deriveState(CONCEPT, climb);
+    const base = [...climb, hintAgainst(s4), faded()]; // rung 4, hintDebt 1
+    expect(deriveState(CONCEPT, base).rung).toBe(4);
+    expect(deriveState(CONCEPT, base).hintDebt).toBe(1);
+
+    const log = [...base, ...run(0, 7), ...run(3, 0)];
+    const state = deriveState(CONCEPT, log);
+    expect(state.rung).toBe(3);
+    expect(state.hintDebt).toBe(0);
+    expect(state.consecutiveCorrect).toBe(0);
   });
 
   it('a correct streak with no hint outstanding does not climb the ladder on its own', () => {
@@ -396,21 +438,56 @@ describe('per concept, never global — property 1', () => {
     expect(() => initialState('   ')).toThrow(/global level/);
   });
 
-  it('every exported function that moves a rung takes exactly one concept', async () => {
-    // The forbidden global level would need an entry point that accepts many concepts at once.
-    // Every mover here takes a single state or a single id, so "set difficulty to hard" has no
-    // signature to hide in. arity is the cheap structural proxy; the semantic guard is that
-    // deriveState's first parameter is one id and applyEvent's first is one state.
+  /**
+   * T7: "A GLOBAL DIFFICULTY LEVEL IS FORBIDDEN — it strips scaffolding from concepts never learned."
+   *
+   * ENFORCED STRUCTURALLY OVER EVERY EXPORT, NOT BY A NAME DENYLIST. The previous version of this test
+   * arity-checked five hand-listed functions and then grepped export NAMES against
+   * /global|difficulty|allConcepts|setRung|everyConcept/i. An adversarial pass defeated it in one line
+   * by adding an evasively-named mover:
+   *
+   *   export function bulkRungOverride(rung: Rung, states: readonly FadingState[]): FadingState[]
+   *
+   * which sets every concept's rung at once — exactly the forbidden global level — and passed, because
+   * the name matched no pattern and the function was not in the hand-written arity list. A denylist
+   * only catches vocabulary someone thought of in advance.
+   *
+   * The structural version: EVERY exported function is inspected, and none may accept an array or a
+   * Map. A global level needs a way to name many concepts at once; if no signature can express "these
+   * concepts", the level has nowhere to live. This catches an addition nobody remembered to list, which
+   * is the whole point.
+   *
+   * The one sanctioned array parameter is deriveState's LOG — a list of events, all addressed to the
+   * single concept named in its first parameter — so it is allowed by name and its shape is pinned
+   * separately by the per-concept isolation tests above.
+   */
+  it('no exported function can move more than one concept, whatever it is called', async () => {
     const fading = await import('../../src/core/fading.js');
+    const functions: [string, Function][] = Object.entries(fading).flatMap((entry) =>
+      typeof entry[1] === 'function' ? [[entry[0], entry[1] as Function]] : [],
+    );
+    expect(functions.length, 'no exports found, so this test would pass vacuously').toBeGreaterThan(4);
+
+    /** deriveState(conceptId, log) is the sanctioned exception: one concept, many of ITS events. */
+    const LOG_TAKERS = new Set(['deriveState']);
+
+    for (const [name, fn] of functions) {
+      const source = fn.toString();
+      // The parameter list only — a body may legitimately map over its own internal collections.
+      const params = source.slice(source.indexOf('(') + 1, source.indexOf(')'));
+      if (LOG_TAKERS.has(name)) continue;
+      expect(
+        /\[\]|Array|Map|Set|readonly |states|concepts/i.test(params),
+        `${name}(${params}) can address more than one concept, which is T7's forbidden global level`,
+      ).toBe(false);
+    }
+
+    // The named movers still keep their arity, so a silent widening of one of them also fails.
     expect(fading.deriveState.length).toBe(2);
     expect(fading.applyEvent.length).toBe(2);
     expect(fading.initialState.length).toBe(1);
     expect(fading.hintPrice.length).toBe(1);
     expect(fading.supportFor.length).toBe(1);
-
-    // And no export is named like a global control.
-    const forbidden = /global|difficulty|allConcepts|setRung|everyConcept/i;
-    expect(Object.keys(fading).filter((k) => forbidden.test(k))).toEqual([]);
   });
 });
 

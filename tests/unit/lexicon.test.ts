@@ -96,12 +96,83 @@ describe('L2 rejection — cached cells, and the boundary against a cited exampl
   });
 
   it.each([
-    'JTs plays better because it realises its equity in position',
-    '72o loses to every dominating hand in that calling range',
-    'AQo runs into the range asymmetry the big blind holds on low boards',
-  ])('accepts the mechanism %s despite naming a hand', (sentence) => {
-    const verdict = classifySentence(sentence);
-    expect(verdict.frame).not.toBeNull();
+    ['JTs plays better because it realises its equity in position', 'equity-realisation'],
+    ['72o loses to every dominating hand in that calling range', 'domination-risk'],
+    ['AQo runs into the range asymmetry the big blind holds on low boards', 'range-asymmetry'],
+  ])('accepts the mechanism %s despite naming a hand', (sentence, frame) => {
+    // WHICH framing, not merely "some framing": asserting only not-null let a classifier return the
+    // wrong frame for all three and still pass, and the frame is what makes the entry a mechanism
+    // sentence rather than a string.
+    expect(classifySentence(sentence)).toEqual({ frame });
+  });
+
+  /**
+   * CASE, WHICH IS WHERE L2's OWN CANONICAL BAD SENTENCE ESCAPED. The hand pattern was uppercase-only
+   * — deliberately, so that ordinary words like "at" are not read as hands — with the consequence that
+   * "k7s is a co open" matched no framing AND failed the hand test, so it was filed as
+   * `no-mechanism-frame` instead of `cached-cell`. That difference matters: a self-mark may adopt a
+   * no-mechanism-frame sentence, and L2 says a cached cell must be rejected outright. So the lowercase
+   * spelling of the spec's own example was acceptable to the module.
+   *
+   * The fix matches case-insensitively while excluding the five English words spelled entirely from
+   * rank letters (at, ta, ka, ja, aa, plus ats/tas with a suitedness letter). Both halves are asserted
+   * here, because a naive /i flag passes the first three cases and breaks the last two.
+   */
+  it.each(['k7s is a co open', 'K7S IS A CO OPEN', 'ajo is a fold from utg'])(
+    'rejects the cached cell %s whatever its case',
+    (sentence) => {
+      expect(classifySentence(sentence)).toEqual({ frame: null, reason: 'cached-cell' });
+    },
+  );
+
+  it.each([
+    ['worse at realising equity out of position', 'equity-realisation'],
+    ['k7s is dominated by the better sevens in a co calling range', 'domination-risk'],
+  ])('does not read an ordinary English word as a hand: %s', (sentence, frame) => {
+    // "at" is spelled A,T — both rank letters. Reading it as a hand would make this a cached cell and
+    // reject a perfectly good mechanism sentence, which is worse than the defect being fixed.
+    expect(classifySentence(sentence)).toEqual({ frame });
+  });
+
+  /**
+   * THE FIXTURES ABOVE CANNOT SEE THE EXCLUSION, and I only learned that by mutating it away: deleting
+   * ENGLISH_RANK_COLLISIONS entirely (`return matches.length > 0`) left all 46 tests green. The reason
+   * is `classifySentence`'s ORDER — the framing loop returns first, so a sentence good enough to name a
+   * mechanism never reaches the hand check at all. "at" is only ever consulted on the path where no
+   * framing matched.
+   *
+   * So the discriminating sentence has NO framing, an English rank-word, and a chart verdict. Without
+   * the exclusion each of these becomes `cached-cell`, and that is a behavioural difference, not a
+   * label: `no-mechanism-frame` is what a learner's self-mark may override (`selfMarkedFrame`), and
+   * `cached-cell` is the one reason L2 forbids overriding. Misfiling a vague sentence as a cached cell
+   * takes away the self-mark path the spec grants it.
+   */
+  it.each([
+    'it felt at best like a standard fold',
+    'I was not sure at all so I went with the fold',
+    'ta da, that has to be a fold',
+    'aa well, I just call there',
+  ])('an English rank-word plus a chart verdict is vague, not a cached cell: %s', (sentence) => {
+    expect(classifySentence(sentence)).toEqual({ frame: null, reason: 'no-mechanism-frame' });
+  });
+
+  it('and the difference is the self-mark, which is why the misfiling would matter', () => {
+    const lexicon = createLexicon();
+    const vague = lexicon.record({
+      conceptId: 'c',
+      sentence: 'it felt at best like a standard fold',
+      at: 1,
+      selfMarkedFrame: 'domination-risk',
+    });
+    expect(vague.outcome).toBe('accepted');
+    // The same self-mark on an actual cached cell is refused, so the two reasons are not interchangeable.
+    const cell = lexicon.record({
+      conceptId: 'c',
+      sentence: 'k7s is a co open',
+      at: 2,
+      selfMarkedFrame: 'domination-risk',
+    });
+    expect(cell.outcome).toBe('rejected');
   });
 
   it('rejects a sentence with no framing and no chart verdict as no-mechanism-frame', () => {
