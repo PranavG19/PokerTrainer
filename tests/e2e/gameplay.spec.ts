@@ -181,4 +181,28 @@ test.describe('gameplay', () => {
       await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
     });
   });
+
+  test('10. no win% is shown over a decided hand at showdown', async () => {
+    await withApp(42, async (page) => {
+      await sitDown(page);
+      await page.locator('[data-testid="stats-toggle"]').click();
+
+      // Mid-hand the readout is a real number...
+      await expect(page.locator(sel.winPct)).toHaveText(/^\d+%$/);
+
+      await playToShowdown(page);
+      await expect(page.locator('[data-testid="winner-summary"]')).toBeVisible();
+
+      // ...but at showdown the board is complete and the contesting hands are face-up, so the
+      // hero's chance of winning is 0 or 1. A Monte Carlo estimate over a settled hand ("96%" was
+      // shown beside "You wins 150") is simply false, and the winner summary already says who won.
+      const shown = await page.locator(sel.winPct).textContent();
+      expect(shown ?? '', `showdown showed "${shown}"`).not.toMatch(/\d/);
+
+      // The next hand is live again, so this is a suppression, not a permanent blank.
+      await page.locator('[data-testid="next-hand"]').click();
+      await waitForIdle(page);
+      await expect(page.locator(sel.winPct)).toHaveText(/^\d+%$/);
+    });
+  });
 });

@@ -577,3 +577,15 @@ body {
   padding: 10px 16px;
   gap: 8px;
 }
+
+/*
+ * At the documented 900x640 minimum an open stats sheet pushed the page to 725px, leaving the last
+ * of seven made-hand rows 65px below the fold — the teaching readout the coaching layer points at
+ * could not be fully opened at the app's own minimum size. Cap the category list and let IT scroll
+ * instead of the page, so the win% headline and the controls above stay put.
+ */
+.table-screen .stats-sheet[data-open='true'] .stats-body {
+  max-height: 68px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

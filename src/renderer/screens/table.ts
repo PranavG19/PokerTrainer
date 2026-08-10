@@ -319,8 +319,10 @@ export function renderTable(opts: {
     // hands the learner the answer before the action returns to them, and the gate does nothing.
     const withheld = coachedMode && !settled && committedPrediction(predict) === null;
     // A folded hero has no equity in the pot; showing a win% for a hand they are not contesting
-    // teaches the opposite of "your fold ended your claim on this pot".
-    const noStake = hero.folded;
+    // teaches the opposite of "your fold ended your claim on this pot". Same at showdown: the board
+    // is complete and the contesting hands are face-up, so the hero's chance is 0 or 1 and the
+    // winner summary already says which. A Monte Carlo "96%" over a decided hand is simply false.
+    const noStake = hero.folded || state.winners !== null;
     updateStatsSheet(stats, {
       hole: withheld || noStake ? [] : hero.hole,
       board: state.board,
