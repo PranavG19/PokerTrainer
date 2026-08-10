@@ -500,7 +500,11 @@ function renderSeat(seat: Seat, state: TableState, showdown: boolean): HTMLEleme
   el.className = 'seat';
   el.dataset.testid = 'seat';
   el.dataset.seatId = String(seat.id);
+  // Out of the game, not out of this hand: a chipless seat is folded and dealt no cards by
+  // startHand, so no cards plus no chips is the one state that only a sat-out seat can be in.
+  const sittingOut = seat.stack === 0 && seat.hole.length === 0;
   if (seat.folded) el.dataset.folded = 'true';
+  if (sittingOut) el.dataset.out = 'true';
   if (seat.allIn) el.dataset.allin = 'true';
   if (state.toAct === seat.id && state.winners === null) el.dataset.toAct = 'true';
 
@@ -529,6 +533,16 @@ function renderSeat(seat: Seat, state: TableState, showdown: boolean): HTMLEleme
   stack.dataset.testid = 'seat-stack';
   stack.textContent = String(seat.stack);
   el.appendChild(stack);
+
+  // In words, not just a dim: a stack reading 0 and the absence of hole cards are what a learner
+  // has to infer "out of the game" from otherwise, and both also describe a seat that merely folded.
+  if (sittingOut) {
+    const out = document.createElement('div');
+    out.className = 'seat-out';
+    out.dataset.testid = 'seat-out';
+    out.textContent = 'Out of chips';
+    el.appendChild(out);
+  }
 
   // Villain cards stay face-down until showdown; the hero always sees their own.
   if (seat.hole.length > 0) {

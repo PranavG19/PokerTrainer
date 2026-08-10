@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -33,6 +33,7 @@ const sessionGraph = '[data-testid="session-graph"]';
 const leakList = '[data-testid="leak-list"]';
 const leakRow = '[data-testid="leak-row"]';
 const leakCost = '[data-testid="leak-cost"]';
+const graphCaption = '[data-testid="graph-caption"]';
 
 interface FixtureHand {
   handNumber: number;
@@ -131,6 +132,105 @@ async function readLeakRows(page: Page): Promise<{ principle: string; cost: stri
       cost: row.querySelector<HTMLElement>('[data-testid="leak-cost"]')?.textContent ?? '',
     })),
   );
+}
+
+/** SPEC.md's documented window: "1100x760, non-resizable-min 900x640". */
+const DEFAULT_WIDTH = 1100;
+const DEFAULT_HEIGHT = 760;
+const MIN_WIDTH = 900;
+const MIN_HEIGHT = 640;
+
+/**
+ * Block until the profile screen's box stops changing, by polling the rect across animation frames.
+ * A resize is asynchronous (window metrics change, then Blink relayouts, then paints) and a fixed
+ * sleep would be either flaky or slow; two identical consecutive reads is the real signal.
+ */
+async function settleProfileLayout(page: Page): Promise<void> {
+  const settled = await page.evaluate(async () => {
+    const nextFrame = (): Promise<void> =>
+      new Promise((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    const read = (): string => {
+      const r = document.querySelector('[data-testid="profile-screen"]')?.getBoundingClientRect();
+      return r === undefined ? 'absent' : `${r.width}x${r.height}@${r.top}`;
+    };
+
+    let previous = read();
+    for (let i = 0; i < 180; i++) {
+      await nextFrame();
+      const current = read();
+      if (current === previous && current !== 'absent') return true;
+      previous = current;
+    }
+    return false;
+  });
+  expect(settled, 'profile layout never stopped changing').toBe(true);
+}
+
+/**
+ * Resize the real BrowserWindow, then pin the render viewport to the same numbers — the technique
+ * layout.spec.ts uses, and for the same reason: a tiling window manager on the host (this machine
+ * runs AeroSpace) retiles the window moments after it is shown, which makes setSize() cosmetic.
+ * Emulation.setDeviceMetricsOverride makes the geometry assertions describe the size SPEC.md
+ * documents regardless of the host WM.
+ */
+async function useViewport(
+  app: ElectronApplication,
+  page: Page,
+  width: number,
+  height: number,
+): Promise<void> {
+  await app.evaluate(async ({ BrowserWindow }, size: { width: number; height: number }) => {
+    BrowserWindow.getAllWindows()[0].setSize(size.width, size.height);
+  }, { width, height });
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width,
+    height,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+
+  await page.waitForFunction(
+    (want: { width: number; height: number }) =>
+      window.innerWidth === want.width && window.innerHeight === want.height,
+    { width, height },
+  );
+  await settleProfileLayout(page);
+}
+
+interface ProfileGeometry {
+  innerHeight: number;
+  scrollY: number;
+  scrollHeight: number;
+  /** Bottom edge of the Lifetime counter grid, viewport-relative. */
+  countersBottom: number;
+  counterRows: number;
+  leakRows: number;
+  leakListScrolls: boolean;
+  leakRowsInDom: number;
+}
+
+/** One evaluate call, so the viewport and every rect describe the same frame. */
+async function readProfileGeometry(page: Page): Promise<ProfileGeometry> {
+  return page.evaluate(() => {
+    const grid = document.querySelector('.counter-grid');
+    if (grid === null) throw new Error('counter-grid missing');
+    const list = document.querySelector('[data-testid="leak-list"]');
+    if (list === null) throw new Error('leak-list missing');
+    return {
+      innerHeight: window.innerHeight,
+      scrollY: window.scrollY,
+      scrollHeight: document.documentElement.scrollHeight,
+      countersBottom: grid.getBoundingClientRect().bottom,
+      counterRows: grid.querySelectorAll('.counter').length,
+      leakRows: list.querySelectorAll('[data-testid="leak-row"]').length,
+      leakListScrolls: list.scrollHeight > list.clientHeight,
+      leakRowsInDom: document.querySelectorAll('[data-testid="leak-row"]').length,
+    };
+  });
 }
 
 /** Every uncaught renderer exception. A screen that throws mid-render can still look fine. */
@@ -630,6 +730,189 @@ test.describe('R9 profile screen — session graph and counters', () => {
       expect(pfr).toBeGreaterThanOrEqual(0);
       expect(pfr).toBeLessThanOrEqual(100);
       expect(vpip).toBeGreaterThanOrEqual(pfr);
+    } finally {
+      await close();
+    }
+  });
+});
+
+test.describe('R9 profile screen — it fits the documented window sizes', () => {
+  /**
+   * A session busy enough to have a real diagnosis: six graded concepts. That is what a student who
+   * has played a few hundred hands sees, and it is the case that pushed the Lifetime grid off screen
+   * — measured bottom 1013px in a 760px viewport at the DEFAULT size (253px below the fold) and
+   * 1013px in a 640px viewport at the documented minimum. The player could not see their own
+   * lifetime totals, and nothing on screen said there was more.
+   */
+  const busyLeaks = {
+    bankroll: 7400,
+    hands: fixtureHands(6),
+    stats: {
+      handsPlayed: 240,
+      vpipHands: 62,
+      pfrHands: 31,
+      evLossBb: 61.2,
+      leaks: { 'value or bluff': 3, 'pot odds': 9, ranges: 4, position: 6, 'bet sizing': 2, 'fold equity': 5 },
+      leakCostBb: {
+        'value or bluff': 20.0,
+        'pot odds': 14.5,
+        ranges: 9.4,
+        position: 8.1,
+        'bet sizing': 5.2,
+        'fold equity': 4.0,
+      },
+    },
+  } as const satisfies Fixture;
+
+  for (const [width, height] of [
+    [DEFAULT_WIDTH, DEFAULT_HEIGHT],
+    [MIN_WIDTH, MIN_HEIGHT],
+  ] as const) {
+    test(`12. the lifetime counters are above the fold at ${width}x${height}`, async () => {
+      const userDataDir = seedSave(structuredClone(busyLeaks) as Fixture);
+      const { app, page, close } = await launchApp({ seed: 42, userDataDir });
+      try {
+        await page.waitForSelector(homeScreen);
+        await openProfile(page);
+        await useViewport(app, page, width, height);
+
+        const geo = await readProfileGeometry(page);
+        expect(geo.innerHeight).toBe(height);
+        // Rects are viewport-relative; a scrolled page would describe a view the player is not
+        // looking at when the screen opens.
+        expect(geo.scrollY, 'the profile screen was scrolled before measuring').toBe(0);
+
+        expect(
+          geo.countersBottom,
+          `the Lifetime counters end at ${geo.countersBottom.toFixed(1)}px in a ${height}px viewport — ${(geo.countersBottom - height).toFixed(1)}px below the fold`,
+        ).toBeLessThanOrEqual(height);
+        expect(
+          geo.scrollHeight,
+          `the profile content is ${geo.scrollHeight}px tall in a ${height}px viewport, so the page itself scrolls`,
+        ).toBeLessThanOrEqual(height + 1);
+
+        // Fixed by making the leak list scroll, not by deleting rows: every concept is still there.
+        expect(geo.leakRowsInDom, 'every leak row must still exist').toBe(6);
+        expect(geo.counterRows).toBe(4);
+        expect(geo.leakListScrolls, 'the leak list is what scrolls, not the page').toBe(true);
+      } finally {
+        await close();
+      }
+    });
+  }
+
+  /** The rows below the cap are reachable, not merely present in the DOM. */
+  test('13. the leak list scrolls to its last row at 900x640', async () => {
+    const userDataDir = seedSave(structuredClone(busyLeaks) as Fixture);
+    const { app, page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await openProfile(page);
+      await useViewport(app, page, MIN_WIDTH, MIN_HEIGHT);
+
+      const last = page.locator(leakRow).last();
+      await last.scrollIntoViewIfNeeded();
+      const reach = await page.evaluate(() => {
+        const list = document.querySelector('[data-testid="leak-list"]')!;
+        const row = [...document.querySelectorAll('[data-testid="leak-row"]')].at(-1)!;
+        const listBox = list.getBoundingClientRect();
+        const rowBox = row.getBoundingClientRect();
+        return {
+          pageScrollY: window.scrollY,
+          rowTop: rowBox.top,
+          rowBottom: rowBox.bottom,
+          listTop: listBox.top,
+          listBottom: listBox.bottom,
+          principle: row instanceof HTMLElement ? (row.dataset.principle ?? '') : '',
+        };
+      });
+
+      // Scrolling the list, not the document: the counters below it must not have moved.
+      expect(reach.pageScrollY, 'reaching the last leak scrolled the whole page').toBe(0);
+      expect(reach.principle).toBe('fold equity');
+      expect(reach.rowTop).toBeGreaterThanOrEqual(reach.listTop - 1);
+      expect(reach.rowBottom).toBeLessThanOrEqual(reach.listBottom + 1);
+    } finally {
+      await close();
+    }
+  });
+});
+
+test.describe('R9 profile screen — a capped hand log', () => {
+  /**
+   * session.ts caps the stored log at MAX_HAND_LOG (500) on purpose while `handsPlayed` keeps
+   * climbing, so past 500 hands the screen shows two different hand counts. Measured on this
+   * fixture: the graph caption said "500 hands" and the Lifetime counter said "612" — a difference
+   * of 112 with nothing on screen saying one is a window over the other. A learner reads that as a
+   * bug or as lost progress.
+   */
+  const HANDS_PLAYED = 612;
+  const LOGGED = 500;
+
+  test('14. the two hand counts are labelled, not left to be read as a bug', async () => {
+    const userDataDir = seedSave({
+      bankroll: 13400,
+      hands: fixtureHands(LOGGED),
+      stats: {
+        handsPlayed: HANDS_PLAYED,
+        vpipHands: 160,
+        pfrHands: 80,
+        evLossBb: 44.5,
+        leaks: { 'pot odds': 12 },
+        leakCostBb: { 'pot odds': 30.0 },
+      },
+    });
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await openProfile(page);
+
+      // The graph really is plotting only the logged window, which is why it needs saying.
+      const pairs = pointPairs(await readGraphPoints(page));
+      expect(pairs.length).toBe(LOGGED + 1);
+
+      const lifetimeHands = await page
+        .locator('.counter', { has: page.locator('.stat-label', { hasText: /^Hands$/ }) })
+        .locator('.stat-value')
+        .innerText();
+      expect(Number(lifetimeHands), 'the Lifetime counter is the uncapped total').toBe(HANDS_PLAYED);
+
+      const caption = (await page.innerText(graphCaption)).trim();
+      // Both numbers named in one sentence: which hands the graph covers, and how many were played.
+      expect(caption, `graph caption was "${caption}"`).toContain(String(LOGGED));
+      expect(
+        caption,
+        `the caption says "${caption}" — it names ${LOGGED} without saying the player has played ${HANDS_PLAYED}`,
+      ).toContain(String(HANDS_PLAYED));
+      expect(caption).toMatch(/played/i);
+      // "500 hands" full stop is the ambiguous rendering this test exists to forbid.
+      expect(caption).not.toBe(`${LOGGED} hands`);
+
+      expect(await page.innerText(profileScreen)).not.toMatch(/NaN|undefined/);
+    } finally {
+      await close();
+    }
+  });
+
+  /** No cap reached, no divergence, so no extra words: the caption must not cry wolf. */
+  test('15. an uncapped log still reads as a plain hand count', async () => {
+    const userDataDir = seedSave({
+      bankroll: 10250,
+      hands: fixtureHands(4),
+      stats: {
+        handsPlayed: 4,
+        vpipHands: 2,
+        pfrHands: 1,
+        evLossBb: 0,
+        leaks: {},
+        leakCostBb: {},
+      },
+    });
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await openProfile(page);
+      expect((await page.innerText(graphCaption)).trim()).toBe('4 hands');
     } finally {
       await close();
     }
