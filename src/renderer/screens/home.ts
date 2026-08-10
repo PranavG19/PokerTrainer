@@ -1,6 +1,7 @@
 import type { HandRecord, SessionState } from '../../core/session.js';
 import { DEFAULT_BANKROLL } from '../../core/session.js';
 import { renderCard } from '../components/card.js';
+import { renderSessionPlanner } from './sessionPlan.js';
 
 const RECENT_LIMIT = 5;
 
@@ -16,6 +17,13 @@ export function renderHome(opts: {
   root.appendChild(renderBankroll(opts.session.bankroll));
   root.appendChild(renderNewSessionCard(opts.onNewSession));
   root.appendChild(renderRecentHands(opts.session.hands, opts.onOpenHand));
+  /**
+   * S1's "Start session" lives here because N5 makes home the launcher: choosing how long you are
+   * sitting down for is the launch decision, not a surface to visit. Last in DOM order so the
+   * bankroll and the one-click "New session" the rest of the suite drives stay exactly where they
+   * were; the planner takes its own column (styles-session-plan.css).
+   */
+  root.appendChild(renderSessionPlanner({ onStart: () => opts.onNewSession() }));
 
   return root;
 }
