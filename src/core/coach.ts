@@ -102,6 +102,12 @@ export function gradeDecision(input: {
 }
 
 function classifySeverity(evLossBb: number): Severity {
+  // A non-finite loss is silence, not an alarm. Every `<` against NaN is false, so NaN fell through
+  // both bands to 'serious' — the harshest tier, the loudest channel, reached by a division the
+  // grader could not carry out. Measured on bb 0, which produced "costs ~NaN bb" graded serious.
+  // Interrupting a learner over an arithmetic failure destroys trust in the one channel that has to
+  // keep it; declining to speak is the honest fallback.
+  if (!Number.isFinite(evLossBb)) return 'free';
   if (evLossBb < 0.5) return 'free';
   if (evLossBb < 2.0) return 'notable';
   return 'serious';
@@ -125,6 +131,13 @@ function buildMessage(
     return `Calling ${toCall} into a ${pot} pot needs ${reqPct}% pot share; you had ${sharePct}%.`;
   }
   if (action === 'fold') {
+    // Folding at toCall 0 is a different mistake and needs different words. `required` is 0 there
+    // because nothing was owed, so the shared phrasing read "when only 0% was needed" — which sounds
+    // like the fold was free and cheap, the exact opposite of a 7.3bb verdict, and it appeared in 254
+    // of 2234 generated messages. Checking was free; that is what the fold gave up.
+    if (toCall === 0) {
+      return `Checking was free and holds ${sharePct}% pot share; folding it away costs ~${evLossBb.toFixed(1)} bb.`;
+    }
     return `Folding with ${sharePct}% pot share when only ${reqPct}% was needed costs ~${evLossBb.toFixed(1)} bb.`;
   }
   if (action === 'check') {
