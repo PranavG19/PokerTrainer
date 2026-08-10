@@ -17,6 +17,7 @@ import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderCharts } from './screens/charts.js';
+import { renderDrillScreen } from './screens/drill.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
@@ -226,6 +227,7 @@ async function boot(): Promise<void> {
     if (which === 'profile') return renderProfile({ session });
     if (which === 'learn') return renderLessonScreen();
     if (which === 'charts') return renderCharts();
+    if (which === 'drill') return renderDrillScreen();
     if (which === 'settings') {
       return renderSettings({
         status: settings,
