@@ -368,9 +368,23 @@ describe('startHand resets per-hand state', () => {
     s = applyAction(s, { kind: 'fold' });
     s = settle(s);
 
-    // Dirty state going in.
+    /*
+     * Dirty state going in — but NOT a live `committed` any more. settle() now clears the per-street
+     * betting state at both exits (see clearBettingState in core/table.ts and
+     * tests/unit/settled-state.test.ts): a settled hand carrying a currentBet that no seat's committed
+     * backed was the last known-open item in the W6 audit, inert only because of which callers existed.
+     *
+     * This line previously asserted `s.seats[1].committed === 250`, i.e. it pinned the leftover as
+     * though it were a requirement, when it was only this test's way of showing the state was dirty
+     * before startHand. What this test is FOR is startHand's reset, and every assertion below is
+     * unchanged — the seat is still all-in, still folded-or-not as it was, the board is still three
+     * cards, and there is still a winner. So the precondition is restated against what settle now
+     * guarantees rather than weakened: committed is already zero, and startHand must keep it that way
+     * while rebuilding the blinds.
+     */
     expect(s.board.length).toBe(3);
-    expect(s.seats[1].committed).toBe(250);
+    expect(s.seats[1].committed, 'settle should have cleared the commitment').toBe(0);
+    expect(s.currentBet, 'settle should have cleared the outstanding bet').toBe(0);
     expect(s.seats[1].allIn).toBe(true);
     expect(s.seats.filter((seat) => seat.folded).map((seat) => seat.id)).toEqual([0, 2, 3]);
     expect(s.winners).not.toBeNull();
