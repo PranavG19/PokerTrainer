@@ -14,10 +14,18 @@ export function renderProfile(opts: { session: SessionState }): HTMLElement {
   root.className = 'profile-screen';
   root.dataset.testid = 'profile-screen';
 
-  root.appendChild(section('Session', renderGraph(bankrollSeries(opts.session))));
+  root.appendChild(
+    section('Session', renderGraph(bankrollSeries(opts.session), summary.handsPlayed)),
+  );
   root.appendChild(section('Rebuys', renderRebuys(opts.session.rebuys)));
   root.appendChild(section('Prediction calibration', renderCalibration(opts.session)));
-  root.appendChild(section('Leaks by concept', renderLeaks(summary.leaks)));
+
+  // The one section allowed to give up height when the column is taller than the window: its list
+  // scrolls itself, so the Lifetime counters below stay above the fold. See styles-screens.css.
+  const leaks = section('Leaks by concept', renderLeaks(summary.leaks));
+  leaks.classList.add('profile-leaks');
+  root.appendChild(leaks);
+
   root.appendChild(
     section(
       'Lifetime',
@@ -59,7 +67,7 @@ function bankrollSeries(session: SessionState): number[] {
   return series;
 }
 
-function renderGraph(series: number[]): HTMLElement {
+function renderGraph(series: number[], handsPlayed: number): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'graph-wrap';
 
@@ -80,11 +88,23 @@ function renderGraph(series: number[]): HTMLElement {
 
   const caption = document.createElement('div');
   caption.className = 'graph-caption';
-  const hands = series.length - 1;
-  caption.textContent = hands === 0 ? 'No hands played yet' : `${hands} hand${hands === 1 ? '' : 's'}`;
+  caption.dataset.testid = 'graph-caption';
+  caption.textContent = graphCaption(series.length - 1, handsPlayed);
   wrap.appendChild(caption);
 
   return wrap;
+}
+
+/**
+ * The graph plots the stored hand log, which session.ts caps at MAX_HAND_LOG while `handsPlayed`
+ * keeps climbing. Past the cap the screen shows two different hand counts, so say which is which:
+ * unlabelled, the smaller number reads as lost progress rather than as a window over the total.
+ */
+function graphCaption(logged: number, handsPlayed: number): string {
+  if (logged === 0) return 'No hands played yet';
+  const plural = `${logged} hand${logged === 1 ? '' : 's'}`;
+  // Below the cap the two counts agree, and saying so twice would just add noise.
+  return logged >= handsPlayed ? plural : `Last ${plural} of ${handsPlayed} played`;
 }
 
 /** A single value becomes a flat line: honest, and never an empty `points` attribute. */
