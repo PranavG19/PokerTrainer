@@ -33,7 +33,17 @@
 
 .session-planner {
   grid-column: 2;
-  grid-row: 1 / span 3;
+  /*
+   * SPANS EVERY BLOCK IN COLUMN 1, and the number has to be maintained with that column. It was
+   * `span 3` when column 1 held bankroll + launcher + recent hands; the N2 recommendation card made it
+   * four, and the fourth block fell past the span and pushed home to 772px in a 760px viewport —
+   * caught by test 17 in tests/e2e/session-plan.spec.ts, whose assertion was right and whose failure
+   * was a real layout regression rather than a stale expectation.
+   *
+   * Measured: `span 4` alone fixes it (the compacting rules I first added alongside turned out to be
+   * unnecessary and were removed). `1 / -1` does NOT work — it makes the grid taller, 872px.
+   */
+  grid-row: 1 / span 4;
   display: flex;
   flex-direction: column;
   gap: 10px;
