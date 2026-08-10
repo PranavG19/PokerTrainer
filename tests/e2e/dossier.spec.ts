@@ -62,6 +62,8 @@ const SECOND_STRONG = 'three-bets-blind-vs-blind'; // true 35% vs a 10% baseline
 const MIN_OBSERVATIONS = 20;
 const SHRINKAGE_PRIOR = 10;
 const CALIBRATION_RELEASE_FORECASTS = 400;
+/** R4's gate-re-close threshold. */
+const CONTRARY_OBSERVATIONS_TO_CLOSE = 6;
 
 /** R3's node ledger, ranked by reach x bb per occurrence in core, mirrored here. */
 const TOP_TWO_NODES = ['bb-vs-btn-cbet', 'sb-turn-probe'];
@@ -362,6 +364,155 @@ test.describe('revert triggers fire by counting, not by judgment (R4)', () => {
         'data-reason',
         'gate-re-closed',
       );
+    } finally {
+      await close();
+    }
+  });
+});
+
+test.describe('the printed verdict never contradicts the plan it sits beside', () => {
+  /**
+   * THE DEFECT CLASS THIS FILE PREVIOUSLY MISSED, and it is the one an earlier audit of this codebase
+   * caught on another screen: a displayed verdict contradicting its own number. `gates()` answers only
+   * R1's two questions. It knows nothing about pre-registration (R2), the breadth cap (R3), or either
+   * revert trigger (R4) — so a screen that words its verdict from `gates()` alone announces "may
+   * license a deviation" beside a spendable 0.00 bb and a dropped row in the plan.
+   *
+   * Both tests below therefore assert the SENTENCE and the FIGURE together against core's plan, not
+   * just the plan. Asserting the plan alone is what let this through: test 6 already checked that core
+   * dropped the read on gate-re-closed, and the prose above it still said the licence was granted.
+   */
+  test('11. a re-closed gate withdraws the licence in words, not only in the plan', async () => {
+    const { page, close } = await launchApp();
+    try {
+      await openDossier(page);
+      await preRegister(page, STRONG);
+      await track(page, STRONG);
+      await observe(page, MIN_OBSERVATIONS);
+
+      // Granted, and it says so.
+      await expect(page.locator(gateLicensed)).toHaveAttribute('data-licensed', 'true');
+      expect(await page.textContent(gateLicensed)).toContain('may license a deviation');
+
+      for (let i = 0; i < CONTRARY_OBSERVATIONS_TO_CLOSE; i++) {
+        await page.click('[data-testid="contrary-btn"]');
+      }
+
+      // Core dropped it. The prose must agree, and must not still be offering the licence.
+      await expect(page.locator(`${planDroppedRow}[data-read="${STRONG}"]`)).toHaveAttribute(
+        'data-reason',
+        'gate-re-closed',
+      );
+      await expect(page.locator(gateLicensed)).toHaveAttribute('data-licensed', 'false');
+      const verdict = (await page.textContent(gateLicensed)) ?? '';
+      expect(verdict).not.toContain('may license a deviation');
+      expect(verdict).toContain('withdrawn');
+      expect(await num(page, licensedDeviation, 'data-bb')).toBe(0);
+      await expect(page.locator(licensedDeviation)).toHaveAttribute('data-licensed', 'false');
+
+      /**
+       * And R1's own two-gate answer is still published separately and still reads OPEN, because the
+       * evidence did not change — only the licence did. Collapsing the two would teach that six
+       * contrary observations retroactively shrank the sample.
+       */
+      await expect(page.locator(gateSample)).toHaveAttribute('data-pass', 'true');
+      await expect(page.locator(gateDeviation)).toHaveAttribute('data-pass', 'true');
+      await expect(page.locator(gateLicensed)).toHaveAttribute('data-gates', 'true');
+    } finally {
+      await close();
+    }
+  });
+
+  test('12. an unregistered read with overwhelming evidence is offered nothing to spend', async () => {
+    const { page, close } = await launchApp();
+    try {
+      await openDossier(page);
+      // Deliberately NOT pre-registered: R2 says no evidence can license it this session.
+      await track(page, STRONG);
+      await observe(page, MIN_OBSERVATIONS);
+
+      await expect(page.locator(preregCount)).toHaveAttribute('data-registered', '0');
+      // Both of R1's gates are open, which is exactly what makes this the dangerous case.
+      await expect(page.locator(gateSample)).toHaveAttribute('data-pass', 'true');
+      await expect(page.locator(gateDeviation)).toHaveAttribute('data-pass', 'true');
+      await expect(page.locator(gateLicensed)).toHaveAttribute('data-gates', 'true');
+
+      await expect(page.locator(`${planDroppedRow}[data-read="${STRONG}"]`)).toHaveAttribute(
+        'data-reason',
+        'not-pre-registered',
+      );
+      await expect(page.locator(gateLicensed)).toHaveAttribute('data-licensed', 'false');
+      expect(await page.textContent(gateLicensed)).toContain('not pre-registered');
+      // The load-bearing number: nothing spendable, where the old screen printed w x full exploit.
+      expect(await num(page, licensedDeviation, 'data-bb')).toBe(0);
+      await expect(page.locator(shrinkageTrap)).toHaveAttribute('data-licensed', 'false');
+      // The magnitude figure is unaffected — it is a magnitude, and R1 wants it visible at every n.
+      expect(await num(page, appliedDeviation, 'data-bb')).toBeCloseTo(w(MIN_OBSERVATIONS) * 2, 4);
+    } finally {
+      await close();
+    }
+  });
+
+  test('13. registering a tendency after the evidence arrived is refused (R2)', async () => {
+    /**
+     * The cap is not the whole of R2 — "at most two" is a budget, "written at session start" is the
+     * epistemics. With only the cap enforced, freeing a slot mid-session laundered 20 observations
+     * gathered while the tendency was unregistered straight into an active deviation, which is
+     * precisely the opportunistic read R2 sends to the notebook.
+     */
+    const { page, close } = await launchApp();
+    try {
+      await openDossier(page);
+      await preRegister(page, STRONG);
+      await preRegister(page, SECOND_STRONG);
+
+      // Gather overwhelming evidence on a third, unregistered tendency.
+      await track(page, INSIDE_BAND);
+      await observe(page, MIN_OBSERVATIONS);
+      await expect(page.locator(`[data-testid="tendency-row"][data-tendency="${INSIDE_BAND}"]`))
+        .toHaveAttribute('data-n', String(MIN_OBSERVATIONS));
+
+      // Free a slot, then try to register the tendency the evidence was gathered on.
+      await page.click(`[data-testid="notebook-btn"][data-tendency="${SECOND_STRONG}"]`);
+      await expect(page.locator(preregCount)).toHaveAttribute('data-registered', '1');
+      await page.click(`[data-testid="prereg-btn"][data-tendency="${INSIDE_BAND}"]`);
+
+      // Refused on provenance, not on the cap — there was a free slot.
+      await expect(page.locator(preregRefusal)).toHaveAttribute('data-tendency', INSIDE_BAND);
+      expect(await page.textContent(preregRefusal)).toContain('off-plan');
+      await expect(page.locator(`[data-testid="tendency-row"][data-tendency="${INSIDE_BAND}"]`))
+        .toHaveAttribute('data-registered', 'false');
+      await expect(page.locator(preregCount)).toHaveAttribute('data-registered', '1');
+      await expect(page.locator(`${planDroppedRow}[data-read="${INSIDE_BAND}"]`)).toHaveAttribute(
+        'data-reason',
+        'not-pre-registered',
+      );
+      await expect(page.locator(`${planActiveRow}[data-read="${INSIDE_BAND}"]`)).toHaveCount(0);
+      // It is not lost: it is next session's hypothesis, to be tested on fresh data.
+      await expect(page.locator(`${notebookRow}[data-tendency="${INSIDE_BAND}"]`)).toHaveCount(1);
+
+      // And after session end, with n back to zero, the same registration is accepted.
+      await page.click('[data-testid="end-session-btn"]');
+      await expect(page.locator(dossierScreen)).toHaveAttribute('data-sessions-ended', '1');
+      await preRegister(page, INSIDE_BAND);
+    } finally {
+      await close();
+    }
+  });
+
+  test('14. the surface states that its observations are generated, not played', async () => {
+    /**
+     * Story 28 heads this surface "what I've actually observed". Nothing in the app persists
+     * per-villain action counts, so every count here comes from R6's generated stream — and a screen
+     * that showed synthetic data under that heading without saying so would be claiming a history the
+     * learner does not have.
+     */
+    const { page, close } = await launchApp();
+    try {
+      await openDossier(page);
+      const provenance = (await page.textContent('[data-testid="stream-provenance"]')) ?? '';
+      expect(provenance.toLowerCase()).toContain('generated');
+      expect(provenance.toLowerCase()).toContain('not your own hand history');
     } finally {
       await close();
     }
