@@ -45,7 +45,8 @@ interface Profile {
   betPotFraction: number;
 }
 
-const PROFILES: Record<Archetype, Profile> = {
+/** Exported so robustness.ts can re-weight these frequencies instead of restating them. */
+export const PROFILES: Record<Archetype, Profile> = {
   nit: { callStrength: 0.68, raiseStrength: 0.8, raiseFreq: 0.8, bluffBetFreq: 0.05, bluffRaiseFreq: 0, loosecallFreq: 0, betPotFraction: 0.6 },
   tag: { callStrength: 0.55, raiseStrength: 0.68, raiseFreq: 0.7, bluffBetFreq: 0.35, bluffRaiseFreq: 0.12, loosecallFreq: 0.05, betPotFraction: 0.66 },
   station: { callStrength: 0.4, raiseStrength: 0.85, raiseFreq: 0.15, bluffBetFreq: 0.05, bluffRaiseFreq: 0.02, loosecallFreq: 0.85, betPotFraction: 0.5 },
