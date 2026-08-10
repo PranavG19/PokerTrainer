@@ -1,8 +1,15 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import * as path from 'node:path';
 import { load, save } from './store.js';
+import { askTutor, resolveTutor, type AskInput } from './tutor/index.js';
 
 let mainWindow: BrowserWindow | null = null;
+
+/**
+ * Resolved once at startup from the environment. With no Bedrock settings this
+ * is the null tutor and the egress allowlist is empty (T1, Security section).
+ */
+const tutor = resolveTutor(process.env);
 
 function parseSeedArg(): number | null {
   const arg = process.argv.find(a => a.startsWith('--seed='));
@@ -64,6 +71,14 @@ app.whenReady().then(() => {
   ipcMain.handle('store:load', () => load());
   ipcMain.handle('store:save', (_event, obj: Record<string, unknown>) => save(obj));
   ipcMain.handle('app:seed', () => seed);
+
+  ipcMain.handle('tutor:status', () => ({
+    tutorId: tutor.tutor.id,
+    credentialsConfigured: tutor.credentialsConfigured,
+    egressAllowlist: tutor.egressAllowlist,
+    guardFailures: tutor.guardFailures.length,
+  }));
+  ipcMain.handle('tutor:ask', (_event, input: AskInput) => askTutor(tutor, input));
 
   createWindow();
 });
