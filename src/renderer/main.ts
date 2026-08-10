@@ -17,6 +17,7 @@ import type { PredictOutcome } from '../core/predict.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderLessonScreen } from './screens/lesson.js';
+import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
 import { renderDrillScreen } from './screens/drill.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
@@ -75,7 +76,7 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
   deleteConfirmPhrase: 'DELETE PROFILE',
 };
 
-type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'profile' | 'settings';
+type Tab = 'play' | 'learn' | 'repair' | 'drill' | 'charts' | 'profile' | 'settings';
 
 /**
  * The tab bar, in spine order: play, then the teaching surfaces, then progress.
@@ -89,6 +90,7 @@ type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'profile' | 'settings';
 const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'play', label: 'Play', testid: 'tab-play' },
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
+  { id: 'repair', label: 'Repair', testid: 'tab-repair' },
   { id: 'drill', label: 'Drill', testid: 'tab-drill' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
@@ -282,6 +284,7 @@ async function boot(): Promise<void> {
   function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
     if (which === 'profile') return renderProfileTab();
     if (which === 'learn') return renderLessonScreen();
+    if (which === 'repair') return renderContrastScreen({ hands: session.hands });
     if (which === 'charts') return renderCharts();
     if (which === 'drill') return renderDrillScreen();
     if (which === 'settings') {
