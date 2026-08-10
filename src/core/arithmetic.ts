@@ -357,8 +357,14 @@ export function generateProblem(seed: number, kind?: DrillKind): ArithmeticProbl
   const chosen = kind ?? pick(DRILL_KINDS, rng());
   const potBeforeBet = pick(POTS_BB, rng());
   const bet = Math.max(0.5, toHalf(potBeforeBet * pick(BET_FRACTIONS, rng())));
-  // The stack is what remains behind, and it never sits below the bet being faced.
-  const effectiveStack = Math.max(bet, toHalf(pick(STACKS_BB, rng()) - potBeforeBet / 2));
+  // The stack must leave something BEHIND the call, not merely cover it. Clamping to `bet` exactly
+  // made `effectiveStack - bet` zero, so the SPR problem read "0 bb behind. SPR?" with answer 0 and
+  // tolerance 0.25 — every guess in [-0.25, 0.25] accepted, nothing to compute, and the worked method
+  // then explained a ratio for a stack that was already all in. 7.0% of the SPR sequence the drill
+  // screen serves (scripts/audit-w6/a24-spr-degenerate.ts). Half a big blind is the smallest unit the
+  // rest of this generator works in, so it is the smallest honest floor.
+  const MIN_BEHIND = 0.5;
+  const effectiveStack = Math.max(bet + MIN_BEHIND, toHalf(pick(STACKS_BB, rng()) - potBeforeBet / 2));
 
   if (chosen === 'spr') {
     const pot = potBeforeBet + 2 * bet;

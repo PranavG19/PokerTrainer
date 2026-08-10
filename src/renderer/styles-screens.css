@@ -161,6 +161,38 @@ button.hand-row {
   flex: 0 0 auto;
 }
 
+/*
+ * The graph caption and the review link share one row. This column has 574px at the documented
+ * 900x640 minimum and only ~33px of headroom before the leak list — the one section allowed to
+ * shrink — falls below one 42.5px row and its last concept becomes unreachable, so the way into
+ * review cannot afford a row of its own. Measured: a 53.5px card here left the list at 8px.
+ */
+.graph-footer {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.graph-footer .graph-caption {
+  flex: 1;
+}
+
+.profile-review-entry {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--mint);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.profile-review-entry:hover {
+  text-decoration: underline;
+}
+
 /* The only section that gives up height: it shrinks and scrolls so the Lifetime counters below it
    stay on screen. Never grows, so a short list is not stretched into an empty slab. */
 .profile-leaks {

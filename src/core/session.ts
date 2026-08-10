@@ -1,5 +1,6 @@
 import type { Card } from './cards.js';
 import type { Grade, Severity } from './coach.js';
+import type { ActionKind, Street } from './table.js';
 import type { Calibration, PredictOutcome } from './predict.js';
 import { emptyCalibration, tally } from './predict.js';
 
@@ -16,6 +17,30 @@ export interface GradeRecord {
   evLossBb: number;
 }
 
+/**
+ * One hero decision, captured at the moment it was made. Everything here is a reading taken
+ * BEFORE the action was applied, which is what makes a replay a replay: `pot` and `board` are what
+ * the player was looking at, not what the hand ended up as.
+ *
+ * `verdict` is the coach's grade verbatim, message included, because the grade is a Monte Carlo
+ * estimate — re-grading a stored hand later would produce a different number and present it as the
+ * advice the learner was given.
+ */
+export interface DecisionRecord {
+  street: Street;
+  /** Board visible when the decision was made — shorter than the hand's final board on early streets. */
+  board: Card[];
+  /** Chips in the middle before this action went in. */
+  pot: number;
+  /** What it cost the hero to continue; 0 when checking was free. */
+  toCall: number;
+  action: ActionKind;
+  /** Total chips the bet or raise made it, in chips; null for actions that carry no size. */
+  amount: number | null;
+  /** null only in a save written before verdicts were stored per decision. */
+  verdict: Grade | null;
+}
+
 export interface HandRecord {
   handNumber: number;
   hole: Card[];
@@ -25,6 +50,13 @@ export interface HandRecord {
   vpip: boolean;
   pfr: boolean;
   grades: GradeRecord[];
+  /**
+   * Optional, and absent rather than empty on purpose: a hand saved before decision logging existed
+   * has no decisions ON RECORD, which is a different fact from a hand where the hero never acted
+   * (blinds all-in, or sitting out). Review must be able to say which, so the two cannot collapse
+   * into one representation.
+   */
+  decisions?: DecisionRecord[];
 }
 
 /** Lifetime counters. Kept cumulative because the hand log is capped. */
@@ -216,7 +248,7 @@ function parseCalibration(raw: unknown): Calibration {
 
 function parseHand(raw: unknown): HandRecord {
   const obj = asRecord(raw);
-  return {
+  const hand: HandRecord = {
     handNumber: asNumber(obj.handNumber, 0),
     hole: asStrings(obj.hole),
     board: asStrings(obj.board),
@@ -224,6 +256,39 @@ function parseHand(raw: unknown): HandRecord {
     vpip: obj.vpip === true,
     pfr: obj.pfr === true,
     grades: asArray(obj.grades).map(parseGrade),
+  };
+  // The key is only set when the save really has a decision list. Defaulting it to [] would make
+  // every pre-review hand claim the hero made no decisions, which is a lie about their history.
+  if (Array.isArray(obj.decisions)) hand.decisions = obj.decisions.map(parseDecision);
+  return hand;
+}
+
+const STREETS: Street[] = ['preflop', 'flop', 'turn', 'river', 'showdown'];
+const ACTION_KINDS: ActionKind[] = ['fold', 'check', 'call', 'bet', 'raise', 'allin'];
+
+function parseDecision(raw: unknown): DecisionRecord {
+  const obj = asRecord(raw);
+  const amount = obj.amount;
+  return {
+    street: STREETS.includes(obj.street as Street) ? (obj.street as Street) : 'preflop',
+    board: asStrings(obj.board),
+    pot: asNumber(obj.pot, 0),
+    toCall: asNumber(obj.toCall, 0),
+    action: ACTION_KINDS.includes(obj.action as ActionKind) ? (obj.action as ActionKind) : 'check',
+    amount: typeof amount === 'number' && Number.isFinite(amount) ? amount : null,
+    verdict: parseVerdict(obj.verdict),
+  };
+}
+
+/** A decision logged without a verdict stays without one: review says so rather than inventing a grade. */
+function parseVerdict(raw: unknown): Grade | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  return {
+    severity: SEVERITIES.includes(obj.severity as Severity) ? (obj.severity as Severity) : 'free',
+    evLossBb: asNumber(obj.evLossBb, 0),
+    message: typeof obj.message === 'string' ? obj.message : null,
+    principle: typeof obj.principle === 'string' ? obj.principle : null,
   };
 }
 

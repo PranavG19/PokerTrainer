@@ -14,7 +14,7 @@ import type { Grade } from '../../core/coach.js';
 import { gradeDecision } from '../../core/coach.js';
 import { ARCHETYPES, archetypeForSeat, decideAction } from '../../core/ai.js';
 import { mulberry32 } from '../../core/rng.js';
-import type { GradeRecord, HandRecord } from '../../core/session.js';
+import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session.js';
 import type { PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { renderCard, renderCardRow } from '../components/card.js';
@@ -134,6 +134,8 @@ export function renderTable(opts: {
   // One long-lived stream so villain decisions stay deterministic across a session.
   const aiRng = mulberry32(opts.seed ^ 0x5eed);
   let grades: GradeRecord[] = [];
+  /** Every hero decision in order, captured pre-action so the review can replay the spot as seen. */
+  let decisions: DecisionRecord[] = [];
   let heroVpip = false;
   let heroPfr = false;
   let heroStartStack = state.seats[0].stack + state.seats[0].committed;
@@ -226,6 +228,7 @@ export function renderTable(opts: {
       vpip: heroVpip,
       pfr: heroPfr,
       grades,
+      decisions,
     });
   }
 
@@ -275,6 +278,19 @@ export function renderTable(opts: {
     }
 
     const grade = recordHeroGrade(action.kind, action.amount);
+    // Logged from the PRE-action state, which is still `state` here: the pot and board the hero was
+    // looking at when they decided. The verdict is stored verbatim rather than re-derived later,
+    // because gradeDecision runs a seeded Monte Carlo and a re-grade is a different number.
+    decisions.push({
+      street: state.street,
+      board: [...state.board],
+      pot: state.pot,
+      toCall: Math.max(0, state.currentBet - heroSeat().committed),
+      action: action.kind,
+      amount: action.amount ?? null,
+      verdict: { ...grade },
+    });
+
     if (prediction !== null) {
       const outcome = predictOutcome(prediction, action.kind, grade.severity === 'free');
       showPredictResult(predict, outcome, predictResultText(prediction, action.kind, outcome));
@@ -289,6 +305,7 @@ export function renderTable(opts: {
   function nextHand(): void {
     if (pendingTimer !== null) clearTimeout(pendingTimer);
     grades = [];
+    decisions = [];
     heroVpip = false;
     heroPfr = false;
     settled = false;
