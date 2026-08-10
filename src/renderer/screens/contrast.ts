@@ -1,6 +1,7 @@
 import '../styles-contrast.css';
 
 import {
+  AXIS_AVAILABILITY,
   differingAxes,
   hammingDistance,
   type ContrastAxis,
@@ -259,13 +260,25 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
       cell.dataset.selected = String(offer.axis === showing);
 
       cell.appendChild(text('span', 'axis-offer-name', AXIS_LABELS[offer.axis]));
-      cell.appendChild(
-        text(
-          'span',
-          'axis-offer-meta',
-          available ? `${offer.spots} positions` : 'not in this build',
-        ),
-      );
+      /*
+       * TWO DIFFERENT REASONS AN AXIS CAN BE UNOFFERED, and they used to print the same label.
+       * "not in this build" was shown for every empty offer, including axes core declares
+       * AVAILABLE — playersBehind is `available: true`, and on a BTN-postflop base it yields no
+       * set only because hero has nobody behind. Calling that "not in this build" tells the
+       * learner the app lacks the axis when the truth is that this NODE cannot vary it, which
+       * B6's honest-coverage requirement rules out. The reason line beneath was already correct,
+       * so the headline was contradicting the sentence under it.
+       */
+      const inBuild = AXIS_AVAILABILITY[offer.axis].available;
+      cell.dataset.inBuild = String(inBuild);
+      const meta = available
+        ? `${offer.spots} positions`
+        : inBuild
+          ? 'not on this spot'
+          : 'not in this build';
+      const metaCell = text('span', 'axis-offer-meta', meta);
+      metaCell.dataset.testid = 'axis-meta';
+      cell.appendChild(metaCell);
 
       if (available && cell instanceof HTMLButtonElement) {
         cell.type = 'button';
