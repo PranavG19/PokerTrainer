@@ -153,7 +153,17 @@ export function assemble(request: PlanRequest): PlanResult {
 
   const wholeTaskBudget = toQuarter(SHARES['whole-task'] * duration);
 
-  const uncuttable = probeMinutes + contrastMinutes + SCOREBOARD_MINUTES;
+  /*
+   * S2a: free-roam runs "without decay probes, remediation floors, or a scoreboard". Probes and
+   * remediation were already gated on `freeRoam` above; the scoreboard was not, so it fired in every
+   * free-roam plan at every duration — measured 10 of 10 configurations before this line changed. It
+   * also reads on O6, which forbids a running session P&L: a scoreboard is the one block whose whole
+   * job is to summarise outcomes, and free-roam is the always-open mode where that signal does the
+   * most damage.
+   */
+  const scoreboardMinutes = freeRoam ? 0 : SCOREBOARD_MINUTES;
+
+  const uncuttable = probeMinutes + contrastMinutes + scoreboardMinutes;
   const cuts: Cut[] = [];
 
   let warmUpMinutes = warmUpBlocks * WARM_UP_BLOCK_MINUTES;
@@ -225,7 +235,7 @@ export function assemble(request: PlanRequest): PlanResult {
     block('graded-spots', gradedSpots * MINUTES_PER_GRADED_SPOT, gradedSpots, mode),
     block('contrast-remediation', contrastMinutes, contrastSets, mode),
     block('whole-task', wholeTaskMinutes, Math.floor(wholeTaskMinutes / MINUTES_PER_LIVE_HAND), mode),
-    block('scoreboard', SCOREBOARD_MINUTES, 1, mode),
+    block('scoreboard', scoreboardMinutes, scoreboardMinutes > 0 ? 1 : 0, mode),
   ].filter((b) => b.units > 0);
 
   return {

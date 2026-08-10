@@ -264,6 +264,38 @@ describe('S3 — free-roam is first-class', () => {
     ).toBe(0);
   });
 
+  /**
+   * S2a NAMES THREE THINGS FREE-ROAM RUNS WITHOUT — "decay probes, remediation floors, or a
+   * scoreboard" — and only the first two were gated on the mode. The scoreboard fired in EVERY
+   * free-roam plan, at every duration and both probe queues (10 of 10 configurations, measured by
+   * scripts/audit-w6/a35-freeroam-scoreboard.ts before the fix), because SCOREBOARD_MINUTES entered
+   * both the uncuttable floor and the block list unconditionally.
+   *
+   * It also reads on O6, which forbids a running session P&L: a scoreboard's whole job is to
+   * summarise outcomes, and free-roam is the always-open mode where that signal does the most damage.
+   *
+   * Asserted across the full duration range rather than at one length, because the defect was
+   * duration-independent and a single-length test would not have distinguished "gated on mode" from
+   * "happens not to fit at this length".
+   */
+  it('assembles no scoreboard, the third thing S2a says it runs without', () => {
+    for (const durationMinutes of [15, 22, 30, 50, 60]) {
+      for (const dueProbes of [0, 4]) {
+        const where = `free-roam ${durationMinutes} due=${dueProbes}`;
+        const plan = planOf(assemble({ durationMinutes, mode: 'free-roam', dueProbes }), where);
+        expect(minutesByKind(plan).scoreboard ?? 0, `${where} assembled a scoreboard`).toBe(0);
+        expect(
+          plan.blocks.some((block) => block.kind === 'scoreboard'),
+          `${where} carries a scoreboard block`,
+        ).toBe(false);
+      }
+    }
+
+    // A session still gets one, so the gate is on the MODE and not on the block having been deleted.
+    const session = planOf(sessionAt(30), 'session 30');
+    expect(minutesByKind(session).scoreboard, 'a session lost its scoreboard').toBeGreaterThan(0);
+  });
+
   it('defers remediation rather than skipping it', () => {
     // Deferred and skipped are different facts: a skipped repair never happens, a deferred one is
     // owed. The flag exists so the next session can collect it.

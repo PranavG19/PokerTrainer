@@ -577,11 +577,13 @@ test.describe('S2 — the degradation order is visible', () => {
         expect(cut.minutes, `${cut.target} was shown as a cut of zero minutes`).toBeGreaterThan(0);
       }
 
-      // WHAT THE LEARNER READS, both rows: 2 of the 2.1 whole-task minutes go, then 3 spots' worth
-      // of the graded block (3.75 min). The names come from S2's own vocabulary, so a row that
+      // WHAT THE LEARNER READS, both rows: 2 of the 2.1 whole-task minutes go, then 2 spots' worth
+      // of the graded block (2.5 min). The names come from S2's own vocabulary, so a row that
       // reads "MUTANT −11.75 min" or drops the minus sign fails here rather than in the eyeball.
+      // (2.5 rather than 3.75 since free-roam stopped assembling a scoreboard: S2a forbids one, and
+      // the 2 minutes it used to take are 2 minutes the graded block no longer has to give up.)
       expectCutReads(cuts[0], 'whole-task', 2);
-      expectCutReads(cuts[1], 'graded-spot-count', 3.75);
+      expectCutReads(cuts[1], 'graded-spot-count', 2.5);
 
       // AND EACH LOSS IS BLAMED ON THE BLOCK IT CAME OUT OF. This is the only configuration where the
       // graded-spot cut is visible at all, so it is the only place the graded row can be checked to
@@ -591,7 +593,7 @@ test.describe('S2 — the degradation order is visible', () => {
         rows.filter((row) => row.why.includes('cut ')).map((row) => `${row.kind}: ${row.why}`),
         'the two cuts are not attributed to whole-task and graded-spots',
       ).toEqual([
-        'graded-spots: cut 3.75 min — step 3 of 3 in the cut order',
+        'graded-spots: cut 2.5 min — step 3 of 3 in the cut order',
         'whole-task: cut 2 min — step 1 of 3 in the cut order',
       ]);
     });
@@ -704,15 +706,21 @@ test.describe('S2a — there is no 15-minute session', () => {
       await expect(page.locator(planner)).toHaveAttribute('data-status', 'planned');
       // Still a 15-minute sitting: the route changes the mode, never the time the learner has.
       await expect(page.locator(planner)).toHaveAttribute('data-minutes', '15');
-      await expect(page.locator(planner)).toHaveAttribute('data-total', '14.75');
+      await expect(page.locator(planner)).toHaveAttribute('data-total', '14');
 
       const rows = await readIngredients(page);
       expect(byKind(rows).get('graded-spots')?.units, 'free-roam at 15 min assembled no spots').toBe(
-        7,
+        8,
       );
-      // The 7 spots and their 8.75 minutes, as printed. Q1's interleaving floor is 7 classes, so the
-      // count on screen is the claim that the sitting is real practice rather than a warm-up.
-      expectRowReads(rows, 'graded-spots', 8.75, 7);
+      /*
+       * The 8 spots and their 10 minutes, as printed. Q1's interleaving floor is 7 classes, so the
+       * count on screen is the claim that the sitting is real practice rather than a warm-up.
+       *
+       * 8 rather than 7 because free-roam no longer assembles a scoreboard S2a forbids: those 2
+       * minutes go where every other freed minute goes, into graded spots. The floor assertion above
+       * is what matters here and it is unchanged — this sitting still clears 7.
+       */
+      expectRowReads(rows, 'graded-spots', 10, 8);
 
       await expect(page.locator(planStart)).toBeVisible();
       await expect(page.locator(planStart)).toHaveAttribute('data-mode', 'free-roam');
@@ -727,8 +735,8 @@ test.describe('S2a — there is no 15-minute session', () => {
       ).toBe('Start 15-minute free-roam sitting');
       expect(
         meta15,
-        `the button promises "${meta15}" for a plan that assembled 7 graded spots`,
-      ).toBe('7 graded spots, sit down at the table');
+        `the button promises "${meta15}" for a plan that assembled 8 graded spots`,
+      ).toBe('8 graded spots, sit down at the table');
     });
   });
 
