@@ -268,3 +268,64 @@ describe('display consistency', () => {
     expect(Math.round(a.win * 100)).not.toBe(Math.round(b.win * 100));
   });
 });
+
+/**
+ * FOLDING FOR FREE — the worst defect an adherence audit of this grader turned up.
+ *
+ * `fold` is in legalActions at every decision including toCall 0 (table.ts), so folding when
+ * checking was free is a spot a real learner reaches. The grader returned 0 unconditionally there,
+ * which made it rank FOLDING THE NUTS above CHECKING them: measured on a river with quad aces into
+ * a 600 pot, folding graded 0.00bb 'free' while checking the same hand graded 2.70bb 'serious'. A
+ * coach that tells a beginner to fold quads is worse than no coach.
+ *
+ * The charge is against a CHECK rather than against winning the pot outright, because checking does
+ * not collect the pot — it sees a free card. Hence the realisation haircut, which also keeps the
+ * most common correct beginner play (folding trash preflop) inside the silence threshold.
+ */
+describe('folding when checking was free', () => {
+  const river = {
+    street: 'river',
+    toCall: 0,
+    stack: 5000,
+    bb: 50,
+    opponents: 1,
+    seed: 7,
+  } as const;
+
+  it('never ranks folding the nuts above checking them', () => {
+    const nuts = { hole: ['As', 'Ac'], board: ['Ah', 'Ad', 'Kc', '7s', '2d'], pot: 600 } as const;
+    const fold = gradeDecision({ ...river, ...nuts, chosen: 'fold' });
+    const check = gradeDecision({ ...river, ...nuts, chosen: 'check' });
+    const bet = gradeDecision({ ...river, ...nuts, chosen: 'bet', betSize: 300 });
+
+    // The whole point: the ordering must be bet cheapest, fold dearest.
+    expect(bet.evLossBb).toBeLessThan(check.evLossBb);
+    expect(check.evLossBb).toBeLessThan(fold.evLossBb);
+    expect(fold.severity).toBe('serious');
+  });
+
+  it('still says nothing about folding trash preflop, the commonest correct beginner play', () => {
+    // A grader that nags here trains a learner out of the discipline it is supposed to install.
+    const grade = gradeDecision({
+      hole: ['7c', '2h'],
+      board: [],
+      street: 'preflop',
+      pot: 75,
+      toCall: 0,
+      stack: 5000,
+      bb: 50,
+      chosen: 'fold',
+      opponents: 1,
+      seed: 7,
+    });
+    expect(grade.severity).toBe('free');
+    expect(grade.message).toBeNull();
+  });
+
+  it('scales the charge with the pot, so surrendering a big pot costs more', () => {
+    const hand = { hole: ['As', 'Ac'], board: ['Ah', 'Ad', 'Kc', '7s', '2d'] } as const;
+    const small = gradeDecision({ ...river, ...hand, pot: 100, chosen: 'fold' });
+    const big = gradeDecision({ ...river, ...hand, pot: 1200, chosen: 'fold' });
+    expect(big.evLossBb).toBeGreaterThan(small.evLossBb);
+  });
+});
