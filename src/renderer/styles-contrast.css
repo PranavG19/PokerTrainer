@@ -1,0 +1,278 @@
+/*
+ * The Repair tab (contrast-set remediation). Palette and pill shapes come from styles.css — no new
+ * colours, and MINT is not used: it belongs to win% and the fluency gate, and severity is not a
+ * thing this screen colours. An axis that does not exist in this build is dimmer and un-pill-shaped,
+ * which is a statement about the world rather than a lock on a control.
+ *
+ * The column scrolls itself rather than the document, matching .lesson-screen's budget, so the tab
+ * bar stays in the viewport at the documented 900x640 minimum.
+ */
+
+.repair-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  max-height: calc(100vh - 66px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 24px;
+}
+
+.repair-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.repair-title {
+  font-size: 30px;
+  font-weight: 200;
+  letter-spacing: -0.5px;
+}
+
+.repair-hint {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.5;
+}
+
+/* ─── The queue ─── */
+.repair-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.repair-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-hi);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.repair-row:hover,
+.repair-row[data-selected='true'] {
+  background: var(--surface-hi);
+}
+
+.repair-row-title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.repair-row-family,
+.repair-row-trigger {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/* A fired repair is marked by an outline, never by colour: it is a fact, not an alarm. */
+.repair-row[data-fired='true'] {
+  outline: 1px solid var(--text-lo);
+}
+
+/* ─── One concept ─── */
+.repair-concept {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.repair-back {
+  align-self: flex-start;
+}
+
+.repair-concept-title {
+  font-size: 24px;
+  font-weight: 200;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+}
+
+.repair-queued {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+/* ─── Axis offers ─── */
+.axis-offers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.axis-offer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.axis-offer.pill {
+  padding: 8px 14px;
+}
+
+.axis-offer[data-selected='true'].pill {
+  background: var(--card-face);
+  color: var(--ink);
+}
+
+.axis-offer-name {
+  font-size: 13px;
+}
+
+.axis-offer-meta {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* Absent, not withheld: no pill shape, so it never reads as a control someone disabled. */
+.axis-offer-absent {
+  flex: 1 1 100%;
+  padding: 8px 0;
+  border-top: 1px solid var(--surface-hi);
+  color: var(--text-lo);
+}
+
+.axis-offer-reason {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-lo);
+}
+
+/* ─── The set ─── */
+.contrast-set {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contrast-claim {
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.55;
+}
+
+.contrast-spots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contrast-spot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.contrast-cards {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.contrast-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contrast-hole,
+.contrast-board {
+  display: flex;
+  gap: 4px;
+  min-height: 42px;
+  align-items: center;
+}
+
+.contrast-noboard {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+/* The toggled dimension is the loudest line in the pod, because it is the entire lesson. */
+.contrast-toggled {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.contrast-held {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.contrast-held-cell {
+  font-size: 11px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.contrast-facts {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/* ─── The worked example (S2's floor) ─── */
+.worked-example {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.worked-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.worked-step {
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.55;
+}
+
+.worked-reason,
+.worked-floor {
+  font-size: 11px;
+  color: var(--text-lo);
+  line-height: 1.45;
+}
+
+/* The 900x640 minimum: trim the vertical slack, never the content. */
+@media (max-height: 700px) {
+  .repair-screen {
+    gap: 12px;
+  }
+
+  .repair-title {
+    font-size: 24px;
+  }
+
+  .contrast-spot {
+    padding: 10px;
+    gap: 6px;
+  }
+}
