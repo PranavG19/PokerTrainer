@@ -337,7 +337,57 @@ export function maxRaiseTo(state: TableState): number {
   return seat.committed + seat.stack;
 }
 
+/**
+ * Reject an action the rules do not permit, rather than applying it and corrupting the state.
+ *
+ * The engine used to validate nothing, and every arithmetic path here is a subtraction that trusts
+ * its input: `raise` to -500 CREDITED the seat 500 chips and left currentBet negative; `raise` to
+ * 999999 drove a stack to -994999 with allIn still false, since that flag is only set on exactly 0;
+ * a folded seat forced to act could bet. Chip conservation held through all of it — the sums stayed
+ * right while the state became nonsense — which is why the fuzzer never flagged any of it.
+ *
+ * The table screen clamps every amount before calling, so none of this was reachable in the shipped
+ * app. It is reachable by any OTHER caller, and the drill, review and lesson screens are becoming
+ * callers now. A throw is right rather than a silent clamp: a caller passing an illegal amount has a
+ * bug, and clamping would hide it while quietly changing the learner's action into a different one.
+ */
+function assertLegal(state: TableState, action: Action): void {
+  const seat = state.seats[state.toAct];
+  const legal = legalActions(state);
+
+  if (!legal.includes(action.kind)) {
+    // One accepted alias. When a seat cannot cover the bet, legalActions offers 'allin' instead of
+    // 'call' — but the chips are identical either way, and `call` already caps at the stack. The
+    // renderer relies on this equivalence in both directions (btn-call sends 'allin' when 'call' is
+    // absent), so rejecting the reverse would make the engine stricter than its own UI over a naming
+    // difference rather than a rules difference.
+    const callIsAnAllIn = action.kind === 'call' && legal.includes('allin') && state.currentBet > seat.committed;
+    if (!callIsAnAllIn) {
+      throw new Error(
+        `illegal action ${action.kind} for seat${seat?.id ?? state.toAct}: legal=[${legal.join(',')}]`,
+      );
+    }
+  }
+
+  if (action.kind !== 'bet' && action.kind !== 'raise') return;
+
+  const amount = action.amount ?? (action.kind === 'bet' ? state.bb : undefined);
+  if (amount === undefined || !Number.isFinite(amount)) {
+    throw new Error(`${action.kind} needs a finite amount, got ${String(action.amount)}`);
+  }
+
+  // An all-in-sized raise is legal below the min-raise: a seat may always put its last chips in, and
+  // maxRaiseTo is exactly that ceiling. So the floor is min(minRaiseTo, maxRaiseTo).
+  const ceiling = maxRaiseTo(state);
+  const floor = Math.min(minRaiseTo(state), ceiling);
+  if (amount < floor || amount > ceiling) {
+    throw new Error(`${action.kind} to ${amount} out of range [${floor}, ${ceiling}]`);
+  }
+}
+
 export function applyAction(state: TableState, action: Action): TableState {
+  assertLegal(state, action);
+
   const s = clone(state);
   const seatIdx = s.toAct;
   const seat = s.seats[seatIdx];
