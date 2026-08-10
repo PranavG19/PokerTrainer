@@ -335,7 +335,14 @@ test('a full session across every surface leaves the table playable', async () =
   const dir = freshUserDataDir();
   const { app, page } = await launchApp({ seed: 11, userDataDir: dir });
   const errors = watchPageErrors(page);
-  const tabs = ['tab-learn', 'tab-drill', 'tab-charts', 'tab-profile', 'tab-settings'] as const;
+  const tabs = [
+    'tab-learn',
+    'tab-drill',
+    'tab-charts',
+    'tab-anomaly',
+    'tab-profile',
+    'tab-settings',
+  ] as const;
   try {
     await sitDown(page);
     await soak(page, dir, 'mixed', 4);
