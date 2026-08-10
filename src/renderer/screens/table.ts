@@ -133,6 +133,18 @@ export function renderTable(opts: {
   let heroStartStack = state.seats[0].stack + state.seats[0].committed;
   let pendingTimer: ReturnType<typeof setTimeout> | null = null;
   let settled = false;
+  /**
+   * True while the coach panel holds a verdict on a decision the hero has already made. A verdict
+   * quotes the pot and to-call it graded, so leaving it up at the NEXT decision puts "Calling 50
+   * into a 75 pot" a few pixels under a live "Pot 366" — two contradictory numbers for one
+   * quantity, and the quoted figures are the strongest cue that the advice describes right now.
+   * showGrade only overwrites when the new decision is itself gradeable, so a free decision after a
+   * graded one used to leave the stale line up. It is cleared on the next decision rather than on a
+   * street change because the pot moves within a street too (hero bets, villain raises). The
+   * verdict still stays up for the whole villain phase, and for the hand's last decision it
+   * survives showdown and handover, which is where it is actually read.
+   */
+  let adviceShown = false;
 
   const heroSeat = (): Seat => state.seats[0];
 
@@ -178,6 +190,7 @@ export function renderTable(opts: {
       seed: opts.seed + state.handNumber,
     });
     showGrade(coach, grade);
+    adviceShown = grade.message !== null && grade.severity !== 'free';
     if (grade.principle !== null) {
       grades.push({
         severity: grade.severity,
@@ -213,6 +226,11 @@ export function renderTable(opts: {
       return;
     }
     if (state.toAct === 0) {
+      // A new decision: the previous verdict's pot and to-call no longer describe this spot.
+      if (adviceShown) {
+        clearCoach(coach);
+        adviceShown = false;
+      }
       setAwaiting('hero');
       render();
       return;
@@ -263,6 +281,7 @@ export function renderTable(opts: {
     heroPfr = false;
     settled = false;
     clearCoach(coach);
+    adviceShown = false;
     clearPredictPanel(predict);
     state = startHand(state);
     heroStartStack = state.seats[0].stack + state.seats[0].committed;
