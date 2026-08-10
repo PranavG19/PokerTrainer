@@ -58,7 +58,20 @@ export async function launchApp(
   };
 }
 
-/** Fail loudly if the app ever tries to reach the network. "No cloud" must be enforced, not assumed. */
+/**
+ * Renderer-level network watch: records any non-local URL the PAGE requests.
+ *
+ * SCOPE, STATED because the name overpromises. `page.route` intercepts what the RENDERER asks for and
+ * nothing else — it is blind to Chromium's own traffic (component updates, safe-browsing lists, domain
+ * reliability beacons, the updater), which lives in the browser process. That is exactly the gap
+ * PRODUCT-SPEC's Security section calls out about v1's "any outbound request" claim. It is still worth
+ * having here, because a renderer that tries to fetch is a real bug and this is the cheapest way for an
+ * unrelated spec to notice one in passing.
+ *
+ * The browser-process guarantee is tests/e2e/no-network.spec.ts (loopback proxy + onBeforeRequest +
+ * the main process's own module state). Do not read a clean result from this function as "the app made
+ * no network request".
+ */
 export async function assertNoNetwork(page: Page): Promise<string[]> {
   const attempted: string[] = [];
   await page.route('**/*', (route) => {
