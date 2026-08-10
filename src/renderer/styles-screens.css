@@ -332,3 +332,129 @@ button.hand-row {
   font-size: 14px;
   color: var(--text-hi);
 }
+
+/* ── The recommendation card (N2) ────────────────────────────────────────────
+   Sits above the New session card, because N5 calls Home a launcher and the one
+   thing a launcher owes is what to launch. Styled as a suggestion rather than a
+   demand: no badge, no count-up, nothing that reads as a task list. */
+
+.recommendation {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 16px;
+  /* A left rule rather than a filled panel: it marks the card as advice without
+     competing with the bankroll headline above it. */
+  border-left: 3px solid var(--accent, #4a9eff);
+  background: var(--surface);
+}
+
+.recommendation-heading {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+
+.recommendation-action {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-hi);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recommendation-action:hover {
+  text-decoration: underline;
+}
+
+/* The empty state's action is not a button, so it must not look clickable. */
+.recommendation-empty .recommendation-action {
+  cursor: default;
+}
+
+.recommendation-empty .recommendation-action:hover {
+  text-decoration: none;
+}
+
+.recommendation-reason {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-lo);
+}
+
+.recommendation-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* Skip is always available (N1): a suggestion that can only be accepted is a
+   soft lock. Understated, not hidden — hiding it would be the same lock. */
+.recommendation-skip {
+  padding: 5px 12px;
+  border: 1px solid var(--line, #333);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-lo);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.recommendation-skip:hover {
+  color: var(--text-hi);
+  border-color: var(--text-lo);
+}
+
+.recommendation-others {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+/* N4's ask-once conversation, after five consecutive skips. */
+.recommendation-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line, #333);
+}
+
+.recommendation-ask-prompt {
+  font-size: 13px;
+  color: var(--text-hi);
+}
+
+.recommendation-ask-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recommendation-ask-option {
+  padding: 6px 12px;
+  border: 1px solid var(--line, #333);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-lo);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.recommendation-ask-option:hover {
+  color: var(--text-hi);
+  border-color: var(--text-lo);
+}
