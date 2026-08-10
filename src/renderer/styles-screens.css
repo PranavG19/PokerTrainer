@@ -107,6 +107,11 @@ button.hand-row {
   color: var(--red);
 }
 
+/* Break-even: the existing muted text colour, so it reads as neither win nor loss. */
+.net-flat {
+  color: var(--text-lo);
+}
+
 .empty-state {
   background: var(--surface);
   border-radius: 16px;
@@ -201,8 +206,14 @@ button.hand-row {
   min-width: 120px;
 }
 
+/*
+ * Fixed width, never flex:1. The bar is a percentage OF THE TRACK, so a track sized by whatever
+ * space the cost text leaves over makes the bars incomparable: "25.0 bb · 137×" is a wider string
+ * than "24.0 bb · 1×", so it left a narrower track and drew a SHORTER bar for the MORE expensive
+ * leak — the bars said the opposite of the ranking they exist to illustrate.
+ */
 .leak-track {
-  flex: 1;
+  flex: 0 0 140px;
   height: 6px;
   border-radius: 3px;
   background: var(--surface-hi);
@@ -217,6 +228,7 @@ button.hand-row {
 }
 
 .leak-count {
+  flex: 1;
   font-size: 15px;
   font-weight: 300;
   color: var(--text-lo);
