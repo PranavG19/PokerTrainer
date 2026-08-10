@@ -228,3 +228,72 @@ test.describe('R6 coach layer', () => {
     });
   });
 });
+
+/**
+ * A verdict quotes the pot and the amount to call of the decision it graded. When it outlives that
+ * decision it becomes a second, contradictory reading of the same quantity — measured on screen as
+ * "Calling 50 into a 75 pot" sitting a few pixels under a live "Pot 366" / "Call 83". showGrade only
+ * overwrites the panel when the NEW decision is itself gradeable, and a 'free' grade cleared it, so
+ * the leak was specifically: graded decision, then a cheap correct one, and the stale line stays up.
+ *
+ * This sweeps every decision of several hands instead of pinning one seed to a scripted line,
+ * because the bug is a property of the panel's lifetime, not of any single spot. The verdict counter
+ * is the guard against a vacuous pass: if no decision in the sweep was ever graded, the invariant
+ * held only because the panel was never written to, and the test proves nothing.
+ */
+test.describe('R6 coach panel lifetime', () => {
+  test('no verdict is still on screen when the hero reaches the next decision', async () => {
+    await withApp(8, async (page) => {
+      await openTable(page);
+
+      let decisions = 0;
+      let verdicts = 0;
+      let lastVerdict: string | null = null;
+
+      for (let hand = 0; hand < 6; hand++) {
+        for (let step = 0; step < 20; step++) {
+          if ((await waitIdle(page)) === 'handover') break;
+
+          // The invariant. At a fresh decision the panel must not be quoting an earlier one.
+          decisions++;
+          await expect(
+            page.locator(COACH_PANEL),
+            `decision ${decisions}: stale verdict on screen — ${String(await page.locator(sel.coach).textContent())}`,
+          ).toHaveAttribute('data-severity', 'none');
+          await expect(page.locator(sel.coach), `decision ${decisions}: stale verdict text`).toHaveText('');
+
+          // Raise-first, not the passive call/check loop used elsewhere in this file: measured, a
+          // passive hero drew 0 grades across 12 decisions (every call was priced correctly, so
+          // every grade was 'free'), and the sweep proved nothing. Min-raising with whatever it was
+          // dealt overcommits on weak equity, which is what the 'ranges' rule grades.
+          const raise = page.locator(sel.btnRaise);
+          const call = page.locator(sel.btnCall);
+          const check = page.locator(sel.btnCheck);
+          if (await raise.isEnabled()) await raise.click();
+          else if (await call.isEnabled()) await call.click();
+          else if (await check.isEnabled()) await check.click();
+          else await page.locator(sel.btnFold).click();
+
+          // heroAct grades, applies and re-renders synchronously, so the verdict (if any) is
+          // already in the DOM. Reading it here is what makes the counter below trustworthy.
+          const severity = await page.locator(COACH_PANEL).getAttribute('data-severity');
+          if (severity !== 'none') {
+            verdicts++;
+            lastVerdict = await page.locator(sel.coach).textContent();
+            expect(lastVerdict, 'a graded panel must carry text').not.toBe('');
+          }
+        }
+
+        // The hand's last verdict deliberately survives showdown — handover is where it gets read.
+        expect(await waitIdle(page)).toBe('handover');
+        await page.locator(NEXT_HAND).click();
+      }
+
+      expect(decisions, 'the sweep must actually reach decisions').toBeGreaterThan(6);
+      expect(
+        verdicts,
+        `no decision in ${decisions} was ever graded, so the invariant above was vacuous`,
+      ).toBeGreaterThan(0);
+    });
+  });
+});
