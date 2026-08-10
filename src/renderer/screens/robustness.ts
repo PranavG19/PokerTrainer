@@ -210,13 +210,18 @@ function renderSpotList(current: Spot, onSelect: (spot: Spot) => void): HTMLElem
     panel.appendChild(button);
   }
 
-  panel.appendChild(
-    text(
-      'p',
-      'robust-note',
-      'The four continuations are re-weightings of the same opponent frequencies, not four new solves.',
-    ),
+  /*
+   * O7's parenthetical, and it needs a testid for the same reason as the spread caption: unasserted, it
+   * could be inverted into "each of the four continuations is solved separately to find the opponent
+   * best response" — both a spec contradiction and bound vocabulary — and ship green.
+   */
+  const note = text(
+    'p',
+    'robust-note',
+    'The four continuations are re-weightings of the same opponent frequencies, not four new solves.',
   );
+  note.dataset.testid = 'robust-note';
+  panel.appendChild(note);
 
   return panel;
 }
@@ -335,7 +340,16 @@ function renderVerdict(report: RobustnessReport): HTMLElement {
   );
   spread.dataset.testid = 'robust-spread';
   wrap.appendChild(spread);
-  wrap.appendChild(text('div', 'stat-label', 'widest gap between the four'));
+  /*
+   * TESTID SO THE WORDING CAN BE PINNED. The verify pass showed this caption is exactly where O7's
+   * "never a bound" gets broken: rewording it to "the most this line can ever lose you" — an explicit
+   * maximum-loss claim — shipped green through all 11 tests, because a denylist of banned phrases
+   * cannot cover a phrasing nobody predicted. The spread is a GAP between four re-weightings, not a
+   * worst case, so the caption is now asserted positively.
+   */
+  const spreadCaption = text('div', 'stat-label', 'widest gap between the four');
+  spreadCaption.dataset.testid = 'robust-spread-caption';
+  wrap.appendChild(spreadCaption);
 
   // Core's own comment, when it has one. Null on a robust line and on a fold — G3 silence, so
   // nothing is printed in its place and no praise is invented to fill the gap.

@@ -119,6 +119,22 @@ function shownBb(value: number): string {
  */
 async function expectMatchesCore(page: Page, id: string): Promise<void> {
   const report = robustnessDrill(inputFor(id));
+  const spotInput = inputFor(id);
+
+  /*
+   * THE CARDS ON SCREEN MUST BE THE SELECTED SPOT'S CARDS. Asserted here — in the helper every test
+   * calls — rather than once on the default spot, because the verify pass found that replacing
+   * `renderSpot(spot)` with `renderSpot(SPOTS[0])` passed all 11 tests while the screen captioned
+   * call-drawing-dead's numbers with pot-bet-air's hand. A report attributed to a hand nobody played is
+   * worse than no report: every number is right and the thing they describe is wrong.
+   */
+  const expectedCards = [...spotInput.hole, ...spotInput.board];
+  expect(
+    await page
+      .locator(`${screen} [data-testid="card"]`)
+      .evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.card ?? '')),
+    `${id}: the cards on screen are not this spot's cards`,
+  ).toEqual(expectedCards);
 
   await expect(page.locator(screen)).toHaveAttribute('data-verdict', report.verdict);
   await expect(page.locator(screen)).toHaveAttribute(
@@ -204,6 +220,26 @@ async function expectHeuristicFraming(page: Page, id: string): Promise<void> {
   }
   // The label must say what it is, not only what it is not.
   expect(body).toContain('not a bound');
+
+  /*
+   * POSITIVE ASSERTIONS, because the denylist above cannot enforce O7 on its own. The verify pass
+   * proved it: rewording the spread caption to "the most this line can ever lose you" — an explicit
+   * maximum-loss claim, exactly what "never a bound" forbids — passed all 11 tests, since no phrase on
+   * the list appears in it. A denylist only catches vocabulary somebody thought of in advance.
+   *
+   * So the two lines that carry O7's meaning are pinned to what they must SAY. The spread is a gap
+   * between four re-weightings; the note states the re-weightings are not new solves. Inverting either
+   * now fails rather than shipping.
+   */
+  await expect(
+    page.locator('[data-testid="robust-spread-caption"]'),
+    `${id}: the spread caption no longer describes a gap between the four`,
+  ).toHaveText('widest gap between the four');
+
+  await expect(
+    page.locator('[data-testid="robust-note"]'),
+    `${id}: O7's "re-weightings, not new trees" note is missing or reworded`,
+  ).toContainText('re-weightings of the same opponent frequencies, not four new solves');
 }
 
 async function withRobustness(
