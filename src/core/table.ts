@@ -703,6 +703,18 @@ export function settle(state: TableState): TableState {
 
   payRefunds(s, refunds);
   s.pot = 0;
+  /*
+   * DEFENCE IN DEPTH, AND UNREACHABLE TODAY — stated rather than left to look like tested code. A
+   * multiway showdown is only reached once a betting round has CLOSED, and advanceStreet already zeroes
+   * `committed` and `currentBet` on the way in, so there is nothing here to clear. Measured: across
+   * 5810 multiway hands over 8 stack shapes and 800 seeds each, ZERO arrived with dirty betting state
+   * (scripts/audit-w6/a31-multiway-dirty.ts) — every dirty hand takes the fold-out exit above
+   * (a30-which-exit.ts). Mutating this line away therefore fails no test, and no test is written for it,
+   * because a test that cannot fail is worse than none.
+   *
+   * It stays because the fold-out path was ALSO "obviously fine" until it was not, and the cost of a
+   * redundant call is nothing against a settled hand silently exposing a stale bet to a new reader.
+   */
   clearBettingState(s);
   return s;
 }

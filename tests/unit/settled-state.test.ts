@@ -52,6 +52,22 @@ function freshHand(seed: number): TableState {
   );
 }
 
+/**
+ * Uneven stacks, which is what produces the case the equal-stack sweep cannot: a short seat all-in for
+ * less ends the betting round with the deep seat's commitment still recorded, so the hand reaches
+ * showdown with a bet outstanding. Only ~1.25% of showdowns do this (scripts/audit-w6/a29).
+ */
+function unevenHand(seed: number): TableState {
+  return startHand(
+    createTable({
+      seats: [5000, 300, 1200, 90].map((stack, i) => ({ name: `P${i}`, stack, isHero: i === 0 })),
+      sb: 25,
+      bb: 50,
+      seed,
+    }),
+  );
+}
+
 /** The invariant a settled hand must satisfy, whatever route it took to get there. */
 function expectNoLeftoverBets(state: TableState, where: string): void {
   expect(state.currentBet, `${where}: currentBet outlived the hand`).toBe(0);
@@ -107,8 +123,62 @@ describe('the fold-out path', () => {
   });
 });
 
-describe('the showdown path', () => {
-  it('clears the betting state when a hand is played to the river', () => {
+describe('a hand that reaches the river with a bet outstanding', () => {
+  it('clears the betting state when a short all-in leaves a commitment recorded', () => {
+    /*
+     * THE SCENARIO THE EQUAL-STACK SWEEP CANNOT PRODUCE. With even stacks, every hand that gets this far
+     * has had its betting round close, and advanceStreet already zeroed `committed` on the way in — so
+     * there is nothing left for settle to clear and the assertion below would pass either way.
+     *
+     * UNEVEN STACKS are what produce it: a short seat all-in for less ends the round with the deep
+     * seat's commitment still recorded and currentBet still set. Measured with stacks
+     * [5000, 300, 1200, 90], 5 of 400 hands arrive that way — seed 34 has currentBet 5000 against
+     * committed [5000, 25, 50, 50] (scripts/audit-w6/a29-showdown-leftover.ts), which is why it is the
+     * seed used here.
+     *
+     * IT EXITS THROUGH THE FOLD-OUT BRANCH, not the showdown one, and the distinction matters enough to
+     * name: `street === 'showdown'` does NOT mean settle takes the showdown path — the fold-out branch
+     * runs first whenever only one seat is unfolded, which is the case here. Across 5810 multiway hands
+     * over 8 stack shapes, ZERO reached a genuine multiway showdown with dirty state
+     * (a30-which-exit.ts, a31-multiway-dirty.ts), so the clear on the showdown exit is unreachable
+     * defence-in-depth and is documented as such in core/table.ts rather than tested here.
+     */
+    let state = unevenHand(34);
+    const before = totalChips(state);
+    const rng = mulberry32(34 ^ 0x1234);
+    let guard = 0;
+    while (state.street !== 'showdown' && state.seats.filter((s) => !s.folded).length > 1 && guard++ < 300) {
+      const legal = legalActions(state);
+      if (legal.length === 0) break;
+      const roll = rng();
+      const action =
+        roll < 0.35 && legal.includes('raise')
+          ? ({ kind: 'raise', amount: minRaiseTo(state) } as const)
+          : roll < 0.5 && legal.includes('allin')
+            ? ({ kind: 'allin' } as const)
+            : legal.includes('call')
+              ? ({ kind: 'call' } as const)
+              : legal.includes('check')
+                ? ({ kind: 'check' } as const)
+                : ({ kind: 'fold' } as const);
+      if (!legal.includes(action.kind)) break;
+      state = applyAction(state, action);
+    }
+
+    expect(state.street, 'the setup did not reach the river').toBe('showdown');
+    // THE PRECONDITION THAT MAKES THIS TEST MEAN ANYTHING: settle must have something to clear.
+    // Without this, the assertion below passes whether or not the clear happens.
+    expect(
+      state.currentBet !== 0 || state.seats.some((seat) => seat.committed !== 0),
+      'this hand arrived clean, so it cannot test the clear — pick another seed (a29)',
+    ).toBe(true);
+
+    const settled = settle(state);
+    expectNoLeftoverBets(settled, 'river reached with an outstanding bet');
+    expect(totalChips(settled), 'chips were not conserved').toBe(before);
+  });
+
+  it('clears the betting state when a hand is played passively to the river', () => {
     let state = freshHand(9);
     const before = totalChips(state);
 
@@ -139,7 +209,7 @@ describe('across many seeds and many routes', () => {
   it('no settled hand ever carries a leftover bet, over 300 seeds', () => {
     let stale = 0;
     for (let seed = 1; seed <= 300; seed++) {
-      let state = freshHand(seed);
+      let state = unevenHand(seed);
       const before = totalChips(state);
       const rng = mulberry32(seed ^ 0xabcdef);
 
@@ -183,7 +253,7 @@ describe('across many seeds and many routes', () => {
     let foldOuts = 0;
     let showdowns = 0;
     for (let seed = 1; seed <= 300; seed++) {
-      let state = freshHand(seed);
+      let state = unevenHand(seed);
       const rng = mulberry32(seed ^ 0xabcdef);
       let guard = 0;
       while (state.street !== 'showdown' && state.seats.filter((s) => !s.folded).length > 1 && guard++ < 300) {
