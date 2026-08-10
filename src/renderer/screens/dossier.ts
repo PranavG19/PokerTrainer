@@ -20,6 +20,8 @@ import {
   readAccuracy,
   revertState,
   shrinkageWeight,
+  type ActiveDeviation,
+  type DropReason,
   type ExploitNode,
   type Forecast,
   type Read,
@@ -209,6 +211,22 @@ export function renderDossier(): HTMLElement {
     const track = trackOf(id);
     if (track.preRegistered) return;
     const registered = [...tracks.values()].filter((t) => t.preRegistered).length;
+    /**
+     * R2's other half, and the one a cap alone does not enforce: pre-registration is written BEFORE
+     * the evidence. Registering a tendency that already carries observations would licence a deviation
+     * on data gathered opportunistically, which is exactly what R2 refuses — the hypothesis is
+     * next session's, "with fresh data". Freeing a slot mid-session must therefore not launder
+     * evidence collected while the tendency was unregistered.
+     */
+    if (track.n > 0) {
+      track.inNotebook = true;
+      refusal = {
+        tendencyId: id,
+        message: `This tendency already has ${track.n} observation${track.n === 1 ? '' : 's'} against it, so registering it now would licence a deviation on evidence gathered off-plan. It is in the notebook as next session's hypothesis, to be tested on fresh data.`,
+      };
+      paint();
+      return;
+    }
     // R2: the cap refuses, and the refused tendency is not lost — it becomes next session's
     // hypothesis in the notebook, with fresh data.
     if (registered >= PRE_REGISTRATION_CAP) {
@@ -301,6 +319,17 @@ export function renderDossier(): HTMLElement {
     const accuracy = readAccuracy(forecasts);
     const registered = [...tracks.values()].filter((t) => t.preRegistered).length;
 
+    /**
+     * WHY THE VERDICT READS THE PLAN AND NOT `gates()` ALONE. The two gates are only three of the
+     * five things core refuses on: `planDeviations` also drops a read that was never pre-registered,
+     * one whose gate has been re-closed by six contrary observations, and one reverted to baseline by
+     * three counter-actions. Announcing "may license a deviation" off `g.licensed` said exactly that
+     * beside a licensed deviation of 0.00 bb and a dropped row in the plan — the screen contradicting
+     * its own number. So the sentence and the spendable figure both come from core's composed answer.
+     */
+    const active = plan.active.find((a) => a.readId === read.id) ?? null;
+    const dropReason = plan.dropped.find((d) => d.readId === read.id)?.reason ?? null;
+
     // The sync oracle. Every e2e wait keys off these; nothing here is timed.
     root.dataset.tendency = selected;
     root.dataset.n = String(read.n);
@@ -325,6 +354,8 @@ export function renderDossier(): HTMLElement {
         read,
         gates: g,
         revert,
+        active,
+        dropReason,
         lastObservation,
         onForecast: forecastAndObserve,
         onCounterAction: countCounterAction,
@@ -360,6 +391,20 @@ function renderRegistration(opts: {
   const villain = text('div', 'dossier-villain', VILLAIN);
   villain.dataset.testid = 'villain-name';
   panel.appendChild(villain);
+
+  /**
+   * R6's honesty clause, and story 28's. This surface is a GENERATED observation set, not a record of
+   * hands the learner played — nothing in the app persists per-villain action counts yet. Saying so is
+   * not a caveat: a screen headed "what I've actually observed" that quietly showed synthetic data
+   * would be the one thing story 28 forbids.
+   */
+  const provenance = text(
+    'p',
+    'dossier-note',
+    'A generated observation set (R6), not your own hand history — the app records no per-villain action counts yet, so nothing here is a claim about a seat you have played.',
+  );
+  provenance.dataset.testid = 'stream-provenance';
+  panel.appendChild(provenance);
 
   const count = text(
     'div',
@@ -517,6 +562,9 @@ function renderStream(opts: {
   read: Read;
   gates: ReturnType<typeof gates>;
   revert: ReturnType<typeof revertState>;
+  /** This read's row in core's plan, or null when core dropped it. The verdict's only source. */
+  active: ActiveDeviation | null;
+  dropReason: DropReason | null;
   lastObservation: { tendencyId: string; occurred: boolean; index: number } | null;
   onForecast: (probability: number) => void;
   onCounterAction: () => void;
@@ -576,14 +624,35 @@ function renderStream(opts: {
   panel.appendChild(ladder);
 
   panel.appendChild(text('div', 'stat-label', 'R1 — two gates, and they are independent'));
-  panel.appendChild(renderGates(opts.read, opts.gates));
-  panel.appendChild(renderShrinkage(opts.tendency, opts.read, opts.gates, opts.revert));
+  panel.appendChild(renderGates(opts.read, opts.gates, opts.active, opts.dropReason));
+  panel.appendChild(renderShrinkage(opts.tendency, opts.read, opts.active));
   panel.appendChild(renderRevert(opts.read, opts.revert, opts.onCounterAction, opts.onContrary, opts.onEndSession));
 
   return panel;
 }
 
-function renderGates(read: Read, g: ReturnType<typeof gates>): HTMLElement {
+/**
+ * Why each refusal is named rather than lumped under "not licensed": a learner told only that the
+ * answer is no cannot tell a thin sample (wait) from a re-closed gate (stop) from a tendency that was
+ * never written down (this one is next session's, however good the evidence looks).
+ */
+const DROP_SENTENCE: Record<DropReason, string> = {
+  'sample-gate': 'Not licensed: the sample gate is shut, and no other gate can make up for it.',
+  'deviation-gate':
+    'Not licensed: the frequency is inside the threshold band, however large the sample is.',
+  'not-pre-registered':
+    'Not licensed: this tendency was not pre-registered, so no amount of evidence can license it this session.',
+  'gate-re-closed': `Licence withdrawn: ${CONTRARY_OBSERVATIONS_TO_CLOSE} contrary observations re-closed the gate. Both gates still read open above, which is the point — the evidence did not change, the licence did.`,
+  'reverted-to-baseline': `Licence withdrawn: ${COUNTER_ACTIONS_TO_BASELINE} counter-actions revert this to baseline for the rest of the session.`,
+  'breadth-cap': `Not licensed: the breadth cap of ${MAX_ACTIVE_DEVIATIONS} is full and larger deviations hold those slots.`,
+};
+
+function renderGates(
+  read: Read,
+  g: ReturnType<typeof gates>,
+  active: ActiveDeviation | null,
+  dropReason: DropReason | null,
+): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'dossier-gates';
 
@@ -610,10 +679,17 @@ function renderGates(read: Read, g: ReturnType<typeof gates>): HTMLElement {
   const licensed = document.createElement('div');
   licensed.className = 'dossier-licensed';
   licensed.dataset.testid = 'gate-licensed';
-  licensed.dataset.licensed = String(g.licensed);
-  licensed.textContent = g.licensed
-    ? 'Both gates open. This tendency may license a deviation.'
-    : 'Not licensed. Both gates must be open, and neither one alone is enough.';
+  // data-gates keeps R1's own two-gate answer readable on its own; data-licensed is now the
+  // composed verdict, so nothing on screen can say "may deviate" beside a plan that dropped it.
+  licensed.dataset.gates = String(g.licensed);
+  licensed.dataset.licensed = String(active !== null);
+  licensed.dataset.dropReason = dropReason ?? '';
+  licensed.textContent =
+    active !== null
+      ? 'Both gates open, and nothing has withdrawn it. This tendency may license a deviation.'
+      : (dropReason !== null
+          ? DROP_SENTENCE[dropReason]
+          : 'Not licensed. Both gates must be open, and neither one alone is enough.');
   wrap.appendChild(licensed);
 
   return wrap;
@@ -638,8 +714,7 @@ function gateRow(testid: string, pass: boolean, label: string): HTMLElement {
 function renderShrinkage(
   tendency: Tendency,
   read: Read,
-  g: ReturnType<typeof gates>,
-  revert: ReturnType<typeof revertState>,
+  active: ActiveDeviation | null,
 ): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'dossier-shrinkage';
@@ -647,8 +722,13 @@ function renderShrinkage(
 
   const weight = shrinkageWeight(read.n);
   const magnitude = appliedDeviation(tendency.fullExploitBb, read.n);
-  // The licence is the gates', never the weight's. A shut gate deviates by nothing at all.
-  const licensedBb = g.licensed ? revert.effectiveWeight * tendency.fullExploitBb : 0;
+  /**
+   * The spendable figure is core's, taken straight off the plan row rather than re-multiplied here.
+   * `gates()` alone is not the licence: it knows nothing about pre-registration, the breadth cap or
+   * either revert trigger, so reading it here printed a spendable 1.33 bb for a read core had already
+   * dropped. No plan row means no licence, which means nothing to spend.
+   */
+  const licensedBb = active?.appliedBb ?? 0;
 
   wrap.appendChild(text('div', 'stat-label', `Magnitude — w = n/(n+${SHRINKAGE_PRIOR})`));
 
@@ -671,7 +751,7 @@ function renderShrinkage(
     'what you may actually deviate by',
   );
   permitted.dataset.bb = licensedBb.toFixed(6);
-  permitted.dataset.licensed = String(g.licensed);
+  permitted.dataset.licensed = String(active !== null);
   wrap.appendChild(permitted);
 
   const trap = text(
@@ -681,7 +761,7 @@ function renderShrinkage(
   );
   trap.dataset.testid = 'shrinkage-trap';
   trap.dataset.weight = weight.toFixed(6);
-  trap.dataset.licensed = String(g.licensed);
+  trap.dataset.licensed = String(active !== null);
   wrap.appendChild(trap);
 
   return wrap;
