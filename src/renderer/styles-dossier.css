@@ -1,0 +1,381 @@
+/*
+ * THE DOSSIER (N5, R1-R4, R6, O4). Palette comes from styles.css; nothing new is defined here.
+ *
+ * BUDGET. Three columns, because the surface is three questions — what am I allowed to track, what
+ * have I actually seen, and what does that license — and collapsing any two of them puts the gate
+ * verdict off screen from the weight it must be compared against. At the documented 900px minimum
+ * the shell spends 40px on .screen padding, leaving 860px; two 20px gaps leave 820px for content,
+ * split 250 / minmax(0,1fr) / 290. The middle column is the elastic one because the gate rows are
+ * the only prose that must not wrap to four lines.
+ *
+ * HEIGHT is the binding constraint, as it is on the charts screen. The tab bar takes 45px and
+ * .screen adds 20px of vertical padding, so a 640px window leaves 575px, and the middle column
+ * alone wants more than that. Each panel therefore scrolls itself unconditionally rather than
+ * letting the page grow a scrollbar. The forecast ladder stays inside its own column's scroll — it
+ * is not pinned, because a pinned control over scrolling prose was the layout that hid the gate
+ * readout it exists to change.
+ *
+ * NO MINT ANYWHERE. V2 reserves it for win% and the fluency gate. An open gate and a shut one are
+ * told apart by type weight and by the words "open" and "shut", never by hue — this screen's entire
+ * subject is a learner over-reading a signal, so a green light on a 20-observation sample would be
+ * the screen arguing against itself.
+ */
+.dossier-screen {
+  --dossier-budget: calc(100vh - 65px);
+
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 290px;
+  gap: 20px;
+  align-items: start;
+}
+
+.dossier-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px 16px;
+  max-height: var(--dossier-budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ─── Column 1: pre-registration (R2) ─── */
+
+.dossier-villain {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.dossier-prereg-count {
+  font-size: 13px;
+  color: var(--text-lo);
+}
+
+.dossier-tendency-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dossier-tendency-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-hi);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+/* The tracked tendency is the loud one: weight and ink, no accent colour. */
+.dossier-tendency-row[data-selected='true'] {
+  outline: 1px solid var(--text-lo);
+}
+
+.dossier-tendency-name {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-hi);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dossier-tendency-row[data-selected='true'] .dossier-tendency-name {
+  font-weight: 600;
+}
+
+.dossier-tendency-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dossier-mini {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--surface);
+  color: var(--text-lo);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.dossier-tendency-row[data-registered='true'] .dossier-mini[data-testid='prereg-btn'] {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+/*
+ * The refusal is prose, not a toast: it has to say what happened to the tendency it refused, and a
+ * three-second toast is exactly the wrong medium for "this is now next session's hypothesis".
+ */
+.dossier-refusal {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-hi);
+  background: var(--surface-hi);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.dossier-notebook {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dossier-notebook-row,
+.dossier-notebook-empty {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.dossier-falseread {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dossier-rate-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dossier-rate-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.dossier-rate-label {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/* ─── Column 2: the stream, the gates, the trap (R6, R1, R4) ─── */
+
+.dossier-subject {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.dossier-observation-count {
+  font-size: 13px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.dossier-last {
+  font-size: 14px;
+  background: var(--surface-hi);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.dossier-last[data-occurred='true'] {
+  font-weight: 600;
+}
+
+.dossier-forecast-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dossier-forecast {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: var(--surface-hi);
+  color: var(--text-hi);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.dossier-gates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dossier-gate-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dossier-gate-mark {
+  flex: 0 0 44px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-lo);
+}
+
+.dossier-gate-row[data-pass='true'] .dossier-gate-mark {
+  color: var(--text-hi);
+  font-weight: 700;
+}
+
+.dossier-gate-label {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.dossier-licensed {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-lo);
+}
+
+.dossier-licensed[data-licensed='true'] {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+.dossier-shrinkage,
+.dossier-revert {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--surface-hi);
+  padding-top: 10px;
+}
+
+.dossier-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dossier-figure-value {
+  flex: 0 0 84px;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dossier-figure-label {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/*
+ * The trap paragraph is the most important text on the screen and is styled to read as body copy
+ * rather than as a footnote, because a learner who skims it is the learner it is written for.
+ */
+.dossier-trap {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-hi);
+  background: var(--surface-hi);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.dossier-revert-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.dossier-counter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dossier-counter-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dossier-triggers {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dossier-trigger-row {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-lo);
+}
+
+.dossier-triggers .dossier-trigger-row[data-testid='revert-trigger'] {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+/* ─── Column 3: the plan and the grading (R3, O4) ─── */
+
+.dossier-node-list,
+.dossier-plan-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dossier-node-row,
+.dossier-plan-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface-hi);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+/* A node inside the top two is marked by weight and a solid edge, never by hue. */
+.dossier-node-row[data-selected='true'] {
+  outline: 1px solid var(--text-lo);
+}
+
+.dossier-node-name,
+.dossier-plan-name {
+  font-size: 12px;
+}
+
+.dossier-node-row[data-selected='true'] .dossier-node-name {
+  font-weight: 700;
+}
+
+.dossier-node-value,
+.dossier-plan-value {
+  font-size: 11px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.dossier-plan-empty {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.dossier-accuracy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--surface-hi);
+  padding-top: 10px;
+}
+
+.dossier-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-lo);
+}
