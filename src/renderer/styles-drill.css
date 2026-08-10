@@ -1,0 +1,332 @@
+/*
+ * THE DRILL TAB — the arithmetic trainer. Palette comes from styles.css: no new colours, and no
+ * mint and no red anywhere in this file. V2 reserves mint for win% and the fluency gate, and red
+ * means irreversible rather than "wrong" — a missed division is neither, so severity here is
+ * carried by wording, type weight and position only. Greyscale-print the screen and it still says
+ * the same thing.
+ *
+ * BUDGET, measured rather than estimated, because guessing it is the regression class this app has
+ * already shipped twice. The shell spends 45px on the tab bar and 40px on .screen's vertical
+ * padding, so the column budget is 100vh - 85px: 555px in a 640px window, 675px in a 760px one.
+ * Width at the 900px minimum: 900 - 40px of .screen padding = 860px, of which the sidebar takes a
+ * fixed 240px and the gap 20px, leaving 600px for the worked method.
+ *
+ * BOTH COLUMNS SCROLL THEMSELVES rather than letting the page grow, which is the same remedy the
+ * charts screen and the table's stats sheet use. Measured, neither needs to today: the tall state
+ * is the graded one — five method steps plus the two figures — and it comes out 382px in the 640px
+ * window against a 555px budget, with the sidebar at 419px. The max-height is a valve, not a fix;
+ * it is here because a page-level scrollbar would move the answer box, which is the one thing the
+ * learner is aiming at, and because a sixth method step must degrade into a scroll rather than into
+ * clipped text. drill.spec.ts test 14 asserts the overflow is zero at both sizes, so the day it
+ * starts scrolling is a failing test rather than a silent change.
+ */
+.drill-screen {
+  --panel-budget: calc(100vh - 85px);
+
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* ─── Sidebar: kind selection and the session tally ─── */
+.drill-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px 16px;
+  max-height: var(--panel-budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The kind in words. Large, because "which question is this" must never be a guess. */
+.drill-now {
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  color: var(--text-hi);
+}
+
+.drill-now-asks {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-lo);
+  padding-bottom: 2px;
+}
+
+.drill-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.drill-kind-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  background: var(--surface-hi);
+  color: var(--text-lo);
+}
+
+/* The selected kind is the loud one: weight and ink, no accent colour. */
+.drill-kind-btn[data-active='true'] {
+  color: var(--ink);
+  background: var(--card-face);
+  font-weight: 600;
+}
+
+.drill-tallies {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+}
+
+.drill-tally-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+/* The total is separated by a rule and by weight, so it cannot be misread as a fifth kind. */
+.drill-tally-total {
+  border-top: 1px solid var(--surface-hi);
+  margin-top: 3px;
+  padding-top: 6px;
+}
+
+.drill-tally-label {
+  font-size: 12px;
+  color: var(--text-hi);
+}
+
+.drill-tally-total .drill-tally-label {
+  font-weight: 600;
+}
+
+/* Tabular so the column does not jitter as the scores tick over. */
+.drill-tally-score {
+  font-size: 12px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.drill-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-lo);
+}
+
+/* ─── The problem, the answer box, and the worked method ─── */
+.drill-work {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 18px 20px;
+  min-width: 0;
+  max-height: var(--panel-budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * The question itself, and the largest type on the screen: it is what the learner is reading when
+ * they do the arithmetic, and it stays on screen after the commit so the method can be checked
+ * against it.
+ */
+.drill-prompt-text {
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1.35;
+  color: var(--text-hi);
+  letter-spacing: -0.3px;
+}
+
+.drill-answer-row {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  align-items: center;
+  gap: 10px;
+}
+
+.drill-field {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: var(--surface-hi);
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+
+.drill-answer {
+  width: 120px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-hi);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.drill-answer::placeholder {
+  color: var(--text-lo);
+  font-size: 18px;
+}
+
+/* The unit sits inside the field, so "25" cannot be read as a ratio or "0.25" as a percentage. */
+.drill-unit {
+  font-size: 18px;
+  color: var(--text-lo);
+}
+
+.drill-commit,
+.drill-next {
+  padding: 10px 18px;
+  font-size: 14px;
+  background: var(--surface-hi);
+  color: var(--text-hi);
+}
+
+.drill-next {
+  align-self: start;
+}
+
+.drill-hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-lo);
+  max-width: 62ch;
+}
+
+/* An unreadable entry is stated at full contrast — it is information, not a scolding, and not red. */
+.drill-hint[data-unreadable='true'] {
+  color: var(--text-hi);
+}
+
+/* ─── The verdict: the learner's number beside the right one ─── */
+.drill-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/*
+ * SEVERITY BY WEIGHT AND WORDING, NEVER COLOUR (V2). A miss states the fact in full-contrast
+ * medium type, a hit states it quietly, and neither is praised (G3) — there is no "correct!" here.
+ */
+.drill-verdict-line {
+  font-size: 14px;
+}
+
+.drill-verdict[data-verdict='wrong'] .drill-verdict-line {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+.drill-verdict[data-verdict='right'] .drill-verdict-line {
+  color: var(--text-lo);
+  font-weight: 400;
+}
+
+/*
+ * Both numbers in the same layout either way, because the teaching is the comparison. Fixed
+ * columns rather than flex so the two values line up under each other's labels regardless of how
+ * many digits each has.
+ */
+.drill-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 140px));
+  gap: 12px;
+}
+
+.drill-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface-hi);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.drill-figure-value {
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1.15;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+.drill-gap {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-lo);
+  max-width: 62ch;
+}
+
+/* ─── The worked method ─── */
+.drill-method {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--surface-hi);
+  padding-top: 10px;
+}
+
+.drill-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  counter-reset: step;
+}
+
+/* Numbered by counter rather than by a bullet glyph: the order of the steps is the method. */
+.drill-step {
+  position: relative;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-hi);
+  counter-increment: step;
+  font-variant-numeric: tabular-nums;
+  max-width: 74ch;
+}
+
+.drill-step::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  color: var(--text-lo);
+}
+
+/* At the 640px minimum the display type is the cheapest height to give back. */
+@media (max-height: 700px) {
+  .drill-now {
+    font-size: 20px;
+  }
+
+  .drill-prompt-text {
+    font-size: 18px;
+  }
+
+  .drill-answer {
+    font-size: 22px;
+  }
+
+  .drill-figure-value {
+    font-size: 20px;
+  }
+}
