@@ -84,12 +84,22 @@ The oracles that actually found things were:
 
 ## Known-open, stated rather than fixed
 
-- **`currentBet` outlives its commitments at showdown** (`a1`, ~0.3% of hands, up to 200/hand on
-  sub-blind stacks). `advanceStreet` resets it but the fold-out path jumps straight to showdown. Traced
-  every consumer: both reads in `table.ts` (177, 411) run only before showdown, and the two
-  `heroStartStack` reads happen immediately after `startHand`, which zeroes `committed` before posting
-  blinds. So it is an inert leftover, not a live wrong number — but it is real state corruption and
-  any new reader of `currentBet` at handover would inherit it.
+- ~~**`currentBet` outlives its commitments at showdown**~~ — **CLOSED** (`8306bda`, `437bc95`).
+  Fixed rather than left open, because "inert" was a property of which callers existed and new surfaces
+  reading table state at handover were being added. `clearBettingState` now runs at both `settle` exits,
+  after `payRefunds` (both it and `buildSidePots` read `committed`, so clearing earlier would zero every
+  side pot and refund). Test oracle is agreement — no bet may exceed the highest commitment — over 300
+  seeds, with a control proving the sweep reaches both exits.
+
+  Two findings came out of mutation-testing the fix, and both changed what the code says:
+  - **Equal stacks never leave anything to clear.** A hand only reaches the river once a betting round
+    has closed, and `advanceStreet` zeroes `committed` on the way in. It takes UNEVEN stacks — a short
+    all-in ends the round with the deep seat's commitment still recorded (5 of 400 hands, `a29`).
+  - **`street === 'showdown'` does not mean `settle` takes the showdown path.** The fold-out branch runs
+    first whenever one seat is unfolded, which is *every* dirty hand: 0 of 600 dirty hands reached the
+    showdown exit (`a30`), and 0 of 5810 multiway hands across 8 stack shapes arrived dirty at all
+    (`a31`). The clear on that exit is therefore **unreachable defence-in-depth**, and is commented as
+    such in `core/table.ts` with the measurement instead of being given a test that cannot fail.
 - **The grader cannot anchor a curriculum.** 47.7% of spots grade indifferent, it is blind to bet size
   and stack depth, and it can never say "bet this". Fixes 8-11 make it stop *lying*; they do not make
   it a teacher. This is the largest open item and it is a design question, not a bug.
