@@ -31,7 +31,7 @@ export const minimumDefenceFrequency: Lesson = {
       toCall: 100,
       prompt: 'A river bet of 100 makes the pot 300. What share of the defending range has to continue?',
       reasoning:
-        'Half pot risks 100 to win 200, so folding more than 1 hand in 3 pays for the bluff outright. Defending about 2 hands in 3 removes that automatic profit. Read the size first, then pick which hands fill the quota.',
+        'Half pot risks 100 to win the 200 already there, so folding more than 1 hand in 3 pays for the bluff outright. Defending about 2 hands in 3 removes that automatic profit. Read the size first, then pick which hands fill the quota.',
     },
     {
       id: 'pot-sized-river',
