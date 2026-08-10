@@ -785,3 +785,49 @@ test.describe('the settings screen fits', () => {
     });
   });
 });
+
+test.describe('a voice cannot outlive the app', () => {
+  /**
+   * `say` is a separate process and does NOT die with its parent, so quitting mid-verdict left macOS
+   * reading poker advice aloud with no window left to stop it. Found by the adversarial verify pass,
+   * which proved the OS behaviour standalone first and then end-to-end through the shipped app.
+   *
+   * The oracle is external pid liveness AFTER the app is gone — not anything the app reports about
+   * itself, since the app no longer exists to be asked.
+   */
+  test('19. quitting the app stops a verdict still being read', async () => {
+    const say = fakeSay('hang');
+    const launched = await launchApp({
+      seed: 8,
+      userDataDir: freshUserDataDir(),
+      env: { OFFSUIT_SAY_BINARY: say.binary },
+    });
+    let stillTalking: boolean[] = [];
+    try {
+      await launched.page.waitForSelector(homeScreen);
+      speakInBackground(launched.page, 'a verdict interrupted by the app closing');
+      await expect.poll(() => say.invocations().length).toBe(1);
+      expect(say.alive(), 'the utterance should be in flight before the app quits').toEqual([true]);
+
+      await launched.close();
+      // Polled, not slept: the kill is delivered during quit and reaped a moment later.
+      await expect
+        .poll(() => say.alive(), {
+          message: 'the app is closed but a voice is still reading a verdict nobody can stop',
+        })
+        .toEqual([false]);
+    } finally {
+      await launched.close();
+      // Never leave a real voice running behind a failed assertion.
+      stillTalking = say.alive();
+      for (const utterance of say.invocations()) {
+        try {
+          process.kill(utterance.pid, 'SIGTERM');
+        } catch {
+          // Already gone, which is the passing case.
+        }
+      }
+    }
+    expect(stillTalking, 'a voice survived the app it belonged to').toEqual([false]);
+  });
+});
