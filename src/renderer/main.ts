@@ -35,6 +35,7 @@ import { renderDossier } from './screens/dossier.js';
 import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
+import { renderSpacing } from './screens/spacing.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
 const DEFAULT_SEED = 42;
@@ -98,6 +99,7 @@ type Tab =
   | 'robustness'
   | 'charts'
   | 'dossier'
+  | 'spacing'
   | 'profile'
   | 'settings';
 
@@ -119,6 +121,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
   { id: 'anomaly', label: 'Anomaly', testid: 'tab-anomaly' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
+  { id: 'spacing', label: 'Spacing', testid: 'tab-spacing' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
   { id: 'settings', label: 'Settings', testid: 'tab-settings' },
 ];
@@ -372,6 +375,7 @@ async function boot(): Promise<void> {
     if (which === 'anomaly') return renderAnomalyScreen();
     if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
+    if (which === 'spacing') return renderSpacing();
     if (which === 'settings') {
       return renderSettings({
         status: settings,
