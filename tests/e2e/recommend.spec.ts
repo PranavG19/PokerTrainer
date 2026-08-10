@@ -316,9 +316,49 @@ test('the card survives a corrupt recommender block rather than blanking Home', 
     // Home still renders and still recommends the leak.
     await expect(page.locator(card)).toBeVisible();
     await expect(page.locator(card)).toHaveAttribute('data-subject', 'calls-too-wide-utg');
-    // The unusable log entries are dropped, and the one valid preference survives.
     await expect(page.locator(ask), 'a negative decline count triggered the ask').toHaveCount(0);
     expect(errors, 'a corrupt recommender block threw on the launcher').toEqual([]);
+
+    /*
+     * THE UNUSABLE ENTRIES ARE DROPPED, ASSERTED ON THE FILE — and this is here because the weaker
+     * version of this test (Home renders, nothing throws) let a real mutation through: removing the
+     * validity filter entirely, so `{timestamp: 'not-a-number', recommended: 5}` and a bare string are
+     * kept as log entries, changed nothing observable on screen.
+     *
+     * It matters because N4's log is evidence. An entry whose timestamp is a string cannot be placed in
+     * time and an entry with no `recommended` names nothing — carrying them forward means the phase-6
+     * maintenance view would later render `undefined` as a recommendation the learner declined. So the
+     * oracle is the SHAPE OF WHAT SURVIVED: three garbage entries in, zero out, and every surviving
+     * entry fully typed.
+     */
+    /*
+     * A SAVE HAS TO HAPPEN FIRST, which my first version of this got wrong: it read the file straight
+     * after launch and found the garbage still there — of course it did, nothing had rewritten it yet.
+     * The parser runs on LOAD, so its output only reaches disk once the app saves. Skipping the
+     * suggestion is the cheapest real save, and it also proves the surviving state is writable rather
+     * than merely parseable.
+     */
+    await page.locator(skip).click();
+    await expect
+      .poll(() => readPersisted(dir).recommender?.consecutiveDeclines ?? -1, {
+        message: 'the app never saved after loading the corrupt block',
+      })
+      .toBe(1);
+
+    const saved = readPersisted(dir).recommender;
+    // One real entry — the decline just made — and none of the three garbage ones.
+    expect(saved?.overrides?.length, 'garbage log entries were kept instead of dropped').toBe(1);
+    for (const entry of saved?.overrides ?? []) {
+      expect(typeof entry.timestamp, 'a surviving entry has an unusable timestamp').toBe('number');
+      expect(Number.isFinite(entry.timestamp)).toBe(true);
+      expect(typeof entry.recommended, 'a surviving entry names nothing').toBe('string');
+      expect(typeof entry.chosen).toBe('string');
+    }
+    // The negative decline count was clamped to 0 on load, so one skip makes it exactly 1. Carrying
+    // -99 forward would have made N4's ask unreachable forever.
+    expect(saved?.consecutiveDeclines, 'a negative decline count survived the load').toBe(1);
+    // Only the one real source survives the preference list.
+    expect(saved?.preferred, 'an unknown preferred source was kept').toEqual(['mastery']);
   } finally {
     await close();
   }
