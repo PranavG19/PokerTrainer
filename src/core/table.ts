@@ -595,6 +595,28 @@ export function isHandOver(state: TableState): boolean {
   return false;
 }
 
+/**
+ * Clear the per-street betting state once the hand is over and the money is distributed.
+ *
+ * WHY THIS EXISTS AS A FUNCTION rather than two assignments. `advanceStreet` zeroes `committed` and
+ * `currentBet` between streets, but a hand that ENDS never advances a street — both `settle` paths
+ * return directly — so a settled hand kept whatever the last betting round left behind. Measured at the
+ * time it was found: ~0.3% of hands ended with a `currentBet` up to 200 that no seat's `committed`
+ * backed (research/AUDIT-W6-findings.md, probe a1). It was inert, because every existing reader runs
+ * before showdown or immediately after `startHand` — but "inert" is a property of today's callers, and
+ * the app is growing surfaces that read table state at handover. A new reader would inherit a wrong
+ * number with nothing to warn it.
+ *
+ * Called at BOTH exits, which is the point of extracting it: the fold-out path is the one that was
+ * missed the first time, so a fix applied to only one path is the actual failure mode here.
+ */
+function clearBettingState(s: TableState): void {
+  for (const seat of s.seats) seat.committed = 0;
+  s.currentBet = 0;
+  s.minRaise = s.bb;
+  s.lastAggressor = null;
+}
+
 export function settle(state: TableState): TableState {
   const s = clone(state);
   const active = s.seats.filter((seat) => !seat.folded);
@@ -618,6 +640,9 @@ export function settle(state: TableState): TableState {
     s.log.push(`${winner.name} wins ${won}`);
     payRefunds(s, refunds);
     s.pot = 0;
+    // AFTER payRefunds: both it and buildSidePots read `committed`, so clearing earlier would
+    // silently zero every side pot and every refund.
+    clearBettingState(s);
     return s;
   }
 
@@ -678,6 +703,7 @@ export function settle(state: TableState): TableState {
 
   payRefunds(s, refunds);
   s.pot = 0;
+  clearBettingState(s);
   return s;
 }
 
