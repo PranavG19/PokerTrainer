@@ -385,6 +385,21 @@ export function renderTable(opts: {
         return;
       }
 
+      // The mirror case, and the one the busted-hero branch above missed by testing the wrong seat:
+      // when the HERO holds every chip, each villain sits out, both blinds land on the hero, and the
+      // hand is over before it deals — "Next hand" posts the blinds to itself forever with no
+      // decision to make. Measured at 25 hands from the standard table with a station hero. Only
+      // "New session" is offered because a rebuy tops up the hero, which is not who is short.
+      if (state.seats.filter((seat) => seat.stack > 0).length < 2) {
+        const swept = document.createElement('div');
+        swept.className = 'winner-summary';
+        swept.dataset.testid = 'table-swept';
+        swept.textContent = 'You have every chip at this table — nobody is left to play. Start a new session.';
+        controls.appendChild(swept);
+        controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
+        return;
+      }
+
       const next = pill('Next hand', 'next-hand', () => nextHand());
       controls.appendChild(next);
       return;

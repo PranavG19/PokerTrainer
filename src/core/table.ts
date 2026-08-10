@@ -210,10 +210,14 @@ export function startHand(state: TableState): TableState {
     bbIdx = nextFunded(s.seats, sbIdx);
   }
 
-  // Post small blind
+  // Post small blind. `+=` rather than `=`, because sbIdx and bbIdx are the same seat when only one
+  // seat still has chips (nextFunded returns `from` when nobody else does). Assigning overwrote the
+  // small blind in the ledger while the chips had really left the stack, so `stack + committed`
+  // under-recorded the start stack by exactly the small blind and settle() returned 25 fewer chips
+  // than it took: 25 DESTROYED per hand, compounding, with no losing hand ever played.
   const sbAmount = Math.min(s.sb, s.seats[sbIdx].stack);
   s.seats[sbIdx].stack -= sbAmount;
-  s.seats[sbIdx].committed = sbAmount;
+  s.seats[sbIdx].committed += sbAmount;
   if (s.seats[sbIdx].stack === 0) s.seats[sbIdx].allIn = true;
   s.pot += sbAmount;
   s.log.push(`${s.seats[sbIdx].name} posts SB ${sbAmount}`);
@@ -221,7 +225,7 @@ export function startHand(state: TableState): TableState {
   // Post big blind
   const bbAmount = Math.min(s.bb, s.seats[bbIdx].stack);
   s.seats[bbIdx].stack -= bbAmount;
-  s.seats[bbIdx].committed = bbAmount;
+  s.seats[bbIdx].committed += bbAmount;
   if (s.seats[bbIdx].stack === 0) s.seats[bbIdx].allIn = true;
   s.pot += bbAmount;
   s.log.push(`${s.seats[bbIdx].name} posts BB ${bbAmount}`);
@@ -528,12 +532,24 @@ export function settle(state: TableState): TableState {
   const s = clone(state);
   const active = s.seats.filter((seat) => !seat.folded);
 
-  // Everyone folded but one
+  // Everyone folded but one. Outlasting the table is not the same as covering it: a seat all-in for
+  // its 25-chip small blind that the deep seats then raised to 1000 wins the 100 its own stake
+  // matched, not the 2925 it could never have called. Paying the whole pot here handed a 25-chip
+  // stack 3025 chips. Chip conservation held throughout, which is why the invariant fuzzer never
+  // saw it — the money was not created, only sent to the wrong seat.
   if (active.length === 1) {
     const winner = active[0];
-    winner.stack += s.pot;
-    s.winners = [{ seatId: winner.id, amount: s.pot, description: 'Last player standing' }];
-    s.log.push(`${winner.name} wins ${s.winners[0].amount}`);
+    const { pots, refunds } = buildSidePots(s);
+    // Only the survivor is unfolded, so every contested slice lists exactly it as eligible; slices
+    // it never contributed to have no claimant at all and come back as refunds. The filter states
+    // that invariant rather than trusting it, since summing blindly is the original defect.
+    const won = pots
+      .filter((pot) => pot.eligible.includes(winner.id))
+      .reduce((total, pot) => total + pot.amount, 0);
+    winner.stack += won;
+    s.winners = [{ seatId: winner.id, amount: won, description: 'Last player standing' }];
+    s.log.push(`${winner.name} wins ${won}`);
+    payRefunds(s, refunds);
     s.pot = 0;
     return s;
   }
@@ -545,7 +561,7 @@ export function settle(state: TableState): TableState {
   }
 
   // Build side pots
-  const pots = buildSidePots(s);
+  const { pots, refunds } = buildSidePots(s);
   s.winners = [];
 
   for (const pot of pots) {
@@ -593,8 +609,24 @@ export function settle(state: TableState): TableState {
     }
   }
 
+  payRefunds(s, refunds);
   s.pot = 0;
   return s;
+}
+
+/**
+ * Return chips nobody could contest to the seats that put them up.
+ *
+ * Separate from the winner payout because it is not winning: an uncalled bet was never at risk, so
+ * the log says "returned", and it is credited even to a seat that folded — a seat can only be owed a
+ * refund for chips it staked above what any live rival covered, and how its hand finished is
+ * irrelevant to money that was never in play.
+ */
+function payRefunds(s: TableState, refunds: readonly Refund[]): void {
+  for (const refund of refunds) {
+    s.seats[refund.seatId].stack += refund.amount;
+    s.log.push(`${s.seats[refund.seatId].name} takes back ${refund.amount} uncalled`);
+  }
 }
 
 // ── Side pot construction ────────────────────────────────────────────────────
@@ -604,11 +636,17 @@ interface Pot {
   eligible: number[];
 }
 
-function buildSidePots(state: TableState): Pot[] {
+/** Chips returned to their contributor because no live rival ever matched them. */
+interface Refund {
+  seatId: number;
+  amount: number;
+}
+
+function buildSidePots(state: TableState): { pots: Pot[]; refunds: Refund[] } {
   const startStacks: number[] = h(state)._startStacks;
   if (!startStacks) {
     const eligible = state.seats.filter((s) => !s.folded).map((s) => s.id);
-    return [{ amount: state.pot, eligible }];
+    return { pots: [{ amount: state.pot, eligible }], refunds: [] };
   }
 
   // Per-player total contribution this hand
@@ -618,24 +656,30 @@ function buildSidePots(state: TableState): Pot[] {
   const levels = [...new Set(contributions.filter((c) => c > 0))].sort((a, b) => a - b);
 
   const pots: Pot[] = [];
+  const refunds: Refund[] = [];
   let prevLevel = 0;
 
   for (const level of levels) {
     const increment = level - prevLevel;
     // All players who contributed MORE than prevLevel contribute to this slice
     const contributors = state.seats.filter((_, i) => contributions[i] > prevLevel);
-    const potAmount = increment * contributors.length;
 
     // Eligible to win: contributors who haven't folded
     const eligible = contributors.filter((s) => !s.folded).map((s) => s.id);
 
-    if (potAmount > 0) {
+    if (increment > 0) {
       if (eligible.length > 0) {
-        pots.push({ amount: potAmount, eligible });
+        pots.push({ amount: increment * contributors.length, eligible });
       } else {
-        // Dead money from folded players — add to previous pot
-        if (pots.length > 0) {
-          pots[pots.length - 1].amount += potAmount;
+        // Nobody live contributed at this level, so this slice is uncontested. It used to be poured
+        // into the previous pot as "dead money", and that is what overpaid: the previous pot's sole
+        // eligible claimant was whichever short seat was already all-in below this level, so a
+        // 25-chip all-in collected the 2925 two deep seats had put up between themselves. Money can
+        // only be won from a rival who matched it, so each contributor takes its own increment back.
+        // Uncontested is per-contributor, not per-pot: contributors sit at different totals, and
+        // only the part above every live stake is uncontested for each of them.
+        for (const contributor of contributors) {
+          refunds.push({ seatId: contributor.id, amount: increment });
         }
       }
     }
@@ -643,7 +687,7 @@ function buildSidePots(state: TableState): Pot[] {
     prevLevel = level;
   }
 
-  return pots;
+  return { pots, refunds };
 }
 
 function orderByDealerProximity(ids: number[], dealer: number, n: number): number[] {
