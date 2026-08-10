@@ -94,7 +94,14 @@ test('the browser process makes no request at all, measured at a loopback proxy'
       }
     }
 
-    for (const tab of ['tab-learn', 'tab-drill', 'tab-charts', 'tab-profile', 'tab-settings']) {
+    for (const tab of [
+      'tab-learn',
+      'tab-drill',
+      'tab-charts',
+      'tab-anomaly',
+      'tab-profile',
+      'tab-settings',
+    ]) {
       await page.locator(`[data-testid="${tab}"]`).click();
       await expect(page.locator(`[data-testid="${tab}"]`)).toHaveAttribute('data-active', 'true');
     }

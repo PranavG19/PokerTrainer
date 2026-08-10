@@ -30,6 +30,7 @@ import { renderLessonScreen } from './screens/lesson.js';
 import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
 import { renderDrillScreen } from './screens/drill.js';
+import { renderAnomalyScreen } from './screens/anomaly.js';
 import { renderDossier } from './screens/dossier.js';
 import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
@@ -93,6 +94,7 @@ type Tab =
   | 'learn'
   | 'repair'
   | 'drill'
+  | 'anomaly'
   | 'robustness'
   | 'charts'
   | 'dossier'
@@ -115,6 +117,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'drill', label: 'Drill', testid: 'tab-drill' },
   { id: 'robustness', label: 'Robustness', testid: 'tab-robustness' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
+  { id: 'anomaly', label: 'Anomaly', testid: 'tab-anomaly' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
   { id: 'settings', label: 'Settings', testid: 'tab-settings' },
@@ -366,6 +369,7 @@ async function boot(): Promise<void> {
     if (which === 'repair') return renderContrastScreen({ hands: session.hands });
     if (which === 'charts') return renderCharts();
     if (which === 'drill') return renderDrillScreen();
+    if (which === 'anomaly') return renderAnomalyScreen();
     if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
     if (which === 'settings') {
