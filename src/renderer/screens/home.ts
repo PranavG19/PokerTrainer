@@ -127,14 +127,27 @@ function renderHandRow(hand: HandRecord, onOpenHand?: (handNumber: number) => vo
   row.appendChild(cards);
 
   const net = document.createElement('span');
-  net.className = 'hand-net ' + (hand.net < 0 ? 'net-down' : 'net-up');
+  net.className = 'hand-net ' + netClass(hand.net);
   net.textContent = formatNet(hand.net);
   row.appendChild(net);
 
   return row;
 }
 
+/**
+ * A break-even hand is neither a win nor a loss. Folding the button preflop nets exactly 0, which
+ * is the most common outcome a disciplined beginner produces — rendering it as a mint "+0" told
+ * them they had won something, and it is the one number on this list they must read as neutral.
+ */
+function netClass(net: number): string {
+  const rounded = Math.round(net);
+  if (rounded < 0) return 'net-down';
+  if (rounded === 0) return 'net-flat';
+  return 'net-up';
+}
+
 function formatNet(net: number): string {
   const rounded = Math.round(net);
+  if (rounded === 0) return '0';
   return rounded < 0 ? String(rounded) : `+${rounded}`;
 }

@@ -306,8 +306,10 @@ export function renderTable(opts: {
    */
   function refreshStats(): void {
     const hero = heroSeat();
-    const withheld =
-      coachedMode && state.toAct === 0 && !settled && committedPrediction(predict) === null;
+    // Withheld whenever the hand is live and the current decision is uncommitted — NOT just on the
+    // hero's turn. Equity is constant within a street, so leaving the win% up while a villain thinks
+    // hands the learner the answer before the action returns to them, and the gate does nothing.
+    const withheld = coachedMode && !settled && committedPrediction(predict) === null;
     // A folded hero has no equity in the pot; showing a win% for a hand they are not contesting
     // teaches the opposite of "your fold ended your claim on this pot".
     const noStake = hero.folded;

@@ -649,4 +649,38 @@ test.describe('the answer is withheld until the commitment', () => {
       await close();
     }
   });
+
+  test('21. the answer stays hidden while a villain acts, not just on the hero turn', async () => {
+    const { page, close } = await launchApp({ seed: 43, userDataDir: freshUserDataDir() });
+    try {
+      await openTable(page);
+      await waitForIdle(page);
+      await enableCoachedMode(page);
+      await page.locator('[data-testid="stats-toggle"]').click();
+
+      await page.locator('[data-testid="predict-call"]').click();
+      await page.locator('[data-testid="confidence-guess"]').click();
+
+      // Click and sample in one evaluate: the villain timer must not fire between them.
+      const during = await page.evaluate(() => {
+        (document.querySelector('[data-testid="btn-call"]') as HTMLButtonElement).click();
+        const root = document.querySelector('[data-testid="table-screen"]') as HTMLElement;
+        return {
+          awaiting: root.dataset.awaiting ?? '',
+          win: document.querySelector('[data-testid="win-pct"]')?.textContent ?? '',
+          withheld:
+            (document.querySelector('[data-testid="stats-sheet"]') as HTMLElement | null)?.dataset
+              .withheld ?? '',
+        };
+      });
+
+      // Equity does not change within a street, so a win% left up while a villain thinks is the
+      // answer to the decision that is about to come back to the hero.
+      expect(during.awaiting, 'the sample must land on a villain turn').toBe('ai');
+      expect(during.withheld, 'withheld during the villain turn too').toBe('true');
+      expect(during.win).not.toMatch(/\d/);
+    } finally {
+      await close();
+    }
+  });
 });

@@ -262,7 +262,8 @@ test.describe('R8 home screen', () => {
         ].map((c) => c.dataset.card ?? ''),
       );
       expect(rowCards).toEqual(dealt);
-      await expect(page.locator(`${handRow} .hand-net`)).toHaveText(/^[+-]\d+$/);
+      // "0" is a legal rendering now: a break-even hand carries no sign (see test 10).
+      await expect(page.locator(`${handRow} .hand-net`)).toHaveText(/^(0|[+-]\d+)$/);
 
       expect(await readBankrollNumeral(page)).toBe(readPersistedBankroll(userDataDir));
 
@@ -408,6 +409,136 @@ test.describe('R9 profile screen — leak ranking', () => {
       for (const width of widths) expect(width).toMatch(/^\d+(\.\d+)?%$/);
 
       expect(await readGraphPoints(page)).not.toContain('NaN');
+    } finally {
+      await close();
+    }
+  });
+
+  /**
+   * The bars must be comparable to each other, measured in PIXELS and not in the `width: %` the
+   * style attribute claims. The bar is a percentage of its own `.leak-track`, so a track sized by
+   * whatever room the cost text leaves over is a different ruler on every row: "25.0 bb · 137×" is
+   * a wider string than "24.0 bb · 1×", so it left a narrower track and the MORE expensive leak
+   * drew a 162px bar next to the cheaper one's 173px. The picture said the opposite of the ranking
+   * it exists to illustrate, and every percentage-string assertion in this file passed while it did.
+   */
+  test('10. a more expensive leak draws a longer bar in pixels, whatever the cost text length', async () => {
+    const userDataDir = seedSave({
+      bankroll: 9000,
+      hands: fixtureHands(1),
+      stats: {
+        handsPlayed: 20,
+        vpipHands: 10,
+        pfrHands: 4,
+        evLossBb: 49,
+        // Nearly tied costs; the dearer one deliberately carries the much longer count string.
+        leaks: { 'pot odds': 137, ranges: 1 },
+        leakCostBb: { 'pot odds': 25.0, ranges: 24.0 },
+      },
+    });
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await openProfile(page);
+      await expect(page.locator(leakRow)).toHaveCount(2);
+
+      const bars = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('[data-testid="leak-row"]')].map((row) => ({
+          principle: row.dataset.principle ?? '',
+          costBb: Number(
+            /([\d.]+) bb/.exec(
+              row.querySelector<HTMLElement>('[data-testid="leak-cost"]')?.textContent ?? '',
+            )?.[1] ?? 'NaN',
+          ),
+          barPx: row.querySelector<HTMLElement>('.leak-bar')?.getBoundingClientRect().width ?? NaN,
+          trackPx:
+            row.querySelector<HTMLElement>('.leak-track')?.getBoundingClientRect().width ?? NaN,
+        })),
+      );
+
+      expect(bars.map((b) => b.principle)).toEqual(['pot odds', 'ranges']);
+      for (const bar of bars) {
+        expect(Number.isFinite(bar.barPx), `bar width of ${bar.principle}`).toBe(true);
+        expect(bar.barPx, `${bar.principle} drew a zero-width bar`).toBeGreaterThan(0);
+      }
+
+      // One ruler for every row: an unequal track is the defect itself, not a symptom.
+      expect(
+        bars[1].trackPx,
+        `tracks differ (${bars[0].trackPx}px vs ${bars[1].trackPx}px), so the bars measure different things`,
+      ).toBeCloseTo(bars[0].trackPx, 1);
+
+      // The picture must agree with the ranking: dearer leak, longer bar.
+      expect(bars[0].costBb).toBeGreaterThan(bars[1].costBb);
+      expect(
+        bars[0].barPx,
+        `"${bars[0].principle}" costs ${bars[0].costBb}bb but drew ${bars[0].barPx}px, while "${bars[1].principle}" costs ${bars[1].costBb}bb and drew ${bars[1].barPx}px`,
+      ).toBeGreaterThan(bars[1].barPx);
+    } finally {
+      await close();
+    }
+  });
+});
+
+test.describe('R8 home screen — a break-even hand', () => {
+  /**
+   * A hero who folds the button preflop nets exactly 0 — the commonest result disciplined play
+   * produces, and reachable in this app by pressing Fold on any hand where the hero posts no
+   * blind. It used to render as a mint-green "+0": the win colour and the win sign, for a hand
+   * where nothing was won. The list's whole job is telling a learner which hands cost them money.
+   */
+  test('11. nets exactly zero, so it is neither green nor signed', async () => {
+    const userDataDir = seedSave({
+      bankroll: 10000,
+      hands: [
+        { handNumber: 1, hole: ['As', 'Kd'], board: [], net: 0, vpip: false, pfr: false, grades: [] },
+        { handNumber: 2, hole: ['7h', '7c'], board: [], net: -50, vpip: false, pfr: false, grades: [] },
+        { handNumber: 3, hole: ['Qs', 'Jh'], board: [], net: 50, vpip: true, pfr: false, grades: [] },
+      ],
+      stats: {
+        handsPlayed: 3,
+        vpipHands: 1,
+        pfrHands: 0,
+        evLossBb: 0,
+        leaks: {},
+        leakCostBb: {},
+      },
+    });
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await expect(page.locator(handRow)).toHaveCount(3);
+
+      const rows = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('[data-testid="hand-row"]')].map((row) => {
+          const net = row.querySelector<HTMLElement>('.hand-net');
+          return {
+            hand: Number(row.dataset.hand),
+            text: net?.textContent ?? '',
+            colour: net === null ? '' : getComputedStyle(net).color,
+          };
+        }),
+      );
+      const byHand = new Map(rows.map((r) => [r.hand, r]));
+
+      const win = byHand.get(3);
+      const loss = byHand.get(2);
+      const flat = byHand.get(1);
+      expect(win?.text).toBe('+50');
+      expect(loss?.text).toBe('-50');
+
+      // No "+" on a hand that won nothing.
+      expect(flat?.text, 'a break-even hand must not carry a plus sign').toBe('0');
+
+      // And not the win colour. Comparing to the other two rows keeps this palette-agnostic.
+      expect(
+        flat?.colour,
+        `break-even rendered in the winning colour ${String(flat?.colour)}`,
+      ).not.toBe(win?.colour);
+      expect(
+        flat?.colour,
+        `break-even rendered in the losing colour ${String(flat?.colour)}`,
+      ).not.toBe(loss?.colour);
     } finally {
       await close();
     }
