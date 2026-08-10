@@ -239,6 +239,15 @@ test.describe('Q4 the wave ladder', () => {
 
       // The invariant is core's, and the screen reports its verdict rather than restating the rule.
       await expect(page.locator(flatCheck)).toHaveAttribute('data-flat', 'true');
+      /*
+       * AND IT MUST SAY SO IN WORDS. data-flat alone let the sentence be inverted to "These gaps
+       * expand 1/2/4/8/16, doubling each time — the forbidden ladder is what ships" while the
+       * attribute stayed 'true' — measured, 14 of 14 green. This file's own header says flat gaps are
+       * asserted rather than assumed, and the learner reads the sentence, not the attribute.
+       */
+      await expect(page.locator(flatCheck), 'the flat-gap verdict is not stated on screen').toHaveText(
+        'These gaps are flat: no gap doubles the one before it.',
+      );
 
       // And the guard has teeth: handed the exact ladder the spec names, it refuses it. Without this
       // half, a guard that had quietly stopped throwing would still show "flat" above.
@@ -328,6 +337,15 @@ test.describe('the queue', () => {
         'data-next-wave',
         '',
       );
+      /*
+       * AND THE ROW SAYS "nothing owed" rather than naming a wave. With only the attribute asserted,
+       * the sentence could read "day 30 wave owed" on a concept that owes nothing — measured green
+       * across all 14 tests — which invents a debt the schedule does not hold.
+       */
+      await expect(
+        page.locator(`${conceptRow}[data-concept="q-quiet"] [data-testid="concept-next"]`),
+        'a concept owing nothing does not say so',
+      ).toHaveText('nothing owed');
     });
   });
 
@@ -432,6 +450,11 @@ test.describe('the queue', () => {
       const row = page.locator(`${conceptRow}[data-concept="z-mastered"]`);
       await expect(row).toHaveAttribute('data-status', 'mastered');
       await expect(row).toHaveAttribute('data-next-wave', '21');
+      // The owed branch of the same sentence: the wave it names must be the wave it publishes.
+      await expect(
+        row.locator('[data-testid="concept-next"]'),
+        'the row publishes wave 21 but does not say so',
+      ).toHaveText('day 21 wave owed');
       await expect(page.locator(`${dueRow}[data-concept="z-mastered"]`)).toHaveAttribute(
         'data-wave',
         '21',
@@ -471,6 +494,16 @@ test.describe('Q5 decay-probe misses', () => {
       const second = page.locator(`${missOutcome}[data-concept="p-probed"][data-miss="2"]`);
       await expect(second).toHaveAttribute('data-active-learning', 'true');
       await expect(second).toHaveAttribute('data-remaining', '6');
+      /*
+       * THE NUMBER THE LEARNER READS, not just the one published. Doubling the printed count while
+       * leaving data-remaining at 6 passed 14 of 14: the screen said "12 opportunities remaining"
+       * beside an attribute reading 6. Q5's budget is the whole point of this row, so both are pinned
+       * and they have to agree.
+       */
+      await expect(
+        second,
+        'the printed opportunity budget disagrees with data-remaining',
+      ).toContainText('6 opportunities remaining');
       await expect(second).toHaveAttribute('data-reopen', 'true');
 
       // "Not a full reset" is the load-bearing half: the opportunity record survives the second miss.
