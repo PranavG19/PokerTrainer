@@ -164,3 +164,13 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   app.quit();
 });
+
+/**
+ * A voice must not outlive the app that started it. `say` is a separate process and does NOT die
+ * with its parent, so quitting mid-verdict otherwise leaves macOS reading poker advice aloud to an
+ * empty desk with no window left to stop it. Same rule as leaving the table: when the panel holding
+ * the verdict is gone, so is the voice reading it.
+ */
+app.on('will-quit', () => {
+  cancelSpeech();
+});
