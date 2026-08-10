@@ -51,11 +51,60 @@ function parseSeedArg(): number | null {
 const seed = parseSeedArg();
 
 /**
+ * Set by tests/e2e/helpers.ts on every launch. It governs presentation ONLY — window activation and
+ * the Dock icon — and nothing about behaviour, so a test still exercises the same app a person runs.
+ */
+const isE2E = process.env.OFFSUIT_E2E === '1';
+
+/**
  * Before `whenReady`, or the switches are read too late to take effect. Chromium's own background
  * network users are turned off here; the seal in `sealNetwork()` is what catches anything that tries
  * anyway (src/main/network.ts explains why one window's session was not enough).
  */
 silenceChromium();
+
+/**
+ * AT MODULE SCOPE, NOT IN `whenReady` — and that placement is the whole fix. On macOS a GUI app
+ * ACTIVATES as it launches, which is what pulls focus away from whoever is at the keyboard; the
+ * window's own `showInactive()` does not prevent it, because the app is what activated, not the
+ * window. Hiding the Dock icon switches the process to an accessory activation policy, so it never
+ * becomes the active app at all — but only if it happens before the app is ready. Called from inside
+ * `whenReady` it runs after activation has already happened, which is the version I shipped first and
+ * which still stole focus on every one of ~370 launches.
+ *
+ * The window stays fully real and renderable: 30 spec files screenshot it and the layout tests measure
+ * its geometry, so headless and `offscreen` are both out.
+ */
+if (isE2E) app.dock?.hide();
+
+/**
+ * Park the test window off the visible desktop, keeping its SIZE exactly as the caller set it.
+ *
+ * `setBounds` after creation rather than `x` in the BrowserWindow constructor: macOS CLAMPS the
+ * constructor coordinate onto a visible display, so `x: -3400` silently became x=0 and the window
+ * appeared in the top-left corner (measured — the constructor version reported
+ * `{x:0, y:25, width:1100, height:760}`).
+ *
+ * Re-applied on every resize, because `setSize` re-centres the window and would drag it back on
+ * screen; the layout tests resize to 1100x760 and 900x640 on purpose, so this has to hold across both.
+ * Width and height are read back from the window rather than assumed, so parking never changes the
+ * geometry those tests measure.
+ */
+function moveOffScreen(win: BrowserWindow | null): void {
+  if (win === null || win.isDestroyed()) return;
+  const { width, height } = win.getBounds();
+  /*
+   * Large values on purpose. macOS refuses to hide a window completely — it clamps the position so
+   * roughly 40px stays on screen no matter what is asked for (measured: x=-4000 became x=-1060 for a
+   * 1100px window, y=4000 became y=1376 on a 1440px display). So the goal is not "invisible", which is
+   * not available, but "the far bottom-right corner", where a 40px sliver sits under whatever is in
+   * front instead of over the top-left where the eye and the menu bar are.
+   */
+  win.setBounds({ x: OFFSCREEN_X, y: OFFSCREEN_Y, width, height });
+}
+
+const OFFSCREEN_X = 100_000;
+const OFFSCREEN_Y = 100_000;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -84,8 +133,34 @@ function createWindow(): void {
   mainWindow.loadFile(path.join(import.meta.dirname, '..', 'renderer', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
+    /*
+     * UNDER E2E THE WINDOW RENDERS BUT NEVER TAKES FOCUS. A suite launches the app hundreds of times,
+     * and each `show()` pulls the active window away from whoever is at the keyboard — unusable
+     * alongside a tiling window manager.
+     *
+     * `showInactive()` rather than headless or `offscreen`, because 30 spec files screenshot the real
+     * window and the layout tests measure real geometry against the documented 1100x760 / 900x640
+     * sizes. An offscreen window has neither. This keeps the window fully real and only declines the
+     * activation.
+     */
+    if (isE2E) {
+      mainWindow?.showInactive();
+      moveOffScreen(mainWindow);
+      return;
+    }
     mainWindow?.show();
   });
+
+  /*
+   * The layout tests resize the real window, and macOS re-centres it on the active display when they
+   * do — which would put it back in front of whatever the user is working on. Re-parking on every
+   * resize is what keeps it away for the whole run.
+   */
+  if (isE2E) {
+    mainWindow.on('resize', () => {
+      moveOffScreen(mainWindow);
+    });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;

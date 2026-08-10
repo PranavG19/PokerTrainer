@@ -25,6 +25,15 @@ const PROVENANCE = {
 } as const;
 
 const SECOND_CONFIG = { ...PROVENANCE, solverConfigId: 'cfg-b', tree: '50 pot, 1 bet + allin, depth 3' };
+/**
+ * A THIRD config that solved the mixed node and AGREES, so the set of configs that disagree is a
+ * strict subset of the configs that solved it. Without this the mixed fixture had exactly the two
+ * configs that disagree, and 'the configs that disagree' was byte-identical to 'every config that
+ * solved the node' — a mutation returning `provenance.map(id)` in place of the shipped
+ * `disagreement.configIds` produced the same ['cfg-a','cfg-b'] and survived. B2 requires the app to
+ * surface WHICH configs disagree; that guarantee is only testable where the two lists can diverge.
+ */
+const THIRD_CONFIG = { ...PROVENANCE, solverConfigId: 'cfg-c', tree: '75 pot, 2 bets + allin, depth 4' };
 
 const BTN_SRP_KEY = nodeKeyOf({
   positions: 'BTN-vs-BB',
@@ -55,7 +64,7 @@ const onBankNode: BankNode = {
 
 const mixedNode: BankNode = {
   nodeKey: MIXED_KEY,
-  provenance: [PROVENANCE, SECOND_CONFIG],
+  provenance: [PROVENANCE, SECOND_CONFIG, THIRD_CONFIG],
   disagreement: {
     configIds: ['cfg-a', 'cfg-b'],
     detail: 'cfg-a bets 33% at 62%, cfg-b checks at 71%; EV gap 0.4 bb',
@@ -154,6 +163,46 @@ describe('story 27: an off-bank node is refused, not graded', () => {
     }
   });
 
+  /**
+   * THE SAME GUARANTEE, APPLIED TO THE OTHER EXPORT. The test above pins `gradeNode`'s ungraded arm
+   * to exactly three keys — and `lookupNode`'s off-bank arm had no shape assertion at all, so an
+   * adversarial pass added `evLossBb: 0, equity: 0.62` to it and all 29 tests stayed green with tsc
+   * clean. That is a T8 violation shipped through the half of the API nobody was watching: equity is
+   * shown post-reveal in Spot mode and post-hand at the Table, NEVER pre-commit, and an off-bank
+   * lookup is the most pre-commit moment there is.
+   *
+   * The lesson generalised: a guarantee is only as wide as the exports it is asserted on. Both
+   * functions can return an off-bank result, so both must be pinned.
+   */
+  it('lookupNode leaks nothing numeric on the off-bank arm either', () => {
+    const lookup = lookupNode(index, OFF_BANK_KEY);
+    if (lookup.status !== 'off-bank') throw new Error('unreachable');
+    expect(Object.keys(lookup).sort()).toEqual(['nodeKey', 'notice', 'status']);
+    for (const value of Object.values(lookup)) {
+      expect(typeof value).not.toBe('number');
+    }
+    const loose = lookup as Record<string, unknown>;
+    for (const field of ['grade', 'severity', 'evLossBb', 'equity', 'node', 'principle']) {
+      expect(loose[field], `off-bank lookup exposes ${field}`).toBeUndefined();
+    }
+    // And it is the node that was ASKED for, not some other key.
+    expect(lookup.nodeKey).toBe(OFF_BANK_KEY);
+    expect(lookup.notice).toBe(UNGRADED_NOTICE);
+  });
+
+  /**
+   * THE KEY MUST BE THE KEY THAT WAS ASKED FOR, on every arm. Three separate mutations returned a
+   * wrong or empty nodeKey and all survived: the suite asserted only that `nodeKey` was PRESENT.
+   * A grading attributed to the wrong node is worse than no grading — it is a correct verdict filed
+   * against a spot the learner never played.
+   */
+  it('attributes every outcome to the node that was asked for', () => {
+    for (const key of [OFF_BANK_KEY, BTN_SRP_KEY, MIXED_KEY]) {
+      const outcome = gradeNode(index, key, gradeSerious);
+      expect(outcome.nodeKey, `${outcome.kind} arm lost the node key`).toBe(key);
+    }
+  });
+
   it('has no severity reachable, and null is not substitutable for a grade', () => {
     const outcome = gradeNode(index, OFF_BANK_KEY, gradeSerious);
     expect(severityOf(outcome)).toBeNull();
@@ -231,6 +280,27 @@ describe('B2 mixed is a graded outcome and is not off-bank', () => {
     expect(outcome.disagreement.configIds).toEqual(['cfg-a', 'cfg-b']);
     expect(outcome.grade.severity).toBe('serious');
     expect(severityOf(outcome)).toBe('serious');
+  });
+
+  /**
+   * B2 says the app surfaces WHICH configs disagree — not "every config that solved the node". The
+   * mixed fixture has three provenance records but a two-config disagreement, so those two lists
+   * genuinely differ. Pinning the subset relation is what makes a mutation returning
+   * `provenance.map(r => r.solverConfigId)` (which the old two-config fixture made byte-identical to
+   * the disagreement, and so survived) fail here.
+   */
+  it('surfaces only the configs that disagree, a strict subset of the configs that solved it', () => {
+    const outcome = gradeNode(index, MIXED_KEY, gradeSerious);
+    if (outcome.kind !== 'mixed') throw new Error('unreachable');
+    const allSolvers = mixedNode.provenance.map((record) => record.solverConfigId);
+    expect(allSolvers).toEqual(['cfg-a', 'cfg-b', 'cfg-c']);
+    // The disagreement names two of the three, so it cannot be the all-solvers list.
+    expect(outcome.disagreement.configIds).toEqual(['cfg-a', 'cfg-b']);
+    expect(outcome.disagreement.configIds).not.toEqual(allSolvers);
+    for (const id of outcome.disagreement.configIds) {
+      expect(allSolvers).toContain(id);
+    }
+    expect(outcome.disagreement.configIds.length).toBeLessThan(allSolvers.length);
   });
 
   it('a mixed node is on-bank, and never carries the ungraded notice', () => {

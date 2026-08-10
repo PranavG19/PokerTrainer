@@ -149,10 +149,27 @@ const FRAME_PATTERNS: Readonly<Record<MechanismFrame, readonly (readonly RegExp[
 };
 
 /**
- * A hand in chart notation: two uppercase ranks with an optional suitedness letter. Uppercase is
- * required so ordinary words ("as", "at") are not read as hands.
+ * A hand in chart notation: two ranks with an optional suitedness letter — CASE-INSENSITIVELY, because
+ * a learner types "k7s is a co open" as readily as "K7s is a CO open" and L2's own canonical bad
+ * sentence must be rejected either way. The uppercase-only version let the lowercase spelling of that
+ * exact sentence through: it matched no framing AND failed the hand test, so it was filed as
+ * `no-mechanism-frame`, which a learner self-mark is allowed to override — the one path L2 forbids for
+ * a cached cell.
+ *
+ * THE COLLISION THIS HAS TO AVOID is why the naive `/i` is wrong: five ordinary English words are
+ * spelled entirely from rank letters — at, ta, ka, ja, aa — plus "ats" and "tas" once the optional
+ * suitedness letter is allowed. "at" appears in perfectly good mechanism sentences ("worse at
+ * realising equity"), so reading it as a hand would reject them. They are excluded by name; every
+ * other rank pair is a hand in either case.
  */
-const HAND_NOTATION = /\b[AKQJT2-9]{2}[so]?\b/;
+const ENGLISH_RANK_COLLISIONS = /^(?:at|ta|ka|ja|aa|ats|tas)$/i;
+const HAND_NOTATION_ANYCASE = /\b[AKQJT2-9]{2}[so]?\b/gi;
+
+/** True when the sentence names a hand in chart notation, in any case. */
+function namesAHand(sentence: string): boolean {
+  const matches = sentence.match(HAND_NOTATION_ANYCASE) ?? [];
+  return matches.some((token) => !ENGLISH_RANK_COLLISIONS.test(token));
+}
 
 /** The chart's own verdict vocabulary: an action bucket a hand can be filed in. */
 const CHART_VERDICT =
@@ -183,7 +200,7 @@ export function classifySentence(sentence: string): SentenceVerdict {
   for (const frame of MECHANISM_FRAMES) {
     if (matchesFrame(sentence, frame)) return { frame };
   }
-  if (HAND_NOTATION.test(sentence) && CHART_VERDICT.test(sentence)) {
+  if (namesAHand(sentence) && CHART_VERDICT.test(sentence)) {
     return { frame: null, reason: 'cached-cell' };
   }
   return { frame: null, reason: 'no-mechanism-frame' };
