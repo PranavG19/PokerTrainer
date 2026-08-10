@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import * as path from 'node:path';
 import { DELETE_CONFIRM_PHRASE } from '../core/backup.js';
+import { sealNetwork, silenceChromium } from './network.js';
 import { cancelSpeech, speak } from './speech.js';
 import {
   deleteProfile,
@@ -49,6 +50,13 @@ function parseSeedArg(): number | null {
 
 const seed = parseSeedArg();
 
+/**
+ * Before `whenReady`, or the switches are read too late to take effect. Chromium's own background
+ * network users are turned off here; the seal in `sealNetwork()` is what catches anything that tries
+ * anyway (src/main/network.ts explains why one window's session was not enough).
+ */
+silenceChromium();
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -66,14 +74,12 @@ function createWindow(): void {
     },
   });
 
-  // Block all network access
-  mainWindow.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
-    if (details.url.startsWith('file://')) {
-      callback({ cancel: false });
-    } else {
-      callback({ cancel: true });
-    }
-  });
+  /*
+   * Network blocking used to live HERE, as onBeforeSendHeaders on this one window's session. It is now
+   * sealNetwork() over defaultSession plus every session created later, at onBeforeRequest — the
+   * placement PRODUCT-SPEC's Security section requires, because a per-window header hook governs
+   * neither Chromium's own traffic nor any session but this one. See src/main/network.ts.
+   */
 
   mainWindow.loadFile(path.join(import.meta.dirname, '..', 'renderer', 'index.html'));
 
@@ -88,6 +94,9 @@ function createWindow(): void {
 
 // Set CSP via session headers
 app.whenReady().then(() => {
+  // Before the window exists, so nothing can be requested during load that the seal has not seen.
+  sealNetwork();
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {

@@ -20,7 +20,13 @@ export interface LaunchedApp {
  * each other's state or the developer's real save file.
  */
 export async function launchApp(
-  opts: { seed?: number; userDataDir?: string; env?: Record<string, string> } = {},
+  opts: {
+    seed?: number;
+    userDataDir?: string;
+    env?: Record<string, string>;
+    /** Extra Chromium switches. no-network.spec.ts uses this to route the app through a proxy. */
+    extraArgs?: readonly string[];
+  } = {},
 ): Promise<LaunchedApp> {
   const seed = opts.seed ?? 42;
   const userDataDir =
@@ -32,6 +38,7 @@ export async function launchApp(
       `--seed=${seed}`,
       `--user-data-dir=${userDataDir}`,
       '--no-sandbox',
+      ...(opts.extraArgs ?? []),
     ],
     cwd: ROOT,
     // `env` last so a test can override a default; nothing here is read by the renderer.
