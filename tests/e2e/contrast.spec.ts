@@ -2,6 +2,19 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {
+  AXIS_AVAILABILITY,
+  POSITIONS,
+  boardTextureOf,
+  gapBandOf,
+  playersBehind as playersBehindOn,
+  stackDepthOf,
+  suitednessOf,
+  type ContrastAxis,
+  type ContrastPosition,
+  type ContrastSpot,
+} from '../../src/core/contrast.js';
+import { manifestEntry } from '../../src/core/contrastManifest.js';
 import { launchApp, shot } from './helpers.js';
 
 /**
@@ -568,6 +581,48 @@ test.describe('contrast-set remediation', () => {
         await shot(page, `repair-worked-example-${width}x${height}`);
       }
       expect(errors).toEqual([]);
+    });
+  });
+});
+
+test.describe('PROBE', () => {
+  test('dump', async () => {
+    await withApp({}, async ({ page }) => {
+      await openRepair(page);
+      const out: unknown[] = [];
+      for (const conceptId of await queuedConcepts(page)) {
+        await openConcept(page, conceptId);
+        const offers = await page.locator(axisOffer).evaluateAll((els) =>
+          els.map((el) => ({
+            axis: el instanceof HTMLElement ? el.dataset.axis : '',
+            available: el instanceof HTMLElement ? el.dataset.available : '',
+            meta: el.querySelector('.axis-offer-meta')?.textContent ?? '',
+            reason: el.querySelector('[data-testid="axis-reason"]')?.textContent ?? '',
+          })),
+        );
+        out.push({ conceptId, offers });
+        for (const o of offers.filter((x) => x.available === 'true')) {
+          await page.locator(`${axisOffer}[data-axis="${o.axis}"]`).click();
+          await expect(page.locator(repairScreen)).toHaveAttribute('data-axis', String(o.axis));
+          const dump = await page.evaluate(() => {
+            const set = document.querySelector('[data-testid="contrast-set"]') as HTMLElement;
+            return {
+              axis: set.dataset.axis,
+              claim: document.querySelector('[data-testid="contrast-claim"]')?.textContent,
+              spots: [...set.querySelectorAll<HTMLElement>('[data-testid="contrast-spot"]')].map((s) => ({
+                role: s.dataset.role,
+                toggled: s.querySelector('[data-testid="contrast-toggled"]')?.textContent,
+                facts: s.querySelector('[data-testid="contrast-facts"]')?.textContent,
+                held: [...s.querySelectorAll<HTMLElement>('.contrast-held-cell')].map((c) => ({
+                  axis: c.dataset.axis, value: c.dataset.value, text: c.textContent })),
+                hole: [...s.querySelectorAll<HTMLElement>('[data-testid="contrast-hole"] [data-testid="card"]')].map((c) => c.dataset.card),
+              })),
+            };
+          });
+          out.push({ conceptId, set: dump });
+        }
+      }
+      fs.writeFileSync('/tmp/probe.json', JSON.stringify(out, null, 2));
     });
   });
 });

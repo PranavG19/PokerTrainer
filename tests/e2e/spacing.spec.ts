@@ -1,5 +1,6 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, shot } from './helpers.js';
+import { WAVES } from '../../src/core/schedule.js';
 
 /**
  * THE SPACING QUEUE — PRODUCT-SPEC Q4 and Q5, over src/core/schedule.ts.
@@ -123,6 +124,34 @@ async function readDue(
 }
 
 /**
+ * THE VISIBLE STRINGS, row by row: for each row of `rowTestid`, the text of every labelled cell
+ * inside it, keyed by that cell's own testid.
+ *
+ * Why this exists at all. Every assertion in this file used to read data-* attributes, and a data-*
+ * attribute is not what a learner reads. Mutating the renderer so it printed `${wave.reps + 1} reps`
+ * beside a correct data-reps, and `7d, 14d` beside a correct data-gaps="7,7" — an EXPANDING schedule
+ * on screen, the one thing Q4 forbids — left all 14 tests in this file green. So the numbers below
+ * are asserted twice: once as the attribute the screen computes with, and once as the sentence it
+ * shows. The two must agree, because a screen that is right in its dataset and wrong in its
+ * paragraph is wrong.
+ */
+async function readRowText(
+  page: Page,
+  rowTestid: string,
+): Promise<Record<string, string>[]> {
+  return page.evaluate((testid: string) =>
+    [...document.querySelectorAll<HTMLElement>(`[data-testid="${testid}"]`)].map((row) => {
+      const cells: Record<string, string> = {};
+      for (const cell of row.querySelectorAll<HTMLElement>('[data-testid]')) {
+        const key = cell.dataset.testid;
+        if (key !== undefined) cells[key] = (cell.textContent ?? '').trim();
+      }
+      return cells;
+    }),
+  rowTestid);
+}
+
+/**
  * Resize the real BrowserWindow, then pin the render viewport to the same numbers — the technique
  * layout.spec.ts documents, because a host window manager retiles the window moments after it shows,
  * which makes setSize() alone cosmetic.
@@ -166,6 +195,19 @@ test.describe('Q4 the wave ladder', () => {
         'probe',
       ]);
       await expect(page.locator(waveRow)).toHaveCount(5);
+
+      // AND THE SAME TABLE AS THE LEARNER READS IT. The expected strings are built from core's own
+      // WAVES, so this moves with the rule instead of restating it; what it pins is that the printed
+      // day, rep count and mode are the ones core holds. A renderer that printed `${wave.reps + 1}
+      // reps` beside a correct data-reps passed every attribute assertion above.
+      expect(await readRowText(page, 'wave-row')).toEqual(
+        WAVES.map((wave) => ({
+          'wave-day': `day ${wave.day}`,
+          'wave-reps': `${wave.reps} reps`,
+          'wave-mode': wave.mode,
+          'wave-gap': expect.any(String),
+        })),
+      );
     });
   });
 
@@ -184,6 +226,16 @@ test.describe('Q4 the wave ladder', () => {
           `gap ${numeric[i]} doubles the previous ${numeric[i - 1]} — that is the expanding ladder Q4 forbids`,
         ).not.toBe(numeric[i - 1] * 2);
       }
+
+      // THE PRINTED GAPS, not only the dataset ones. Derived from core's wave days, so the
+      // expectation moves with the ladder; the point is that the "+6d" a learner reads is the same 6
+      // the data-gap carries. Printing `+${wave.day}d` (0/1/7/21/30 instead of the gaps 1/6/14/9)
+      // left every assertion above green, because data-gap stayed correct beside it.
+      const printedGaps = (await readRowText(page, 'wave-row')).map((row) => row['wave-gap']);
+      expect(printedGaps).toEqual([
+        'first exposure',
+        ...WAVES.slice(1).map((wave, i) => `+${wave.day - WAVES[i].day}d`),
+      ]);
 
       // The invariant is core's, and the screen reports its verdict rather than restating the rule.
       await expect(page.locator(flatCheck)).toHaveAttribute('data-flat', 'true');
@@ -214,7 +266,32 @@ test.describe('Q4 the wave ladder', () => {
       ]) {
         expect(body, `the queue announces itself with "${banned}"`).not.toContain(banned);
       }
-      expect(await page.locator(embeddingNote).innerText()).toContain('unannounced');
+
+      /**
+       * AND THE POSITIVE HALF, because the denylist above is not a guard.
+       *
+       * Rewriting the note to "Sit down now and work through the concepts listed below — this is your
+       * scheduled spacing sitting, and it is unannounced." shipped green past all five banned phrases
+       * AND past the `toContain('unannounced')` below: the word was still there, in a sentence that
+       * says the opposite of Q4. A denylist only catches vocabulary someone thought of in advance.
+       *
+       * So the note is pinned as a whole sentence instead. It must make three claims — the work is
+       * served inside ordinary practice, it is never gathered into a sitting of its own, and the
+       * learner is never told why a spot arrived — and there is no way to reword it into an
+       * instruction while still asserting all three.
+       */
+      const note = await page.locator(embeddingNote).innerText();
+      expect(note).toContain('unannounced');
+      expect(note, 'the note no longer says the work is served inside ordinary practice').toContain(
+        'served inside ordinary practice',
+      );
+      expect(note, 'the note no longer refuses to assemble a sitting of its own').toContain(
+        'never assembled into a sitting of its own',
+      );
+      expect(
+        note,
+        'the note no longer promises the learner is not told why a spot arrived',
+      ).toContain('never told a spot arrived because it was owed');
 
       // No button on this surface starts anything: the only control is the diagnostic probe-miss one.
       const buttons = await page.evaluate(() =>
@@ -267,14 +344,36 @@ test.describe('the queue', () => {
 
   test('6. several concepts due, longest-owed first, each with its wave and rep count', async () => {
     await withApp(async ({ page }) => {
-      await openSpacing(page, { now: day(10), concepts: [fresh(), mid(), stale()] });
+      /**
+       * FOUR FIXTURES, AND THE FOURTH IS THE WHOLE POINT.
+       *
+       * With only a-stale/9, b-mid/4, c-fresh/0 the ids happen to ascend in the same order the
+       * overdue days descend, so sorting on id ALONE produces the identical list. Deleting the
+       * overdue-first half of core's comparator in dueNow() —
+       *   .sort((a, b) => b.overdueDays - a.overdueDays || a.conceptId.localeCompare(b.conceptId))
+       *   .sort((a, b) => a.conceptId.localeCompare(b.conceptId))
+       * — left all 14 tests here green. A fixture that makes the right answer and the wrong answer
+       * the same list is not a test of the ordering.
+       *
+       * `a-just-opened` breaks the coincidence in both directions at once. Its id sorts FIRST while
+       * its 0 overdue days rank it LAST, so:
+       *   overdue-then-id (correct): a-stale, b-mid, a-just-opened, c-fresh
+       *   id only:                   a-just-opened, a-stale, b-mid, c-fresh   -> different
+       * and because it ties c-fresh at 0 overdue days, the id tiebreak is exercised too: dropping
+       * `|| localeCompare` leaves those two in input order, which is c-fresh first -> different.
+       */
+      await openSpacing(page, {
+        now: day(10),
+        concepts: [fresh(), justOpened(), mid(), stale()],
+      });
 
-      await expect(page.locator(spacingScreen)).toHaveAttribute('data-due-count', '3');
+      await expect(page.locator(spacingScreen)).toHaveAttribute('data-due-count', '4');
 
-      // Ordering is core's — most overdue first, ties broken on id. Passed in deliberately reversed.
+      // Ordering is core's — most overdue first, ties broken on id. Passed in deliberately scrambled.
       expect(await readDue(page)).toEqual([
         { concept: 'a-stale', wave: 1, reps: 4, mode: 'interleaved', overdue: 9 },
         { concept: 'b-mid', wave: 1, reps: 4, mode: 'interleaved', overdue: 4 },
+        { concept: 'a-just-opened', wave: 0, reps: 10, mode: 'blocked', overdue: 0 },
         { concept: 'c-fresh', wave: 0, reps: 10, mode: 'blocked', overdue: 0 },
       ]);
 
@@ -285,7 +384,42 @@ test.describe('the queue', () => {
             (r) => `${r.dataset.rank}:${r.dataset.concept}`,
           ),
         ),
-      ).toEqual(['0:a-stale', '1:b-mid', '2:c-fresh']);
+      ).toEqual(['0:a-stale', '1:b-mid', '2:a-just-opened', '3:c-fresh']);
+
+      // AND THE QUEUE AS IT READS. The debt a learner sees is the sentence, not data-overdue: the
+      // top line must SAY it is 9 days owed, and the concept with no debt must say so in words
+      // rather than print "0d owed". Doubling the printed number (`${rep.overdueDays * 2}d owed`)
+      // beside a correct data-overdue passed every assertion above.
+      expect(await readRowText(page, 'due-row')).toEqual([
+        {
+          'due-concept': 'a-stale',
+          'due-wave': 'day 1 wave',
+          'due-reps': '4 reps',
+          'due-mode': 'interleaved',
+          'due-overdue': '9d owed',
+        },
+        {
+          'due-concept': 'b-mid',
+          'due-wave': 'day 1 wave',
+          'due-reps': '4 reps',
+          'due-mode': 'interleaved',
+          'due-overdue': '4d owed',
+        },
+        {
+          'due-concept': 'a-just-opened',
+          'due-wave': 'day 0 wave',
+          'due-reps': '10 reps',
+          'due-mode': 'blocked',
+          'due-overdue': 'inside its window',
+        },
+        {
+          'due-concept': 'c-fresh',
+          'due-wave': 'day 0 wave',
+          'due-reps': '10 reps',
+          'due-mode': 'blocked',
+          'due-overdue': 'inside its window',
+        },
+      ]);
     });
   });
 
@@ -369,6 +503,20 @@ test.describe('Q5 decay-probe misses', () => {
       );
       expect(gaps).toEqual([7, 7]);
       expect(gaps[1], 'the second gap grew — that is an expanding schedule').toBe(gaps[0]);
+
+      // AND THE SENTENCE THE LEARNER READS SAYS 7 TWICE. This is the assertion that catches an
+      // expanding schedule on screen: a renderer printing "Gap after each miss: 7d, 14d" beside a
+      // correct data-gaps="7,7" satisfied every assertion above, which means the one thing Q4
+      // forbids was visible on the page and this file called itself green.
+      expect(
+        (await page.locator(`${missGapHistory}[data-concept="p-probed"]`).innerText()).trim(),
+        'the printed gap history is not two equal 7-day gaps — an expanding schedule is on screen',
+      ).toBe('Gap after each miss: 7d, 7d');
+
+      // Per-miss too: both rows must SAY "7-day gap", not merely carry data-gap-days="7".
+      expect(
+        (await readRowText(page, 'miss-outcome')).map((row) => row['miss-gap']),
+      ).toEqual(['7-day gap', '7-day gap']);
     });
   });
 
@@ -428,11 +576,23 @@ test.describe('the surface', () => {
             const r = el.getBoundingClientRect();
             return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
           };
+          const tabs = [...document.querySelectorAll<HTMLElement>('.tabs .tab')];
           return {
             innerWidth: window.innerWidth,
             innerHeight: window.innerHeight,
             docScrollHeight: document.documentElement.scrollHeight,
             tabBar: rect('tab-spacing'),
+            /**
+             * EVERY tab, not only Spacing's. Spacing sits 5th of 12, so a bar that overflows pushes
+             * Profile and Settings off the right edge while tab-spacing stays comfortably inside —
+             * and `.tabs` is a flex row inside an `overflow-x: hidden` ancestor, so the overflow
+             * neither grows scrollHeight nor moves tab-spacing. Nothing measured below would notice.
+             */
+            tabCount: tabs.length,
+            tabsPastRightEdge: tabs
+              .map((tab) => ({ label: tab.textContent ?? '', right: tab.getBoundingClientRect().right }))
+              .filter((tab) => tab.right > window.innerWidth)
+              .map((tab) => `${tab.label}@${tab.right.toFixed(0)}px`),
           };
         });
 
@@ -449,6 +609,15 @@ test.describe('the surface', () => {
         expect(box.top, 'the tab bar left the top of the viewport').toBeGreaterThanOrEqual(0);
         expect(box.bottom, 'the tab bar fell below the fold').toBeLessThanOrEqual(height);
         expect(box.right, 'the tab bar ran past the right edge').toBeLessThanOrEqual(width);
+
+        // A tab you cannot see is a tab you cannot reach, and that is the failure this file used to
+        // be blind to: measuring only tab-spacing (5th of 12) let the bar hang 265px past a 900px
+        // viewport with Progress/Profile/Settings unreachable, and test 13 still passed.
+        expect(geometry.tabCount, 'the tab bar is empty — nothing to measure').toBeGreaterThan(0);
+        expect(
+          geometry.tabsPastRightEdge,
+          `at ${width}x${height} these tabs hang past the right edge and cannot be clicked: ${geometry.tabsPastRightEdge.join(', ')}`,
+        ).toEqual([]);
 
         await shot(page, `spacing-${width}x${height}`);
       }
@@ -503,6 +672,16 @@ function mid(): ConceptFixture {
 /** Opened today with no reps yet: its day-0 block is owed, and owed by nothing. */
 function fresh(): ConceptFixture {
   return { id: 'c-fresh', firstSeen: day(10), opportunities: [], probeMisses: 0 };
+}
+
+/**
+ * Identical in schedule terms to `fresh` — opened today, day-0 block owed, 0 days late — and named
+ * so its id sorts FIRST while its debt ranks it LAST. It exists to make overdue-order and id-order
+ * two different lists in test 6; with only a-stale/b-mid/c-fresh they are the same list, and an
+ * ordering test whose fixture cannot tell the two apart is not testing the ordering.
+ */
+function justOpened(): ConceptFixture {
+  return { id: 'a-just-opened', firstSeen: day(10), opportunities: [], probeMisses: 0 };
 }
 
 /**
