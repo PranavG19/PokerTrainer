@@ -43,7 +43,24 @@ function bridge(): OffsuitBridge {
   };
 }
 
-type Tab = 'play' | 'profile';
+type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'profile';
+
+/**
+ * The tab bar, in spine order: play, then the teaching surfaces, then progress.
+ *
+ * A registry rather than a hand-written list of tabButton calls, because each new surface would
+ * otherwise mean editing three separate places in render(). N1 governs the whole bar: NOTHING IS
+ * EVER LOCKED, so every tab is enterable from the first launch — no levels, no unlock animation,
+ * no greyed-out entry. A tab whose screen module is not built yet renders its own empty state
+ * rather than being hidden, since hiding it would be a soft lock.
+ */
+const TABS: readonly { id: Tab; label: string; testid: string }[] = [
+  { id: 'play', label: 'Play', testid: 'tab-play' },
+  { id: 'learn', label: 'Learn', testid: 'tab-learn' },
+  { id: 'drill', label: 'Drill', testid: 'tab-drill' },
+  { id: 'charts', label: 'Charts', testid: 'tab-charts' },
+  { id: 'profile', label: 'Profile', testid: 'tab-profile' },
+];
 
 async function boot(): Promise<void> {
   const io = bridge();
@@ -121,15 +138,19 @@ async function boot(): Promise<void> {
   }
 
   function render(): void {
-    const play = tabButton('Play', 'play', 'tab-play');
-    const profile = tabButton('Profile', 'profile', 'tab-profile');
-    play.dataset.active = String(tab === 'play');
-    profile.dataset.active = String(tab === 'profile');
-    nav.replaceChildren(play, profile);
+    nav.replaceChildren(
+      ...TABS.map((t) => {
+        const button = tabButton(t.label, t.id, t.testid);
+        button.dataset.active = String(tab === t.id);
+        return button;
+      }),
+    );
 
-    if (tab === 'profile') {
+    // Every non-play tab tears the table down: a hand left mounted behind another screen would keep
+    // its AI timer running and deal on while nobody is watching it.
+    if (tab !== 'play') {
       teardownTable();
-      screen.replaceChildren(renderProfile({ session }));
+      screen.replaceChildren(renderTab(tab));
       return;
     }
 
@@ -144,6 +165,34 @@ async function boot(): Promise<void> {
         onNewSession: () => startTable(),
       }),
     );
+  }
+
+  /**
+   * Renders one non-play surface. Each screen module owns its own file; this only routes.
+   * `learn`, `drill` and `charts` land as their modules are built — until then they show a real
+   * empty state, because N1 forbids hiding a surface and a blank panel would read as a bug.
+   */
+  function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
+    if (which === 'profile') return renderProfile({ session });
+    return renderPlaceholder(which);
+  }
+
+  function renderPlaceholder(which: string): HTMLElement {
+    const root = document.createElement('div');
+    root.className = 'empty-state';
+    root.dataset.testid = `${which}-screen`;
+
+    const title = document.createElement('div');
+    title.className = 'empty-state-title';
+    title.textContent = 'Not built yet';
+    root.appendChild(title);
+
+    const body = document.createElement('div');
+    body.className = 'empty-state-body';
+    body.textContent = 'This surface is on the roadmap. Nothing here is locked.';
+    root.appendChild(body);
+
+    return root;
   }
 
   render();
