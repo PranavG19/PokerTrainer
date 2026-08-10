@@ -26,8 +26,32 @@ const prefill = !args.includes('--no-prefill');
 const corpusPath = new URL('../../../research/corpus/reasons.jsonl', import.meta.url);
 const corpus = readFileSync(corpusPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
 
-/** The grader prompt. Ported verbatim from the M2 v2 variant, which beat the bare v1 rubric. */
-const SYSTEM = `You are the reason-grader of a poker tutor. Classify the learner's typed reason into exactly
+/**
+ * The grader prompt. Ported verbatim from the M2 v2 variant, which beat the bare v1 rubric.
+ *
+ * CONTAMINATION: its worked examples are near-verbatim corpus lines h05, h06 and p25, because the
+ * prompt was written against the earlier 32-case set those lines came from. Scoring those three
+ * items measures memorisation of the rubric, not generalisation, so --decontaminate swaps the
+ * examples for structurally identical ones that appear nowhere in the corpus. The gap between the
+ * two runs is the size of the leak.
+ */
+const CONTAMINATED_EXAMPLES = `"My equity is high
+                because I have a big pair" is hand-strength: the word equity is decoration, the
+                reasoning is the pair. "My range is weak because these two cards are weak" is
+                hand-strength: a single holding is not a range.`;
+
+const CLEAN_EXAMPLES = `"I have plenty of
+                outs so my chances are fine" is hand-strength: the outs count is decoration, the
+                reasoning is the holding. "The range I turned up with is unbeatable" is
+                hand-strength: a single holding is not a range.`;
+
+const CONTAMINATED_TIEBREAK = `"a gutshot gives less than the
+46% needed" is price, because the comparison is what decides it.`;
+
+const CLEAN_TIEBREAK = `"one card to a flush pays less than the
+three-to-one on offer" is price, because the comparison is what decides it.`;
+
+const SYSTEM_TEMPLATE = `You are the reason-grader of a poker tutor. Classify the learner's typed reason into exactly
 one label. Output only the token, nothing else.
 
 range         - the reason is about which HANDS the opponent (or the learner) holds as a group:
@@ -37,21 +61,22 @@ price         - the reason is about the COST of the decision versus how often it
                 pot odds, the share needed, breaking even, the size of the bet against the pot.
 hand-strength - the reason is about how good the learner's own two cards are, in isolation.
                 THIS INCLUDES reasons that borrow range or price vocabulary but whose operative
-                content is still "my cards are strong / my cards are weak". "My equity is high
-                because I have a big pair" is hand-strength: the word equity is decoration, the
-                reasoning is the pair. "My range is weak because these two cards are weak" is
-                hand-strength: a single holding is not a range.
+                content is still "my cards are strong / my cards are weak". __EXAMPLES__
 none          - no mechanism at all: a guess, a feeling, a hunch, an unsupported claim about the
                 opponent, or an admission of not knowing.
 
 DECIDING THE HARD CASES
 Ask which clause is doing the work. If removing the price/range words leaves the same argument
 intact, the label is hand-strength. If the price/range clause is what makes the decision, use
-price or range even when a specific holding is also mentioned — "a gutshot gives less than the
-46% needed" is price, because the comparison is what decides it.
+price or range even when a specific holding is also mentioned — __TIEBREAK__
 Prefer price over range when both appear and a number or pot size is the operative comparison.
 
 Output exactly one of: range price hand-strength none`;
+
+const decontaminate = args.includes('--decontaminate');
+const SYSTEM = SYSTEM_TEMPLATE
+  .replace('__EXAMPLES__', decontaminate ? CLEAN_EXAMPLES : CONTAMINATED_EXAMPLES)
+  .replace('__TIEBREAK__', decontaminate ? CLEAN_TIEBREAK : CONTAMINATED_TIEBREAK);
 
 const parse = (raw) => {
   const s = raw.trim().toLowerCase();
@@ -97,6 +122,7 @@ const selfAgreement = repeats > 1
 const summary = {
   experiment: 'E3 reason grader',
   classifier,
+  promptExamples: decontaminate ? 'decontaminated' : 'as-written (overlaps corpus h05/h06/p25)',
   model: classifier === 'llm' ? MODEL_ID : 'keyword-only (pure function, no network)',
   n: rows.length,
   repeats,
