@@ -2,18 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {
-  AXIS_AVAILABILITY,
-  POSITIONS,
-  boardTextureOf,
-  gapBandOf,
-  playersBehind as playersBehindOn,
-  stackDepthOf,
-  suitednessOf,
-  type ContrastAxis,
-  type ContrastPosition,
-  type ContrastSpot,
-} from '../../src/core/contrast.js';
+import { AXIS_AVAILABILITY } from '../../src/core/contrast.js';
 import { manifestEntry } from '../../src/core/contrastManifest.js';
 import { launchApp, shot } from './helpers.js';
 
@@ -281,6 +270,23 @@ test.describe('contrast-set remediation', () => {
 
           const set = await readSet(page);
           setsChecked += 1;
+          /*
+           * The manifest is the source of truth for this base's pot, so the test does not restate a
+           * number — it reads the same declaration the screen was built from. contrast.ts turns it
+           * into chips (`state.pot = potBb * bb`); the card has to turn it back.
+           */
+          const entry = manifestEntry(conceptId);
+          expect(entry, `${conceptId} is on screen but not in the manifest`).toBeDefined();
+          /*
+           * POSTFLOP ONLY, and the reason is a distinction I got wrong first and the test caught: on a
+           * postflop base contrast.ts seeds the pot directly (`state.pot = potBb * bb`), so the card
+           * must print potBb back. PREFLOP it takes the other branch and the pot is built by the
+           * posted blinds — sb-squeeze declares potBb: 0 and correctly shows 1.5 bb, meaning "no extra
+           * pot is seeded" rather than "the pot is empty". Asserting potBb there would have demanded
+           * the screen print a wrong number.
+           */
+          const expectedPotBb =
+            entry !== undefined && entry.base.street !== 'preflop' ? entry.base.potBb : null;
           axesSeen.add(set.axis);
           const where = `${conceptId} / ${set.axis}`;
 
@@ -326,10 +332,91 @@ test.describe('contrast-set remediation', () => {
             // position / playersBehind move the seating, not the cards, so the cards must be equal.
             expect(new Set(rendered).size, `${where}: cards must be held`).toBe(1);
           }
-          // Every spot in the set is dealable and hero can act in it, straight off the engine.
-          const actions = await page.locator('[data-testid="contrast-facts"]').allTextContents();
-          expect(actions.length).toBe(set.spots.length);
-          for (const line of actions) expect(line).toMatch(/you can [a-z]/);
+          /*
+           * Every spot in the set is dealable and hero can act in it, straight off the engine — AND
+           * every number on the line is checked, not just the actions clause.
+           *
+           * The pot is the one figure this screen computes itself (chips / bb; the file's own header
+           * admits it is the only local arithmetic), and it was the only unverified one: mutating it
+           * to `chips * bb` made the card read "Pot 24 bb" for a 6 bb pot and passed all 7 tests. The
+           * stack depth and villain list are read back too, because a screen that silently drops an
+           * opponent contradicts the playersBehind cell printed inches away on the same card.
+           */
+          const facts = await page.locator('[data-testid="contrast-facts"]').allTextContents();
+          expect(facts.length).toBe(set.spots.length);
+          for (const [index, line] of facts.entries()) {
+            expect(line, `${where} spot ${index}`).toMatch(/you can [a-z]/);
+
+            /*
+             * THE POT, AGAINST THE MANIFEST'S OWN NUMBER. This is the only figure the screen computes
+             * itself, and it must invert what core did: contrast.ts sets `state.pot = potBb * bb`, so
+             * printing it back in big blinds has to return exactly the manifest's potBb.
+             *
+             * A bound-style assertion is not enough — I tried "positive and under 400" first and it
+             * passed the very mutation it was written for, because `chips * bb` prints 24 for a 6 bb
+             * pot at bb=2 and 24 is a perfectly plausible pot. Only the exact expected value separates
+             * a correct division from any other arithmetic.
+             */
+            const pot = /Pot ([\d.]+) bb/.exec(line);
+            expect(pot, `${where} spot ${index}: no pot figure on the facts line`).not.toBeNull();
+            if (expectedPotBb !== null) {
+              expect(
+                Number(pot?.[1]),
+                `${where} spot ${index}: the card prints ${pot?.[1]} bb for a ${expectedPotBb} bb pot`,
+              ).toBeCloseTo(expectedPotBb, 4);
+            } else {
+              // Preflop: the pot is whatever the blinds posted, so what is checkable is that it is a
+              // real positive figure in blinds rather than raw chips.
+              expect(
+                Number(pot?.[1]),
+                `${where} spot ${index}: preflop pot ${pot?.[1]} is not a positive bb figure`,
+              ).toBeGreaterThan(0);
+              expect(
+                Number(pot?.[1]),
+                `${where} spot ${index}: preflop pot ${pot?.[1]} bb is too large to be blinds`,
+              ).toBeLessThanOrEqual(10);
+            }
+
+            // Depth agrees with the stackDepth the same card publishes as a held axis.
+            const depth = /(\d+) bb deep/.exec(line);
+            expect(depth, `${where} spot ${index}: no stack depth`).not.toBeNull();
+            const depthBb = Number(depth?.[1]);
+            const band = set.spots[index].held.find((cell) => cell.startsWith('stackDepth='));
+            if (band !== undefined) {
+              const expected = depthBb <= 70 ? 'bb40' : depthBb <= 150 ? 'bb100' : 'bb200';
+              expect(
+                band,
+                `${where} spot ${index}: ${depthBb} bb deep but the held cell says ${band}`,
+              ).toBe(`stackDepth=${expected}`);
+            }
+
+            /*
+             * EVERY OPPONENT, not just the first. Truncating the list to one silently drops a villain
+             * on the multiway bases — turn-probe and sb-squeeze both seat CO and BTN — which
+             * contradicts the playersBehind value the same card publishes as a held axis. Counting is
+             * what catches it: a "names at least one" check passed the truncation.
+             *
+             * The expected count comes from the manifest for the axes that hold seating fixed. On
+             * `position` and `playersBehind` the seating is the thing being varied, so the variants
+             * legitimately differ from the base and only the base is pinned.
+             */
+            const villains = /vs ([^·]+)/.exec(line);
+            expect(villains, `${where} spot ${index}: no villain named`).not.toBeNull();
+            const named = (villains?.[1] ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+            const seatingIsVaried = set.axis === 'position' || set.axis === 'playersBehind';
+            const expectedVillains = entry?.base.villainPositions.length ?? 0;
+            if (!seatingIsVaried || index === 0) {
+              expect(
+                named,
+                `${where} spot ${index}: the card names ${named.length} opponent(s) for a spot seating ${expectedVillains}`,
+              ).toEqual([...(entry?.base.villainPositions ?? [])]);
+            } else {
+              expect(
+                named.length,
+                `${where} spot ${index}: "vs ${villains?.[1]}" names no opponent`,
+              ).toBeGreaterThan(0);
+            }
+          }
         }
       }
 
@@ -581,48 +668,6 @@ test.describe('contrast-set remediation', () => {
         await shot(page, `repair-worked-example-${width}x${height}`);
       }
       expect(errors).toEqual([]);
-    });
-  });
-});
-
-test.describe('PROBE', () => {
-  test('dump', async () => {
-    await withApp({}, async ({ page }) => {
-      await openRepair(page);
-      const out: unknown[] = [];
-      for (const conceptId of await queuedConcepts(page)) {
-        await openConcept(page, conceptId);
-        const offers = await page.locator(axisOffer).evaluateAll((els) =>
-          els.map((el) => ({
-            axis: el instanceof HTMLElement ? el.dataset.axis : '',
-            available: el instanceof HTMLElement ? el.dataset.available : '',
-            meta: el.querySelector('.axis-offer-meta')?.textContent ?? '',
-            reason: el.querySelector('[data-testid="axis-reason"]')?.textContent ?? '',
-          })),
-        );
-        out.push({ conceptId, offers });
-        for (const o of offers.filter((x) => x.available === 'true')) {
-          await page.locator(`${axisOffer}[data-axis="${o.axis}"]`).click();
-          await expect(page.locator(repairScreen)).toHaveAttribute('data-axis', String(o.axis));
-          const dump = await page.evaluate(() => {
-            const set = document.querySelector('[data-testid="contrast-set"]') as HTMLElement;
-            return {
-              axis: set.dataset.axis,
-              claim: document.querySelector('[data-testid="contrast-claim"]')?.textContent,
-              spots: [...set.querySelectorAll<HTMLElement>('[data-testid="contrast-spot"]')].map((s) => ({
-                role: s.dataset.role,
-                toggled: s.querySelector('[data-testid="contrast-toggled"]')?.textContent,
-                facts: s.querySelector('[data-testid="contrast-facts"]')?.textContent,
-                held: [...s.querySelectorAll<HTMLElement>('.contrast-held-cell')].map((c) => ({
-                  axis: c.dataset.axis, value: c.dataset.value, text: c.textContent })),
-                hole: [...s.querySelectorAll<HTMLElement>('[data-testid="contrast-hole"] [data-testid="card"]')].map((c) => c.dataset.card),
-              })),
-            };
-          });
-          out.push({ conceptId, set: dump });
-        }
-      }
-      fs.writeFileSync('/tmp/probe.json', JSON.stringify(out, null, 2));
     });
   });
 });
