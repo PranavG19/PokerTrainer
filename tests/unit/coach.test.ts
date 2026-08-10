@@ -290,10 +290,10 @@ describe('folding when checking was free', () => {
     bb: 50,
     opponents: 1,
     seed: 7,
-  } as const;
+  };
 
   it('never ranks folding the nuts above checking them', () => {
-    const nuts = { hole: ['As', 'Ac'], board: ['Ah', 'Ad', 'Kc', '7s', '2d'], pot: 600 } as const;
+    const nuts = { hole: ['As', 'Ac'], board: ['Ah', 'Ad', 'Kc', '7s', '2d'], pot: 600 };
     const fold = gradeDecision({ ...river, ...nuts, chosen: 'fold' });
     const check = gradeDecision({ ...river, ...nuts, chosen: 'check' });
     const bet = gradeDecision({ ...river, ...nuts, chosen: 'bet', betSize: 300 });
@@ -323,7 +323,7 @@ describe('folding when checking was free', () => {
   });
 
   it('scales the charge with the pot, so surrendering a big pot costs more', () => {
-    const hand = { hole: ['As', 'Ac'], board: ['Ah', 'Ad', 'Kc', '7s', '2d'] } as const;
+    const hand = { hole: ['As', 'Ac'], board: ['Ah', 'Ad', 'Kc', '7s', '2d'] };
     const small = gradeDecision({ ...river, ...hand, pot: 100, chosen: 'fold' });
     const big = gradeDecision({ ...river, ...hand, pot: 1200, chosen: 'fold' });
     expect(big.evLossBb).toBeGreaterThan(small.evLossBb);

@@ -71,15 +71,22 @@ process.stdout.write('\n### B4 — checking a monster preflop/flop is always fre
   show('AKs preflop, raise', grade({ hole, board: [], street: 'preflop', pot: 150, toCall: 0, chosen: 'raise' }));
 }
 
-process.stdout.write('\n### B4b — folding the absolute nuts for free is graded 0.00bb, while CHECKING it is charged\n');
-process.stdout.write('`chosen === "fold"` returns 0 unconditionally when toCall === 0, and the check branch charges\n');
-process.stdout.write('missed value on turn/river. So on a river the grader prefers folding quads to checking them.\n');
+process.stdout.write('\n### B4b — [FIXED at c66c40e, kept as a regression probe] folding the nuts for free\n');
+process.stdout.write('Before the fix the fold branch returned 0 unconditionally at toCall === 0, so the grader\n');
+process.stdout.write('graded FOLDING quad aces on the river 0.00bb "free" and CHECKING them 2.70bb "serious".\n');
+process.stdout.write('The correct ordering is bet < check < fold; assert that below.\n');
 {
   const hole: Card[] = ['As', 'Ah'];
   const board: Card[] = ['Ad', 'Ac', '7h', '3d', '8s'];
-  show('quad aces, river, pot 600, nobody bet — FOLD', grade({ hole, board, street: 'river', pot: 600, toCall: 0, chosen: 'fold' }));
-  show('quad aces, river, pot 600, nobody bet — check', grade({ hole, board, street: 'river', pot: 600, toCall: 0, chosen: 'check' }));
-  show('quad aces, river, pot 600, nobody bet — bet', grade({ hole, board, street: 'river', pot: 600, toCall: 0, chosen: 'bet' }));
+  const f = grade({ hole, board, street: 'river', pot: 600, toCall: 0, chosen: 'fold' });
+  const c = grade({ hole, board, street: 'river', pot: 600, toCall: 0, chosen: 'check' });
+  const b = grade({ hole, board, street: 'river', pot: 600, toCall: 0, chosen: 'bet' });
+  show('quad aces, river, pot 600, nobody bet — fold', f);
+  show('quad aces, river, pot 600, nobody bet — check', c);
+  show('quad aces, river, pot 600, nobody bet — bet', b);
+  process.stdout.write(
+    `ordering bet < check < fold: ${b.evLossBb < c.evLossBb && c.evLossBb < f.evLossBb ? 'HOLDS' : 'VIOLATED'}\n`,
+  );
 }
 
 process.stdout.write('\n### B5 — equity is measured vs RANDOM hands, so the grader charges correct folds\n');
