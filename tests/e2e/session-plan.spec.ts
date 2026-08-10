@@ -1,5 +1,6 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, shot } from './helpers.js';
+import { SHARES } from '../../src/core/sessionPlan.js';
 
 /**
  * THE SESSION PLANNER — PRODUCT-SPEC S1, S2, S2a, S2b, S3.
@@ -23,6 +24,14 @@ import { launchApp, shot } from './helpers.js';
  * SYNC ORACLE, NEVER A SLEEP: the planner root republishes data-minutes / data-mode / data-status /
  * data-total / data-cut-count / data-deferred / data-due-probes on every paint, the same technique
  * the table root's data-awaiting uses. Every wait in this file keys off one of those.
+ *
+ * ATTRIBUTE AND TEXT MUST AGREE. A data-* attribute is a test hook; the sentence beside it is what
+ * the learner actually reads, and the two are written by different lines of the screen. So every row
+ * this file checks is checked TWICE — once as a number off the dataset, once as the rendered string
+ * — via `readIngredientText` / `readCutText` and `expectRowReads`. Asserting only the attribute lets
+ * every visible minute, count, share and label be corrupted while the suite stays green; that was
+ * measured, not guessed (minutes*3+1, units*7+2, shares*700, six labels to 'XXX', total*2 — all 18
+ * tests passed).
  */
 
 const planner = '[data-testid="session-planner"]';
@@ -33,6 +42,7 @@ const cutRow = '[data-testid="cut-row"]';
 const cutNone = '[data-testid="cut-none"]';
 const cutOrder = '[data-testid="cut-order"]';
 const cutProtected = '[data-testid="cut-protected"]';
+const plannerTotal = '[data-testid="planner-total"]';
 const refusal = '[data-testid="plan-refusal"]';
 const refusalReason = '[data-testid="refusal-reason"]';
 const refusalRoute = '[data-testid="refusal-route"]';
@@ -55,6 +65,32 @@ const BLOCK_KINDS = [
 /** CUT_ORDER in core/sessionPlan.ts. S2's whole point, mirrored so an edit either side shows up. */
 const CUT_ORDER = ['whole-task', 'warm-up-length', 'graded-spot-count'] as const;
 
+/**
+ * The name each ingredient must be CALLED on screen, verbatim from PRODUCT-SPEC S1's table, and the
+ * atom it must be COUNTED in. Mirrored from the spec rather than from the screen: the screen's
+ * BLOCK_LABELS map is the thing under test, so importing it would assert the screen against itself.
+ * Labels are pinned per-kind so a swap — warm-up's row named 'graded spots' — is a failure, which a
+ * "some label is present somewhere" check is blind to.
+ */
+const BLOCK_TEXT: Record<
+  (typeof BLOCK_KINDS)[number],
+  { readonly label: string; readonly unit: readonly [string, string] }
+> = {
+  'warm-up': { label: 'fluency warm-up (PLM)', unit: ['block', 'blocks'] },
+  'decay-probes': { label: 'decay probes', unit: ['probe', 'probes'] },
+  'graded-spots': { label: 'graded spots', unit: ['spot', 'spots'] },
+  'contrast-remediation': { label: 'contrast remediation', unit: ['contrast set', 'contrast sets'] },
+  'whole-task': { label: 'whole-task live hands', unit: ['live hand', 'live hands'] },
+  scoreboard: { label: 'scoreboard', unit: ['scoreboard', 'scoreboards'] },
+};
+
+/** What each cut target must be CALLED on screen. S2's own words for its own three steps. */
+const CUT_TEXT: Record<(typeof CUT_ORDER)[number], string> = {
+  'whole-task': 'whole-task live hands',
+  'warm-up-length': 'warm-up length',
+  'graded-spot-count': 'graded spot count',
+};
+
 /** SPEC.md's documented window: "1100x760, non-resizable-min 900x640". */
 const DEFAULT_WIDTH = 1100;
 const DEFAULT_HEIGHT = 760;
@@ -67,6 +103,11 @@ interface Ingredient {
   units: number;
   skipped: boolean;
   why: string;
+  /** What the row SAYS, in the four spans a learner reads left to right. */
+  label: string;
+  share: string;
+  minutesText: string;
+  unitsText: string;
 }
 
 /**
@@ -127,26 +168,118 @@ async function selectMode(page: Page, mode: string): Promise<void> {
   await expect(page.locator(planner)).toHaveAttribute('data-mode', mode);
 }
 
-/** Every ingredient row, in DOM order, read as numbers rather than as text. */
+/**
+ * Every ingredient row, in DOM order — the dataset numbers AND the four strings printed beside them.
+ * Both, deliberately: the attribute is what the plan computed, the text is what the learner is told,
+ * and `expectRowReads` is what refuses to let those two disagree.
+ */
 async function readIngredients(page: Page): Promise<Ingredient[]> {
   return page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('[data-testid="ingredient-row"]')].map((row) => ({
-      kind: row.dataset.kind ?? '',
-      minutes: Number(row.dataset.minutes),
-      units: Number(row.dataset.units),
-      skipped: row.dataset.skipped === 'true',
-      why: row.querySelector<HTMLElement>('[data-testid="ingredient-why"]')?.textContent ?? '',
-    })),
+    [...document.querySelectorAll<HTMLElement>('[data-testid="ingredient-row"]')].map((row) => {
+      const text = (selector: string): string =>
+        row.querySelector<HTMLElement>(selector)?.textContent ?? '';
+      return {
+        kind: row.dataset.kind ?? '',
+        minutes: Number(row.dataset.minutes),
+        units: Number(row.dataset.units),
+        skipped: row.dataset.skipped === 'true',
+        why: text('[data-testid="ingredient-why"]'),
+        label: text('.ingredient-label'),
+        share: text('.ingredient-share'),
+        minutesText: text('[data-testid="ingredient-minutes"]'),
+        unitsText: text('[data-testid="ingredient-units"]'),
+      };
+    }),
   );
 }
 
-async function readCuts(page: Page): Promise<{ target: string; minutes: number }[]> {
+/**
+ * Every claim a single ingredient row makes about itself, checked against the ONE plan number it is
+ * allowed to describe.
+ *
+ * The row prints four things: S1's name for the block, its share of a 50-minute session, its minutes
+ * and its whole-atom count. All four are derived here from `minutes`/`units` and from core's own
+ * SHARES — not copied off the screen — so a row whose text drifts from its dataset fails, and so does
+ * a row that is named after a different block. `expectedMinutes`/`expectedUnits` are passed in from
+ * the spec's worked arithmetic, which is what stops the whole row agreeing on a wrong number.
+ */
+function expectRowReads(
+  rows: Ingredient[],
+  kind: (typeof BLOCK_KINDS)[number],
+  expectedMinutes: number,
+  expectedUnits: number,
+): void {
+  const row = byKind(rows).get(kind);
+  expect(row, `no ${kind} row on screen`).toBeDefined();
+  if (row === undefined) return;
+
+  expect(row.minutes, `${kind} data-minutes`).toBe(expectedMinutes);
+  expect(row.units, `${kind} data-units`).toBe(expectedUnits);
+
+  const { label, unit } = BLOCK_TEXT[kind];
+  expect(row.label, `the ${kind} row is not named "${label}" on screen`).toBe(label);
+  expect(
+    row.minutesText,
+    `the ${kind} row shows data-minutes=${expectedMinutes} but PRINTS "${row.minutesText}"`,
+  ).toBe(`${expectedMinutes} min`);
+  const noun = expectedUnits === 1 ? unit[0] : unit[1];
+  expect(
+    row.unitsText,
+    `the ${kind} row shows data-units=${expectedUnits} but PRINTS "${row.unitsText}"`,
+  ).toBe(`${expectedUnits} ${noun}`);
+  // S1's share column, from core's SHARES so the test moves with the table rather than duplicating it.
+  expect(row.share, `the ${kind} row's share of a 50-minute session`).toBe(
+    `${Math.round(SHARES[kind] * 100)}%`,
+  );
+}
+
+/**
+ * The panel's words must agree with the panel's own numbers, on every row, at any length or mode.
+ *
+ * This does NOT pin the arithmetic — tests 2 and 3 do that from the spec's table. What it pins is
+ * that the sentence a learner reads is the same fact as the attribute a test reads: a screen that
+ * computes 13.75 min and prints "42.25 min" is lying to exactly one of its two audiences, and it is
+ * the audience that matters. Cheap enough to hold everywhere, which is the point — the arithmetic
+ * cases are a handful of configurations and this one is all of them.
+ */
+function expectRowsSelfConsistent(rows: Ingredient[]): void {
+  expect(rows.map((row) => row.kind), 'ingredients are not in S1 order').toEqual([...BLOCK_KINDS]);
+  for (const row of rows) {
+    const kind = row.kind as (typeof BLOCK_KINDS)[number];
+    expectRowReads(rows, kind, row.minutes, row.units);
+  }
+}
+
+interface CutRow {
+  target: string;
+  minutes: number;
+  label: string;
+  minutesText: string;
+}
+
+async function readCuts(page: Page): Promise<CutRow[]> {
   return page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>('[data-testid="cut-row"]')].map((row) => ({
       target: row.dataset.target ?? '',
       minutes: Number(row.dataset.minutes),
+      label: row.querySelector<HTMLElement>('.cut-label')?.textContent ?? '',
+      minutesText: row.querySelector<HTMLElement>('.cut-minutes')?.textContent ?? '',
     })),
   );
+}
+
+/** A cut row must NAME the block it took minutes out of and PRINT the minutes it removed. */
+function expectCutReads(cut: CutRow, target: (typeof CUT_ORDER)[number], minutes: number): void {
+  expect(cut.target, 'cut target').toBe(target);
+  expect(cut.minutes, `${target} data-minutes`).toBe(minutes);
+  expect(cut.label, `the ${target} cut is not named "${CUT_TEXT[target]}" on screen`).toBe(
+    CUT_TEXT[target],
+  );
+  // The minus sign is the whole point: a cut that prints "4.25 min" reads as an allocation.
+  expect(
+    cut.minutesText,
+    `the ${target} cut removed ${minutes} min but PRINTS "${cut.minutesText}"`,
+  ).toBe(`−${minutes} min`);
 }
 
 function byKind(rows: Ingredient[]): Map<string, Ingredient> {
@@ -231,6 +364,7 @@ test.describe('S1 — one button, two lengths, six ingredients', () => {
           minutes: Number((el as HTMLElement).dataset.minutes),
           sessionLength: (el as HTMLElement).dataset.sessionLength,
           active: (el as HTMLElement).dataset.active,
+          text: el.textContent ?? '',
         })),
       );
 
@@ -245,10 +379,29 @@ test.describe('S1 — one button, two lengths, six ingredients', () => {
         '15 minutes is offered as a session length, which S2a forbids',
       ).toBe('false');
 
+      // AND THE PILLS SAY SO IN WORDS, which is the only form of the claim a learner can act on:
+      // data-session-language is a hook, "15 min · not a session" is the disclosure S2a is about.
+      // Pinned as the whole row so the marking cannot migrate onto 30 and 50 instead.
+      expect(lengths.map((l) => l.text), 'the length pills do not mark 15 as not a session').toEqual(
+        ['15 min · not a session', '30 min', '50 min'],
+      );
+
       // S1: default 30.
       await expect(page.locator(planner)).toHaveAttribute('data-minutes', '30');
       expect(lengths.filter((l) => l.active === 'true').map((l) => l.minutes)).toEqual([30]);
       await expect(page.locator(planner)).toHaveAttribute('data-mode', 'session');
+
+      // The two modes, named. S3 makes free-roam a mode you pick rather than a fallback, so both
+      // pills must be legible as modes — and the label on each must match the mode it selects.
+      expect(
+        await page.locator(modeBtn).evaluateAll((buttons) =>
+          buttons.map((el) => [(el as HTMLElement).dataset.mode, el.textContent ?? '']),
+        ),
+        'the mode pills are mislabelled',
+      ).toEqual([
+        ['session', 'Session'],
+        ['free-roam', 'Free-roam'],
+      ]);
     });
   });
 
@@ -263,22 +416,32 @@ test.describe('S1 — one button, two lengths, six ingredients', () => {
       // All six, always, in the order they run: a skipped block states 0 rather than vanishing.
       expect(rows.map((r) => r.kind), 'ingredients are not in S1 order').toEqual([...BLOCK_KINDS]);
 
-      const at = byKind(rows);
-      expect(at.get('warm-up')).toMatchObject({ minutes: 4, units: 1 });
-      expect(at.get('decay-probes')).toMatchObject({ minutes: 3, units: 4 });
-      expect(at.get('graded-spots')).toMatchObject({ minutes: 13.75, units: 11 });
-      expect(at.get('contrast-remediation')).toMatchObject({ minutes: 5, units: 1 });
-      expect(at.get('scoreboard')).toMatchObject({ minutes: 2, units: 1 });
+      // Every row: the dataset number, the block's S1 name, its share, and the minutes and atom
+      // count it PRINTS. "≈11 spots" is the number S2a itself quotes for a 30-minute session.
+      expectRowReads(rows, 'warm-up', 4, 1);
+      expectRowReads(rows, 'decay-probes', 3, 4);
+      expectRowReads(rows, 'graded-spots', 13.75, 11);
+      expectRowReads(rows, 'contrast-remediation', 5, 1);
+      expectRowReads(rows, 'scoreboard', 2, 1);
       // S1: whole-task is dropped first below 30 minutes, and the row says so at 0.
-      expect(at.get('whole-task')).toMatchObject({ minutes: 0, units: 0, skipped: true });
+      expectRowReads(rows, 'whole-task', 0, 0);
+      expect(byKind(rows).get('whole-task')?.skipped).toBe(true);
 
       // The minutes on screen must add up to the total on screen — a total tracked separately is a
       // total allowed to drift.
       const summed = rows.reduce((sum, row) => sum + row.minutes, 0);
       expect(summed).toBeCloseTo(27.75, 6);
 
-      // "≈11 spots" is the number S2a itself quotes for a 30-minute session.
-      expect(at.get('graded-spots')?.units).toBe(11);
+      // THE HEADLINE SENTENCE, in full. 27.75 of the 30 minutes are spent and the remaining 2.25 are
+      // deliberately unspent, so the panel must print BOTH numbers and say which is which: a learner
+      // who reads "27.75 min of blocks" alone has been handed a plan that looks 2.25 min short.
+      const total30 = (await page.textContent(plannerTotal)) ?? '';
+      expect(
+        total30,
+        `the 30-minute plan's headline reads "${total30}" rather than 27.75 spent and 2.25 unspent`,
+      ).toBe(
+        '27.75 min of blocks, 2.25 min unspent — a block is whole units, so the remainder buys nothing',
+      );
       await shot(page, 'session-plan-30');
     });
   });
@@ -291,31 +454,66 @@ test.describe('S1 — one button, two lengths, six ingredients', () => {
       await expect(page.locator(planner)).toHaveAttribute('data-total', '49.75');
       await expect(page.locator(planner)).toHaveAttribute('data-cut-count', '0');
 
-      const at = byKind(await readIngredients(page));
-      expect(at.get('warm-up')).toMatchObject({ minutes: 4, units: 1 });
-      expect(at.get('decay-probes')).toMatchObject({ minutes: 3, units: 4 });
-      expect(at.get('graded-spots')).toMatchObject({ minutes: 23.75, units: 19 });
-      expect(at.get('contrast-remediation')).toMatchObject({ minutes: 10, units: 2 });
-      expect(at.get('whole-task')).toMatchObject({ minutes: 7, units: 3 });
-      expect(at.get('scoreboard')).toMatchObject({ minutes: 2, units: 1 });
+      const rows = await readIngredients(page);
+      expectRowReads(rows, 'warm-up', 4, 1);
+      expectRowReads(rows, 'decay-probes', 3, 4);
+      expectRowReads(rows, 'graded-spots', 23.75, 19);
+      expectRowReads(rows, 'contrast-remediation', 10, 2);
+      expectRowReads(rows, 'whole-task', 7, 3);
+      expectRowReads(rows, 'scoreboard', 2, 1);
 
       // Nothing is skipped at the reference length, which is what makes it the reference length.
-      for (const row of await readIngredients(page)) {
+      for (const row of rows) {
         expect(row.skipped, `${row.kind} was skipped in a 50-minute session`).toBe(false);
         expect(row.minutes, `${row.kind} has no minutes`).toBeGreaterThan(0);
       }
 
+      // 50 minutes is where the shares were tuned, so every row's printed share is S1's own column,
+      // read left to right down the list. Any two of them swapped and the table stops being S1's.
+      expect(rows.map((row) => row.share), 'the share column is not S1’s 8/6/48/20/14/4').toEqual(
+        BLOCK_KINDS.map((kind) => `${Math.round(SHARES[kind] * 100)}%`),
+      );
+
       await expect(page.locator(cutRow)).toHaveCount(0);
       await expect(page.locator(cutNone)).toBeVisible();
+      // S2's zero case, in words: at the reference length the panel must say nothing was GIVEN UP,
+      // and the sentence carries the reason (everything fits) rather than an empty list.
+      const nothing = (await page.textContent(cutNone)) ?? '';
+      expect(nothing, `the no-cuts note reads "${nothing}"`).toBe(
+        'Nothing was cut: every block fits at this length.',
+      );
+      // 49.75 of 50: the leftover sentence at the reference length too, so the wording is not a
+      // special case of the short sitting.
+      const total50 = (await page.textContent(plannerTotal)) ?? '';
+      expect(
+        total50,
+        `the 50-minute plan's headline reads "${total50}" rather than 49.75 spent and 0.25 unspent`,
+      ).toBe(
+        '49.75 min of blocks, 0.25 min unspent — a block is whole units, so the remainder buys nothing',
+      );
       await shot(page, 'session-plan-50');
     });
   });
 
   test('4. the start button is the one button, and it seats the learner at a table', async () => {
     await withPlanner(async ({ page }) => {
+      await queueProbes(page, 4);
       await selectLength(page, 50);
       await expect(page.locator(planStart)).toHaveAttribute('data-minutes', '50');
       await expect(page.locator(planStart)).toHaveAttribute('data-mode', 'session');
+
+      // THE BUTTON'S OWN WORDS. It is the only control that commits the learner, so it must state
+      // which mode it commits them to and how long for — data-mode is a hook, this is the promise —
+      // and its subtitle must quote the graded-spot count the plan actually assembled (19 at 50 min
+      // with 4 probes owed), because that number is what the learner is agreeing to sit through.
+      const title50 = (await page.textContent(`${planStart} .session-card-title`)) ?? '';
+      const meta50 = (await page.textContent(`${planStart} .session-card-meta`)) ?? '';
+      expect(title50, `the start button reads "${title50}"`).toBe('Start 50-minute session');
+      expect(
+        meta50,
+        `the start button promises "${meta50}" for a plan that assembled 19 graded spots`,
+      ).toBe('19 graded spots, sit down at the table');
+      expect(byKind(await readIngredients(page)).get('graded-spots')?.units).toBe(19);
 
       await page.click(planStart);
       await page.waitForSelector(tableScreen);
@@ -332,12 +530,23 @@ test.describe('S2 — the degradation order is visible', () => {
       await expect(page.locator(planner)).toHaveAttribute('data-cut-count', '1');
 
       const cuts = await readCuts(page);
-      expect(cuts).toEqual([{ target: 'whole-task', minutes: 4.25 }]);
+      expect(cuts.length, 'a 30-minute session records exactly one cut').toBe(1);
+      // Named, numbered and signed on the cut row itself: "whole-task live hands  −4.25 min".
+      expectCutReads(cuts[0], 'whole-task', 4.25);
 
       // The cut is attributed to the ingredient it came out of, on that ingredient's own row.
-      const whole = byKind(await readIngredients(page)).get('whole-task');
+      const rows = await readIngredients(page);
+      const whole = byKind(rows).get('whole-task');
       expect(whole?.why, 'the cut whole-task row does not say it was cut').toContain('cut 4.25 min');
       expect(whole?.why).toContain('step 1 of 3');
+
+      // AND ON NO OTHER ROW. One cut happened, so exactly one row may claim to have been cut;
+      // without this, the attribution map can blame the loss on a block that kept all its minutes.
+      const blaming = rows.filter((row) => row.why.includes('cut '));
+      expect(
+        blaming.map((row) => row.kind),
+        'a row that was not cut says it was cut',
+      ).toEqual(['whole-task']);
     });
   });
 
@@ -367,6 +576,24 @@ test.describe('S2 — the degradation order is visible', () => {
       for (const cut of cuts) {
         expect(cut.minutes, `${cut.target} was shown as a cut of zero minutes`).toBeGreaterThan(0);
       }
+
+      // WHAT THE LEARNER READS, both rows: 2 of the 2.1 whole-task minutes go, then 3 spots' worth
+      // of the graded block (3.75 min). The names come from S2's own vocabulary, so a row that
+      // reads "MUTANT −11.75 min" or drops the minus sign fails here rather than in the eyeball.
+      expectCutReads(cuts[0], 'whole-task', 2);
+      expectCutReads(cuts[1], 'graded-spot-count', 3.75);
+
+      // AND EACH LOSS IS BLAMED ON THE BLOCK IT CAME OUT OF. This is the only configuration where the
+      // graded-spot cut is visible at all, so it is the only place the graded row can be checked to
+      // own its own loss — blame it on the scoreboard instead and every other test still passes.
+      const rows = await readIngredients(page);
+      expect(
+        rows.filter((row) => row.why.includes('cut ')).map((row) => `${row.kind}: ${row.why}`),
+        'the two cuts are not attributed to whole-task and graded-spots',
+      ).toEqual([
+        'graded-spots: cut 3.75 min — step 3 of 3 in the cut order',
+        'whole-task: cut 2 min — step 1 of 3 in the cut order',
+      ]);
     });
   });
 
@@ -385,11 +612,26 @@ test.describe('S2 — the degradation order is visible', () => {
         [...positions].sort((a, b) => a - b),
       );
 
-      // S2 and S2b: the three things the order may never reach are named on screen.
+      // The printed order, in full: S2's three steps in S2's words with the arrows between them.
+      expect(
+        order,
+        `the printed cut order reads "${order}" rather than S2's three steps in S2's words`,
+      ).toBe('Cut order: whole-task live hands → warm-up length → graded spot count.');
+
+      /*
+       * S2 AND S2b'S CENTRAL PROHIBITION, PINNED AS A WHOLE SENTENCE — deliberately not as three
+       * noun greps plus a banned-verb list. The three nouns being present says nothing about what the
+       * panel claims about them: 'Always cut: decay probes, ...' contains all three and inverts the
+       * rule, and so does any reword a denylist did not anticipate. What the learner must be able to
+       * read off this line is that these three are the ones the cut order may never reach, so that is
+       * what is asserted: the exact string, which fails on ANY change to it and sends whoever
+       * reworded it here to decide whether the new wording still forbids cutting.
+       */
       const never = (await page.textContent(cutProtected)) ?? '';
-      expect(never).toContain('decay probes');
-      expect(never).toContain('contrast set');
-      expect(never).toContain('warm-up block');
+      expect(
+        never,
+        `the protected-blocks note reads "${never}" — it must state that the cut order NEVER reaches the decay probes, the last contrast set or the first warm-up block`,
+      ).toBe('Never cut: decay probes, the last contrast set, the first warm-up block.');
     });
   });
 
@@ -425,10 +667,28 @@ test.describe('S2a — there is no 15-minute session', () => {
       await expect(page.locator('[data-testid="planner-plan"]')).toHaveCount(0);
       await expect(page.locator(planStart)).toHaveCount(0);
 
+      // THE HEADLINE IS THE REFUSAL. A panel that says "There is a 15-minute session" over a body
+      // explaining why there is not one has inverted S2a where the learner reads fastest, so the
+      // sentence is pinned rather than the fact that a title element exists.
+      const refusalTitle = (await page.textContent(`${refusal} .refusal-title`)) ?? '';
+      expect(
+        refusalTitle,
+        `the refusal is headed "${refusalTitle}", which does not refuse a 15-minute session`,
+      ).toBe('There is no 15-minute session');
+
       const reason = (await page.textContent(refusalReason)) ?? '';
       // The refusal must name the real obstacle — the interleaving floor — and the route out.
       expect(reason, `refusal reason was "${reason}"`).toMatch(/graded spots/);
       expect(reason).toMatch(/free-roam/);
+
+      // The route out must offer the SAME sitting the learner asked for. "Practise free-roam for
+      // 60 min instead" is not a route out of a 15-minute evening, it is a different offer, and
+      // data-testid alone cannot tell the two apart.
+      const routeLabel = (await page.textContent(refusalRoute)) ?? '';
+      expect(
+        routeLabel,
+        `the route out offers "${routeLabel}" to a learner who has 15 minutes`,
+      ).toBe('Practise free-roam for 15 min instead');
       await shot(page, 'session-plan-refusal');
     });
   });
@@ -446,10 +706,29 @@ test.describe('S2a — there is no 15-minute session', () => {
       await expect(page.locator(planner)).toHaveAttribute('data-minutes', '15');
       await expect(page.locator(planner)).toHaveAttribute('data-total', '14.75');
 
-      const at = byKind(await readIngredients(page));
-      expect(at.get('graded-spots')?.units, 'free-roam at 15 minutes assembled no spots').toBe(7);
+      const rows = await readIngredients(page);
+      expect(byKind(rows).get('graded-spots')?.units, 'free-roam at 15 min assembled no spots').toBe(
+        7,
+      );
+      // The 7 spots and their 8.75 minutes, as printed. Q1's interleaving floor is 7 classes, so the
+      // count on screen is the claim that the sitting is real practice rather than a warm-up.
+      expectRowReads(rows, 'graded-spots', 8.75, 7);
+
       await expect(page.locator(planStart)).toBeVisible();
       await expect(page.locator(planStart)).toHaveAttribute('data-mode', 'free-roam');
+      // AND THE BUTTON CALLS IT WHAT IT IS. S2a's whole point is that a 15-minute sitting is practice,
+      // not a session; a button reading "Start 15-minute session" here reinstates the thing refused
+      // two clicks ago, and data-mode="free-roam" beside it would still be true.
+      const title15 = (await page.textContent(`${planStart} .session-card-title`)) ?? '';
+      const meta15 = (await page.textContent(`${planStart} .session-card-meta`)) ?? '';
+      expect(
+        title15,
+        `the button reads "${title15}" for the 15-minute sitting S2a refuses to call a session`,
+      ).toBe('Start 15-minute free-roam sitting');
+      expect(
+        meta15,
+        `the button promises "${meta15}" for a plan that assembled 7 graded spots`,
+      ).toBe('7 graded spots, sit down at the table');
     });
   });
 
@@ -482,13 +761,30 @@ test.describe('S3 — free-roam is first-class', () => {
       expect(rows.map((r) => r.kind), 'free-roam hid an ingredient instead of zeroing it').toEqual([
         ...BLOCK_KINDS,
       ]);
+      // Every row's label, share, minutes and count agree with its own numbers, in free-roam too.
+      expectRowsSelfConsistent(rows);
 
       const at = byKind(rows);
       expect(at.get('decay-probes')).toMatchObject({ minutes: 0, units: 0, skipped: true });
       expect(at.get('decay-probes')?.why, 'the empty probe row does not explain itself').toMatch(
         /never fire outside a session/,
       );
+
+      /*
+       * THE NOTE THAT KEEPS THE ZERO HONEST, pinned whole. Its job is to say the two things a learner
+       * would otherwise get wrong: that this is practice rather than a session, and that BECAUSE no
+       * probes fired nothing here measures retention. Inverted — "Free-roam is a session: decay
+       * probes fire, so this measures retention" — the panel would credit the learner with a
+       * retention measurement it did not take, next to a probe row reading 0 probes.
+       */
       await expect(page.locator(freeRoamNote)).toBeVisible();
+      const note = (await page.textContent(freeRoamNote)) ?? '';
+      expect(
+        note,
+        `the free-roam note reads "${note}" — it must say this is practice rather than a session and that no probes fired, so nothing here measures retention`,
+      ).toBe(
+        'Free-roam is practice, not a session: no decay probes fire, so nothing here measures retention.',
+      );
 
       // And it is still real practice: the freed probe and remediation minutes become spots.
       expect(at.get('graded-spots')?.units ?? 0).toBeGreaterThan(11);
@@ -501,8 +797,14 @@ test.describe('S3 — free-roam is first-class', () => {
       await selectMode(page, 'free-roam');
       await expect(page.locator(planner)).toHaveAttribute('data-deferred', 'true');
       await expect(page.locator(deferredNote)).toBeVisible();
-      expect((await page.textContent(deferredNote)) ?? '').toMatch(/deferred/i);
-      expect((await page.textContent(deferredNote)) ?? '').toMatch(/not skipped/i);
+      // Deferred vs skipped is the distinction S3 turns on, so the sentence that draws it is pinned
+      // whole rather than grepped for the two words: what the learner must be able to read is that
+      // the repair is STILL OWED and lands in the next session, which "deferred" alone does not say.
+      const deferred = (await page.textContent(deferredNote)) ?? '';
+      expect(
+        deferred,
+        `the deferral note reads "${deferred}" — it must say the repair is deferred to the next session and still owed, not skipped`,
+      ).toBe('Remediation is deferred to your next session, not skipped — the repair is still owed.');
 
       const at = byKind(await readIngredients(page));
       expect(at.get('contrast-remediation')).toMatchObject({ minutes: 0, units: 0 });
@@ -530,24 +832,35 @@ test.describe('the empty spacing queue', () => {
       await expect(page.locator(planner)).toHaveAttribute('data-due-probes', '0');
       await selectLength(page, 30);
 
-      const empty = byKind(await readIngredients(page));
+      const emptyRows = await readIngredients(page);
+      const empty = byKind(emptyRows);
       expect(empty.get('decay-probes')).toMatchObject({ minutes: 0, units: 0, skipped: true });
       expect(empty.get('decay-probes')?.why, 'an empty probe row with no explanation').toMatch(
         /nothing is due/i,
       );
-      expect(empty.get('graded-spots')?.units).toBe(13);
+      // 0 probes and 13 spots, as PRINTED. "0 probes" is the row that has to read as a deliberate
+      // zero rather than a missing measurement, and 13 is the count the freed minutes bought.
+      expectRowReads(emptyRows, 'decay-probes', 0, 0);
+      expectRowReads(emptyRows, 'graded-spots', 16.25, 13);
 
       await queueProbes(page, 4);
       await selectLength(page, 30);
-      const owed = byKind(await readIngredients(page));
+      const owedRows = await readIngredients(page);
+      const owed = byKind(owedRows);
       expect(owed.get('decay-probes')).toMatchObject({ minutes: 3, units: 4 });
-      expect(owed.get('graded-spots')?.units).toBe(11);
+      expectRowReads(owedRows, 'decay-probes', 3, 4);
+      expectRowReads(owedRows, 'graded-spots', 13.75, 11);
 
       // 13 spots against 11: every probe not owed is time back, in the unit the block is counted in.
       expect(
         (empty.get('graded-spots')?.units ?? 0) - (owed.get('graded-spots')?.units ?? 0),
         'the freed probe minutes did not become graded spots',
       ).toBe(2);
+      // And the difference is legible on the screen itself, not only in the attributes this test read.
+      expect(
+        [empty.get('graded-spots')?.unitsText, owed.get('graded-spots')?.unitsText],
+        'the reallocation is invisible in the printed spot counts',
+      ).toEqual(['13 spots', '11 spots']);
     });
   });
 
@@ -563,9 +876,14 @@ test.describe('the empty spacing queue', () => {
       await expect(page.locator(planner)).toHaveAttribute('data-due-probes', '0');
       await selectLength(page, 30);
 
-      const at = byKind(await readIngredients(page));
-      expect(at.get('decay-probes')).toMatchObject({ minutes: 0, units: 0, skipped: true });
-      expect(at.get('graded-spots')?.units).toBe(13);
+      const rows = await readIngredients(page);
+      expect(byKind(rows).get('decay-probes')).toMatchObject({
+        minutes: 0,
+        units: 0,
+        skipped: true,
+      });
+      expectRowReads(rows, 'decay-probes', 0, 0);
+      expectRowReads(rows, 'graded-spots', 16.25, 13);
     });
   });
 
@@ -573,11 +891,19 @@ test.describe('the empty spacing queue', () => {
     await withPlanner(async ({ page }) => {
       await queueProbes(page, 2);
       await selectLength(page, 30);
-      const at = byKind(await readIngredients(page));
+      const rows = await readIngredients(page);
       // "fixed count 4, or fewer if none due" — a probe with nothing to probe is a fabricated
-      // measurement, so two owed means two fired, not four.
-      expect(at.get('decay-probes')).toMatchObject({ minutes: 1.5, units: 2 });
-      expect(at.get('graded-spots')?.units).toBe(12);
+      // measurement, so two owed means two fired, not four. And the row must PRINT "2 probes":
+      // a screen that shows the spec's fixed 4 next to a plan that fired 2 has invented two
+      // retention measurements, which is exactly what the "or fewer" clause exists to prevent.
+      expect(byKind(rows).get('decay-probes')).toMatchObject({ minutes: 1.5, units: 2 });
+      expectRowReads(rows, 'decay-probes', 1.5, 2);
+      expectRowReads(rows, 'graded-spots', 15, 12);
+
+      // The singular/plural of every atom noun is exercised across this file's cases; here the
+      // one-unit rows prove the count and its noun are rendered from the same number.
+      expect(byKind(rows).get('contrast-remediation')?.unitsText).toBe('1 contrast set');
+      expect(byKind(rows).get('warm-up')?.unitsText).toBe('1 block');
     });
   });
 });

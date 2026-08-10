@@ -1,5 +1,11 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './helpers.js';
+/**
+ * These two are IMPORTED rather than mirrored, unlike the figures below. The threshold is quoted
+ * verbatim inside a sentence the learner reads, and the false-read rates are exact binomial
+ * arithmetic — a hand-copied "98.5%" would pin last month's rule, so both must move with core.
+ */
+import { DEVIATION_THRESHOLD_POINTS, falseReadProbability } from '../../src/core/reads.js';
 
 /**
  * THE DOSSIER — N5's fifth surface, over core/reads.ts. R1, R2, R3, R4, R6, O4.
@@ -32,6 +38,8 @@ const gateDeviation = '[data-testid="gate-deviation"]';
 const gateLicensed = '[data-testid="gate-licensed"]';
 const shrinkageWeight = '[data-testid="shrinkage-weight"]';
 const appliedDeviation = '[data-testid="applied-deviation"]';
+/** The denominator the applied deviation is read against; no test read it in either form. */
+const fullExploit = '[data-testid="full-exploit"]';
 const licensedDeviation = '[data-testid="licensed-deviation"]';
 const shrinkageTrap = '[data-testid="shrinkage-trap"]';
 const lastObservation = '[data-testid="last-observation"]';
@@ -57,6 +65,13 @@ const skillVsUniform = '[data-testid="skill-vs-uniform"]';
 const STRONG = 'folds-to-turn-probe';           // true 75% vs a 50% baseline -> +25 points at n=20
 const INSIDE_BAND = 'calls-river-overbet';      // true 45% vs a 40% baseline -> +5 points at n=20
 const SECOND_STRONG = 'three-bets-blind-vs-blind'; // true 35% vs a 10% baseline -> +25 points
+
+/** R3 bans unnamed reads, so the rendered rows carry these labels and not the ids. */
+const STRONG_LABEL = 'folds to a turn probe';
+const SECOND_STRONG_LABEL = 'three-bets blind versus blind';
+
+/** STRONG's baseline, which is also its honest observed frequency before any evidence arrives. */
+const STRONG_BASELINE_PERCENT = '50.0%';
 
 /** R1's constants, mirrored from core/reads.ts. */
 const MIN_OBSERVATIONS = 20;
@@ -112,6 +127,20 @@ async function num(page: Page, selector: string, attribute: string): Promise<num
   return Number(raw);
 }
 
+/**
+ * A bb figure, asserted TWICE: the data-bb attribute the rest of this file keys off, and the string
+ * the learner actually reads beside it. The two are separate code paths in the renderer — one
+ * `toFixed(6)` into a dataset, one `toFixed(2)` into a span — so an attribute that agrees with core
+ * while the visible number does not is a real and previously invisible failure mode.
+ */
+async function expectBb(page: Page, selector: string, expected: number): Promise<void> {
+  expect(await num(page, selector, 'data-bb'), `${selector} data-bb`).toBeCloseTo(expected, 4);
+  const rendered = (await page.textContent(selector)) ?? '';
+  expect(rendered, `${selector} must PRINT ${expected.toFixed(2)} bb, not only publish it`).toContain(
+    `${expected.toFixed(2)} bb`,
+  );
+}
+
 test.describe('the dossier gates a read on two independent tests (R1)', () => {
   test('1. a 25-point tendency at n=20 opens both gates and licenses a deviation', async () => {
     const { page, close } = await launchApp();
@@ -124,6 +153,24 @@ test.describe('the dossier gates a read on two independent tests (R1)', () => {
       await expect(page.locator(dossierScreen)).toHaveAttribute('data-n', '0');
       await expect(page.locator(dossierScreen)).toHaveAttribute('data-licensed', 'false');
       await expect(page.locator(lastObservation)).toHaveAttribute('data-index', '0');
+
+      /**
+       * AND THE PRE-EVIDENCE FREQUENCY ROW MUST NOT SHOUT. With n = 0 the honest observed frequency
+       * is the baseline, so the row reads 50.0% against a 50.0% baseline and +0.0 points — a screen
+       * that seeded `observedFrequency: 0` instead would print "0.0% observed against a 50.0%
+       * baseline — -50.0 points", the loudest possible lie on a surface whose whole subject is not
+       * deviating on noise. The attribute and the sentence are pinned together, because either one
+       * alone let that through.
+       */
+      const preEvidence = (await page.textContent(gateDeviation)) ?? '';
+      expect(
+        preEvidence,
+        'at n=0 the frequency row must read the baseline back, not 0%',
+      ).toContain(`${STRONG_BASELINE_PERCENT} observed against a ${STRONG_BASELINE_PERCENT} baseline`);
+      expect(preEvidence, 'at n=0 the deviation printed must be exactly 0.0 points').toContain(
+        `0.0 points of ${DEVIATION_THRESHOLD_POINTS} needed`,
+      );
+      expect(await num(page, gateDeviation, 'data-points')).toBeCloseTo(0, 9);
 
       await observe(page, MIN_OBSERVATIONS);
 
@@ -183,9 +230,15 @@ test.describe('the dossier gates a read on two independent tests (R1)', () => {
        */
       expect(await num(page, shrinkageWeight, 'data-weight')).toBeCloseTo(19 / 29, 6);
       expect(await num(page, shrinkageWeight, 'data-weight')).toBeGreaterThan(0.65);
-      expect(await num(page, appliedDeviation, 'data-bb')).toBeCloseTo(w(19) * 2, 4);
-      expect(await num(page, licensedDeviation, 'data-bb')).toBe(0);
       await expect(page.locator(shrinkageTrap)).toHaveAttribute('data-licensed', 'false');
+      /**
+       * And BOTH numbers are read off the screen, not only off the dataset — the pair only teaches
+       * anything if the learner can see 1.31 beside 0.00. `expectBb` asserts the attribute and the
+       * printed string together.
+       */
+      expect(await page.textContent(shrinkageWeight)).toContain('0.655');
+      await expectBb(page, appliedDeviation, w(19) * 2);
+      await expectBb(page, licensedDeviation, 0);
 
       // And it is not in the plan at all: core drops it on the sample gate.
       await expect(page.locator(`${planActiveRow}[data-read="${STRONG}"]`)).toHaveCount(0);
@@ -197,7 +250,7 @@ test.describe('the dossier gates a read on two independent tests (R1)', () => {
       // One more observation flips it, with nothing else changed — the gate is the only difference.
       await observe(page, 1);
       await expect(page.locator(gateLicensed)).toHaveAttribute('data-licensed', 'true');
-      expect(await num(page, licensedDeviation, 'data-bb')).toBeCloseTo(w(20) * 2, 4);
+      await expectBb(page, licensedDeviation, w(20) * 2);
     } finally {
       await close();
     }
@@ -290,6 +343,16 @@ test.describe('revert triggers fire by counting, not by judgment (R4)', () => {
       // Two halves it. The read stays ACTIVE — halved is not dropped.
       await page.click('[data-testid="counter-action-btn"]');
       await expect(page.locator(revertMultiplier)).toHaveAttribute('data-multiplier', '0.5');
+      /*
+       * AND IT MUST SAY SO. This is the one state where the printed multiplier and a hardcoded "× 1"
+       * differ: at every other point in the walk the real multiplier IS 1, so asserting the string
+       * anywhere else is satisfied by a constant. Measured — replacing the template with the literal
+       * '× 1' passed 17 of 17 until this line existed.
+       */
+      await expect(
+        page.locator(revertMultiplier),
+        'the multiplier is halved but the screen does not print × 0.5',
+      ).toContainText('× 0.5');
       await expect(
         page.locator(`${revertTrigger}[data-trigger="counter-actions-halved"]`),
       ).toHaveCount(1);
@@ -330,6 +393,36 @@ test.describe('revert triggers fire by counting, not by judgment (R4)', () => {
       await expect(page.locator(gateSample)).toHaveAttribute('data-pass', 'false');
       await expect(page.locator(gateLicensed)).toHaveAttribute('data-licensed', 'false');
       expect(await num(page, shrinkageWeight, 'data-weight')).toBe(0);
+
+      expect(await page.textContent(observationCount)).toContain('0 observations');
+      await expect(page.locator(gateDeviation)).toHaveAttribute('data-pass', 'false');
+
+      /**
+       * AND THE HITS WENT WITH THE SAMPLE — WHICH ONLY THE NEXT OBSERVATION CAN SHOW.
+       *
+       * The hit count is a second, independent tally, and at n = 0 the screen honestly reports the
+       * BASELINE rather than a ratio, so every figure above is identical whether the 15 hits were
+       * cleared or kept. They diverge on the first observation of the new session: a session end that
+       * zeroed n while keeping the hits printed "frequency: 1500.0% observed against a 50.0%
+       * baseline — +1450.0 points of 15 needed" on the one row this whole screen is about, and it was
+       * invisible to data-n, counter-count and data-weight alike.
+       *
+       * Four fresh observations of a 75% tendency is 3 hits, so the row must read 75.0% and +25.0
+       * points — the numbers a first-session n=4 would show, because the stream restarts from the top
+       * of its quota. With the hits carried over it reads 450.0% and +400.0 instead.
+       */
+      await observe(page, 4);
+      await expect(page.locator(dossierScreen)).toHaveAttribute('data-n', '4');
+      const afterExpiry = (await page.textContent(gateDeviation)) ?? '';
+      expect(
+        afterExpiry,
+        'the first observations of the new session must be counted against a CLEARED hit tally',
+      ).toContain(`75.0% observed against a ${STRONG_BASELINE_PERCENT} baseline`);
+      expect(afterExpiry, '3 hits of 4 at a 50% baseline is +25.0 points, not +400.0').toContain(
+        `+25.0 points of ${DEVIATION_THRESHOLD_POINTS} needed`,
+      );
+      expect(await num(page, gateDeviation, 'data-points')).toBeCloseTo(25, 6);
+
       // Pre-registration survives expiry; only the data it was tested against does not.
       await expect(
         page.locator(`[data-testid="tendency-row"][data-tendency="${STRONG}"]`),
@@ -475,6 +568,27 @@ test.describe('the printed verdict never contradicts the plan it sits beside', (
       // Free a slot, then try to register the tendency the evidence was gathered on.
       await page.click(`[data-testid="notebook-btn"][data-tendency="${SECOND_STRONG}"]`);
       await expect(page.locator(preregCount)).toHaveAttribute('data-registered', '1');
+      expect(await page.textContent(preregCount)).toContain('1 of 2 pre-registered');
+
+      /**
+       * THE NOTEBOOK BUTTON MUST FILE, NOT JUST UNREGISTER. This is the only click in the suite that
+       * exercises it, and the whole of R2's second half is that a hypothesis leaving the plan is kept
+       * rather than dropped: "anything noticed opportunistically goes to a notebook". A button that
+       * cleared `preRegistered` and forgot `inNotebook` freed the slot and silently binned the
+       * hypothesis — every count on screen agreed, and the notebook stayed empty. So the row is
+       * asserted by its NAME, which is also R3's rule that a read is never unnamed.
+       */
+      const filed = page.locator(`${notebookRow}[data-tendency="${SECOND_STRONG}"]`);
+      await expect(
+        filed,
+        'sending a pre-registration to the notebook must FILE it there, not merely free the slot',
+      ).toHaveCount(1);
+      await expect(filed).toHaveText(SECOND_STRONG_LABEL);
+      await expect(page.locator(notebookEmpty)).toHaveCount(0);
+      await expect(
+        page.locator(`[data-testid="tendency-row"][data-tendency="${SECOND_STRONG}"]`),
+      ).toHaveAttribute('data-registered', 'false');
+
       await page.click(`[data-testid="prereg-btn"][data-tendency="${INSIDE_BAND}"]`);
 
       // Refused on provenance, not on the cap — there was a free slot.
@@ -568,6 +682,65 @@ test.describe('pre-registration is capped at two and enforced (R2)', () => {
       await observe(page, MIN_OBSERVATIONS);
       await expect(page.locator(planActiveRow)).toHaveCount(2);
       await expect(page.locator(planActiveEmpty)).toHaveCount(0);
+      // Named, not numbered: R3's ban on "play looser against him" applies to the plan rows too.
+      await expect(page.locator(`${planActiveRow}[data-read="${STRONG}"]`)).toContainText(STRONG_LABEL);
+      await expect(page.locator(`${planActiveRow}[data-read="${SECOND_STRONG}"]`)).toContainText(
+        SECOND_STRONG_LABEL,
+      );
+    } finally {
+      await close();
+    }
+  });
+
+  test('15. the panel that justifies the cap of two prints core\'s own false-read rates', async () => {
+    /**
+     * WHY THIS TEST EXISTS. The three rates in `false-read-panel` are the ONLY place R2's headline
+     * argument appears to the learner — that a villain with no leak at all looks exploitable on one
+     * of ten stats at n=10 almost always, that gating one stat at n=20 cuts that to about a quarter,
+     * and that the SECOND pre-registration nearly doubles that quarter, which is why the cap is two
+     * and not ten. core/reads.ts unit tests cover the arithmetic; nothing covered its appearance, so
+     * a panel rendering 0.0% three times, or the three labels attached to the wrong three numbers,
+     * was invisible on this surface.
+     *
+     * The expectations are COMPUTED by calling core, not copied: `falseReadProbability` is the same
+     * function the screen calls, so if R2's threshold or prior moves, this test moves with it rather
+     * than pinning a stale percentage.
+     */
+    const { page, close } = await launchApp();
+    try {
+      await openDossier(page);
+
+      const scanned = falseReadProbability(10, 10);
+      const oneGated = falseReadProbability(1, MIN_OBSERVATIONS);
+      const twoGated = falseReadProbability(2, MIN_OBSERVATIONS);
+
+      // Sanity on the claim itself before pinning the pixels: the argument only works if a ten-stat
+      // scan is near-certain, a single gated stat is far below it, and the second one costs a lot.
+      expect(scanned.atLeastOne).toBeGreaterThan(0.9);
+      expect(oneGated.atLeastOne).toBeLessThan(0.5);
+      expect(twoGated.atLeastOne).toBeGreaterThan(oneGated.atLeastOne * 1.5);
+
+      const rows: readonly [string, number, string][] = [
+        ['false-read-ten-stats', scanned.atLeastOne, '10 stats at n=10, baseline villain'],
+        ['false-read-one-gated', oneGated.atLeastOne, `1 pre-registered stat at n=${MIN_OBSERVATIONS}`],
+        ['false-read-two-gated', twoGated.atLeastOne, `2 pre-registered stats at n=${MIN_OBSERVATIONS}`],
+      ];
+      for (const [testid, rate, label] of rows) {
+        const row = page.locator(`[data-testid="${testid}"]`);
+        expect(await num(page, `[data-testid="${testid}"]`, 'data-rate')).toBeCloseTo(rate, 6);
+        // The rendered percentage AND the label it is attached to, so the three cannot swap places.
+        await expect(row, `${testid} must print ${(rate * 100).toFixed(1)}%`).toContainText(
+          `${(rate * 100).toFixed(1)}%`,
+        );
+        await expect(row).toContainText(label);
+      }
+
+      // And the panel says what the numbers are FOR — the rates alone do not carry R2's conclusion.
+      const note = (await page.textContent('[data-testid="false-read-note"]')) ?? '';
+      expect(note, 'the note must say these are a villain with NO leak').toContain('no leak at all');
+      expect(note, 'and must draw R2\'s conclusion: two rather than ten').toContain(
+        'why the cap is two rather than ten',
+      );
     } finally {
       await close();
     }
@@ -639,15 +812,185 @@ test.describe('the plan applies at the top two nodes and grades the forecasts (R
       expect(await num(page, uniformBrier, 'data-value')).toBeCloseTo(0.25, 6);
       expect(await num(page, skillVsUniform, 'data-value')).toBeCloseTo(0, 6);
       expect(await num(page, skillVsBaseRate, 'data-value')).toBeLessThan(0);
+      // The four figures are read off the screen too, not only off the dataset.
+      expect(await page.textContent(brier)).toContain('0.2500');
+      expect(await page.textContent(baseRateBrier)).toContain('0.1875');
+      expect(await page.textContent(uniformBrier)).toContain('0.2500');
+      expect(await page.textContent(skillVsUniform)).toContain('0.0%');
+      expect(await page.textContent(skillVsBaseRate)).toContain('-33.3%');
 
-      // Sharper forecasts at the same node improve the score against the base rate.
-      const before = await num(page, skillVsBaseRate, 'data-value');
-      await observe(page, 10, 90);
-      expect(await num(page, skillVsBaseRate, 'data-value')).toBeGreaterThan(before);
+      /**
+       * THE CLICKED PILL MUST BE THE FORECAST THAT IS GRADED, and this is asserted by ARITHMETIC that
+       * only the 90% pill can produce, not by a monotonic drift.
+       *
+       * The suite previously drew 10 more at 90% and only asserted skillVsBaseRate rose. That is not
+       * a fixture, it is a coincidence: baseRateBrier itself wanders as the hit/miss mix changes, so
+       * a screen that threw the clicked pill away and recorded every forecast as 50% ALSO made that
+       * number rise. 12 more is the count at which the base rate lands back on 0.1875 exactly, so
+       * the reference is pinned and every remaining movement belongs to the learner's own forecast.
+       *
+       * 32 forecasts, 24 of them hits. Twelve at 90% (9 hits, 3 misses) drop the learner's Brier to
+       * 0.2350 while the base rate stays at 0.1875 and uniform stays at 0.2500 — so the learner now
+       * BEATS uniform by 6.0% and still loses to the base rate by 25.3%. A screen recording every
+       * forecast as 50% would print 0.2500 / 0.0% / -33.3% here, unchanged from n=20.
+       */
+      await observe(page, 12, 90);
 
-      // 30 forecasts is nowhere near 400, so the curve stays withheld.
-      await expect(page.locator(calibrationLock)).toHaveAttribute('data-forecasts', '30');
+      await expect(page.locator(dossierScreen)).toHaveAttribute('data-forecasts', '32');
+      expect(await num(page, baseRateBrier, 'data-value')).toBeCloseTo(0.1875, 6);
+      expect(await num(page, uniformBrier, 'data-value')).toBeCloseTo(0.25, 6);
+      expect(
+        await num(page, brier, 'data-value'),
+        'the 90% pills must be what is graded, so the Brier must fall to 0.2350',
+      ).toBeCloseTo(0.235, 6);
+      expect(await page.textContent(brier)).toContain('0.2350');
+
+      // Sharper forecasts at an unchanged reference improve the score against the base rate.
+      expect(await num(page, skillVsBaseRate, 'data-value')).toBeCloseTo(-0.235 / 0.1875 + 1, 6);
+      expect(
+        await page.textContent(skillVsBaseRate),
+        'skill vs base rate must PRINT -25.3% once the 90% pills are graded, not -33.3%',
+      ).toContain('-25.3%');
+
+      // And the same twelve clicks turn "par against uniform" into a real edge over uniform.
+      expect(await num(page, skillVsUniform, 'data-value')).toBeCloseTo(0.06, 6);
+      expect(
+        await page.textContent(skillVsUniform),
+        'skill vs uniform must PRINT 6.0% once the 90% pills are graded, not 0.0%',
+      ).toContain('6.0%');
+
+      // 32 forecasts is nowhere near 400, so the curve stays withheld — and it says so, with the count.
+      await expect(page.locator(calibrationLock)).toHaveAttribute('data-forecasts', '32');
       await expect(page.locator(calibrationLock)).toHaveAttribute('data-releasable', 'false');
+      const withheld = (await page.textContent(calibrationLock)) ?? '';
+      expect(withheld, 'the lock must name the threshold it is holding out for').toContain(
+        `withheld until ${CALIBRATION_RELEASE_FORECASTS} forecasts`,
+      );
+      expect(withheld, 'and the progress toward it').toContain('32 so far');
+    } finally {
+      await close();
+    }
+  });
+});
+
+test.describe('every published attribute agrees with the words printed beside it', () => {
+  /**
+   * THE RESIDUAL HALF OF THE SAME DEFECT CLASS. `expectBb` above pins a figure's attribute and its
+   * rendered string together, and it works — but it was applied to two of the six figures this screen
+   * emits through the same two-expression pattern (`figure(testid, printedString)` then
+   * `.dataset.x = value`). An adversarial pass then showed the rest are still corruptible with the
+   * suite fully green, and I reproduced the worst of them before writing this: tripling the active
+   * plan row's printed bb while leaving data-applied-bb correct passed 15 of 15.
+   *
+   * The five sites below are the ones that survived. They are asserted in ONE test because they share
+   * a single cause — a value formatted for the eye in one expression and for the machine in another —
+   * so a fix that re-couples them should turn one test green, not five.
+   *
+   * THE TWO WORD-INVERSIONS ARE THE WORST OF THE FIVE, because a number that is merely wrong invites
+   * doubt while a word that is confidently backwards does not: a gate row printing "shut" beside
+   * data-pass="true" tells the learner the opposite of what the screen has concluded, on the two rows
+   * this entire surface is built around.
+   */
+  test('15. gate verdicts, observation outcomes and every bb figure read back correctly', async () => {
+    const { page, close } = await launchApp();
+    try {
+      await openDossier(page);
+      await preRegister(page, STRONG);
+      await track(page, STRONG);
+
+      /*
+       * Both gate rows, in the state where they DISAGREE with each other: at n=1 the deviation is
+       * already large but the sample gate is shut. A test taken only at n=20 (both open) or n=0 (both
+       * shut) cannot tell "prints the verdict" from "prints the same word twice".
+       */
+      await observe(page, 1);
+      const shutSample = await page.getAttribute(gateSample, 'data-pass');
+      expect(shutSample, 'the sample gate should still be shut at n=1').toBe('false');
+      for (const gate of [gateSample, gateDeviation, gateLicensed]) {
+        const pass = (await page.getAttribute(gate, 'data-pass')) === 'true';
+        const word = pass ? 'open' : 'shut';
+        await expect(
+          page.locator(gate),
+          `${gate} publishes data-pass=${pass} but does not print "${word}" beside it`,
+        ).toContainText(word);
+        // And it must not print BOTH words, which a naive fix ("open / shut") would.
+        expect(
+          (await page.textContent(gate)) ?? '',
+          `${gate} prints both verdicts, so the word says nothing`,
+        ).not.toContain(pass ? 'shut' : 'open');
+      }
+
+      /*
+       * The observation sentence. R6's premise is that the stream is felt one observation at a time,
+       * so an outcome line that reports the opposite of data-occurred inverts every single one of
+       * them. Forecasting 50% keeps the walk deterministic, so both outcomes turn up across a run of
+       * observations and the loop below sees each branch of the ternary.
+       */
+      const seen = new Set<string>();
+      for (let step = 0; step < 8; step++) {
+        await observe(page, 1);
+        const occurred = (await page.getAttribute(lastObservation, 'data-occurred')) === 'true';
+        const sentence = occurred ? 'it happened' : 'it did not happen';
+        await expect(
+          page.locator(lastObservation),
+          `data-occurred=${occurred} but the line does not say "${sentence}"`,
+        ).toContainText(sentence);
+        if (!occurred) {
+          // "it happened" is a substring of nothing else, but "it did not happen" CONTAINS the words
+          // of neither branch of a swap, so the negative direction needs its own check.
+          expect((await page.textContent(lastObservation)) ?? '').not.toMatch(/: it happened/);
+        }
+        seen.add(String(occurred));
+      }
+      expect(
+        [...seen].sort(),
+        'both outcomes must occur for this loop to exercise both branches',
+      ).toEqual(['false', 'true']);
+
+      /*
+       * The remaining figures. Read the attribute, then require the printed string to be the same
+       * number — the exact shape of the `chips / bb` -> `chips * bb` defect this project has already
+       * shipped once on another screen, where the attribute stayed right and the caption read 24 bb
+       * for a 6 bb pot.
+       */
+      await expectBb(page, appliedDeviation, await num(page, appliedDeviation, 'data-bb'));
+      await expectBb(page, fullExploit, await num(page, fullExploit, 'data-bb'));
+
+      /*
+       * The multiplier is asserted in test 5 instead, not here. In THIS state it is always 1, so a
+       * hardcoded '× 1' satisfies the check — proven by mutation before this comment was written. The
+       * assertion belongs where the value actually varies, which is test 5's 1 -> 0.5 -> 0 walk.
+       */
+    } finally {
+      await close();
+    }
+  });
+
+  test('16. an active plan row prints the bb it publishes', async () => {
+    const { page, close } = await launchApp();
+    try {
+      /*
+       * Reached separately because a row only exists once a read is licensed AND in the plan, which
+       * needs the full pre-register -> track -> 20 observations walk. Tests 1 and 5 assert this row's
+       * data-applied-bb and test 7 its label; nothing read the number, so tripling it stayed green.
+       */
+      await openDossier(page);
+      await preRegister(page, STRONG);
+      await track(page, STRONG);
+      await observe(page, 20);
+
+      const rows = page.locator(planActiveRow);
+      const count = await rows.count();
+      expect(count, 'no active plan row, so this test would prove nothing').toBeGreaterThan(0);
+      for (let index = 0; index < count; index++) {
+        const row = rows.nth(index);
+        const published = Number(await row.getAttribute('data-applied-bb'));
+        expect(Number.isFinite(published), `row ${index} publishes no data-applied-bb`).toBe(true);
+        await expect(
+          row,
+          `plan row ${index} publishes ${published} bb but does not print ${published.toFixed(2)} bb`,
+        ).toContainText(`${published.toFixed(2)} bb`);
+      }
     } finally {
       await close();
     }

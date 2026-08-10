@@ -67,33 +67,42 @@ const MIN_HEIGHT = 640;
  * imported because the screen module imports a CSS file, which a Playwright spec cannot load — and
  * a silent edit to either copy shows up as a failure here, which is the point.
  */
-const SPOTS: readonly { id: string; input: RobustnessInput }[] = [
+const SPOTS: readonly { id: string; action: string; input: RobustnessInput }[] = [
   {
     id: 'pot-bet-air',
+    action: 'You bet the whole pot holding 7-2 offsuit on A-K-Q-J-9.',
     input: { hole: ['7c', '2d'], board: ['Ah', 'Kh', 'Qs', 'Js', '9d'], pot: 100, toCall: 0, line: 'bet', betSize: 100, bb: 10, seed: 3 },
   },
   {
     id: 'half-pot-bluff',
+    action: 'You bet half the pot holding 7-2 offsuit on A-K-Q-J-9.',
     input: { hole: ['7c', '2d'], board: ['Ah', 'Kh', 'Qs', 'Js', '9d'], pot: 100, toCall: 0, line: 'bet', betSize: 50, bb: 10, seed: 3 },
   },
   {
     id: 'check-top-pair',
+    action: 'You check holding K-Q on K-7-2-9-3.',
     input: { hole: ['Kd', 'Qd'], board: ['Kh', '7s', '2c', '9d', '3h'], pot: 100, toCall: 0, line: 'check', bb: 10, seed: 3 },
   },
   {
     id: 'call-drawing-dead',
+    action: 'You call a pot-sized bet holding 2-3 on A-A-A-A-K.',
     input: { hole: ['2c', '3d'], board: ['Ah', 'Ad', 'As', 'Ac', 'Kd'], pot: 100, toCall: 100, line: 'call', bb: 10, seed: 4 },
   },
   {
     id: 'fold-to-a-bet',
+    action: 'You fold 7-2 offsuit on A-K-Q-J-9 facing 60 into 120.',
     input: { hole: ['7c', '2d'], board: ['Ah', 'Kh', 'Qs', 'Js', '9d'], pot: 120, toCall: 60, line: 'fold', bb: 10, seed: 3 },
   },
 ];
 
-function inputFor(id: string): RobustnessInput {
+function spotFor(id: string): (typeof SPOTS)[number] {
   const spot = SPOTS.find((s) => s.id === id);
   if (spot === undefined) throw new Error(`no such spot: ${id}`);
-  return spot.input;
+  return spot;
+}
+
+function inputFor(id: string): RobustnessInput {
+  return spotFor(id).input;
 }
 
 async function openRobustness(page: Page): Promise<void> {
@@ -111,6 +120,14 @@ async function selectSpot(page: Page, id: string): Promise<void> {
 function shownBb(value: number): string {
   const rounded = Math.round(value * 10) / 10;
   return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
+}
+
+/**
+ * The ranks in the order dealt: ['7c','2d'] → '7-2', ['Ah','Kh','Qs','Js','9d'] → 'A-K-Q-J-9'. What
+ * a restatement has to name if it is describing THIS spot and not some other one.
+ */
+function dealtRanks(cards: readonly string[]): string {
+  return cards.map((card) => card[0]).join('-');
 }
 
 /**
@@ -135,6 +152,41 @@ async function expectMatchesCore(page: Page, id: string): Promise<void> {
       .evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.card ?? '')),
     `${id}: the cards on screen are not this spot's cards`,
   ).toEqual(expectedCards);
+
+  /*
+   * AND THE PROSE THAT CAPTIONS THEM. The card assertion above only covers the seven card elements;
+   * the sentence and the chip line beside them were pinned nowhere but the default spot, and the
+   * narrow form of the same mutation — `spot.action` → `SPOTS[0].action` and the three
+   * `spot.input.*` chip figures → `SPOTS[0].input.*` — passed all 11 tests. That ships
+   * "You bet the whole pot holding 7-2 offsuit" and "Pot 100 chips · to call 0" over
+   * call-drawing-dead's A-A-A-A-K numbers: the learner reads a hand and a price that are not the
+   * ones the four columns were computed from.
+   *
+   * Two assertions rather than one, because a literal mirror and a fixture-derived check fail on
+   * different things. The literal catches a reworded sentence; the derived check catches a sentence
+   * still worded fine but describing the wrong cards, and stays true if the fixture list is edited.
+   */
+  await expect(
+    page.locator(action),
+    `${id}: the spot restatement is not this spot's sentence`,
+  ).toHaveText(spotFor(id).action);
+  const actionText = (await page.locator(action).textContent()) ?? '';
+  expect(
+    actionText,
+    `${id}: the restatement does not name this spot's hole cards (${dealtRanks(spotInput.hole)})`,
+  ).toContain(dealtRanks(spotInput.hole));
+  expect(
+    actionText,
+    `${id}: the restatement does not name this spot's board (${dealtRanks(spotInput.board)})`,
+  ).toContain(dealtRanks(spotInput.board));
+
+  /*
+   * The chip line, as NUMBERS READ OFF THE FIXTURE rather than a literal — the bb here is the unit
+   * every column's EV is quoted in, so a stale big blind makes all four numbers unreadable.
+   */
+  await expect(page.locator(chips), `${id}: the chips shown are not this spot's chips`).toHaveText(
+    `Pot ${spotInput.pot} chips · to call ${spotInput.toCall} · big blind ${spotInput.bb}`,
+  );
 
   await expect(page.locator(screen)).toHaveAttribute('data-verdict', report.verdict);
   await expect(page.locator(screen)).toHaveAttribute(
@@ -168,7 +220,45 @@ async function expectMatchesCore(page: Page, id: string): Promise<void> {
     await expect(cell.locator(columnWeights), `${id}/${outcome.id}: weights`).toHaveText(
       `folds ${Math.round(outcome.weights.fold * 100)}% · calls ${Math.round(outcome.weights.call * 100)}% · raises ${Math.round(outcome.weights.raise * 100)}%`,
     );
+
+    /*
+     * WHICH END OF THE SPREAD THIS COLUMN IS. `data-extreme` was asserted nowhere: swapping 'best'
+     * and 'worst' passed all 11 tests. It is the only per-column statement of the two ends the
+     * verdict's swing sentence is built from, so a swap marks the column the line does WORST against
+     * as the high end of the spread. Derived from core's `best`/`worst`, tested on every spot —
+     * including the fold, where all four are 0.0 and both ends land on the same column.
+     */
+    const extreme =
+      outcome.id === report.best ? 'best' : outcome.id === report.worst ? 'worst' : '';
+    await expect(
+      cell,
+      `${id}/${outcome.id}: data-extreme disagrees with core (best=${report.best}, worst=${report.worst})`,
+    ).toHaveAttribute('data-extreme', extreme);
   }
+
+  /*
+   * And the tags agree with the numbers PRINTED beside them, not only with core: whichever column is
+   * flagged 'best' must be the one showing the highest EV on screen. This is the invariant a swap
+   * violates without any reference to core at all.
+   */
+  const tagged = await page.locator(column).evaluateAll((els) =>
+    els.map((el) => ({
+      extreme: (el as HTMLElement).dataset.extreme ?? '',
+      ev: (el.querySelector('[data-testid="robust-column-ev"]')?.textContent ?? '').replace(
+        ' bb',
+        '',
+      ),
+    })),
+  );
+  const shownEvs = tagged.map((t) => Number(t.ev));
+  expect(
+    tagged.filter((t) => t.extreme === 'best').map((t) => Number(t.ev)),
+    `${id}: the column tagged 'best' does not show the highest EV of the four (${tagged.map((t) => `${t.extreme || '-'}:${t.ev}`).join(', ')})`,
+  ).toEqual([Math.max(...shownEvs)]);
+  expect(
+    tagged.filter((t) => t.extreme === 'worst').map((t) => Number(t.ev)),
+    `${id}: the column tagged 'worst' does not show the lowest EV of the four (${tagged.map((t) => `${t.extreme || '-'}:${t.ev}`).join(', ')})`,
+  ).toEqual(report.best === report.worst ? [] : [Math.min(...shownEvs)]);
 
   await expect(page.locator(spread), `${id}: spread`).toHaveText(
     `${(Math.round(report.spreadBb * 10) / 10).toFixed(1)} bb · ${Math.round(report.spreadPotFraction * 100)}% of the pot`,
