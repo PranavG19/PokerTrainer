@@ -58,8 +58,22 @@ export function sealSession(target: Session): void {
  * Switches, applied before `app.whenReady()` or they are ignored. Each one turns off a background
  * network user that the spec names by hand; the seal above would cancel them anyway, so this exists to
  * stop the attempt rather than to catch it.
+ *
+ * THE TIMING IS GUARDED HERE BECAUSE NO TEST CAN SEE IT. Appending a switch after the app is ready is a
+ * silent no-op, and `commandLine.hasSwitch` still returns true afterwards — so an e2e assertion cannot
+ * distinguish "applied in time" from "applied too late and ignored" (measured: hasSwitch true, and
+ * `process.argv` carries none of them either way). A mutation moving this call into
+ * `whenReady().then(...)` therefore passed the whole suite. Since the property is untestable from
+ * outside, it is enforced from inside: calling late throws, in every build, rather than degrading
+ * quietly into an app that does background networking.
  */
 export function silenceChromium(): void {
+  if (app.isReady()) {
+    throw new Error(
+      'silenceChromium() called after app ready: Chromium has already read its command line, so ' +
+        'these switches would be silently ignored. Call it at module scope in main.ts.',
+    );
+  }
   app.commandLine.appendSwitch('disable-background-networking');
   app.commandLine.appendSwitch('disable-component-update');
   app.commandLine.appendSwitch('disable-domain-reliability');
