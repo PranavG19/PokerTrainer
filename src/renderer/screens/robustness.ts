@@ -304,7 +304,14 @@ function renderContinuation(outcome: ContinuationOutcome, report: RobustnessRepo
   value.dataset.testid = 'robust-column-ev';
   cell.appendChild(value);
 
-  cell.appendChild(text('div', 'stat-label', 'this line, against them'));
+  /*
+   * WHOSE EV THE NUMERAL IS. This caption is the only thing on the column saying the figure is what
+   * HERO makes, so inverting it to "what this opponent makes off you" reads every sign backwards while
+   * all four numbers stay correct — which it did, green, until it had a testid to assert against.
+   */
+  const whose = text('div', 'stat-label', 'this line, against them');
+  whose.dataset.testid = 'robust-column-whose';
+  cell.appendChild(whose);
 
   // The re-weighting itself, so "not a new tree" is visible rather than asserted: these three are
   // core's response distribution for this continuation.
@@ -399,7 +406,16 @@ function renderHeuristic(): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'robust-heuristic';
   wrap.dataset.testid = 'robust-heuristic';
-  wrap.appendChild(text('div', 'robust-heuristic-label', HEURISTIC_LABEL));
+  /*
+   * The label gets its own testid so a test can pin the SENTENCE, not merely the presence of the word
+   * "heuristic". Measured: rewriting this into "This is a heuristic, not a bound in name only: the
+   * spread is the most a line like this can cost you" — an explicit maximum-loss claim, exactly what
+   * O7 forbids — passed 11 of 11, because it still contains both "heuristic" and "not a bound" and no
+   * denylist regex covered the rest.
+   */
+  const label = text('div', 'robust-heuristic-label', HEURISTIC_LABEL);
+  label.dataset.testid = 'robust-heuristic-label';
+  wrap.appendChild(label);
   wrap.appendChild(text('p', 'robust-heuristic-body', HEURISTIC_DISCLAIMER));
   return wrap;
 }

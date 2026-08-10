@@ -52,6 +52,21 @@ const verdictReason = '[data-testid="robust-verdict-reason"]';
 const spread = '[data-testid="robust-spread"]';
 const message = '[data-testid="robust-message"]';
 const scope = '[data-testid="robust-scope"]';
+
+/*
+ * O7'S TWO FRAMING SENTENCES, spelled out here rather than imported from the screen. Importing them
+ * would be better — one source of truth — but the screen module imports its own stylesheet, and
+ * Playwright's transform cannot parse CSS, so `import ... from screens/robustness.js` fails the whole
+ * file at load. So they are duplicated deliberately, and asserted with toHaveText: a substring check
+ * is what let a rewrite into "the most a line like this can cost you" ship green past 11 tests.
+ *
+ * If either sentence is reworded in the screen, these assertions fail and the diff shows both the old
+ * and new wording — which is the review this clause deserves, not a silent update.
+ */
+const HEURISTIC_LABEL =
+  'This is a heuristic, not a bound: nothing here limits how much a line can lose.';
+const SCOPE_NOTE =
+  'Robust means the four continuations agree about this line, not that the line makes money — whether it does is the coach\'s verdict, not this one.';
 const heuristic = '[data-testid="robust-heuristic"]';
 const side = '[data-testid="robust-side"]';
 const work = '[data-testid="robust-work"]';
@@ -280,6 +295,41 @@ async function expectHeuristicFraming(page: Page, id: string): Promise<void> {
   await expect(page.locator(heuristic), `${id}: core's disclaimer is not on screen`).toContainText(
     HEURISTIC_DISCLAIMER,
   );
+
+  /**
+   * THE LABEL'S OWN SENTENCE, EXACTLY — and it has to be exact rather than a substring, which is the
+   * whole lesson of this assertion. The three checks above all passed against a label rewritten to
+   * "This is a heuristic, not a bound in name only: the spread is the most a line like this can cost
+   * you", which is an explicit maximum-loss claim and precisely what O7's "never a bound" forbids: it
+   * still contained "heuristic", still contained core's disclaimer alongside it, and no regex in the
+   * denylist below covered "the most a line like this can cost you". A substring check can always be
+   * continued into its own opposite.
+   */
+  await expect(
+    page.locator('[data-testid="robust-heuristic-label"]'),
+    `${id}: the heuristic label does not state O7's frame exactly`,
+  ).toHaveText(HEURISTIC_LABEL);
+
+  /*
+   * And the scope note, likewise exact. `toContainText('not that the line makes money')` passed
+   * against "...not that the line makes money — but a robust line is a safe one you can keep making",
+   * which turns the note into the approval G3 forbids while still containing the pinned fragment.
+   */
+  await expect(
+    page.locator(scope),
+    `${id}: the scope note does not state what robust means, exactly`,
+  ).toHaveText(SCOPE_NOTE);
+
+  // Whose EV the column numerals are. Inverted, every sign reads backwards while the numbers are right.
+  const whose = page.locator('[data-testid="robust-column-whose"]');
+  const whoseCount = await whose.count();
+  expect(whoseCount, `${id}: no column caption to say whose EV is shown`).toBeGreaterThan(0);
+  for (let index = 0; index < whoseCount; index++) {
+    await expect(
+      whose.nth(index),
+      `${id}: column ${index} does not say the EV is hero's against them`,
+    ).toHaveText('this line, against them');
+  }
 
   /**
    * innerText, not textContent, and matched on word boundaries — both because a raw substring scan
