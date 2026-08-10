@@ -1,0 +1,100 @@
+{"id":"r01","label":"range","family":"clear-range","node":"flop Ks 9d 4h, hero raised preflop and c-bet, villain calls; turn 2c, hero considers a second barrel","text":"the hands that keep calling me here are all better than mine"}
+{"id":"r02","label":"range","family":"clear-range","node":"flop 8h 7h 3d, hero c-bets 5 into 8, villain check-raises to 22","text":"his check-raise range on this board is sets and combo draws, I'm not beating enough of it"}
+{"id":"r03","label":"range","family":"clear-range","node":"river Qs Jd 6c 4h 2s, hero called flop and turn, villain bets 18 into 44","text":"my range is capped at two pair here so I can't raise"}
+{"id":"r04","label":"range","family":"clear-range","node":"BTN opens 2.5bb, hero in BB with Q8s","text":"he opens like 70% from the button so my defend needs to be wide"}
+{"id":"r05","label":"range","family":"clear-range","node":"river Ad Th 5s 5d 2c, checked flop and turn, villain bets 30 into 32","text":"villain never has an overpair after checking twice","arguable":"grounded in the action sequence rather than a live read, which is why it is range and not none"}
+{"id":"r06","label":"range","family":"range-clumsy","node":"CO opens 2.5bb, hero on BTN with A9o, folds","text":"folding cause the raising range there is way stronger then what i got, like AK AQ TT+"}
+{"id":"r07","label":"range","family":"range-clumsy","node":"turn Kh 8c 5s 2d, hero holds 8d7d facing 20 into 26","text":"i think about all the hands he could have and most of them beat me"}
+{"id":"r08","label":"range","family":"range-clumsy","node":"flop 7s 5d 3c, hero defended BB vs BTN open, checks to villain","text":"the ranges are the thing, mine is wide from the big blind so i have all the low cards and he doesnt"}
+{"id":"r09","label":"range","family":"clear-range","node":"BTN opens, SB 3-bets, hero in BB with KJs","text":"position means his opening range is looser so mine can be looser too"}
+{"id":"r10","label":"range","family":"clear-range","node":"turn As Kd 7h 3c, hero holds AhTc, villain bets 16 into 30","text":"if I raise here I only get called by better, and folded on by worse"}
+{"id":"r11","label":"range","family":"clear-range","node":"river Jh 9c 4d 4s 2h, hero holds Kc9d, action on hero first","text":"check because betting folds out everything I beat"}
+{"id":"r12","label":"range","family":"clear-range","node":"river Qd 8h 6s 3c 2d, hero holds Ah5h (missed draw), first to act into 40","text":"I need some bluffs in this spot and this is the right hand to do it with"}
+{"id":"r13","label":"range","family":"clear-range","node":"CO opens 2.5bb, hero on BTN with A5s","text":"3-betting so my 3-bet range isn't only aces and kings"}
+{"id":"r14","label":"range","family":"clear-range","node":"river Th 8d 5c 6h 7s, hero holds AsAd facing 35 into 50","text":"he called the flop and turn, that range is mostly pairs and draws that got there"}
+{"id":"r15","label":"range","family":"clear-range","node":"turn 9s 6d 3h Ac, hero defended BB and check-called flop, now leads 12 into 24","text":"an ace on the turn hits my range more than his because I defended the blind"}
+{"id":"r16","label":"range","family":"clear-range","node":"UTG opens 3bb, hero in MP with T7o","text":"my continuing range should be suited stuff and pairs, and this is neither"}
+{"id":"r17","label":"range","family":"clear-range","node":"flop Ah Kd Ts, hero defended BB vs UTG open, faces 6 into 9","text":"board's all broadway, he has way more of those than me from that position"}
+{"id":"r18","label":"range","family":"clear-range","node":"flop 5c 4d 2h, hero on BTN faces a 4 into 7 lead from BB","text":"raise, the hands he's betting with there are mostly weak ones he'll have to fold"}
+{"id":"r19","label":"range","family":"range-clumsy","node":"river 9h 8d 7c 3s Kd, hero holds Qc Qs facing 40 into 55","text":"i dont have any straights in this spot and he has all of them"}
+{"id":"r20","label":"range","family":"mixed","node":"BTN opens 2.5bb, hero in BB with K7s","text":"K7s is dominated by the offsuit broadways that keep calling"}
+{"id":"r21","label":"range","family":"mixed","node":"flop Ad 9s 4h, hero holds AsAc and bets 6 into 9","text":"betting because the hands that call are worse and will pay","arguable":"no claim about own card rank does the work, only the composition of the calling range; the sibling case h25 leads with the holding's rank instead"}
+{"id":"r22","label":"range","family":"clear-range","node":"turn Ac Kd 8h 3s, hero holds AhQd facing a 14 into 30 bet","text":"flatting keeps the weaker aces in his range in the pot"}
+{"id":"r23","label":"range","family":"clear-range","node":"flop Qh 7d 2c, hero raised preflop and is first to act into 9","text":"small bet because i want his whole range to continue"}
+{"id":"r24","label":"range","family":"range-clumsy","node":"flop Kd Qc 8s, hero defended BB with 65s, faces 7 into 10","text":"i fold, this is the bottom of what i defended with"}
+{"id":"r25","label":"range","family":"range-clumsy","node":"hero 3-bets from BB, BTN 4-bets to 22 with 100bb behind, hero holds AQo","text":"he 4bets tiny, that range plays fine against my whole calling range so i just call"}
+{"id":"p01","label":"price","family":"clear-price","node":"flop Kd 9s 4h, hero holds 7h2c facing 14 into 20","text":"I needed 41% and only had about 16%, so no"}
+{"id":"p02","label":"price","family":"price-no-number","node":"flop 9h 6h 2c, hero holds AhTh facing a small bet","text":"the bet is small compared to the pot so calling is cheap"}
+{"id":"p03","label":"price","family":"clear-price","node":"river Ks 8d 5c 3h 2s, hero holds Ah Jd facing 45 into 50","text":"getting 2 to 1 and I don't win that often"}
+{"id":"p04","label":"price","family":"clear-price","node":"turn As Kc 9h 2d, hero holds 5h4d facing 34 into 40","text":"risking 34 to win 40 with a gutshot isn't close"}
+{"id":"p05","label":"price","family":"price-no-number","node":"turn Qc 9d 6s 3h, hero holds Jh Td facing a large bet","text":"pot odds don't justify it"}
+{"id":"p06","label":"price","family":"price-no-number","node":"turn Kh 7c 4d 2s, hero holds 6h5h facing an overbet","text":"too expensive for a draw","arguable":"thin: no number and no explicit comparison, but cost-versus-equity is the only mechanism named"}
+{"id":"p07","label":"price","family":"clear-price","node":"flop Jh 9c 3d, hero holds Th8h facing 8 into 36","text":"8 into 36 is a fine price for eight outs"}
+{"id":"p08","label":"price","family":"clear-price","node":"flop As Kd 7c, hero raised preflop and is choosing a c-bet size into 9","text":"im laying him a great price if i bet that small so i bet bigger"}
+{"id":"p09","label":"price","family":"clear-price","node":"river 8h 6d 4c Qs 2h, hero holds KcKd facing a one-third pot bet","text":"he only needs to be right 25% of the time at that size"}
+{"id":"p10","label":"price","family":"clear-price","node":"turn Th 9d 5s 4c, hero holds Jh8h facing 15 into 45","text":"i have to call 15 to win 60, thats easy"}
+{"id":"p11","label":"price","family":"price-no-number","node":"flop Ac 8d 3h, hero holds 6h5h facing a pot-sized bet","text":"the price is bad, i'd need to hit twice"}
+{"id":"p12","label":"price","family":"price-no-number","node":"river Qs Jd 9c 4h 2s, hero holds AhTh facing a half-pot bet","text":"calling is break even at best and i'd rather not"}
+{"id":"p13","label":"price","family":"mixed","node":"turn 7s 6d 3c Kh, hero holds 9h8h with 60 behind into a 40 pot","text":"shoving risks 60 to win 40 and he folds too rarely","arguable":"contains a frequency claim about the opponent, but the risk-versus-reward comparison is the operative clause"}
+{"id":"p14","label":"price","family":"clear-price","node":"flop Kh 8h 2c, hero holds Ah5h facing 10 into 23","text":"with 9 outs I'm about 36% and the call needs 30%"}
+{"id":"p15","label":"price","family":"clear-price","node":"preflop, hero opens 2.5bb from CO, BTN 3-bets to 8, hero has AJs","text":"the raise makes me put in 3 more to win 9 so its worth a shot"}
+{"id":"p16","label":"price","family":"price-no-number","node":"flop Qd 8c 5h, hero holds 7h6h facing a min-bet","text":"cheap enough to see one more card"}
+{"id":"p17","label":"price","family":"clear-price","node":"flop Ks 9d 4h, hero raised preflop and bets 40% pot as a bluff-heavy sizing","text":"40% pot bet means i only need it to work sometimes"}
+{"id":"p18","label":"price","family":"clear-price","node":"flop Jc Th 4d, hero holds Qh9h vs a 22bb-stack villain betting 5 into 8","text":"implied odds are bad since he's short and can't pay me off"}
+{"id":"p19","label":"price","family":"price-no-number","node":"flop 8d 5c 2h, hero holds 7h6h in a limped pot facing a bet","text":"not enough in the middle to chase this"}
+{"id":"p20","label":"price","family":"clear-price","node":"river Ah Kd 8s 6c 3d, hero holds Qc Jd facing 45 into 50","text":"he bet 45 into 50, thats basically pot, i need 31% and i dont have it"}
+{"id":"p21","label":"price","family":"clear-price","node":"turn 9s 8d 4c Kh, hero holds Th7h facing 60 into 40","text":"the overbet means im getting a worse price than the draw deserves"}
+{"id":"p22","label":"price","family":"price-no-number","node":"river Kh Qd 7c 3s 2h, hero holds AhJh facing a two-thirds pot bet","text":"i'd need to win over half the time for that call and i wont"}
+{"id":"p23","label":"price","family":"clear-price","node":"flop 8s 7d 3c, hero bets 6 into 9 and villain min-raises to 12","text":"minraise is so cheap i cant fold anything"}
+{"id":"p24","label":"price","family":"mixed","node":"flop 9h 8c 2d, hero holds JhTh facing 8 into 36","text":"eight open enders and flush outs against 36 in the pot means the price is good"}
+{"id":"p25","label":"price","family":"mixed","node":"turn As Kc 9h 2d, hero holds 5h4d facing 34 into 40","text":"gutshot only, and the 46% I would need is way more than a gutshot gives"}
+{"id":"h01","label":"hand-strength","family":"clear-hs","node":"flop Kd 9s 4h, hero holds 7h2c facing 14 into 20","text":"my hand is garbage, 7 high"}
+{"id":"h02","label":"hand-strength","family":"clear-hs","node":"turn Ad 9s 4h 2c, hero holds AsAc and bets 20 into 30","text":"trip aces is a monster so I bet"}
+{"id":"h03","label":"hand-strength","family":"clear-hs","node":"flop 9c 4h 2s, hero holds TsTd and bets 6 into 9","text":"pocket tens is a strong pair and the board is low"}
+{"id":"h04","label":"hand-strength","family":"clear-hs","node":"river Kh 7c 3s 8d 2h, hero holds KsKd facing 30 into 50","text":"top set, easy call, too good to fold"}
+{"id":"h05","label":"hand-strength","family":"hs-in-price-vocab","node":"flop 9c 4h 2s, hero holds TsTd facing 5 into 30","text":"my equity is high because pocket tens is a big pair"}
+{"id":"h06","label":"hand-strength","family":"hs-in-range-vocab","node":"flop Ks Qd Jh, hero holds 9c4s facing 20 into 24","text":"my range is weak because these two cards are weak"}
+{"id":"h07","label":"hand-strength","family":"hs-in-price-vocab","node":"river 9h 7d 4c 3s 2h, hero holds KsKh facing 40 into 45","text":"the price is fine because my hand is strong enough to call anything"}
+{"id":"h08","label":"hand-strength","family":"hs-in-price-vocab","node":"flop Qh 7h 2c, hero holds AhKh facing 6 into 40","text":"I have the nut flush draw with two overcards, that's a huge hand"}
+{"id":"h09","label":"hand-strength","family":"clear-hs","node":"flop Ac Td 6s, hero holds Th9h facing 7 into 10","text":"second pair, probably good"}
+{"id":"h10","label":"hand-strength","family":"clear-hs","node":"flop Kd 8c 3h, hero holds 8h8s facing a check-raise to 24","text":"i flopped a set, no way im folding"}
+{"id":"h11","label":"hand-strength","family":"clear-hs","node":"river Qs 9d 6c 4h 2s, hero holds Ad7c facing 20 into 30","text":"ace high, cant call"}
+{"id":"h12","label":"hand-strength","family":"clear-hs","node":"turn Ah 9d 5c 2s, hero holds A4o first to act into 22","text":"my kicker is bad so i just check"}
+{"id":"h13","label":"hand-strength","family":"clear-hs","node":"turn Jh Th 9c 8d, hero holds Qh7h and bets 25 into 30","text":"i have a monster, betting big"}
+{"id":"h14","label":"hand-strength","family":"hs-in-range-vocab","node":"river 7c 6d 5h 4s 3c, hero holds 8h2h and bets 40 into 44","text":"the range i have is basically the nuts here"}
+{"id":"h15","label":"hand-strength","family":"hs-in-price-vocab","node":"river Kh Kd 9s 4c 2h, hero holds KcQd facing 55 into 60","text":"pot odds are irrelevant, i have the best hand"}
+{"id":"h16","label":"hand-strength","family":"hs-in-range-vocab","node":"turn Qd 8h 5c 5s, hero holds Qs8s facing 18 into 34","text":"i beat most of his range because two pair is strong"}
+{"id":"h17","label":"hand-strength","family":"clear-hs","node":"CORRECT fold, flop Ah Kd Qs, hero holds 8d3c facing 24 into 30, dEV 0.0 bb tier T0","text":"folded, 8-3 is a bad hand"}
+{"id":"h18","label":"hand-strength","family":"clear-hs","node":"CORRECT call, flop Qh 7h 2c, hero holds AhKh facing 6 into 40, dEV 0.0 bb tier T0","text":"called because ace king is strong"}
+{"id":"h19","label":"hand-strength","family":"clear-hs","node":"CORRECT bet, flop Ad 9s 4h, hero holds AsAc, dEV 0.0 bb tier T0","text":"bet because i have the best possible hand right now"}
+{"id":"h20","label":"hand-strength","family":"clear-hs","node":"CORRECT fold preflop UTG with 7d2c, dEV 0.0 bb tier T0","text":"seven deuce is the worst hand in poker"}
+{"id":"h21","label":"hand-strength","family":"clear-hs","node":"CORRECT check, flop As Kc 9h, hero holds 5h4d, dEV 0.0 bb tier T0","text":"nothing here, just checked","arguable":"borderline against none: it states a fact about the holding rather than declining to give a mechanism"}
+{"id":"h22","label":"hand-strength","family":"clear-hs","node":"CORRECT raise preflop with KsKd from CO, dEV 0.0 bb tier T0","text":"kings, obviously"}
+{"id":"h23","label":"hand-strength","family":"hs-in-price-vocab","node":"turn 9h 8h 4c Kd, hero holds AhTh facing 50 into 40","text":"my draw is huge so the price doesnt matter"}
+{"id":"h24","label":"hand-strength","family":"clear-hs","node":"river Kc 9d 6s 3h 2c, hero holds 9h8h first to act into 36","text":"i have showdown value so i check"}
+{"id":"h25","label":"hand-strength","family":"hs-in-range-vocab","node":"flop Ks 8d 3c, hero holds AsKh and bets 7 into 10","text":"top pair top kicker is way ahead of the range that calls","arguable":"sibling of r21: the operative claim is the rank of the holding, with the range clause as decoration"}
+{"id":"h26","label":"hand-strength","family":"hs-in-price-vocab","node":"flop Jh Th 4c, hero holds Qh9h facing 9 into 12","text":"i have 15 outs, thats basically a made hand"}
+{"id":"h27","label":"hand-strength","family":"clear-hs","node":"flop Qd 8c 3h, hero holds AhJd facing 8 into 11","text":"my two cards are both live so i continue"}
+{"id":"h28","label":"hand-strength","family":"clear-hs","node":"preflop, UTG opens 3bb, hero in MP with AQo, 3-bets to 11","text":"AQ is too pretty to fold"}
+{"id":"h29","label":"hand-strength","family":"clear-hs","node":"flop 8h 8d 5c, hero holds 8s7s facing a 6 into 9 lead","text":"raise, my hand plays itself"}
+{"id":"h30","label":"hand-strength","family":"hs-in-range-vocab","node":"river Kh 9s 6s 4s 2d, hero holds As Ad facing 44 into 50","text":"i hold the ace of spades so im never in bad shape"}
+{"id":"n01","label":"none","family":"hunch","node":"flop Ks 9d 4h, hero faces 6 into 9","text":"felt right"}
+{"id":"n02","label":"none","family":"clear-none","node":"turn Qc 8d 5h 2s, hero faces 18 into 24","text":"I am guessing"}
+{"id":"n03","label":"none","family":"hunch","node":"river Ah Td 7c 4s 2h, hero faces 40 into 44","text":"he always bluffs, i just have a feeling"}
+{"id":"n04","label":"none","family":"clear-none","node":"flop Jh 9c 3d, hero faces 8 into 12","text":"idk"}
+{"id":"n05","label":"none","family":"degenerate","node":"turn Ks Qd 8h 3c, hero faces 20 into 30 and the reason field times out empty","text":""}
+{"id":"n06","label":"none","family":"degenerate","node":"river 9s 7d 5c 4h 2s, hero faces 25 into 30","text":"."}
+{"id":"n07","label":"none","family":"clear-none","node":"CORRECT call, flop 9c 4h 2s, hero holds TsTd facing 5 into 30, dEV 0.0 bb tier T0","text":"not sure honestly, just clicked call"}
+{"id":"n08","label":"none","family":"clear-none","node":"CORRECT fold, river Ks 8d 5c 3h 2s, hero holds Jc6s facing 45 into 50, dEV 0.0 bb tier T0","text":"I guessed"}
+{"id":"n09","label":"none","family":"degenerate","node":"flop Ad 8s 3c, hero faces 7 into 10","text":"asdf"}
+{"id":"n10","label":"none","family":"degenerate","node":"turn Qh 9d 6s 2c, hero faces 16 into 24","text":"because"}
+{"id":"n11","label":"none","family":"clear-none","node":"river Kd Jc 8h 5s 3d, hero faces 30 into 40","text":"i dont know why"}
+{"id":"n12","label":"none","family":"hunch","node":"turn Ac 9h 5d 3s, hero faces 14 into 28","text":"he looks weak"}
+{"id":"n13","label":"none","family":"hunch","node":"preflop, hero in SB with KTo facing a BTN open","text":"i always play these the same way"}
+{"id":"n14","label":"none","family":"hunch","node":"flop 7h 6d 2c, hero faces 5 into 8","text":"just seeing what happens"}
+{"id":"n15","label":"none","family":"hunch","node":"river Qd Ts 8c 5h 2d, hero faces 35 into 45","text":"gut call"}
+{"id":"n16","label":"none","family":"degenerate","node":"flop Kc 7d 4s, hero faces 6 into 9","text":"vibes"}
+{"id":"n17","label":"none","family":"hunch","node":"turn Jd 9s 6h 3c, hero faces 22 into 30","text":"my gut said fold and i listened"}
+{"id":"n18","label":"none","family":"degenerate","node":"flop As Qd 9h, hero faces 9 into 12","text":"n/a"}
+{"id":"n19","label":"none","family":"hunch","node":"river 8h 6c 5d 4s 2h, hero faces 28 into 36","text":"it worked last time"}
+{"id":"n20","label":"none","family":"degenerate","node":"turn Kh Qc 7d 3s, hero faces 20 into 26","text":"?"}
