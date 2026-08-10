@@ -88,6 +88,34 @@ describe('folding for free is described as giving up a free check', () => {
   });
 });
 
+describe('the bet verdict does not claim to report exposure', () => {
+  it('calls its number a cost, not what the bet risks', () => {
+    // Measured by scripts/audit-w6/a11-coach-betsize.ts: an all-in of a 5000 stack printed
+    // "risks ~1.0 bb" while the seat was risking 100 bb. The number was the EV loss all along — the
+    // noun was wrong. gradeDecision reads neither betSize nor stack, so it cannot report exposure at
+    // all, and the honest claim is the one it computed.
+    const grade = gradeDecision({
+      hole: hand('7h', '2d'),
+      board: hand('As', 'Kd', 'Qc'),
+      street: 'flop',
+      pot: 200,
+      toCall: 150,
+      stack: 5000,
+      bb: 50,
+      chosen: 'allin',
+      opponents: 1,
+      seed: 5,
+    });
+
+    expect(grade.message).not.toBeNull();
+    expect(grade.message).not.toContain('risks');
+    expect(grade.message).toContain('costs');
+    // The reported figure must be far below the 100 bb actually at stake — that gap is the whole
+    // point, and stating it as a risk is what made it a falsehood.
+    expect(grade.evLossBb).toBeLessThan(10);
+  });
+});
+
 describe('a non-finite loss is silence, not the harshest tier', () => {
   it('does not grade a NaN charge as serious', () => {
     // bb 0 is the measured trigger: the bb division is what goes non-finite.
