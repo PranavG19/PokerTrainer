@@ -413,19 +413,39 @@ function renderVerdict(committed: Committed): HTMLElement {
   );
   wrap.appendChild(pair);
 
-  const gap = text(
-    'p',
-    'drill-gap',
-    committed.grading.error === 0
-      ? `Exactly on it. Anything within ${band(committed.problem)} counts.`
-      : `You were ${amount(committed.problem.kind, Math.abs(committed.grading.error))} ${
-          committed.grading.error > 0 ? 'over' : 'under'
-        }. Anything within ${band(committed.problem)} counts.`,
-  );
+  const gap = text('p', 'drill-gap', gapSentence(committed));
   gap.dataset.testid = 'drill-gap';
   wrap.appendChild(gap);
 
   return wrap;
+}
+
+/**
+ * The size of the miss beside the band core allowed.
+ *
+ * BOTH NUMBERS ARE ROUNDED FOR DISPLAY, AND THE ROUNDING MUST NOT INVERT THE VERDICT. 31.33 against
+ * 33.33% is 2.0033 points out — outside core's 2-point band — but rounds to "2 points", so the panel
+ * read "Outside the band. You were 2 points under. Anything within 2 points counts.", which a
+ * learner can only take for a bug. The same tie appears on SPR, where the band itself rounds up
+ * (0.3463 shown as 0.35) and a 0.3509 miss also shows as 0.35.
+ *
+ * A hit cannot produce the mirror of this — rounding is monotonic, so a gap inside the band never
+ * rounds above it — so only the miss needs handling, and it is handled by stating the gap as a
+ * comparison rather than a figure: true at every precision, and it never understates the band or
+ * overstates the miss.
+ */
+function gapSentence(committed: Committed): string {
+  const { problem, grading } = committed;
+  const tail = `Anything within ${band(problem)} counts.`;
+  if (grading.error === 0) return `Exactly on it. ${tail}`;
+
+  const direction = grading.error > 0 ? 'over' : 'under';
+  const shownGap = round2(inUnitValue(problem.kind, Math.abs(grading.error)));
+  const shownBand = round2(inUnitValue(problem.kind, problem.tolerance));
+  if (!grading.correct && shownGap <= shownBand) {
+    return `You were more than ${band(problem)} ${direction}. ${tail}`;
+  }
+  return `You were ${amount(problem.kind, Math.abs(grading.error))} ${direction}. ${tail}`;
 }
 
 function figure(testid: string, label: string, value: string): HTMLElement {
@@ -548,6 +568,11 @@ function inUnit(kind: DrillKind, value: number): string {
   return KINDS[kind].unit === '%' ? pct(value) : trim(value);
 }
 
+/** The same conversion as `inUnit`, before it becomes a string: percentage points, or a bare ratio. */
+function inUnitValue(kind: DrillKind, value: number): number {
+  return KINDS[kind].unit === '%' ? value * 100 : value;
+}
+
 /** A difference, in the same unit — signless, because the wording carries over/under. */
 function amount(kind: DrillKind, value: number): string {
   return KINDS[kind].unit === '%' ? `${trim(value * 100)} points` : trim(value);
@@ -560,7 +585,12 @@ function pct(probability: number): string {
 /** At most two decimals, with trailing zeros dropped: "20", not "20.00". */
 function trim(value: number): string {
   if (!Number.isFinite(value)) return String(value);
-  return String(Math.round(value * 100) / 100);
+  return String(round2(value));
+}
+
+/** The rounding `trim` prints, as a number, so display ties can be detected before they are shown. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function text(tag: string, className: string, content: string): HTMLElement {

@@ -277,6 +277,54 @@ test.describe('the Drill tab: the arithmetic trainer', () => {
     });
   });
 
+  /**
+   * DISPLAY ROUNDING MAY NOT CONTRADICT THE VERDICT. Both the miss and the band are printed to two
+   * decimals, so a miss just outside the band rounds onto it: 31.33 against 33.33% is 2.0033 points
+   * out, which core grades wrong, and the panel used to read "Outside the band. You were 2 points
+   * under. Anything within 2 points counts." — a self-contradicting sentence a learner can only read
+   * as a bug. The SPR path has the same tie from the other side, because the band itself rounds UP
+   * (0.3463 printed as 0.35) so a 0.3509 miss prints as 0.35 too.
+   *
+   * The verdict is core's and is not what is asserted here; what is asserted is that the sentence
+   * beside it never claims a miss that the quoted band would have allowed.
+   */
+  test('2d. a miss that rounds onto the band is not described as inside it', async () => {
+    await withDrill(async ({ page }) => {
+      // 2.0033 points under: core says wrong, and two-decimal rounding says "2 points".
+      await answerWithEnter(page, '31.33');
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-verdict', 'wrong');
+      await expect(page.locator(verdictLine)).toHaveText('Outside the band.');
+      await expect(
+        page.locator(gapLine),
+        'the gap sentence must not claim a miss the quoted band allows',
+      ).toHaveText('You were more than 2 points under. Anything within 2 points counts.');
+
+      // The band is still core's, and an unambiguous miss still gets its exact size.
+      await advanceWithEnter(page);
+      await answerWithEnter(page, '20');
+      await expect(page.locator(gapLine)).toContainText('You were 8.26 points under');
+      await expect(page.locator(gapLine)).toContainText('within 2 points');
+    });
+  });
+
+  /** The same rounding tie on SPR, where the band itself is what rounds up. */
+  test('2e. an SPR miss that rounds onto its rounded-up band is not described as inside it', async () => {
+    await withDrill(async ({ page }) => {
+      await selectKind(page, 'spr');
+      // seed 101: answer 6.9259, sprTolerance 0.34630 printed as "0.35". 6.575 is 0.3509 under.
+      await answerWithEnter(page, '6.575');
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-verdict', 'wrong');
+      await expect(page.locator(gapLine)).toHaveText(
+        'You were more than 0.35 under. Anything within 0.35 counts.',
+      );
+
+      // An SPR miss with no rounding tie still reports its exact size, in SPR units.
+      await advanceWithEnter(page);
+      await answerWithEnter(page, '1');
+      await expect(page.locator(gapLine)).toContainText('You were 1.76 under');
+    });
+  });
+
   test('3. a wrong answer teaches: the worked method, the right answer, and the learner\'s own', async () => {
     await withDrill(async ({ page }) => {
       await answerWithEnter(page, '20');

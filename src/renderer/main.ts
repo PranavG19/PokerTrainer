@@ -19,6 +19,7 @@ import { renderProfile } from './screens/profile.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderCharts } from './screens/charts.js';
 import { renderDrillScreen } from './screens/drill.js';
+import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
@@ -102,6 +103,15 @@ async function boot(): Promise<void> {
   let tab: Tab = 'play';
   let table: TableHandle | null = null;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
+  /**
+   * Where the Profile tab is: the profile itself, the hand picker, or one hand's replay. The picker
+   * is its own view rather than a section of the profile because the profile column has no spare
+   * height at 900x640 — see screens/profile.ts.
+   */
+  let profileView: { at: 'profile' } | { at: 'picker' } | { at: 'replay'; index: number } = {
+    at: 'profile',
+  };
+  let review: ReviewHandle | null = null;
 
   const app = document.getElementById('app');
   if (!app) throw new Error('#app missing');
@@ -119,6 +129,9 @@ async function boot(): Promise<void> {
     b.textContent = label;
     b.addEventListener('click', () => {
       tab = id;
+      // Leaving Profile drops the replay: coming back to a half-stepped hand from another tab is
+      // state the learner did not ask to keep, and the picker is one click away.
+      profileView = { at: 'profile' };
       render();
       // Backup count and guard failures move while the learner is elsewhere, so opening the tab
       // re-reads rather than showing what was true at boot.
@@ -130,6 +143,12 @@ async function boot(): Promise<void> {
   function teardownTable(): void {
     table?.destroy();
     table = null;
+  }
+
+  /** Its keydown listener would otherwise outlive the screen and eat the table's arrow keys. */
+  function teardownReview(): void {
+    review?.destroy();
+    review = null;
   }
 
   async function onHandComplete(record: HandRecord): Promise<void> {
@@ -235,9 +254,12 @@ async function boot(): Promise<void> {
     // its AI timer running and deal on while nobody is watching it.
     if (tab !== 'play') {
       teardownTable();
+      teardownReview();
       screen.replaceChildren(renderTab(tab));
       return;
     }
+
+    teardownReview();
 
     // Play tab: keep a live table mounted if there is one, else the home screen.
     if (table) {
@@ -258,7 +280,7 @@ async function boot(): Promise<void> {
    * empty state, because N1 forbids hiding a surface and a blank panel would read as a bug.
    */
   function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
-    if (which === 'profile') return renderProfile({ session });
+    if (which === 'profile') return renderProfileTab();
     if (which === 'learn') return renderLessonScreen();
     if (which === 'charts') return renderCharts();
     if (which === 'drill') return renderDrillScreen();
@@ -274,6 +296,40 @@ async function boot(): Promise<void> {
       });
     }
     return renderPlaceholder(which);
+  }
+
+  /**
+   * The Profile tab, either the profile itself or the replay of one logged hand. A hand asked for by
+   * number and no longer in the capped log falls back to the profile rather than an error screen.
+   */
+  function renderProfileTab(): HTMLElement {
+    const goto = (next: typeof profileView): void => {
+      profileView = next;
+      render();
+    };
+
+    if (profileView.at === 'replay') {
+      // Identified by its position in the log, not by handNumber: handNumber is not unique. A save
+      // written before it was recorded parses every hand to 0, so a lookup by number would open the
+      // first such hand whichever row the learner clicked — someone else's cards under their click.
+      // A row that has aged out of the capped log falls back to the picker, not to an error screen.
+      const hand = session.hands[profileView.index];
+      if (hand !== undefined) {
+        review = renderReview({ hand, onBack: () => goto({ at: 'picker' }) });
+        return review.root;
+      }
+      profileView = { at: 'picker' };
+    }
+
+    if (profileView.at === 'picker') {
+      return renderReviewList({
+        hands: session.hands,
+        onOpen: (index) => goto({ at: 'replay', index }),
+        onBack: () => goto({ at: 'profile' }),
+      });
+    }
+
+    return renderProfile({ session, onOpenReview: () => goto({ at: 'picker' }) });
   }
 
   function renderPlaceholder(which: string): HTMLElement {

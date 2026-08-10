@@ -598,3 +598,47 @@ describe('problem generator and grading', () => {
     }
   });
 });
+
+describe('every generated problem is answerable', () => {
+  /**
+   * An SPR problem needs chips BEHIND the call, not merely enough to cover it. The generator clamped
+   * effectiveStack to `bet` exactly, so `effectiveStack - bet` was 0 and the prompt read
+   * "0 bb behind. SPR?" with answer 0 and tolerance 0.25: every guess in [-0.25, 0.25] accepted,
+   * nothing to compute, and the drill screen's worked method then explained a ratio for a stack that
+   * was already all in. 7.0% of the sequence the screen actually serves, and 6.1% of arbitrary seeds
+   * (scripts/audit-w6/a24-spr-degenerate.ts).
+   */
+  it('leaves something behind the call on every SPR problem', () => {
+    const degenerate: string[] = [];
+    for (let seed = 1; seed <= 3000; seed++) {
+      const problem = generateProblem(seed, 'spr');
+      const behind = problem.effectiveStack - problem.bet;
+      if (behind <= 0) degenerate.push(`seed ${seed}: "${problem.prompt}" behind=${behind}`);
+    }
+    expect(degenerate.slice(0, 5)).toEqual([]);
+  });
+
+  it('never asks for an SPR whose answer is zero', () => {
+    // The user-visible consequence, asserted separately: a zero answer is what makes the tolerance
+    // band swallow every guess, so it is worth pinning independently of how the stack is derived.
+    for (let seed = 1; seed <= 3000; seed++) {
+      const problem = generateProblem(seed, 'spr');
+      expect(problem.answer, `seed ${seed}: ${problem.prompt}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('still produces a solvable problem of every kind', () => {
+    // The guard: raising the stack floor must not push any kind into a degenerate or unanswerable
+    // shape. A finite, non-negative answer with a positive band is the minimum for every kind.
+    for (const kind of DRILL_KINDS) {
+      for (let seed = 1; seed <= 300; seed++) {
+        const problem = generateProblem(seed, kind);
+        const where = `${kind} seed ${seed}`;
+        expect(Number.isFinite(problem.answer), where).toBe(true);
+        expect(problem.answer, where).toBeGreaterThanOrEqual(0);
+        expect(problem.tolerance, where).toBeGreaterThan(0);
+        expect(gradeAnswer(problem, problem.answer).correct, where).toBe(true);
+      }
+    }
+  });
+});

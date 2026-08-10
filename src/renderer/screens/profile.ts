@@ -7,7 +7,10 @@ const GRAPH_WIDTH = 320;
 const GRAPH_HEIGHT = 120;
 const GRAPH_PAD = 6;
 
-export function renderProfile(opts: { session: SessionState }): HTMLElement {
+export function renderProfile(opts: {
+  session: SessionState;
+  onOpenReview?: () => void;
+}): HTMLElement {
   const summary = computeStats(opts.session);
 
   const root = document.createElement('div');
@@ -15,7 +18,10 @@ export function renderProfile(opts: { session: SessionState }): HTMLElement {
   root.dataset.testid = 'profile-screen';
 
   root.appendChild(
-    section('Session', renderGraph(bankrollSeries(opts.session), summary.handsPlayed)),
+    section(
+      'Session',
+      renderGraph(bankrollSeries(opts.session), summary.handsPlayed, opts.onOpenReview),
+    ),
   );
   root.appendChild(section('Rebuys', renderRebuys(opts.session.rebuys)));
   root.appendChild(section('Prediction calibration', renderCalibration(opts.session)));
@@ -39,6 +45,25 @@ export function renderProfile(opts: { session: SessionState }): HTMLElement {
   );
 
   return root;
+}
+
+/**
+ * The way into hand review, sharing the graph's caption row rather than taking a row of its own.
+ * Measured: this column has 574px to spend at the documented 900x640 minimum and only ~33px of
+ * headroom before the leak list — the one section allowed to shrink — drops below one 42.5px row and
+ * its last concept becomes unreachable. A 53.5px card here cost exactly that.
+ *
+ * Never disabled and never hidden with an empty log (N1): the picker shows its own empty state,
+ * which explains where hands come from. A missing or dead control would read as a locked feature.
+ */
+function renderReviewEntry(onOpenReview: () => void): HTMLElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'profile-review-entry';
+  button.dataset.testid = 'open-review';
+  button.textContent = 'Review a hand →';
+  button.addEventListener('click', onOpenReview);
+  return button;
 }
 
 function section(label: string, body: HTMLElement): HTMLElement {
@@ -67,7 +92,11 @@ function bankrollSeries(session: SessionState): number[] {
   return series;
 }
 
-function renderGraph(series: number[], handsPlayed: number): HTMLElement {
+function renderGraph(
+  series: number[],
+  handsPlayed: number,
+  onOpenReview?: () => void,
+): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'graph-wrap';
 
@@ -86,11 +115,19 @@ function renderGraph(series: number[], handsPlayed: number): HTMLElement {
 
   wrap.appendChild(svg);
 
+  // The caption keeps its own element and its own exact text; the review entry sits beside it rather
+  // than inside it, because screens.spec.ts pins that string character for character.
+  const footer = document.createElement('div');
+  footer.className = 'graph-footer';
+
   const caption = document.createElement('div');
   caption.className = 'graph-caption';
   caption.dataset.testid = 'graph-caption';
   caption.textContent = graphCaption(series.length - 1, handsPlayed);
-  wrap.appendChild(caption);
+  footer.appendChild(caption);
+
+  if (onOpenReview) footer.appendChild(renderReviewEntry(onOpenReview));
+  wrap.appendChild(footer);
 
   return wrap;
 }
