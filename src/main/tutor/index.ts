@@ -83,6 +83,18 @@ export interface AskResult {
    * was built at all.
    */
   readonly payloadKeys: readonly string[];
+  /**
+   * Which route actually produced `text`: `model` only when a live call's output passed the guard,
+   * `fixed` when the written string table answered, `null` when the matrix blocked the question and
+   * nothing answered at all.
+   *
+   * Forwarded because liveTutor falls back to the fixed table SILENTLY whenever the model fails,
+   * times out or is guard-rejected — so `tutorId` is not evidence the model answered, and a caller
+   * inferring provenance from it tells the learner "from the configured model" while the written
+   * notes are what they are reading. TutorResponse has carried this all along; it simply stopped
+   * here instead of reaching the renderer.
+   */
+  readonly answeredBy: 'fixed' | 'model' | null;
 }
 
 function keyPaths(value: unknown, prefix = ''): string[] {
@@ -117,6 +129,8 @@ export async function askTutor(resolved: ResolvedTutor, input: AskInput): Promis
       verdict,
       text: null,
       payloadKeys: [],
+      // Blocked: no payload was built and nothing answered, so there is no source to name.
+      answeredBy: null,
     };
   }
 
@@ -128,5 +142,6 @@ export async function askTutor(resolved: ResolvedTutor, input: AskInput): Promis
     verdict,
     text: response.text,
     payloadKeys: keyPaths(request).sort(),
+    answeredBy: response.source,
   };
 }

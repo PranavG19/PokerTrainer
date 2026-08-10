@@ -3,6 +3,7 @@ import '../styles-lesson.css';
 import type { Lesson, LessonExample, LessonPhase } from '../../core/lessons/index.js';
 import { LESSONS, lessonById } from '../../core/lessons/index.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
 /**
  * LESSON MODE (the 'learn' tab). A reader over src/core/lessons — it adds no content and no
@@ -83,6 +84,15 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
   let cursor = 0;
   /** The verdict on the sentence saved during this visit, so the last attempt gets an answer. */
   let lastVerdict: LexiconEntry | null = null;
+  /**
+   * The position the rail is answering about, republished on every render. The rail reads it at
+   * send time rather than at mount, so the mute matrix judges the context the learner is actually
+   * in when they ask — see components/tutorRail.ts.
+   */
+  let railExample: LessonExample | undefined;
+  let railCommitted = false;
+  /** One instance per screen: rebuilding it each render would wipe a question already in flight. */
+  let rail: HTMLElement | null = null;
 
   const openLesson = (index: number): void => {
     lessonIndex = clamp(index, 0, lessons.length - 1);
@@ -116,6 +126,8 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
       delete root.dataset.exampleId;
       delete root.dataset.committed;
       root.dataset.cursor = String(cursor);
+      railExample = undefined;
+      railCommitted = false;
       root.replaceChildren(renderList(), railSeam());
       return;
     }
@@ -126,8 +138,67 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     root.dataset.cursor = String(lessonIndex);
     if (example) root.dataset.exampleId = example.id;
     else delete root.dataset.exampleId;
-    root.dataset.committed = String(example !== undefined && commitments.has(key(lesson, example)));
+    const committed = example !== undefined && commitments.has(key(lesson, example));
+    root.dataset.committed = String(committed);
+    railExample = example;
+    railCommitted = committed;
     root.replaceChildren(renderLessonView(lesson, example), railSeam());
+  }
+
+  /**
+   * The rail's mount seam. The rail itself is built once and re-appended, so navigating between
+   * lessons keeps the transcript and cannot drop an answer that is still in flight.
+   */
+  function railSeam(): HTMLElement {
+    const seam = document.createElement('aside');
+    seam.className = 'lesson-rail';
+    seam.dataset.testid = 'lesson-tutor-rail';
+    rail ??= renderTutorRail({ context: railContext, table: railTable });
+    seam.appendChild(rail);
+    return seam;
+  }
+
+  /**
+   * The T5 row this screen sits in.
+   *
+   * A lesson position is a Spot: pre-commit before the learner commits an answer, post-reveal
+   * after. The list has no position under study at all, and 'spot-pre-commit' is the stricter of
+   * the two cells there — strategy blocked, rules allowed — so an ungraded browse cannot be used
+   * to ask for a play the lesson screens are meant to withhold.
+   */
+  function railContext(): RailContext {
+    return railCommitted ? 'spot-post-reveal' : 'spot-pre-commit';
+  }
+
+  /**
+   * The visible table, from the example the learner is looking at. Every field is already drawn on
+   * screen by renderSpot/renderSpotMeta — the rail is told what the learner can see and nothing
+   * else, which is the whole content of VisibleTable.
+   */
+  function railTable(): RailTable {
+    const example = railExample;
+    if (example === undefined) {
+      return {
+        positions: [],
+        stacksBb: [],
+        potBb: 0,
+        board: [],
+        heroCards: [],
+        toAct: '',
+        street: 'preflop',
+      };
+    }
+    const inBb = (chips: number): number => Math.round((chips / example.bb) * 10) / 10;
+    return {
+      positions: [example.position],
+      stacksBb: [inBb(example.heroStack), ...example.villainStacks.map(inBb)],
+      potBb: inBb(example.pot),
+      board: example.board,
+      heroCards: example.hole,
+      toAct: example.position,
+      // A lesson example is never at showdown (validate.ts rejects it), so the streets align.
+      street: example.street === 'showdown' ? 'river' : example.street,
+    };
   }
 
   function renderList(): HTMLElement {
@@ -593,14 +664,6 @@ function prerequisiteAdvice(lesson: Lesson): string | null {
   if (lesson.prerequisites.length === 0) return null;
   const names = lesson.prerequisites.map((id) => lessonById(id)?.title ?? id);
   return `Lands sooner after ${names.join(' and ')} — advice, not a gate.`;
-}
-
-/** The tutor rail mounts here. This screen never calls a model; the seam is deliberately empty. */
-function railSeam(): HTMLElement {
-  const rail = document.createElement('aside');
-  rail.className = 'lesson-rail';
-  rail.dataset.testid = 'lesson-tutor-rail';
-  return rail;
 }
 
 /**
