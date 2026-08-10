@@ -282,15 +282,30 @@ function reddish(value: string): boolean {
   return r > g + 30 && r > b + 30;
 }
 
+/**
+ * Every tag row's count, read from data-count AND from the text beside it, with the two required to
+ * agree before either is returned. Reading only the attribute let a hardcoded '0' in the visible
+ * `.tag-count` span pass 16 of 16 while every published number stayed right — the side panel is the
+ * only place a learner sees which tag they are missing on, so a zero there hides the whole lesson.
+ */
 async function readTagCounts(page: Page): Promise<Record<string, string>> {
-  return page.evaluate(() =>
-    Object.fromEntries(
-      [...document.querySelectorAll<HTMLElement>('[data-testid="tag-row"]')].map((el) => [
-        el.dataset.tag ?? '',
-        el.dataset.count ?? '?',
-      ]),
-    ),
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('[data-testid="tag-row"]')].map((el) => ({
+      tag: el.dataset.tag ?? '',
+      published: el.dataset.count ?? '?',
+      printed: el.querySelector('.tag-count')?.textContent ?? '?',
+      label: el.querySelector('.tag-label')?.textContent ?? '?',
+    })),
   );
+  for (const row of rows) {
+    expect(
+      row.printed,
+      `tag ${row.tag} publishes ${row.published} but prints "${row.printed}"`,
+    ).toBe(row.published);
+    // A row whose label is missing or placeholder names nothing the learner can act on.
+    expect(row.label.length, `tag ${row.tag} has no label`).toBeGreaterThan(3);
+  }
+  return Object.fromEntries(rows.map((row) => [row.tag, row.published]));
 }
 
 /**
@@ -1042,7 +1057,15 @@ test.describe('O8 anomaly trigger drill', () => {
         Math.abs(observed - ANOMALY_RATE),
         `observed ${observed} is too far from the seeded ${ANOMALY_RATE}`,
       ).toBeLessThan(2.5 * standardError);
-      // The readout says so on screen too, not only in a data attribute.
+      /*
+       * THE READOUT SAYS SO ON SCREEN TOO, in the right order. 'against a seeded 15%' is the one
+       * clause a swap of the two counts leaves untouched: printing "40 anomalies in 5" instead of
+       * "5 anomalies in 40" passed 16 of 16, which inverts the base rate the whole gate is about. So
+       * the counts are pinned as a phrase rather than the tail of the sentence alone.
+       */
+      await expect(page.locator(rateLine)).toContainText(
+        `${ANOMALOUS_INDICES.length} anomalies in ${RUN_LENGTH} —`,
+      );
       await expect(page.locator(rateLine)).toContainText('against a seeded 15%');
 
       // The base-rate trap, closed: 35 of 40 correct is 87.5%, under the 90% bar.
