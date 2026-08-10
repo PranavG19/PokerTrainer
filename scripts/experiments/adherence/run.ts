@@ -11,7 +11,7 @@
  * Writes out/results-<hands>.json with every per-hand result, so the report and any re-analysis
  * quote real numbers rather than a summary.
  */
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { promisify } from 'node:util';
@@ -27,6 +27,20 @@ const hands = Number(process.argv[2] ?? 2000);
 const seeds = process.argv.length > 3 ? process.argv.slice(3).map(Number) : [20260809, 424242, 8675309];
 if (!Number.isFinite(hands) || hands < 1) throw new Error(`bad hands argument: ${process.argv[2]}`);
 for (const s of seeds) if (!Number.isFinite(s)) throw new Error(`bad seed: ${s}`);
+
+/**
+ * Recorded into every results file. A parallel agent committed a coach fix mid-run once, and the
+ * saved numbers silently described a version of src/core/coach.ts that no longer existed; the only
+ * reason it was caught was a reproducibility check failing afterwards. Stamping the commit and the
+ * dirty state makes that failure loud instead of invisible.
+ */
+function sourceProvenance(): { head: string; dirtyCoreFiles: string[] } {
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const dirty = execFileSync('git', ['status', '--porcelain', 'src/core'], { encoding: 'utf8' })
+    .split('\n')
+    .filter((l) => l.trim().length > 0);
+  return { head, dirtyCoreFiles: dirty };
+}
 
 const OUT_DIR = 'scripts/experiments/adherence/out';
 const CELL_DIR = `${OUT_DIR}/cells-${hands}`;
@@ -47,6 +61,9 @@ for (const mix of MIXES) {
     }
   }
 }
+
+const provenanceBefore = sourceProvenance();
+process.stderr.write(`src/core at HEAD ${provenanceBefore.head}${provenanceBefore.dirtyCoreFiles.length ? ' (DIRTY)' : ''}\n`);
 
 const startedAt = Date.now();
 let done = 0;
@@ -155,13 +172,28 @@ say(`paired σ (${BASELINE} − wide-caller): ${dWide.sigmaHandBb.toFixed(1)}bb 
 const stuck = results.reduce((a, r) => a + r.stuckStates, 0);
 say(`\nengine sanity: stuckStates total = ${stuck} (must be 0)`);
 
-const outPath = `${OUT_DIR}/results-${hands}.json`;
+const provenanceAfter = sourceProvenance();
+const sourceChangedMidRun =
+  provenanceAfter.head !== provenanceBefore.head ||
+  provenanceAfter.dirtyCoreFiles.join() !== provenanceBefore.dirtyCoreFiles.join();
+say(`\nsrc/core provenance: HEAD ${provenanceBefore.head}`);
+if (sourceChangedMidRun) {
+  say(`!! src/core CHANGED MID-RUN (now ${provenanceAfter.head}) — these numbers describe a mix of versions. DISCARD.`);
+}
+if (provenanceBefore.dirtyCoreFiles.length > 0) {
+  say(`!! src/core had uncommitted changes: ${provenanceBefore.dirtyCoreFiles.join(', ')}`);
+}
+
+const outPath = `${OUT_DIR}/results-${hands}-${provenanceBefore.head.slice(0, 7)}.json`;
 writeFileSync(
   outPath,
   JSON.stringify({
     hands,
     seeds,
     mixes: MIXES,
+    provenanceBefore,
+    provenanceAfter,
+    sourceChangedMidRun,
     elapsedSec: (Date.now() - startedAt) / 1000,
     report: lines,
     results,

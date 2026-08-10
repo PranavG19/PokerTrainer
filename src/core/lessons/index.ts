@@ -13,6 +13,9 @@ import { dominationAndDeadHands } from './content/domination-and-dead-hands.js';
 import { equityRealisation } from './content/equity-realisation.js';
 import { rangeAdvantageVersusNutAdvantage } from './content/range-advantage-versus-nut-advantage.js';
 import { polarityPicksTheSize } from './content/polarity-picks-the-size.js';
+import { bestFiveFromSeven } from './content/best-five-from-seven.js';
+import { boardTextureDimensions } from './content/board-texture-dimensions.js';
+import { whoHoldsTheNuts } from './content/who-holds-the-nuts.js';
 
 /**
  * Every lesson the app knows about. Explicit imports, not a glob: the renderer is bundled
@@ -37,6 +40,9 @@ export const LESSONS: readonly Lesson[] = [
   whatTheActionsMean,
   handRankingsInOrder,
   bettingOrderAndPosition,
+  bestFiveFromSeven,
+  boardTextureDimensions,
+  whoHoldsTheNuts,
 ];
 
 export function lessonById(id: string): Lesson | undefined {
