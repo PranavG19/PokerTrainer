@@ -111,16 +111,47 @@ describe('a simulated 60-day timeline', () => {
     expect(nextDue(state, day(9))?.overdueDays).toBe(8);
   });
 
-  it('orders the due list most-overdue first', () => {
-    const stale: ConceptState = { id: 'a-stale', firstSeen: T0, opportunities: [at(0, true)], probeMisses: 0 };
+  /**
+   * THE IDS RUN AGAINST THE DEBT ORDER ON PURPOSE, and that is the whole content of this test.
+   *
+   * It used to use `a-stale` and `b-fresh`, which are alphabetically in the same order as they are by
+   * spacing debt — so the correct comparator and a plain id sort produced identical output and the
+   * test could not tell them apart. Measured: deleting `b.overdueDays - a.overdueDays` from
+   * schedule.ts's comparator left all 23 tests in this file green, and the e2e spacing suite green
+   * too, because its fixtures had the same shape. Q4's "longest-owed first" was unenforced
+   * everywhere.
+   *
+   * So `z-stale` is the most overdue and LAST alphabetically, and `a-fresh` is the least overdue and
+   * first. Debt order and id order now disagree, and only the real comparator gives debt order. The
+   * id tiebreak still gets its own coverage below, where the debts are genuinely equal.
+   */
+  it('orders the due list most-overdue first, not by id', () => {
+    const stale: ConceptState = { id: 'z-stale', firstSeen: T0, opportunities: [at(0, true)], probeMisses: 0 };
     const fresh: ConceptState = {
-      id: 'b-fresh',
+      id: 'a-fresh',
       firstSeen: day(8),
       opportunities: [{ at: day(8), correct: true }],
       probeMisses: 0,
     };
     const due = dueNow([fresh, stale], day(10));
-    expect(due.map((d) => d.conceptId)).toEqual(['a-stale', 'b-fresh']);
+    expect(due.map((d) => d.conceptId)).toEqual(['z-stale', 'a-fresh']);
+    // The debts really are different, so the ordering above is a ranking and not a coincidence.
+    expect(due[0].overdueDays).toBeGreaterThan(due[1].overdueDays);
+  });
+
+  /**
+   * The tiebreak, which is the only thing the id comparison is for: two concepts with the SAME debt
+   * must come back in a stable, documented order rather than in input order, so the queue does not
+   * shuffle between paints. Input order here is deliberately the reverse of the expected output.
+   */
+  it('breaks a tie in spacing debt by id, so the queue is stable', () => {
+    const second: ConceptState = { id: 'b-tied', firstSeen: T0, opportunities: [at(0, true)], probeMisses: 0 };
+    const first: ConceptState = { id: 'a-tied', firstSeen: T0, opportunities: [at(0, true)], probeMisses: 0 };
+    const due = dueNow([second, first], day(10));
+    expect(due.map((d) => d.conceptId)).toEqual(['a-tied', 'b-tied']);
+    expect(due[0].overdueDays, 'the debts must be equal for this to test the tiebreak').toBe(
+      due[1].overdueDays,
+    );
   });
 });
 
