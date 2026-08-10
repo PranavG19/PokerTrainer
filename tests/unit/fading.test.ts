@@ -198,6 +198,20 @@ describe('T6 — hints are priced, and the price is shown before the answer', ()
     expect(after.hintDebt).toBe(1);
   });
 
+  it('a supportFaded promotion moves the rung but does NOT forgive hint debt', () => {
+    // supportFaded is an externally-emitted mastery promotion (fade toward less support). It must not
+    // touch hintDebt: only three consecutive correct (repayHintDebt) earn a rung back, and letting a
+    // promotion silently cancel a debt would give the learner back scaffolding they have not re-earned,
+    // defeating T6's reversibility accounting. Charge a hint at rung 3 (debt 1, rung 2), then fade:
+    // the rung climbs to 3 but the debt stays at 1.
+    const charged = applyEvent(atRung(3), hintAgainst(atRung(3)));
+    expect(charged.rung).toBe(2);
+    expect(charged.hintDebt).toBe(1);
+    const promoted = applyEvent(charged, { kind: 'supportFaded', conceptId: CONCEPT, at: T0 });
+    expect(promoted.rung).toBe(3);
+    expect(promoted.hintDebt).toBe(1);
+  });
+
   it('at worked examples a hint costs nothing, says so, and owes nothing', () => {
     const floor = initialState(CONCEPT);
     const price = hintPrice(floor);
@@ -436,6 +450,27 @@ describe('per concept, never global — property 1', () => {
   it('a rung with no concept is not constructible', () => {
     expect(() => initialState('')).toThrow(/global level/);
     expect(() => initialState('   ')).toThrow(/global level/);
+  });
+
+  it('concept ids are matched EXACTLY, not case-insensitively — a near-miss id moves nothing', () => {
+    // The isolation tests above use wholesale-different ids (CONCEPT vs OTHER), so a mutation that
+    // compares ids case-insensitively survives them. This pins the exact-string claim in fading.ts's
+    // header: an event addressed to the upper-cased spelling of a concept is a DIFFERENT concept and
+    // must not touch the lower-cased one. Cross-concept contamination via a differently-normalised id
+    // would silently strip scaffolding from a concept the event was never about.
+    const lower = 'polarity-wants-size';
+    const upper = 'POLARITY-WANTS-SIZE';
+    const log: FadingEvent[] = [
+      ...Array.from({ length: 4 }, () => faded(lower)),
+      { kind: 'graded', conceptId: upper, at: T0, correct: false },
+      { kind: 'supportFaded', conceptId: upper, at: T0 },
+    ];
+    // The lower-cased concept climbed to rung 4 on its own fades and saw NONE of the upper-cased events.
+    expect(deriveState(lower, log).rung).toBe(4);
+    expect(deriveState(lower, log).attempts).toBe(0);
+    // The upper-cased concept is its own state, carrying only its own events.
+    expect(deriveState(upper, log).attempts).toBe(1);
+    expect(deriveState(upper, log).rung).toBe(1); // one supportFaded from rung 0
   });
 
   /**
