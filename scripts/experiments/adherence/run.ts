@@ -13,6 +13,7 @@
  */
 import { execFile, execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { cpus } from 'node:os';
 import { promisify } from 'node:util';
 import { MIXES } from './harness.js';
@@ -29,17 +30,34 @@ if (!Number.isFinite(hands) || hands < 1) throw new Error(`bad hands argument: $
 for (const s of seeds) if (!Number.isFinite(s)) throw new Error(`bad seed: ${s}`);
 
 /**
- * Recorded into every results file. A parallel agent committed a coach fix mid-run once, and the
- * saved numbers silently described a version of src/core/coach.ts that no longer existed; the only
- * reason it was caught was a reproducibility check failing afterwards. Stamping the commit and the
- * dirty state makes that failure loud instead of invisible.
+ * Recorded into every results file. A parallel agent committed a coach fix mid-run once and the
+ * saved numbers silently described a version of src/core/coach.ts that no longer existed; only a
+ * later reproducibility check caught it. Stamping the dependency bytes makes that failure loud.
+ *
+ * Only the files the harness actually reads are hashed. Watching all of src/core produced a false alarm: a
+ * parallel agent shipped lessons and nav while a run was in flight, which cannot affect a headless
+ * table simulation. Hashing the exact dependency set is the claim that matters — "the code that
+ * produced these numbers" — and it is what the report cites.
  */
-function sourceProvenance(): { head: string; dirtyCoreFiles: string[] } {
+const DEPENDENCIES = [
+  'src/core/coach.ts',
+  'src/core/ai.ts',
+  'src/core/table.ts',
+  'src/core/equity.ts',
+  'src/core/evaluate.ts',
+  'src/core/cards.ts',
+  'src/core/rng.ts',
+];
+
+function sourceProvenance(): { head: string; dependencyHash: string; dirtyDependencies: string[] } {
   const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-  const dirty = execFileSync('git', ['status', '--porcelain', 'src/core'], { encoding: 'utf8' })
+  // Hash the working-tree bytes, not the commit: an uncommitted edit changes the result too.
+  const hashes = execFileSync('git', ['hash-object', ...DEPENDENCIES], { encoding: 'utf8' }).trim();
+  const dependencyHash = createHash('sha256').update(hashes).digest('hex').slice(0, 16);
+  const dirtyDependencies = execFileSync('git', ['status', '--porcelain', '--', ...DEPENDENCIES], { encoding: 'utf8' })
     .split('\n')
     .filter((l) => l.trim().length > 0);
-  return { head, dirtyCoreFiles: dirty };
+  return { head, dependencyHash, dirtyDependencies };
 }
 
 const OUT_DIR = 'scripts/experiments/adherence/out';
@@ -63,7 +81,10 @@ for (const mix of MIXES) {
 }
 
 const provenanceBefore = sourceProvenance();
-process.stderr.write(`src/core at HEAD ${provenanceBefore.head}${provenanceBefore.dirtyCoreFiles.length ? ' (DIRTY)' : ''}\n`);
+process.stderr.write(
+  `harness dependencies: hash ${provenanceBefore.dependencyHash} at HEAD ${provenanceBefore.head}` +
+    `${provenanceBefore.dirtyDependencies.length ? ' (DIRTY)' : ''}\n`,
+);
 
 const startedAt = Date.now();
 let done = 0;
@@ -173,18 +194,16 @@ const stuck = results.reduce((a, r) => a + r.stuckStates, 0);
 say(`\nengine sanity: stuckStates total = ${stuck} (must be 0)`);
 
 const provenanceAfter = sourceProvenance();
-const sourceChangedMidRun =
-  provenanceAfter.head !== provenanceBefore.head ||
-  provenanceAfter.dirtyCoreFiles.join() !== provenanceBefore.dirtyCoreFiles.join();
-say(`\nsrc/core provenance: HEAD ${provenanceBefore.head}`);
+const sourceChangedMidRun = provenanceAfter.dependencyHash !== provenanceBefore.dependencyHash;
+say(`\nharness dependency hash: ${provenanceBefore.dependencyHash} (HEAD ${provenanceBefore.head.slice(0, 7)} at start)`);
 if (sourceChangedMidRun) {
-  say(`!! src/core CHANGED MID-RUN (now ${provenanceAfter.head}) — these numbers describe a mix of versions. DISCARD.`);
+  say(`!! DEPENDENCIES CHANGED MID-RUN (now ${provenanceAfter.dependencyHash}) — these numbers mix two versions. DISCARD.`);
 }
-if (provenanceBefore.dirtyCoreFiles.length > 0) {
-  say(`!! src/core had uncommitted changes: ${provenanceBefore.dirtyCoreFiles.join(', ')}`);
+if (provenanceBefore.dirtyDependencies.length > 0) {
+  say(`!! uncommitted changes in harness dependencies: ${provenanceBefore.dirtyDependencies.join(', ')}`);
 }
 
-const outPath = `${OUT_DIR}/results-${hands}-${provenanceBefore.head.slice(0, 7)}.json`;
+const outPath = `${OUT_DIR}/results-${hands}-dep${provenanceBefore.dependencyHash}.json`;
 writeFileSync(
   outPath,
   JSON.stringify({
