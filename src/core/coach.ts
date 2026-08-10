@@ -148,5 +148,11 @@ function buildMessage(
   if (action === 'check') {
     return `Checking ${sharePct}% pot share on a later street misses value worth ~${evLossBb.toFixed(1)} bb.`;
   }
-  return `Betting with only ${sharePct}% pot share against this action risks ~${evLossBb.toFixed(1)} bb.`;
+  // "costs", not "risks". Every other verdict here reports an EV loss and this one reported the same
+  // quantity while calling it the amount at stake: an all-in of a 5000 stack printed "risks ~1.0 bb"
+  // when the seat was risking 100 bb. The number was never wrong — the noun was. A learner who reads
+  // "risks 1 bb" while shoving a stack has been told something false about their own bet, and the
+  // grader has no view of bet size (it reads neither betSize nor stack), so it cannot honestly report
+  // exposure at all. Reporting the cost it did compute is the claim it can actually support.
+  return `Betting with only ${sharePct}% pot share against this action costs ~${evLossBb.toFixed(1)} bb.`;
 }
