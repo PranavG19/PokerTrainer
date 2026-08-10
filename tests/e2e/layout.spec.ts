@@ -407,4 +407,38 @@ test.describe('layout', () => {
       await shot(page, 'layout-900x640');
     });
   });
+
+  test('8. an OPEN stats sheet does not overflow the documented minimum', async () => {
+    await withTable(async ({ app, page }) => {
+      await useViewport(app, page, MIN_WIDTH, MIN_HEIGHT);
+      await page.locator('[data-testid="stats-toggle"]').click();
+      await expect(page.locator('[data-testid="stats-sheet"]')).toHaveAttribute('data-open', 'true');
+
+      // The sheet used to push the page to 725px in a 640px viewport, leaving the last of seven
+      // made-hand rows 65px below the fold — the coaching readout could not be fully opened at the
+      // app's own minimum size. The category list scrolls itself now, so the page never does.
+      const geo = await page.evaluate(() => {
+        const body = document.querySelector('.stats-body') as HTMLElement;
+        const win = document.querySelector('[data-testid="win-pct"]')!.getBoundingClientRect();
+        const fold = document.querySelector('[data-testid="btn-fold"]')!.getBoundingClientRect();
+        return {
+          scrollHeight: document.documentElement.scrollHeight,
+          innerHeight: window.innerHeight,
+          winBottom: win.bottom,
+          foldBottom: fold.bottom,
+          rows: document.querySelectorAll('.stats-cat').length,
+          bodyClips: body.scrollHeight > body.clientHeight,
+        };
+      });
+
+      expect(geo.scrollHeight, 'the page must not scroll with the sheet open').toBeLessThanOrEqual(
+        geo.innerHeight + 1,
+      );
+      expect(geo.winBottom, 'the win% headline stays on screen').toBeLessThanOrEqual(geo.innerHeight);
+      expect(geo.foldBottom, 'the action pills stay on screen').toBeLessThanOrEqual(geo.innerHeight);
+      // All the rows still exist — they are reachable by scrolling the sheet, not deleted.
+      expect(geo.rows).toBeGreaterThan(0);
+      expect(geo.bodyClips, 'the sheet body is what scrolls').toBe(true);
+    });
+  });
 });
