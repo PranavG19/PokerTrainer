@@ -49,7 +49,20 @@ export function gradeDecision(input: {
     }
   } else if (chosen === 'fold') {
     if (toCall === 0) {
-      evLossBb = 0;
+      // Folding for free is never merely neutral: checking was available and costs nothing, so
+      // surrendering the pot throws away every chip already in it. Grading it 0 made the coach
+      // prefer folding the nuts to checking them — measured on a river with quad aces into a 600
+      // pot, folding graded 0.00bb 'free' while checking the same hand graded 2.70bb 'serious'.
+      // `fold` is always in legalActions (table.ts:273) including at toCall 0, so this is a spot a
+      // real learner can reach and be actively taught the wrong play in.
+      // Charged against a CHECK, not against winning the pot outright. Checking does not collect
+      // the pot — it sees a free card and plays on — so the loss is the share a free continuation
+      // would realise. Halving equity is the standard crude realisation haircut and it keeps the
+      // most common correct beginner play, folding trash preflop for free, inside the silence
+      // threshold: raw equity charged 0.52bb ('notable') for folding 72o, which would nag at a
+      // learner doing the right thing. It still ranks fold behind check with a real hand.
+      evLossBb = (equity * 0.5 * pot) / bb;
+      if (evLossBb >= 0.5) principle = 'pot odds';
     } else if (equity > required) {
       evLossBb = ((equity - required) * (pot + toCall)) / bb;
       principle = 'pot odds';
