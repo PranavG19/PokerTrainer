@@ -48,6 +48,11 @@ export interface SessionState {
   calibration: Calibration;
   /** Persisted so the toggle survives a restart. Default false keeps uncoached play unchanged. */
   coachedMode: boolean;
+  /**
+   * Read coach verdicts aloud. Default false and it stays false until asked for: unrequested audio
+   * out of a poker app is a hostile default, and the verdict is fully readable without it.
+   */
+  spokenVerdicts: boolean;
 }
 
 export interface SessionSummary {
@@ -67,6 +72,7 @@ export function emptySession(): SessionState {
     stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {}, leakCostBb: {} },
     calibration: emptyCalibration(),
     coachedMode: false,
+    spokenVerdicts: false,
   };
 }
 
@@ -77,6 +83,10 @@ export function recordPrediction(state: SessionState, outcome: PredictOutcome): 
 
 export function setCoachedMode(state: SessionState, on: boolean): SessionState {
   return { ...state, coachedMode: on };
+}
+
+export function setSpokenVerdicts(state: SessionState, on: boolean): SessionState {
+  return { ...state, spokenVerdicts: on };
 }
 
 /**
@@ -160,6 +170,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     stats: { ...state.stats, leaks: { ...state.stats.leaks }, leakCostBb: { ...state.stats.leakCostBb } },
     calibration: { ...state.calibration },
     coachedMode: state.coachedMode,
+    spokenVerdicts: state.spokenVerdicts,
   };
 }
 
@@ -187,6 +198,9 @@ export function deserialize(raw: unknown): SessionState {
     // Legacy saves predate coached mode, and it must default OFF: an unasked-for gate on the
     // action buttons would look like a broken app.
     coachedMode: obj.coachedMode === true,
+    // Same `=== true` shape and the same reason, doubled: a save that says nothing about narration
+    // must come back silent, and a truthy non-boolean ("yes", 1) must not switch a voice on.
+    spokenVerdicts: obj.spokenVerdicts === true,
   };
 }
 

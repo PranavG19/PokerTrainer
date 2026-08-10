@@ -52,6 +52,12 @@ export function renderTable(opts: {
   onRebuy?: () => void;
   onPrediction?: (outcome: PredictOutcome) => void;
   onCoachedModeChange?: (on: boolean) => void;
+  /**
+   * Called with each verdict at the moment it is shown, and with null when the table stops owning
+   * one. The table does not know whether narration is on: the caller holds that preference and
+   * decides, so this cannot go stale against a setting changed mid-session.
+   */
+  onVerdict?: (message: string | null) => void;
 }): TableHandle {
   const root = document.createElement('div');
   root.className = 'table-screen';
@@ -191,6 +197,9 @@ export function renderTable(opts: {
     });
     showGrade(coach, grade);
     adviceShown = grade.message !== null && grade.severity !== 'free';
+    // Exactly the condition showGrade paints under, so narration and the panel can never disagree
+    // about whether there is a verdict — one call per verdict shown, none for a silent grade.
+    if (adviceShown) opts.onVerdict?.(grade.message);
     if (grade.principle !== null) {
       grades.push({
         severity: grade.severity,
@@ -230,6 +239,9 @@ export function renderTable(opts: {
       if (adviceShown) {
         clearCoach(coach);
         adviceShown = false;
+        // The panel stops showing it, so the voice stops saying it. Narration that outlived the text
+        // would be the one channel carrying information nothing on screen backs up.
+        opts.onVerdict?.(null);
       }
       setAwaiting('hero');
       render();
@@ -281,6 +293,7 @@ export function renderTable(opts: {
     heroPfr = false;
     settled = false;
     clearCoach(coach);
+    if (adviceShown) opts.onVerdict?.(null);
     adviceShown = false;
     clearPredictPanel(predict);
     state = startHand(state);
@@ -506,6 +519,8 @@ export function renderTable(opts: {
     destroy: () => {
       if (pendingTimer !== null) clearTimeout(pendingTimer);
       window.removeEventListener('keydown', onKey);
+      // Switching tabs unmounts the panel holding the verdict, so the voice reading it must stop too.
+      if (adviceShown) opts.onVerdict?.(null);
     },
   };
 }

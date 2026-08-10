@@ -11,6 +11,7 @@ import {
   recordPrediction,
   serialize,
   setCoachedMode,
+  setSpokenVerdicts,
 } from '../core/session.js';
 import type { PredictOutcome } from '../core/predict.js';
 import { renderHome } from './screens/home.js';
@@ -23,6 +24,11 @@ import { renderTable, type TableHandle } from './screens/table.js';
 
 const DEFAULT_SEED = 42;
 
+export interface SpeakResult {
+  spoken: boolean;
+  reason: string | null;
+}
+
 interface OffsuitBridge {
   loadState: () => Promise<Record<string, unknown>>;
   saveState: (obj: Record<string, unknown>) => Promise<void>;
@@ -30,6 +36,8 @@ interface OffsuitBridge {
   readSettings?: () => Promise<SettingsStatus>;
   setTutorEnabled?: (enabled: boolean) => Promise<boolean>;
   deleteProfile?: (confirmation: string) => Promise<{ deleted: boolean }>;
+  /** Narration. `null` stops the current utterance. Absent outside Electron. */
+  speak?: (text: string | null) => Promise<SpeakResult>;
 }
 
 declare global {
@@ -168,6 +176,31 @@ async function boot(): Promise<void> {
     await refreshSettings();
   }
 
+  /**
+   * Turning narration off must silence what is being said right now, not just the next verdict — a
+   * player reaching for the switch mid-sentence wants it to stop. `null` is the cancel message.
+   */
+  async function onSpokenVerdictsChange(on: boolean): Promise<void> {
+    session = setSpokenVerdicts(session, on);
+    if (!on) void io.speak?.(null);
+    render();
+    await io.saveState(serialize(session));
+  }
+
+  /**
+   * The single gate on narration, and the reason the preference is checked HERE rather than inside
+   * the table: with it off, no speak message is sent at all — not one that main declines to act on.
+   * An off switch that still fires the channel is the risk this shape removes.
+   *
+   * Never awaited: an utterance runs for seconds and a hand must not wait on it. A rejected invoke
+   * (no bridge, a main-process fault) is swallowed for the same reason — the verdict is on screen.
+   */
+  function narrate(message: string | null): void {
+    if (!session.spokenVerdicts) return;
+    // Cancel (null) only goes out if something might be talking, so it too stays behind the switch.
+    void io.speak?.(message)?.catch(() => undefined);
+  }
+
   function startTable(): void {
     teardownTable();
     table = renderTable({
@@ -179,6 +212,7 @@ async function boot(): Promise<void> {
       onRebuy: () => void onRebuy(),
       onPrediction: (outcome) => void onPrediction(outcome),
       onCoachedModeChange: (on) => void onCoachedModeChange(on),
+      onVerdict: (message) => narrate(message),
       // Hero busted out: drop back to home, where a fresh table can be started.
       onSessionOver: () => {
         teardownTable();
@@ -231,9 +265,11 @@ async function boot(): Promise<void> {
     if (which === 'settings') {
       return renderSettings({
         status: settings,
+        spokenVerdicts: session.spokenVerdicts,
         handlers: {
           onSetTutorEnabled: (enabled) => void onSetTutorEnabled(enabled),
           onDeleteProfile: (confirmation) => void onDeleteProfile(confirmation),
+          onSpokenVerdictsChange: (on) => void onSpokenVerdictsChange(on),
         },
       });
     }
