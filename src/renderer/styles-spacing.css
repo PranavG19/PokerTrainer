@@ -1,0 +1,162 @@
+/*
+ * Spacing queue — a maintenance readout, so it is typeset as a table of facts rather than as a
+ * call to action. V2: no mint anywhere, and no colour carries meaning; a refused invariant is told
+ * apart from a held one by its wording, which is the only channel that survives a colour-blind read.
+ *
+ * The column scrolls itself and is bounded by the same budget the lesson and profile columns use, so
+ * the document never scrolls and the tab bar cannot leave a 640px viewport.
+ */
+
+.spacing-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 720px;
+  margin: 0 auto;
+  max-height: calc(100vh - 66px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 24px;
+}
+
+.spacing-framing,
+.spacing-ladder,
+.spacing-queue,
+.spacing-concepts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spacing-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-lo);
+}
+
+.spacing-check {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-lo);
+}
+
+.spacing-check[data-flat='false'],
+.spacing-check[data-rejected='false'] {
+  color: var(--text-hi);
+  font-weight: 500;
+}
+
+.spacing-empty {
+  font-size: 13px;
+  color: var(--text-lo);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.wave-list,
+.due-rows {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wave-row,
+.due-row {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.wave-row {
+  grid-template-columns: 64px 64px 96px 1fr;
+}
+
+.due-row {
+  grid-template-columns: 1fr 96px 64px 88px 116px;
+}
+
+.wave-row[data-mode='probe'] {
+  /* The decay probe is the wave Q5 turns on, so it is weighted, not tinted. */
+  font-weight: 500;
+}
+
+.wave-day,
+.due-concept,
+.concept-id {
+  color: var(--text-hi);
+}
+
+.wave-reps,
+.wave-mode,
+.wave-gap,
+.due-wave,
+.due-reps,
+.due-mode,
+.due-overdue {
+  color: var(--text-lo);
+}
+
+.concept-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.concept-head {
+  display: grid;
+  grid-template-columns: 1fr 88px 160px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.concept-status,
+.concept-next {
+  color: var(--text-lo);
+}
+
+.concept-reason {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.probe-miss {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+.miss-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--surface-hi);
+  padding-top: 8px;
+}
+
+.miss-gaps {
+  font-size: 12px;
+  color: var(--text-hi);
+}
+
+.miss-outcome {
+  display: grid;
+  grid-template-columns: 60px 168px 92px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.miss-index {
+  color: var(--text-hi);
+}
