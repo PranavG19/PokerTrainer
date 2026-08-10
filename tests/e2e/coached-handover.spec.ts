@@ -163,8 +163,12 @@ test.describe('coached handover at the documented minimum size', () => {
       await useViewport(app, page);
       await reachGradedCoachedHandover(page);
       await settleLayout(page);
-      await shot(page, 'coached-graded-handover-900x640');
 
+      // Measure BEFORE the screenshot. page.screenshot() clears the CDP
+      // Emulation.setDeviceMetricsOverride that useViewport installs, so the viewport snaps back
+      // to whatever the host window manager chose — measured 887px tall on this machine, against
+      // the 640 the test asked for. Capturing first meant every assertion below described a window
+      // the test never configured, which is a false pass as easily as a false failure.
       const viewport = await page.evaluate(() => ({
         innerHeight: window.innerHeight,
         scrollY: window.scrollY,
@@ -191,6 +195,9 @@ test.describe('coached handover at the documented minimum size', () => {
       // And prove it for real: Playwright's trial click runs the full visible/stable/hittable
       // check. It auto-scrolls first, which is why the geometry assertions above are the oracle.
       await page.locator(nextHand).click({ trial: true, timeout: 5_000 });
+
+      // Last, because it drops the viewport override (see above).
+      await shot(page, 'coached-graded-handover-900x640');
     } finally {
       await close();
     }
