@@ -239,8 +239,21 @@ test.describe('mid-session rebuy', () => {
       await expect(page.locator(winnerSummary)).toHaveCount(0);
       await expect(page.locator(btnRebuy)).toHaveCount(0);
 
-      // Same table: the dealer rotated by one seat instead of resetting.
-      expect(await dealerSeatId(page)).toBe((dealerBefore + 1) % 4);
+      // Same table: the button rotated instead of resetting. It moves to the next seat WITH CHIPS,
+      // not simply the next seat — a chipless seat sits out and cannot hold the button, and parking
+      // it there used to put both blinds on sat-out seats and deal the hand with an empty pot.
+      // On this seed the hero busts on the same hand as seat 1 (measured stacks [0,0,15000,5000]),
+      // so the button legitimately skips seat 1. The stack assertion below is what keeps this from
+      // excusing a wrongly-skipped LIVE seat.
+      const dealerAfter = await dealerSeatId(page);
+      const stacks = fresh.stacks;
+      const skipped: number[] = [];
+      for (let i = (dealerBefore + 1) % 4; i !== dealerAfter; i = (i + 1) % 4) skipped.push(i);
+      expect(dealerAfter, 'the button must move off its previous seat').not.toBe(dealerBefore);
+      for (const seat of skipped) {
+        expect(stacks[seat], `the button skipped seat ${seat}, which still has chips`).toBe(0);
+      }
+      expect(stacks[dealerAfter], 'the button must land on a seat with chips').toBeGreaterThan(0);
       await shot(page, 'rebuy-continued');
     } finally {
       await close();

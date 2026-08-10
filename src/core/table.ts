@@ -78,6 +78,23 @@ function nextActive(seats: Seat[], from: number): number {
   return from;
 }
 
+/**
+ * Next seat with chips, searching left from `from`. A chipless seat sits out (see startHand), so it
+ * can neither post a blind nor hold the button; rotating onto one posted Math.min(blind, 0) === 0,
+ * which left currentBet at one big blind against chips nobody had put in. Measured on a 4-seat
+ * table with two busted villains: the button landing on a busted seat produced
+ * "Ada posts SB 0 | Bo posts BB 0" with pot 0 and currentBet 50, and the hand dealt with an empty
+ * pot. Returns `from` when nobody else has chips, matching nextActive/nextCanAct's convention.
+ */
+function nextFunded(seats: Seat[], from: number): number {
+  const n = seats.length;
+  for (let count = 0; count < n; count++) {
+    const i = (from + 1 + count) % n;
+    if (seats[i].stack > 0) return i;
+  }
+  return from;
+}
+
 function nextCanAct(seats: Seat[], from: number): number {
   const n = seats.length;
   let i = (from + 1) % n;
@@ -165,28 +182,32 @@ export function startHand(state: TableState): TableState {
     seat.allIn = false;
   }
 
-  // Rotate dealer
+  // Rotate dealer onto a seat that still has chips. A sat-out seat cannot hold the button, and
+  // parking it there also placed both blinds on sat-out seats on a 4-handed table.
   const n = s.seats.length;
   if (s.dealer === -1) {
-    s.dealer = 0;
+    s.dealer = s.seats[0].stack > 0 ? 0 : nextFunded(s.seats, 0);
   } else {
-    s.dealer = nextSeat(n, s.dealer);
+    s.dealer = nextFunded(s.seats, s.dealer);
   }
 
   // Shuffle deck: seed + handNumber for determinism
   const rng = mulberry32(h(s)._seed + s.handNumber);
   s.deck = shuffledDeck(rng);
 
-  const isHeadsUp = n === 2;
+  // Heads-up is about who can still play, not how many chairs exist: a 4-seat table with two
+  // busted villains is heads-up, and using the seat count posted the small blind two seats left of
+  // the button while the button itself posted nothing.
+  const isHeadsUp = s.seats.filter((seat) => seat.stack > 0).length === 2;
   let sbIdx: number;
   let bbIdx: number;
 
   if (isHeadsUp) {
     sbIdx = s.dealer;
-    bbIdx = nextSeat(n, s.dealer);
+    bbIdx = nextFunded(s.seats, s.dealer);
   } else {
-    sbIdx = nextSeat(n, s.dealer);
-    bbIdx = nextSeat(n, sbIdx);
+    sbIdx = nextFunded(s.seats, s.dealer);
+    bbIdx = nextFunded(s.seats, sbIdx);
   }
 
   // Post small blind
