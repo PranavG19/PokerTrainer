@@ -3,7 +3,14 @@
   "compilerOptions": {
     "module": "ES2022",
     "noEmit": false,
-    "outDir": "dist/main",
+    // rootDir is PINNED, not inferred. tsc infers it from the common ancestor of
+    // the emitted files, so the moment src/main imports anything from src/core
+    // the inferred root widens from src/main to src and the entry point silently
+    // moves to dist/main/main/main.js — while package.json and the e2e launcher
+    // still open dist/main/main.js. Pinning src keeps main at dist/main/main.js
+    // whether or not that import exists.
+    "rootDir": "src",
+    "outDir": "dist",
     "declaration": true
   },
   "include": ["src/main/**/*"],

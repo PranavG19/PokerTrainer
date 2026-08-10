@@ -1,7 +1,16 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import * as path from 'node:path';
-import { load, save } from './store.js';
-import { askTutor, resolveTutor, type AskInput } from './tutor/index.js';
+import { DELETE_CONFIRM_PHRASE } from '../core/backup.js';
+import {
+  deleteProfile,
+  load,
+  loadTutorEnabled,
+  profileStatus,
+  save,
+  saveTutorEnabled,
+} from './store.js';
+import { askTutor, resolveTutor, type AskInput, type ResolvedTutor } from './tutor/index.js';
+import { nullTutor } from './tutor/nullTutor.js';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -9,7 +18,26 @@ let mainWindow: BrowserWindow | null = null;
  * Resolved once at startup from the environment. With no Bedrock settings this
  * is the null tutor and the egress allowlist is empty (T1, Security section).
  */
-const tutor = resolveTutor(process.env);
+const configured = resolveTutor(process.env);
+
+/**
+ * The off switch, story 45. Structural rather than a flag consulted at call
+ * time: turning it off substitutes the *null tutor and an empty allowlist*, and
+ * nullTutor's module graph holds nothing that can open a socket — the same
+ * property that makes the no-credentials case zero-network. A later bug in the
+ * ask path therefore cannot leak, because there is no client to leak through.
+ */
+let tutorEnabled = loadTutorEnabled();
+
+function activeTutor(): ResolvedTutor {
+  if (tutorEnabled) return configured;
+  return {
+    tutor: nullTutor,
+    credentialsConfigured: configured.credentialsConfigured,
+    egressAllowlist: [],
+    guardFailures: configured.guardFailures,
+  };
+}
 
 function parseSeedArg(): number | null {
   const arg = process.argv.find(a => a.startsWith('--seed='));
@@ -72,13 +100,46 @@ app.whenReady().then(() => {
   ipcMain.handle('store:save', (_event, obj: Record<string, unknown>) => save(obj));
   ipcMain.handle('app:seed', () => seed);
 
-  ipcMain.handle('tutor:status', () => ({
-    tutorId: tutor.tutor.id,
-    credentialsConfigured: tutor.credentialsConfigured,
-    egressAllowlist: tutor.egressAllowlist,
-    guardFailures: tutor.guardFailures.length,
-  }));
-  ipcMain.handle('tutor:ask', (_event, input: AskInput) => askTutor(tutor, input));
+  ipcMain.handle('tutor:status', () => {
+    const active = activeTutor();
+    return {
+      tutorId: active.tutor.id,
+      credentialsConfigured: active.credentialsConfigured,
+      egressAllowlist: active.egressAllowlist,
+      guardFailures: active.guardFailures.length,
+    };
+  });
+  ipcMain.handle('tutor:ask', (_event, input: AskInput) => askTutor(activeTutor(), input));
+
+  /**
+   * Everything the settings screen states about egress is read from the resolved
+   * tutor here rather than restated in renderer copy, so the screen cannot drift
+   * from what the app would actually do.
+   */
+  ipcMain.handle('settings:read', () => {
+    const active = activeTutor();
+    return {
+      tutorEnabled,
+      tutorId: active.tutor.id,
+      credentialsConfigured: active.credentialsConfigured,
+      egressAllowlist: active.egressAllowlist,
+      guardFailures: active.guardFailures,
+      profile: profileStatus(),
+      deleteConfirmPhrase: DELETE_CONFIRM_PHRASE,
+    };
+  });
+
+  ipcMain.handle('settings:setTutorEnabled', (_event, enabled: boolean) => {
+    tutorEnabled = enabled === true;
+    saveTutorEnabled(tutorEnabled);
+    return tutorEnabled;
+  });
+
+  // The gate is here and in core/backup.ts, never in the renderer: a UI bug must
+  // not be able to destroy the decision log.
+  ipcMain.handle('settings:deleteProfile', (_event, confirmation: unknown) =>
+    deleteProfile(typeof confirmation === 'string' ? confirmation : ''),
+  );
 
   createWindow();
 });
