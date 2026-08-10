@@ -98,6 +98,13 @@ export interface TutorResponse {
 export interface ModelClient {
   readonly id: string;
   complete(envelope: PromptEnvelope): Promise<string>;
+  /**
+   * Additive multi-turn seam for the tool-using tutor agent. Optional so the
+   * single-shot path and its clients are untouched: the agent depends on a
+   * client that implements it, and the real bedrock.ts impl arrives in a later
+   * phase behind OFFSUIT_LIVE_E2E. Hermetically stubbed by MockModelClient.
+   */
+  converse?(envelope: AgentEnvelope): Promise<ModelTurn>;
 }
 
 export interface PromptEnvelope {
@@ -105,3 +112,42 @@ export interface PromptEnvelope {
   readonly user: string;
   readonly maxTokens: number;
 }
+
+/** One tool advertised to the model. `name` is the only field the agent dispatches on. */
+export interface ToolSpec {
+  readonly name: string;
+  readonly description: string;
+}
+
+/** A turn in the running transcript: the learner's question, a model turn, or a tool result fed back. */
+export interface AgentMessage {
+  readonly role: 'user' | 'assistant' | 'tool';
+  readonly text: string;
+}
+
+/**
+ * The envelope for one converse() call: the phase-gated tool registry plus the
+ * running transcript. Distinct from PromptEnvelope because the wire shape is a
+ * tools[]+messages[] body, not a single user turn.
+ */
+export interface AgentEnvelope {
+  readonly system: string;
+  readonly tools: readonly ToolSpec[];
+  readonly messages: readonly AgentMessage[];
+  readonly maxTokens: number;
+}
+
+/** One tool the model asked to run, with the arguments it supplied. */
+export interface ToolCall {
+  readonly name: string;
+  readonly args: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * One model turn. A discriminated union so the agent loop branches in code, not
+ * on a stringly-typed field: either the model wants tools run, or it produced
+ * final text.
+ */
+export type ModelTurn =
+  | { readonly kind: 'tool_use'; readonly calls: readonly ToolCall[] }
+  | { readonly kind: 'text'; readonly text: string };

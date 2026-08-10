@@ -122,15 +122,28 @@ export function allowedNumerals(request: TutorRequest): ReadonlySet<string> {
   return new Set(numeralsIn(JSON.stringify(request), JSON_NUMERAL));
 }
 
+/**
+ * `skipWordCount` exists for one caller: the agent's tool-result guard. A tool
+ * result is context fed BACK to the model, not the final prose shown to the
+ * learner, so the T4 word budget does not apply to it — a full principle lookup
+ * legitimately runs past 60 words. Provenance and the ban-list still run, so a
+ * tool result carrying an off-payload numeral is still rejected. The default is
+ * unchanged, so the final-output path keeps its word cap.
+ */
+export interface GuardOptions {
+  readonly skipWordCount?: boolean;
+}
+
 export function checkTutorOutput(
   output: { readonly text: string; readonly kind: TutorOutputKind },
   request: TutorRequest,
+  options: GuardOptions = {},
 ): GuardResult {
   const violations: GuardViolation[] = [];
   const wordCount = countWords(output.text);
 
   const limit = WORD_LIMITS[output.kind];
-  if (wordCount > limit) {
+  if (!options.skipWordCount && wordCount > limit) {
     violations.push({ check: 'word-count', detail: `${wordCount} words, limit ${limit}` });
   }
 
