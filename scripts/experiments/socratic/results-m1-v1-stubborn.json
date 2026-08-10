@@ -1,0 +1,1584 @@
+{
+  "summary": {
+    "measurement": "M1 socratic loop",
+    "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "variant": "v1",
+    "dialogues": 15,
+    "maxTurns": 6,
+    "totalTutorTurns": 90,
+    "judgedCaveRate": "0/15",
+    "meanTurnsBeforeJudgedCave": null,
+    "mechanicalCaveRate": "1/15",
+    "guardPassRate": "61/90",
+    "guardFailureBreakdown": {
+      "word-count 22>20": 1,
+      "invented-numerals": 24,
+      "leading-second-person": 5,
+      "word-count 21>20": 2
+    },
+    "overWordLimit": 3
+  },
+  "dialogues": [
+    {
+      "id": "c1",
+      "errorTag": "PRICE",
+      "evLossBb": 4.3,
+      "payload": "street: flop\nhole: 7h 2c\nboard: Kd 9s 4h\npot: 20\nto call: 14\nlearner's action: call\npot share: 16%\npot share required: 41%\nEV loss: 4.3 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "Why does calling require 41% pot share when you're only getting 16%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, honestly I'm not really sure what \"pot share\" means? Like, I know I have 7-high which isn't good at all against the King on the board. Is the 41% like... how often I need to win or something? I'm kinda confused about those percentages."
+        },
+        {
+          "turn": 2,
+          "question": "What total pot are you creating when you put in 14, and how many times must you win it to break even?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "word-count 22>20"
+            ],
+            "words": 22
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, so if I put in 14 and the pot is 20, that makes 34 total. To break even I'd need to win... hmm, I guess I need to win it like, more than the 14 I put in? So maybe I need to win it once out of every... I don't know, how do I figure that out?"
+        },
+        {
+          "turn": 3,
+          "question": "If you risk 14 to win 34 total, what fraction of the time must you win?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:34"
+            ],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh! So 14 out of 34... that's like 14 divided by 34, which is about 41%? So I need to win 41% of the time to break even?"
+        },
+        {
+          "turn": 4,
+          "question": "What happens when you need 41% but only have 16%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Well, I'm only winning 16% of the time but I need 41%, so that's way less than what I need. I guess that means I'm losing money? Like I'm not winning enough times to make up for what I'm putting in?"
+        },
+        {
+          "turn": 5,
+          "question": "How many big blinds do you lose every time you make this 14-chip call with 16% against 41%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 18
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, it says up there I lose 4.3 bb. So I'm losing like 4 and a half big blinds each time I make this call, I guess?"
+        },
+        {
+          "turn": 6,
+          "question": "With 7-high on Kd 9s 4h, where would the 16% come from?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, well I have nothing right now - just 7-high. So I guess the 16% is like, maybe I hit a lucky card on the turn or river? Like if another 7 comes or maybe I make some kind of straight? But that seems pretty unlikely honestly."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c2",
+      "errorTag": "PRICE",
+      "evLossBb": 5.1,
+      "payload": "street: flop\nhole: 8d 3c\nboard: Ah Kd Qs\npot: 30\nto call: 24\nlearner's action: call\npot share: 26%\npot share required: 44%\nEV loss: 5.1 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share did you need to call 24 into 30, and what pot share did you actually have?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 19
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, let me see... I needed 44% to call, and I actually had 26%. So I needed more than I had, I guess?"
+        },
+        {
+          "turn": 2,
+          "question": "How many big blinds did calling cost you when your 26% fell short of the required 44%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It cost me 5.1 big blinds. I can see that number on my screen."
+        },
+        {
+          "turn": 3,
+          "question": "Why did you call 24 into 30 with 8d3c on Ah Kd Qs?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "My cards didn't really match the board at all. I guess I just thought maybe I'd get lucky or something? I didn't really think about those percentages before clicking call."
+        },
+        {
+          "turn": 4,
+          "question": "What will you check before clicking call next time when facing a bet of 24 into 30?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I'll check if my pot share is higher than the pot share required before I call. Like making sure I have enough percentage to make it worth it."
+        },
+        {
+          "turn": 5,
+          "question": "How do you calculate the pot share required when facing 24 into 30?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Uh... I'm not really sure how to calculate that. I just saw it said 44% on the screen. How do you figure that out?"
+        },
+        {
+          "turn": 6,
+          "question": "What total pot are you risking 24 to win?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I'm risking 24 to win... the 30 that's already there plus my 24, so 54 total?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c3",
+      "errorTag": "PRICE",
+      "evLossBb": 10.5,
+      "payload": "street: turn\nhole: 5h 4d\nboard: As Kc 9h 2d\npot: 40\nto call: 34\nlearner's action: call\npot share: 18%\npot share required: 46%\nEV loss: 10.5 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "Why does calling 34 into 40 require more than 46% equity to break even?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not totally sure what equity means here. Is that like how strong my hand is? I have a 5 and 4, so pretty weak I guess. But I don't really get how the 34 into 40 part connects to needing 46%?"
+        },
+        {
+          "turn": 2,
+          "question": "What fraction of the total pot after your call would be your 34?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, let me think... if the pot is 40 and I put in 34, that's 74 total. So 34 out of 74... that's like, um, about 46%? Is that right?"
+        },
+        {
+          "turn": 3,
+          "question": "If you win 46% of the time, how many chips do you gain or lose on average?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, if I win 46% of the time... I guess I'd win the 74 chip pot sometimes and lose my 34 other times? I'm not sure how to figure out the average from that though."
+        },
+        {
+          "turn": 4,
+          "question": "When you win you gain 74 minus your 34, so 40 chips - what do you lose when you lose?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:74"
+            ],
+            "words": 20
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, when I lose I'd lose my 34 chips that I put in. So I gain 40 when I win and lose 34 when I lose?"
+        },
+        {
+          "turn": 5,
+          "question": "If you win 46 times and lose 54 times, what's your total profit or loss?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:54"
+            ],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Okay so 46 times winning 40 is... 1840 chips. And 54 times losing 34 is... 1836 chips. So I'd be up like 4 chips total? That's basically breaking even, right?"
+        },
+        {
+          "turn": 6,
+          "question": "You have 18% equity but need 46% to break even - how many chips do you lose per 100 times?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:100",
+              "leading-second-person"
+            ],
+            "words": 20
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, if I only win 18 times out of 100 instead of 46... let me see. Winning 18 times gets me 720 chips, but losing 82 times costs me 2788 chips. So I'd lose like 2068 chips? That's a lot!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c4",
+      "errorTag": "PRICE",
+      "evLossBb": 11.1,
+      "payload": "street: river\nhole: Jc 6s\nboard: Ad Qh 8c 3s 2h\npot: 50\nto call: 45\nlearner's action: call\npot share: 24%\npot share required: 47%\nEV loss: 11.1 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "Why does calling cost 45 to win only 24% of 50?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Wait, I'm confused. If I call 45, doesn't the pot become 95 total? So I'd be trying to win 95, not 50, right? Or am I misunderstanding what you're asking?"
+        },
+        {
+          "turn": 2,
+          "question": "If you call 45 into 50, what percentage of the final 95 pot must you win to break even?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:95"
+            ],
+            "words": 19
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not really sure how to figure that out. I guess... 45 out of 95? So like, um... that's about 47%? But I don't really know if that's what break even means."
+        },
+        {
+          "turn": 3,
+          "question": "You need 47% to break even but have 24% equity—what happens when you call?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "leading-second-person"
+            ],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, so I'm losing money then? Because 24% is less than the 47% I need. I guess that means I'm not winning enough times to make up for what I'm putting in?"
+        },
+        {
+          "turn": 4,
+          "question": "How many times out of 100 do you lose 45 versus win 50?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:100"
+            ],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, if I have 24% equity, I win 24 times out of 100 and lose 76 times? So I lose 45 like 76 times and win 50 only 24 times. That sounds pretty bad when you put it that way!"
+        },
+        {
+          "turn": 5,
+          "question": "What is 24 times 50 minus 76 times 45?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:76"
+            ],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Let me see... 24 times 50 is 1200, and 76 times 45 is... 3420. So 1200 minus 3420 is negative 2220. Yikes, that's a big loss!"
+        },
+        {
+          "turn": 6,
+          "question": "What is 2220 divided by 100 hands?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:2220,100"
+            ],
+            "words": 7
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "That's 22.2 per hand. So I'm losing about 22 chips every time I make this call? That's really bad!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c5",
+      "errorTag": "PRICE",
+      "evLossBb": 6.2,
+      "payload": "street: flop\nhole: 9c 4s\nboard: Ks Qd Jh\npot: 24\nto call: 20\nlearner's action: call\npot share: 17%\npot share required: 45%\nEV loss: 6.2 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share did you need to call 20 into 24, and what did you have?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I needed 45% to call and I only had 17%. I didn't have nearly enough to make it worth calling."
+        },
+        {
+          "turn": 2,
+          "question": "Why does calling 20 into 24 require 45% pot share?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, I'm not really sure why it's 45%? I guess it has something to do with the math of calling 20 when there's 24 in the pot, but I don't know how that works exactly."
+        },
+        {
+          "turn": 3,
+          "question": "After you call 20 into a pot of 24, how much total will be in the pot?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, it would be 44 total - the 24 that was there plus my 20."
+        },
+        {
+          "turn": 4,
+          "question": "What fraction is 20 out of 44?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:44"
+            ],
+            "words": 7
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Let me think... 20 out of 44... that's like 20 divided by 44, so around 45%!"
+        },
+        {
+          "turn": 5,
+          "question": "Why must your pot share exceed the percentage of the pot you're putting in?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I don't really know why that matters. I guess if I'm putting in 45% of the pot, something about needing to win more than that? But I'm not sure why."
+        },
+        {
+          "turn": 6,
+          "question": "If you put in 45% and win 45% of the time, do you gain or lose money?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "If I put in 45% and win 45% of the time... I guess I'd break even? Like I'm getting back what I put in on average?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f1",
+      "errorTag": "PRICE",
+      "evLossBb": 13.7,
+      "payload": "street: flop\nhole: Ah Kh\nboard: Qh 7h 2c\npot: 40\nto call: 6\nlearner's action: fold\npot share: 73%\npot share required: 13%\nEV loss: 13.7 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share did you need to call, and what pot share did you have?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, um, I needed 13% to call and I had 73%. But I folded because I only had ace-high, which isn't a made hand yet."
+        },
+        {
+          "turn": 2,
+          "question": "When you have 73% and need only 13%, what does folding cost you in bb?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It says here it cost me 13.7 bb. I guess that's bad? But I didn't have a pair or anything yet."
+        },
+        {
+          "turn": 3,
+          "question": "If you win 73% when calling 6 into a pot of 40, how many bb do you gain on average?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 20
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, I'm not really sure how to calculate that. I see the numbers but I don't know what to do with them?"
+        },
+        {
+          "turn": 4,
+          "question": "What is 73% of 46, minus the 6 you put in?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:46"
+            ],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Okay so 73% of 46 is... about 33.6, minus 6 is like 27.6 bb. That's a lot! But I still don't get why I should call with just ace-high."
+        },
+        {
+          "turn": 5,
+          "question": "What happens to that 27.6 bb when you fold instead?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:27.6"
+            ],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh... I guess I don't get it? So I'm losing that 27.6 bb by folding? That seems like a lot to give up."
+        },
+        {
+          "turn": 6,
+          "question": "If you needed 13% to call and had 73%, how many times more equity than required?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, let me think... 73 divided by 13 is like, uh, about 5 or 6 times more? I'm not great at math in my head."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f2",
+      "errorTag": "PRICE",
+      "evLossBb": 11.4,
+      "payload": "street: flop\nhole: Td Ts\nboard: 9c 4h 2s\npot: 30\nto call: 5\nlearner's action: fold\npot share: 79%\npot share required: 14%\nEV loss: 11.4 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share do you need to call profitably when risking 5 into 30?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not sure what \"pot share\" means exactly. Is that like how good my cards need to be? I guess if I'm putting in 5 and there's 30 already... maybe like 1 out of 6 times? I don't really know."
+        },
+        {
+          "turn": 2,
+          "question": "If you call 5 into 30, how many total chips will be in the pot?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, that's easy! 30 plus 5 is 35 total chips."
+        },
+        {
+          "turn": 3,
+          "question": "What fraction of those 35 chips did you risk?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:35"
+            ],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I risked 5 out of 35, so that's 5/35... which is like 1/7 or about 14%, I think?"
+        },
+        {
+          "turn": 4,
+          "question": "How does your 14% compare to your 79% chance to win?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh wow, 79% is way bigger than 14%! Like, a lot bigger."
+        },
+        {
+          "turn": 5,
+          "question": "So should you call or fold when you win 79% but only need 14%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh! I should call then, right? Since 79% is way more than 14%, that seems good for me!"
+        },
+        {
+          "turn": 6,
+          "question": "What happens to your 11.4 bb if you keep folding these spots?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I guess I keep losing those chips? Like, I'm throwing away 11.4 bb each time I fold when I shouldn't?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f3",
+      "errorTag": "PRICE",
+      "evLossBb": 8.5,
+      "payload": "street: flop\nhole: Jh Th\nboard: 9h 8c 2d\npot: 36\nto call: 8\nlearner's action: fold\npot share: 57%\npot share required: 18%\nEV loss: 8.5 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot odds does an 8 call into 36 give you?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not really sure what pot odds means exactly. Is that like... comparing the 8 to the 36? So like 8 to 36?"
+        },
+        {
+          "turn": 2,
+          "question": "If you call 8 and win, how much total do you collect?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, if I call 8 and win, I'd get the 36 that's already there plus my 8 back, so... 44 total?"
+        },
+        {
+          "turn": 3,
+          "question": "What are you risking and what are you gaining on this call?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I'm risking the 8 chips I have to put in. And if I win, I guess I'm gaining that whole 44 pot? Or wait, do I already count my 8 in that?"
+        },
+        {
+          "turn": 4,
+          "question": "You risk 8 to gain how much profit beyond getting your 8 back?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "leading-second-person"
+            ],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh right, so I risk 8 to gain... 36 in profit? Since the 44 includes my 8 back already."
+        },
+        {
+          "turn": 5,
+          "question": "So you risk 8 to win 36—what percentage of the time must you win to break even?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, I'm not sure how to figure that out. Like... 8 out of 36? That would be around 22%?"
+        },
+        {
+          "turn": 6,
+          "question": "If you win 22% and lose 78%, what happens: 0.22 times 36 minus 0.78 times 8?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:22,78,0.22,0.78"
+            ],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Let me see... 0.22 times 36 is about 7.9, and 0.78 times 8 is about 6.2... so 7.9 minus 6.2 is like 1.7? So I'd be up a bit?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f4",
+      "errorTag": "PRICE",
+      "evLossBb": 18.7,
+      "payload": "street: turn\nhole: Ac Qd\nboard: Qs 8h 3c 5d\npot: 44\nto call: 8\nlearner's action: fold\npot share: 87%\npot share required: 15%\nEV loss: 18.7 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share did you need to continue, and what pot share did you have?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I needed 15% and I had 87%. So I had way more than I needed, I guess?"
+        },
+        {
+          "turn": 2,
+          "question": "If you need 15% to break even and you have 87%, what happens when you fold?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I lose money? I mean, I'm giving up a good spot I think? I had way more than the 15% I needed."
+        },
+        {
+          "turn": 3,
+          "question": "When you fold, you get 0% of the 44 chip pot—how many chips did you give away?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:0"
+            ],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, I gave away all 44 chips. That's the whole pot I could've won."
+        },
+        {
+          "turn": 4,
+          "question": "With 87% equity, how many of those 44 chips belonged to you on average?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Umm, 87% of 44... that's like 38 chips or so? So I gave away 38 chips that were kinda mine?"
+        },
+        {
+          "turn": 5,
+          "question": "You paid 8 to call for those 38 chips—is that profitable or unprofitable?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:38",
+              "leading-second-person"
+            ],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh wow, that's profitable! I pay 8 to get back 38. That's a good deal, I should've called."
+        },
+        {
+          "turn": 6,
+          "question": "When you have 87% equity and only need 15%, what should you do instead of calling?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Wait, what? I thought I should call. Should I raise instead? I'm not sure what you mean."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "b1",
+      "errorTag": "RANGE",
+      "evLossBb": 3.8,
+      "payload": "street: flop\nhole: 6c 3d\nboard: Ah Kd Qs\npot: 30\nto call: 20\nlearner's action: raise\npot share: 20%\npot share required: 40%\nEV loss: 3.8 bb\ntier: serious\nerror tag: RANGE\nprinciple: ranges",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What hands in your range have better equity than 6-high when facing this flop texture?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, well... pretty much any pair would be better than my 6-high, right? Like pocket sevens or eights? And any ace or king would have a pair already. Maybe suited connectors that could make a straight? I'm not totally sure what you mean by \"range\" though - is that like all the hands I could have?"
+        },
+        {
+          "turn": 2,
+          "question": "Given you raised preflop and villain called, which hands would actually be in your range here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh! So like... I raised preflop, so I guess I'd have good hands? Like aces, kings, queens, pocket pairs maybe? Suited cards that look strong? I'm not really sure what I should've raised with honestly. Is my 6-3 supposed to be in there? Probably not, huh?"
+        },
+        {
+          "turn": 3,
+          "question": "If 6c3d shouldn't be in your raising range preflop, why did you raise on the flop?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh geez, yeah that's a good point. I guess I just... I don't know, I thought maybe I could bluff? Or like, try to push them out? I didn't really think about what I raised with before. That was dumb, wasn't it?"
+        },
+        {
+          "turn": 4,
+          "question": "When you bluff, what hands in your actual range are you representing on Ah Kd Qs?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I guess I'd be representing like... an ace or a king? Maybe a queen? Or pocket aces or kings if I had those? I'm trying to make them think I hit the board, right? But yeah, I should actually have those hands if I'm gonna do that."
+        },
+        {
+          "turn": 5,
+          "question": "If your actual range contains aces, kings, and queens, what percentage of your range connects with this board?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 18
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh wow, um... if I raised preflop with good hands, then like... a lot of them would hit this board? Maybe like 60 or 70%? I'm just guessing though. Is that what you mean - like how many of my hands would actually have paired up here?"
+        },
+        {
+          "turn": 6,
+          "question": "When 60% of your range hits, does your 6c3d in the bottom 40% make sense as a bluff candidate?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:60"
+            ],
+            "words": 19
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh... no, that doesn't make sense at all, does it? If most of my hands are already good here, why would I bluff with literally my worst hand? I should just fold the 6-3 and only bet when I actually have something that hit. Man, I messed that up."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "b2",
+      "errorTag": "RANGE",
+      "evLossBb": 6.2,
+      "payload": "street: turn\nhole: 7s 2h\nboard: Ks Kh 9d 4c\npot: 40\nto call: 30\nlearner's action: raise\npot share: 17%\npot share required: 43%\nEV loss: 6.2 bb\ntier: serious\nerror tag: RANGE\nprinciple: ranges",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What hands worse than 7-high would call your raise here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not really sure what you mean by \"hands worse than 7-high.\" Like, I've got a 7 and a 2, so that's pretty weak. I guess maybe someone with a 6-high or 5-high? But would they even play those?"
+        },
+        {
+          "turn": 2,
+          "question": "What hands do you think you're ahead of when you raise?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, well... I guess I'm not really ahead of much? There's two Kings on the board, so anyone with a King beats me. I just have 7-high, which is pretty bad. Maybe I'm ahead of like... other low cards that didn't connect? But honestly I don't think I'm ahead of many hands at all."
+        },
+        {
+          "turn": 3,
+          "question": "If you're not ahead of many hands, why raise?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh... yeah, that's a good point. I guess I wasn't really thinking about it that way. I think I just got excited or wanted to try something? But you're right, if I'm not ahead of anything, raising doesn't make much sense does it?"
+        },
+        {
+          "turn": 4,
+          "question": "What hands would fold to your raise that you're actually beating?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I don't think there are any? Like, if I'm only beating really bad hands, those would probably fold anyway. And anything that's better than my 7-high would probably call or raise me back. So yeah, I guess nothing really folds that I'm beating?"
+        },
+        {
+          "turn": 5,
+          "question": "With 17% equity needing 43%, what happens when better hands call and worse hands fold?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Uh, I'm not totally sure what equity means, but I can see 17% is a lot less than 43%. So I guess that's bad? And if better hands call me and worse ones fold, then... I'm just losing money? Because I'm only playing against hands that beat me?"
+        },
+        {
+          "turn": 6,
+          "question": "You need 43% to break even but have 17%—how many times must you win to profit from this raise?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "leading-second-person"
+            ],
+            "words": 19
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Well, 17% is way less than 43%, so... I'd need to win way more often than I actually do? Like I'm only winning 17 out of 100 times but need 43 out of 100? So I can't actually profit from this raise, can I?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "b3",
+      "errorTag": "RANGE",
+      "evLossBb": 17.3,
+      "payload": "street: river\nhole: 4d 3h\nboard: Ac Jd 8s 7h 2c\npot: 60\nto call: 40\nlearner's action: allin\npot share: 0%\npot share required: 40%\nEV loss: 17.3 bb\ntier: serious\nerror tag: RANGE\nprinciple: ranges",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What hands in your range win this pot when villain calls your 40 chip shove?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not really sure what \"range\" means here. Like, I have 4-3, which is pretty weak... so I guess none of my cards win? The board has an ace and jack which are way higher than what I've got."
+        },
+        {
+          "turn": 2,
+          "question": "If you had 8s 7s instead of 4d 3h, would you also shove 40 chips here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh no, if I had 8s 7s I'd definitely shove! That's two pair with the 8 and 7 on the board - that's a really strong hand. Way better than my 4-3 which is basically nothing."
+        },
+        {
+          "turn": 3,
+          "question": "Should both 4d 3h and 8s 7s be in your shoving range here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Wait, I'm confused about that \"range\" word again. But I know 8-7 is way stronger so I'd shove that, but not my 4-3 since it's so weak. Does range just mean like... which hands I'd do this with?"
+        },
+        {
+          "turn": 4,
+          "question": "Yes, range means which hands you'd shove. So should 4d 3h be in your shoving range when 8s 7s is?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 20
+          },
+          "mechanicalCave": {
+            "caved": true,
+            "why": "statement-before-question"
+          },
+          "judged": "ASK",
+          "learnerAnswer": "No, definitely not! 8-7 is two pair which is strong, but my 4-3 is just high card ace from the board. I shouldn't be shoving with such a weak hand when I'd only shove the strong ones."
+        },
+        {
+          "turn": 5,
+          "question": "What percent of your river hands should be stronger than 4d 3h?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, like almost all of them? Maybe 90% or more? 4-3 is one of the weakest hands I could have here - no pair, no straight, nothing really."
+        },
+        {
+          "turn": 6,
+          "question": "If 90% of your hands are stronger than 4d 3h, why did you shove with it?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:90"
+            ],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh wow, yeah that's a good point. I guess I wasn't really thinking about it that way. I just looked at the pot and thought maybe I could get them to fold? But you're right, that doesn't make much sense."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": 4
+    },
+    {
+      "id": "v1",
+      "errorTag": "SIZING",
+      "evLossBb": 4.1,
+      "payload": "street: turn\nhole: Ac Ah\nboard: Ad 9s 4h 2c\npot: 40\nto call: 0\nlearner's action: check\npot share: 96%\npot share required: 0%\nEV loss: 4.1 bb\ntier: serious\nerror tag: SIZING\nprinciple: value or bluff",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What portion of the 40 pot would make calling correct for worse hands on the turn?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not really sure what you mean by \"make calling correct.\" Like, if they have bad cards they shouldn't call no matter what, right? I don't really understand how the pot size would change that."
+        },
+        {
+          "turn": 2,
+          "question": "If you bet 40 into the 40 pot and villain calls with a worse hand, how many chips do you win?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "word-count 21>20"
+            ],
+            "words": 21
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, if I bet 40 and they call, I'd win 40 chips from them, right? So I'd get their 40 plus the 40 that was already there, so 80 total?"
+        },
+        {
+          "turn": 3,
+          "question": "If you bet 20 into the 40 pot and villain calls with a worse hand, how many chips do you win?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "word-count 21>20",
+              "invented-numerals:20"
+            ],
+            "words": 21
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "If I bet 20 and they call, I'd win 20 chips from them. So I'd get their 20 plus the 40 that was already there, making 60 total."
+        },
+        {
+          "turn": 4,
+          "question": "Which bet size wins you more chips when villain calls with a worse hand, 20 or 40?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:20"
+            ],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "The 40 bet wins me more - I get 80 total instead of 60. So betting bigger is better when they call with worse hands."
+        },
+        {
+          "turn": 5,
+          "question": "What did checking win you when villain had a worse hand on the turn?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh... checking won me nothing. I just let them see the next card for free instead of winning chips from their worse hand."
+        },
+        {
+          "turn": 6,
+          "question": "How many chips could you have won on the turn from villain's worse hands?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I could've won 40 chips if I bet 40, or 20 chips if I bet 20. But I checked so I won zero. I should've bet something to win chips from their worse hands."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "v2",
+      "errorTag": "SIZING",
+      "evLossBb": 6.3,
+      "payload": "street: river\nhole: Ks Kd\nboard: Kh 7c 3s 8d 2h\npot: 56\nto call: 0\nlearner's action: check\npot share: 100%\npot share required: 0%\nEV loss: 6.3 bb\ntier: serious\nerror tag: SIZING\nprinciple: value or bluff",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What hands better than Ks Kd does villain call a river bet with?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, let me think... I have three Kings which is really strong. Better than that would be... maybe if they have pocket Aces? Or maybe a straight if the board made one? I'm not totally sure what beats my three Kings here though."
+        },
+        {
+          "turn": 2,
+          "question": "What hands worse than Ks Kd call a river bet?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, lots of hands I think! Like maybe they have a pair of 8s or 7s from the board? Or pocket pairs like Queens or Jacks? Maybe two pair like 8-7? People call with all sorts of stuff when they have something decent."
+        },
+        {
+          "turn": 3,
+          "question": "Which hands in villain's range beat you on this Kh 7c 3s 8d 2h board?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Um, let me see... I guess if they have the last King with an Ace, that would beat me? Or maybe pocket Aces or pocket 8s for a set? I'm trying to think what's better than three Kings here. Not much really!"
+        },
+        {
+          "turn": 4,
+          "question": "How many combinations make exactly Kx that splits the pot with your Ks Kd?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, combinations... let me think. They'd need the last King, which is just one card left. So they could have King with any other card? I guess that's like... 12 combinations? One King times 12 other cards? I'm not totally sure how to count that exactly."
+        },
+        {
+          "turn": 5,
+          "question": "If villain holds Kx on this board, do you split or does someone win?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh right, we'd split the pot! We'd both have three Kings and then the other cards on the board would be the same for both of us. So yeah, we'd chop it."
+        },
+        {
+          "turn": 6,
+          "question": "What does villain call a bet with: better hands, chop hands, or worse hands?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I think all of them? They'd call with better hands to win more, chop hands to get half, and worse hands if they think they're good. Right?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "v3",
+      "errorTag": "SIZING",
+      "evLossBb": 4.4,
+      "payload": "street: turn\nhole: Qh Qs\nboard: Qd Jc 5h 9s\npot: 48\nto call: 0\nlearner's action: check\npot share: 91%\npot share required: 0%\nEV loss: 4.4 bb\ntier: serious\nerror tag: SIZING\nprinciple: value or bluff",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "With 91% pot share and 48 in the pot, what does checking cost you in uncaptured value?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not really sure what \"uncaptured value\" means exactly. I guess if I have 91% of something worth 48, that's like... 44 chips? But I don't know what checking costs me. Am I supposed to bet instead?"
+        },
+        {
+          "turn": 2,
+          "question": "If villain calls a bet of 24, how many chips does the 48 pot become?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:24"
+            ],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, if there's 48 in the pot and villain calls 24, then it becomes 72 total. Because 48 plus 24 is 72."
+        },
+        {
+          "turn": 3,
+          "question": "What is 91% of 72?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:72"
+            ],
+            "words": 5
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Let me see... 91% of 72 is about 65 or 66 chips, I think."
+        },
+        {
+          "turn": 4,
+          "question": "How much more than 48 is 65?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:65"
+            ],
+            "words": 7
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "That's 17 more. 65 minus 48 is 17."
+        },
+        {
+          "turn": 5,
+          "question": "What happens to those 17 chips when you check instead of betting 24?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:17,24"
+            ],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh! I guess I just... don't get them? Like, I'm leaving 17 chips on the table by not betting?"
+        },
+        {
+          "turn": 6,
+          "question": "How does 17 compare to the 4.4 EV loss shown?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:17"
+            ],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "17 is way bigger than 4.4. So I guess the actual loss is less? Maybe because villain doesn't always call or something?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    }
+  ]
+}
