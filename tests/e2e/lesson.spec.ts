@@ -250,9 +250,19 @@ test.describe('lesson mode', () => {
       // G5: the prompt asks how to play it and the app never names the spot type for the learner.
       expect(spot.prompt.toLowerCase()).not.toContain('bluff-catch');
 
-      // The tutor rail is another agent's surface: the seam exists and is empty.
+      /**
+       * The tutor rail's mount seam. This assertion used to require the seam be EMPTY, because the
+       * rail was another agent's unbuilt surface; it is now built (components/tutorRail.ts), so the
+       * same structural fact is asserted at its new value rather than dropped: the seam still exists
+       * exactly once, and it holds exactly one child — the rail and nothing else. What this test is
+       * for is that the lesson screen owns one mount point and does not scatter tutor UI through the
+       * example, and that is what is checked.
+       */
       await expect(page.locator(tutorRail)).toHaveCount(1);
-      expect(await page.locator(tutorRail).evaluate((el) => el.childElementCount)).toBe(0);
+      expect(await page.locator(tutorRail).evaluate((el) => el.childElementCount)).toBe(1);
+      await expect(page.locator(`${tutorRail} > [data-testid="tutor-rail"]`)).toHaveCount(1);
+      // Still no tutor UI anywhere but the seam.
+      expect(await page.locator('[data-testid="tutor-rail"]').count()).toBe(1);
     });
   });
 

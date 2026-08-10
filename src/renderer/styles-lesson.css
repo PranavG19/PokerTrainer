@@ -371,9 +371,116 @@
   padding: 6px 0;
 }
 
-/* The tutor rail is a different agent's surface: an empty mount seam, zero height until it fills. */
+/* ─── Tutor rail ───
+ * Mounted in the lesson column rather than floating beside it: at the documented 900px minimum
+ * there is no room for a second column, and the rail is a conversation about the position directly
+ * above it, so reading order and visual order agree.
+ *
+ * No colour carries state. A held-back question, a failure and an answer differ by their wording
+ * and by the source line under them; the only colour distinction is text-lo vs text-hi for
+ * "supporting" vs "the answer", which is the same weight convention the lexicon uses. Nothing here
+ * is ever disabled while a call is in flight — the composer keeps taking questions.
+ */
 .lesson-rail:empty {
   display: none;
+}
+
+.tutor-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.tutor-rail-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tutor-rail-title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Provenance is never hidden and never abbreviated: the rail must not look live when it is not. */
+.tutor-rail-provenance {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.5;
+}
+
+.tutor-rail-empty {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.5;
+}
+
+/*
+ * The transcript is BOUNDED and scrolls itself. Unbounded it grew with every question and pushed
+ * the composer off the bottom of the window — at 900x640 the input the learner had just typed into
+ * ended up below the fold after a single answer, and the source line under the last reply was
+ * clipped mid-sentence. Capping it keeps the box that takes the next question permanently reachable,
+ * which matters more than seeing the whole history at once; the history is still all there, one
+ * scroll away.
+ */
+.tutor-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-height: 700px) {
+  .tutor-transcript {
+    max-height: 170px;
+  }
+}
+
+.tutor-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The learner's own words, indented and quieter — it is the question, not the teaching. */
+.tutor-turn[data-role='learner'] .tutor-turn-body {
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--text-lo);
+  padding-left: 12px;
+  border-left: 2px solid var(--surface-hi);
+}
+
+.tutor-turn-body {
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.6;
+  color: var(--text-hi);
+  white-space: pre-wrap;
+}
+
+/* Pending says so in words; the italic is a second cue, never the only one. */
+.tutor-turn[data-state='pending'] .tutor-turn-body {
+  font-style: italic;
+  color: var(--text-lo);
+}
+
+.tutor-turn-source {
+  font-size: 11px;
+  color: var(--text-lo);
+  line-height: 1.45;
+}
+
+.tutor-composer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 /* At the documented 900x640 minimum six meta cells do not fit on one row. */
