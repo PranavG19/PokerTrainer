@@ -1,4 +1,5 @@
 import type { HandRecord, SessionState } from '../../core/session.js';
+import { DEFAULT_BANKROLL } from '../../core/session.js';
 import { renderCard } from '../components/card.js';
 
 const RECENT_LIMIT = 5;
@@ -24,10 +25,16 @@ function renderBankroll(bankroll: number): HTMLElement {
   block.className = 'home-bankroll';
 
   const value = document.createElement('div');
-  value.className = 'bankroll';
+  const rounded = Math.round(bankroll);
+  // Same win/loss colouring as the hand rows below. Without it the headline number — the most
+  // prominent thing on the screen — was the only figure not colour-coded, so a bankroll of -5000
+  // (reachable: three busts and rebuys off a 10000 start) read as plain white next to red rows.
+  const direction = rounded > DEFAULT_BANKROLL ? 'net-up' : rounded < DEFAULT_BANKROLL ? 'net-down' : 'net-flat';
+  value.className = `bankroll ${direction}`;
   value.dataset.testid = 'bankroll';
+  value.dataset.direction = direction;
   // Plain digits, no separators: the e2e suite parses this text as a number.
-  value.textContent = String(Math.round(bankroll));
+  value.textContent = String(rounded);
   block.appendChild(value);
 
   const label = document.createElement('div');
