@@ -62,7 +62,12 @@ export function gradeDecision(input: {
       // threshold: raw equity charged 0.52bb ('notable') for folding 72o, which would nag at a
       // learner doing the right thing. It still ranks fold behind check with a real hand.
       evLossBb = (equity * 0.5 * pot) / bb;
-      if (evLossBb >= 0.5) principle = 'pot odds';
+      // 'value or bluff', not 'pot odds'. Nothing was owed, so no price was misjudged — what was
+      // thrown away is the equity a free continuation would have realised. Tagging it 'pot odds'
+      // filed every free fold under the arithmetic leak in the profile's leak list, so a learner
+      // whose actual weakness is surrendering free cards would be shown pot-odds drills. G7
+      // aggregates by error tag, which makes the tag load-bearing rather than cosmetic.
+      if (evLossBb >= 0.5) principle = 'value or bluff';
     } else if (equity > required) {
       evLossBb = ((equity - required) * (pot + toCall)) / bb;
       principle = 'pot odds';

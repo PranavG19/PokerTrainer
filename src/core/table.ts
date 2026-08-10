@@ -383,6 +383,13 @@ export function applyAction(state: TableState, action: Action): TableState {
       s.pot += cost;
       if (raiseIncrement >= s.minRaise) {
         s.minRaise = raiseIncrement;
+        // A FULL raise reopens the betting for everyone. The cap set by an earlier short all-in
+        // described that all-in only — it is stale the moment someone puts in a legitimate raise
+        // over the top, and _raiseCapped was cleared only in advanceStreet, so the cap survived the
+        // rest of the street. Measured: a seat facing a full raise to 160 was offered [fold, call]
+        // with 4890 behind, silently denied a legal raise while an uncapped seat at the same table
+        // was offered one.
+        h(s)._raiseCapped = s.seats.map(() => false);
       }
       s.currentBet = raiseTo;
       if (seat.stack === 0) seat.allIn = true;
@@ -403,6 +410,9 @@ export function applyAction(state: TableState, action: Action): TableState {
         if (isFullRaise) {
           s.minRaise = raiseIncrement;
           s.lastAggressor = seatIdx;
+          // A full-sized all-in reopens the betting exactly as a full raise does, so an earlier
+          // short all-in's cap is stale here too.
+          h(s)._raiseCapped = s.seats.map(() => false);
         } else {
           // An all-in short of a full raise lifts the bet but does not reopen the betting:
           // anyone who already matched the old bet may only call the difference or fold.
