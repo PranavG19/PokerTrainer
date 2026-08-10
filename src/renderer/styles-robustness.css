@@ -1,0 +1,223 @@
+/*
+ * THE ROBUSTNESS DRILL (O7). Palette comes from styles.css: no new colours, and no mint and no red
+ * anywhere in this file. V2 reserves mint for win% and the fluency gate, and red means irreversible
+ * rather than "bad" — a leak is neither, so the four continuations are told apart by type weight and
+ * edge treatment only. Greyscale-print the screen and it still says the same thing, which matters
+ * more here than elsewhere: a red "leak" column would read as a bound, which is exactly the false
+ * claim O7 forbids.
+ *
+ * BUDGET, measured rather than estimated. The shell spends 45px on the tab bar and 40px on
+ * .screen's vertical padding, so the column budget is 100vh - 85px: 555px in a 640px window, 675px
+ * in a 760px one. Width at the 900px minimum: 900 - 40px of .screen padding = 860px, of which the
+ * sidebar takes a fixed 210px and the gap 16px, leaving 634px for the report — four continuation
+ * columns at minmax(0, 1fr) plus three 8px gaps, so they compress instead of overflowing.
+ *
+ * BOTH COLUMNS SCROLL THEMSELVES rather than letting the page grow, the same valve the charts and
+ * drill screens use. robustness.spec.ts asserts the internal overflow is zero at both documented
+ * sizes, so the day the content outgrows the window it is a failing test rather than a scrollbar
+ * that quietly hides the heuristic label.
+ */
+.robust-screen {
+  --panel-budget: calc(100vh - 85px);
+
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* ─── Sidebar: the revealed spots ─── */
+.robust-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px 14px;
+  max-height: var(--panel-budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.robust-spot-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.3;
+  background: var(--surface-hi);
+  color: var(--text-lo);
+  cursor: pointer;
+}
+
+/* The selected spot is the loud one: weight and ink, no accent colour. */
+.robust-spot-btn[data-active='true'] {
+  background: var(--card-face);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.robust-note {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-lo);
+}
+
+/* ─── The report ─── */
+.robust-work {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px 16px;
+  max-height: var(--panel-budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.robust-spot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.robust-cards {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Hole cards read as a pair only if something separates them from the board. */
+.robust-card-gap {
+  width: 12px;
+}
+
+.robust-action {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text-hi);
+}
+
+.robust-chips {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/* ─── The four continuations ─── */
+.robust-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.robust-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface-hi);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+/* The best and worst continuations are the two ends of the spread, so they carry the edge. */
+.robust-column[data-extreme='best'],
+.robust-column[data-extreme='worst'] {
+  border-color: var(--text-lo);
+}
+
+.robust-column-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+
+/* Huge light-weight numeral (V1), and the sign does the work no colour is allowed to do. */
+.robust-column-ev {
+  font-size: 24px;
+  font-weight: 200;
+  letter-spacing: -0.5px;
+  color: var(--text-hi);
+}
+
+.robust-column[data-profit='false'] .robust-column-ev {
+  color: var(--text-lo);
+}
+
+.robust-column-weights {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-lo);
+}
+
+/* ─── The verdict and its reason ─── */
+.robust-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-hi);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.robust-verdict-word {
+  font-size: 20px;
+  font-weight: 300;
+  color: var(--text-hi);
+}
+
+.robust-verdict-reason {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-hi);
+}
+
+.robust-spread {
+  margin-top: 2px;
+  font-size: 18px;
+  font-weight: 200;
+  color: var(--text-hi);
+}
+
+.robust-message {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-lo);
+}
+
+.robust-scope {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-lo);
+}
+
+/*
+ * ─── Heuristic, never a bound ───
+ * Part of the frame, not a footnote: the label sits in the report column at body size, and its own
+ * rule above it so it cannot be mistaken for more of the verdict.
+ */
+.robust-heuristic {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px solid var(--surface-hi);
+  padding-top: 8px;
+}
+
+.robust-heuristic-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+
+.robust-heuristic-body {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-lo);
+}

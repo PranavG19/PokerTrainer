@@ -20,6 +20,7 @@ import { renderLessonScreen } from './screens/lesson.js';
 import { renderCharts } from './screens/charts.js';
 import { renderDrillScreen } from './screens/drill.js';
 import { renderDossier } from './screens/dossier.js';
+import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderTable, type TableHandle } from './screens/table.js';
@@ -76,7 +77,15 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
   deleteConfirmPhrase: 'DELETE PROFILE',
 };
 
-type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'dossier' | 'profile' | 'settings';
+type Tab =
+  | 'play'
+  | 'learn'
+  | 'drill'
+  | 'robustness'
+  | 'charts'
+  | 'dossier'
+  | 'profile'
+  | 'settings';
 
 /**
  * The tab bar, in spine order: play, then the teaching surfaces, then progress.
@@ -91,6 +100,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'play', label: 'Play', testid: 'tab-play' },
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
   { id: 'drill', label: 'Drill', testid: 'tab-drill' },
+  { id: 'robustness', label: 'Robustness', testid: 'tab-robustness' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
@@ -286,6 +296,7 @@ async function boot(): Promise<void> {
     if (which === 'learn') return renderLessonScreen();
     if (which === 'charts') return renderCharts();
     if (which === 'drill') return renderDrillScreen();
+    if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
     if (which === 'settings') {
       return renderSettings({
