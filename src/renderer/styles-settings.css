@@ -1,0 +1,241 @@
+/*
+ * Settings and privacy. Palette comes from styles.css — no new colours.
+ *
+ * V2: mint is reserved for win% and the fluency gate, so nothing here is mint,
+ * including the "tutor is live" state. Live vs off is carried by weight and
+ * position (the state line is the largest thing in its section, first in the
+ * flow), not by colour. Red appears once, on the delete control, which is the
+ * one irreversible action in the app rather than a severity grade.
+ *
+ * The column scrolls: this screen is a document, and truncating a privacy
+ * statement to fit 640px of window would be the one failure mode worth avoiding
+ * above all others here.
+ */
+.settings-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 16px 40px 32px;
+  max-width: 560px;
+  margin: 0 auto;
+  /* The window minus the tab bar and the .screen padding, matching the profile
+     column's budget, so the section below the fold is reachable by scrolling
+     instead of pushing the document itself into a scrollbar. */
+  max-height: calc(100vh - 66px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.settings-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+
+.settings-state {
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--text-hi);
+}
+
+/* Off is the quieter of the two states — it is the absence of an activity. */
+.settings-state[data-live='false'] {
+  color: var(--text-lo);
+}
+
+.settings-copy {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-lo);
+}
+
+.settings-note {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-list li {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-hi);
+  padding-left: 14px;
+  position: relative;
+}
+
+.settings-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-lo);
+}
+
+/* ─── Egress allowlist ─── */
+.settings-hosts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-host {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: var(--text-hi);
+  background: var(--surface-hi);
+  border-radius: 8px;
+  padding: 8px 10px;
+  word-break: break-all;
+}
+
+.settings-hosts-empty {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-lo);
+}
+
+/* ─── The off switch ─── */
+.settings-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.settings-toggle {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  background: var(--surface-hi);
+  color: var(--text-hi);
+}
+
+.settings-toggle:hover {
+  background: var(--card-face);
+  color: var(--ink);
+}
+
+/* ─── Guard diagnostics ─── */
+.settings-count {
+  font-size: 24px;
+  font-weight: 300;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-failures {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-failure {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--surface-hi);
+  border-radius: 10px;
+  padding: 9px 11px;
+}
+
+.settings-failure-head {
+  font-size: 12px;
+  color: var(--text-hi);
+}
+
+.settings-failure-why {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-lo);
+  word-break: break-word;
+}
+
+/* ─── The one hard delete ─── */
+.settings-danger {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  border-top: 1px solid var(--surface-hi);
+  padding-top: 14px;
+}
+
+.settings-confirm-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-lo);
+  width: 100%;
+}
+
+.settings-confirm-input {
+  border: 1px solid var(--surface-hi);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-hi);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.settings-confirm-input:focus {
+  outline: none;
+  border-color: var(--text-lo);
+}
+
+.settings-delete-button {
+  border: 1px solid var(--red);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--red);
+  font: inherit;
+  font-size: 13px;
+  padding: 9px 18px;
+  cursor: pointer;
+}
+
+.settings-delete-button:hover:not(:disabled) {
+  background: var(--red);
+  color: var(--text-hi);
+}
+
+/* Disabled is the resting state: the gate is that this stays unclickable until
+   the phrase is typed, so it must read as unavailable rather than merely dim. */
+.settings-delete-button:disabled {
+  border-color: var(--surface-hi);
+  color: var(--text-lo);
+  cursor: not-allowed;
+}

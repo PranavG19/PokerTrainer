@@ -1,6 +1,7 @@
 import './styles.css';
 import './styles-panels.css';
 import './styles-screens.css';
+import './styles-settings.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
 import {
@@ -16,6 +17,7 @@ import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderCharts } from './screens/charts.js';
+import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
 const DEFAULT_SEED = 42;
@@ -24,6 +26,9 @@ interface OffsuitBridge {
   loadState: () => Promise<Record<string, unknown>>;
   saveState: (obj: Record<string, unknown>) => Promise<void>;
   getSeed: () => Promise<number | null>;
+  readSettings?: () => Promise<SettingsStatus>;
+  setTutorEnabled?: (enabled: boolean) => Promise<boolean>;
+  deleteProfile?: (confirmation: string) => Promise<{ deleted: boolean }>;
 }
 
 declare global {
@@ -45,7 +50,22 @@ function bridge(): OffsuitBridge {
   };
 }
 
-type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'profile';
+/**
+ * In a plain browser there is no main process to resolve a tutor, and the honest report of that is
+ * the fully-local one: no credentials, empty allowlist. Never fabricated as "live" — this screen's
+ * whole job is not overstating egress.
+ */
+const LOCAL_ONLY_SETTINGS: SettingsStatus = {
+  tutorEnabled: false,
+  tutorId: 'null',
+  credentialsConfigured: false,
+  egressAllowlist: [],
+  guardFailures: [],
+  profile: { path: '(in-memory)', backupCount: 0, lastRecovery: 'fresh' },
+  deleteConfirmPhrase: 'DELETE PROFILE',
+};
+
+type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'profile' | 'settings';
 
 /**
  * The tab bar, in spine order: play, then the teaching surfaces, then progress.
@@ -62,6 +82,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'drill', label: 'Drill', testid: 'tab-drill' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
+  { id: 'settings', label: 'Settings', testid: 'tab-settings' },
 ];
 
 async function boot(): Promise<void> {
@@ -71,6 +92,7 @@ async function boot(): Promise<void> {
 
   let tab: Tab = 'play';
   let table: TableHandle | null = null;
+  let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
 
   const app = document.getElementById('app');
   if (!app) throw new Error('#app missing');
@@ -89,6 +111,9 @@ async function boot(): Promise<void> {
     b.addEventListener('click', () => {
       tab = id;
       render();
+      // Backup count and guard failures move while the learner is elsewhere, so opening the tab
+      // re-reads rather than showing what was true at boot.
+      if (id === 'settings') void refreshSettings();
     });
     return b;
   };
@@ -117,6 +142,29 @@ async function boot(): Promise<void> {
   async function onCoachedModeChange(on: boolean): Promise<void> {
     session = setCoachedMode(session, on);
     await io.saveState(serialize(session));
+  }
+
+  /** Re-read from main after every mutation, so the screen reports the resolved state, not a guess. */
+  async function refreshSettings(): Promise<void> {
+    settings = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
+    if (tab === 'settings') render();
+  }
+
+  async function onSetTutorEnabled(enabled: boolean): Promise<void> {
+    await io.setTutorEnabled?.(enabled);
+    await refreshSettings();
+  }
+
+  async function onDeleteProfile(confirmation: string): Promise<void> {
+    const outcome = await io.deleteProfile?.(confirmation);
+    // Only on a real delete: main refuses an unconfirmed call, and dropping the session anyway would
+    // destroy in memory exactly what the gate just refused to destroy on disk. On a real delete the
+    // session MUST go, or the next save would write the deleted log straight back.
+    if (outcome?.deleted === true) {
+      session = deserialize({});
+      teardownTable();
+    }
+    await refreshSettings();
   }
 
   function startTable(): void {
@@ -178,6 +226,15 @@ async function boot(): Promise<void> {
     if (which === 'profile') return renderProfile({ session });
     if (which === 'learn') return renderLessonScreen();
     if (which === 'charts') return renderCharts();
+    if (which === 'settings') {
+      return renderSettings({
+        status: settings,
+        handlers: {
+          onSetTutorEnabled: (enabled) => void onSetTutorEnabled(enabled),
+          onDeleteProfile: (confirmation) => void onDeleteProfile(confirmation),
+        },
+      });
+    }
     return renderPlaceholder(which);
   }
 

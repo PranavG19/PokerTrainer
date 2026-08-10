@@ -1,0 +1,4 @@
+# backup.test.ts embeds a literal NUL in a corruption fixture — it feeds deliberate binary noise to
+# the profile recovery path — and git's heuristic reads that one byte as "this whole file is binary",
+# so the source diffs as `Bin 0 -> 7380 bytes` and a review of it shows nothing. It is UTF-8 source.
+tests/unit/backup.test.ts text diff
