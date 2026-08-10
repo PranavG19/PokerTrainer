@@ -1,0 +1,358 @@
+/*
+ * PREFLOP CHART TRAINER (N3). Palette comes from styles.css — no new colours, and no mint anywhere
+ * in this file: V2 reserves it for win% and the fluency gate, and severity here is carried by type
+ * weight and edge treatment instead.
+ *
+ * BUDGET, which is the whole difficulty of this screen — and it is measured, because guessing it
+ * wrong is the regression class this app has already shipped twice.
+ *
+ * WIDTH. At the documented 900px minimum the shell spends 40px on .screen padding, leaving 860px.
+ * The compressed panel is fixed at 300px and the column gap is 20px, so the grid gets 540px: 13
+ * columns plus 12 gaps of 2px fits at 39px a cell.
+ *
+ * HEIGHT is the tighter of the two, which is easy to miss. The tab bar takes 45px and .screen adds
+ * 20px of vertical padding, so a 760px window leaves 695px and a 640px one leaves 575px. Measured,
+ * the compressed panel wants 709px — over budget at BOTH documented sizes, not just the small one.
+ * So it scrolls itself unconditionally (--panel-budget below) rather than letting the page grow a
+ * scrollbar, which is the same remedy the table screen uses for its open stats sheet. The grid and
+ * the drill keys never move, which is the pair the learner is acting on.
+ */
+.charts-screen {
+  --panel-budget: calc(100vh - 65px);
+
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/*
+ * ─── Compressed form — first in DOM order (N3) ───
+ * Scrolls itself so the page never does. Every part of it stays reachable; none is deleted.
+ */
+.compressed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px 16px;
+  max-height: var(--panel-budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.position-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.position-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  background: var(--surface-hi);
+  color: var(--text-lo);
+}
+
+/* The selected seat is the loud one: weight and ink, no accent colour. */
+.position-btn[data-active='true'] {
+  color: var(--ink);
+  background: var(--card-face);
+  font-weight: 600;
+}
+
+.chart-width {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chart-width-value {
+  font-size: 40px;
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: -1px;
+  color: var(--text-hi);
+}
+
+.class-list,
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  list-style: none;
+  counter-reset: item;
+}
+
+.class-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.class-label {
+  font-size: 12px;
+  color: var(--text-hi);
+}
+
+.class-cells {
+  font-size: 11px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The per-class drill readout. Tabular so the column does not jitter as scores tick over. */
+.class-score {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+}
+
+.class-score[data-attempts='0'] {
+  color: var(--surface-hi);
+}
+
+.rule-row {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-hi);
+  padding-left: 14px;
+  position: relative;
+  counter-increment: item;
+}
+
+.rule-row::before {
+  content: counter(item);
+  position: absolute;
+  left: 0;
+  color: var(--text-lo);
+}
+
+.boundary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/*
+ * Boundary combos in the compressed list. Marked by weight and edge, never hue — and the two sides
+ * of the frontier are told apart by whether the edge is filled, so "still opens" vs "already folds"
+ * survives a greyscale print.
+ */
+.boundary-chip {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--text-lo);
+  color: var(--text-lo);
+}
+
+.boundary-chip[data-open='true'] {
+  border-color: var(--card-face);
+  color: var(--text-hi);
+}
+
+.chart-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.chart-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-lo);
+}
+
+/* ─── Grid panel ─── */
+.grid-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/*
+ * A square cell is constrained by BOTH axes, and HEIGHT is the binding one — measured, a
+ * width-only sizing produced a 596px-tall grid in a 695px column that also had to hold the heading
+ * and the drill, pushing the page to 783px in a 760px viewport. So the cell is the smaller of what
+ * the column allows and what the leftover height allows, capped so 1100px does not draw absurd
+ * cells. Every term below is measured, not estimated:
+ *
+ *   width  → (column width - 12 gaps of 2px) / 13
+ *   height → (viewport - 220px) / 13, where 220 = 65 shell + 22 heading + 16 two gaps
+ *            + 93 drill panel + 24 the grid's own 12 row gaps
+ *
+ * Never below the ~28px "A2s" needs to stay legible; charts.spec.ts test 10 pins that floor at both
+ * documented sizes, so a future change to any term above fails loudly instead of quietly shrinking
+ * the grid into unreadability.
+ */
+.chart-grid {
+  --cell: min(calc((100% - 24px) / 13), calc((100vh - 220px) / 13), 46px);
+
+  display: grid;
+  grid-template-columns: repeat(13, var(--cell));
+  gap: 2px;
+  justify-content: start;
+}
+
+.chart-cell {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  color: var(--text-lo);
+  /* A boundary cell gains a dashed edge; reserving the ring on every cell stops the grid reflowing
+     when the position changes and a different twelve cells light up. */
+  border: 1px solid transparent;
+  overflow: hidden;
+}
+
+/* In the range: near-white face, the same ink the card faces use. Out: a recessed surface. */
+.chart-cell[data-open='true'] {
+  background: var(--card-face);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/*
+ * The ~12 cells that actually flip the decision, per N3. Dashed edge plus heavier type — no colour,
+ * so this reads identically to a learner who cannot distinguish the palette.
+ */
+.chart-cell[data-boundary='true'] {
+  border-style: dashed;
+  border-color: var(--text-lo);
+  font-weight: 700;
+}
+
+.chart-cell[data-open='true'][data-boundary='true'] {
+  border-color: var(--ink);
+}
+
+/*
+ * The cell the last commit was about. A solid 2px ring, so it cannot be read as a boundary's dashed
+ * 1px one. Two rules, because ONE is a bug: a near-white ring on a near-white open cell is
+ * invisible, which is how the first version of this shipped — the revealed AA was indistinguishable
+ * from any other open cell. The ring inverts with the face it sits on.
+ */
+.chart-cell[data-revealed='true'] {
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--text-hi);
+}
+
+.chart-cell[data-revealed='true'][data-open='true'] {
+  border-color: var(--ink);
+}
+
+/* ─── Drill ─── */
+.drill {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 10px 14px;
+}
+
+.drill-prompt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.drill-hand {
+  display: flex;
+  gap: 6px;
+}
+
+/* Smaller than the table's small card: this panel shares a 640px column with a 13-row grid. */
+.drill .card,
+.drill .card-back {
+  width: 34px;
+  height: 47px;
+  border-radius: 7px;
+  padding: 4px 5px;
+}
+
+.drill .card .card-rank {
+  font-size: 15px;
+}
+
+.drill .card .card-pip {
+  font-size: 10px;
+}
+
+.drill-seat {
+  font-size: 13px;
+  color: var(--text-hi);
+}
+
+.drill-keys {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.drill-key {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.drill-feedback {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+/*
+ * SEVERITY BY WEIGHT AND POSITION, NEVER COLOUR (V2). A miss states the correction in full-contrast
+ * medium type; a correct commit states the same fact quietly. Neither is coloured and neither is
+ * praised (G3).
+ */
+.drill-feedback[data-verdict='wrong'] .drill-verdict {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+.drill-feedback[data-verdict='right'] .drill-verdict {
+  color: var(--text-lo);
+  font-weight: 400;
+}
+
+/* Quiet, and quiet on purpose: it scopes the verdict without competing with it. */
+.drill-when {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--surface-hi);
+}
+
+.drill-tag {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+
+/* At the 640px minimum the headline numeral is the cheapest height to give back. */
+@media (max-height: 700px) {
+  .chart-width-value {
+    font-size: 30px;
+  }
+}

@@ -1,0 +1,384 @@
+/*
+ * Lesson mode (the 'learn' tab). Palette and pill shapes come from styles.css — no new colours.
+ * MINT is not used anywhere here: it belongs to win% and the fluency gate. Severity is not a
+ * concept on this screen, so nothing needs colour to carry weight.
+ *
+ * The whole column scrolls itself rather than the document: a lesson's prose length is authored
+ * content and a 640px viewport cannot bound it, so the tab bar has to stay put.
+ */
+
+.lesson-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 640px;
+  margin: 0 auto;
+  /* The window minus the chrome this column sits inside (tab bar + .screen padding), matching
+     .profile-screen's budget so the tab bar never leaves the viewport. */
+  max-height: calc(100vh - 66px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 24px;
+}
+
+/* ─── List ─── */
+.lesson-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.lesson-list-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lesson-list-title {
+  font-size: 30px;
+  font-weight: 200;
+  letter-spacing: -0.5px;
+}
+
+.lesson-hint {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.phase-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phase-label {
+  font-size: 11px;
+  color: var(--text-lo);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-bottom: 2px;
+}
+
+.lesson-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-hi);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.lesson-row:hover {
+  background: var(--surface-hi);
+}
+
+/* Keyboard position only. Not a state, not progress: an outline, so it cannot read as a lock. */
+.lesson-row[data-cursor='true'] {
+  background: var(--surface-hi);
+  outline: 1px solid var(--text-lo);
+}
+
+.lesson-row-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.lesson-row-mechanism {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.45;
+}
+
+.lesson-row-meta {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/* Advice reads quieter than the mechanism it advises on — position and weight, never colour. */
+.lesson-advice {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-lo);
+}
+
+/* ─── Lesson view ─── */
+.lesson-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lesson-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lesson-header .pill {
+  align-self: flex-start;
+}
+
+.lesson-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lesson-title {
+  font-size: 28px;
+  font-weight: 200;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+}
+
+.lesson-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lesson-position {
+  font-size: 12px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.lesson-mechanism {
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.6;
+  color: var(--text-hi);
+}
+
+/* ─── Example position ─── */
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.example-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.example-tabs .pill {
+  padding: 4px 14px;
+  font-size: 13px;
+  background: var(--surface-hi);
+}
+
+.example-tabs .pill[data-selected='true'] {
+  background: var(--card-face);
+  color: var(--ink);
+}
+
+.spot {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.spot-cards {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.spot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.spot-hole,
+.spot-board {
+  display: flex;
+  gap: 6px;
+}
+
+.spot .card {
+  width: 46px;
+  height: 64px;
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
+.spot .card-rank {
+  font-size: 20px;
+}
+
+.spot .card-pip {
+  font-size: 13px;
+}
+
+.spot-noboard {
+  font-size: 12px;
+  color: var(--text-lo);
+  align-self: center;
+}
+
+.spot-meta {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+.spot-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spot-fact-value {
+  font-size: 16px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.example-prompt {
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.55;
+}
+
+/* ─── Commit and reveal ─── */
+.commit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.lesson-input {
+  width: 100%;
+  resize: vertical;
+  background: var(--surface-hi);
+  color: var(--text-hi);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lesson-input::placeholder {
+  color: var(--text-lo);
+}
+
+.reveal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--surface-hi);
+  padding-top: 12px;
+}
+
+.reveal .stat-label:not(:first-child) {
+  padding-top: 10px;
+}
+
+.reveal-answer {
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.55;
+  color: var(--text-lo);
+}
+
+.reveal-reasoning {
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+/* ─── Lexicon (L1/L3) ─── */
+.lexicon {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.lexicon-current {
+  font-size: 17px;
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.lexicon-current[data-present='false'] {
+  font-size: 14px;
+  color: var(--text-lo);
+}
+
+.sentence-verdict {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.5;
+}
+
+.lexicon-history {
+  list-style: none;
+  width: 100%;
+}
+
+.lexicon-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.lexicon-entry-text {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.5;
+  color: var(--text-lo);
+}
+
+/* Weight and wording carry the verdict; the tag stays the same muted colour either way. */
+.lexicon-entry[data-accepted='true'] .lexicon-entry-text {
+  color: var(--text-hi);
+}
+
+.lexicon-entry-tag {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+  white-space: nowrap;
+}
+
+.lexicon-empty {
+  font-size: 12px;
+  color: var(--text-lo);
+  padding: 6px 0;
+}
+
+/* The tutor rail is a different agent's surface: an empty mount seam, zero height until it fills. */
+.lesson-rail:empty {
+  display: none;
+}
+
+/* At the documented 900x640 minimum six meta cells do not fit on one row. */
+@media (max-width: 980px) {
+  .spot-meta {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

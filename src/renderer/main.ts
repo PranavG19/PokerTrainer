@@ -14,6 +14,8 @@ import {
 import type { PredictOutcome } from '../core/predict.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
+import { renderLessonScreen } from './screens/lesson.js';
+import { renderCharts } from './screens/charts.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
 const DEFAULT_SEED = 42;
@@ -174,6 +176,8 @@ async function boot(): Promise<void> {
    */
   function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
     if (which === 'profile') return renderProfile({ session });
+    if (which === 'learn') return renderLessonScreen();
+    if (which === 'charts') return renderCharts();
     return renderPlaceholder(which);
   }
 
