@@ -414,10 +414,17 @@ export function applyAction(state: TableState, action: Action): TableState {
           // short all-in's cap is stale here too.
           h(s)._raiseCapped = s.seats.map(() => false);
         } else {
-          // An all-in short of a full raise lifts the bet but does not reopen the betting:
-          // anyone who already matched the old bet may only call the difference or fold.
+          // An all-in short of a full raise lifts the bet but does not reopen the betting: anyone who
+          // already MATCHED the old bet may only call the difference or fold.
+          //
+          // The test is matching the bet, not having acted this street. `_streetActed` also catches a
+          // seat that acted EARLIER and was then raised over, which still owes a live full raise it
+          // never answered — its right to re-raise comes from that raise, not from this all-in.
+          // Measured: seat1 bet 100, seat2 raised full to 300, seat3 shoved 350 short; seat1 was
+          // offered [fold, call] while owing 250 on a raise it had never answered.
           for (const other of s.seats) {
-            if (other.id !== seatIdx && !other.folded && h(s)._streetActed[other.id]) {
+            const matchedTheBet = other.committed >= s.currentBet;
+            if (other.id !== seatIdx && !other.folded && matchedTheBet) {
               h(s)._raiseCapped[other.id] = true;
             }
           }
