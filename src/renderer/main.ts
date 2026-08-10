@@ -21,6 +21,7 @@ import { renderCharts } from './screens/charts.js';
 import { renderDrillScreen } from './screens/drill.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
+import { renderSpacing } from './screens/spacing.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
 const DEFAULT_SEED = 42;
@@ -75,7 +76,7 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
   deleteConfirmPhrase: 'DELETE PROFILE',
 };
 
-type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'profile' | 'settings';
+type Tab = 'play' | 'learn' | 'drill' | 'charts' | 'spacing' | 'profile' | 'settings';
 
 /**
  * The tab bar, in spine order: play, then the teaching surfaces, then progress.
@@ -91,6 +92,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
   { id: 'drill', label: 'Drill', testid: 'tab-drill' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
+  { id: 'spacing', label: 'Spacing', testid: 'tab-spacing' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
   { id: 'settings', label: 'Settings', testid: 'tab-settings' },
 ];
@@ -284,6 +286,7 @@ async function boot(): Promise<void> {
     if (which === 'learn') return renderLessonScreen();
     if (which === 'charts') return renderCharts();
     if (which === 'drill') return renderDrillScreen();
+    if (which === 'spacing') return renderSpacing();
     if (which === 'settings') {
       return renderSettings({
         status: settings,
