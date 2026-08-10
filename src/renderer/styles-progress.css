@@ -1,0 +1,199 @@
+/* The Progress surface (P1-P5). Palette from styles.css — no new colours. */
+
+.progress-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 40px;
+  max-width: 560px;
+  margin: 0 auto;
+  /* The window minus the tab bar and .screen padding, so the sections below have a definite height to
+     distribute — same technique and same reason as .profile-screen. */
+  max-height: calc(100vh - 66px);
+  overflow-y: auto;
+}
+
+.progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* P2's bars are the primary surface, so they get the room and they scroll rather than pushing the
+   five numbers off screen. */
+#app .progress-screen > [data-testid='kc-section'] {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.progress-numbers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.progress-numbers > .stat-label {
+  grid-column: 1 / -1;
+}
+
+.progress-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+/* The gated fifth number spans the row: its withheld state carries a sentence, not a figure. */
+.progress-winrate {
+  grid-column: 1 / -1;
+}
+
+.progress-metric-value {
+  font-size: 20px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+}
+
+/* A withheld number must not look like a measured one. */
+.progress-metric[data-withheld='true'] .progress-metric-value {
+  font-size: 15px;
+  color: var(--text-lo);
+}
+
+.progress-metric-target,
+.progress-metric-sample {
+  font-size: 11px;
+  color: var(--text-lo);
+  line-height: 1.4;
+}
+
+.kc-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.kc-label {
+  font-size: 13px;
+  color: var(--text-hi);
+}
+
+.kc-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+
+.kc-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--mint);
+}
+
+/* The credible interval, drawn over the bar so the two are not read as one quantity. */
+.kc-ci {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Frozen is not a failure and must not be styled as one — P5 routes it to a worked example. */
+.kc-row[data-status='frozen'] .kc-fill {
+  background: var(--text-lo);
+}
+
+.kc-row[data-status='mastered'] .kc-fill {
+  background: var(--mint);
+}
+
+.kc-caption {
+  font-size: 11px;
+  color: var(--text-lo);
+  line-height: 1.4;
+}
+
+.progress-graph {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+
+.progress-series {
+  width: 100%;
+  height: 70px;
+  display: block;
+}
+
+.progress-line-chip,
+.progress-line-ev {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.progress-line-chip {
+  stroke: var(--mint);
+}
+
+/* Dashed, so the divergence P3 calls the lesson is legible without colour alone carrying it. */
+.progress-line-ev {
+  stroke: var(--text-lo);
+  stroke-dasharray: 3 3;
+}
+
+.progress-graph-reason {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.45;
+}
+
+.progress-graph-route {
+  align-self: flex-start;
+  padding: 5px 12px;
+  border: 1px solid var(--line, #333);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-lo);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.progress-graph-route:hover {
+  color: var(--text-hi);
+}
+
+.tag-row {
+  font-size: 12px;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.progress-empty,
+.progress-footer {
+  font-size: 11.5px;
+  color: var(--text-lo);
+  line-height: 1.45;
+}

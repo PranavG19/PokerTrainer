@@ -533,12 +533,29 @@ body {
  * Trimmed from the vertical slack (chrome padding, seat pods, hero row) rather than the controls,
  * which must stay reachable. Height budget at 900x640, coach panel visible: ~600px.
  */
+/*
+ * TWELVE TABS IN 900px. Measured at the documented minimum: the twelve labels needed 840px of text
+ * box plus 88px of gap plus 40px of bar padding — 968px in a 900px window, so the bar pushed the
+ * document 47px wider than the viewport and Settings sat off screen. It had been that way since the
+ * eleventh tab landed; no test measured horizontal geometry until tests/e2e/progress.spec.ts did.
+ *
+ * The tabs are tightened to fit on ONE row rather than allowed to wrap, because a second row is
+ * ~33px off every screen's height and the table screen is tuned to the 640px minimum with no such
+ * slack. 10px of side padding and a 6px gap measure 744 + 66 + 40 = 850px, which leaves room.
+ *
+ * `flex-wrap` stays as the fallback, deliberately: if a thirteenth tab ever exceeds the budget it
+ * wraps and shows up as a DOCUMENT-SCROLLS failure in the layout tests, instead of pushing the last
+ * tab off screen where nothing measures it — which is exactly how this went unnoticed.
+ */
 .tabs {
   padding: 8px 20px;
+  flex-wrap: wrap;
+  column-gap: 6px;
+  row-gap: 4px;
 }
 
 .tab {
-  padding: 6px 14px;
+  padding: 6px 10px;
 }
 
 .screen {

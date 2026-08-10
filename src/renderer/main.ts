@@ -26,6 +26,7 @@ import {
 import { computeStats } from '../core/session.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
+import { renderProgressScreen } from './screens/progress.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
@@ -100,6 +101,7 @@ type Tab =
   | 'charts'
   | 'dossier'
   | 'spacing'
+  | 'progress'
   | 'profile'
   | 'settings';
 
@@ -122,6 +124,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'anomaly', label: 'Anomaly', testid: 'tab-anomaly' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
   { id: 'spacing', label: 'Spacing', testid: 'tab-spacing' },
+  { id: 'progress', label: 'Progress', testid: 'tab-progress' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
   { id: 'settings', label: 'Settings', testid: 'tab-settings' },
 ];
@@ -376,6 +379,25 @@ async function boot(): Promise<void> {
     if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
     if (which === 'spacing') return renderSpacing();
+    if (which === 'progress') {
+      /*
+       * EMPTY INPUTS, HONESTLY. Nothing in the app records per-decision tags, assessment-mode grades,
+       * fluency categories or per-hand bot config ids yet, so there is no ProgressInput to build and
+       * fabricating one would put invented numbers on the one screen a learner will believe hardest.
+       * Core's own refusals then do the right thing: the win rate is withheld with its reason, the
+       * results graph is refused with a route to the variance module, and the bars say what is missing.
+       * When decision recording lands it is these four arrays and no change to the screen.
+       */
+      return renderProgressScreen({
+        input: { decisions: [], hands: [], fluency: [], botConfigId: 'default' },
+        kcs: [],
+        now: Date.now(),
+        onOpenVariance: () => {
+          tab = 'learn';
+          render();
+        },
+      });
+    }
     if (which === 'settings') {
       return renderSettings({
         status: settings,
