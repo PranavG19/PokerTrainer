@@ -110,6 +110,51 @@ test('the browser process makes no request at all, measured at a loopback proxy'
   }
 });
 
+test('the proxy oracle can actually see an escape — positive control', async () => {
+  /**
+   * WITHOUT THIS TEST THE ONE ABOVE PROVES NOTHING, and I only know that because I mutated the seal
+   * away and the proxy still reported clean: disabling `sealSession` entirely left `proxy.seen` empty,
+   * because this app never requests anything remote in the first place. A green "no traffic reached the
+   * proxy" is therefore consistent with two very different worlds — a working seal, and an oracle that
+   * cannot see.
+   *
+   * So this test distinguishes them. It asks the MAIN process to fetch a remote URL through a session
+   * that is deliberately NOT sealed, and requires the proxy to record it. If this fails, every other
+   * assertion in this file is worthless regardless of what it reports, and that is the point: an oracle
+   * has to be shown capable of failing before its silence means anything.
+   */
+  const proxy = await startProxy();
+  const { app, close } = await launchApp({ seed: 42, extraArgs: proxyArgs(proxy.port) });
+  try {
+    const outcome = await app.evaluate(async ({ net, session: electronSession }) => {
+      // A partition created WITHOUT going through sealNetwork's handler cannot exist in the shipped
+      // app — `session-created` fires for every partition. So the seal is lifted for this one probe by
+      // removing its listeners, which is the smallest possible way to get an unsealed session.
+      const unsealed = electronSession.fromPartition('persist:positive-control');
+      unsealed.webRequest.onBeforeRequest(null);
+      return new Promise<string>((resolve) => {
+        const request = net.request({ url: 'http://example.com/positive-control', session: unsealed });
+        request.on('response', (response) => resolve(`responded ${response.statusCode}`));
+        request.on('error', (error: Error) => resolve(`error: ${error.message}`));
+        request.end();
+        setTimeout(() => resolve('timed out'), 10_000);
+      });
+    });
+
+    /*
+     * The proxy answers 403, so "responded 403" is the expected outcome and IS the evidence: the
+     * request left the app and was seen. What matters is the recording below.
+     */
+    expect(
+      proxy.seen.join(' | '),
+      `the proxy saw nothing even for a deliberately unsealed request (${outcome}), so it cannot detect an escape`,
+    ).toContain('positive-control');
+  } finally {
+    await close();
+    await proxy.close();
+  }
+});
+
 test('autoUpdater and crashReporter are never initialised', async () => {
   const { app, close } = await launchApp({ seed: 42 });
   try {
