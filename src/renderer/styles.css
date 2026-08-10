@@ -380,6 +380,25 @@ body {
   opacity: 0.4;
 }
 
+/*
+ * Out of the game, not out of the hand. A busted seat is also folded, so it must be told apart
+ * from a seat that merely folded this hand — hence a dimmer pod AND a dashed edge AND the words
+ * below, rather than a shade of grey a learner has to compare against another pod to notice.
+ * After the folded rule: equal specificity, so this has to win.
+ */
+.seat[data-out='true'] {
+  opacity: 0.22;
+  border-style: dashed;
+  border-color: var(--text-lo);
+}
+
+.seat-out {
+  font-size: 10px;
+  color: var(--text-lo);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .seat-avatar {
   width: 36px;
   height: 36px;
