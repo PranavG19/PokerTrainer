@@ -137,6 +137,12 @@
   display: none;
 }
 
+/* `display: flex` on .predict-row would otherwise beat the hidden attribute's UA display:none. */
+.predict-prompt[hidden],
+.predict-row[hidden] {
+  display: none;
+}
+
 .predict-result[data-outcome='match'] {
   color: var(--mint);
 }

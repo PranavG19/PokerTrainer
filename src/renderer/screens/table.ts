@@ -24,6 +24,7 @@ import {
   committedPrediction,
   renderPredictPanel,
   resetCommit,
+  setCommitVisible,
   showPredictResult,
 } from '../components/predictPanel.js';
 import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
@@ -143,6 +144,9 @@ export function renderTable(opts: {
   function syncPredictMount(): void {
     if (coachedMode) {
       if (predict.parentElement === null) root.insertBefore(predict, controls);
+      // The commit row belongs to a pending decision. At handover there is none, and leaving it up
+      // is both a dead control and 74px of height the 900x640 column cannot spare.
+      setCommitVisible(predict, state.winners === null);
       return;
     }
     predict.remove();
@@ -293,6 +297,10 @@ export function renderTable(opts: {
     seatsWrap.replaceChildren(
       ...state.seats.map((seat) => renderSeat(seat, state, showdown)),
     );
+
+    // The commit row tracks whether a decision is pending, so it must be re-synced every render,
+    // not only when the toggle is clicked.
+    syncPredictMount();
 
     refreshStats();
 
@@ -507,7 +515,12 @@ function renderSeat(seat: Seat, state: TableState, showdown: boolean): HTMLEleme
     el.appendChild(renderCardRow(seat.hole, { faceDown, small: true }));
   }
 
-  if (seat.committed > 0) {
+  // Only while the hand is live. settle() pays every chip into a stack and zeroes the pot, but it
+  // leaves seat.committed untouched on the fold-out path (applyAction jumps straight to showdown
+  // without the street advance that clears it). Rendering it then puts a blind-chip pill in front
+  // of a player for chips that are already back in their displayed stack — "Pot 0" beside a yellow
+  // 15000, i.e. the same chips counted twice on one screen.
+  if (seat.committed > 0 && state.winners === null) {
     const chips = document.createElement('div');
     chips.className = 'seat-committed';
     chips.dataset.testid = 'seat-committed';

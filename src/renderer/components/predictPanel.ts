@@ -52,6 +52,22 @@ export function renderPredictPanel(onCommit: () => void): HTMLElement {
   return root;
 }
 
+/**
+ * Show or hide the commit half. The verdict line is untouched — it is the one thing still true
+ * about a finished hand.
+ *
+ * At handover there is no decision to commit to: nextHand() wipes any commitment made there, so
+ * the prompt and pills are a live-looking control that cannot do anything. They also cost 74px in
+ * a column that at the documented 900x640 minimum had none to spare — with a graded coach message
+ * up as well, they pushed "Next hand", the only usable control at handover, 27px below the fold.
+ */
+export function setCommitVisible(root: HTMLElement, visible: boolean): void {
+  const prompt = root.querySelector<HTMLElement>('.predict-prompt');
+  const row = root.querySelector<HTMLElement>('.predict-row');
+  if (prompt) prompt.hidden = !visible;
+  if (row) row.hidden = !visible;
+}
+
 /** Null until BOTH halves are committed — the gate the action buttons hang off. */
 export function committedPrediction(root: HTMLElement): Prediction | null {
   const action = root.dataset.predictAction;

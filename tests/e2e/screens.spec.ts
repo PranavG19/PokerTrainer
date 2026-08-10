@@ -681,3 +681,56 @@ test.describe('R8 tab navigation', () => {
     }
   });
 });
+
+test.describe('the bankroll headline is colour-coded like the rows beneath it', () => {
+  /**
+   * Found by looking at a screenshot of a negative bankroll: the headline "-5000" rendered plain
+   * white while every hand row under it was red. The most prominent number on the screen was the
+   * only one not colour-coded. Negative is reachable in real play — three busts and rebuys off a
+   * 10000 start leaves exactly -5000.
+   */
+  const cases: [string, number, string][] = [
+    ['below the starting bankroll', -5000, 'net-down'],
+    ['exactly the starting bankroll', 10000, 'net-flat'],
+    ['above the starting bankroll', 15000, 'net-up'],
+  ];
+
+  for (const [label, bankroll, expected] of cases) {
+    test(`bankroll ${label} reads ${expected}`, async () => {
+      const userDataDir = seedSave({
+        bankroll,
+        hands: [],
+        stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {} },
+      });
+      const { page, close } = await launchApp({ seed: 42, userDataDir });
+      try {
+        const el = page.locator(sel.bankroll);
+        await expect(el).toHaveAttribute('data-direction', expected);
+        await expect(el).toHaveText(String(bankroll));
+      } finally {
+        await close();
+      }
+    });
+  }
+
+  test('a negative headline uses the same red as a losing hand row', async () => {
+    const userDataDir = seedSave({
+      bankroll: -5000,
+      hands: [
+        { handNumber: 1, hole: ['As', 'Kd'], board: [], net: -5000, vpip: true, pfr: false, grades: [] },
+      ],
+      stats: { handsPlayed: 1, vpipHands: 1, pfrHands: 0, evLossBb: 0, leaks: {} },
+    });
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(sel.bankroll);
+      const colours = await page.evaluate(() => ({
+        headline: getComputedStyle(document.querySelector('[data-testid="bankroll"]')!).color,
+        row: getComputedStyle(document.querySelector('.hand-net')!).color,
+      }));
+      expect(colours.headline, 'one loss colour, not two').toBe(colours.row);
+    } finally {
+      await close();
+    }
+  });
+});
