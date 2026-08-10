@@ -99,6 +99,61 @@ describe('a short all-in caps, and a full raise uncaps', () => {
     expect(legalActions(s)).toEqual(['fold', 'call']);
   });
 
+  it('does not cap a seat that never matched the bet the all-in came over', () => {
+    /**
+     * The cap condition was "has this seat acted this street", which also catches a seat that acted
+     * EARLIER and was then raised over. Such a seat still owes a live full raise it never answered,
+     * and its right to re-raise comes from THAT raise, not from the short all-in.
+     *
+     * Measured (a4-raisecap2.ts H2): seat1 bet 100, seat2 raised full to 300, seat3 shoved 350 short.
+     * seat1 was offered [fold, call] while owing 250 on a raise it had never answered. The condition
+     * is now "has this seat matched the current bet".
+     */
+    let s = startHand(
+      createTable({
+        seats: [
+          { name: 'S0', stack: 5000, isHero: true },
+          { name: 'S1', stack: 5000 },
+          { name: 'S2', stack: 5000 },
+          // 400, not 350: seat3 puts 50 in preflop, so it needs 350 left on the flop for its all-in
+          // to total 350 and land SHORT over the 300 bet. At 350 it shoves to exactly 300, which
+          // matches rather than raises and caps nobody — the state the probe reached, and a test
+          // asserting a cap there would be asserting the wrong thing.
+          { name: 'S3', stack: 400 },
+        ],
+        sb: 25,
+        bb: 50,
+        seed: 3,
+      }),
+    );
+
+    for (const step of [
+      { seat: 3, kind: 'call' as const },
+      { seat: 0, kind: 'call' as const },
+      { seat: 1, kind: 'call' as const },
+      { seat: 2, kind: 'check' as const },
+      { seat: 1, kind: 'bet' as const, amount: 100 },
+      { seat: 2, kind: 'raise' as const, amount: 300 },
+      { seat: 3, kind: 'allin' as const },
+    ]) {
+      expect(s.toAct, `expected seat${step.seat}`).toBe(step.seat);
+      expect(legalActions(s), `seat${step.seat} ${step.kind}`).toContain(step.kind);
+      s = applyAction(s, step.amount === undefined ? { kind: step.kind } : { kind: step.kind, amount: step.amount });
+    }
+
+    // seat3's 350 over a 300 bet is an increment of 50 against a minRaise of 200 — short, so it caps.
+    expect(s.seats[3].allIn).toBe(true);
+
+    // seat1 committed 100 against a currentBet of 350: it never matched seat2's raise to 300, so it
+    // must keep the re-raise that raise owed it.
+    expect(s.seats[1].committed).toBeLessThan(300);
+    expect(raiseCapped(s)[1]).toBe(false);
+
+    // seat2 DID match 300, so capping it is correct — the rule still bites where it should.
+    expect(s.seats[2].committed).toBeGreaterThanOrEqual(300);
+    expect(raiseCapped(s)[2]).toBe(true);
+  });
+
   it('clears every cap on a full-sized all-in too', () => {
     // The same reopening rule, reached by the allin branch rather than the raise branch.
     let s = reachStaleCap();
