@@ -1,6 +1,8 @@
 import type { HandRecord, SessionState } from '../../core/session.js';
 import { DEFAULT_BANKROLL } from '../../core/session.js';
+import type { Source, Suggestion } from '../../core/recommend.js';
 import { renderCard } from '../components/card.js';
+import { renderRecommendation, type RecommendationHandlers } from '../components/recommendation.js';
 
 const RECENT_LIMIT = 5;
 
@@ -8,12 +10,35 @@ export function renderHome(opts: {
   session: SessionState;
   onNewSession: () => void;
   onOpenHand?: (handNumber: number) => void;
+  /**
+   * N2's single suggestion, already computed by core. Home does NOT rank anything — the launcher
+   * renders what the recommender decided, so the "never a queue" rule cannot be broken here.
+   * Absent (undefined) means the caller has no recommender wired; null means nothing is owed.
+   */
+  recommendation?: { suggestion: Suggestion | null; askPreference: boolean };
+  recommendationHandlers?: RecommendationHandlers;
 }): HTMLElement {
   const root = document.createElement('div');
   root.className = 'home-screen';
   root.dataset.testid = 'home-screen';
 
   root.appendChild(renderBankroll(opts.session.bankroll));
+
+  /*
+   * FIRST, ABOVE THE SESSION BUTTON. N5 calls Home "a launcher, not a surface", and the one thing a
+   * launcher owes is what to launch — so the suggestion comes before the generic New session card
+   * rather than under the hand history where it would be a footnote.
+   */
+  if (opts.recommendation && opts.recommendationHandlers) {
+    root.appendChild(
+      renderRecommendation({
+        suggestion: opts.recommendation.suggestion,
+        askPreference: opts.recommendation.askPreference,
+        handlers: opts.recommendationHandlers,
+      }),
+    );
+  }
+
   root.appendChild(renderNewSessionCard(opts.onNewSession));
   root.appendChild(renderRecentHands(opts.session.hands, opts.onOpenHand));
 

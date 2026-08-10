@@ -14,6 +14,16 @@ import {
   setSpokenVerdicts,
 } from '../core/session.js';
 import type { PredictOutcome } from '../core/predict.js';
+import {
+  accept as acceptSuggestion,
+  decline as declineSuggestion,
+  prefer as preferSource,
+  recommend,
+  shouldAskPreference,
+  type Source,
+  type Suggestion,
+} from '../core/recommend.js';
+import { computeStats } from '../core/session.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderLessonScreen } from './screens/lesson.js';
@@ -179,6 +189,56 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /**
+   * N2's single suggestion for the launcher.
+   *
+   * `concepts: []` IS HONEST, NOT A STUB, and worth stating plainly: nothing in the app records per-KC
+   * opportunity histories yet, so there are no ConceptStates to reason about and the recommender must
+   * not be handed invented ones. What the session DOES record is leak cost per principle, so that is
+   * what it gets — and `recommend` returns null until there is something real, which the card renders as
+   * "nothing is owed yet" rather than as a fabricated first task. When concept tracking lands, it is one
+   * argument here and no change to the recommender or the card.
+   *
+   * `now` is passed rather than read inside core, so the recommendation stays a pure function of state.
+   */
+  function currentRecommendation(): { suggestion: Suggestion | null; askPreference: boolean } {
+    const suggestion = recommend({
+      concepts: [],
+      leaks: computeStats(session).leaks,
+      recommender: session.recommender,
+      now: Date.now(),
+    });
+    return { suggestion, askPreference: shouldAskPreference(session.recommender) };
+  }
+
+  /**
+   * Accepting routes the learner at the suggestion's subject. Deliberately conservative: an unknown
+   * subject opens the Drill tab rather than doing nothing, because a suggestion whose button is inert
+   * is worse than one that lands somewhere sensible.
+   */
+  async function onAcceptSuggestion(suggestion: Suggestion): Promise<void> {
+    session = { ...session, recommender: acceptSuggestion(session.recommender) };
+    tab = suggestion.source === 'error-tag' ? 'learn' : 'drill';
+    render();
+    await io.saveState(serialize(session));
+  }
+
+  /** N4: the override is logged through core, with no alternative invented when none was named. */
+  async function onDeclineSuggestion(suggestion: Suggestion): Promise<void> {
+    session = {
+      ...session,
+      recommender: declineSuggestion(session.recommender, suggestion, '', Date.now()),
+    };
+    render();
+    await io.saveState(serialize(session));
+  }
+
+  async function onPreferSource(source: Source): Promise<void> {
+    session = { ...session, recommender: preferSource(session.recommender, source) };
+    render();
+    await io.saveState(serialize(session));
+  }
+
   async function onCoachedModeChange(on: boolean): Promise<void> {
     session = setCoachedMode(session, on);
     await io.saveState(serialize(session));
@@ -282,6 +342,12 @@ async function boot(): Promise<void> {
       renderHome({
         session,
         onNewSession: () => startTable(),
+        recommendation: currentRecommendation(),
+        recommendationHandlers: {
+          onAccept: (suggestion) => void onAcceptSuggestion(suggestion),
+          onDecline: (suggestion) => void onDeclineSuggestion(suggestion),
+          onPrefer: (source) => void onPreferSource(source),
+        },
       }),
     );
   }

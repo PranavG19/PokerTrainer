@@ -3,6 +3,10 @@ import type { Grade, Severity } from './coach.js';
 import type { ActionKind, Street } from './table.js';
 import type { Calibration, PredictOutcome } from './predict.js';
 import { emptyCalibration, tally } from './predict.js';
+import { SOURCES, emptyRecommender, type RecommenderState, type Source } from './recommend.js';
+
+/** Guards the persisted preference list: an unrecognised source would weight nothing silently. */
+const KNOWN_SOURCES = new Set<string>(SOURCES);
 
 /** Bound the log so the on-disk JSON cannot grow without limit. */
 export const MAX_HAND_LOG = 500;
@@ -85,6 +89,12 @@ export interface SessionState {
    * out of a poker app is a hostile default, and the verdict is fully readable without it.
    */
   spokenVerdicts: boolean;
+  /**
+   * N2/N4. Persisted because the override log is evidence about the learner across sittings — a decline
+   * run that reset on every launch could never reach N4's ask-once threshold, and the log the spec asks
+   * for would silently be a session-scoped scratchpad.
+   */
+  recommender: RecommenderState;
 }
 
 export interface SessionSummary {
@@ -105,6 +115,7 @@ export function emptySession(): SessionState {
     calibration: emptyCalibration(),
     coachedMode: false,
     spokenVerdicts: false,
+    recommender: emptyRecommender(),
   };
 }
 
@@ -203,6 +214,11 @@ export function serialize(state: SessionState): Record<string, unknown> {
     calibration: { ...state.calibration },
     coachedMode: state.coachedMode,
     spokenVerdicts: state.spokenVerdicts,
+    recommender: {
+      overrides: state.recommender.overrides.map((o) => ({ ...o })),
+      consecutiveDeclines: state.recommender.consecutiveDeclines,
+      preferred: [...state.recommender.preferred],
+    },
   };
 }
 
@@ -233,6 +249,37 @@ export function deserialize(raw: unknown): SessionState {
     // Same `=== true` shape and the same reason, doubled: a save that says nothing about narration
     // must come back silent, and a truthy non-boolean ("yes", 1) must not switch a voice on.
     spokenVerdicts: obj.spokenVerdicts === true,
+    // Legacy saves predate the recommender; an empty one is the honest reading of a missing field.
+    recommender: parseRecommender(obj.recommender),
+  };
+}
+
+/**
+ * Tolerant like every other parser here, and for the same reason: this file is on disk across versions.
+ * An override missing its timestamp is dropped rather than resurrected as NaN, because a log entry that
+ * cannot be placed in time is not evidence — N4 names {timestamp, recommended, chosen} and all three
+ * have to be real for the entry to mean anything.
+ */
+function parseRecommender(raw: unknown): RecommenderState {
+  const obj = asRecord(raw);
+  const overrides = asArray(obj.overrides)
+    .map((entry) => asRecord(entry))
+    .filter(
+      (entry) =>
+        typeof entry.timestamp === 'number' &&
+        Number.isFinite(entry.timestamp) &&
+        typeof entry.recommended === 'string',
+    )
+    .map((entry) => ({
+      timestamp: entry.timestamp as number,
+      recommended: entry.recommended as string,
+      chosen: typeof entry.chosen === 'string' ? entry.chosen : '',
+    }));
+  return {
+    overrides,
+    consecutiveDeclines: Math.max(0, Math.floor(asNumber(obj.consecutiveDeclines, 0))),
+    // Only known sources survive: an unknown one would silently weight nothing.
+    preferred: asStrings(obj.preferred).filter((v): v is Source => KNOWN_SOURCES.has(v)),
   };
 }
 
