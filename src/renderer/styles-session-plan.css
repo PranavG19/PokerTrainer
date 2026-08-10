@@ -1,0 +1,194 @@
+/*
+ * THE SESSION PLANNER (S1, S2, S2a, S3). Palette comes from styles.css: no new colours, and no mint
+ * and no red in this file. V2 reserves mint for win% and the fluency gate and red for irreversible,
+ * and a cut is neither — a dropped whole-task block is the plan working as specified, not an error.
+ * So a cut row and a refusal are carried by wording, type weight and position only; greyscale-print
+ * the panel and it says the same thing.
+ *
+ * BUDGET, measured rather than estimated. The shell spends 45px on the tab bar and 40px on
+ * .screen's vertical padding, so a column has 100vh - 85px: 555px in a 640px window. Home was a
+ * single 520px column reading bankroll → launcher → recent hands, and stacking a ~430px planner
+ * under that overflows the documented minimum, so home becomes two columns when the planner is
+ * present: the launcher column keeps its order on the left, the planner takes the right and spans
+ * it. The max-height on the panel is a valve, not a fix — session-plan.spec.ts asserts the document
+ * does not scroll at 900x640, so the day the panel outgrows the window is a failing test rather
+ * than a silent scrollbar over the learner's bankroll.
+ *
+ * The :has() selector rather than a plain .home-screen rule: home's single-column layout is still
+ * correct wherever the planner is absent, and scoping the override to "home WITH a planner in it"
+ * keeps this file from silently owning a layout it does not render.
+ */
+.home-screen:has(> .session-planner) {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 400px);
+  gap: 20px 28px;
+  align-content: start;
+  max-width: 760px;
+  padding: 24px 40px 24px;
+}
+
+.home-screen:has(> .session-planner) .home-bankroll .bankroll {
+  font-size: 44px;
+}
+
+.session-planner {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--surface);
+  max-height: calc(100vh - 85px);
+  overflow-y: auto;
+}
+
+.planner-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.planner-row .pill {
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--text-lo);
+  background: transparent;
+  border: 1px solid var(--surface-hi);
+}
+
+.planner-row .pill[data-active='true'] {
+  color: var(--text-hi);
+  background: var(--surface-hi);
+  border-color: var(--text-lo);
+}
+
+/* S2a on the control itself: a sitting length that is not a session length reads as one. */
+.length-btn[data-session-length='false'] {
+  font-style: italic;
+}
+
+.planner-plan,
+.planner-refusal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.planner-total {
+  font-size: 13px;
+  color: var(--text-lo);
+}
+
+/* ─── The six ingredients ─── */
+.ingredient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+}
+
+/*
+ * ONE LINE PER INGREDIENT, and the four columns are fixed rather than auto: label, share, minutes,
+ * units. Auto columns let "1 contrast set" and "13.75 min" wrap to three lines each, which measured
+ * 787px of content in a 760px window — the overflow test 17 caught on the first run.
+ */
+.ingredient-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px 58px 74px;
+  gap: 2px 6px;
+  align-items: baseline;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--surface-hi);
+  font-size: 12px;
+}
+
+.ingredient-label {
+  color: var(--text-hi);
+}
+
+.ingredient-share,
+.ingredient-units {
+  color: var(--text-lo);
+  font-size: 11px;
+}
+
+.ingredient-minutes {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A skipped ingredient stays on the list and states its own minutes as 0 — S1 shows all six. */
+.ingredient-row[data-skipped='true'] .ingredient-label,
+.ingredient-row[data-skipped='true'] .ingredient-minutes {
+  color: var(--text-lo);
+}
+
+.ingredient-units {
+  text-align: right;
+}
+
+.ingredient-why {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/* ─── S2: the cut order, visible ─── */
+.cut-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+}
+
+.cut-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cut-minutes {
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.cut-none,
+.cut-order,
+.cut-protected,
+.planner-note {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+.free-roam-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ─── S2a: the refusal, and the route out of it ─── */
+.refusal-title {
+  font-size: 15px;
+}
+
+.refusal-reason {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.refusal-route {
+  align-self: flex-start;
+}
+
+.planner-start {
+  padding: 14px 16px;
+}
