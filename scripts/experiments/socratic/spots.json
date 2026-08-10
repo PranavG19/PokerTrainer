@@ -1,0 +1,407 @@
+{
+  "bb": 2,
+  "generatedFrom": "src/core/coach.ts gradeDecision, seed 7",
+  "spots": [
+    {
+      "id": "c1",
+      "hole": [
+        "7h",
+        "2c"
+      ],
+      "board": [
+        "Kd",
+        "9s",
+        "4h"
+      ],
+      "street": "flop",
+      "pot": 20,
+      "toCall": 14,
+      "stack": 180,
+      "chosen": "call",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 16,
+      "requiredPct": 41,
+      "evLossBb": 4.3,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Calling 14 into a 20 pot needs 41% pot share; you had 16%."
+    },
+    {
+      "id": "c2",
+      "hole": [
+        "8d",
+        "3c"
+      ],
+      "board": [
+        "Ah",
+        "Kd",
+        "Qs"
+      ],
+      "street": "flop",
+      "pot": 30,
+      "toCall": 24,
+      "stack": 150,
+      "chosen": "call",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 26,
+      "requiredPct": 44,
+      "evLossBb": 5.1,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Calling 24 into a 30 pot needs 44% pot share; you had 26%."
+    },
+    {
+      "id": "c3",
+      "hole": [
+        "5h",
+        "4d"
+      ],
+      "board": [
+        "As",
+        "Kc",
+        "9h",
+        "2d"
+      ],
+      "street": "turn",
+      "pot": 40,
+      "toCall": 34,
+      "stack": 120,
+      "chosen": "call",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 18,
+      "requiredPct": 46,
+      "evLossBb": 10.5,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Calling 34 into a 40 pot needs 46% pot share; you had 18%."
+    },
+    {
+      "id": "c4",
+      "hole": [
+        "Jc",
+        "6s"
+      ],
+      "board": [
+        "Ad",
+        "Qh",
+        "8c",
+        "3s",
+        "2h"
+      ],
+      "street": "river",
+      "pot": 50,
+      "toCall": 45,
+      "stack": 100,
+      "chosen": "call",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 24,
+      "requiredPct": 47,
+      "evLossBb": 11.1,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Calling 45 into a 50 pot needs 47% pot share; you had 24%."
+    },
+    {
+      "id": "c5",
+      "hole": [
+        "9c",
+        "4s"
+      ],
+      "board": [
+        "Ks",
+        "Qd",
+        "Jh"
+      ],
+      "street": "flop",
+      "pot": 24,
+      "toCall": 20,
+      "stack": 160,
+      "chosen": "call",
+      "opponents": 2,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 17,
+      "requiredPct": 45,
+      "evLossBb": 6.2,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Calling 20 into a 24 pot needs 45% pot share; you had 17%."
+    },
+    {
+      "id": "f1",
+      "hole": [
+        "Ah",
+        "Kh"
+      ],
+      "board": [
+        "Qh",
+        "7h",
+        "2c"
+      ],
+      "street": "flop",
+      "pot": 40,
+      "toCall": 6,
+      "stack": 150,
+      "chosen": "fold",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 73,
+      "requiredPct": 13,
+      "evLossBb": 13.7,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Folding with 73% pot share when only 13% was needed costs ~13.7 bb."
+    },
+    {
+      "id": "f2",
+      "hole": [
+        "Td",
+        "Ts"
+      ],
+      "board": [
+        "9c",
+        "4h",
+        "2s"
+      ],
+      "street": "flop",
+      "pot": 30,
+      "toCall": 5,
+      "stack": 140,
+      "chosen": "fold",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 79,
+      "requiredPct": 14,
+      "evLossBb": 11.4,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Folding with 79% pot share when only 14% was needed costs ~11.4 bb."
+    },
+    {
+      "id": "f3",
+      "hole": [
+        "Jh",
+        "Th"
+      ],
+      "board": [
+        "9h",
+        "8c",
+        "2d"
+      ],
+      "street": "flop",
+      "pot": 36,
+      "toCall": 8,
+      "stack": 130,
+      "chosen": "fold",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 57,
+      "requiredPct": 18,
+      "evLossBb": 8.5,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Folding with 57% pot share when only 18% was needed costs ~8.5 bb."
+    },
+    {
+      "id": "f4",
+      "hole": [
+        "Ac",
+        "Qd"
+      ],
+      "board": [
+        "Qs",
+        "8h",
+        "3c",
+        "5d"
+      ],
+      "street": "turn",
+      "pot": 44,
+      "toCall": 8,
+      "stack": 120,
+      "chosen": "fold",
+      "opponents": 1,
+      "errorTag": "PRICE",
+      "bb": 2,
+      "potSharePct": 87,
+      "requiredPct": 15,
+      "evLossBb": 18.7,
+      "severity": "serious",
+      "principle": "pot odds",
+      "engineMessage": "Folding with 87% pot share when only 15% was needed costs ~18.7 bb."
+    },
+    {
+      "id": "b1",
+      "hole": [
+        "6c",
+        "3d"
+      ],
+      "board": [
+        "Ah",
+        "Kd",
+        "Qs"
+      ],
+      "street": "flop",
+      "pot": 30,
+      "toCall": 20,
+      "stack": 150,
+      "chosen": "raise",
+      "opponents": 1,
+      "errorTag": "RANGE",
+      "bb": 2,
+      "potSharePct": 20,
+      "requiredPct": 40,
+      "evLossBb": 3.8,
+      "severity": "serious",
+      "principle": "ranges",
+      "engineMessage": "Betting with only 20% pot share against this action risks ~3.8 bb."
+    },
+    {
+      "id": "b2",
+      "hole": [
+        "7s",
+        "2h"
+      ],
+      "board": [
+        "Ks",
+        "Kh",
+        "9d",
+        "4c"
+      ],
+      "street": "turn",
+      "pot": 40,
+      "toCall": 30,
+      "stack": 140,
+      "chosen": "raise",
+      "opponents": 1,
+      "errorTag": "RANGE",
+      "bb": 2,
+      "potSharePct": 17,
+      "requiredPct": 43,
+      "evLossBb": 6.2,
+      "severity": "serious",
+      "principle": "ranges",
+      "engineMessage": "Betting with only 17% pot share against this action risks ~6.2 bb."
+    },
+    {
+      "id": "b3",
+      "hole": [
+        "4d",
+        "3h"
+      ],
+      "board": [
+        "Ac",
+        "Jd",
+        "8s",
+        "7h",
+        "2c"
+      ],
+      "street": "river",
+      "pot": 60,
+      "toCall": 40,
+      "stack": 100,
+      "chosen": "allin",
+      "opponents": 1,
+      "errorTag": "RANGE",
+      "bb": 2,
+      "potSharePct": 0,
+      "requiredPct": 40,
+      "evLossBb": 17.3,
+      "severity": "serious",
+      "principle": "ranges",
+      "engineMessage": "Betting with only 0% pot share against this action risks ~17.3 bb."
+    },
+    {
+      "id": "v1",
+      "hole": [
+        "Ac",
+        "Ah"
+      ],
+      "board": [
+        "Ad",
+        "9s",
+        "4h",
+        "2c"
+      ],
+      "street": "turn",
+      "pot": 40,
+      "toCall": 0,
+      "stack": 150,
+      "chosen": "check",
+      "opponents": 1,
+      "errorTag": "SIZING",
+      "bb": 2,
+      "potSharePct": 96,
+      "requiredPct": 0,
+      "evLossBb": 4.1,
+      "severity": "serious",
+      "principle": "value or bluff",
+      "engineMessage": "Checking 96% pot share on a later street misses value worth ~4.1 bb."
+    },
+    {
+      "id": "v2",
+      "hole": [
+        "Ks",
+        "Kd"
+      ],
+      "board": [
+        "Kh",
+        "7c",
+        "3s",
+        "8d",
+        "2h"
+      ],
+      "street": "river",
+      "pot": 56,
+      "toCall": 0,
+      "stack": 140,
+      "chosen": "check",
+      "opponents": 1,
+      "errorTag": "SIZING",
+      "bb": 2,
+      "potSharePct": 100,
+      "requiredPct": 0,
+      "evLossBb": 6.3,
+      "severity": "serious",
+      "principle": "value or bluff",
+      "engineMessage": "Checking 100% pot share on a later street misses value worth ~6.3 bb."
+    },
+    {
+      "id": "v3",
+      "hole": [
+        "Qh",
+        "Qs"
+      ],
+      "board": [
+        "Qd",
+        "Jc",
+        "5h",
+        "9s"
+      ],
+      "street": "turn",
+      "pot": 48,
+      "toCall": 0,
+      "stack": 130,
+      "chosen": "check",
+      "opponents": 1,
+      "errorTag": "SIZING",
+      "bb": 2,
+      "potSharePct": 91,
+      "requiredPct": 0,
+      "evLossBb": 4.4,
+      "severity": "serious",
+      "principle": "value or bluff",
+      "engineMessage": "Checking 91% pot share on a later street misses value worth ~4.4 bb."
+    }
+  ]
+}

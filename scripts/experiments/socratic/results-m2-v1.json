@@ -1,0 +1,334 @@
+{
+  "summary": {
+    "measurement": "M2 reason grading",
+    "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "variant": "v1",
+    "overallAccuracy": "23/32",
+    "clearCasesAccuracy": "14/16",
+    "hardMiddleAccuracy": "5/8",
+    "g4TripDetectionRate": "8/8",
+    "g4FalseNegatives": [],
+    "g4FalsePositives_wouldPunishGoodReasoning": [
+      "p3: intended price, got hand-strength",
+      "r4: intended range, got none",
+      "m6: intended price, got hand-strength",
+      "m7: intended range, got none"
+    ],
+    "byLabel": {
+      "price": {
+        "n": 6,
+        "correct": 4
+      },
+      "range": {
+        "n": 6,
+        "correct": 4
+      },
+      "hand-strength": {
+        "n": 14,
+        "correct": 9
+      },
+      "none": {
+        "n": 6,
+        "correct": 6
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "p1",
+      "node": "facing 14 into 20 on flop, holding 7h2c",
+      "reason": "I needed 41% to call and only had 16%, so the price was wrong",
+      "label": "price",
+      "actionCorrect": true,
+      "got": "price",
+      "correct": true
+    },
+    {
+      "id": "p2",
+      "node": "facing 8 into 36 on flop with a flush draw",
+      "reason": "cheap price, only had to put in 8 to win 36 so calling is fine",
+      "label": "price",
+      "actionCorrect": true,
+      "got": "price",
+      "correct": true
+    },
+    {
+      "id": "p3",
+      "node": "facing 45 into 50 on river",
+      "reason": "getting about 2 to 1 and I do not win often enough for that",
+      "label": "price",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": false
+    },
+    {
+      "id": "p4",
+      "node": "facing 24 into 30 on flop",
+      "reason": "the pot odds do not justify continuing here",
+      "label": "price",
+      "actionCorrect": true,
+      "got": "price",
+      "correct": true
+    },
+    {
+      "id": "r1",
+      "node": "BTN opens, we are BB with K7s",
+      "reason": "the range that calls my raise beats K7s most of the time",
+      "label": "range",
+      "actionCorrect": true,
+      "got": "range",
+      "correct": true
+    },
+    {
+      "id": "r2",
+      "node": "flop Ah Kd Qs, we hold 6c3d",
+      "reason": "my raising range on this board should be broadway hands, not this",
+      "label": "range",
+      "actionCorrect": true,
+      "got": "range",
+      "correct": true
+    },
+    {
+      "id": "r3",
+      "node": "river, villain bets small into a capped board",
+      "reason": "his betting range is uncapped here and mine is capped so I cannot raise",
+      "label": "range",
+      "actionCorrect": true,
+      "got": "range",
+      "correct": true
+    },
+    {
+      "id": "r4",
+      "node": "turn, we hold top pair",
+      "reason": "checking keeps my range wide enough to defend the river",
+      "label": "range",
+      "actionCorrect": true,
+      "got": "none",
+      "correct": false
+    },
+    {
+      "id": "h1",
+      "node": "flop Kd 9s 4h, we hold 7h2c",
+      "reason": "my hand is garbage, 7 high, nothing there",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "h2",
+      "node": "turn, we hold AA on Ad 9s 4h 2c",
+      "reason": "I have trip aces which is a monster so I bet",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "h3",
+      "node": "flop, we hold TT on 9c 4h 2s",
+      "reason": "pocket tens is a strong pair and the board is low so I am ahead",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "h4",
+      "node": "river, we hold KK on Kh 7c 3s 8d 2h",
+      "reason": "top set, easy call, my cards are just too good to fold",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "n1",
+      "node": "flop, facing a bet",
+      "reason": "felt right",
+      "label": "none",
+      "actionCorrect": true,
+      "got": "none",
+      "correct": true
+    },
+    {
+      "id": "n2",
+      "node": "turn, facing a bet",
+      "reason": "I am guessing",
+      "label": "none",
+      "actionCorrect": true,
+      "got": "none",
+      "correct": true
+    },
+    {
+      "id": "n3",
+      "node": "river, facing a bet",
+      "reason": "he always bluffs in this spot, I just have a feeling about him",
+      "label": "none",
+      "actionCorrect": true,
+      "got": "none",
+      "correct": true
+    },
+    {
+      "id": "n4",
+      "node": "flop, facing a bet",
+      "reason": "idk",
+      "label": "none",
+      "actionCorrect": true,
+      "got": "none",
+      "correct": true
+    },
+    {
+      "id": "m1",
+      "node": "facing 6 into 40 with AhKh on Qh7h2c",
+      "reason": "I have the nut flush draw with two overcards, that is a huge hand",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "m2",
+      "node": "facing 5 into 30 with TT on 9c4h2s",
+      "reason": "my equity is high because pocket tens is a big pair",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "m3",
+      "node": "facing 20 into 24 with 9c4s on Ks Qd Jh",
+      "reason": "my range here is weak because these two cards are weak",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "none",
+      "correct": false
+    },
+    {
+      "id": "m4",
+      "node": "river, holding KK",
+      "reason": "the price is fine because my hand is strong enough to call anything",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "m5",
+      "node": "facing 8 into 36 with JhTh on 9h8c2d",
+      "reason": "eight open enders and flush outs against 36 in the pot means the price is good",
+      "label": "price",
+      "actionCorrect": true,
+      "got": "price",
+      "correct": true
+    },
+    {
+      "id": "m6",
+      "node": "facing 34 into 40 with 5h4d on As Kc 9h 2d",
+      "reason": "gutshot only, and the 46% I would need is way more than a gutshot gives",
+      "label": "price",
+      "actionCorrect": true,
+      "got": "hand-strength",
+      "correct": false
+    },
+    {
+      "id": "m7",
+      "node": "BB vs BTN open holding K7s",
+      "reason": "K7s is dominated by the offsuit broadways that continue against me",
+      "label": "range",
+      "actionCorrect": true,
+      "got": "none",
+      "correct": false
+    },
+    {
+      "id": "m8",
+      "node": "flop bet with AA",
+      "reason": "betting because the hands that call are worse than aces and will pay",
+      "label": "range",
+      "actionCorrect": true,
+      "got": "range",
+      "correct": true
+    },
+    {
+      "id": "g1",
+      "node": "CORRECT fold, facing 24 into 30 with 8d3c on Ah Kd Qs. ΔEV 0.0 bb, tier free",
+      "reason": "folded because 8-3 is a bad hand",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "g2",
+      "node": "CORRECT call, facing 6 into 40 with AhKh on Qh7h2c. ΔEV 0.0 bb, tier free",
+      "reason": "called because ace king is strong",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "none",
+      "correct": false
+    },
+    {
+      "id": "g3",
+      "node": "CORRECT bet, holding AA on Ad9s4h. ΔEV 0.0 bb, tier free",
+      "reason": "bet because I have the best possible hand right now",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "hand-strength",
+      "correct": true
+    },
+    {
+      "id": "g4",
+      "node": "CORRECT fold preflop with 72o UTG. ΔEV 0.0 bb, tier free",
+      "reason": "seven deuce is the worst hand in poker",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "none",
+      "correct": false
+    },
+    {
+      "id": "g5",
+      "node": "CORRECT check, holding 5h4d on As Kc 9h. ΔEV 0.0 bb, tier free",
+      "reason": "nothing here, just checked",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "none",
+      "correct": false
+    },
+    {
+      "id": "g6",
+      "node": "CORRECT raise, holding KK preflop. ΔEV 0.0 bb, tier free",
+      "reason": "kings, obviously",
+      "label": "hand-strength",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "none",
+      "correct": false
+    },
+    {
+      "id": "g7",
+      "node": "CORRECT call, facing 5 into 30 with TT. ΔEV 0.0 bb, tier free",
+      "reason": "not sure honestly, just clicked call",
+      "label": "none",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "none",
+      "correct": true
+    },
+    {
+      "id": "g8",
+      "node": "CORRECT fold, facing 45 into 50 with Jc6s. ΔEV 0.0 bb, tier free",
+      "reason": "I guessed",
+      "label": "none",
+      "actionCorrect": true,
+      "g4Trip": true,
+      "got": "none",
+      "correct": true
+    }
+  ]
+}

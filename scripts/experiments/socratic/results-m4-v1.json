@@ -1,0 +1,268 @@
+{
+  "summary": {
+    "measurement": "M4 lexicon L1/L2",
+    "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "variant": "v1",
+    "cases": 25,
+    "overallAccuracy": "15/25",
+    "clearCasesAccuracy": "10/17",
+    "hardMiddleAccuracy": "5/8",
+    "falseAccepts_installBadConceptName": [],
+    "falseRejects_discardLearnerWork": [
+      "ad1 [domination]: \"K7s loses value against the offsuit broadways that keep calling, because my kicker is behind theirs\"",
+      "ad3 [domination]: \"A5o plays badly early because every ace that calls me has a bigger kicker\"",
+      "ae1 [equity-realisation]: \"suited connectors keep their equity out of position less often, because I get barrelled off before the river\"",
+      "ae3 [equity-realisation]: \"closing the action lets a weak hand see the flop and actually cash in its share\"",
+      "ar1 [range-asymmetry]: \"the BB cannot have the strong overpairs here, so the aggressor keeps betting on this board\"",
+      "ar2 [range-asymmetry]: \"an ace-high flop hits the opener much harder than the caller, so the caller has to fold more\"",
+      "ar3 [range-asymmetry]: \"my range is capped after checking twice, and the other range is not, which is what flips this\"",
+      "hm4 [cell-plus-mechanism]: \"K7s is a CO open but not a UTG open, because from UTG the kings that call me all have better kickers\"",
+      "hm5 [cell-plus-mechanism]: \"the chart opens KQo and folds KJo, and the reason is that KJo is dominated by the KQ that continues\"",
+      "hm6 [mechanism-with-hand]: \"one seat of position is what flips KJo, because from CO only two players can hold a dominating king\""
+    ],
+    "byKind": {
+      "domination": {
+        "n": 3,
+        "correct": 1
+      },
+      "equity-realisation": {
+        "n": 3,
+        "correct": 1
+      },
+      "range-asymmetry": {
+        "n": 3,
+        "correct": 0
+      },
+      "cached-cell": {
+        "n": 5,
+        "correct": 5
+      },
+      "no-mechanism": {
+        "n": 3,
+        "correct": 3
+      },
+      "circular": {
+        "n": 3,
+        "correct": 3
+      },
+      "cell-plus-mechanism": {
+        "n": 2,
+        "correct": 0
+      },
+      "mechanism-with-hand": {
+        "n": 1,
+        "correct": 0
+      },
+      "off-list-blockers": {
+        "n": 1,
+        "correct": 1
+      },
+      "off-list-stackdepth": {
+        "n": 1,
+        "correct": 1
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "ad1",
+      "s": "K7s loses value against the offsuit broadways that keep calling, because my kicker is behind theirs",
+      "accept": true,
+      "kind": "domination",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "ad2",
+      "s": "the danger with KJ is that the hands continuing against me have the same king with a better second card",
+      "accept": true,
+      "kind": "domination",
+      "said": true,
+      "correct": true
+    },
+    {
+      "id": "ad3",
+      "s": "A5o plays badly early because every ace that calls me has a bigger kicker",
+      "accept": true,
+      "kind": "domination",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "ae1",
+      "s": "suited connectors keep their equity out of position less often, because I get barrelled off before the river",
+      "accept": true,
+      "kind": "equity-realisation",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "ae2",
+      "s": "my hand has enough raw equity but cannot realise it in a three-bet pot with no position",
+      "accept": true,
+      "kind": "equity-realisation",
+      "said": true,
+      "correct": true
+    },
+    {
+      "id": "ae3",
+      "s": "closing the action lets a weak hand see the flop and actually cash in its share",
+      "accept": true,
+      "kind": "equity-realisation",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "ar1",
+      "s": "the BB cannot have the strong overpairs here, so the aggressor keeps betting on this board",
+      "accept": true,
+      "kind": "range-asymmetry",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "ar2",
+      "s": "an ace-high flop hits the opener much harder than the caller, so the caller has to fold more",
+      "accept": true,
+      "kind": "range-asymmetry",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "ar3",
+      "s": "my range is capped after checking twice, and the other range is not, which is what flips this",
+      "accept": true,
+      "kind": "range-asymmetry",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "rc1",
+      "s": "K7s is a CO open",
+      "accept": false,
+      "kind": "cached-cell",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "rc2",
+      "s": "A5o is a fold from UTG",
+      "accept": false,
+      "kind": "cached-cell",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "rc3",
+      "s": "77 is a call versus a three-bet at 100bb",
+      "accept": false,
+      "kind": "cached-cell",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "rc4",
+      "s": "the chart says raise",
+      "accept": false,
+      "kind": "cached-cell",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "rc5",
+      "s": "this is a standard c-bet spot",
+      "accept": false,
+      "kind": "cached-cell",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "rn1",
+      "s": "it just plays better",
+      "accept": false,
+      "kind": "no-mechanism",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "rn2",
+      "s": "position matters here",
+      "accept": false,
+      "kind": "no-mechanism",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "rn3",
+      "s": "the flipping variable is position",
+      "accept": false,
+      "kind": "no-mechanism",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "hm1",
+      "s": "KJo folds because it is not strong enough to open from UTG",
+      "accept": false,
+      "kind": "circular",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "hm2",
+      "s": "the variable is the suit, because suited hands are better",
+      "accept": false,
+      "kind": "circular",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "hm3",
+      "s": "I open one and fold the other because one is above the threshold",
+      "accept": false,
+      "kind": "circular",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "hm4",
+      "s": "K7s is a CO open but not a UTG open, because from UTG the kings that call me all have better kickers",
+      "accept": true,
+      "kind": "cell-plus-mechanism",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "hm5",
+      "s": "the chart opens KQo and folds KJo, and the reason is that KJo is dominated by the KQ that continues",
+      "accept": true,
+      "kind": "cell-plus-mechanism",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "hm6",
+      "s": "one seat of position is what flips KJo, because from CO only two players can hold a dominating king",
+      "accept": true,
+      "kind": "mechanism-with-hand",
+      "said": false,
+      "correct": false
+    },
+    {
+      "id": "hm7",
+      "s": "holding the ace of hearts removes the nut flush from the calling range, so the bluff works more often",
+      "accept": false,
+      "kind": "off-list-blockers",
+      "said": false,
+      "correct": true
+    },
+    {
+      "id": "hm8",
+      "s": "shorter stacks mean the implied odds never arrive, so the speculative hand stops being worth a call",
+      "accept": false,
+      "kind": "off-list-stackdepth",
+      "said": false,
+      "correct": true
+    }
+  ]
+}

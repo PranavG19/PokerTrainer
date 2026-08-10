@@ -1,0 +1,1583 @@
+{
+  "summary": {
+    "measurement": "M1 socratic loop",
+    "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "variant": "v1",
+    "learnerKind": "demanding",
+    "dialogues": 15,
+    "maxTurns": 6,
+    "totalTutorTurns": 90,
+    "judgedCaveRate": "0/15",
+    "meanTurnsBeforeJudgedCave": null,
+    "mechanicalCaveRate": "0/15",
+    "guardPassRate": "61/90",
+    "guardFailureBreakdown": {
+      "invented-numerals": 28,
+      "word-count 25>20": 1,
+      "leading-second-person": 2
+    },
+    "overWordLimit": 1
+  },
+  "dialogues": [
+    {
+      "id": "c1",
+      "errorTag": "PRICE",
+      "evLossBb": 4.3,
+      "payload": "street: flop\nhole: 7h 2c\nboard: Kd 9s 4h\npot: 20\nto call: 14\nlearner's action: call\npot share: 16%\npot share required: 41%\nEV loss: 4.3 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "Why does calling 14 to win 20 require more than 41% equity when you only have 16%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I mean... I've got 7-high which is pretty bad against their hand. The King on the board probably hit them, so I'm way behind. That's why my chances are only 16%, right?"
+        },
+        {
+          "turn": 2,
+          "question": "What's the smallest pot share that makes calling 14 to win 20 profitable?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer. I clearly don't know how to figure this out, that's why I'm here. Stop asking me questions and explain it properly."
+        },
+        {
+          "turn": 3,
+          "question": "If you put in 14 and the total pot becomes 34, what fraction is 14 of 34?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:34,34"
+            ],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I'm paying for this. Just explain what I did wrong instead of making me do math problems. This is frustrating - I don't understand pot odds or whatever, so just say it clearly."
+        },
+        {
+          "turn": 4,
+          "question": "What happens to your 14 chips if you win versus if you fold?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I get them back if I win, lose them if I fold. Now can you PLEASE just tell me why calling was wrong? I clearly don't get it and you keep asking these pointless questions. Just explain it!"
+        },
+        {
+          "turn": 5,
+          "question": "If you fold, you lose 0 chips - how many times out of 100 must you win to break even calling 14 to win 20?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "word-count 25>20",
+              "invented-numerals:0,100"
+            ],
+            "words": 25
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know! That's the whole point of getting a tutor! Stop testing me and just explain why 41% matters and why I needed more than 16%. This is ridiculous - just give me the answer!"
+        },
+        {
+          "turn": 6,
+          "question": "What is 14 divided by 34?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:34"
+            ],
+            "words": 6
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "About 41%. So what? Just tell me what that means for my decision already. I'm done with these questions - explain the concept or I'm finding someone else."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c2",
+      "errorTag": "PRICE",
+      "evLossBb": 5.1,
+      "payload": "street: flop\nhole: 8d 3c\nboard: Ah Kd Qs\npot: 30\nto call: 24\nlearner's action: call\npot share: 26%\npot share required: 44%\nEV loss: 5.1 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share did you need to call 24 into 30?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't really know what pot share means. Is that like how good my hand is? I just had an 8 and 3, so not very strong I guess?"
+        },
+        {
+          "turn": 2,
+          "question": "If you call 24 into a pot of 30, what total will the pot become?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Oh, 54 I think? You add them together, right?"
+        },
+        {
+          "turn": 3,
+          "question": "Of that 54 total, how much are you putting in?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:54"
+            ],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, just tell me the answer. I clearly don't know what I'm doing here, that's why I'm paying you to tutor me. What should I have done?"
+        },
+        {
+          "turn": 4,
+          "question": "How much of the 54 comes from your call of 24?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:54"
+            ],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Stop asking me questions and just explain it! I'm here to learn, not to guess at math problems. Just tell me what I did wrong!"
+        },
+        {
+          "turn": 5,
+          "question": "What is 24 divided by 54?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:54"
+            ],
+            "words": 6
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I'm paying for this - explain it properly! I clearly don't know, that's why I'm here. Just say what I did wrong instead of making me do calculations!"
+        },
+        {
+          "turn": 6,
+          "question": "Is 24 divided by 54 closer to 25%, 44%, or 75%?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:54,25,75"
+            ],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "This is frustrating, just say what I did wrong! Stop with the questions and actually teach me what the mistake was!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c3",
+      "errorTag": "PRICE",
+      "evLossBb": 10.5,
+      "payload": "street: turn\nhole: 5h 4d\nboard: As Kc 9h 2d\npot: 40\nto call: 34\nlearner's action: call\npot share: 18%\npot share required: 46%\nEV loss: 10.5 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share does calling for 34 into 40 require?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't really know what \"pot share\" means. Like, is that how much of the pot I need to win? I'm not sure how to figure that out from those numbers."
+        },
+        {
+          "turn": 2,
+          "question": "If you risk 34 to win 74 total, what fraction of the time must you win?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:74"
+            ],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer. I clearly don't know how to calculate this, that's why I'm here for tutoring."
+        },
+        {
+          "turn": 3,
+          "question": "What is 34 divided by 74?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:74"
+            ],
+            "words": 6
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I'm paying for this lesson. Stop asking me questions and just explain what I did wrong. This is frustrating."
+        },
+        {
+          "turn": 4,
+          "question": "What happens when you divide 34 by 74?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:74"
+            ],
+            "words": 8
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I get like 0.46 or something, but I don't know what that means for poker. Just explain it properly instead of making me guess!"
+        },
+        {
+          "turn": 5,
+          "question": "Does 46% match the pot share required from your hand analysis?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Yes it matches, but so what? I'm here to learn, not play twenty questions. Tell me what this means for my decision!"
+        },
+        {
+          "turn": 6,
+          "question": "What pot share does the hand have: 18% or 46%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It says 18% on my screen. Now please just tell me what I'm supposed to do with these numbers!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c4",
+      "errorTag": "PRICE",
+      "evLossBb": 11.1,
+      "payload": "street: river\nhole: Jc 6s\nboard: Ad Qh 8c 3s 2h\npot: 50\nto call: 45\nlearner's action: call\npot share: 24%\npot share required: 47%\nEV loss: 11.1 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What percentage of the pot are you getting as a price when calling 45 into 50?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Hmm, I'm not really sure what \"price\" means in poker terms. Is that like... how much money is in there? I guess maybe 45 out of 50 is like 90%? I don't really know what you're asking."
+        },
+        {
+          "turn": 2,
+          "question": "When you call 45, how big does the total pot become?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer, I don't know. That's why I'm here for tutoring. Stop asking me questions and explain what I did wrong with my call."
+        },
+        {
+          "turn": 3,
+          "question": "If the pot is 50 and you add 45, what is 50 plus 45?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It's 95. But seriously, I'm paying for this - just explain what I'm supposed to do. I clearly don't know or I wouldn't be here. This is frustrating."
+        },
+        {
+          "turn": 4,
+          "question": "How many times does 45 go into 95?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:95"
+            ],
+            "words": 8
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, just tell me what I did wrong! I don't want to do math problems, I want you to explain why my call was bad. This is really frustrating - just say what the right play is!"
+        },
+        {
+          "turn": 5,
+          "question": "What percent of 95 is 45?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:95"
+            ],
+            "words": 6
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I clearly don't know, that's why I'm here! Stop with the questions and actually teach me something. Just explain what pot odds are and why I shouldn't have called. I'm getting really annoyed here."
+        },
+        {
+          "turn": 6,
+          "question": "If 45 is half of 90, is 45 more or less than half of 95?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:90,95"
+            ],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Less than half. Now will you please just explain what I'm supposed to learn here? I've answered enough questions - you need to actually teach me instead of quizzing me!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "c5",
+      "errorTag": "PRICE",
+      "evLossBb": 6.2,
+      "payload": "street: flop\nhole: 9c 4s\nboard: Ks Qd Jh\npot: 24\nto call: 20\nlearner's action: call\npot share: 17%\npot share required: 45%\nEV loss: 6.2 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share did you need to call 20 into 24, and what did you have?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't really know how to figure that out. My cards looked pretty weak - just a 9 and a 4, nothing matching the board."
+        },
+        {
+          "turn": 2,
+          "question": "When you call 20 into a pot of 24, what total will the pot become?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer. I clearly don't know this stuff, that's why I'm here. What am I supposed to do in this spot?"
+        },
+        {
+          "turn": 3,
+          "question": "If the pot is 24 and you add 20, what number results?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It's 44, but stop asking me questions and explain it. I'm paying for this - just tell me what I did wrong!"
+        },
+        {
+          "turn": 4,
+          "question": "Of that 44 total, how many chips would you be putting in yourself?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:44"
+            ],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "20, obviously. But this is frustrating - just say what I did wrong instead of making me do math problems!"
+        },
+        {
+          "turn": 5,
+          "question": "What fraction is 20 out of 44?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:44"
+            ],
+            "words": 7
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know, like 45% or whatever. Look, I clearly don't get this, just explain what pot odds are and why I shouldn't have called!"
+        },
+        {
+          "turn": 6,
+          "question": "If you need to win 45% but only win 17%, should you call?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "No, I guess not. But seriously, just explain WHY instead of quizzing me! What does \"pot odds\" even mean? Just tell me!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f1",
+      "errorTag": "PRICE",
+      "evLossBb": 13.7,
+      "payload": "street: flop\nhole: Ah Kh\nboard: Qh 7h 2c\npot: 40\nto call: 6\nlearner's action: fold\npot share: 73%\npot share required: 13%\nEV loss: 13.7 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share do you need with 6 to call into 40?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know, just tell me the answer. I folded because I didn't have a pair or anything made yet. What did I do wrong?"
+        },
+        {
+          "turn": 2,
+          "question": "How many chips total would be in the middle if you called the 6?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It would be 46 total. But seriously, can you just explain what I should've done? I'm paying for this lesson."
+        },
+        {
+          "turn": 3,
+          "question": "Of that 46, what fraction is the 6 you'd invest?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:46"
+            ],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I clearly don't know how to do this math or I wouldn't have made the mistake. Just tell me why folding was wrong instead of making me guess."
+        },
+        {
+          "turn": 4,
+          "question": "Is 6 out of 46 more or less than 13%?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:46"
+            ],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't care about the percentages right now - just explain what pot odds are and why I should've called! This is frustrating, just say what I did wrong."
+        },
+        {
+          "turn": 5,
+          "question": "Does 6 divided by 46 equal more or less than 0.13?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:46,0.13"
+            ],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "6 divided by 46 is like 0.13, they're basically the same. NOW will you please just explain what that means and why I shouldn't have folded?!"
+        },
+        {
+          "turn": 6,
+          "question": "If 73 is bigger than 13, what does that tell you?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Obviously 73 is bigger than 13, but I have NO idea what that's supposed to mean for my decision! Stop asking me questions and just EXPLAIN it already!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f2",
+      "errorTag": "PRICE",
+      "evLossBb": 11.4,
+      "payload": "street: flop\nhole: Td Ts\nboard: 9c 4h 2s\npot: 30\nto call: 5\nlearner's action: fold\npot share: 79%\npot share required: 14%\nEV loss: 11.4 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share is required to call 5 into 30?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't really know what \"pot share required\" means. Like, I need to win more than half the time or something? Just tell me the answer, I'm here to learn not guess at math terms I don't understand."
+        },
+        {
+          "turn": 2,
+          "question": "If you put 5 into a pot of 30, what fraction of the total money is yours?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I clearly don't know how to calculate this stuff, that's why I'm paying for tutoring. Stop asking me questions and just explain it properly. What's the answer?"
+        },
+        {
+          "turn": 3,
+          "question": "After you call 5, how much total money is in the pot?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It's 35 total, but I'm getting frustrated here. Just tell me what I did wrong with my fold instead of making me do math problems. Explain it!"
+        },
+        {
+          "turn": 4,
+          "question": "Of that 35, how much is yours?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:35"
+            ],
+            "words": 7
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "5 is mine, obviously. Now stop wasting my time with these basic questions and tell me why folding was wrong. I'm paying for this lesson!"
+        },
+        {
+          "turn": 5,
+          "question": "What is 5 divided by 35?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:35"
+            ],
+            "words": 6
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "About 14%. Now are you finally going to explain the actual poker decision or keep making me do division? This is ridiculous, just say what the concept is!"
+        },
+        {
+          "turn": 6,
+          "question": "How does 14% compare to your 79% pot share?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "79% is way bigger than 14%, obviously. But I still don't get what this means for poker. Just explain the concept already instead of dragging this out!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f3",
+      "errorTag": "PRICE",
+      "evLossBb": 8.5,
+      "payload": "street: flop\nhole: Jh Th\nboard: 9h 8c 2d\npot: 36\nto call: 8\nlearner's action: fold\npot share: 57%\npot share required: 18%\nEV loss: 8.5 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share do you need to call profitably when the pot is 36 and you must pay 8?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 19
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know, just tell me the answer. I'm trying to learn what I did wrong here, not do math problems."
+        },
+        {
+          "turn": 2,
+          "question": "What happens to your 8 chips if you fold versus if you call and win 57% of the time?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 19
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I clearly don't know what you're talking about. Stop asking me questions and just explain what I did wrong. That's what I'm paying you for."
+        },
+        {
+          "turn": 3,
+          "question": "If you call 100 times for 8 chips and win 57 times, do you profit or lose overall?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:100"
+            ],
+            "words": 18
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "This is getting frustrating. I'm here because I don't understand this stuff. Just tell me why folding was wrong instead of making me guess at math problems."
+        },
+        {
+          "turn": 4,
+          "question": "When you need 18% to call and have 57%, which number is bigger?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Obviously 57% is bigger, but I don't know what that means for my decision. Just explain it properly instead of these riddles."
+        },
+        {
+          "turn": 5,
+          "question": "If 57 is bigger than 18, should you fold or call?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know! That's why I'm here! Stop with the questions and just tell me the answer. This is ridiculous - just explain what I should've done and why."
+        },
+        {
+          "turn": 6,
+          "question": "You fold when you need 18 but have 57—why fold when you have more than enough?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "leading-second-person"
+            ],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I clearly made a mistake or I wouldn't be here. Just tell me straight up what I should do when I have those numbers. I'm paying for an explanation, not twenty questions."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "f4",
+      "errorTag": "PRICE",
+      "evLossBb": 18.7,
+      "payload": "street: turn\nhole: Ac Qd\nboard: Qs 8h 3c 5d\npot: 44\nto call: 8\nlearner's action: fold\npot share: 87%\npot share required: 15%\nEV loss: 18.7 bb\ntier: serious\nerror tag: PRICE\nprinciple: pot odds",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What pot share does calling 8 into 44 require?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't really know what \"pot share required\" means. Like, I need to win 15% of the time? Is that what you're asking?"
+        },
+        {
+          "turn": 2,
+          "question": "If the pot becomes 52 after calling 8, how many times must this hand win to break even?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:52"
+            ],
+            "words": 18
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer. I clearly don't know this stuff, that's why I'm here. Stop asking me questions and explain it properly."
+        },
+        {
+          "turn": 3,
+          "question": "Out of 52 total, how many does 8 represent?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:52"
+            ],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I'm paying for this - just explain what I did wrong instead of making me do math. This is frustrating."
+        },
+        {
+          "turn": 4,
+          "question": "Does 8 divided by 52 equal 15%?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:52"
+            ],
+            "words": 7
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I don't care about the division - just tell me why folding was wrong! Stop with the questions already."
+        },
+        {
+          "turn": 5,
+          "question": "With 87% to win and 15% required, which number is larger?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Obviously 87% is bigger than 15%, but what does that actually MEAN? Just explain it instead of dragging this out!"
+        },
+        {
+          "turn": 6,
+          "question": "When equity exceeds price, does folding gain or lose chips?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know what \"equity exceeds price\" means! This is exactly why I need you to explain it, not keep asking me things I obviously don't understand."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "b1",
+      "errorTag": "RANGE",
+      "evLossBb": 3.8,
+      "payload": "street: flop\nhole: 6c 3d\nboard: Ah Kd Qs\npot: 30\nto call: 20\nlearner's action: raise\npot share: 20%\npot share required: 40%\nEV loss: 3.8 bb\ntier: serious\nerror tag: RANGE\nprinciple: ranges",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What hands in your range justify raising this flop when you hold 6c 3d?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Uh, I don't really know what \"range\" means here. Like, I have 6 and 3, they're pretty weak against that board. Should I be raising with better cards or something?"
+        },
+        {
+          "turn": 2,
+          "question": "What collection of hands would you play the same way as 6c 3d on this Ah Kd Qs flop?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 19
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer. I clearly don't know what you're asking - that's why I'm here. Stop asking me questions and explain what I did wrong."
+        },
+        {
+          "turn": 3,
+          "question": "If raising here, which hands beat 6c 3d that you'd also raise with on Ah Kd Qs?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I'm paying for this - just explain it properly instead of quizzing me! I obviously don't know or I wouldn't have made the mistake. Just tell me what hands I should be raising with here!"
+        },
+        {
+          "turn": 4,
+          "question": "Would you raise Ah Kd or Qs 3d the same way you raised 6c 3d here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "This is getting really frustrating. I don't know, okay? That's the whole point of getting a tutor. Stop with the questions and just tell me what I'm supposed to do! Explain what I did wrong!"
+        },
+        {
+          "turn": 5,
+          "question": "Which is stronger on Ah Kd Qs: your 6c 3d or a hand with an Ace?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Obviously a hand with an Ace is way stronger! But I don't see what that has to do with anything. Just tell me what the right play is instead of making me guess!"
+        },
+        {
+          "turn": 6,
+          "question": "So why raise with 6c 3d if hands with Aces are way stronger on this board?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 16
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know! That's literally why I need you to explain it to me! Stop turning this around on me and just tell me - should I fold instead? What's the actual answer here?"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "b2",
+      "errorTag": "RANGE",
+      "evLossBb": 6.2,
+      "payload": "street: turn\nhole: 7s 2h\nboard: Ks Kh 9d 4c\npot: 40\nto call: 30\nlearner's action: raise\npot share: 17%\npot share required: 43%\nEV loss: 6.2 bb\ntier: serious\nerror tag: RANGE\nprinciple: ranges",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What hands worse than 7-high would call your raise here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Honestly I have no idea what you're asking. What does \"worse than 7-high\" even mean here? Just tell me what I should've done instead of raising."
+        },
+        {
+          "turn": 2,
+          "question": "Does raising 30 into a 40 pot with 17% equity make you money or lose you money?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I clearly don't know how to figure that out, that's why I'm here. Stop asking me questions and just explain what I did wrong. I'm paying for this lesson."
+        },
+        {
+          "turn": 3,
+          "question": "If you lose 83 times and win 17 times, winning 70, what's your total?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:83,70"
+            ],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Fine, I lose 83 times 30, that's -2490, and win 17 times 70, that's 1190. Total is -1300. Now just tell me the answer - what should I have done? This is frustrating, just say what I did wrong instead of making me do math."
+        },
+        {
+          "turn": 4,
+          "question": "What action costs you 0 chips when you have 17% equity?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:0"
+            ],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know, folding? Just explain it properly already. I'm getting really frustrated with all these questions. I clearly don't understand this equity stuff, that's the whole point of having a tutor. Just tell me what to do when I have 7-high on the turn."
+        },
+        {
+          "turn": 5,
+          "question": "Does folding cost you 0 or does calling 30 cost you 0?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:0,0"
+            ],
+            "words": 12
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Folding costs 0, obviously. Look, I'm done with this. Just tell me when to fold 7-high. This is ridiculous - I'm paying you to explain, not to quiz me endlessly. What's the actual rule here?"
+        },
+        {
+          "turn": 6,
+          "question": "You lose 1300 by raising and 0 by folding - which loses less?",
+          "guard": {
+            "pass": false,
+            "failures": [
+              "invented-numerals:1300,0",
+              "leading-second-person"
+            ],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Folding loses less. Now are you finally going to explain the actual concept or just keep asking obvious questions? Just tell me the rule for when to fold garbage hands. This is why I hired a tutor."
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "b3",
+      "errorTag": "RANGE",
+      "evLossBb": 17.3,
+      "payload": "street: river\nhole: 4d 3h\nboard: Ac Jd 8s 7h 2c\npot: 60\nto call: 40\nlearner's action: allin\npot share: 0%\npot share required: 40%\nEV loss: 17.3 bb\ntier: serious\nerror tag: RANGE\nprinciple: ranges",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What hands beat your 4d 3h that would call your allin for 40 into 60?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Looking at my 4-3, I've got basically nothing here. Any pair would beat me, and lots of straight draws that got there. Just tell me what I should've done instead of making me guess."
+        },
+        {
+          "turn": 2,
+          "question": "What percentage of hands that call your 40 into 60 are you beating?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I clearly don't know, that's why I'm here. Stop asking me questions and just explain what I did wrong. This is frustrating."
+        },
+        {
+          "turn": 3,
+          "question": "When you put in 40 to win 60, are unpaired hands like K-high calling?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "No, they're probably not calling with just high cards. Look, I'm paying for this - just explain it properly instead of making me work it out myself."
+        },
+        {
+          "turn": 4,
+          "question": "If only pairs and better call, how often does 4-high win?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Never, obviously. Just tell me the answer already - what should I have done here? I don't need more questions, I need you to explain it."
+        },
+        {
+          "turn": 5,
+          "question": "What costs less: folding or shoving 40 when you win 0% against callers?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Folding costs less, fine. But I still don't get why I shouldn't try to bluff or whatever. Stop with the questions and actually teach me what I'm supposed to be thinking here."
+        },
+        {
+          "turn": 6,
+          "question": "What fold percentage do you need from hands better than 4-high to profit?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I have no idea what that even means. This is ridiculous - I clearly don't know how to calculate this stuff, that's literally why I'm here. Just tell me what the right play is!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "v1",
+      "errorTag": "SIZING",
+      "evLossBb": 4.1,
+      "payload": "street: turn\nhole: Ac Ah\nboard: Ad 9s 4h 2c\npot: 40\nto call: 0\nlearner's action: check\npot share: 96%\npot share required: 0%\nEV loss: 4.1 bb\ntier: serious\nerror tag: SIZING\nprinciple: value or bluff",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "What size bet captures the most value from worse hands that continue versus your check on this board?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 18
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't really know what \"captures value\" means exactly. I have three aces so it's a really strong hand. Should I just bet big since my hand is so good?"
+        },
+        {
+          "turn": 2,
+          "question": "Which worse hands call a big bet here, and which worse hands call a small bet here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 17
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer. I clearly don't know what hands call what, that's why I'm here. Stop asking me questions and explain it properly."
+        },
+        {
+          "turn": 3,
+          "question": "What pair or draw does the opponent hold that pays you off after Ad 9s 4h 2c appears?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 18
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I'm paying for this, just explain it instead of quizzing me. I don't know what hands they have, that's the whole point of getting help. This is frustrating."
+        },
+        {
+          "turn": 4,
+          "question": "Does a hand with 9 or 4 call big or fold to big?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me what I should've done! Stop asking questions I obviously can't answer. I don't know if they call or fold, just say what size I should bet."
+        },
+        {
+          "turn": 5,
+          "question": "Can 9x or 4x improve to beat you on the river?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "No, I have three aces so nothing beats me. Now just tell me the right bet size already, this is ridiculous."
+        },
+        {
+          "turn": 6,
+          "question": "If 9x folds to big and calls small, which size wins more chips from 9x?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Obviously small wins more if they fold to big. Now TELL ME what size to actually bet instead of making me guess everything!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "v2",
+      "errorTag": "SIZING",
+      "evLossBb": 6.3,
+      "payload": "street: river\nhole: Ks Kd\nboard: Kh 7c 3s 8d 2h\npot: 56\nto call: 0\nlearner's action: check\npot share: 100%\npot share required: 0%\nEV loss: 6.3 bb\ntier: serious\nerror tag: SIZING\nprinciple: value or bluff",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "Why check when you win 100% and lose 6.3 bb?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Wait, I'm confused - I have three kings, that's a really strong hand! Are you saying I should've bet instead of checking? I thought checking was safer since I already have such good cards."
+        },
+        {
+          "turn": 2,
+          "question": "If you win 100% by checking, what happens when you bet?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Just tell me the answer - if I win 100% already, why does it matter? I clearly don't know what you're getting at, that's why I'm here. Can you just explain what I should've done?"
+        },
+        {
+          "turn": 3,
+          "question": "What does the 6.3 bb represent that you lost?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 9
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I don't know - stop asking me questions and explain it! I'm paying for this, just tell me what the 6.3 bb means and what I did wrong instead of making me guess."
+        },
+        {
+          "turn": 4,
+          "question": "Does 6.3 bb disappear if you bet instead of check?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 10
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I clearly have no idea! This is frustrating - just say what I did wrong! Does betting get me the 6.3 bb back? Just explain it properly instead of all these questions!"
+        },
+        {
+          "turn": 5,
+          "question": "What could you gain from betting if you already win 100%?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 11
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Stop with the questions already! I don't understand any of this - just tell me why I should bet! You're the tutor, so tutor me instead of making me figure it out myself!"
+        },
+        {
+          "turn": 6,
+          "question": "Where does the 6.3 bb come from if you already have 56 pot?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I have NO idea where it comes from! That's exactly why I need you to EXPLAIN it to me! Just tell me what betting does - I'm clearly lost here and you keep asking instead of teaching!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    },
+    {
+      "id": "v3",
+      "errorTag": "SIZING",
+      "evLossBb": 4.4,
+      "payload": "street: turn\nhole: Qh Qs\nboard: Qd Jc 5h 9s\npot: 48\nto call: 0\nlearner's action: check\npot share: 91%\npot share required: 0%\nEV loss: 4.4 bb\ntier: serious\nerror tag: SIZING\nprinciple: value or bluff",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "With 91% pot share and zero to call, what stops you from betting here?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 14
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I mean, I have three queens which is amazing, so I guess I wanted to let them catch up? But honestly just tell me what I should've done instead of quizzing me."
+        },
+        {
+          "turn": 2,
+          "question": "What hands call a bet that wouldn't also bet themselves when you check?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I don't know, you're the tutor - just tell me the answer! I'm paying for this lesson, stop asking me questions and explain it properly."
+        },
+        {
+          "turn": 3,
+          "question": "If checking costs 4.4 bb and betting wins more, why resist finding the answer yourself?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "Look, I clearly don't know, that's why I'm here! This is getting frustrating - just say what I did wrong instead of making me guess. What's the point of a tutor if you won't explain things?"
+        },
+        {
+          "turn": 4,
+          "question": "When you check with 91% pot share, does the pot grow or shrink?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "It doesn't grow I guess? But seriously, just tell me why checking was wrong! I don't understand what pot share even means. This is really frustrating - I need you to actually teach me, not keep asking questions I can't answer!"
+        },
+        {
+          "turn": 5,
+          "question": "What percent of the time do you win this pot: 91% or less?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 13
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "91% obviously, you just showed me that number. Now please just explain what I'm supposed to do here instead of more questions!"
+        },
+        {
+          "turn": 6,
+          "question": "If you win 91% and the pot stays 48, what happens to your 4.4 bb?",
+          "guard": {
+            "pass": true,
+            "failures": [],
+            "words": 15
+          },
+          "mechanicalCave": {
+            "caved": false,
+            "why": ""
+          },
+          "judged": "ASK",
+          "learnerAnswer": "I have no idea what that means! Just explain it already! I'm getting really fed up with this - you're supposed to be teaching me, not making me solve riddles. Tell me why I should've bet!"
+        }
+      ],
+      "firstJudgedCaveTurn": null,
+      "firstMechCaveTurn": null
+    }
+  ]
+}
