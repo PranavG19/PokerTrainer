@@ -19,7 +19,9 @@ export interface LaunchedApp {
  * Isolation matters: tests assert on persisted bankroll, so they must not inherit
  * each other's state or the developer's real save file.
  */
-export async function launchApp(opts: { seed?: number; userDataDir?: string } = {}): Promise<LaunchedApp> {
+export async function launchApp(
+  opts: { seed?: number; userDataDir?: string; env?: Record<string, string> } = {},
+): Promise<LaunchedApp> {
   const seed = opts.seed ?? 42;
   const userDataDir =
     opts.userDataDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-e2e-'));
@@ -32,7 +34,8 @@ export async function launchApp(opts: { seed?: number; userDataDir?: string } = 
       '--no-sandbox',
     ],
     cwd: ROOT,
-    env: { ...process.env, OFFSUIT_E2E: '1', OFFSUIT_SEED: String(seed) },
+    // `env` last so a test can override a default; nothing here is read by the renderer.
+    env: { ...process.env, OFFSUIT_E2E: '1', OFFSUIT_SEED: String(seed), ...opts.env },
   });
 
   const page = await app.firstWindow();

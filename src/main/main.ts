@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import * as path from 'node:path';
 import { DELETE_CONFIRM_PHRASE } from '../core/backup.js';
+import { cancelSpeech, speak } from './speech.js';
 import {
   deleteProfile,
   load,
@@ -140,6 +141,22 @@ app.whenReady().then(() => {
   ipcMain.handle('settings:deleteProfile', (_event, confirmation: unknown) =>
     deleteProfile(typeof confirmation === 'string' ? confirmation : ''),
   );
+
+  /**
+   * Narration — ONE channel. No egress: /usr/bin/say is a local binary, spawned with the verdict as
+   * an argv element and no shell. `null` means stop talking, which is what turning the toggle off or
+   * leaving the table sends; anything else is a verdict to read.
+   *
+   * The handler never rejects. A failed utterance resolves with a reason the renderer can display,
+   * because the verdict is already readable on screen and speech must not be able to break a hand.
+   */
+  ipcMain.handle('speech:speak', (_event, text: unknown) => {
+    if (text === null) {
+      cancelSpeech();
+      return { spoken: false, reason: 'cancelled' };
+    }
+    return speak(text);
+  });
 
   createWindow();
 });

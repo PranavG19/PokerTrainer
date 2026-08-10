@@ -16,4 +16,9 @@ contextBridge.exposeInMainWorld('offsuit', {
   // The confirmation phrase is re-checked in main; sending it is not authorising it.
   deleteProfile: (confirmation: string): Promise<unknown> =>
     ipcRenderer.invoke('settings:deleteProfile', confirmation),
+  // One narration channel. `null` stops the current utterance; a string is a verdict to read.
+  // Text only — the renderer cannot name a binary, a voice or a flag, so there is nothing here to
+  // aim at anything but macOS's `say`.
+  speak: (text: string | null): Promise<{ spoken: boolean; reason: string | null }> =>
+    ipcRenderer.invoke('speech:speak', text),
 });

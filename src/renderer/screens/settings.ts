@@ -40,6 +40,7 @@ export interface SettingsStatus {
 export interface SettingsHandlers {
   onSetTutorEnabled: (enabled: boolean) => void;
   onDeleteProfile: (confirmation: string) => void;
+  onSpokenVerdictsChange: (on: boolean) => void;
 }
 
 /** T4's diagnostics show "the last few", not the whole history. */
@@ -64,6 +65,12 @@ const NEVER_SENT: readonly string[] = [
 
 export function renderSettings(opts: {
   status: SettingsStatus;
+  /**
+   * Narration lives in the session rather than in SettingsStatus: it is a learner preference with no
+   * egress and nothing for main to resolve, so folding it into the resolved-tutor report would blur
+   * the one thing that report exists to state exactly.
+   */
+  spokenVerdicts: boolean;
   handlers: SettingsHandlers;
 }): HTMLElement {
   const { status, handlers } = opts;
@@ -80,6 +87,7 @@ export function renderSettings(opts: {
   root.appendChild(section('What is sent, every time the tutor answers', renderSent(status)));
   root.appendChild(section('What is never sent', renderNeverSent()));
   root.appendChild(renderDiagnostics(status));
+  root.appendChild(renderNarration(opts.spokenVerdicts, handlers));
   root.appendChild(renderProfileSection(status, handlers));
 
   return root;
@@ -188,6 +196,46 @@ function renderSwitch(status: SettingsStatus, handlers: SettingsHandlers): HTMLE
   wrap.appendChild(note);
 
   return wrap;
+}
+
+/**
+ * Spoken verdicts. Off on a fresh install and after any save that does not mention it, because
+ * unrequested audio out of a poker app is a hostile default — and because the verdict is fully
+ * readable without it, so sound is never the only channel carrying information.
+ *
+ * No egress: /usr/bin/say is a local binary. It sits below the tutor sections deliberately, so
+ * nothing here can be mistaken for part of the egress statement above it.
+ */
+function renderNarration(spokenVerdicts: boolean, handlers: SettingsHandlers): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'settings-block';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-switch';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'settings-toggle';
+  button.dataset.testid = 'speak-verdicts-toggle';
+  // `data-on` and a bare On/Off label, which is the contract tests/e2e/voice.spec.ts already asserts.
+  // Deliberately NOT the tutor switch's `data-enabled` + verb-phrase idiom: that button describes the
+  // action it performs ("Turn the tutor off"), which reads as the CURRENT state on a control whose
+  // state the label is also carrying. Here the label states the state and the note explains it.
+  button.dataset.on = String(spokenVerdicts);
+  button.textContent = spokenVerdicts ? 'On' : 'Off';
+  button.addEventListener('click', () => handlers.onSpokenVerdictsChange(!spokenVerdicts));
+  wrap.appendChild(button);
+
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.dataset.testid = 'speak-verdicts-note';
+  note.textContent = spokenVerdicts
+    ? 'On. Read through the built-in macOS voice, on this machine — nothing is sent anywhere. The same words stay on screen.'
+    : 'Off. Verdicts are shown, never spoken.';
+  wrap.appendChild(note);
+
+  body.appendChild(wrap);
+  return section('Reading verdicts aloud', body);
 }
 
 /** 1 of 6, second half — the exact allowlist, read from main, never restated. */
