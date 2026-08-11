@@ -955,6 +955,221 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'set-mine-call-22',
+    title: 'Set-mining 2♠2♣ vs an open and a cold-call',
+    setup:
+      'Four-handed, 100bb deep, you have 2♠2♣ in the big blind. UTG raises to 3bb, the button cold-calls, and it folds to you. Two players in, a cheap price to close, and deep stacks behind.',
+    seatCount: 4,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['2s', '2c'],
+      ['Ad', 'Kd'],
+      ['Js', 'Ts'],
+      ['7d', '4c'],
+    ],
+    board: ['Qh', '9c', '5s', '8d', '3h'],
+    villainScript: [
+      { kind: 'raise', to: 150 },
+      { kind: 'call' },
+      { kind: 'fold' },
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          '22 will flop a set only about one time in eight, so it is a pure implied-odds call: you are not calling on current pot odds but on the big pot you win the times you do hit. Two conditions make that math work here and both are met — stacks are deep (100bb, so there is a full stack to win when your set gets there) and the pot is multiway, giving two opponents who can pay you off. Flat to see a cheap flop and either flop a set or fold; 3-betting a hand that can only continue when it hits just bloats a pot you will usually have to surrender.',
+      },
+    ],
+  },
+  {
+    id: 'squeeze-fold-weak',
+    title: 'Folding K♣J♦ into a raise and a cold-call',
+    setup:
+      'Four-handed with K♣J♦ in the big blind. UTG raises to 3bb, the button cold-calls, and it folds to you. A raise AND a caller are already in front of you, and you are out of position with the whole hand still to play.',
+    seatCount: 4,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Kc', 'Jd'],
+      ['Ah', 'Ks'],
+      ['Ad', 'Js'],
+      ['7c', '2h'],
+    ],
+    board: ['Td', '8s', '5c', '4h', '9d'],
+    villainScript: [
+      { kind: 'raise', to: 150 },
+      { kind: 'call' },
+      { kind: 'fold' },
+    ],
+    target: [
+      {
+        action: 'fold',
+        explanation:
+          'K♣J♦ is a classic trap hand multiway: a raise and a cold-call both rep strength, and you are dominated by A♦J♠ and every K-x with a better kicker like A♥K♠, plus over-pairs. It is not strong enough to 3-bet for value — you\'d only be called by hands that beat you — yet it is far too dominated to flat profitably out of position, where you\'ll flop second-best top pairs that lose big pots and win small ones. Heads-up KJo can defend; against an open plus a caller, the extra strength in the field turns it into a fold.',
+      },
+    ],
+  },
+  {
+    id: 'call-turn-implied-oesd',
+    title: 'Calling the turn with a big draw on implied odds',
+    setup:
+      'You\'re on the button with T♥9♥, 100bb deep, and it folds to you. The small blind gets out of the way, the big blind calls your open, then leads the J♣8♠4♦ flop and barrels again on the 2♣ turn.',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Th', '9h'],
+      ['6s', '3c'],
+      ['Ad', 'Jh'],
+    ],
+    board: ['Jc', '8s', '4d', '2c', '7s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'bet', to: 100 },
+      { kind: 'bet', to: 250 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'T9s is a comfortable button open: a suited connector that plays well in position against both blinds and can flop straights, flushes and their draws to attack ranges that miss.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'J♣8♠4♦ hands you an open-ended straight draw — any Q or 7 completes it, eight outs — plus a backdoor flush. Facing one c-bet in position you have the price and, crucially, position to see another card and realize that draw\'s equity, so calling beats folding or raising a raw draw.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'The 2♣ bricks your draw but you still hold eight clean outs to the straight. This turn bet lays roughly 2.9-to-1, and even where the direct price is thin your position plus the implied odds — the extra chips you win when a Q or 7 arrives and the big blind pays off — make continuing clearly correct.',
+      },
+    ],
+  },
+  {
+    id: 'value-raise-flop-set',
+    title: 'Fast-playing top set on a wet board in position',
+    setup:
+      'You open the button, the big blind calls, and the flop comes 9♥8♥7♠ — about as wet as textures get, dripping with flush and straight draws. First to act, the big blind leads out into you. You have position and a big decision.',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['9c', '9d'],
+      ['Qs', 'Jc'],
+      ['Ah', '5h'],
+    ],
+    board: ['9h', '8h', '7s', 'Kd', '2c'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'bet', to: 100 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Pocket nines are a comfortable button open — a pair that plays well in position against the blinds and flops a set often enough to win a stack when it does. Take the lead with position for the rest of the hand.',
+      },
+      {
+        action: 'raise',
+        explanation:
+          'You flopped top set on 9♥8♥7♠, one of the wettest boards in poker: the heart flush draw and a swarm of straight draws all have live equity against you. When the big blind leads into you, raise for value AND protection — fast-playing charges every draw the maximum and builds the pot while your hand is a huge favourite. Flatting invites a cheap turn that completes a flush or a straight and freezes your monster; in position on a wet board you deny that equity now rather than trapping and letting a free card beat you. This is the mirror of check-raising a set out of position — same hand, same logic, from the other side.',
+      },
+    ],
+  },
+  {
+    id: 'overpair-fold-river-jam',
+    title: 'Folding an overpair to a huge river jam',
+    setup:
+      'You open on the button, the big blind calls, and you bet the 9♠8♠4♦ flop and barrel the 2♥ turn — called both times. The 7♠ river puts a third spade out, and the big blind fires a huge overbet, jamming into you. Do you pay it off?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Jc', 'Jd'],
+      ['2c', '2d'],
+      ['As', 'Ks'],
+    ],
+    board: ['9s', '8s', '4d', '2h', '7s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'bet', to: 1500 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Pocket jacks are a premium hand — open the button for value and to take the betting lead into the blinds with position.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'On 9♠8♠4♦ your overpair is ahead of the big blind\'s calling range. Bet for value from worse pairs and to charge the flush and straight draws that will float you — checking a wet board only lets the field realize equity for free.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The 2♥ is a blank that completes no draw and shifts no ranges. Keep value-betting: jacks are still an overpair ahead of the draws and worse made hands that called the flop, and a second barrel builds the pot while denying the draws their equity.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'The 7♠ is the worst card in the deck here: it fills the spade flush, completes the 5-6 straight, and lets slowplayed sets and two pairs arrive too. A pot-sized-plus jam on this runout is almost entirely value, and one pair beats none of it. Pot odds never rescue a hand that can only beat a bluff when the sizing screams value — an overpair is a fold to max river aggression on a board this coordinated.',
+      },
+    ],
+  },
+  {
+    id: 'iso-3bet-vs-limp-reraise',
+    title: 'Calling a 3-bet on the button with A♠K♥',
+    setup:
+      'Folded to you on the button, you open and the small blind folds — then the big blind 3-bets. 100bb deep, the action is back on you with one decision to make.',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', 'Kh'],
+      ['7c', '2d'],
+      ['Qd', 'Jd'],
+    ],
+    board: ['8h', '5s', '3c', 'Tc', '4h'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'raise', to: 400 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠K♥ is one of the strongest hands you can hold, and the button is the best seat: opening builds the pot with a hand that dominates most of what the blinds continue with and takes the betting lead in position for the whole hand.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'AKo dominates the suited broadways and worse aces that fill out a 3-betting range and, at worst, flips with the pairs — it is far too strong to fold to a single re-raise. With position and a hand that plays well postflop, flatting keeps their bluffs in and avoids bloating the pot as a big underdog to the very top of their value (AA/KK), where a 4-bet only gets called by the hands that crush you. Folding AK here is one of the most common and expensive preflop leaks.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
