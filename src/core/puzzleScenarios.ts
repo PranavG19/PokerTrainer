@@ -424,6 +424,40 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'isolate-limper-aqs',
+    title: 'Raising to isolate a limper with A♠Q♠',
+    setup:
+      'It folds to the button, who just calls the big blind — a limp, not a raise. The small blind folds and you are in the big blind with A♠Q♠. A limp is weakness; do you check your option, or make them pay for it?',
+    seatCount: 3,
+    // bb-defend seating (button on seat 1): seat 0 = BB (hero), seat 1 = button (first to act preflop),
+    // seat 2 = SB. The button LIMPS (calls the BB) and the SB folds, so the action reaches the hero in
+    // the BB with the option to check or raise — the isolation decision.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = button (limper). Seat 2 = SB (folds).
+    holes: [
+      ['As', 'Qs'],
+      ['Kc', '9d'], // button: a weak, limpable holding — dominated by AQ
+      ['7h', '2d'], // SB: folds
+    ],
+    board: ['8c', '6h', '3s', 'Jd', '4c'],
+    // Button limps (calls the BB), SB folds; the action reaches the hero, who raises. One decision, so
+    // the streets past preflop are never reached.
+    villainScript: [
+      { kind: 'call' }, // button limps in
+      { kind: 'fold' }, // SB folds
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A limp caps the button’s range — a strong hand would have raised — so A♠Q♠ is well ahead and wants a bigger pot heads-up, not a cheap multiway flop. Raising to isolate punishes the limp, folds out the blinds’ trash, and takes the initiative with a hand that dominates the offsuit aces and broadways a limper shows up with. Checking your option lets a weak hand see a free flop and realise equity it has no right to; make them pay to play against you.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
