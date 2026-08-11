@@ -28,6 +28,7 @@ import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderProgressScreen } from './screens/progress.js';
 import { renderLessonScreen } from './screens/lesson.js';
+import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
 import { renderDrillScreen } from './screens/drill.js';
@@ -94,6 +95,7 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
 type Tab =
   | 'play'
   | 'learn'
+  | 'puzzle'
   | 'repair'
   | 'drill'
   | 'anomaly'
@@ -117,6 +119,7 @@ type Tab =
 const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'play', label: 'Play', testid: 'tab-play' },
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
+  { id: 'puzzle', label: 'Puzzle', testid: 'tab-puzzle' },
   { id: 'repair', label: 'Repair', testid: 'tab-repair' },
   { id: 'drill', label: 'Drill', testid: 'tab-drill' },
   { id: 'robustness', label: 'Robustness', testid: 'tab-robustness' },
@@ -372,6 +375,7 @@ async function boot(): Promise<void> {
   function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
     if (which === 'profile') return renderProfileTab();
     if (which === 'learn') return renderLessonScreen();
+    if (which === 'puzzle') return renderPuzzleScreen();
     if (which === 'repair') return renderContrastScreen({ hands: session.hands });
     if (which === 'charts') return renderCharts();
     if (which === 'drill') return renderDrillScreen();

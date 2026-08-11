@@ -565,14 +565,14 @@ body {
  * tab off screen where nothing measures it — which is exactly how this went unnoticed.
  */
 .tabs {
-  padding: 8px 20px;
+  padding: 8px 12px;
   flex-wrap: wrap;
-  column-gap: 6px;
+  column-gap: 4px;
   row-gap: 4px;
 }
 
 .tab {
-  padding: 6px 10px;
+  padding: 6px 8px;
 }
 
 .screen {
