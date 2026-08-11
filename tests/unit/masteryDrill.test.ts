@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { classDrawWeight, pickWeightedClass, type ClassTally } from '../../src/core/masteryDrill.js';
+import {
+  classDrawWeight,
+  pickWeightedClass,
+  weakestAttemptedClass,
+  type ClassTally,
+} from '../../src/core/masteryDrill.js';
 import { mulberry32 } from '../../src/core/rng.js';
 
 const tally = (attempts: number, correct: number): ClassTally => ({ attempts, correct });
@@ -71,5 +76,25 @@ describe('pickWeightedClass', () => {
       return Array.from({ length: 20 }, () => pickWeightedClass(tallies, rng));
     };
     expect(draw()).toEqual(draw());
+  });
+});
+
+describe('weakestAttemptedClass', () => {
+  it('returns null when nothing has been attempted', () => {
+    expect(weakestAttemptedClass([tally(0, 0), tally(0, 0)])).toBeNull();
+  });
+
+  it('picks the most-missed attempted class', () => {
+    // index 1 is failing hardest among the attempted.
+    expect(weakestAttemptedClass([tally(10, 9), tally(10, 2), tally(10, 7)])).toBe(1);
+  });
+
+  it('never points at an unseen class, even though its draw weight is the highest', () => {
+    // index 0 is unseen (biggest weight of all), but "not tried yet" is not "keeps missing".
+    expect(weakestAttemptedClass([tally(0, 0), tally(8, 3)])).toBe(1);
+  });
+
+  it('breaks a tie toward the earlier (stronger-named) class so the marker does not flicker', () => {
+    expect(weakestAttemptedClass([tally(5, 2), tally(5, 2)])).toBe(0);
   });
 });

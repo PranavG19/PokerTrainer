@@ -16,7 +16,7 @@ import {
   type Position,
 } from '../../core/preflop.js';
 import { mulberry32, type Rng } from '../../core/rng.js';
-import { pickWeightedClass, type ClassTally } from '../../core/masteryDrill.js';
+import { pickWeightedClass, weakestAttemptedClass, type ClassTally } from '../../core/masteryDrill.js';
 import { renderCard } from '../components/card.js';
 
 /**
@@ -237,13 +237,22 @@ function renderClasses(tallies: ReadonlyMap<HandClassId, Tally>): HTMLElement {
   list.className = 'class-list';
   list.dataset.testid = 'class-list';
 
-  for (const handClass of HAND_CLASSES) {
+  // Which class the drill is drilling hardest among those attempted — the one to review. Same order
+  // the sampler uses (HAND_CLASSES), so the marked row matches why that class keeps coming up.
+  const ordered: ClassTally[] = HAND_CLASSES.map(
+    (c) => tallies.get(c.id) ?? { attempts: 0, correct: 0 },
+  );
+  const weakest = weakestAttemptedClass(ordered);
+
+  HAND_CLASSES.forEach((handClass, classIndex) => {
     const tally = tallies.get(handClass.id) ?? { attempts: 0, correct: 0 };
 
     const row = document.createElement('li');
     row.className = 'class-row';
     row.dataset.testid = 'class-row';
     row.dataset.class = handClass.id;
+    // Marked only when this class is the weakest ATTEMPTED one; an all-fresh scoreboard marks nothing.
+    if (classIndex === weakest) row.dataset.review = 'true';
 
     const name = document.createElement('span');
     name.className = 'class-label';
@@ -269,8 +278,18 @@ function renderClasses(tallies: ReadonlyMap<HandClassId, Tally>): HTMLElement {
     score.textContent = tally.attempts === 0 ? '—' : `${tally.correct}/${tally.attempts}`;
     row.appendChild(score);
 
+    // A visible word, not just the data-review attribute, so the learner can SEE why this class keeps
+    // coming up rather than reading it as the drill misbehaving. Only the marked row carries it.
+    if (classIndex === weakest) {
+      const flag = document.createElement('span');
+      flag.className = 'class-review';
+      flag.dataset.testid = 'class-review';
+      flag.textContent = 'review';
+      row.appendChild(flag);
+    }
+
     list.appendChild(row);
-  }
+  });
 
   return list;
 }

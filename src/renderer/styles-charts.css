@@ -87,10 +87,22 @@
 
 .class-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  /* Fourth column holds the "review" marker; empty on every unmarked row, so the score column stays
+   * aligned down the list. */
+  grid-template-columns: 1fr auto auto auto;
   align-items: baseline;
   gap: 8px;
   padding: 3px 0;
+}
+
+/* The class the drill is drilling hardest, so the learner knows what to study and why it recurs. Mint
+ * is reserved elsewhere in this screen for the RFI colour, so this uses the blind accent instead. */
+.class-review {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--chip-blind);
 }
 
 .class-label {
