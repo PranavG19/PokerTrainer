@@ -711,6 +711,250 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'fold-3bet-bluff-to-4bet',
+    title: 'Folding your 3-bet bluff to a 4-bet',
+    setup:
+      'It folds to the button, who opens to 3bb (150). The small blind folds, and the action is on you in the big blind with A♥ 5♥, 100bb deep.',
+    seatCount: 3,
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Ah', '5h'],
+      ['Ks', 'Kd'],
+      ['7c', '2d'],
+    ],
+    board: ['Qs', 'Js', '8d', '3c', '9h'],
+    villainScript: [
+      { kind: 'raise', to: 150 },
+      { kind: 'fold' },
+      { kind: 'raise', to: 1050 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♥ 5♥ is a textbook light 3-bet: the ace blocks the opener\'s strongest value combos (AA/AK) and the suited wheel card gives you equity and playability when called. You re-raise as a bluff to fold out the button\'s weak opens and take the initiative — the value is in the fold equity, not in ace-high going to showdown.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'The 4-bet is the tell: the button reps a range of KK+/AK that crushes you, and ace-high has far too little equity to call off 100bb. A light 3-bet is a bluff, not a hand that can continue against a re-raise — folding here is the plan, not weakness. Give the bluff up cheaply and keep your stack for a better spot; calling or 5-bet-jamming A5s just lights money on fire against a range that has you dominated.',
+      },
+    ],
+  },
+  {
+    id: 'semibluff-checkraise-draw',
+    title: 'Check-raising a big flush draw as a semi-bluff',
+    setup:
+      'You defend the big blind with A♠K♠, the button opens, and the flop comes Q♠8♠3♥. First to act, you check, and the opener continuation-bets. You have no pair yet — just the nut flush draw and two overcards. Call, or raise?',
+    seatCount: 3,
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', 'Ks'],
+      ['Qd', 'Jd'],
+      ['7c', '2h'],
+    ],
+    board: ['Qs', '8s', '3h', '4c', '6d'],
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+      { kind: 'bet', to: 75 },
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'A suited broadway defending the big blind closing the action for one more bet is a routine call — you have the price and a hand that flops flushes, straights and top pairs.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'First to act against the pre-flop raiser, check: they c-bet most of their range, so checking keeps their bluffs and worse hands in and sets up a raise, where leading out folds out the hands you want to attack.',
+      },
+      {
+        action: 'raise',
+        explanation:
+          'This is the bluff mirror of check-raising a set. You have no made hand, but the nut flush draw plus two overcards is a monster of equity — you are close to a coin-flip against top pair even when called. Check-raising wins the pot outright when the opener gives up (fold equity NOW), and when called you have a huge draw to the best hand (equity LATER). Raising a strong draw beats calling because it adds the times they fold to the times you hit, and it lets YOU set the price instead of paying theirs.',
+      },
+    ],
+  },
+  {
+    id: 'double-barrel-semibluff',
+    title: 'Double-barrelling a turn semi-bluff',
+    setup:
+      'You open A♠K♠ from the small blind, the big blind calls, and the flop is Q♦ 8♠ 3♣. You bet, they call. The turn is the 5♠. Do you fire again?',
+    seatCount: 3,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', 'Ks'],
+      ['Jh', 'Td'],
+      ['6c', '6d'],
+    ],
+    board: ['Qd', '8s', '3c', '5s', '2d'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'call' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠K♠ is a premium suited hand: raise to seize the initiative and build the pot as the pre-flop opener, playing your strongest high-card and backdoor equity aggressively against the big blind.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'Q♦ 8♠ 3♣ completely misses your hand, but as the raiser you hold the range and nut advantage on this dry board. C-bet as a bluff — two overcards plus a backdoor flush mean you fold out the many hands that whiffed while keeping outs to improve when called.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The 5♠ gives you the nut flush draw to go with your two overcards — a genuine semi-bluff, not stubborn bluffing. Barrel again: the fold equity pressures the weak pairs and draws the big blind called the flop with, and even when called you can still make the nut flush or pair your ace or king. Here real outs back the aggression.',
+      },
+    ],
+  },
+  {
+    id: 'fold-to-raise-on-cbet',
+    title: 'Folding top pair weak kicker to a flop raise',
+    setup:
+      'You open K♦8♦ from the small blind, the big blind calls, and the flop is K♠9♥4♣. You continuation-bet and the big blind raises. What now?',
+    seatCount: 3,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Kd', '8d'],
+      ['9s', '9c'],
+      ['Jc', 'Ts'],
+    ],
+    board: ['Ks', '9h', '4c', '2s', '7h'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'raise', to: 260 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'K♦8♦ is a reasonable small-blind open against a lone big blind: a suited king with a blocker and some playability that wants to take the initiative heads-up rather than limp.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'You flopped top pair on K♠9♥4♣, a dry board that misses most of a big-blind calling range. Bet for thin value and protection — you are ahead of the worse Kx, middle pairs and draws that will pay you, and you deny equity to overcards.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'A raise represents a far stronger range than a call: sets, two pair and strong Kx that all dominate a weak kicker, while your hand beats almost nothing that wants to raise this dry a board. Top pair with a weak kicker bet for thin value, but it is not a hand to stack off — fold and keep the loss small. Calling off a marginal made hand into obvious strength is exactly the leak that turns one bet into a whole stack.',
+      },
+    ],
+  },
+  {
+    id: 'fold-busted-draw-river',
+    title: 'Folding the busted flush draw on the river',
+    setup:
+      'You open 8♥7♥ on the button and the big blind calls. On K♥9♥2♠ you have a flush draw; the BB bets and you call. The turn is the Q♦ and you call again, still drawing. The river is the J♣, the BB bets, and your flush never arrived. What do you do?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['8h', '7h'],
+      ['4d', '3c'],
+      ['Ks', 'Qs'],
+    ],
+    board: ['Kh', '9h', '2s', 'Qd', 'Jc'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'bet', to: 100 },
+      { kind: 'bet', to: 250 },
+      { kind: 'bet', to: 600 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          '8♥7♥ is a fine button open — suited and connected, it flops well and plays cleanly in position against the blinds.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'On K♥9♥2♠ you hold a live flush draw in position: you have the price, the equity, and position to realise it, so calling to see the turn is easy.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'The Q♦ misses you, but the flush draw is still worth a call getting a reasonable price with position and one card to come — you keep the door open to the heart that makes your hand.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'The J♣ bricks: no heart, no pair for you, so you hold nothing but a busted draw that beats zero of the BB\'s value bets. A missed draw is worth exactly what a fold is worth — you cannot call a river bet with air just because you were drawing. Pot odds are meaningless when your hand can never win at showdown; let it go.',
+      },
+    ],
+  },
+  {
+    id: 'thin-value-bet-river',
+    title: 'Thin value on the river when checked to',
+    setup:
+      'You open Q♦J♠ on the button and the big blind calls. On Q♣8♥4♦ you bet and they call. The turn (2♣) and river (5♠) are both blanks, and the big blind checks to you on each. How do you play the last two streets?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Qd', 'Js'],
+      ['7c', '2h'],
+      ['Qh', '9c'],
+    ],
+    board: ['Qc', '8h', '4d', '2c', '5s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Q♦J♠ is a standard button open: two broadway cards that flop top pair and strong draws, and they play well heads-up in position against the blinds.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'On Q♣8♥4♦ you have top pair and a big edge over a big-blind calling range. Bet for value and to charge the worse queens, middle pairs, and draws that will pay you off.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'The 2♣ is a total blank, but top pair with a jack kicker is only a medium hand — good enough to want a showdown, not good enough to bet three streets. A second barrel mostly folds out what you beat and gets called by better queens (A♥Q / K♥Q). Check back to control the pot, keep the caller\'s bluffs and worse queens in, and set up a cheap river.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The 5♠ changes nothing and the big blind has now checked twice, so their range is full of worse queens, weak pairs, and busted draws that will look you up. Bet thin for value: you beat the hands that call, and a check throws that money away. Missing a thin value bet costs you exactly as much as paying off a bluff — bet the hands a worse hand calls.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

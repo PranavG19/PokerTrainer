@@ -215,13 +215,19 @@ test.describe('puzzle mode', () => {
       'call-3bet-ip-aqs': ['raise', 'call'],
       '4bet-aa-vs-3bet': ['raise', 'raise'],
       'value-bet-river-flush': ['raise', 'call', 'call', 'bet'],
+      'fold-3bet-bluff-to-4bet': ['raise', 'fold'],
+      'semibluff-checkraise-draw': ['call', 'check', 'raise'],
+      'double-barrel-semibluff': ['raise', 'bet', 'bet'],
+      'fold-to-raise-on-cbet': ['raise', 'bet', 'fold'],
+      'fold-busted-draw-river': ['raise', 'call', 'call', 'fold'],
+      'thin-value-bet-river': ['raise', 'bet', 'check', 'bet'],
     };
 
     await withApp(async (page) => {
       await openPuzzle(page);
 
       const seen = new Set<string>();
-      for (let visited = 0; visited < 20; visited++) {
+      for (let visited = 0; visited < 30; visited++) {
         const id = (await page.locator(screen).getAttribute('data-scenario')) ?? '';
         if (seen.has(id)) break; // wrapped back to the first puzzle — the whole library was walked
         seen.add(id);
