@@ -13,9 +13,11 @@ import {
   recordChartAnswer,
   recordGifts,
   recordHand,
+  recordLexiconAttempt,
   recordPuzzleResult,
   serialize,
 } from '../../src/core/session.js';
+import { createLexicon } from '../../src/core/lexicon.js';
 
 function gift(overrides: Partial<GiftEntry> = {}): GiftEntry {
   return {
@@ -364,6 +366,65 @@ describe('puzzle progress persistence', () => {
     expect(raw.puzzleProgress).toEqual({
       'b': { attempts: 1, bestCorrect: 4 },
       'd': { attempts: 2, bestCorrect: 0 },
+    });
+  });
+});
+
+describe('lexicon persistence (L1/L3)', () => {
+  // A sentence citing the domination mechanism is accepted by the no-key keyword check; a cached cell
+  // ("K7s is a CO open") is rejected. Both are real outcomes of the same classifier.
+  const accepted = () =>
+    createLexicon().record({
+      conceptId: 'c1',
+      sentence: 'the worse kicker is dominated when it pairs',
+      at: 100,
+      flippingAxis: 'kickerGap',
+    });
+  const rejected = () => createLexicon().record({ conceptId: 'c1', sentence: 'K7s is a CO open', at: 200 });
+
+  it('recordLexiconAttempt appends and is pure', () => {
+    const before = emptySession();
+    const after = recordLexiconAttempt(before, accepted());
+    expect(before.lexicon).toEqual([]); // prior untouched
+    expect(after.lexicon).toHaveLength(1);
+    expect(after.lexicon[0]).toMatchObject({ outcome: 'accepted', conceptId: 'c1' });
+  });
+
+  it('survives a round trip, and the rehydrated log still quotes the accepted sentence', () => {
+    let s = emptySession();
+    s = recordLexiconAttempt(s, accepted());
+    s = recordLexiconAttempt(s, rejected());
+    const round = deserialize(JSON.parse(JSON.stringify(serialize(s))));
+    expect(round).toEqual(s);
+    // The whole point of persisting the log: createLexicon rebuilds a working lexicon from it.
+    const quote = createLexicon(round.lexicon).quoteFor('c1');
+    expect(quote?.sentence).toBe('the worse kicker is dominated when it pairs');
+  });
+
+  it('a save file predating the lexicon loads with an empty log', () => {
+    expect(deserialize({ bankroll: 12000, hands: [], stats: {} }).lexicon).toEqual([]);
+  });
+
+  it('drops malformed entries and re-derives reasonText rather than trusting the file', () => {
+    const raw = deserialize({
+      lexicon: [
+        // clean accepted → kept
+        { seq: 0, conceptId: 'c1', sentence: 'dominated kicker', at: 1, flippingAxis: 'kickerGap', outcome: 'accepted', frame: 'domination-risk', decidedBy: 'keyword-check' },
+        { seq: 1, conceptId: 'c1', sentence: '   ', outcome: 'accepted', frame: 'domination-risk', decidedBy: 'keyword-check' }, // blank sentence → dropped
+        { seq: 2, conceptId: 'c2', sentence: 'bad frame', outcome: 'accepted', frame: 'nonsense', decidedBy: 'keyword-check' }, // unknown frame → dropped
+        { seq: 3, conceptId: 'c2', sentence: 'bad reason', outcome: 'rejected', reason: 'whatever', reasonText: 'x' }, // unknown reason → dropped
+        // clean rejected → kept, reasonText re-derived from this build's REJECTION_TEXT (not the stale file value)
+        { seq: 4, conceptId: 'c2', sentence: 'K7s is a CO open', at: 5, outcome: 'rejected', reason: 'cached-cell', reasonText: 'STALE WORDING FROM AN OLD BUILD', pushback: true },
+        { outcome: 'accepted' }, // no conceptId/sentence → dropped
+      ],
+    });
+    expect(raw.lexicon).toHaveLength(2);
+    expect(raw.lexicon[0]).toMatchObject({ outcome: 'accepted', frame: 'domination-risk', sentence: 'dominated kicker' });
+    expect(raw.lexicon[1]).toMatchObject({
+      outcome: 'rejected',
+      reason: 'cached-cell',
+      reasonText: 'this states a memorised conclusion rather than a mechanism',
+      pushback: true,
     });
   });
 });

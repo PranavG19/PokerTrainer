@@ -16,6 +16,13 @@ import {
 } from '../../core/contrastManifest.js';
 import { legalActions } from '../../core/table.js';
 import type { HandRecord } from '../../core/session.js';
+import {
+  createLexicon,
+  feedbackOpening,
+  type AcceptedSentence,
+  type LexiconAttempt,
+  type MechanismFrame,
+} from '../../core/lexicon.js';
 import { renderCard, renderCardRow } from '../components/card.js';
 
 /**
@@ -62,9 +69,23 @@ const AXIS_LABELS: Record<ContrastAxis, string> = {
   stackDepth: 'Stack depth',
 };
 
+/** L2's three mechanism framings, spelled for display — the sentence the learner is asked to write in. */
+const FRAME_LABELS: Record<MechanismFrame, string> = {
+  'domination-risk': 'domination risk',
+  'equity-realisation': 'equity realisation',
+  'range-asymmetry': 'range asymmetry',
+};
+
 interface ContrastScreenOpts {
   /** The persisted hand log. T2 grades in it are what fire a repair (G1's T2 row). */
   readonly hands: readonly HandRecord[];
+  /**
+   * L1/L3: the persisted lexicon log, rehydrated so an accepted mechanism sentence keeps naming its
+   * concept across sittings. Absent → an empty lexicon (nothing quoted yet).
+   */
+  readonly lexicon?: readonly LexiconAttempt[];
+  /** Persist one recorded attempt. Called once per commit; main.ts appends it to the session and saves. */
+  readonly onLexiconAttempt?: (attempt: LexiconAttempt) => void;
 }
 
 export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
@@ -86,12 +107,35 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
   /** `null` means "show whichever axis core could build first" — see `axisToShow`. */
   let axis: ContrastAxis | null = null;
 
+  /**
+   * The learner's lexicon (L1/L2/L3), rehydrated from the persisted log. Built once per mount and
+   * appended to locally; every accepted/rejected attempt is also handed up to `onLexiconAttempt` so the
+   * session log and this one never diverge (the same seed-plus-callback shape charts.ts uses for mastery).
+   */
+  const lexicon = createLexicon(opts.lexicon ?? []);
+  /** The most recent attempt, shown as feedback under the input. Cleared on a concept switch. */
+  let lastAttempt: LexiconAttempt | null = null;
+
   const selectConcept = (index: number): void => {
     selected = index;
     axis = null;
+    lastAttempt = null;
     view = 'concept';
     paint();
     root.scrollTop = 0;
+  };
+
+  /**
+   * L1: the learner's sentence naming the concept. An empty box is not an attempt (core throws on it by
+   * design), so it is a no-op here rather than a recorded blank. The verdict — accepted with its frame,
+   * or rejected with L2's reason — comes straight back out of the store; this screen classifies nothing.
+   */
+  const commitSentence = (conceptId: string, flippingAxis: ContrastAxis, sentence: string): void => {
+    if (sentence.trim() === '') return;
+    const attempt = lexicon.record({ conceptId, sentence, at: Date.now(), flippingAxis });
+    opts.onLexiconAttempt?.(attempt);
+    lastAttempt = attempt;
+    paint();
   };
 
   const showQueue = (): void => {
@@ -228,6 +272,14 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
     queued.dataset.days = remediation.repairDays.join(',');
     panel.appendChild(queued);
 
+    // L1: once a sentence is adopted for this concept, its feedback OPENS by quoting it.
+    const opening = feedbackOpening(lexicon, item.entry.conceptId);
+    if (opening !== null) {
+      const quote = text('p', 'lexicon-quote', opening);
+      quote.dataset.testid = 'lexicon-quote';
+      panel.appendChild(quote);
+    }
+
     panel.appendChild(renderAxisOffers(remediation, showing));
 
     if (showing === null) {
@@ -235,8 +287,59 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
       return panel;
     }
     const offer = remediation.offers.find((o) => o.axis === showing);
-    if (offer?.set != null) panel.appendChild(renderSet(offer));
+    if (offer?.set != null) {
+      panel.appendChild(renderSet(offer));
+      // The set is the resolved contrast; naming it in one mechanism sentence is L1's whole device.
+      panel.appendChild(renderLexiconPanel(item.entry.conceptId, showing));
+    }
     return panel;
+  }
+
+  /**
+   * L1/L2/L3 in one panel: the prompt to name the concept, the input, the verdict on the last attempt,
+   * and the accepted history. A closure so it can reach `lexicon`, `commitSentence` and `lastAttempt`.
+   */
+  function renderLexiconPanel(conceptId: string, flippingAxis: ContrastAxis): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'lexicon-panel';
+    section.dataset.testid = 'lexicon-panel';
+    section.dataset.conceptId = conceptId;
+    section.dataset.axis = flippingAxis;
+
+    section.appendChild(text('div', 'stat-label', 'Name the concept in your own words'));
+    section.appendChild(
+      text(
+        'p',
+        'lexicon-prompt',
+        'Which variable flipped the answer here, and why? Say it as a mechanism — domination risk, equity realisation or range asymmetry — not as a chart cell.',
+      ),
+    );
+
+    const box = document.createElement('textarea');
+    box.className = 'lexicon-input';
+    box.dataset.testid = 'lexicon-input';
+    box.rows = 2;
+    box.placeholder = 'e.g. the worse kicker is dominated when it pairs, so it makes second best…';
+    section.appendChild(box);
+
+    const submit = document.createElement('button');
+    submit.type = 'button';
+    submit.className = 'pill lexicon-submit';
+    submit.dataset.testid = 'lexicon-submit';
+    submit.textContent = 'Adopt this sentence';
+    submit.addEventListener('click', () => commitSentence(conceptId, flippingAxis, box.value));
+    section.appendChild(submit);
+
+    // The verdict on the last attempt for THIS concept (a switch clears it, so no stale carry-over).
+    if (lastAttempt !== null && lastAttempt.conceptId === conceptId) {
+      section.appendChild(renderLexiconFeedback(lastAttempt));
+    }
+
+    // L3: earlier accepted sentences stay visible, oldest first.
+    const history = lexicon.historyFor(conceptId);
+    if (history.length > 0) section.appendChild(renderLexiconHistory(history));
+
+    return section;
   }
 
   /**
@@ -463,6 +566,58 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
 /** Reads one axis off core's feature vector. Every value shown on screen comes through here. */
 function axisValue(variant: ContrastVariant, axis: ContrastAxis): string {
   return String(variant.features[axis]);
+}
+
+/**
+ * The verdict on the last sentence, told apart by WEIGHT and WORDING, never colour (V2 parity with the
+ * drills). An accepted sentence gets a quiet confirmation — silence is not praise, so it is not
+ * celebrated; a rejected one states L2's correction in full-contrast medium type, and the first
+ * rejection per concept invites a reframe (the "pushes back once" flag). Both are recorded either way.
+ */
+function renderLexiconFeedback(attempt: LexiconAttempt): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'lexicon-feedback';
+  wrap.dataset.testid = 'lexicon-feedback';
+  wrap.dataset.verdict = attempt.outcome;
+
+  if (attempt.outcome === 'accepted') {
+    wrap.dataset.frame = attempt.frame;
+    const verdict = text('span', 'lexicon-verdict', 'Adopted — this now opens your feedback on this concept.');
+    verdict.dataset.testid = 'lexicon-verdict';
+    wrap.appendChild(verdict);
+    const frame = text('span', 'lexicon-frame', FRAME_LABELS[attempt.frame]);
+    frame.dataset.testid = 'lexicon-frame';
+    wrap.appendChild(frame);
+    return wrap;
+  }
+
+  wrap.dataset.reason = attempt.reason;
+  const verdict = text('span', 'lexicon-verdict', attempt.reasonText);
+  verdict.dataset.testid = 'lexicon-verdict';
+  wrap.appendChild(verdict);
+  if (attempt.pushback) {
+    const note = text('span', 'lexicon-pushback', 'Reframe it and try again — the sentence is kept either way.');
+    note.dataset.testid = 'lexicon-pushback';
+    wrap.appendChild(note);
+  }
+  return wrap;
+}
+
+/** L3's "earlier ones are visible": every accepted sentence for the concept, oldest first. */
+function renderLexiconHistory(history: readonly AcceptedSentence[]): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'lexicon-adopted';
+  // `lexicon-adopted`, not `lexicon-history`: the latter is lesson.ts's own hand-rolled store, and
+  // keeping the testids distinct stops a future cross-screen helper conflating the two.
+  wrap.dataset.testid = 'lexicon-adopted';
+  wrap.dataset.count = String(history.length);
+  wrap.appendChild(text('div', 'stat-label', 'Your sentences for this concept'));
+  for (const entry of history) {
+    const row = text('p', 'lexicon-adopted-row', `“${entry.sentence}”`);
+    row.dataset.testid = 'lexicon-adopted-row';
+    wrap.appendChild(row);
+  }
+  return wrap;
 }
 
 function inBb(chips: number, bb: number): string {

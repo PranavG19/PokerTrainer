@@ -671,3 +671,126 @@ test.describe('contrast-set remediation', () => {
     });
   });
 });
+
+/*
+ * NAMING THE CONCEPT — the learner's lexicon (core/lexicon.ts), L1/L2/L3. Under a resolved contrast
+ * set the learner writes the one mechanism sentence that names what flipped the answer. The keyword
+ * check (the offline no-tutor path) adopts a mechanism framing and refuses a cached cell, and an
+ * adopted sentence then opens the concept's feedback and survives a restart (it persists in the
+ * session log). The tests below drive ONE grader to BOTH outcomes so it is provably real, not a stub.
+ */
+const lexiconPanel = '[data-testid="lexicon-panel"]';
+const lexiconInput = '[data-testid="lexicon-input"]';
+const lexiconSubmit = '[data-testid="lexicon-submit"]';
+const lexiconFeedback = '[data-testid="lexicon-feedback"]';
+const lexiconVerdict = '[data-testid="lexicon-verdict"]';
+const lexiconQuote = '[data-testid="lexicon-quote"]';
+const lexiconAdoptedRow = '[data-testid="lexicon-adopted-row"]';
+
+/** A domination-framed sentence the keyword check adopts; the distinctive middle is what the tests match. */
+const MECHANISM = 'The worse kicker is dominated when it pairs, so it makes a second-best hand.';
+/** A cached cell: a hand filed into an action bucket and nothing more — L2 refuses it outright. */
+const CACHED_CELL = 'K7s is a CO open.';
+/** No mechanism and no cached cell either — refused, and the first refusal per concept invites a reframe. */
+const NO_FRAME = 'I would just bet here and hope it works out.';
+
+/** Open the first queued concept that offers a buildable axis, select it, and wait for the naming panel. */
+async function openAnySet(page: Page): Promise<{ conceptId: string; axis: string }> {
+  await openRepair(page);
+  for (const conceptId of await queuedConcepts(page)) {
+    await openConcept(page, conceptId);
+    const available = page.locator(`${axisOffer}[data-available="true"]`);
+    if ((await available.count()) === 0) continue;
+    const axis = (await available.first().getAttribute('data-axis')) ?? '';
+    await page.locator(`${axisOffer}[data-axis="${axis}"]`).click();
+    await expect(page.locator(repairScreen)).toHaveAttribute('data-axis', axis);
+    await page.locator(lexiconPanel).waitFor();
+    return { conceptId, axis };
+  }
+  throw new Error('no queued concept offered a buildable axis');
+}
+
+async function submitSentence(page: Page, sentence: string): Promise<void> {
+  await page.locator(lexiconInput).fill(sentence);
+  await page.locator(lexiconSubmit).click();
+}
+
+test.describe('naming the concept — the learner lexicon (L1/L2/L3)', () => {
+  test('L1. one grader, both outcomes: a mechanism sentence is adopted, a cached cell is refused', async () => {
+    await withApp({}, async ({ page, errors }) => {
+      await openAnySet(page);
+
+      // ACCEPTED — the framing is recognised, and L1's promise fires: the sentence now opens the feedback.
+      await submitSentence(page, MECHANISM);
+      await expect(page.locator(lexiconFeedback)).toHaveAttribute('data-verdict', 'accepted');
+      await expect(page.locator(lexiconQuote)).toContainText('worse kicker is dominated when it pairs');
+      await expect(page.locator(lexiconAdoptedRow)).toContainText('worse kicker is dominated when it pairs');
+
+      // REJECTED, cached cell — the SAME grader, the opposite verdict. This is the proof it can fail.
+      await submitSentence(page, CACHED_CELL);
+      await expect(page.locator(lexiconFeedback)).toHaveAttribute('data-verdict', 'rejected');
+      await expect(page.locator(lexiconFeedback)).toHaveAttribute('data-reason', 'cached-cell');
+      await expect(page.locator(lexiconVerdict)).toContainText('memorised conclusion');
+
+      // REJECTED, no framing — the other refusal path, with its own reason.
+      await submitSentence(page, NO_FRAME);
+      await expect(page.locator(lexiconFeedback)).toHaveAttribute('data-reason', 'no-mechanism-frame');
+
+      // The refusals did not disturb the adopted quote: quoteFor is the newest ACCEPTED sentence.
+      await expect(page.locator(lexiconQuote)).toContainText('worse kicker is dominated when it pairs');
+      expect(errors).toEqual([]);
+    });
+  });
+
+  test('L2. an adopted sentence survives closing and reopening the app', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-lexicon-persist-'));
+
+    let conceptId = '';
+    const first = await launchApp({ seed: 42, userDataDir: dir });
+    try {
+      conceptId = (await openAnySet(first.page)).conceptId;
+      await submitSentence(first.page, MECHANISM);
+      await expect(first.page.locator(lexiconFeedback)).toHaveAttribute('data-verdict', 'accepted');
+      // Let the async saveState flush before the window closes (the verdict paints before the write resolves).
+      await first.page.waitForTimeout(200);
+    } finally {
+      await first.close().catch(() => {});
+    }
+
+    // Second sitting, SAME dir: opening the concept must quote the sentence back, before any new input.
+    const second = await launchApp({ seed: 42, userDataDir: dir });
+    try {
+      await openRepair(second.page);
+      await openConcept(second.page, conceptId);
+      await expect(second.page.locator(lexiconQuote)).toContainText('worse kicker is dominated when it pairs');
+    } finally {
+      await second.close().catch(() => {});
+    }
+  });
+
+  test('L3. submitting an empty sentence records nothing and does not throw', async () => {
+    await withApp({}, async ({ page, errors }) => {
+      await openAnySet(page);
+      // core/lexicon.record throws on an empty sentence by design; the screen must guard it, not crash.
+      await page.locator(lexiconSubmit).click();
+      await expect(page.locator(lexiconFeedback)).toHaveCount(0);
+      expect(errors).toEqual([]);
+    });
+  });
+
+  test('L4. the verdict carries severity by weight, not colour (V2)', async () => {
+    await withApp({}, async ({ page }) => {
+      await openAnySet(page);
+      const weightOf = () =>
+        page.locator(lexiconVerdict).evaluate((el) => Number(getComputedStyle(el).fontWeight));
+
+      await submitSentence(page, MECHANISM);
+      const acceptedWeight = await weightOf();
+      await submitSentence(page, CACHED_CELL);
+      const rejectedWeight = await weightOf();
+
+      // The correction is heavier than the quiet confirmation — the whole severity signal, no hue.
+      expect(rejectedWeight).toBeGreaterThan(acceptedWeight);
+    });
+  });
+});

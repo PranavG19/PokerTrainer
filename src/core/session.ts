@@ -5,6 +5,8 @@ import type { Calibration, PredictOutcome } from './predict.js';
 import { emptyCalibration, tally } from './predict.js';
 import { SOURCES, emptyRecommender, type RecommenderState, type Source } from './recommend.js';
 import type { GiftEntry } from './giftLedger.js';
+import { MECHANISM_FRAMES, REJECTION_TEXT, type Decider, type LexiconAttempt, type RejectionReason } from './lexicon.js';
+import type { ContrastAxis } from './contrast.js';
 
 /** Bound the persisted gift log the same way the hand log is bounded, so the JSON cannot grow forever. */
 export const MAX_GIFT_LOG = 200;
@@ -122,6 +124,14 @@ export interface SessionState {
    * The key is a bare string; an id no longer in the library simply never renders.
    */
   puzzleProgress: Record<string, { attempts: number; bestCorrect: number }>;
+  /**
+   * L1/L3: the learner's own mechanism sentences, in append order — the log `createLexicon` rehydrates
+   * from. Persisted because L1 promises "all future feedback on that concept opens by quoting it", and a
+   * quote that reset every launch could never open the NEXT sitting's feedback. Rejected attempts are
+   * kept too (L2's diagnostic material and the pushback-once state). Append-only by construction: the
+   * only writer is `recordLexiconAttempt`, mirroring the store's own L3 refusal to edit or delete.
+   */
+  lexicon: LexiconAttempt[];
 }
 
 export interface SessionSummary {
@@ -146,7 +156,17 @@ export function emptySession(): SessionState {
     gifts: [],
     chartMastery: {},
     puzzleProgress: {},
+    lexicon: [],
   };
+}
+
+/**
+ * Append one recorded lexicon attempt (accepted or rejected). Pure and append-only: the log only ever
+ * grows, matching the store's L3 refusal to edit or delete history. The attempt is produced by
+ * `Lexicon.record` in the caller, so this function adds no classification of its own.
+ */
+export function recordLexiconAttempt(state: SessionState, attempt: LexiconAttempt): SessionState {
+  return { ...state, lexicon: [...state.lexicon, attempt] };
 }
 
 /**
@@ -308,6 +328,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     gifts: structuredClone(state.gifts),
     chartMastery: structuredClone(state.chartMastery),
     puzzleProgress: structuredClone(state.puzzleProgress),
+    lexicon: structuredClone(state.lexicon),
   };
 }
 
@@ -349,7 +370,49 @@ export function deserialize(raw: unknown): SessionState {
     chartMastery: parseChartMastery(obj.chartMastery),
     // Legacy saves predate puzzle progress; empty map for a missing field, same tolerance.
     puzzleProgress: parsePuzzleProgress(obj.puzzleProgress),
+    // Legacy saves predate the lexicon; an empty log is the honest reading of a missing field.
+    lexicon: parseLexicon(obj.lexicon),
   };
+}
+
+/** The two rejection reasons and three deciders, as membership sets for the tolerant parser below. */
+const REJECTION_REASONS: readonly RejectionReason[] = ['cached-cell', 'no-mechanism-frame'];
+const DECIDERS: readonly Decider[] = ['keyword-check', 'learner', 'classifier'];
+
+/**
+ * Tolerant like every parser here, and DROPPING rather than resurrecting a malformed entry — a lexicon
+ * attempt that cannot be reconstructed from real fields is not the frozen record L3 promises. Append
+ * order is preserved because `quoteFor` ("the most recent accepted") depends on it. `reasonText` is
+ * re-derived from `REJECTION_TEXT` rather than trusted from disk, so a stale save cannot show wording
+ * this build no longer uses. An accepted entry with an unknown frame/decider, or a rejected one with an
+ * unknown reason, is dropped rather than stored with an invalid discriminant.
+ */
+function parseLexicon(raw: unknown): LexiconAttempt[] {
+  const out: LexiconAttempt[] = [];
+  for (const value of asArray(raw)) {
+    const entry = asRecord(value);
+    const conceptId = typeof entry.conceptId === 'string' ? entry.conceptId.trim() : '';
+    const sentence = typeof entry.sentence === 'string' ? entry.sentence.trim() : '';
+    if (conceptId === '' || sentence === '') continue;
+    const base = {
+      seq: Math.max(0, Math.floor(asNumber(entry.seq, out.length))),
+      conceptId,
+      sentence,
+      at: asNumber(entry.at, 0),
+      flippingAxis: typeof entry.flippingAxis === 'string' ? (entry.flippingAxis as ContrastAxis) : null,
+    };
+    if (entry.outcome === 'accepted') {
+      const frame = MECHANISM_FRAMES.find((f) => f === entry.frame);
+      const decidedBy = DECIDERS.find((d) => d === entry.decidedBy);
+      if (frame === undefined || decidedBy === undefined) continue;
+      out.push({ ...base, outcome: 'accepted', frame, decidedBy });
+    } else if (entry.outcome === 'rejected') {
+      const reason = REJECTION_REASONS.find((r) => r === entry.reason);
+      if (reason === undefined) continue;
+      out.push({ ...base, outcome: 'rejected', reason, reasonText: REJECTION_TEXT[reason], pushback: entry.pushback === true });
+    }
+  }
+  return out;
 }
 
 /**

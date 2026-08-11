@@ -4,12 +4,14 @@ import './styles-screens.css';
 import './styles-settings.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
+import type { LexiconAttempt } from '../core/lexicon.js';
 import {
   deserialize,
   rebuy,
   recordChartAnswer,
   recordGifts,
   recordHand,
+  recordLexiconAttempt,
   recordPrediction,
   recordPuzzleResult,
   serialize,
@@ -226,6 +228,12 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /** Persist one recorded lexicon attempt so an accepted mechanism sentence keeps naming its concept (L1). */
+  async function onLexiconAttempt(attempt: LexiconAttempt): Promise<void> {
+    session = recordLexiconAttempt(session, attempt);
+    await io.saveState(serialize(session));
+  }
+
   /**
    * N2's single suggestion for the launcher.
    *
@@ -404,7 +412,13 @@ async function boot(): Promise<void> {
         onComplete: (scenarioId, correct) => void onPuzzleComplete(scenarioId, correct),
       });
     }
-    if (which === 'repair') return renderContrastScreen({ hands: session.hands });
+    if (which === 'repair') {
+      return renderContrastScreen({
+        hands: session.hands,
+        lexicon: session.lexicon,
+        onLexiconAttempt: (attempt) => void onLexiconAttempt(attempt),
+      });
+    }
     if (which === 'charts') {
       return renderCharts({
         mastery: session.chartMastery,
