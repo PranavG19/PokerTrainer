@@ -173,6 +173,45 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'pot-control-ip',
+    title: 'Checking back a marginal made hand in position',
+    setup:
+      'You open the button with J♠T♠, the big blind calls, and the flop is K♦8♣3♠. You have position and no pair — a good spot to control the pot, not build it.',
+    seatCount: 3,
+    // btn-open layout: button on seat 0 (hero). Preflop the hero opens first; postflop the hero (on
+    // the button) acts LAST — in position — which is what makes checking back the flop possible.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button). Seat 1 = SB. Seat 2 = BB (the caller).
+    holes: [
+      ['Js', 'Ts'],
+      ['4d', '2h'],
+      ['Qc', '9d'],
+    ],
+    board: ['Kd', '8c', '3s', '6h', '5c'],
+    // Preflop: hero opens (step 0), SB folds, BB calls. Flop: BB checks to the hero (step 1 = check
+    // back). The line stops there — one open then a flop check-back is the whole lesson.
+    villainScript: [
+      { kind: 'fold' }, // SB folds the hero's open
+      { kind: 'call' }, // BB calls
+      { kind: 'check' }, // BB checks the flop to the hero
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'JTs is a fine button open: suited, connected, and it plays well in position against the blinds.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'K-8-3 rainbow gives you nothing but a gutshot and two overcards that are not really overcards to a king. Betting only folds out worse and gets called by better; checking back keeps the pot small, realises your equity for free, and lets you bluff-catch or improve on later streets. Pot control in position is a bet you DON’T make.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
