@@ -62,11 +62,51 @@ test.describe('gameplay', () => {
     });
   });
 
-  test('all three archetypes are seated exactly once', async () => {
+  // O3: the archetype label is hidden until the hand ends. At sit-down every villain reads 'Unknown'
+  // (data-revealed='false'); after one hand plays to handover exactly three villain tags are
+  // revealed, all distinct, each a real archetype label — and the hero seat never carries one.
+  test('villain archetypes are hidden until handover, then revealed distinct', async () => {
+    // The six labels from ARCHETYPE_EXPLOITS; any revealed tag must be one of them.
+    const ARCHETYPE_LABELS = ['Nit', 'Station', 'LAG', 'TAG-reg', 'Over-folder', 'Maniac'];
     await withApp(SEED, async (page) => {
       await sitDown(page);
-      const labels = await page.locator('[data-testid="seat-archetype"]').allTextContents();
-      expect(labels.slice().sort()).toEqual(['Nit', 'Station', 'TAG']);
+
+      const atSitDown = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('[data-testid="seat-archetype"]')].map((t) => ({
+          text: t.textContent,
+          revealed: t.dataset.revealed,
+        })),
+      );
+      expect(atSitDown).toHaveLength(3);
+      for (const tag of atSitDown) {
+        expect(tag.revealed).toBe('false');
+        expect(tag.text).toBe('Unknown');
+      }
+
+      await playToShowdown(page);
+      await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
+
+      const atHandover = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('[data-testid="seat"]')]
+          .filter((s) => s.dataset.seatId !== '0')
+          .map((s) => {
+            const tag = s.querySelector<HTMLElement>('[data-testid="seat-archetype"]');
+            return { text: tag?.textContent ?? null, revealed: tag?.dataset.revealed ?? null };
+          }),
+      );
+      expect(atHandover).toHaveLength(3);
+      for (const tag of atHandover) {
+        expect(tag.revealed).toBe('true');
+        expect(ARCHETYPE_LABELS, `revealed label "${tag.text}"`).toContain(tag.text);
+      }
+      // The three seated archetypes are distinct (a seeded 3-of-6 draw with no repeats).
+      const revealedLabels = atHandover.map((t) => t.text);
+      expect(new Set(revealedLabels).size).toBe(3);
+
+      // The hero carries no archetype tag at any point.
+      await expect(
+        page.locator('[data-testid="seat"][data-seat-id="0"] [data-testid="seat-archetype"]'),
+      ).toHaveCount(0);
     });
   });
 

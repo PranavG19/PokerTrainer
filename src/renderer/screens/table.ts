@@ -12,8 +12,16 @@ import {
 } from '../../core/table.js';
 import type { Grade } from '../../core/coach.js';
 import { gradeDecision } from '../../core/coach.js';
-import { ARCHETYPES, archetypeForSeat, decideAction } from '../../core/ai.js';
-import { mulberry32 } from '../../core/rng.js';
+import {
+  ARCHETYPE_EXPLOITS,
+  ARCHETYPE_NAMES,
+  decideArchetypeAction,
+  sessionProfile,
+  type ArchetypeName,
+  type ArchetypeProfile,
+} from '../../core/archetypes.js';
+import { visibleArchetypeLabel } from '../../core/jitter.js';
+import { mulberry32, shuffle } from '../../core/rng.js';
 import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session.js';
 import type { PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
@@ -34,7 +42,12 @@ const BB = 50;
 const START_STACK = 5000;
 const AI_DELAY_MS = 450;
 
-/** Villains sit at 1..3 so archetypeForSeat gives one nit, one tag, one station. */
+/**
+ * Villains sit at 1..3. Each session a seeded 3-of-6 shuffle (see selectRng below) picks which of
+ * the six archetypes fills them, so the set is fixed for the whole table but varies by seed — over a
+ * range of seeds all six appear at seat 1+, and the label stays classifiable as one opponent across
+ * hands.
+ */
 const SEAT_NAMES = ['You', 'Ada', 'Bo', 'Cy'];
 
 export interface TableHandle {
@@ -133,6 +146,22 @@ export function renderTable(opts: {
 
   // One long-lived stream so villain decisions stay deterministic across a session.
   const aiRng = mulberry32(opts.seed ^ 0x5eed);
+  // A SEPARATE stream for the 3-of-6 archetype selection, so drawing which archetypes are seated
+  // never advances aiRng — the villain-decision stream stays byte-identical in structure regardless
+  // of which three were chosen. Pure function of opts.seed: same seed always seats the same three.
+  const selectRng = mulberry32(opts.seed ^ 0x5e1ec7);
+  const chosen = shuffle([...ARCHETYPE_NAMES], selectRng).slice(0, 3);
+  // Fixed for the whole session (chosen once here, never per hand), matching jitter.ts's "per
+  // session, not per hand" so a seat stays classifiable as one opponent across every hand.
+  const seatArchetype = new Map<number, ArchetypeName>();
+  const seatProfile = new Map<number, ArchetypeProfile>();
+  for (let seat = 1; seat <= 3; seat++) {
+    const name = chosen[seat - 1];
+    seatArchetype.set(seat, name);
+    // sessionProfile composes jitter.ts: a pure fn of (name, seed), so the jitter is per-session and
+    // reproducible. Drawn once per seat and reused for every decision that seat makes this session.
+    seatProfile.set(seat, sessionProfile(name, opts.seed));
+  }
   let grades: GradeRecord[] = [];
   /** Every hero decision in order, captured pre-action so the review can replay the spot as seen. */
   let decisions: DecisionRecord[] = [];
@@ -254,8 +283,14 @@ export function renderTable(opts: {
     render();
     pendingTimer = setTimeout(() => {
       pendingTimer = null;
-      // decideAction throws if it is not this seat's turn; advance() guarantees it is.
-      const action = decideAction(state, state.toAct, aiRng);
+      // toAct is a villain seat (1..3) here — seat 0 is handled by the branch above — so its profile
+      // is always present; throw rather than silently skip if the invariant ever breaks.
+      const profile = seatProfile.get(state.toAct);
+      if (profile === undefined) throw new Error(`no archetype profile for seat ${state.toAct}`);
+      // decideArchetypeAction throws if it is not this seat's turn; advance() guarantees it is. It
+      // consumes aiRng in the same count/order as ai.ts's decideActionAs (three draws per decision),
+      // so the long-lived stream advances identically — only the profile thresholds differ.
+      const action = decideArchetypeAction(profile, state, state.toAct, aiRng);
       state = applyAction(state, action);
       advance();
     }, AI_DELAY_MS);
@@ -344,7 +379,7 @@ export function renderTable(opts: {
 
     const showdown = state.winners !== null;
     seatsWrap.replaceChildren(
-      ...state.seats.map((seat) => renderSeat(seat, state, showdown)),
+      ...state.seats.map((seat) => renderSeat(seat, state, showdown, seatArchetype)),
     );
 
     // The commit row tracks whether a decision is pending, so it must be re-synced every render,
@@ -542,7 +577,12 @@ export function renderTable(opts: {
   };
 }
 
-function renderSeat(seat: Seat, state: TableState, showdown: boolean): HTMLElement {
+function renderSeat(
+  seat: Seat,
+  state: TableState,
+  showdown: boolean,
+  seatArchetype: Map<number, ArchetypeName>,
+): HTMLElement {
   const el = document.createElement('div');
   el.className = 'seat';
   el.dataset.testid = 'seat';
@@ -566,12 +606,20 @@ function renderSeat(seat: Seat, state: TableState, showdown: boolean): HTMLEleme
   el.appendChild(name);
 
   if (!seat.isHero) {
-    const archetype = archetypeForSeat(seat.id);
+    const name = seatArchetype.get(seat.id);
+    if (name === undefined) throw new Error(`no archetype for villain seat ${seat.id}`);
+    const trueLabel = ARCHETYPE_EXPLOITS[name].label;
+    // O3: the label is hidden ('Unknown') mid-hand and revealed only once the hand has ended, so the
+    // learner classifies from behaviour rather than reading the answer off the seat.
+    const { revealed, text } = visibleArchetypeLabel(trueLabel, state.winners !== null);
     const tag = document.createElement('div');
     tag.className = 'seat-archetype';
     tag.dataset.testid = 'seat-archetype';
-    tag.textContent = ARCHETYPES[archetype].label;
-    tag.title = ARCHETYPES[archetype].description;
+    tag.dataset.revealed = String(revealed);
+    tag.textContent = text;
+    // The tooltip must gate on reveal too: the exploit text names the archetype, so setting it
+    // mid-hand would leak the label on hover — the exact thing O3 hides.
+    tag.title = revealed ? ARCHETYPE_EXPLOITS[name].exploit : '';
     el.appendChild(tag);
   }
 
