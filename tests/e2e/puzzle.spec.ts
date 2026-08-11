@@ -268,4 +268,36 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-verdict', '');
     });
   });
+
+  test('10. keyboard shortcuts drill a spot without the mouse, and the rail box is not hijacked', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      // First scenario is BTN-open AKs: the taught action is raise, bound to "r".
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+
+      // A letter for an ILLEGAL action does nothing — you cannot check when facing the blinds to open.
+      await page.keyboard.press('k');
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', '');
+
+      // "r" raises and is graded right, no click.
+      await page.keyboard.press('r');
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'graded');
+
+      // Enter advances past the verdict; this one-decision puzzle then completes.
+      await page.keyboard.press('Enter');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
+
+      // Enter again loads the next puzzle from the complete screen.
+      await page.keyboard.press('Enter');
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'bb-defend-vs-btn');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+
+      // The shortcut must NOT fire while typing into the tutor rail: an "r" in a question is text.
+      await page.locator(tutorInput).fill('should i raise or fold');
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', '');
+      await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
+    });
+  });
 });

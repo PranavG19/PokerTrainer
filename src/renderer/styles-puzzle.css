@@ -94,6 +94,16 @@
   flex-wrap: wrap;
 }
 
+/* The keyboard shortcut letter, shown after the action label so a learner can drill by keyboard. Muted
+ * and small so it reads as a hint, not part of the label; dims with the button when it is disabled. */
+.puzzle-key-hint {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
 .puzzle-verdict,
 .puzzle-complete {
   background: var(--surface);
