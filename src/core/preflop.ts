@@ -278,6 +278,140 @@ export function rfiWidth(position: Position): number {
 }
 
 // ---------------------------------------------------------------------------
+// Facing-a-raise defense ranges (BB defend + blind-vs-blind)
+// ---------------------------------------------------------------------------
+
+/**
+ * A defense spot is keyed hero-vs-opener. Each carries a `call` range and a `threeBet` range, both in
+ * the same monotonic-threshold RfiSpec shape as the RFI ranges. Derived and adversarially verified as
+ * a PURE (no mixed frequencies) beginner simplification: the 3-bet range is linear/value, and blocker
+ * bluffs are folded into the (wide) flat because a single kicker floor per row cannot express a polar
+ * range. See the memory note offsuit-defense-range-model.
+ */
+export type DefensePosition =
+  | 'bb-vs-utg'
+  | 'bb-vs-hj'
+  | 'bb-vs-co'
+  | 'bb-vs-btn'
+  | 'bb-vs-sb'
+  | 'sb-vs-btn';
+
+/** Widths in strictly increasing order for the BB spots; sb-vs-btn is a separate 3-bet-or-fold spot. */
+export const DEFENSE_WIDTH_ORDER = ['bb-vs-utg', 'bb-vs-hj', 'bb-vs-co', 'bb-vs-btn', 'bb-vs-sb'] as const;
+
+export type DefenseAction = 'threebet' | 'call' | 'fold';
+
+interface DefenseSpec {
+  readonly call: RfiSpec;
+  readonly threeBet: RfiSpec;
+}
+
+const DEFENSE_SPECS: Record<DefensePosition, DefenseSpec> = {
+  'bb-vs-utg': {
+    call: {
+      pairsDownTo: '2',
+      suited: { 'A': '2', 'K': '9', 'Q': '9', 'J': '9', 'T': '9', '9': '8', '8': '7', '7': '6', '6': '5' },
+      offsuit: { 'A': 'T', 'K': 'J' },
+    },
+    threeBet: {
+      pairsDownTo: 'Q',
+      suited: { 'A': 'K' },
+      offsuit: { 'A': 'K' },
+    },
+  },
+  'bb-vs-hj': {
+    call: {
+      pairsDownTo: '2',
+      suited: { 'A': '2', 'K': '7', 'Q': '7', 'J': '7', 'T': '8', '9': '7', '8': '6', '7': '5', '6': '4', '5': '4' },
+      offsuit: { 'A': '7', 'K': '9', 'Q': 'T', 'J': 'T' },
+    },
+    threeBet: {
+      pairsDownTo: 'J',
+      suited: { 'A': 'Q' },
+      offsuit: { 'A': 'K' },
+    },
+  },
+  'bb-vs-co': {
+    call: {
+      pairsDownTo: '2',
+      suited: { 'A': '2', 'K': '4', 'Q': '5', 'J': '6', 'T': '7', '9': '6', '8': '5', '7': '5', '6': '4', '5': '4' },
+      offsuit: { 'A': '5', 'K': '7', 'Q': '9', 'J': '9', 'T': '9', '9': '8' },
+    },
+    threeBet: {
+      pairsDownTo: 'J',
+      suited: { 'A': 'Q', 'K': 'Q' },
+      offsuit: { 'A': 'Q' },
+    },
+  },
+  'bb-vs-btn': {
+    call: {
+      pairsDownTo: '2',
+      suited: { 'A': '2', 'K': '2', 'Q': '3', 'J': '4', 'T': '5', '9': '5', '8': '4', '7': '4', '6': '3', '5': '3', '4': '2', '3': '2' },
+      offsuit: { 'A': '2', 'K': '5', 'Q': '8', 'J': '8', 'T': '8', '9': '7', '8': '6', '7': '5', '6': '5' },
+    },
+    threeBet: {
+      pairsDownTo: 'T',
+      suited: { 'A': 'J', 'K': 'J' },
+      offsuit: { 'A': 'Q' },
+    },
+  },
+  'bb-vs-sb': {
+    call: {
+      pairsDownTo: '2',
+      suited: { 'A': '2', 'K': '2', 'Q': '2', 'J': '2', 'T': '4', '9': '4', '8': '3', '7': '3', '6': '3', '5': '2', '4': '2', '3': '2' },
+      offsuit: { 'A': '2', 'K': '2', 'Q': '5', 'J': '6', 'T': '6', '9': '6', '8': '6', '7': '6' },
+    },
+    threeBet: {
+      pairsDownTo: '7',
+      suited: { 'A': 'T', 'K': 'T', 'Q': 'T', 'J': 'T' },
+      offsuit: { 'A': 'J', 'K': 'Q' },
+    },
+  },
+  'sb-vs-btn': {
+    call: {
+      pairsDownTo: '7',
+      suited: { 'A': 'T', 'K': 'T', 'Q': 'J', 'J': 'T', 'T': '9' },
+      offsuit: { 'A': 'J', 'K': 'Q' },
+    },
+    threeBet: {
+      pairsDownTo: '9',
+      suited: { 'A': 'J', 'K': 'J' },
+      offsuit: { 'A': 'J', 'K': 'Q' },
+    },
+  },
+};
+
+/** Whether a combo satisfies one RfiSpec's monotonic thresholds — the same logic as isInRfiRange. */
+function inThresholds(combo: Combo, spec: RfiSpec): boolean {
+  const hand = parse(combo);
+  if (hand.pair) return rankIndex(hand.hi) >= rankIndex(spec.pairsDownTo);
+  const floor = (hand.suited ? spec.suited : spec.offsuit)[hand.hi];
+  if (floor === undefined) return false;
+  return rankIndex(hand.lo) >= rankIndex(floor);
+}
+
+/**
+ * The correct action for a combo facing a raise in this spot. THREE-BET IS EVALUATED FIRST: the
+ * floor-only threshold model makes every threeBet combo also satisfy the (wider) call thresholds, so a
+ * call-first check would mis-grade every premium as a flat. See offsuit-defense-range-model.
+ */
+export function defenseAction(combo: Combo, spot: DefensePosition): DefenseAction {
+  const spec = DEFENSE_SPECS[spot];
+  if (inThresholds(combo, spec.threeBet)) return 'threebet';
+  if (inThresholds(combo, spec.call)) return 'call';
+  return 'fold';
+}
+
+/** The combo-weighted share of hands that CONTINUE (call or 3-bet) in a spot. */
+export function defenseWidth(spot: DefensePosition): number {
+  const weighted = ALL_COMBOS.reduce(
+    (sum, combo) => (defenseAction(combo, spot) === 'fold' ? sum : sum + comboWeight(combo)),
+    0,
+  );
+  return weighted / TOTAL_COMBINATIONS;
+}
+
+// ---------------------------------------------------------------------------
 // Three verbal rules per position
 // ---------------------------------------------------------------------------
 
