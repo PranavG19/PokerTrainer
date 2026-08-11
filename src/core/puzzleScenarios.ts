@@ -1170,6 +1170,123 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'raise-donk-bet-set',
+    title: 'Raising a donk bet with a set',
+    setup:
+      'You open 7♣7♦ on the button and only the big blind calls. On the K♠7♥2♦ flop the big blind leads straight into you — a "donk bet" — before you have said anything. What do you do?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['7c', '7d'],
+      ['Ad', 'Qh'],
+      ['Kh', 'Th'],
+    ],
+    board: ['Ks', '7h', '2d', '9c', '4s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'bet', to: 150 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          '7♣7♦ is a routine button open: a pocket pair with position, happy to win it preflop or flop a set in a single-raised pot.',
+      },
+      {
+        action: 'raise',
+        explanation:
+          'A lead into the preflop raiser — a "donk bet" — is usually weak or capped, because players tend to check their strong hands to the aggressor. On K♠7♥2♦ you have a set of sevens, a hand almost never beaten here. Raise for value: build the pot now against the worse kings, pairs and draws that keep calling, rather than flatting and letting the board slow down. Calling only lets a cheap turn kill your action.',
+      },
+    ],
+  },
+  {
+    id: 'overbet-river-nut-flush',
+    title: 'Overbetting the river with the nut flush',
+    setup:
+      'You raise A♠5♠ on the button and the big blind calls. You bet the K♠8♠3♦ flop and they call; the 2♠ turn makes your nut flush, you bet again and they call. The river is the J♦ and the big blind checks to you a final time. How do you play each street?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', '5s'],
+      ['Qh', 'Jc'],
+      ['Kd', 'Tc'],
+    ],
+    board: ['Ks', '8s', '3d', '2s', 'Jd'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠5♠ is a standard button open: a suited ace that can make the nut flush, blocks the blinds’ strong aces, and plays well in position.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'On K♠8♠3♦ you hold the nut-flush draw with an ace high. C-bet: you have big equity, fold out the weakest hands, and set yourself up to barrel hard the moment a third spade arrives.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The 2♠ brings in the nut flush. Keep betting for value — the worse flushes, two pair and sets that got here will pay you off, and there is no reason to slow down holding the best possible hand.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The J♦ changes nothing, and the big blind has only ever called, so their range is capped: one-pair hands and the occasional worse flush, but you hold the A♠ so no flush beats yours. This is the textbook OVERBET spot — against a capped range that can never raise you, a larger-than-pot bet extracts the most from the bluff-catchers that still look you up, and you risk nothing with the nuts.',
+      },
+    ],
+  },
+  {
+    id: 'checkback-underpair-multiway',
+    title: 'Checking back an underpair in a multiway pot',
+    setup:
+      'You open T♥T♠ on the button and both blinds call, so you take the K♠9♥5♣ flop three ways. Both blinds check to you. Do you continuation-bet?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Th', 'Ts'],
+      ['Ad', 'Jc'],
+      ['8h', '7h'],
+    ],
+    board: ['Ks', '9h', '5c', '2d', '4s'],
+    villainScript: [
+      { kind: 'call' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'T♥T♠ is a clear button open: a strong pocket pair with position, ahead of most of what the blinds defend with.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'Both blinds called, so you are three-way, and K♠9♥5♣ puts an overcard to your tens on the board. Betting an underpair into two players turns showdown value into a bluff — worse hands fold, and any king (far likelier across two ranges) calls or raises you. Check back to keep the pot small and take a cheap turn card with a hand that is often still best but cannot stand pressure. Betting here mostly folds out what you beat and isolates you against what beats you.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
