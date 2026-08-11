@@ -7,6 +7,7 @@ import type { HandRecord, SessionState } from '../core/session.js';
 import {
   deserialize,
   rebuy,
+  recordChartAnswer,
   recordGifts,
   recordHand,
   recordPrediction,
@@ -212,6 +213,12 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /** Persist one preflop chart-drill answer so its class mastery survives a restart. */
+  async function onChartAnswer(handClass: string, correct: boolean): Promise<void> {
+    session = recordChartAnswer(session, handClass, correct);
+    await io.saveState(serialize(session));
+  }
+
   /**
    * N2's single suggestion for the launcher.
    *
@@ -386,7 +393,12 @@ async function boot(): Promise<void> {
     if (which === 'learn') return renderLessonScreen();
     if (which === 'puzzle') return renderPuzzleScreen();
     if (which === 'repair') return renderContrastScreen({ hands: session.hands });
-    if (which === 'charts') return renderCharts();
+    if (which === 'charts') {
+      return renderCharts({
+        mastery: session.chartMastery,
+        onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
+      });
+    }
     if (which === 'drill') return renderDrillScreen();
     if (which === 'anomaly') return renderAnomalyScreen();
     if (which === 'robustness') return renderRobustnessScreen();

@@ -105,6 +105,15 @@ export interface SessionState {
    * of value handed over; a session-scoped one would forget the evidence every launch.
    */
   gifts: GiftEntry[];
+  /**
+   * Preflop chart-drill accuracy per hand class, keyed by HandClassId. Persisted for the same reason
+   * calibration is: the drill draws the classes the learner keeps missing more often, and that only
+   * teaches across sittings if the record survives a restart — a session-scoped one would put every
+   * class back to zero every launch and the adaptive draw would never leave its cold start. The key
+   * is a bare string so this module stays free of a preflop.ts import; unknown keys parse and are
+   * simply never drawn (the drill only reads the six classes it knows).
+   */
+  chartMastery: Record<string, { attempts: number; correct: number }>;
 }
 
 export interface SessionSummary {
@@ -127,6 +136,30 @@ export function emptySession(): SessionState {
     spokenVerdicts: false,
     recommender: emptyRecommender(),
     gifts: [],
+    chartMastery: {},
+  };
+}
+
+/**
+ * Record one graded chart-drill answer against its hand class. Pure and cumulative: the class's
+ * attempts always tick, correct ticks only on a right answer — the same shape the drill's own
+ * scoreboard shows, so the persisted record and the on-screen one never disagree.
+ */
+export function recordChartAnswer(
+  state: SessionState,
+  handClass: string,
+  correct: boolean,
+): SessionState {
+  const prior = state.chartMastery[handClass] ?? { attempts: 0, correct: 0 };
+  return {
+    ...state,
+    chartMastery: {
+      ...state.chartMastery,
+      [handClass]: {
+        attempts: prior.attempts + 1,
+        correct: prior.correct + (correct ? 1 : 0),
+      },
+    },
   };
 }
 
@@ -241,6 +274,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
       preferred: [...state.recommender.preferred],
     },
     gifts: structuredClone(state.gifts),
+    chartMastery: structuredClone(state.chartMastery),
   };
 }
 
@@ -277,7 +311,30 @@ export function deserialize(raw: unknown): SessionState {
     // Malformed entries are dropped rather than resurrected with fabricated numbers, because a gift
     // that cannot be reconstructed from real fields is not the observed evidence O5 promises.
     gifts: asArray(obj.gifts).map(parseGift).filter((g): g is GiftEntry => g !== null).slice(-MAX_GIFT_LOG),
+    // Legacy saves predate the chart-drill record; an empty map is the honest reading of a missing
+    // field. Same tolerance as every parser here.
+    chartMastery: parseChartMastery(obj.chartMastery),
   };
+}
+
+/**
+ * Tolerant like every parser here. Each class entry is kept only if both counters are real finite
+ * numbers, clamped so a corrupt file cannot inject a negative or a correct count above attempts —
+ * either would poison the draw weight the mastery drives.
+ */
+function parseChartMastery(raw: unknown): Record<string, { attempts: number; correct: number }> {
+  const obj = asRecord(raw);
+  const out: Record<string, { attempts: number; correct: number }> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const entry = asRecord(value);
+    const attempts = Math.max(0, Math.floor(asNumber(entry.attempts, 0)));
+    // Clamp correct into [0, attempts] BEFORE the empty check: a corrupt {attempts:0, correct:3}
+    // clamps to {0,0} and is then dropped rather than kept as a phantom class.
+    const correct = Math.min(attempts, Math.max(0, Math.floor(asNumber(entry.correct, 0))));
+    if (attempts === 0) continue; // nothing worth carrying (correct is already ≤ attempts)
+    out[key] = { attempts, correct };
+  }
+  return out;
 }
 
 /** Tolerant like every parser here. A gift is kept only if every derived number is really present. */

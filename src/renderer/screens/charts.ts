@@ -54,14 +54,28 @@ interface Tally {
   correct: number;
 }
 
-export function renderCharts(): HTMLElement {
+export interface ChartsOptions {
+  /**
+   * Per-class accuracy carried in from the persisted session, keyed by HandClassId. Seeds the drill's
+   * scoreboard AND its adaptive draw, so a learner returning across sittings keeps being drilled on the
+   * classes they were missing rather than restarting cold. Absent/empty → every class starts 0/0.
+   */
+  readonly mastery?: Record<string, { attempts: number; correct: number }>;
+  /** Persist one graded answer. Called once per commit; main.ts folds it into the session and saves. */
+  readonly onAnswer?: (handClass: HandClassId, correct: boolean) => void;
+}
+
+export function renderCharts(options: ChartsOptions = {}): HTMLElement {
   const root = document.createElement('div');
   root.className = 'charts-screen';
   root.dataset.testid = 'charts-screen';
 
   const rng = mulberry32(DRILL_SEED);
   const tallies = new Map<HandClassId, Tally>(
-    HAND_CLASSES.map((c) => [c.id, { attempts: 0, correct: 0 }]),
+    HAND_CLASSES.map((c) => {
+      const carried = options.mastery?.[c.id];
+      return [c.id, { attempts: carried?.attempts ?? 0, correct: carried?.correct ?? 0 }];
+    }),
   );
 
   let position: Position = 'CO';
@@ -94,6 +108,8 @@ export function renderCharts(): HTMLElement {
       tally.attempts += 1;
       if (chose === correct) tally.correct += 1;
     }
+    // Persist this answer so the mastery — and the adaptive draw it feeds — survives a restart.
+    options.onAnswer?.(handClass, chose === correct);
 
     feedback = { combo, position, handClass, correct, chose };
     answered += 1;
