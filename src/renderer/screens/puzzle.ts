@@ -72,6 +72,19 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     (progress[s.id]?.bestCorrect ?? 0) >= s.target.length;
 
   /**
+   * The next not-yet-mastered scenario at or after `from`, wrapping once, or null if the whole library
+   * is mastered. Steers a learner grinding toward mastery to their actual gaps rather than a fixed
+   * order — the point of tracking progress at all.
+   */
+  const nextUnmasteredIndex = (from: number): number | null => {
+    for (let step = 1; step <= SCENARIOS.length; step += 1) {
+      const i = (from + step) % SCENARIOS.length;
+      if (!isMastered(SCENARIOS[i])) return i;
+    }
+    return null;
+  };
+
+  /**
    * The tutor rail, built ONCE so its transcript survives every paint (paint replaceChildren's the
    * body, but re-appends this same node — same pattern as lesson.ts). The learner can ask the tutor
    * to go deeper on the spot; the rail routes through the same guarded tutor:ask IPC as everywhere
@@ -359,6 +372,20 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     next.textContent = scenarioIndex + 1 < SCENARIOS.length ? 'Next puzzle' : 'Back to the first puzzle';
     next.addEventListener('click', () => loadScenario(scenarioIndex + 1));
     el.appendChild(next);
+
+    // Jump straight to the next spot the learner has NOT yet solved cleanly — the fast path to full
+    // mastery. Shown only when such a scenario exists elsewhere; hidden once everything is mastered
+    // (then "Next puzzle" is the only forward control and this would just repeat it).
+    const gap = nextUnmasteredIndex(scenarioIndex);
+    if (gap !== null && gap !== scenarioIndex) {
+      const toGap = document.createElement('button');
+      toGap.type = 'button';
+      toGap.className = 'pill';
+      toGap.dataset.testid = 'puzzle-next-unmastered';
+      toGap.textContent = 'Next unmastered →';
+      toGap.addEventListener('click', () => loadScenario(gap));
+      el.appendChild(toGap);
+    }
 
     const retry = document.createElement('button');
     retry.type = 'button';
