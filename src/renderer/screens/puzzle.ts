@@ -35,19 +35,41 @@ interface StepRecord {
   readonly verdict: StepVerdict;
 }
 
-export function renderPuzzleScreen(): HTMLElement {
+export interface PuzzleOptions {
+  /**
+   * Per-scenario progress carried in from the persisted session, keyed by scenario id. Drives the
+   * "mastered" / "N of M" badges on the picker and the library-level count. Absent → nothing mastered yet.
+   */
+  readonly progress?: Record<string, { attempts: number; bestCorrect: number }>;
+  /** Persist one completed scenario. Called once per completion; main.ts folds it in and saves. */
+  readonly onComplete?: (scenarioId: string, correct: number) => void;
+}
+
+export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
   const root = document.createElement('div');
   root.className = 'puzzle-screen';
   root.dataset.testid = 'puzzle-screen';
+
+  // A local, live copy of the persisted progress so the picker badges update the moment a scenario is
+  // completed this session, without waiting for a re-mount. Seeded from what was saved.
+  const progress: Record<string, { attempts: number; bestCorrect: number }> = {
+    ...(options.progress ?? {}),
+  };
 
   let scenarioIndex = 0;
   let state: TableState = buildScenarioTable(SCENARIOS[0]);
   let stepIndex = 0;
   let villainAt = 0;
   let lastVerdict: StepVerdict | null = null;
+  /** Guards a single onComplete per completion, so re-paints of the complete screen do not re-record. */
+  let recordedComplete = false;
   const records: StepRecord[] = [];
 
   const scenario = (): Scenario => SCENARIOS[scenarioIndex];
+
+  /** Mastered = a past completion got EVERY decision right (bestCorrect reached the target length). */
+  const isMastered = (s: Scenario): boolean =>
+    (progress[s.id]?.bestCorrect ?? 0) >= s.target.length;
 
   /**
    * The tutor rail, built ONCE so its transcript survives every paint (paint replaceChildren's the
@@ -110,6 +132,7 @@ export function renderPuzzleScreen(): HTMLElement {
     stepIndex = 0;
     villainAt = 0;
     lastVerdict = null;
+    recordedComplete = false;
     records.length = 0;
     advanceToHero();
     paint();
@@ -137,12 +160,26 @@ export function renderPuzzleScreen(): HTMLElement {
   function paint(): void {
     const s = scenario();
     const done = isComplete(s, stepIndex);
+    const correct = records.filter((r) => r.verdict.correct).length;
     root.dataset.scenario = s.id;
     root.dataset.step = String(stepIndex);
     root.dataset.total = String(s.target.length);
     root.dataset.phase = lastVerdict !== null ? 'graded' : done ? 'complete' : 'acting';
     root.dataset.verdict = lastVerdict === null ? '' : lastVerdict.correct ? 'right' : 'wrong';
-    root.dataset.correct = String(records.filter((r) => r.verdict.correct).length);
+    root.dataset.correct = String(correct);
+
+    // The completion screen is shown once the line is done and its last verdict has been dismissed.
+    // Record the result exactly once (recordedComplete guards re-paints): update the local badge map
+    // for the picker AND persist through the callback so it survives a restart.
+    if (done && lastVerdict === null && !recordedComplete) {
+      recordedComplete = true;
+      const prior = progress[s.id] ?? { attempts: 0, bestCorrect: 0 };
+      progress[s.id] = {
+        attempts: prior.attempts + 1,
+        bestCorrect: Math.max(prior.bestCorrect, correct),
+      };
+      options.onComplete?.(s.id, correct);
+    }
 
     root.replaceChildren(
       header(s),
@@ -161,11 +198,20 @@ export function renderPuzzleScreen(): HTMLElement {
     // Picker row: the "N of M" label plus a jump-to-any-scenario dropdown. Sequential "Next puzzle"
     // still works at completion, but with a growing library a learner needs to reach a specific spot
     // (revisit the river bluff-catch, drill the multiway fold) without clicking through the whole set.
+    // A scenario is "mastered" once its best solve got every decision right. Count them for the label
+    // so the learner sees library-wide progress at a glance, across sittings.
+    const mastered = SCENARIOS.filter((scen) => isMastered(scen)).length;
+
     const pickerRow = document.createElement('div');
     pickerRow.className = 'puzzle-picker-row';
-    pickerRow.appendChild(
-      text('div', 'puzzle-picker-label', `Puzzle ${scenarioIndex + 1} of ${SCENARIOS.length}`),
+    const label = text(
+      'div',
+      'puzzle-picker-label',
+      `Puzzle ${scenarioIndex + 1} of ${SCENARIOS.length} · ${mastered} mastered`,
     );
+    label.dataset.testid = 'puzzle-progress-label';
+    label.dataset.mastered = String(mastered);
+    pickerRow.appendChild(label);
 
     const select = document.createElement('select');
     select.className = 'puzzle-picker';
@@ -173,7 +219,9 @@ export function renderPuzzleScreen(): HTMLElement {
     SCENARIOS.forEach((scen, i) => {
       const option = document.createElement('option');
       option.value = String(i);
-      option.textContent = scen.title;
+      // Prefix a mastery mark so the dropdown shows what is done: ✓ mastered, ◐ attempted-not-yet, none untried.
+      const mark = isMastered(scen) ? '✓ ' : progress[scen.id] ? '◐ ' : '';
+      option.textContent = `${mark}${scen.title}`;
       option.selected = i === scenarioIndex;
       select.appendChild(option);
     });

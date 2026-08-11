@@ -114,6 +114,14 @@ export interface SessionState {
    * simply never drawn (the drill only reads the six classes it knows).
    */
   chartMastery: Record<string, { attempts: number; correct: number }>;
+  /**
+   * Per-puzzle-scenario progress, keyed by scenario id: how many times the scenario was completed and
+   * the BEST number of decisions played correctly in one completion. Persisted so a learner sees what
+   * they have mastered across sittings rather than a library that forgets every launch. `bestCorrect`
+   * (not last) because mastery is your ceiling — a later sloppy replay should not erase a clean solve.
+   * The key is a bare string; an id no longer in the library simply never renders.
+   */
+  puzzleProgress: Record<string, { attempts: number; bestCorrect: number }>;
 }
 
 export interface SessionSummary {
@@ -137,6 +145,30 @@ export function emptySession(): SessionState {
     recommender: emptyRecommender(),
     gifts: [],
     chartMastery: {},
+    puzzleProgress: {},
+  };
+}
+
+/**
+ * Record one completed puzzle scenario: its attempts always tick, and bestCorrect keeps the MAX of the
+ * prior best and this run's correct count — a clean solve is never erased by a later sloppy replay.
+ * Pure and cumulative, the same shape recordChartAnswer uses.
+ */
+export function recordPuzzleResult(
+  state: SessionState,
+  scenarioId: string,
+  correct: number,
+): SessionState {
+  const prior = state.puzzleProgress[scenarioId] ?? { attempts: 0, bestCorrect: 0 };
+  return {
+    ...state,
+    puzzleProgress: {
+      ...state.puzzleProgress,
+      [scenarioId]: {
+        attempts: prior.attempts + 1,
+        bestCorrect: Math.max(prior.bestCorrect, correct),
+      },
+    },
   };
 }
 
@@ -275,6 +307,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     },
     gifts: structuredClone(state.gifts),
     chartMastery: structuredClone(state.chartMastery),
+    puzzleProgress: structuredClone(state.puzzleProgress),
   };
 }
 
@@ -314,7 +347,28 @@ export function deserialize(raw: unknown): SessionState {
     // Legacy saves predate the chart-drill record; an empty map is the honest reading of a missing
     // field. Same tolerance as every parser here.
     chartMastery: parseChartMastery(obj.chartMastery),
+    // Legacy saves predate puzzle progress; empty map for a missing field, same tolerance.
+    puzzleProgress: parsePuzzleProgress(obj.puzzleProgress),
   };
+}
+
+/**
+ * Tolerant like every parser here. Each scenario entry keeps both counters as real finite non-negative
+ * integers. bestCorrect is NOT clamped to attempts — it counts correct DECISIONS within one completion
+ * (a 4-step scenario solved once is attempts 1, bestCorrect 4), and the screen caps its display against
+ * the scenario's own target length. A zero-attempt entry is dropped as nothing worth carrying.
+ */
+function parsePuzzleProgress(raw: unknown): Record<string, { attempts: number; bestCorrect: number }> {
+  const obj = asRecord(raw);
+  const out: Record<string, { attempts: number; bestCorrect: number }> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const entry = asRecord(value);
+    const attempts = Math.max(0, Math.floor(asNumber(entry.attempts, 0)));
+    const bestCorrect = Math.max(0, Math.floor(asNumber(entry.bestCorrect, 0)));
+    if (attempts === 0) continue; // nothing worth carrying
+    out[key] = { attempts, bestCorrect };
+  }
+  return out;
 }
 
 /**
