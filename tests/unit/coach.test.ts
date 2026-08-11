@@ -183,6 +183,54 @@ describe('gradeDecision', () => {
     expect(g.evLossBb).toBeGreaterThan(0);
   });
 
+  /**
+   * The facing-a-bet raise threshold is the SIZE-DERIVED break-even equity, required =
+   * toCall/(pot+toCall) = B/(P+2B), not a flat constant. state.pot already contains the villain's
+   * bet (table.ts), so this is exactly the price of continuing. The old grader compared against a
+   * flat 0.35 with a "free gap" up to 0.55, which mis-graded on both sides. These two spots use the
+   * SAME hand and equity (7h6h on 5s4cKd, ~46%, seed 1) and differ ONLY in bet size, so no flat
+   * constant can satisfy both — that is what makes the threshold's size-dependence load-bearing.
+   */
+  it('a raise facing a small bet is free when equity clears the (low) required price', () => {
+    // Small bet: required = 20/120 ≈ 17%. 46% clears it comfortably → nothing owed to teach.
+    const g = gradeDecision({
+      hole: ['7h', '6h'],
+      board: ['5s', '4c', 'Kd'],
+      street: 'flop',
+      pot: 100,
+      toCall: 20,
+      stack: 500,
+      bb: 2,
+      chosen: 'raise',
+      betSize: 40,
+      opponents: 1,
+      seed: 1,
+    });
+    expect(g.severity).toBe('free');
+    expect(g.evLossBb).toBe(0);
+  });
+
+  it('the SAME raise facing an overbet is penalized — the old flat 0.55 gap missed this', () => {
+    // Overbet: required = 200/300 ≈ 67%. 46% falls far short, so committing more chips is a real
+    // mistake. Under the old constants 46% sat in the 0.35–0.55 "free" gap and graded free.
+    const g = gradeDecision({
+      hole: ['7h', '6h'],
+      board: ['5s', '4c', 'Kd'],
+      street: 'flop',
+      pot: 100,
+      toCall: 200,
+      stack: 500,
+      bb: 2,
+      chosen: 'raise',
+      betSize: 400,
+      opponents: 1,
+      seed: 1,
+    });
+    expect(g.severity !== 'free').toBe(true);
+    expect(g.evLossBb).toBeGreaterThan(0);
+    expect(g.principle).toBe('ranges');
+  });
+
   it('severity tiers: evLossBb < 0.5 => free', () => {
     // We craft a situation where calling is slightly suboptimal but < 0.5 bb
     // Using a marginal hand where equity is just barely below pot odds

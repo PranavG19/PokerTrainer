@@ -84,13 +84,28 @@ export function gradeDecision(input: {
       evLossBb = 0;
     }
   } else if (chosen === 'bet' || chosen === 'raise' || chosen === 'allin') {
-    if (equity < 0.35 && toCall > 0) {
-      const overcommit = (0.35 - equity) * (pot + toCall);
-      evLossBb = overcommit / bb;
-      principle = 'ranges';
-    } else if (equity >= 0.55) {
-      evLossBb = 0;
-    } else if (equity < 0.35 && toCall === 0) {
+    if (toCall > 0) {
+      // Raising (or shoving) OVER a bet puts more chips in behind a price you must first clear to
+      // continue at all. That price is the size-derived break-even `required` = toCall/(pot+toCall),
+      // which equals B/(P+2B) because state.pot already holds the villain's bet (table.ts) — the
+      // exact GTO required-equity, not the flat 0.35 this used to compare against. Flat under-nagged
+      // raises into overbets (a 46% hand facing a pot-sized-plus bet needs ~67% and used to grade
+      // free) and over-nagged raises into tiny bets. Charged only on the shortfall below the price,
+      // scaled by the pot being contested, so a bigger bet you cannot afford to continue against
+      // costs more.
+      if (equity < required) {
+        evLossBb = ((required - equity) * (pot + toCall)) / bb;
+        principle = 'ranges';
+      } else {
+        evLossBb = 0;
+      }
+    } else if (equity < 0.35) {
+      // Betting/raising with no bet to face (a lead or a c-bet) is not priced by pot odds — there is
+      // no `required` to clear. This stays a heuristic: leading a hand with under ~35% pot share is
+      // typically turning a weak made hand into a bluff without the range to back it. Kept as a
+      // documented constant, since single-hand equity has no closed-form value-bet threshold; the
+      // bluff-frequency math that WOULD govern it is a range property, taught in the lessons, not
+      // something this per-hand grader can compute.
       const penalty = (0.35 - equity) * pot * 0.4;
       evLossBb = penalty / bb;
       principle = 'value or bluff';
