@@ -212,6 +212,50 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'call-flush-draw-odds',
+    title: 'Calling a flush draw when the price is right',
+    setup:
+      'You defend the big blind with 9♥8♥, the button opens, and the flop is A♥K♥2♣ — you have nine hearts to the nut-ish flush. The button bets small. Do the numbers say call?',
+    seatCount: 3,
+    // bb-defend layout: button on seat 1 → seat 0 is the BB (hero), seat 1 the opener, seat 2 the SB.
+    // Postflop the BB (hero) acts first, so the hero checks, the opener bets, and the hero calls with
+    // the right price — the fundamental pot-odds decision, played out.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['9h', '8h'],
+      ['Ac', 'Qd'],
+      ['7s', '3d'],
+    ],
+    board: ['Ah', 'Kh', '2c', '4s', 'Jd'],
+    // Preflop: opener raises to 125 (step 0 = hero calls), SB folds. Flop: hero checks first (step 1),
+    // opener bets 75, hero calls getting the price with the flush draw (step 2).
+    villainScript: [
+      { kind: 'raise', to: 125 }, // seat 1 opens
+      { kind: 'fold' }, // seat 2 (SB) folds
+      { kind: 'bet', to: 75 }, // seat 1 c-bets the flop after the hero checks
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'A suited connector defending the big blind closing the action for one more bet is a routine call — you have a price and position is only one seat away.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'First to act on the flop with a draw, check to the raiser: they will c-bet most of their range, so you keep their bluffs in and get to continue with a hand that wants to see cards cheaply rather than announce its strength.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'Nine hearts give roughly a third of the pot in equity on the flop, and a small c-bet lays you far better than that price — call. This is pot odds in one move: the draw is worth more than the bet costs, so continuing prints even before you count the times you also make a better hand than a pair.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

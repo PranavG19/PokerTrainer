@@ -196,6 +196,7 @@ test.describe('puzzle mode', () => {
       'fold-kq-to-utg': ['fold'],
       '3bet-aa-vs-open': ['raise'],
       'pot-control-ip': ['raise', 'check'],
+      'call-flush-draw-odds': ['call', 'check', 'call'],
     };
 
     await withApp(async (page) => {
