@@ -43,6 +43,16 @@ export function renderPredictPanel(onCommit: () => void): HTMLElement {
   }
   root.appendChild(row);
 
+  // G4's reason (story 14): a one-line "why", graded SEPARATELY from the action. Optional — it does
+  // not gate the action buttons (committedPrediction ignores it), so an empty box behaves exactly as
+  // before the feature. Part of the commit half, so setCommitVisible hides it at handover with the rest.
+  const reason = document.createElement('textarea');
+  reason.className = 'predict-reason lesson-input';
+  reason.dataset.testid = 'reason-input';
+  reason.rows = 1;
+  reason.placeholder = 'Why? (optional — graded separately)';
+  root.appendChild(reason);
+
   const result = document.createElement('div');
   result.className = 'predict-result';
   result.dataset.testid = 'predict-result';
@@ -73,8 +83,10 @@ export function renderPredictPanel(onCommit: () => void): HTMLElement {
 export function setCommitVisible(root: HTMLElement, visible: boolean): void {
   const prompt = root.querySelector<HTMLElement>('.predict-prompt');
   const row = root.querySelector<HTMLElement>('.predict-row');
+  const reason = reasonEl(root);
   if (prompt) prompt.hidden = !visible;
   if (row) row.hidden = !visible;
+  if (reason) reason.hidden = !visible;
 }
 
 /** Null until BOTH halves are committed — the gate the action buttons hang off. */
@@ -84,6 +96,15 @@ export function committedPrediction(root: HTMLElement): Prediction | null {
   if (!isPredictedAction(action)) return null;
   if (confidence !== 'sure' && confidence !== 'guess') return null;
   return { action, confidence };
+}
+
+/**
+ * The reason the learner typed, trimmed, or '' when they left it blank. Optional by design (G4 story
+ * 14): an empty string is the signal to the caller that no reason was given and none should be graded.
+ */
+export function committedReason(root: HTMLElement): string {
+  const reason = reasonEl(root);
+  return reason instanceof HTMLTextAreaElement ? reason.value.trim() : '';
 }
 
 export function showPredictResult(
@@ -149,6 +170,10 @@ export function predictSupportText(route: ConfidenceRoute): string {
 export function resetCommit(root: HTMLElement): void {
   delete root.dataset.predictAction;
   delete root.dataset.predictConfidence;
+  // The reason belongs to the decision just made, not the next one: clear it so the next street's
+  // commitment starts from a blank box rather than inheriting last street's stale "why".
+  const reason = reasonEl(root);
+  if (reason instanceof HTMLTextAreaElement) reason.value = '';
   syncSelection(root);
 }
 
@@ -174,6 +199,10 @@ function resultEl(root: HTMLElement): HTMLElement | null {
 
 function supportEl(root: HTMLElement): HTMLElement | null {
   return root.querySelector<HTMLElement>('[data-testid="predict-support"]');
+}
+
+function reasonEl(root: HTMLElement): HTMLElement | null {
+  return root.querySelector<HTMLElement>('[data-testid="reason-input"]');
 }
 
 function syncSelection(root: HTMLElement): void {

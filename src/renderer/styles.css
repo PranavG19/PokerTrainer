@@ -617,12 +617,19 @@ body {
  * than the controls, which must stay reachable (same rule as the block above).
  */
 .table-screen .predict {
-  padding: 6px 12px;
-  gap: 4px;
+  padding: 3px 12px;
+  gap: 2px;
 }
 
 .table-screen .predict-choice {
-  padding: 5px 12px;
+  padding: 4px 12px;
+}
+
+/* The prompt is one short line; trim its default line box so the reason row it now shares space with
+ * keeps the coached panel inside the 640px minimum. */
+.table-screen .predict-prompt {
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 /* The differential support line is the longest text in the panel; keep it compact so it does not
@@ -631,6 +638,18 @@ body {
   font-size: 11px;
   line-height: 1.15;
   margin: 0;
+}
+
+/* G4's reason box shares .lesson-input (20px vertical padding, 1.5 line-height), which alone pushed
+ * the coached table 33px past the 640px minimum. On the table it is a single tight line — the lesson
+ * screen keeps the roomy version. */
+.table-screen .predict-reason {
+  padding: 2px 10px;
+  font-size: 11px;
+  line-height: 1.2;
+  border-radius: 8px;
+  height: 20px;
+  min-height: 20px;
 }
 
 /* The collapsed sheet only needs to show the win%/tie headline. */
