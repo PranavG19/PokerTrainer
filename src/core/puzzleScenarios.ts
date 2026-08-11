@@ -390,6 +390,40 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'fold-multiway-ajo',
+    title: 'Folding A♠J♦ into a raise and a cold-call',
+    setup:
+      'Four-handed, you have A♠J♦ in the big blind. UTG raises to 3bb, the button cold-calls, and it folds to you. Heads-up AJo is a call — but a raise AND a caller in front is a different, much stronger, world.',
+    seatCount: 4,
+    // 4-handed with button on seat 2: SB=3, BB=0 (hero), first to act preflop = seat 1 (UTG). So the
+    // hero (BB) acts LAST preflop, after UTG raises and the button cold-calls — the multiway spot.
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = UTG (raiser). Seat 2 = button (cold-caller). Seat 3 = SB.
+    holes: [
+      ['As', 'Jd'],
+      ['Kc', 'Kd'], // UTG: a real hand that dominates AJo
+      ['Qh', 'Qs'], // button cold-caller: also crushing AJo
+      ['7c', '2h'], // SB: folds
+    ],
+    board: ['Td', '8s', '5c', '4h', '2d'],
+    // UTG raises to 150, button calls, SB folds; the action reaches the hero, who folds.
+    villainScript: [
+      { kind: 'raise', to: 150 }, // seat 1 (UTG) opens
+      { kind: 'call' }, // seat 2 (button) cold-calls
+      { kind: 'fold' }, // seat 3 (SB) folds
+    ],
+    target: [
+      {
+        action: 'fold',
+        explanation:
+          'AJo is a trap hand multiway. A raise and a cold-call in front both beat it more often than not — you are dominated by AK/AQ/AJs and every over-pair, and when you flop a pair it is often the second-best one that pays off a better ace. Position is bad and the field is strong. Heads-up you would defend; against a raise plus a caller, folding is the disciplined, money-saving play. The strength of a bet doubles when someone else has already called it.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
