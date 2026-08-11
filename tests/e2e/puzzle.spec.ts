@@ -202,6 +202,7 @@ test.describe('puzzle mode', () => {
       'call-river-bluffcatch': ['raise', 'check', 'check', 'call'],
       'fold-multiway-ajo': ['fold'],
       'isolate-limper-aqs': ['raise'],
+      'squeeze-kk-vs-open-call': ['raise'],
     };
 
     await withApp(async (page) => {

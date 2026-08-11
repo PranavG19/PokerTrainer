@@ -458,6 +458,42 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'squeeze-kk-vs-open-call',
+    title: 'Squeezing K♥K♠ over an open and a call',
+    setup:
+      'Four-handed with K♥K♠ in the big blind. UTG raises to 3bb, the button flat-calls, and it folds to you. A raise AND a caller in front — with the second-best hand in poker, that crowd is an invitation, not a warning.',
+    seatCount: 4,
+    // Same verified 4-handed seating as fold-multiway-ajo: button on seat 2 → SB=3, BB=0 (hero), first
+    // to act preflop = seat 1 (UTG). The hero (BB) acts LAST preflop, after UTG opens and the button
+    // cold-calls — so the hero can squeeze (3-bet over an open + a call).
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = UTG (opener). Seat 2 = button (cold-caller). Seat 3 = SB.
+    holes: [
+      ['Kh', 'Ks'],
+      ['Ad', 'Qc'], // UTG: a strong-but-dominated open
+      ['Js', 'Ts'], // button: a speculative flat that hates a big raise
+      ['6c', '2h'], // SB: folds
+    ],
+    board: ['9d', '7s', '3c', 'Qh', '4d'],
+    // UTG opens to 150, button calls, SB folds; the action reaches the hero, who squeezes. One
+    // decision, so the streets past preflop are never reached.
+    villainScript: [
+      { kind: 'raise', to: 150 }, // seat 1 (UTG) opens
+      { kind: 'call' }, // seat 2 (button) cold-calls
+      { kind: 'fold' }, // seat 3 (SB) folds
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'KK crushes both ranges: the opener rarely has AA/KK and the flat-caller has capped away their monsters by not 3-betting. Squeezing builds a huge pot with the best hand, charges two players to continue, and often wins the dead money outright when both give up. Flatting invites a cheap multiway flop where an ace or a coordinated board can freeze you — the opposite of what your hand wants. With a premium behind a raise and a call, the extra caller is a reason to raise BIGGER, not to slow down.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
