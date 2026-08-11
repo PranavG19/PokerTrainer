@@ -200,6 +200,7 @@ test.describe('puzzle mode', () => {
       'fold-open-to-3bet': ['raise', 'fold'],
       'barrel-turn-overpair': ['raise', 'bet', 'bet'],
       'call-river-bluffcatch': ['raise', 'check', 'check', 'call'],
+      'fold-multiway-ajo': ['fold'],
     };
 
     await withApp(async (page) => {
