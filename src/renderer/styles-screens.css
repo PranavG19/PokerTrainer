@@ -211,6 +211,25 @@ button.hand-row {
   overscroll-behavior: contain;
 }
 
+/* The gift ledger is the second variable-length signal list, so it shrinks and scrolls the same way
+   the leak list does rather than pushing the Lifetime counters below the 640px fold. Both share the
+   column's flexible space; each keeps its own scroll. */
+.profile-gifts {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.profile-gifts .stat-label {
+  flex: 0 0 auto;
+}
+
+.profile-gifts .gift-list {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .graph-wrap {
   background: var(--surface);
   border-radius: 16px;
@@ -303,6 +322,43 @@ button.hand-row {
   list-style: none;
   padding: 16px 0;
   font-size: 13px;
+  color: var(--text-lo);
+}
+
+/* O5 gift ledger: the same surface card as the leak list. Each row is one observed showdown sentence
+ * from describeGift, monospace-numeral so the equities and chip counts line up down the list. */
+.gift-list {
+  list-style: none;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gift-total {
+  list-style: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mint);
+  font-variant-numeric: tabular-nums;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--surface-hi);
+}
+
+.gift-row {
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+.gift-empty {
+  list-style: none;
+  padding: 4px 0;
+  font-size: 12px;
   color: var(--text-lo);
 }
 

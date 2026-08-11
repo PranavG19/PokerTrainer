@@ -4,6 +4,10 @@ import type { ActionKind, Street } from './table.js';
 import type { Calibration, PredictOutcome } from './predict.js';
 import { emptyCalibration, tally } from './predict.js';
 import { SOURCES, emptyRecommender, type RecommenderState, type Source } from './recommend.js';
+import type { GiftEntry } from './giftLedger.js';
+
+/** Bound the persisted gift log the same way the hand log is bounded, so the JSON cannot grow forever. */
+export const MAX_GIFT_LOG = 200;
 
 /** Guards the persisted preference list: an unrecognised source would weight nothing silently. */
 const KNOWN_SOURCES = new Set<string>(SOURCES);
@@ -95,6 +99,12 @@ export interface SessionState {
    * for would silently be a session-scoped scratchpad.
    */
   recommender: RecommenderState;
+  /**
+   * O5/story 34: -EV villain calls the learner OBSERVED at showdown, auto-populated so it cannot be
+   * inflated. Persisted across sittings because the point of the ledger is a durable, honest record
+   * of value handed over; a session-scoped one would forget the evidence every launch.
+   */
+  gifts: GiftEntry[];
 }
 
 export interface SessionSummary {
@@ -116,7 +126,18 @@ export function emptySession(): SessionState {
     coachedMode: false,
     spokenVerdicts: false,
     recommender: emptyRecommender(),
+    gifts: [],
   };
+}
+
+/**
+ * Append observed gifts from one hand, newest last, bounded to MAX_GIFT_LOG. The entries are already
+ * derived from revealed cards by the gift ledger (O5's anti-inflation guarantee); this reducer only
+ * stores them. Empty input returns state unchanged so a gift-less hand costs no allocation.
+ */
+export function recordGifts(state: SessionState, gifts: readonly GiftEntry[]): SessionState {
+  if (gifts.length === 0) return state;
+  return { ...state, gifts: [...state.gifts, ...gifts].slice(-MAX_GIFT_LOG) };
 }
 
 /** One graded prediction. Per decision, not per hand, so it cannot live in recordHand. */
@@ -219,6 +240,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
       consecutiveDeclines: state.recommender.consecutiveDeclines,
       preferred: [...state.recommender.preferred],
     },
+    gifts: structuredClone(state.gifts),
   };
 }
 
@@ -251,6 +273,39 @@ export function deserialize(raw: unknown): SessionState {
     spokenVerdicts: obj.spokenVerdicts === true,
     // Legacy saves predate the recommender; an empty one is the honest reading of a missing field.
     recommender: parseRecommender(obj.recommender),
+    // Legacy saves predate the gift ledger; an empty list is the honest reading of a missing field.
+    // Malformed entries are dropped rather than resurrected with fabricated numbers, because a gift
+    // that cannot be reconstructed from real fields is not the observed evidence O5 promises.
+    gifts: asArray(obj.gifts).map(parseGift).filter((g): g is GiftEntry => g !== null).slice(-MAX_GIFT_LOG),
+  };
+}
+
+/** Tolerant like every parser here. A gift is kept only if every derived number is really present. */
+function parseGift(raw: unknown): GiftEntry | null {
+  const obj = asRecord(raw);
+  const action = obj.action;
+  if (action !== 'call' && action !== 'allin') return null;
+  const villainHole = asStrings(obj.villainHole);
+  const heroHole = asStrings(obj.heroHole);
+  if (villainHole.length !== 2 || heroHole.length !== 2) return null;
+  const numbers = ['seq', 'handNumber', 'villainSeatId', 'villainEquity', 'breakEven', 'evChips', 'giftChips'] as const;
+  for (const key of numbers) {
+    if (typeof obj[key] !== 'number' || !Number.isFinite(obj[key])) return null;
+  }
+  return {
+    seq: obj.seq as number,
+    handNumber: obj.handNumber as number,
+    villainSeatId: obj.villainSeatId as number,
+    villainName: typeof obj.villainName === 'string' ? obj.villainName : `Seat ${obj.villainSeatId as number}`,
+    villainHole,
+    heroHole,
+    board: asStrings(obj.board),
+    street: STREETS.includes(obj.street as Street) ? (obj.street as Street) : 'river',
+    action,
+    villainEquity: obj.villainEquity as number,
+    breakEven: obj.breakEven as number,
+    evChips: obj.evChips as number,
+    giftChips: obj.giftChips as number,
   };
 }
 
