@@ -13,6 +13,7 @@ import {
   recordChartAnswer,
   recordGifts,
   recordHand,
+  recordPuzzleResult,
   serialize,
 } from '../../src/core/session.js';
 
@@ -311,6 +312,58 @@ describe('chart-drill mastery persistence', () => {
       // premium: attempts 0, correct clamped to 0 → dropped as empty
       strong: { attempts: 4, correct: 4 },
       broadway: { attempts: 6, correct: 2 },
+    });
+  });
+});
+
+describe('puzzle progress persistence', () => {
+  it('recordPuzzleResult ticks attempts and keeps the BEST correct count', () => {
+    let s = emptySession();
+    s = recordPuzzleResult(s, 'btn-open-aks', 1);
+    s = recordPuzzleResult(s, 'bb-defend-vs-btn', 2);
+    // A sloppier replay must NOT lower the recorded best.
+    s = recordPuzzleResult(s, 'bb-defend-vs-btn', 0);
+    expect(s.puzzleProgress).toEqual({
+      'btn-open-aks': { attempts: 1, bestCorrect: 1 },
+      'bb-defend-vs-btn': { attempts: 2, bestCorrect: 2 },
+    });
+  });
+
+  it('a better replay raises the best', () => {
+    let s = recordPuzzleResult(emptySession(), 'cbet-dry-ace', 1);
+    s = recordPuzzleResult(s, 'cbet-dry-ace', 2);
+    expect(s.puzzleProgress['cbet-dry-ace']).toEqual({ attempts: 2, bestCorrect: 2 });
+  });
+
+  it('is pure — the prior state is not mutated', () => {
+    const before = recordPuzzleResult(emptySession(), 'btn-open-aks', 1);
+    const snapshot = JSON.parse(JSON.stringify(before.puzzleProgress));
+    recordPuzzleResult(before, 'btn-open-aks', 0);
+    expect(before.puzzleProgress).toEqual(snapshot);
+  });
+
+  it('survives a round trip', () => {
+    let s = recordPuzzleResult(emptySession(), 'squeeze-kk-vs-open-call', 1);
+    s = recordPuzzleResult(s, 'call-flush-draw-odds', 3);
+    expect(deserialize(JSON.parse(JSON.stringify(serialize(s))))).toEqual(s);
+  });
+
+  it('a save file predating puzzle progress loads with an empty map', () => {
+    expect(deserialize({ bankroll: 12000, hands: [], stats: {} }).puzzleProgress).toEqual({});
+  });
+
+  it('drops a zero-attempt entry and floors negatives, without clamping bestCorrect to attempts', () => {
+    const raw = deserialize({
+      puzzleProgress: {
+        'a': { attempts: 0, bestCorrect: 3 }, // no attempts → dropped
+        'b': { attempts: 1, bestCorrect: 4 }, // one completion of a 4-step scenario — bestCorrect stays 4
+        'c': { attempts: -2, bestCorrect: 1 }, // negative attempts → 0 → dropped
+        'd': { attempts: 2, bestCorrect: -1 }, // negative best → 0
+      },
+    });
+    expect(raw.puzzleProgress).toEqual({
+      'b': { attempts: 1, bestCorrect: 4 },
+      'd': { attempts: 2, bestCorrect: 0 },
     });
   });
 });

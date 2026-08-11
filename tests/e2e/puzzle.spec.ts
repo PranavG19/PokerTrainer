@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { launchApp } from './helpers.js';
 
 /**
@@ -21,6 +24,8 @@ const complete = '[data-testid="puzzle-complete"]';
 const nextScenario = '[data-testid="puzzle-next-scenario"]';
 const potLine = '[data-testid="puzzle-pot"]';
 const oddsLine = '[data-testid="puzzle-odds"]';
+const progressLabel = '[data-testid="puzzle-progress-label"]';
+const picker = '[data-testid="puzzle-picker"]';
 
 const railSeam = '[data-testid="puzzle-tutor-rail"]';
 const rail = '[data-testid="tutor-rail"]';
@@ -339,5 +344,37 @@ test.describe('puzzle mode', () => {
       // And the visible text states the price as a percentage, not just chips.
       expect(await page.locator(oddsLine).innerText()).toContain(`${potOdds}%`);
     });
+  });
+
+  test('12. mastering a scenario persists across a restart and shows on the picker', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-puzzle-persist-'));
+
+    // First sitting: solve the opening scenario cleanly (raise AKs), which is a one-decision puzzle.
+    const first = await launchApp({ seed: 1, userDataDir: dir });
+    try {
+      await openPuzzle(first.page);
+      await expect(first.page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      // Nothing mastered yet.
+      await expect(first.page.locator(progressLabel)).toHaveAttribute('data-mastered', '0');
+      await first.page.locator('[data-testid="puzzle-raise"]').click();
+      await first.page.locator(continueBtn).click();
+      await expect(first.page.locator(screen)).toHaveAttribute('data-phase', 'complete');
+      // The mastered count ticked to 1 within this session.
+      await expect(first.page.locator(progressLabel)).toHaveAttribute('data-mastered', '1');
+    } finally {
+      await first.close().catch(() => {});
+    }
+
+    // Second sitting, SAME dir: the mastery survived the restart, before touching anything.
+    const second = await launchApp({ seed: 1, userDataDir: dir });
+    try {
+      await openPuzzle(second.page);
+      await expect(second.page.locator(progressLabel)).toHaveAttribute('data-mastered', '1');
+      // The solved scenario's option carries the ✓ mastered mark.
+      const firstOption = second.page.locator(`${picker} option`).first();
+      expect(await firstOption.innerText()).toContain('✓');
+    } finally {
+      await second.close().catch(() => {});
+    }
   });
 });

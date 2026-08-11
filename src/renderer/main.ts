@@ -11,6 +11,7 @@ import {
   recordGifts,
   recordHand,
   recordPrediction,
+  recordPuzzleResult,
   serialize,
   setCoachedMode,
   setSpokenVerdicts,
@@ -219,6 +220,12 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /** Persist one completed puzzle scenario so its best score survives a restart. */
+  async function onPuzzleComplete(scenarioId: string, correct: number): Promise<void> {
+    session = recordPuzzleResult(session, scenarioId, correct);
+    await io.saveState(serialize(session));
+  }
+
   /**
    * N2's single suggestion for the launcher.
    *
@@ -391,7 +398,12 @@ async function boot(): Promise<void> {
   function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
     if (which === 'profile') return renderProfileTab();
     if (which === 'learn') return renderLessonScreen();
-    if (which === 'puzzle') return renderPuzzleScreen();
+    if (which === 'puzzle') {
+      return renderPuzzleScreen({
+        progress: session.puzzleProgress,
+        onComplete: (scenarioId, correct) => void onPuzzleComplete(scenarioId, correct),
+      });
+    }
     if (which === 'repair') return renderContrastScreen({ hands: session.hands });
     if (which === 'charts') {
       return renderCharts({
