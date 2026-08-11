@@ -221,13 +221,19 @@ test.describe('puzzle mode', () => {
       'fold-to-raise-on-cbet': ['raise', 'bet', 'fold'],
       'fold-busted-draw-river': ['raise', 'call', 'call', 'fold'],
       'thin-value-bet-river': ['raise', 'bet', 'check', 'bet'],
+      'set-mine-call-22': ['call'],
+      'squeeze-fold-weak': ['fold'],
+      'call-turn-implied-oesd': ['raise', 'call', 'call'],
+      'value-raise-flop-set': ['raise', 'raise'],
+      'overpair-fold-river-jam': ['raise', 'bet', 'bet', 'fold'],
+      'iso-3bet-vs-limp-reraise': ['raise', 'call'],
     };
 
     await withApp(async (page) => {
       await openPuzzle(page);
 
       const seen = new Set<string>();
-      for (let visited = 0; visited < 30; visited++) {
+      for (let visited = 0; visited < 40; visited++) {
         const id = (await page.locator(screen).getAttribute('data-scenario')) ?? '';
         if (seen.has(id)) break; // wrapped back to the first puzzle — the whole library was walked
         seen.add(id);
