@@ -201,6 +201,7 @@ test.describe('puzzle mode', () => {
       'barrel-turn-overpair': ['raise', 'bet', 'bet'],
       'call-river-bluffcatch': ['raise', 'check', 'check', 'call'],
       'fold-multiway-ajo': ['fold'],
+      'isolate-limper-aqs': ['raise'],
     };
 
     await withApp(async (page) => {
