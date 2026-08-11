@@ -660,6 +660,57 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'value-bet-river-flush',
+    title: 'Value-betting the river when your draw gets there',
+    setup:
+      'You open 9♥8♥ on the button and the big blind calls. On A♦7♥3♥ you have a flush draw; the BB bets, you call, and you call again on the T♠ turn. The river is the 6♥ — your flush is in. The BB checks. Do you check it back, or bet?',
+    seatCount: 3,
+    // pot-control-ip layout (button on seat 0 = hero): the hero opens preflop but, on the button, acts
+    // LAST on every postflop street. The BB (seat 2) acts first postflop — betting into the draw on the
+    // flop and turn, then checking the river when the flush completes, giving the hero the value spot.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button/opener). Seat 1 = SB (folds). Seat 2 = BB (bets the draw streets, gives up river).
+    holes: [
+      ['9h', '8h'],
+      ['4d', '2c'], // SB: folds
+      ['Ac', 'Ks'], // BB: top pair, bets flop and turn, then checks when the third heart lands
+    ],
+    board: ['Ad', '7h', '3h', 'Ts', '6h'],
+    // SB folds preflop, BB calls the open. Postflop the hero acts last: BB c-bets the flop, the hero
+    // calls the draw; BB bets the turn, the hero calls; the 6♥ completes the flush and the BB checks.
+    villainScript: [
+      { kind: 'fold' }, // SB folds the open
+      { kind: 'call' }, // BB calls preflop
+      { kind: 'bet', to: 100 }, // BB c-bets the flop (acts first postflop)
+      { kind: 'bet', to: 250 }, // BB bets the turn
+      { kind: 'check' }, // BB checks the river when the flush completes
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation: '9♥8♥ is a fine button open — suited, connected, and it plays well in position.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'A nine-high flush draw with two live overcards to little of the board is an easy call in position: you have the price, the equity, and position to realise it on later streets.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'The turn brings no help but the draw is still worth a call getting a reasonable price with position — you keep the door open to the river card that makes your hand.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'Your flush got there and the big blind checked — do not check it back. This is the whole point of chasing the draw: when it comes in you have to get paid, or the times you missed cost you for nothing. Bet for value. A hand like top pair will often call, worse flushes and two pair pay you off, and checking back wins exactly the same as folding did on the missed rivers. Missing a value bet is as expensive as paying off a bluff; when you make the hand you were drawing to, charge for it.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

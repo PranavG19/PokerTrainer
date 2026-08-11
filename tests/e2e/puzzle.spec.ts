@@ -214,6 +214,7 @@ test.describe('puzzle mode', () => {
       'fold-flop-airball': ['call', 'check', 'fold'],
       'call-3bet-ip-aqs': ['raise', 'call'],
       '4bet-aa-vs-3bet': ['raise', 'raise'],
+      'value-bet-river-flush': ['raise', 'call', 'call', 'bet'],
     };
 
     await withApp(async (page) => {
