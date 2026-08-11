@@ -12,7 +12,7 @@ import {
   saveTutorEnabled,
 } from './store.js';
 import { askTutor, resolveTutor, type AskInput, type ResolvedTutor } from './tutor/index.js';
-import { nullTutor } from './tutor/nullTutor.js';
+import { nullModelClient, nullTutor } from './tutor/nullTutor.js';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -38,6 +38,9 @@ function activeTutor(): ResolvedTutor {
     credentialsConfigured: configured.credentialsConfigured,
     egressAllowlist: [],
     guardFailures: configured.guardFailures,
+    // Off means the null (no-network) client too, same structural guarantee as the
+    // null tutor: a follow-up while disabled has no client to leak through.
+    client: nullModelClient,
   };
 }
 

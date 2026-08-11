@@ -7,13 +7,24 @@
  * runtime check that could be bypassed.
  */
 
+import {
+  mintSpotContext,
+  runTutorAgent,
+  type SpotPhase,
+} from './agent.js';
 import { bedrockClient, bedrockHost } from './bedrock.js';
 import { liveTutor, type GuardFailure } from './liveTutor.js';
 import { askVerdict, type TutorContext } from './muteMatrix.js';
-import { nullTutor, type Tutor } from './nullTutor.js';
+import { nullModelClient, nullTutor, type Tutor } from './nullTutor.js';
 import { openReplayCache, type ReplayMode } from './replayCache.js';
 import { buildRulesRequest, buildStrategyRequest } from './requests.js';
-import type { GradePayload, TutorRequest, VisibleTable } from './types.js';
+import type {
+  AgentMessage,
+  GradePayload,
+  ModelClient,
+  TutorRequest,
+  VisibleTable,
+} from './types.js';
 
 export interface TutorEnvConfig {
   readonly OFFSUIT_BEDROCK_PROFILE?: string;
@@ -29,6 +40,16 @@ export interface ResolvedTutor {
   /** Empty when no credentials are configured — the Security section's empty allowlist. */
   readonly egressAllowlist: readonly string[];
   readonly guardFailures: GuardFailure[];
+  /**
+   * The multi-turn seam for the tool-using agent (runTutorAgent). It is the same
+   * network client the single-shot `tutor` wraps: the Bedrock client when
+   * credentials are set, and nullModelClient (no converse(), zero network) when
+   * they are not. The agent reads a missing converse() as "no model" and falls to
+   * the guard-clean fixed table, so a no-credentials follow-up is byte-for-byte
+   * the null tutor. Separated from `tutor` only because respond() and converse()
+   * are different seams; both are backed by the same configuration.
+   */
+  readonly client: ModelClient;
 }
 
 function replayMode(raw: string | undefined): ReplayMode {
@@ -43,11 +64,18 @@ export function resolveTutor(env: TutorEnvConfig): ResolvedTutor {
   const modelId = env.OFFSUIT_BEDROCK_MODEL;
 
   if (profile === undefined || region === undefined || modelId === undefined) {
-    return { tutor: nullTutor, credentialsConfigured: false, egressAllowlist: [], guardFailures };
+    return {
+      tutor: nullTutor,
+      credentialsConfigured: false,
+      egressAllowlist: [],
+      guardFailures,
+      client: nullModelClient,
+    };
   }
 
+  const client = bedrockClient({ profile, region, modelId });
   const tutor = liveTutor({
-    client: bedrockClient({ profile, region, modelId }),
+    client,
     cache: openReplayCache({
       mode: replayMode(env.OFFSUIT_REPLAY_MODE),
       dir: env.OFFSUIT_REPLAY_DIR,
@@ -60,6 +88,7 @@ export function resolveTutor(env: TutorEnvConfig): ResolvedTutor {
     credentialsConfigured: true,
     egressAllowlist: [bedrockHost(region)],
     guardFailures,
+    client,
   };
 }
 
@@ -70,6 +99,17 @@ export interface AskInput {
   /** Present only post-reveal. Its presence is what selects the strategy builder. */
   readonly grade?: GradePayload;
   readonly lexicon?: readonly string[];
+  /**
+   * Prior exchanges in THIS spot, oldest first, for a bounded multi-turn follow-up.
+   * When present and non-empty, the ask is driven by the tool-using agent
+   * (runTutorAgent) rather than the single-shot tutor, so the model can read what
+   * was already said. It is threaded into the agent's TRANSCRIPT only — never into
+   * the guarded request, whose allowedNumerals come from this turn's table/grade
+   * alone. History therefore cannot widen what a numeral is checked against, which
+   * is the load-bearing privacy property (tested). Absent → the turn-0 path is
+   * byte-for-byte unchanged.
+   */
+  readonly history?: readonly { readonly question: string; readonly answerText: string }[];
 }
 
 export interface AskResult {
@@ -120,6 +160,55 @@ function requestFor(input: AskInput): TutorRequest {
   ).payload;
 }
 
+/**
+ * Which SpotContext phase a mute-matrix context sits in. Only 'spot-post-reveal'
+ * is post-reveal; every other context is pre-commit, which is the stricter phase
+ * gate (recall_grade and numeric_phrases are omitted from its tool registry). The
+ * default therefore fails safe: an unrecognised or in-progress context never
+ * exposes a solver tool.
+ */
+function phaseFor(context: TutorContext): SpotPhase {
+  return context === 'spot-post-reveal' ? 'post-reveal' : 'pre-commit';
+}
+
+/**
+ * The request the AGENT will guard against, built with the agent's own routing
+ * (rules unless BOTH the phase is post-reveal AND a grade is present). Reported as
+ * payloadKeys so the T3a oracle sees the same request the agent enforced. History
+ * is deliberately NOT an input here: it never widens what a numeral is checked
+ * against.
+ */
+function agentRequestFor(input: AskInput, phase: SpotPhase): TutorRequest {
+  if (phase === 'pre-commit' || input.grade === undefined) {
+    return buildRulesRequest({ question: input.question, table: input.table }).payload;
+  }
+  return buildStrategyRequest(
+    {
+      prompt: input.question,
+      table: input.table,
+      grade: input.grade,
+      lexicon: input.lexicon ?? [],
+    },
+    'correction',
+  ).payload;
+}
+
+/**
+ * Prior exchanges → the agent's seed transcript, oldest first, each pair rendered
+ * as the learner's question then the tutor's answer. mintSpotContext prepends the
+ * CURRENT question at index 0 (the anchor the guarded request is built from), so
+ * these seeded turns are the conversational context the model may read — content
+ * only, never a new numeral source.
+ */
+function seedFromHistory(
+  history: readonly { readonly question: string; readonly answerText: string }[],
+): AgentMessage[] {
+  return history.flatMap((pair) => [
+    { role: 'user' as const, text: pair.question },
+    { role: 'assistant' as const, text: pair.answerText },
+  ]);
+}
+
 export async function askTutor(resolved: ResolvedTutor, input: AskInput): Promise<AskResult> {
   const { kind, verdict } = askVerdict(input.context, input.question);
   if (verdict === 'blocked') {
@@ -131,6 +220,33 @@ export async function askTutor(resolved: ResolvedTutor, input: AskInput): Promis
       payloadKeys: [],
       // Blocked: no payload was built and nothing answered, so there is no source to name.
       answeredBy: null,
+    };
+  }
+
+  // Follow-up turn: drive the tool-using agent so the model can read the prior
+  // exchanges. Turn 0 (no history) keeps the single-shot path below, byte-for-byte.
+  if (input.history !== undefined && input.history.length > 0) {
+    const phase = phaseFor(input.context);
+    // The grade is passed to the anchor ONLY post-reveal; pre-commit has no grade
+    // field to read, which is the structural half of the T3a guarantee.
+    const grade = phase === 'post-reveal' ? input.grade : undefined;
+    const ctx = mintSpotContext({
+      phase,
+      table: input.table,
+      grade,
+      lexicon: input.lexicon,
+      question: input.question,
+      seedTranscript: seedFromHistory(input.history),
+    });
+    const result = await runTutorAgent(ctx, { client: resolved.client });
+    return {
+      tutorId: resolved.tutor.id,
+      questionKind: kind,
+      verdict,
+      text: result.text,
+      // The request the agent actually guarded against — history is not in it.
+      payloadKeys: keyPaths(agentRequestFor(input, phase)).sort(),
+      answeredBy: result.source,
     };
   }
 

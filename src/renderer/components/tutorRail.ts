@@ -187,6 +187,34 @@ export function renderTutorRail(options: TutorRailOptions): HTMLElement {
 
   let pending = 0;
 
+  /**
+   * BOUNDED MULTI-TURN MEMORY. The last few ANSWERED exchanges in the current spot,
+   * oldest first, sent as `history` so the tutor agent in main can read what was
+   * already said. Two bounds keep it "within reason":
+   *
+   *  1. WINDOW — at most HISTORY_CAP pairs are ever sent. Older ones are evicted, so
+   *     the payload cannot grow without limit however long the learner talks. This
+   *     is the cap; there is no separate composer lock, because a learner asking one
+   *     more mechanics question is not something to forbid.
+   *  2. ANCHOR — the memory belongs to ONE spot, keyed by the context+table read at
+   *     send time. Moving to another lesson, or committing (which flips the context
+   *     pre→post), changes the anchor and the conversation starts fresh. A prior
+   *     spot's exchanges never travel to a new one.
+   *
+   * Only 'answered' turns are remembered: a refusal or a failure carries no answer
+   * worth threading, and remembering a blocked strategy question would be pointless
+   * context. History is threaded into the agent's transcript in main, never into the
+   * guarded request — the privacy check's allowed numerals come from the current
+   * turn alone, so nothing here can widen them.
+   */
+  const HISTORY_CAP = 3;
+  const history: { question: string; answerText: string }[] = [];
+  let historyAnchor: string | null = null;
+
+  /** The spot identity: same position AND same T5 row. A change resets the memory. */
+  const anchorFor = (context: RailContext, table: RailTable): string =>
+    JSON.stringify({ context, table });
+
   const republish = (last: TurnState | null): void => {
     root.dataset.pending = String(pending);
     root.dataset.state = pending > 0 ? 'pending' : (last ?? 'idle');
@@ -265,10 +293,25 @@ export function renderTutorRail(options: TutorRailOptions): HTMLElement {
     }
 
     const context = opts.context();
+    const table = opts.table();
+
+    // Anchor check at SEND time: a new spot (moved lesson, or committed and the
+    // context flipped) drops the prior conversation before this question is sent,
+    // so no earlier spot's exchanges travel into it.
+    const anchor = anchorFor(context, table);
+    if (anchor !== historyAnchor) {
+      historyAnchor = anchor;
+      history.length = 0;
+    }
+
+    // Snapshot the window to send. Empty on turn 0, so that payload stays exactly
+    // {context, question, table} and the single-shot path in main is unchanged.
+    const sentHistory = history.map((pair) => ({ ...pair }));
     const outcome = await attemptAsk(bridge, {
       context,
       question,
-      table: opts.table(),
+      table,
+      ...(sentHistory.length > 0 ? { history: sentHistory } : {}),
     });
 
     if (outcome.kind === 'timeout') {
@@ -297,6 +340,11 @@ export function renderTutorRail(options: TutorRailOptions): HTMLElement {
         source: 'Nothing was written.',
       });
     }
+
+    // Remember this exchange for the next follow-up, evicting the oldest past the
+    // window. Only answered turns are kept — a refusal or failure carries no answer.
+    history.push({ question, answerText: result.text });
+    while (history.length > HISTORY_CAP) history.shift();
 
     return settle(turn, 'answered', {
       body: result.text,
