@@ -198,6 +198,7 @@ test.describe('puzzle mode', () => {
       'pot-control-ip': ['raise', 'check'],
       'call-flush-draw-odds': ['call', 'check', 'call'],
       'fold-open-to-3bet': ['raise', 'fold'],
+      'barrel-turn-overpair': ['raise', 'bet', 'bet'],
     };
 
     await withApp(async (page) => {

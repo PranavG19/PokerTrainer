@@ -293,6 +293,52 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'barrel-turn-overpair',
+    title: 'Barrelling the turn with an overpair',
+    setup:
+      'You open Q♥Q♠ from the cutoff, the big blind calls, and the flop is J♦7♣3♠. You bet, they call. The turn is the 2♥ — a total blank. Do you keep firing?',
+    seatCount: 3,
+    // cbet-dry-ace seating (button on seat 2): the hero (seat 0) acts FIRST on every postflop street,
+    // so the hero bets the flop and can barrel the turn, with the caller acting after each bet.
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (CO/opener). Seat 1 = BB (caller). Seat 2 = button.
+    holes: [
+      ['Qh', 'Qs'],
+      ['Ah', 'Td'],
+      ['4s', '4d'],
+    ],
+    board: ['Jd', '7c', '3s', '2h', '8c'],
+    // Button folds preflop, BB calls the open; on the flop the BB calls the hero's bet; on the turn
+    // the BB calls again. The hero acts first each postflop street (see the trace), so villain
+    // entries land after the hero's bet on that street.
+    villainScript: [
+      { kind: 'fold' }, // button folds preflop
+      { kind: 'call' }, // BB calls the open
+      { kind: 'call' }, // BB calls the flop bet
+      { kind: 'call' }, // BB calls the turn bet
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'QQ is a premium cutoff open — a big pair that wants to build a pot against the blinds.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'On J-7-3 your overpair is far ahead of a big-blind calling range: bet for value and to charge the draws and worse pairs that will pay you.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The 2 changes nothing — it completes no draw and improves nothing that called the flop. Keep betting: your overpair is still ahead, the caller’s range is capped to worse Jx and draws, and a second barrel builds the pot while denying equity. Value hands bet again on blank turns; checking here only lets a worse hand catch up or bluff you off the best hand.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
