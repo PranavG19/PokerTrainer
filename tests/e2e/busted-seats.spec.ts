@@ -13,9 +13,11 @@ import { snapshot, tableScreen, waitForIdle } from './flow.js';
  *
  * Sync rule: never sleep. The table root publishes data-awaiting on every render (flow.ts).
  *
- * Seed 42 is pinned in allin.spec.ts: the hero's preflop shove is called by seats 1 and 2 and wins,
- * busting both of them in hand 1. Nothing here mutates the DOM to reach that state — the seats are
- * busted by playing the hand.
+ * On seed 42 the hero's preflop shove is called and busts at least one villain in hand 1. WHICH
+ * seats bust is read from the actual handover rather than pinned to an index, because the villains
+ * play their archetype policies (src/renderer/screens/table.ts) — the test needs a busted villain
+ * and a live seat to compare, not one exact stack vector. Nothing here mutates the DOM to reach that
+ * state: the seats are busted by playing the hand.
  */
 
 const homeScreen = '[data-testid="home-screen"]';
@@ -23,9 +25,9 @@ const presetAllin = '[data-testid="preset-allin"]';
 const nextHand = '[data-testid="next-hand"]';
 const winnerSummary = '[data-testid="winner-summary"]';
 
-/** Pinned in allin.spec.ts: on seed 42 the hero's shove is called and wins the whole 20000. */
+/** On seed 42 the hero's shove is called and busts at least one villain in hand 1. */
 const SEED_VILLAINS_BUST = 42;
-const BUSTED_SEATS = [1, 2];
+const CHIPS_IN_PLAY = 20_000;
 
 interface SeatReading {
   seatId: number;
@@ -79,14 +81,34 @@ async function sitDown(page: Page): Promise<void> {
   await waitForIdle(page);
 }
 
-/** Commit the hero's whole stack preflop; on seed 42 two villains call it and bust. */
-async function bustVillains(page: Page): Promise<void> {
+/**
+ * Commit the hero's whole stack preflop; on seed 42 at least one villain calls it and busts.
+ * Returns the busted VILLAIN seat ids, read from the actual handover — the villains play their
+ * archetypes, so which ones bust is discovered, not pinned. Asserts the scenario the tests need is
+ * actually present (a busted villain AND a live villain) and that no chips were created or destroyed.
+ */
+async function bustVillains(page: Page): Promise<number[]> {
   await sitDown(page);
   await page.locator(presetAllin).click();
   await page.locator(sel.btnRaise).click();
   expect(await waitForIdle(page), 'the shove must run the hand out to handover').toBe('handover');
   const stacks = (await snapshot(page)).stacks;
-  expect(stacks, 'seed 42 is pinned to bust seats 1 and 2 in hand 1').toEqual([15000, 0, 0, 5000]);
+  expect(
+    stacks.reduce((a, b) => a + b, 0),
+    'the shove must conserve every chip',
+  ).toBe(CHIPS_IN_PLAY);
+
+  const bustedVillains = stacks
+    .map((stack, seatId) => ({ stack, seatId }))
+    .filter(({ stack, seatId }) => seatId !== 0 && stack === 0)
+    .map(({ seatId }) => seatId);
+  expect(bustedVillains.length, 'the shove must bust at least one villain to test the marker').toBeGreaterThan(0);
+  expect(stacks[0], 'the hero must survive the shove it won').toBeGreaterThan(0);
+  expect(
+    stacks.some((stack, seatId) => seatId !== 0 && stack > 0),
+    'a live villain must remain, or "busted vs live" has nothing to compare',
+  ).toBe(true);
+  return bustedVillains;
 }
 
 /**
@@ -102,13 +124,13 @@ test.describe('busted seats are marked out of the game', () => {
   test('1. a busted villain carries data-out and says so in words, while a live seat does not', async () => {
     const { page, close } = await launchApp({ seed: SEED_VILLAINS_BUST });
     try {
-      await bustVillains(page);
+      const bustedSeats = await bustVillains(page);
       await dealNextHand(page);
 
       const seats = await readSeats(page);
       const hero = seat(seats, 0);
 
-      for (const seatId of BUSTED_SEATS) {
+      for (const seatId of bustedSeats) {
         const busted = seat(seats, seatId);
         expect(busted.stack, `seat ${seatId} stack`).toBe(0);
         expect(busted.cards, `seat ${seatId} is dealt no cards while sitting out`).toBe(0);
@@ -131,7 +153,7 @@ test.describe('busted seats are marked out of the game', () => {
       expect(hero.opacity, 'a live seat renders at full opacity').toBe(1);
 
       // The measured visual difference, in the same render.
-      for (const seatId of BUSTED_SEATS) {
+      for (const seatId of bustedSeats) {
         expect(
           seat(seats, seatId).opacity,
           `seat ${seatId} must be dimmer than the live hero`,
@@ -146,7 +168,7 @@ test.describe('busted seats are marked out of the game', () => {
   test('2. busted does not look like folded — both states in one render, measured', async () => {
     const { page, close } = await launchApp({ seed: SEED_VILLAINS_BUST });
     try {
-      await bustVillains(page);
+      const bustedSeats = await bustVillains(page);
       await dealNextHand(page);
 
       // A seat that folded THIS hand while still holding chips. The hero folds to produce one
@@ -161,7 +183,7 @@ test.describe('busted seats are marked out of the game', () => {
           if (foldedWithChips !== null) {
             // Both states are on screen at once, so the comparison below cannot be an artefact
             // of two different renders.
-            const busted = BUSTED_SEATS.map((id) => seat(seats, id));
+            const busted = bustedSeats.map((id) => seat(seats, id));
             for (const out of busted) {
               expect(out.out, `seat ${out.seatId} data-out`).toBe(true);
               expect(out.folded, `a sat-out seat is also folded by the engine`).toBe(true);
@@ -209,7 +231,7 @@ test.describe('busted seats are marked out of the game', () => {
     test.setTimeout(180_000);
     const { page, close } = await launchApp({ seed: SEED_VILLAINS_BUST });
     try {
-      await bustVillains(page);
+      const bustedSeats = await bustVillains(page);
 
       for (let hand = 0; hand < 4; hand++) {
         await dealNextHand(page);
@@ -222,7 +244,7 @@ test.describe('busted seats are marked out of the game', () => {
           );
           expect(s.outLabel === null, `seat ${s.seatId} label agrees with data-out`).toBe(!s.out);
         }
-        for (const seatId of BUSTED_SEATS) {
+        for (const seatId of bustedSeats) {
           expect(seat(seats, seatId).out, `seat ${seatId} is still out in hand ${hand + 2}`).toBe(true);
         }
 

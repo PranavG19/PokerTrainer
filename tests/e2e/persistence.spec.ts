@@ -68,7 +68,9 @@ async function waitForIdle(page: Page): Promise<'hero' | 'handover'> {
 async function playToShowdown(page: Page): Promise<void> {
   for (let i = 0; i < MAX_ACTIONS_PER_HAND; i++) {
     if ((await waitForIdle(page)) === 'handover') {
-      await expect(page.locator(nextHand)).toBeVisible();
+      // Handover is the completion contract. A hand that busts the hero settles to a
+      // rebuy / session-over control rather than "Next hand", so the caller — not this
+      // generic helper — decides what to do next; it still persisted as a played hand.
       return;
     }
     const check = page.locator(sel.btnCheck);
