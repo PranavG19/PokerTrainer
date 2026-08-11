@@ -398,4 +398,40 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
     });
   });
+
+  test('14. the complete screen recaps each decision, naming the one that was missed', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      // Advance to the two-step BB-defend scenario (same as test 5).
+      await page.locator('[data-testid="puzzle-raise"]').click();
+      await page.locator(continueBtn).click();
+      await page.locator(nextScenario).click();
+      await expect(page.locator(title)).toHaveText('Defending the big blind vs a button open');
+
+      // Step 0: play the taught call — a hit. (Folding here would end the hand before step 1, so the
+      // miss is placed on the LAST decision, which stays non-terminal until the line completes.)
+      await page.locator('[data-testid="puzzle-call"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
+      await page.locator(continueBtn).click();
+
+      // Step 1: deliberately CHECK when the target is to bet — a miss the recap must name.
+      await expect(page.locator(screen)).toHaveAttribute('data-step', '1');
+      await page.locator('[data-testid="puzzle-check"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'wrong');
+      await page.locator(continueBtn).click();
+
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
+      await expect(page.locator(screen)).toHaveAttribute('data-correct', '1');
+
+      // One recap line per decision, in order, correctly attributed.
+      const steps = page.locator('[data-testid="puzzle-recap-step"]');
+      await expect(steps).toHaveCount(2);
+      await expect(steps.nth(0)).toHaveAttribute('data-correct', 'true');
+      await expect(steps.nth(1)).toHaveAttribute('data-correct', 'false');
+      // The missed decision names both what the learner did and the GTO play — not a bare count.
+      const missed = (await steps.nth(1).textContent()) ?? '';
+      expect(missed.toLowerCase()).toContain('check');
+      expect(missed.toLowerCase()).toContain('bet');
+    });
+  });
 });
