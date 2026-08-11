@@ -227,6 +227,9 @@ test.describe('puzzle mode', () => {
       'value-raise-flop-set': ['raise', 'raise'],
       'overpair-fold-river-jam': ['raise', 'bet', 'bet', 'fold'],
       'iso-3bet-vs-limp-reraise': ['raise', 'call'],
+      'raise-donk-bet-set': ['raise', 'raise'],
+      'overbet-river-nut-flush': ['raise', 'bet', 'bet', 'bet'],
+      'checkback-underpair-multiway': ['raise', 'check'],
     };
 
     await withApp(async (page) => {
