@@ -10,6 +10,7 @@ import {
   deserialize,
   emptySession,
   gradeRecordsFrom,
+  recordChartAnswer,
   recordGifts,
   recordHand,
   serialize,
@@ -262,6 +263,55 @@ describe('gift ledger persistence (O5)', () => {
     // Corrupt the one entry: a gift with no equity number cannot be reconstructed from real fields.
     (raw.gifts as Record<string, unknown>[])[0].villainEquity = 'nonsense';
     expect(deserialize(raw).gifts).toEqual([]);
+  });
+});
+
+describe('chart-drill mastery persistence', () => {
+  it('recordChartAnswer ticks attempts always and correct only when right', () => {
+    let s = emptySession();
+    s = recordChartAnswer(s, 'premium', true);
+    s = recordChartAnswer(s, 'premium', false);
+    s = recordChartAnswer(s, 'trash', true);
+    expect(s.chartMastery).toEqual({
+      premium: { attempts: 2, correct: 1 },
+      trash: { attempts: 1, correct: 1 },
+    });
+  });
+
+  it('is pure — the prior state and its map are not mutated', () => {
+    const before = recordChartAnswer(emptySession(), 'premium', true);
+    const snapshot = JSON.parse(JSON.stringify(before.chartMastery));
+    recordChartAnswer(before, 'premium', false);
+    expect(before.chartMastery).toEqual(snapshot);
+  });
+
+  it('survives a round trip', () => {
+    let s = emptySession();
+    for (const [klass, right] of [['premium', true], ['broadway', false], ['broadway', false]] as const) {
+      s = recordChartAnswer(s, klass, right);
+    }
+    expect(deserialize(JSON.parse(JSON.stringify(serialize(s))))).toEqual(s);
+  });
+
+  it('a save file predating the drill record loads with an empty map', () => {
+    const legacy = { bankroll: 12000, hands: [], stats: { handsPlayed: 3 } };
+    expect(deserialize(legacy).chartMastery).toEqual({});
+  });
+
+  it('clamps a corrupt record so it cannot poison the draw weight', () => {
+    const raw = deserialize({
+      chartMastery: {
+        premium: { attempts: -5, correct: 3 }, // negative attempts → 0, and correct clamped to attempts
+        strong: { attempts: 4, correct: 99 }, // correct above attempts → clamped to attempts
+        trash: { attempts: 'lots', correct: 2 }, // non-numeric attempts → 0
+        broadway: { attempts: 6, correct: 2 }, // clean, kept as-is
+      },
+    });
+    expect(raw.chartMastery).toEqual({
+      // premium: attempts 0, correct clamped to 0 → dropped as empty
+      strong: { attempts: 4, correct: 4 },
+      broadway: { attempts: 6, correct: 2 },
+    });
   });
 });
 

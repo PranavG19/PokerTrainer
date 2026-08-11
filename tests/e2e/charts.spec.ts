@@ -1,4 +1,7 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { launchApp, shot } from './helpers.js';
 
 /**
@@ -741,6 +744,46 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
       expect(failedCount, `${FAILED} share ${failedCount}/${MEASURE} is not above a flat sixth`)
         .toBeGreaterThan(MEASURE / 6);
     });
+  });
+
+  /**
+   * MASTERY PERSISTS ACROSS RESTARTS. The adaptive draw only teaches across sittings if the per-class
+   * record survives a relaunch — a session-scoped one would restart every class at 0/0 every launch and
+   * the drill would never leave its cold start. This answers a few spots, reopens the SAME user-data
+   * dir, and asserts the scoreboard carried over. A shared dir (not withCharts's fresh one) is the whole
+   * point: it proves the on-disk save, not in-memory state.
+   */
+  test('13. class mastery survives closing and reopening the app', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-charts-persist-'));
+
+    // First sitting: answer three spots and read the resulting scoreboard.
+    let before: Record<string, string> = {};
+    const first = await launchApp({ seed: 42, userDataDir: dir });
+    try {
+      await openCharts(first.page);
+      await selectPosition(first.page, 'CO');
+      for (let i = 0; i < 3; i += 1) {
+        const spot = await currentSpot(first.page);
+        // Deliberately answer WRONG so both counters move in a way a fresh session could not fake.
+        await commitKey(first.page, (await spotOpens(first.page, spot)) ? 'f' : 'o');
+      }
+      before = await readClassAccuracy(first.page);
+      const totalAttempts = Object.values(before).reduce((n, s) => n + Number(s.split('/')[1]), 0);
+      expect(totalAttempts, 'the first sitting recorded no attempts').toBe(3);
+    } finally {
+      await first.close().catch(() => {});
+    }
+
+    // Second sitting, SAME dir: the scoreboard must come back exactly, before answering anything.
+    const second = await launchApp({ seed: 42, userDataDir: dir });
+    try {
+      await openCharts(second.page);
+      await selectPosition(second.page, 'CO');
+      const after = await readClassAccuracy(second.page);
+      expect(after, 'class mastery did not survive the restart').toEqual(before);
+    } finally {
+      await second.close().catch(() => {});
+    }
   });
 
   test('11. screenshots at both documented sizes', async () => {
