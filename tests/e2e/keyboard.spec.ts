@@ -474,17 +474,21 @@ test.describe('R3 keyboard shortcuts: R (raise) and A (all-in)', () => {
    * 'call') ? 'call' : 'allin'`), but onKey's C branch only tried 'check' then 'call', so the
    * shortcut was silently dead in exactly the spot where a player is most likely to reach for it.
    *
-   * Measured on this exact setup BEFORE the fix (seed 42, hero on 1bb facing "Call 50"):
+   * Measured on this exact setup BEFORE the fix (a hero on 1bb facing a bet it cannot cover):
    *   btn-call   -> hero allin=true,  awaiting handover   (the shove was made)
    *   keyboard c -> hero allin=null,  awaiting hero       (nothing happened at all)
    * Same seed, same decision point, two different outcomes — scenario 8's agreement check applied
-   * to C. With the fix both paths shove, so the two launches agree on every number.
+   * to C. With the fix both paths shove, so the two launches agree on every number. (The setup was
+   * originally on seed 42; the six-archetypes wiring moved that spot, so it is now reached on seed 1.)
    */
   test('bug regression: "c" all-ins as the call when the hero cannot cover the bet', async () => {
     const outcome = async (
       act: (page: Page) => Promise<void>,
     ): Promise<{ before: Reading; after: Reading }> =>
-      withApp(42, async (page) => {
+      // Seed 1: an aggressive villain re-raises the hero's near-all-in so it faces an uncoverable
+      // call. Found by scanning the real app — under the six-archetypes wiring seed 42 no longer
+      // reaches this spot (the villains fold to the hero's big raise and the hand settles).
+      withApp(1, async (page) => {
         await sitDown(page);
         await reachShortCallHeroTurn(page);
 

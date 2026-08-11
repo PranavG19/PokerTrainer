@@ -243,7 +243,9 @@ test.describe('R6 coach layer', () => {
  */
 test.describe('R6 coach panel lifetime', () => {
   test('no verdict is still on screen when the hero reaches the next decision', async () => {
-    await withApp(8, async (page) => {
+    // Seed 7: the raise-first hero draws at least one grade across the sweep. Found by scanning the
+    // real app after the six-archetypes wiring changed villain play (seed 8 now grades nothing).
+    await withApp(7, async (page) => {
       await openTable(page);
 
       let decisions = 0;
