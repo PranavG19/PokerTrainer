@@ -110,6 +110,69 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'fold-kq-to-utg',
+    title: 'Folding K♦Q♣ facing an early-position open',
+    setup:
+      'An early-position player opens to 3bb and it folds to you in the big blind with K♦Q♣, 100bb deep. It looks pretty — but who is doing the raising matters more than the two cards in your hand.',
+    seatCount: 3,
+    // Same seating as bb-defend-vs-btn: button on seat 1 → seat 0 is the BB (hero), seat 1 is the
+    // opener and first to act preflop, seat 2 is the SB. The opener is seat 1, so the script's first
+    // entry is its open; the hero then faces it with one decision.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Kd', 'Qc'],
+      ['Ah', 'Js'],
+      ['9c', '8d'],
+    ],
+    board: ['7h', '5s', '2c', 'Td', '4h'],
+    // Seat 1 opens to 150; the hero folds facing it. One hero decision, so the rest is never reached.
+    villainScript: [{ kind: 'raise', to: 150 }],
+    target: [
+      {
+        action: 'fold',
+        explanation:
+          'KQo plays badly against a tight early-position opening range: it is dominated by AK/AQ/KK/QQ and rarely flops a pair it can stack off with. Out of position with no initiative, this is a clean fold — the discipline that separates a break-even player from a losing one is folding the hands that only look strong.',
+      },
+    ],
+  },
+  {
+    id: '3bet-aa-vs-open',
+    title: '3-betting A♠A♦ for value',
+    setup:
+      'A late-position player opens to 2.5bb and it folds to you in the big blind with A♠A♦. You could flat and keep them in — but with the best hand in poker, the goal is to build the pot now.',
+    seatCount: 3,
+    // Same seating as bb-defend-vs-btn: button on seat 1 makes seat 0 the BB (hero), seat 1 the
+    // opener (first to act preflop), seat 2 the SB. So the villain opens BEFORE the hero acts, which
+    // is what lets the hero 3-bet — the button-on-seat-0 layout would make the hero act first and no
+    // 3-bet spot could exist.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', 'Ad'],
+      ['Kc', 'Qd'],
+      ['7s', '3h'],
+    ],
+    board: ['Jh', '6c', '2d', '9s', '4c'],
+    // Seat 1 opens to 125, seat 2 (SB) folds, then after the hero 3-bets seat 1 calls.
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+      { kind: 'call' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Aces want a big pot. 3-betting builds it immediately, charges worse hands to continue, and takes the betting lead — flatting lets the blinds in cheaply and turns your best-possible hand into a guessing game on later streets. Value your value.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

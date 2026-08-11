@@ -178,4 +178,55 @@ test.describe('puzzle mode', () => {
       await expect(answers.last()).toHaveAttribute('data-state', 'answered');
     });
   });
+
+  /**
+   * The whole library is reachable and each scenario's taught line grades right when played. This
+   * walks every puzzle via "Next puzzle", so a newly-authored scenario that misdeals or whose target
+   * line is unreachable through the UI fails here rather than shipping a broken lesson. The correct
+   * action per step is looked up by the scenario id the screen publishes, so the walk needs no fixed
+   * count and covers scenarios added after this test was written that are listed below.
+   */
+  test('8. every scenario in the library plays its taught line to completion, graded right', async () => {
+    // The target line per scenario, by the id the screen publishes on data-scenario. A scenario not
+    // listed here is played by its first legal action, which still exercises the deal and navigation.
+    const lines: Record<string, string[]> = {
+      'btn-open-aks': ['raise'],
+      'bb-defend-vs-btn': ['call', 'bet'],
+      'cbet-dry-ace': ['raise', 'bet'],
+      'fold-kq-to-utg': ['fold'],
+      '3bet-aa-vs-open': ['raise'],
+    };
+
+    await withApp(async (page) => {
+      await openPuzzle(page);
+
+      const seen = new Set<string>();
+      for (let visited = 0; visited < 20; visited++) {
+        const id = (await page.locator(screen).getAttribute('data-scenario')) ?? '';
+        if (seen.has(id)) break; // wrapped back to the first puzzle — the whole library was walked
+        seen.add(id);
+
+        const steps = lines[id];
+        expect(steps, `scenario ${id} has no line in the test's map — add its target actions`).toBeDefined();
+
+        for (const action of steps) {
+          await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+          await page.locator(`[data-testid="puzzle-${action}"]`).click();
+          await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
+          await page.locator(continueBtn).click();
+        }
+
+        // Every taught decision was correct, so the scenario completes at its full score.
+        await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
+        await expect(page.locator(screen)).toHaveAttribute('data-correct', String(steps.length));
+        await page.locator(nextScenario).click();
+      }
+
+      // Proved we walked the whole library, including the scenarios added after test 5. Every id in
+      // the map was reachable and each line graded right, or the loop above would have failed.
+      expect(seen.size).toBeGreaterThanOrEqual(Object.keys(lines).length);
+      expect(seen.has('fold-kq-to-utg')).toBe(true);
+      expect(seen.has('3bet-aa-vs-open')).toBe(true);
+    });
+  });
 });
