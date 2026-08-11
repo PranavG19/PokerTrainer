@@ -617,6 +617,29 @@ body {
   font-size: 12px;
 }
 
+/*
+ * On the table screen the seat pod is on the 640px height budget, and the table-talk line pushed
+ * "Next hand" below the fold at 900x640 in coached mode (coached-handover.spec 1). Take the bubble
+ * OUT OF FLOW here so it costs the pod zero height: it overlays the top of the pod (a real speech
+ * bubble) instead of growing the grid row. The feature is unchanged — the line still shows in play
+ * and turns to personality at showdown — it just no longer competes with the handover controls.
+ * `.seat` is already position:relative-eligible via its own rules; make it explicit for the anchor.
+ */
+.table-screen .seat {
+  position: relative;
+}
+
+.table-screen .seat-talk {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  right: 4px;
+  z-index: 2;
+  font-size: 10px;
+  line-height: 1.1;
+  pointer-events: none;
+}
+
 .table-screen .table-centre {
   gap: 6px;
 }
