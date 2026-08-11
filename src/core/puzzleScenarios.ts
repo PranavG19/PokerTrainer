@@ -65,7 +65,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'QJs is far too strong to fold getting this price closing the action, and it flops well — but flatting keeps the opener’s bluffs in rather than 3-betting a hand that plays great in position postflop for the caller.',
+          'QJs is far too strong to fold getting this price closing the action, and it flops well — but flatting keeps the opener’s bluff-heavy range in rather than 3-betting a hand that realises its equity fine as a call, even out of position.',
       },
       {
         action: 'bet',
@@ -106,7 +106,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'bet',
         explanation:
-          'A dry A-7-2 board smashes your opening range and misses the caller’s. A small c-bet prints: you hold top pair top-kicker and their range has almost no continues, so bet for value and to deny the free card.',
+          'A dry A-7-2 board smashes your opening range and misses the caller’s. A small c-bet prints: you hold top pair with a strong queen kicker and their range has almost no continues, so bet for value and to deny the free card.',
       },
     ],
   },
@@ -289,7 +289,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'fold',
         explanation:
-          'Facing a 3-bet out of position, A5s is near the bottom of your opening range and dominated by the value hands that re-raise (AK/AQ/AA/KK/QQ). You can defend some suited aces by calling or 4-bet-bluffing, but a small offsuit-kicker suited ace with no initiative and no position is a clean fold. Opening wide is correct; continuing against strength with the weakest part of that range is the leak.',
+          'Facing a 3-bet, A5s is near the bottom of your opening range and dominated by the value hands that re-raise (AK/AQ/AA/KK/QQ). You can defend some suited aces by calling or 4-bet-bluffing, but even in position a low-kicker suited ace with no initiative is a clean fold against a value-heavy re-raise. Opening wide is correct; continuing against strength with the weakest part of that range is the leak.',
       },
     ],
   },
@@ -386,7 +386,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'The 7 completes no obvious draw, and a player who checked the flop and turn has a range full of missed draws and give-ups. Second pair beats every bluff, and you are getting a price — folding here is the over-fold that pays off every bluffer. When they have shown no strength and the price is right, one pair is enough to catch a bluff.',
+          'The 7 bricks nearly every draw — the gutshots and the missed flush picks all whiff — and a player who checked the flop and turn has a range full of missed draws and give-ups. Second pair beats every bluff, and you are getting a price — folding here is the over-fold that pays off every bluffer. When they have shown no strength and the price is right, one pair is enough to catch a bluff.',
       },
     ],
   },
@@ -420,7 +420,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'fold',
         explanation:
-          'AJo is a trap hand multiway. A raise and a cold-call in front both beat it more often than not — you are dominated by AK/AQ/AJs and every over-pair, and when you flop a pair it is often the second-best one that pays off a better ace. Position is bad and the field is strong. Heads-up you would defend; against a raise plus a caller, folding is the disciplined, money-saving play. The strength of a bet doubles when someone else has already called it.',
+          'AJo is a trap hand multiway. A raise and a cold-call in front both beat it more often than not — you are dominated by AK/AQ and every over-pair (and even AJs only ever chops or draws out on you), and when you flop a pair it is often the second-best one that pays off a better ace. Position is bad and the field is strong. Heads-up you would defend; against a raise plus a caller, folding is the disciplined, money-saving play. The strength of a bet doubles when someone else has already called it.',
       },
     ],
   },
@@ -454,7 +454,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'raise',
         explanation:
-          'A limp caps the button’s range — a strong hand would have raised — so A♠Q♠ is well ahead and wants a bigger pot heads-up, not a cheap multiway flop. Raising to isolate punishes the limp, folds out the blinds’ trash, and takes the initiative with a hand that dominates the offsuit aces and broadways a limper shows up with. Checking your option lets a weak hand see a free flop and realise equity it has no right to; make them pay to play against you.',
+          'A limp caps the button’s range — a strong hand would have raised — so A♠Q♠ is well ahead and wants a bigger pot. With the small blind already folded you are heads-up against the limper, so raising to isolate builds the pot, charges him to continue, and takes the initiative with a hand that dominates the offsuit aces and broadways a limper shows up with. Checking your option lets a weak hand see a free flop and realise equity it has no right to; make them pay to play against you.',
       },
     ],
   },
@@ -536,7 +536,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'raise',
         explanation:
-          'Bottom set on 7-8-9 with two suits is a huge hand on a dangerous board — check-raise for value AND protection. Every overcard, straight draw and flush draw has real equity against you, so charge them the maximum now rather than letting a free card complete the board. Slow-playing a wet board is how sets lose stacks; against a c-bet, raising builds the pot while your hand is the clear favourite and denies the equity that a cheap turn would hand your opponent.',
+          'Bottom set on a connected 7-8-9 is a huge hand on a dangerous board — check-raise for value AND protection. Every overcard and the many straight draws this board gives (any T, 6, J or 5 makes or draws to a straight) have real equity against you, so charge them the maximum now rather than letting a free card complete the board. Slow-playing a wet board is how sets lose stacks; against a c-bet, raising builds the pot while your hand is the clear favourite and denies the equity that a cheap turn would hand your opponent.',
       },
     ],
   },
@@ -656,7 +656,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'raise',
         explanation:
-          'Facing a 3-bet with aces, 4-bet for value — flatting caps your range and lets a hand like KK or AK realise equity it should be paying dearly for. A 4-bet gets stacks in against exactly the strong hands (KK, QQ, AK) that cannot fold to it, and it wins the pot outright when the 3-bet was a bluff. You will rarely be beaten; the only mistake with aces here is playing them small. Charge the second-best hands the maximum while you hold the best one.',
+          'Facing a 3-bet with aces, 4-bet for value — flatting caps your range and lets a hand like KK or AK realise equity it should be paying dearly for. A 4-bet gets max value from KK (which almost never folds) and gets action from the stronger part of their range, while it wins the pot outright when the 3-bet was a bluff. You will rarely be beaten; the only mistake with aces here is playing them small. Charge the second-best hands the maximum while you hold the best one.',
       },
     ],
   },
@@ -702,7 +702,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'The turn brings no help but the draw is still worth a call getting a reasonable price with position — you keep the door open to the river card that makes your hand.',
+          'The Ten actually helps: you now have an open-ended straight draw (any 6 or Jack makes a straight) to go with the flush draw, so your equity has grown. Call getting a reasonable price with position — you keep the door open to the many rivers that complete your flush or straight.',
       },
       {
         action: 'bet',
