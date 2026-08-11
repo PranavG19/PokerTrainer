@@ -18,6 +18,7 @@ import {
 import { mulberry32, type Rng } from '../../core/rng.js';
 import { pickWeightedClass, weakestAttemptedClass, type ClassTally } from '../../core/masteryDrill.js';
 import { renderCard } from '../components/card.js';
+import { renderDefenseDrill } from './defenseDrill.js';
 
 /**
  * PREFLOP CHART TRAINER — PRODUCT-SPEC N3.
@@ -83,6 +84,22 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
   let feedback: Feedback | null = null;
   let answered = 0;
 
+  /**
+   * The screen has two modes: 'rfi' (the open-first-in trainer, the default and original behaviour)
+   * and 'defense' (the facing-a-raise 3-bet/call/fold drill). Defense lives here rather than in a
+   * 14th tab because the tab bar is at its width budget (see the memory note). The defense panel is a
+   * self-contained component; RFI mode renders exactly as before, so its tests are untouched.
+   */
+  let mode: 'rfi' | 'defense' = 'rfi';
+  // Built once and reused so its own internal state (spot, streak) survives a mode toggle back and forth.
+  let defensePanel: HTMLElement | null = null;
+
+  function selectMode(next: 'rfi' | 'defense'): void {
+    if (next === mode) return;
+    mode = next;
+    paint();
+  }
+
   function drawSpot(): void {
     spot = nextSpot(rng, tallies);
   }
@@ -141,8 +158,16 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
     root.dataset.spot = spot;
     root.dataset.answered = String(answered);
     root.dataset.verdict = feedback === null ? '' : feedback.chose === feedback.correct ? 'right' : 'wrong';
+    root.dataset.mode = mode;
+
+    if (mode === 'defense') {
+      defensePanel ??= renderDefenseDrill();
+      root.replaceChildren(renderModeToggle(mode, selectMode), defensePanel);
+      return;
+    }
 
     root.replaceChildren(
+      renderModeToggle(mode, selectMode),
       // DOM ORDER IS THE CONTRACT: the compressed form precedes the grid (N3).
       renderCompressed({ position, tallies, onSelect: selectPosition }),
       renderGridPanel({ position, spot, feedback, onCommit: commit }),
@@ -151,6 +176,33 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
 
   paint();
   return root;
+}
+
+// ---------------------------------------------------------------------------
+// Mode toggle — RFI (open first in) vs Defense (facing a raise)
+// ---------------------------------------------------------------------------
+
+function renderModeToggle(active: 'rfi' | 'defense', onSelect: (mode: 'rfi' | 'defense') => void): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'charts-modes';
+  row.dataset.testid = 'charts-modes';
+
+  const modes: { id: 'rfi' | 'defense'; label: string }[] = [
+    { id: 'rfi', label: 'Open (first in)' },
+    { id: 'defense', label: 'Facing a raise' },
+  ];
+  for (const m of modes) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pill charts-mode-btn';
+    button.dataset.testid = 'charts-mode-btn';
+    button.dataset.mode = m.id;
+    button.dataset.active = String(m.id === active);
+    button.textContent = m.label;
+    button.addEventListener('click', () => onSelect(m.id));
+    row.appendChild(button);
+  }
+  return row;
 }
 
 // ---------------------------------------------------------------------------
