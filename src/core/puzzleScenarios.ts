@@ -256,6 +256,43 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'fold-open-to-3bet',
+    title: 'Folding a loose open facing a 3-bet',
+    setup:
+      'You open the button with A♦5♦ — a fine steal — but the big blind 3-bets. A suited ace likes to see a flop, yet against a re-raise it is on the wrong side of the range. Not every open gets to continue.',
+    seatCount: 3,
+    // btn-open layout: button on seat 0 (hero) opens first preflop. A blind can then 3-bet and the
+    // action returns to the hero, who must decide whether the open can continue.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button). Seat 1 = SB. Seat 2 = BB (the 3-bettor).
+    holes: [
+      ['Ad', '5d'],
+      ['7c', '2h'],
+      ['Ks', 'Kh'], // KK for the 3-bettor — a hand that dominates A5s
+    ],
+    board: ['Qc', 'Jd', '6s', '3h', '9c'],
+    // Hero opens (step 0), SB folds, BB 3-bets to 400; the hero folds facing the 3-bet (step 1).
+    villainScript: [
+      { kind: 'fold' }, // SB folds
+      { kind: 'raise', to: 400 }, // BB 3-bets
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A5s is a standard button open: suited, an ace blocker, and it flops straights and flushes. Stealing the blinds with it is routine and profitable.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'Facing a 3-bet out of position, A5s is near the bottom of your opening range and dominated by the value hands that re-raise (AK/AQ/AA/KK/QQ). You can defend some suited aces by calling or 4-bet-bluffing, but a small offsuit-kicker suited ace with no initiative and no position is a clean fold. Opening wide is correct; continuing against strength with the weakest part of that range is the leak.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
