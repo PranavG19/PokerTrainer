@@ -13,7 +13,7 @@
  * even when the interpolated text contains digits like `76s`.
  */
 
-import type { ErrorTag, GradePayload, TutorRequest, TutorResponse } from './types.js';
+import type { ErrorTag, GradePayload, ModelClient, TutorRequest, TutorResponse } from './types.js';
 
 /**
  * G3, verbatim. Screen copy for first launch and the phase-0 screen — NOT a
@@ -107,3 +107,18 @@ export function fixedResponse(request: TutorRequest): TutorResponse {
   const { text, kind } = fixedTextFor(request);
   return { text, kind, source: 'fixed' };
 }
+
+/**
+ * The no-network ModelClient the tutor agent drives when no credentials are
+ * configured. It deliberately does NOT implement converse(): runTutorAgent reads
+ * that as "no model reachable" and falls straight to the guard-clean fixed table,
+ * so a multi-turn follow-up with no key behaves exactly like the single-shot null
+ * tutor — zero network, same strings. complete() is present only to satisfy the
+ * ModelClient shape and is never called by the agent (the mock proves this).
+ */
+export const nullModelClient: ModelClient = {
+  id: 'null',
+  async complete(): Promise<string> {
+    throw new Error('nullModelClient has no model to complete against');
+  },
+};
