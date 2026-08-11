@@ -365,6 +365,28 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     el.appendChild(
       text('div', 'puzzle-score', `You played ${correct} of ${s.target.length} decisions the GTO way.`),
     );
+
+    // Per-decision recap: name the play the learner chose and the GTO play for each step, in order,
+    // so a bare "1 of 2" ends on WHICH decision was the leak rather than a number. Only shown when the
+    // scenario has more than one decision — a single-step recap would just repeat the last verdict.
+    if (records.length > 1) {
+      const recap = document.createElement('ol');
+      recap.className = 'puzzle-recap';
+      recap.dataset.testid = 'puzzle-recap';
+      records.forEach((record, i) => {
+        const { verdict } = record;
+        const item = document.createElement('li');
+        item.className = 'puzzle-recap-step';
+        item.dataset.testid = 'puzzle-recap-step';
+        item.dataset.correct = String(verdict.correct);
+        item.textContent = verdict.correct
+          ? `Decision ${i + 1}: ${actionLabel(verdict.expected)} ✓`
+          : `Decision ${i + 1}: you ${actionLabel(verdict.played).toLowerCase()}, the play is ${actionLabel(verdict.expected).toLowerCase()}.`;
+        recap.appendChild(item);
+      });
+      el.appendChild(recap);
+    }
+
     const next = document.createElement('button');
     next.type = 'button';
     next.className = 'pill';

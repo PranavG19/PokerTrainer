@@ -149,6 +149,28 @@
   font-weight: 500;
 }
 
+/* Per-decision recap on the completion screen: one line per hero decision, coloured like the verdict
+ * head (mint correct, chip-blind miss) so the leak reads at a glance without hunting the numbers. */
+.puzzle-recap {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.puzzle-recap-step {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.puzzle-recap-step[data-correct='true'] {
+  color: var(--mint);
+}
+
+.puzzle-recap-step[data-correct='false'] {
+  color: var(--chip-blind);
+}
+
 /* The tutor rail sits below the spot as its own panel, matching the lesson screen's placement. It is
  * always mounted so the learner can ask deeper questions; before they act it withholds strategy
  * (spot-pre-commit), after a verdict it opens up (spot-post-reveal) — that routing lives in the rail
