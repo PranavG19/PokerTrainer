@@ -494,6 +494,96 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'checkraise-set-wet',
+    title: 'Check-raising a set on a wet board',
+    setup:
+      'You defend the big blind with 7♥7♠, the button opens, and the flop is 7♦8♠9♥ — you flopped bottom set on a board screaming with straight and flush draws. First to act, do you lead, or check and let the raiser bet into you?',
+    seatCount: 3,
+    // bb-defend seating (button on seat 1): seat 0 = BB (hero), seat 1 = opener, seat 2 = SB. Postflop
+    // the BB (hero) acts FIRST, so the hero checks, the opener c-bets, and the hero check-raises — the
+    // order verified by tracing the engine (hero check → V1 bet → hero raise, action reopens).
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = button (opener/c-bettor). Seat 2 = SB (folds).
+    holes: [
+      ['7h', '7s'],
+      ['Ad', 'Kd'], // opener: overcards + a backdoor draw — a hand that will happily c-bet
+      ['Qc', '4s'], // SB: folds
+    ],
+    board: ['7d', '8s', '9h', '2c', '3d'],
+    // Preflop: opener raises to 125 (step 0 = hero calls), SB folds. Flop: hero checks first (step 1),
+    // opener c-bets 75, hero check-raises (step 2). One postflop decision after the raise, so the line
+    // ends there — the check-raise is the whole lesson.
+    villainScript: [
+      { kind: 'raise', to: 125 }, // seat 1 opens
+      { kind: 'fold' }, // seat 2 (SB) folds
+      { kind: 'bet', to: 75 }, // seat 1 c-bets the flop after the hero checks
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'A pair defending the big blind closing the action for one bet is a routine call, and 77 flops a set often enough to make continuing easy.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'First to act with a monster, check to the pre-flop raiser: they c-bet most of their range, so checking keeps their bluffs and overcards in and sets up a raise, where leading would fold out everything you beat.',
+      },
+      {
+        action: 'raise',
+        explanation:
+          'Bottom set on 7-8-9 with two suits is a huge hand on a dangerous board — check-raise for value AND protection. Every overcard, straight draw and flush draw has real equity against you, so charge them the maximum now rather than letting a free card complete the board. Slow-playing a wet board is how sets lose stacks; against a c-bet, raising builds the pot while your hand is the clear favourite and denies the equity that a cheap turn would hand your opponent.',
+      },
+    ],
+  },
+  {
+    id: 'fold-flop-airball',
+    title: 'Giving up when you completely miss',
+    setup:
+      'You defend the big blind with 8♣5♣ — a fine price preflop — and the button opens. The flop is A♦K♥7♠: no pair, no draw, nothing. They c-bet. A price to call preflop is not a licence to call the flop with air.',
+    seatCount: 3,
+    // bb-defend seating (button on seat 1): seat 0 = BB (hero), seat 1 = opener, seat 2 = SB. Postflop
+    // the BB (hero) acts FIRST, so the hero checks, the opener c-bets, and the hero folds the whiff.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = button (opener/c-bettor). Seat 2 = SB (folds).
+    holes: [
+      ['8c', '5c'],
+      ['Ah', 'Qd'], // opener: top pair — a hand that c-bets this board for value
+      ['Jd', '3h'], // SB: folds
+    ],
+    board: ['Ad', 'Kh', '7s', '2c', '9d'],
+    // Preflop: opener raises to 125 (step 0 = hero calls), SB folds. Flop: hero checks first (step 1),
+    // opener c-bets 75, hero folds the airball (step 2). One postflop decision, so the line ends there.
+    villainScript: [
+      { kind: 'raise', to: 125 }, // seat 1 opens
+      { kind: 'fold' }, // seat 2 (SB) folds
+      { kind: 'bet', to: 75 }, // seat 1 c-bets the flop after the hero checks
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'A suited hand closing the action in the big blind for one more bet has the price to defend and see a flop — routine.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'First to act on a flop that missed you completely, check: you have nothing to bet for, and leading into the raiser with air only builds a pot you will have to abandon.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'A-K-7 is the worst board for 8♣5♣ — no pair, no straight draw, no flush draw, and it smashes the range of the player who raised and c-bet. You have almost no equity and no way to continue profitably; calling to "see a turn" or float a bluff just burns chips out of position with a hand that cannot improve to anything that wins. The price you got to defend preflop bought one flop, not a call-down. Folding the hands that whiff is where most of a big blind’s money is saved.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

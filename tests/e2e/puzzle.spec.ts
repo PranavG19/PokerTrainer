@@ -203,6 +203,8 @@ test.describe('puzzle mode', () => {
       'fold-multiway-ajo': ['fold'],
       'isolate-limper-aqs': ['raise'],
       'squeeze-kk-vs-open-call': ['raise'],
+      'checkraise-set-wet': ['call', 'check', 'raise'],
+      'fold-flop-airball': ['call', 'check', 'fold'],
     };
 
     await withApp(async (page) => {
