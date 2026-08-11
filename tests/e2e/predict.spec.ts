@@ -26,6 +26,7 @@ import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
 
 const predictPanel = '[data-testid="predict-panel"]';
 const predictResult = '[data-testid="predict-result"]';
+const predictSupport = '[data-testid="predict-support"]';
 const modeToggle = '[data-testid="coach-mode-toggle"]';
 const calibration = '[data-testid="calibration"]';
 const nextHand = '[data-testid="next-hand"]';
@@ -316,6 +317,69 @@ test.describe('the reveal', () => {
     // Same action, same grade — only the confidence differed, and the reveal must say so.
     expect(guessText).not.toBe(sureText);
     expect(guessText).not.toContain('SURE');
+  });
+
+  /**
+   * G8's 2x2: the four cells must carry four DIFFERENT support lines (the differential treatment),
+   * and 'deviated' must carry none. Pinned seed 8 hand 1 gives all four on demand — call preflop is
+   * free (a match: sure-correct or guess-correct by the confidence), fold the flop is a 3.9bb
+   * SERIOUS error (sure-wrong or guess-wrong by the confidence).
+   */
+  test('9b. the four cells render four different support lines; deviated renders none', async () => {
+    const supportOf = async (
+      confidenceMatch: 'sure' | 'guess',
+      confidenceWrong: 'sure' | 'guess' | null,
+    ): Promise<string> => {
+      let line = '';
+      await withApp({ seed: 8 }, async (page) => {
+        await openTable(page);
+        await enableCoachedMode(page);
+        await commit(page, 'call', confidenceMatch);
+        await page.locator(sel.btnCall).click();
+        if (confidenceWrong === null) {
+          // The match cell itself.
+          const support = page.locator(predictSupport);
+          await expect(support).toBeVisible();
+          line = (await support.textContent()) ?? '';
+          return;
+        }
+        // The wrong cell: fold the flop as the graded mistake.
+        expect(await waitForIdle(page)).toBe('hero');
+        await commit(page, 'fold', confidenceWrong);
+        await page.locator(sel.btnFold).click();
+        const support = page.locator(predictSupport);
+        await expect(support).toBeVisible();
+        line = (await support.textContent()) ?? '';
+      });
+      return line;
+    };
+
+    const sureCorrect = await supportOf('sure', null);
+    const guessCorrect = await supportOf('guess', null);
+    const sureWrong = await supportOf('sure', 'sure');
+    const guessWrong = await supportOf('sure', 'guess');
+
+    const lines = [sureCorrect, guessCorrect, sureWrong, guessWrong];
+    for (const line of lines) expect(line.length, 'a routed cell owes a support line').toBeGreaterThan(0);
+    // The whole point of G8: four cells, four visibly different treatments.
+    expect(new Set(lines).size, `four cells must be four different lines: ${JSON.stringify(lines)}`).toBe(4);
+
+    // The confidence phrases prove they are the cells they claim to be.
+    expect(sureCorrect).toContain('principle name only');
+    expect(guessCorrect).toContain('full elaboration');
+    expect(sureWrong).toContain('the full causal chain');
+    expect(guessWrong).toContain('terse correction plus a worked example');
+
+    // Deviated: commit fold, then call — nothing was tested, so no support is owed.
+    await withApp({ seed: 8 }, async (page) => {
+      await openTable(page);
+      await enableCoachedMode(page);
+      await commit(page, 'fold', 'sure');
+      await page.locator(sel.btnCall).click();
+      await expect(page.locator(predictResult)).toHaveAttribute('data-outcome', 'deviated');
+      await expect(page.locator(predictSupport)).toBeHidden();
+      await expect(page.locator(predictSupport)).toHaveText('');
+    });
   });
 
   test('10. a fresh commitment is required for the next decision on the same hand', async () => {

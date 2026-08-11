@@ -25,6 +25,7 @@ import { mulberry32, shuffle } from '../../core/rng.js';
 import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session.js';
 import type { PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
+import { routeFor } from '../../core/confidence.js';
 import { renderCard, renderCardRow } from '../components/card.js';
 import { renderCoachPanel, showGrade, clearCoach } from '../components/coachPanel.js';
 import {
@@ -328,7 +329,8 @@ export function renderTable(opts: {
 
     if (prediction !== null) {
       const outcome = predictOutcome(prediction, action.kind, grade.severity === 'free');
-      showPredictResult(predict, outcome, predictResultText(prediction, action.kind, outcome));
+      const route = routeFor(prediction, outcome);
+      showPredictResult(predict, outcome, predictResultText(prediction, action.kind, outcome), route);
       opts.onPrediction?.(outcome);
       // Fresh commitment for the next street; the reveal line stays up until the next hand.
       resetCommit(predict);
