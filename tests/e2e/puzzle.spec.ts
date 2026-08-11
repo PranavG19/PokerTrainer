@@ -378,4 +378,24 @@ test.describe('puzzle mode', () => {
       await second.close().catch(() => {});
     }
   });
+
+  test('13. the complete screen steers to the next unmastered scenario', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      // Master the opener (one raise), so it is no longer a gap.
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await page.locator('[data-testid="puzzle-raise"]').click();
+      await page.locator(continueBtn).click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
+
+      // The steer-to-gap control is offered and jumps to a DIFFERENT, still-unmastered scenario —
+      // not back to the one just mastered.
+      const toGap = page.locator('[data-testid="puzzle-next-unmastered"]');
+      await expect(toGap).toBeVisible();
+      await toGap.click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+      await expect(page.locator(screen)).not.toHaveAttribute('data-scenario', 'btn-open-aks');
+      await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
+    });
+  });
 });
