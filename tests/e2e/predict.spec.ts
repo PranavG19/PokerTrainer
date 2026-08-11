@@ -748,3 +748,77 @@ test.describe('the answer is withheld until the commitment', () => {
     }
   });
 });
+
+/**
+ * G4 — the reason is graded SEPARATELY from the action (story 14, PRODUCT-SPEC line 212).
+ *
+ * Seed 8 hand 1: calling 50 preflop is FREE (66% equity), so the EV grade is silent. The reason box
+ * is where the separate verdict lives: a hand-strength or "none" rationale on that correct-but-free
+ * call is "right for the wrong reason", and an explicit GUESS escalates it. A proper range/price
+ * reason triggers nothing, and an empty box never escalates — that last one is the load-bearing
+ * safety property, since an empty reason grades 'none' in the core and must not nag a correct play.
+ */
+const reasonInput = '[data-testid="reason-input"]';
+const reasonNote = '[data-testid="coach-reason-note"]';
+const coachPanel = '.coach';
+
+test.describe('G4 — the reason is graded separately from the action', () => {
+  /** Commit call/SURE with a reason, play the free call, return the reason-note text ('' if hidden). */
+  const noteForReason = async (page: Page, reason: string): Promise<string> => {
+    await openTable(page);
+    await enableCoachedMode(page);
+    await commit(page, 'call', 'sure');
+    if (reason !== '') await page.locator(reasonInput).fill(reason);
+    await page.locator(sel.btnCall).click();
+    const note = page.locator(reasonNote);
+    if (await note.isHidden()) return '';
+    return (await note.textContent()) ?? '';
+  };
+
+  test('1. a hand-strength reason on a correct-but-free call is flagged, not escalated', async () => {
+    await withApp({ seed: 8 }, async (page) => {
+      const note = await noteForReason(page, 'my hand is strong, top pair plays itself');
+      expect(note, 'a hand-strength rationale on a right action is right-for-wrong-reason').toContain(
+        'not for the reason given',
+      );
+      // Not escalated: the EV grade stays silent (free), so the panel severity is not 'serious'.
+      await expect(page.locator(coachPanel)).not.toHaveAttribute('data-severity', 'serious');
+    });
+  });
+
+  test('2. an explicit-guess reason on the same spot ESCALATES to study-this', async () => {
+    await withApp({ seed: 8 }, async (page) => {
+      const note = await noteForReason(page, 'idk, just guessing here');
+      expect(note, 'an explicit guess must escalate').toContain('study this one');
+    });
+  });
+
+  test('3. a proper price or range reason triggers no G4 note at all', async () => {
+    await withApp({ seed: 8 }, async (page) => {
+      expect(await noteForReason(page, 'the price is good, pot odds say call'), 'a price reason is fine').toBe('');
+    });
+    await withApp({ seed: 8 }, async (page) => {
+      expect(
+        await noteForReason(page, 'he opens 70% from the button so my range defends wide'),
+        'a range reason is fine',
+      ).toBe('');
+    });
+  });
+
+  test('4. an EMPTY reason never escalates and shows no note — the safety property', async () => {
+    await withApp({ seed: 8 }, async (page) => {
+      expect(await noteForReason(page, ''), 'an empty reason must not be graded').toBe('');
+      // And the panel is not screaming at a correct, unexplained free call.
+      await expect(page.locator(coachPanel)).not.toHaveAttribute('data-severity', 'serious');
+    });
+  });
+
+  test('5. the reason box is absent in uncoached play — the G4 path is coached-only', async () => {
+    await withApp({ seed: 8 }, async (page) => {
+      await openTable(page);
+      expect(await waitForIdle(page)).toBe('hero');
+      // No predict panel at all uncoached, so no reason input can leak into default play.
+      await expect(page.locator(reasonInput)).toHaveCount(0);
+    });
+  });
+});

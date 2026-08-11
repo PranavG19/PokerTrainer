@@ -26,11 +26,13 @@ import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session
 import type { PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { routeFor } from '../../core/confidence.js';
+import { applyG4Override, gradeReason } from '../../core/reasonGrade.js';
 import { renderCard, renderCardRow } from '../components/card.js';
-import { renderCoachPanel, showGrade, clearCoach } from '../components/coachPanel.js';
+import { renderCoachPanel, showGrade, showReasonNote, clearCoach } from '../components/coachPanel.js';
 import {
   clearPredictPanel,
   committedPrediction,
+  committedReason,
   renderPredictPanel,
   resetCommit,
   setCommitVisible,
@@ -210,7 +212,7 @@ export function renderTable(opts: {
     render();
   }
 
-  function recordHeroGrade(chosen: ActionKind, betSize?: number): Grade {
+  function recordHeroGrade(chosen: ActionKind, betSize?: number, reasonText = ''): Grade {
     const hero = heroSeat();
     const toCall = Math.max(0, state.currentBet - hero.committed);
     const opponents = state.seats.filter((s) => !s.folded && s.id !== hero.id).length;
@@ -228,6 +230,19 @@ export function renderTable(opts: {
       seed: opts.seed + state.handNumber,
     });
     showGrade(coach, grade);
+    // G4 (story 14): grade the reason SEPARATELY and, if the action was EV-fine but the reason was a
+    // hand-strength/none rationale, flag "right for the wrong reason" — escalating only on an explicit
+    // guess. This never alters the EV grade or the predict outcome; it is its own verdict. Only graded
+    // when a reason was actually typed, so an empty box never escalates. showReasonNote runs AFTER
+    // showGrade because a free grade clears the panel, and the note may need to reveal it again.
+    if (reasonText !== '') {
+      const adjusted = applyG4Override({
+        severityFromEv: grade.severity,
+        reason: gradeReason(reasonText),
+        graderSource: 'local',
+      });
+      showReasonNote(coach, adjusted);
+    }
     adviceShown = grade.message !== null && grade.severity !== 'free';
     // Exactly the condition showGrade paints under, so narration and the panel can never disagree
     // about whether there is a verdict — one call per verdict shown, none for a silent grade.
@@ -304,6 +319,9 @@ export function renderTable(opts: {
     // keyboard shortcuts cannot walk around the disabled buttons either.
     const prediction = coachedMode ? committedPrediction(predict) : null;
     if (coachedMode && prediction === null) return;
+    // Read the reason BEFORE recordHeroGrade (which does not reset it) and before resetCommit below
+    // clears it. Empty in uncoached play, so the G4 path is coached-only by construction.
+    const reasonText = coachedMode ? committedReason(predict) : '';
 
     if (state.street === 'preflop') {
       const hero = heroSeat();
@@ -313,7 +331,7 @@ export function renderTable(opts: {
       if (action.kind === 'raise' || action.kind === 'bet') heroPfr = true;
     }
 
-    const grade = recordHeroGrade(action.kind, action.amount);
+    const grade = recordHeroGrade(action.kind, action.amount, reasonText);
     // Logged from the PRE-action state, which is still `state` here: the pot and board the hero was
     // looking at when they decided. The verdict is stored verbatim rather than re-derived later,
     // because gradeDecision runs a seeded Monte Carlo and a re-grade is a different number.

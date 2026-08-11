@@ -142,9 +142,30 @@
   color: var(--text-lo);
 }
 
+/* G4's optional "why" box. One compact row so it does not add a second line of height to a panel
+ * already tuned to 900x640; resize is off for the same reason. */
+.predict-reason {
+  width: 100%;
+  resize: none;
+  font-size: 12px;
+}
+
+/* G4's separate reason verdict. Amber-ish accent so it reads as its own signal, distinct from the
+ * severity-coloured EV grade above it. */
+.coach-reason-note {
+  font-size: 12px;
+  color: var(--chip-blind);
+  margin-top: 4px;
+}
+
+.coach-reason-note[hidden] {
+  display: none;
+}
+
 /* `display: flex` on .predict-row would otherwise beat the hidden attribute's UA display:none. */
 .predict-prompt[hidden],
 .predict-row[hidden],
+.predict-reason[hidden],
 .predict-support[hidden] {
   display: none;
 }
