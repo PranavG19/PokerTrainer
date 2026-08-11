@@ -261,6 +261,98 @@
   line-height: 1.45;
 }
 
+/* ─── Lexicon: name the concept (L1/L2/L3) ───────────────────────────────────
+ * Sits under the resolved contrast set: the learner writes the one mechanism sentence that names what
+ * flipped the answer. Severity is by WEIGHT and WORDING, never colour (V2 parity with the drills): an
+ * accepted sentence gets a quiet confirmation, a rejected one states its correction in fuller contrast.
+ * The adopted quote is the light-weight recital the lesson lexicon uses, so the two surfaces read alike. */
+.lexicon-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.lexicon-quote {
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.5;
+  color: var(--text-hi);
+}
+
+.lexicon-prompt {
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.5;
+}
+
+.lexicon-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-hi);
+  background: var(--surface-hi);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.lexicon-input:focus {
+  outline: none;
+  border-color: var(--card-face);
+}
+
+.lexicon-feedback {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-lo);
+}
+
+/* The correction is the loud one: full contrast, medium weight. Acceptance stays quiet — silence is not praise. */
+.lexicon-feedback[data-verdict='rejected'] .lexicon-verdict {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+.lexicon-feedback[data-verdict='accepted'] .lexicon-verdict {
+  color: var(--text-lo);
+  font-weight: 400;
+}
+
+.lexicon-frame,
+.lexicon-pushback {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+
+.lexicon-adopted {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.lexicon-adopted-row {
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.5;
+  color: var(--text-lo);
+}
+
 /* The 900x640 minimum: trim the vertical slack, never the content. */
 @media (max-height: 700px) {
   .repair-screen {
