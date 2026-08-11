@@ -1166,7 +1166,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'AKo dominates the suited broadways and worse aces that fill out a 3-betting range and, at worst, flips with the pairs — it is far too strong to fold to a single re-raise. With position and a hand that plays well postflop, flatting keeps their bluffs in and avoids bloating the pot as a big underdog to the very top of their value (AA/KK), where a 4-bet only gets called by the hands that crush you. Folding AK here is one of the most common and expensive preflop leaks.',
+          'AKo dominates the suited broadways and worse aces that fill out a 3-betting range and races (near a coinflip) with the medium pairs like QQ and below — only AA and KK have it in bad shape, and those are a small slice of the range. It is far too strong to fold to a single re-raise. With position and a hand that plays well postflop, flatting keeps their bluffs in and avoids bloating the pot against the very top of their value, where a 4-bet only gets called by the hands that crush you. Folding AK here is one of the most common and expensive preflop leaks.',
       },
     ],
   },
