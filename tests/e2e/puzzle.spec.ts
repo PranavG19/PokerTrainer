@@ -235,4 +235,33 @@ test.describe('puzzle mode', () => {
       expect(seen.has('3bet-aa-vs-open')).toBe(true);
     });
   });
+
+  test('9. the picker jumps directly to any scenario without clicking through the library', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      // Opens on the first scenario.
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+
+      const picker = page.locator('[data-testid="puzzle-picker"]');
+      // Every scenario is listed, so the whole library is reachable in one hop.
+      const optionCount = await picker.locator('option').count();
+      expect(optionCount).toBeGreaterThanOrEqual(11);
+
+      // Jump straight to a late scenario by its title — no "Next puzzle" clicking.
+      await picker.selectOption({ label: 'Calling a river bluff-catch with second pair' });
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'call-river-bluffcatch');
+      await expect(page.locator(title)).toHaveText('Calling a river bluff-catch with second pair');
+      // Landed fresh at step 0 in the acting phase, no stale progress carried in.
+      await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+
+      // A mid-hand jump elsewhere still resets cleanly.
+      await page.locator('[data-testid="puzzle-raise"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
+      await picker.selectOption({ label: 'Opening the button with AKs' });
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', '');
+    });
+  });
 });

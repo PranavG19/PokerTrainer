@@ -157,7 +157,33 @@ export function renderPuzzleScreen(): HTMLElement {
   function header(s: Scenario): HTMLElement {
     const el = document.createElement('div');
     el.className = 'puzzle-header';
-    el.appendChild(text('div', 'puzzle-picker-label', `Puzzle ${scenarioIndex + 1} of ${SCENARIOS.length}`));
+
+    // Picker row: the "N of M" label plus a jump-to-any-scenario dropdown. Sequential "Next puzzle"
+    // still works at completion, but with a growing library a learner needs to reach a specific spot
+    // (revisit the river bluff-catch, drill the multiway fold) without clicking through the whole set.
+    const pickerRow = document.createElement('div');
+    pickerRow.className = 'puzzle-picker-row';
+    pickerRow.appendChild(
+      text('div', 'puzzle-picker-label', `Puzzle ${scenarioIndex + 1} of ${SCENARIOS.length}`),
+    );
+
+    const select = document.createElement('select');
+    select.className = 'puzzle-picker';
+    select.dataset.testid = 'puzzle-picker';
+    SCENARIOS.forEach((scen, i) => {
+      const option = document.createElement('option');
+      option.value = String(i);
+      option.textContent = scen.title;
+      option.selected = i === scenarioIndex;
+      select.appendChild(option);
+    });
+    // Jump straight to the chosen puzzle. loadScenario resets step/verdict/records, so a mid-hand jump
+    // cannot carry stale progress into the new spot.
+    select.addEventListener('change', () => loadScenario(Number(select.value)));
+    pickerRow.appendChild(select);
+
+    el.appendChild(pickerRow);
+
     const title = text('h2', 'puzzle-title', s.title);
     title.dataset.testid = 'puzzle-title';
     el.appendChild(title);
