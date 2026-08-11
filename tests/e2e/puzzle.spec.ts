@@ -19,6 +19,8 @@ const explanation = '[data-testid="puzzle-explanation"]';
 const continueBtn = '[data-testid="puzzle-continue"]';
 const complete = '[data-testid="puzzle-complete"]';
 const nextScenario = '[data-testid="puzzle-next-scenario"]';
+const potLine = '[data-testid="puzzle-pot"]';
+const oddsLine = '[data-testid="puzzle-odds"]';
 
 const railSeam = '[data-testid="puzzle-tutor-rail"]';
 const rail = '[data-testid="tutor-rail"]';
@@ -298,6 +300,42 @@ test.describe('puzzle mode', () => {
       await page.locator(tutorInput).fill('should i raise or fold');
       await expect(page.locator(screen)).toHaveAttribute('data-verdict', '');
       await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
+    });
+  });
+
+  test('11. facing a bet, the pot-odds price is shown and its arithmetic is self-consistent', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+
+      // Preflop, first to open, there is no bet to call — so no odds line yet.
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await expect(page.locator(oddsLine)).toHaveCount(0);
+
+      // Jump to the flush-draw scenario and advance to the flop, where the hero faces a c-bet.
+      const picker = page.locator('[data-testid="puzzle-picker"]');
+      await picker.selectOption({ label: 'Calling a flush draw when the price is right' });
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'call-flush-draw-odds');
+
+      // Step 0 (call the preflop open) then check the flop; the villain then c-bets into the hero.
+      await page.locator('[data-testid="puzzle-call"]').click();
+      await page.locator(continueBtn).click();
+      await page.locator('[data-testid="puzzle-check"]').click();
+      await page.locator(continueBtn).click();
+
+      // Now the hero faces the flop bet: the odds line is shown and its numbers add up.
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+      await expect(page.locator(oddsLine)).toHaveCount(1);
+      const toCall = Number(await page.locator(oddsLine).getAttribute('data-tocall'));
+      const potOdds = Number(await page.locator(oddsLine).getAttribute('data-potodds'));
+      // The pot shown on the pot line is the pot BEFORE the hero's call and already includes the bet,
+      // so break-even equity = toCall / (pot + toCall). The rendered percentage must match that.
+      const potText = (await page.locator(potLine).innerText()).match(/Pot (\d+)/);
+      expect(potText, 'pot line missing its number').not.toBeNull();
+      const pot = Number(potText?.[1]);
+      expect(toCall).toBeGreaterThan(0);
+      expect(potOdds).toBe(Math.round((toCall / (pot + toCall)) * 100));
+      // And the visible text states the price as a percentage, not just chips.
+      expect(await page.locator(oddsLine).innerText()).toContain(`${potOdds}%`);
     });
   });
 });

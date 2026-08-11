@@ -68,6 +68,15 @@
   text-align: center;
 }
 
+/* The price the hero is being laid, shown only when facing a bet. Tabular so the percentage does not
+ * jitter, and mint (the reserved "this is the teaching signal" accent) to draw the eye to the number. */
+.puzzle-odds {
+  font-size: 12px;
+  color: var(--mint);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .puzzle-board,
 .puzzle-hero {
   display: flex;

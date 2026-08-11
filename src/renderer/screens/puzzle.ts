@@ -201,6 +201,29 @@ export function renderPuzzleScreen(): HTMLElement {
     potLine.dataset.testid = 'puzzle-pot';
     el.appendChild(potLine);
 
+    // When the hero faces a genuine bet, show what it costs to call AND the pot odds it lays — the
+    // actual percentage behind every "you have a price" explanation, so the learner sees the number,
+    // not just the words. state.pot already includes the bet, so break-even equity = toCall/(pot+toCall)
+    // (the same formula coach.ts uses). NOT shown for an unopened preflop pot, where the hero merely
+    // faces the big blind: that is a raise-or-fold RFI decision, not a pot-odds call, and printing
+    // "odds to call the BB" there would teach the wrong frame. So: postflop always, or preflop only
+    // once someone has raised past the big blind.
+    const facingRealBet = state.board.length > 0 || state.currentBet > state.bb;
+    const toCall =
+      state.toAct === HERO && facingRealBet ? state.currentBet - state.seats[HERO].committed : 0;
+    if (toCall > 0) {
+      const potOdds = Math.round((toCall / (state.pot + toCall)) * 100);
+      const oddsLine = text(
+        'div',
+        'puzzle-odds',
+        `To call ${toCall} · pot odds ${potOdds}% — you need ${potOdds}% equity to call`,
+      );
+      oddsLine.dataset.testid = 'puzzle-odds';
+      oddsLine.dataset.tocall = String(toCall);
+      oddsLine.dataset.potodds = String(potOdds);
+      el.appendChild(oddsLine);
+    }
+
     const board = document.createElement('div');
     board.className = 'puzzle-board';
     board.dataset.testid = 'puzzle-board';
