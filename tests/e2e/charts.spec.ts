@@ -25,6 +25,7 @@ const ruleRow = '[data-testid="rule-row"]';
 const boundaryChip = '[data-testid="boundary-chip"]';
 const classRow = '[data-testid="class-row"]';
 const classAccuracy = '[data-testid="class-accuracy"]';
+const classReview = '[data-testid="class-review"]';
 const drillHand = '[data-testid="drill-hand"]';
 const drillFeedback = '[data-testid="drill-feedback"]';
 const drillVerdict = '[data-testid="drill-verdict"]';
@@ -507,6 +508,44 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
           `${ring.combo} (open=${ring.open}): the ring is invisible against its own face — luminance gap ${ring.contrast.toFixed(3)}`,
         ).toBeGreaterThan(0.25);
       }
+    });
+  });
+
+  /**
+   * THE "review" MARKER. The adaptive draw (test 12) is otherwise invisible: a learner seeing one class
+   * come up repeatedly cannot tell it is targeting their weak spot rather than misbehaving. The weakest
+   * ATTEMPTED class carries a visible "review" flag; a fresh scoreboard marks nothing (nothing attempted
+   * is not a weakness). This misses one class, aces another, and asserts the marker lands on the missed
+   * one — reading the rendered word, not just the data attribute.
+   */
+  test('6c. the weakest attempted class is flagged for review, and a fresh board flags nothing', async () => {
+    await withCharts(async ({ page }) => {
+      await selectPosition(page, 'CO');
+
+      // Fresh board: nothing attempted, so nothing is marked.
+      await expect(page.locator(classReview)).toHaveCount(0);
+
+      // Miss the first class we are shown, then ace the next spot of a DIFFERENT class, so exactly one
+      // class has a bad record and it is unambiguously the weakest attempted one.
+      const firstSpot = await currentSpot(page);
+      const missedClass = await page.getAttribute(`${cell}[data-combo="${firstSpot}"]`, 'data-class');
+      await commitKey(page, (await spotOpens(page, firstSpot)) ? 'f' : 'o'); // wrong
+
+      // Ace spots until we have correctly answered at least one of a class other than the missed one.
+      for (let i = 0; i < 10; i += 1) {
+        const spot = await currentSpot(page);
+        const klass = await page.getAttribute(`${cell}[data-combo="${spot}"]`, 'data-class');
+        await commitKey(page, (await spotOpens(page, spot)) ? 'o' : 'f'); // right
+        if (klass !== missedClass) break;
+      }
+
+      // Exactly one class is flagged, and it is the one we kept getting wrong.
+      await expect(page.locator(classReview)).toHaveCount(1);
+      const flaggedRow = page.locator(`${classRow}[data-review="true"]`);
+      await expect(flaggedRow).toHaveCount(1);
+      expect(await flaggedRow.getAttribute('data-class')).toBe(missedClass);
+      // The marker is a visible word, not only an attribute.
+      expect((await page.locator(classReview).innerText()).toLowerCase()).toContain('review');
     });
   });
 

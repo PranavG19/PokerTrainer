@@ -57,3 +57,25 @@ export function pickWeightedClass(tallies: readonly ClassTally[], rng: Rng): num
   // rng() at the 1.0 edge, or floating-point drift, lands past the last boundary: fall to the last.
   return weights.length - 1;
 }
+
+/**
+ * The index of the class the drill is drilling hardest AMONG THOSE ATTEMPTED — the one to review.
+ * Ranked by the same draw weight the sampler uses (for an attempted class that is monotonic in miss
+ * rate), so the marker matches why the class actually keeps coming up. Unseen classes are excluded:
+ * one has the highest weight of all but "you have not tried it yet" is not "you keep missing it", and
+ * labelling a "—" row as a weakness would be a lie. Returns null when nothing has been attempted, and
+ * on a tie the earlier (stronger-named) class wins so the marker never flickers between equals.
+ */
+export function weakestAttemptedClass(tallies: readonly ClassTally[]): number | null {
+  let best: number | null = null;
+  let bestWeight = -Infinity;
+  for (let index = 0; index < tallies.length; index += 1) {
+    if (tallies[index].attempts <= 0) continue;
+    const weight = classDrawWeight(tallies[index]);
+    if (weight > bestWeight) {
+      bestWeight = weight;
+      best = index;
+    }
+  }
+  return best;
+}
