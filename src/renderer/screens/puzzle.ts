@@ -229,7 +229,13 @@ export function renderPuzzleScreen(): HTMLElement {
       b.type = 'button';
       b.className = 'pill';
       b.dataset.testid = `puzzle-${kind}`;
-      b.textContent = actionLabel(kind);
+      b.appendChild(document.createTextNode(actionLabel(kind)));
+      // The keyboard shortcut, shown on the button so it is discoverable rather than hidden. The
+      // letter is the action's first character (F/K/C/B/R), matching the onKey handler.
+      const hint = document.createElement('span');
+      hint.className = 'puzzle-key-hint';
+      hint.textContent = kind.charAt(0).toUpperCase();
+      b.appendChild(hint);
       b.disabled = !legal.includes(kind);
       b.addEventListener('click', () => takeAction(kind));
       el.appendChild(b);
@@ -292,6 +298,53 @@ export function renderPuzzleScreen(): HTMLElement {
     el.appendChild(retry);
     return el;
   }
+
+  /**
+   * Keyboard shortcuts, so a learner can drill spots as fast as they read them rather than reaching
+   * for the mouse each decision — the charts drill already trains this way (o/f). One letter per
+   * action (F/K/C/B/R), and Enter/Space advances past a verdict or to the next puzzle. Bound to the
+   * window because the screen owns no focus of its own, and self-removing once the root leaves the
+   * document so it never steals keys from another tab (the charts/lesson pattern).
+   */
+  const ACTION_KEYS: Record<string, ActionKind> = {
+    f: 'fold',
+    k: 'check',
+    c: 'call',
+    b: 'bet',
+    r: 'raise',
+  };
+
+  function onKey(event: KeyboardEvent): void {
+    if (!root.isConnected) {
+      window.removeEventListener('keydown', onKey);
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    // The learner may be typing a question into the tutor rail; those keys are not shortcuts.
+    const target = event.target;
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) return;
+
+    // Enter or Space advances: dismiss a verdict, or move to the next puzzle once complete.
+    if (event.key === 'Enter' || event.key === ' ') {
+      if (lastVerdict !== null) {
+        event.preventDefault();
+        continueOn();
+      } else if (isComplete(scenario(), stepIndex)) {
+        event.preventDefault();
+        loadScenario(scenarioIndex + 1);
+      }
+      return;
+    }
+
+    const kind = ACTION_KEYS[event.key.toLowerCase()];
+    // Only a currently-legal hero action fires — the same set the on-screen buttons enable, so a key
+    // can never take an action the learner could not click.
+    if (kind === undefined || state.toAct !== HERO || lastVerdict !== null) return;
+    if (!legalActions(state).includes(kind)) return;
+    event.preventDefault();
+    takeAction(kind);
+  }
+  window.addEventListener('keydown', onKey);
 
   // Initial paint (advanceToHero already ran in the closure setup below).
   advanceToHero();
