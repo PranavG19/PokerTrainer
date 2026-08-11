@@ -584,6 +584,82 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'call-3bet-ip-aqs',
+    title: 'Calling a 3-bet in position with A♠Q♠',
+    setup:
+      'You open the button with A♠Q♠ and the big blind 3-bets. A5s folded here — but this is a much stronger hand, and you have position. Not every open folds to a re-raise; the strong ones with position continue.',
+    seatCount: 3,
+    // btn-open layout: button on seat 0 (hero) opens first, a blind 3-bets, and the action returns to
+    // the hero — the same structure as fold-open-to-3bet, but with a hand that CALLS rather than folds.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button). Seat 1 = SB. Seat 2 = BB (the 3-bettor).
+    holes: [
+      ['As', 'Qs'],
+      ['7c', '2c'], // SB: folds
+      ['Ah', 'Jh'], // BB: a hand its 3-betting range contains and that AQs is ahead of
+    ],
+    board: ['Td', '9d', '4h', '3c', '2h'],
+    // Hero opens (step 0), SB folds, BB 3-bets to 400; the hero calls in position (step 1). The line
+    // ends at the call, so the flop is never reached — the preflop continue is the whole lesson.
+    villainScript: [
+      { kind: 'fold' }, // SB folds
+      { kind: 'raise', to: 400 }, // BB 3-bets
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠Q♠ is a premium button open — suited, two big cards, and it dominates the offsuit broadways the blinds defend with. Raising is automatic.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'Unlike A5s, A♠Q♠ is far too strong to fold to a 3-bet — it dominates the bluffs and flips with or beats much of a merged 3-betting range, and it flops top pair, flushes and straights. With position on the raiser, calling keeps their bluffs in and lets you realise that equity in a controlled pot, while 4-betting bloats the pot and folds out exactly the worse hands you want to keep. 3-betting is not a fold button; a strong hand with position calls and plays poker.',
+      },
+    ],
+  },
+  {
+    id: '4bet-aa-vs-3bet',
+    title: '4-betting A♣A♥ for value',
+    setup:
+      'You open the button with A♣A♥ and the big blind 3-bets. A5s folds and AQs calls here — but with the best hand in poker, flatting is a mistake. This is where you put the money in.',
+    seatCount: 3,
+    // btn-open layout: button on seat 0 (hero) opens, a blind 3-bets, and the action returns to the
+    // hero — the top of the same tree as fold-open-to-3bet (fold) and call-3bet-ip-aqs (call): here, 4-bet.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button). Seat 1 = SB. Seat 2 = BB (the 3-bettor).
+    holes: [
+      ['Ac', 'Ah'],
+      ['8c', '3d'], // SB: folds
+      ['Kd', 'Ks'], // BB: KK — a hand that 3-bets and will stack off, so the value is real
+    ],
+    board: ['Qh', '7s', '2d', '5c', '9h'],
+    // Hero opens (step 0), SB folds, BB 3-bets to 400; the hero 4-bets (step 1). The line ends at the
+    // 4-bet — putting in the value raise is the whole lesson.
+    villainScript: [
+      { kind: 'fold' }, // SB folds
+      { kind: 'raise', to: 400 }, // BB 3-bets
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Pocket aces open from anywhere; the button is no exception. Raise and start building the pot with the best possible hand.',
+      },
+      {
+        action: 'raise',
+        explanation:
+          'Facing a 3-bet with aces, 4-bet for value — flatting caps your range and lets a hand like KK or AK realise equity it should be paying dearly for. A 4-bet gets stacks in against exactly the strong hands (KK, QQ, AK) that cannot fold to it, and it wins the pot outright when the 3-bet was a bluff. You will rarely be beaten; the only mistake with aces here is playing them small. Charge the second-best hands the maximum while you hold the best one.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

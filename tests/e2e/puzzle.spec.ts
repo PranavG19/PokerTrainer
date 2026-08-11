@@ -207,6 +207,8 @@ test.describe('puzzle mode', () => {
       'squeeze-kk-vs-open-call': ['raise'],
       'checkraise-set-wet': ['call', 'check', 'raise'],
       'fold-flop-airball': ['call', 'check', 'fold'],
+      'call-3bet-ip-aqs': ['raise', 'call'],
+      '4bet-aa-vs-3bet': ['raise', 'raise'],
     };
 
     await withApp(async (page) => {
