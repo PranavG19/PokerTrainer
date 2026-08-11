@@ -137,9 +137,15 @@
   display: none;
 }
 
+.predict-support {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
 /* `display: flex` on .predict-row would otherwise beat the hidden attribute's UA display:none. */
 .predict-prompt[hidden],
-.predict-row[hidden] {
+.predict-row[hidden],
+.predict-support[hidden] {
   display: none;
 }
 

@@ -625,6 +625,14 @@ body {
   padding: 5px 12px;
 }
 
+/* The differential support line is the longest text in the panel; keep it compact so it does not
+ * push "Next hand" below the fold in the coached-handover sure-wrong state at 900x640. */
+.table-screen .predict-support {
+  font-size: 11px;
+  line-height: 1.15;
+  margin: 0;
+}
+
 /* The collapsed sheet only needs to show the win%/tie headline. */
 .table-screen .stats-sheet {
   padding: 10px 16px;

@@ -1,5 +1,6 @@
 import type { Confidence, PredictOutcome, PredictedAction, Prediction } from '../../core/predict.js';
 import { PREDICTED_ACTIONS } from '../../core/predict.js';
+import type { ConfidenceRoute, SupportLevel } from '../../core/confidence.js';
 
 /**
  * The commit half of the coaching loop. The panel holds its own state in `dataset` — the same
@@ -48,6 +49,14 @@ export function renderPredictPanel(onCommit: () => void): HTMLElement {
   result.hidden = true;
   root.appendChild(result);
 
+  // G8's differential support, as a SIBLING of the verdict so the verdict's own text/attribute stay
+  // byte-for-byte what they were: the four cells each render a structurally distinct line here.
+  const support = document.createElement('div');
+  support.className = 'predict-support';
+  support.dataset.testid = 'predict-support';
+  support.hidden = true;
+  root.appendChild(support);
+
   syncSelection(root);
   return root;
 }
@@ -77,12 +86,63 @@ export function committedPrediction(root: HTMLElement): Prediction | null {
   return { action, confidence };
 }
 
-export function showPredictResult(root: HTMLElement, outcome: PredictOutcome, text: string): void {
+export function showPredictResult(
+  root: HTMLElement,
+  outcome: PredictOutcome,
+  text: string,
+  route: ConfidenceRoute | null,
+): void {
   const result = resultEl(root);
   if (!result) return;
   result.hidden = false;
   result.dataset.outcome = outcome;
   result.textContent = text;
+
+  const support = supportEl(root);
+  if (!support) return;
+  if (route) {
+    support.hidden = false;
+    support.textContent = predictSupportText(route);
+  } else {
+    // 'deviated' routes to null: nothing was tested, so no support is owed.
+    support.hidden = true;
+    support.textContent = '';
+  }
+}
+
+/** How much explanation each of G8's four support levels carries, in G8's own words. */
+function supportPhrase(support: SupportLevel): string {
+  switch (support) {
+    case 'principle-name-only':
+      return 'Support: principle name only.';
+    case 'full-causal-chain':
+      return 'Support: the full causal chain.';
+    case 'full-elaboration':
+      return 'Support: full elaboration.';
+    case 'terse-correction-plus-worked-example':
+      return 'Support: terse correction plus a worked example.';
+  }
+}
+
+/**
+ * The differential support line for one cell, composed from the route's fields in a fixed order so
+ * the four cells render four structurally distinct strings. Pure: no DOM, so it is unit-testable in
+ * vitest's node env.
+ */
+export function predictSupportText(route: ConfidenceRoute): string {
+  const parts: string[] = [supportPhrase(route.support)];
+  if (route.immediateReserve && route.schedule.length > 0) {
+    const spacedDays = route.schedule
+      .map((rep) => rep.day)
+      .filter((day) => day > 0)
+      .map((day) => `day ${day}`);
+    parts.push(`This spot returns now, then on ${spacedDays.join(' and ')}.`);
+  }
+  if (route.workedExample) parts.push('A worked example is owed.');
+  if (route.repetition === 'higher') parts.push('Repetition steps up.');
+  if (route.highestValue) parts.push('This is the highest-value miss in the system.');
+  parts.push(route.rationale);
+  return parts.join(' ');
 }
 
 /** Drop the commitment so the next decision needs a fresh one. The result line survives on purpose. */
@@ -96,14 +156,24 @@ export function resetCommit(root: HTMLElement): void {
 export function clearPredictPanel(root: HTMLElement): void {
   resetCommit(root);
   const result = resultEl(root);
-  if (!result) return;
-  result.hidden = true;
-  delete result.dataset.outcome;
-  result.textContent = '';
+  if (result) {
+    result.hidden = true;
+    delete result.dataset.outcome;
+    result.textContent = '';
+  }
+  const support = supportEl(root);
+  if (support) {
+    support.hidden = true;
+    support.textContent = '';
+  }
 }
 
 function resultEl(root: HTMLElement): HTMLElement | null {
   return root.querySelector<HTMLElement>('[data-testid="predict-result"]');
+}
+
+function supportEl(root: HTMLElement): HTMLElement | null {
+  return root.querySelector<HTMLElement>('[data-testid="predict-support"]');
 }
 
 function syncSelection(root: HTMLElement): void {
