@@ -20,9 +20,22 @@ const continueBtn = '[data-testid="puzzle-continue"]';
 const complete = '[data-testid="puzzle-complete"]';
 const nextScenario = '[data-testid="puzzle-next-scenario"]';
 
+const railSeam = '[data-testid="puzzle-tutor-rail"]';
+const rail = '[data-testid="tutor-rail"]';
+const tutorInput = '[data-testid="tutor-input"]';
+const tutorSend = '[data-testid="tutor-send"]';
+const tutorAnswer = '[data-testid="tutor-answer"]';
+
 async function openPuzzle(page: Page): Promise<void> {
   await page.locator(puzzleTab).click();
   await page.locator(screen).waitFor();
+}
+
+/** Ask the puzzle rail a question and block until nothing is in flight. No sleep. */
+async function askRail(page: Page, question: string): Promise<void> {
+  await page.locator(tutorInput).fill(question);
+  await page.locator(tutorSend).click();
+  await expect(page.locator(rail)).toHaveAttribute('data-pending', '0');
 }
 
 async function withApp(body: (page: Page) => Promise<void>): Promise<void> {
@@ -120,6 +133,49 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
       // Both decisions played the GTO way.
       await expect(page.locator(screen)).toHaveAttribute('data-correct', '2');
+    });
+  });
+
+  /**
+   * The tutor rail in puzzle mode. Runs with NO credentials (launchApp passes process.env through
+   * untouched, so resolveTutor sees no OFFSUIT_BEDROCK_* vars → the null tutor), so every assertion
+   * is offline and deterministic. The rail routes through the SAME guarded tutor:ask IPC and mute
+   * matrix as the lesson rail — these tests prove the puzzle context is wired to that routing, not
+   * that the rail works (tests/e2e/tutor-rail.spec.ts owns that).
+   */
+  test('6. the tutor rail mounts on the puzzle and answers a mechanics question', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      await expect(page.locator(`${railSeam} ${rail}`)).toHaveCount(1);
+
+      // A mechanics question is answered even pre-commit (rules are always allowed).
+      await askRail(page, 'which hand beats a flush');
+      const first = page.locator(tutorAnswer).first();
+      await expect(first).toHaveAttribute('data-state', 'answered');
+      const body = (await first.locator('[data-testid="tutor-turn-body"]').textContent()) ?? '';
+      expect(body.length).toBeGreaterThan(20);
+    });
+  });
+
+  test('7. a strategy question is held back before acting and allowed after the verdict', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+
+      // BEFORE ACTING: the spot is pre-commit, the strict row — strategy is refused.
+      await askRail(page, 'should I raise or fold here');
+      await expect(page.locator(tutorAnswer).last()).toHaveAttribute('data-state', 'blocked');
+
+      // Act, so the spot flips to post-reveal.
+      await page.locator('[data-testid="puzzle-raise"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
+
+      // AFTER THE VERDICT: the identical strategy question is now allowed. The rail persisted its
+      // transcript across the paint (replaceChildren re-appends the same rail node), so the earlier
+      // blocked turn is still there and this one appends to it.
+      await askRail(page, 'should I raise or fold here');
+      const answers = page.locator(tutorAnswer);
+      await expect(answers).toHaveCount(2);
+      await expect(answers.last()).toHaveAttribute('data-state', 'answered');
     });
   });
 });

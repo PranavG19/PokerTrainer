@@ -104,6 +104,14 @@
   font-weight: 500;
 }
 
+/* The tutor rail sits below the spot as its own panel, matching the lesson screen's placement. It is
+ * always mounted so the learner can ask deeper questions; before they act it withholds strategy
+ * (spot-pre-commit), after a verdict it opens up (spot-post-reveal) — that routing lives in the rail
+ * and the mute matrix, not here. */
+.puzzle-rail {
+  display: block;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .puzzle-verdict,
   .puzzle-complete {

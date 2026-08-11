@@ -1,4 +1,7 @@
 import '../styles-puzzle.css';
+// The tutor rail's styles live in styles-lesson.css (where the rail first shipped). Import it here
+// too so the rail is styled from this screen independently of whether the lesson screen is built.
+import '../styles-lesson.css';
 import type { ActionKind, TableState } from '../../core/table.js';
 import { applyAction, legalActions, minRaiseTo } from '../../core/table.js';
 import {
@@ -9,7 +12,8 @@ import {
   type StepVerdict,
 } from '../../core/puzzle.js';
 import { SCENARIOS } from '../../core/puzzleScenarios.js';
-import { renderCard, renderCardRow } from '../components/card.js';
+import { renderCardRow } from '../components/card.js';
+import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
 /**
  * PUZZLE MODE screen — walk the scenario library, one taught spot at a time.
@@ -44,6 +48,47 @@ export function renderPuzzleScreen(): HTMLElement {
   const records: StepRecord[] = [];
 
   const scenario = (): Scenario => SCENARIOS[scenarioIndex];
+
+  /**
+   * The tutor rail, built ONCE so its transcript survives every paint (paint replaceChildren's the
+   * body, but re-appends this same node — same pattern as lesson.ts). The learner can ask the tutor
+   * to go deeper on the spot; the rail routes through the same guarded tutor:ask IPC as everywhere
+   * else, so nothing here can leak a solver number the mute matrix would withhold.
+   */
+  let rail: HTMLElement | null = null;
+
+  /**
+   * Which T5 row the rail sits in. A puzzle spot is pre-commit UNTIL the learner has answered this
+   * step — then it flips post-reveal, where strategy questions about the graded decision are allowed.
+   * A completed scenario is post-reveal too: every decision is made. Before the first answer it is
+   * pre-commit, the stricter cell, so a learner cannot ask the tutor for the answer before deciding.
+   */
+  const railContext = (): RailContext =>
+    lastVerdict !== null || isComplete(scenario(), stepIndex) ? 'spot-post-reveal' : 'spot-pre-commit';
+
+  /** The visible table for the current spot — only what the learner can already see on screen. */
+  const railTable = (): RailTable => {
+    const s = scenario();
+    const inBb = (chips: number): number => Math.round((chips / s.bigBlind) * 10) / 10;
+    return {
+      positions: state.seats.map((seat) => seatName(s, seat.id)),
+      stacksBb: state.seats.map((seat) => inBb(seat.stack)),
+      potBb: inBb(state.pot),
+      board: [...state.board],
+      heroCards: [...state.seats[HERO].hole],
+      toAct: seatName(s, state.toAct),
+      street: state.street === 'showdown' ? 'river' : state.street,
+    };
+  };
+
+  function railSeam(): HTMLElement {
+    const seam = document.createElement('aside');
+    seam.className = 'puzzle-rail';
+    seam.dataset.testid = 'puzzle-tutor-rail';
+    rail ??= renderTutorRail({ context: railContext, table: railTable });
+    seam.appendChild(rail);
+    return seam;
+  }
 
   /** Advance villains by the script until it is the hero's turn, the hand ends, or the line is done. */
   function advanceToHero(): void {
@@ -103,6 +148,7 @@ export function renderPuzzleScreen(): HTMLElement {
       header(s),
       table(s),
       lastVerdict !== null ? verdictBlock(lastVerdict) : done ? completeBlock(s) : controls(),
+      railSeam(),
     );
   }
 
