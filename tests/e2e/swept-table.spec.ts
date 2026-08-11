@@ -15,13 +15,13 @@ import { chipTotal, snapshot, tableScreen, waitForIdle, CHIPS_IN_PLAY } from './
  * `committed`, so 25 vanished per hand. tests/unit/lone-funded-seat.test.ts owns that; this file owns
  * the UI escape, and asserts the chip total as a second oracle because the two defects met here.
  *
- * Seed 158 is pinned: with the hero shoving every hand it sweeps all 20000 chips in 2 hands, the
- * fastest of the 19 sweeping seeds in a22-sweep.ts's 200-seed scan. The probe seeds its villain
- * stream `seed ^ 0x5eed` from ONE long-lived generator, mirroring table.ts:129 — an earlier version
- * used its own stream, found seed 36, and that seed did not reproduce in the app at all.
+ * Seed 14 is pinned: with the hero shoving every hand it sweeps all 20000 chips within a few hands.
+ * It was found by scanning seeds against the REAL app (the villains now play their archetype
+ * policies, so an offline probe no longer models them; seed 158, the old offline-probe pick, busts
+ * the hero on hand 1 under archetype play). The sweep is what matters, not the exact hand count.
  */
 
-const SEED_HERO_SWEEPS = 158;
+const SEED_HERO_SWEEPS = 14;
 const homeScreen = '[data-testid="home-screen"]';
 const nextHand = '[data-testid="next-hand"]';
 const newSession = '[data-testid="new-session"]';
