@@ -24,6 +24,7 @@ import { visibleArchetypeLabel } from '../../core/jitter.js';
 import { mulberry32, shuffle } from '../../core/rng.js';
 import { createGiftLedger, type GiftEntry } from '../../core/giftLedger.js';
 import { isCallingAction, recordHandGifts, type VillainCall } from '../../core/giftObserve.js';
+import { quipFor } from '../../core/tableTalk.js';
 import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session.js';
 import type { PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
@@ -186,6 +187,13 @@ export function renderTable(opts: {
   let villainCalls: VillainCall[] = [];
   /** Session-lived so a gift's `seq` is monotonic across hands, matching giftLedger's contract. */
   const giftLedger = createGiftLedger();
+  /**
+   * The last action each villain seat took THIS hand, for the seat's speech bubble. Populated when a
+   * villain acts, cleared each hand. In-hand the quip keys off the action kind ALONE (information-
+   * free — the archetype label is hidden until showdown, tableTalk.ts's invariant), so this stores
+   * only the kind, never the archetype.
+   */
+  const lastActionBySeat = new Map<number, ActionKind>();
   let heroVpip = false;
   let heroPfr = false;
   let heroStartStack = state.seats[0].stack + state.seats[0].committed;
@@ -356,6 +364,9 @@ export function renderTable(opts: {
           });
         }
       }
+      // Table-talk: remember what this villain just did so its seat can show a line. Kind only —
+      // the quip is information-free in-hand (tableTalk.ts), so nothing about the archetype is stored.
+      lastActionBySeat.set(state.toAct, action.kind);
       state = applyAction(state, action);
       advance();
     }, AI_DELAY_MS);
@@ -411,6 +422,7 @@ export function renderTable(opts: {
     grades = [];
     decisions = [];
     villainCalls = [];
+    lastActionBySeat.clear();
     heroVpip = false;
     heroPfr = false;
     settled = false;
@@ -449,7 +461,9 @@ export function renderTable(opts: {
 
     const showdown = state.winners !== null;
     seatsWrap.replaceChildren(
-      ...state.seats.map((seat) => renderSeat(seat, state, showdown, seatArchetype)),
+      ...state.seats.map((seat) =>
+        renderSeat(seat, state, showdown, seatArchetype, lastActionBySeat.get(seat.id)),
+      ),
     );
 
     // The commit row tracks whether a decision is pending, so it must be re-synced every render,
@@ -652,6 +666,7 @@ function renderSeat(
   state: TableState,
   showdown: boolean,
   seatArchetype: Map<number, ArchetypeName>,
+  lastAction: ActionKind | undefined,
 ): HTMLElement {
   const el = document.createElement('div');
   el.className = 'seat';
@@ -691,6 +706,19 @@ function renderSeat(
     // mid-hand would leak the label on hover — the exact thing O3 hides.
     tag.title = revealed ? ARCHETYPE_EXPLOITS[name].exploit : '';
     el.appendChild(tag);
+
+    // Table-talk: a short line for the villain's last action. In-hand it is information-free (the
+    // archetype is passed only once `revealed`, which gates on the same showdown flag O3 uses, so a
+    // live-hand line never leaks the hidden label). The variant is a STABLE per-seat/street index, not
+    // random, so a replay says the same things. Only shown when the seat has acted this hand.
+    if (lastAction !== undefined) {
+      const bubble = document.createElement('div');
+      bubble.className = 'seat-talk';
+      bubble.dataset.testid = 'seat-talk';
+      bubble.dataset.revealed = String(revealed);
+      bubble.textContent = quipFor(lastAction, revealed ? name : null, seat.id + state.board.length);
+      el.appendChild(bubble);
+    }
   }
 
   const stack = document.createElement('div');

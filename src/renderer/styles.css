@@ -438,6 +438,25 @@ body {
   color: var(--chip-blind);
 }
 
+/* Villain table-talk: a small speech line under the seat. Muted while the hand is live (the line is
+ * information-free there); a touch brighter once the archetype is revealed at showdown, when it turns
+ * into in-character personality. Kept to one line so it never grows the seat pod past its budget. */
+.seat-talk {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-lo);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-talk[data-revealed='true'] {
+  color: var(--text-hi);
+}
+
 .dealer-button {
   width: 20px;
   height: 20px;
