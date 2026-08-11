@@ -18,12 +18,35 @@
  * the drill keys never move, which is the pair the learner is acting on.
  */
 .charts-screen {
-  --panel-budget: calc(100vh - 65px);
+  /* 65px = 45 tab bar + 20 shell padding. The extra 48 = the mode-toggle row (~24px) plus its 20px
+   * grid gap: the toggle sits in row 1 above the compressed panel, so the self-scrolling panels below
+   * it (compressed, defense drill) get that much less height before they scroll. The GRID panel does
+   * NOT lose this — it spans both rows in column 2, so its height budget (the 220 in --cell) is
+   * unchanged and its cell floor at 640px stays comfortable. */
+  --panel-budget: calc(100vh - 113px);
 
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+}
+
+/* The mode toggle heads column 1 only; the compressed panel drops beneath it. */
+.charts-screen > .charts-modes {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.charts-screen > .compressed {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+/* The grid panel is the height-binding element, so it spans both rows and starts at the shell top —
+ * the toggle above never steals from its budget. */
+.charts-screen > .grid-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 /*
@@ -367,4 +390,125 @@
   .chart-width-value {
     font-size: 30px;
   }
+}
+
+/* ─── Mode toggle (RFI vs Defense) + Defense drill ───────────────────────────────
+ * The defense drill is the Charts screen's second mode (no tab budget for a 14th tab). It reuses the
+ * RFI drill's visual language: no accent colour, severity by weight and position, silence is not praise. */
+/* The screen is a 2-column grid (compressed | grid). The mode toggle heads column 1 (placement above);
+ * in RFI mode the grid panel spans both rows beside it so the tuned height budget is untouched. In
+ * defense mode the defense panel spans both columns in row 2, beneath the toggle, and scrolls itself. */
+.charts-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.charts-screen > .defense-drill {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  max-height: var(--panel-budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.charts-mode-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  background: var(--surface-hi);
+  color: var(--text-lo);
+}
+
+.charts-mode-btn[data-active='true'] {
+  color: var(--ink);
+  background: var(--card-face);
+  font-weight: 600;
+}
+
+.defense-drill {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.defense-spots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.defense-spot-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  background: var(--surface-hi);
+  color: var(--text-lo);
+}
+
+.defense-spot-btn[data-active='true'] {
+  color: var(--ink);
+  background: var(--card-face);
+  font-weight: 600;
+}
+
+.defense-width {
+  width: 100%;
+}
+
+.defense-prompt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px 16px;
+}
+
+.defense-hand {
+  display: flex;
+  gap: 6px;
+}
+
+.defense-keys {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.defense-key {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.defense-feedback {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+/* Severity by weight, never colour (V2 parity with the RFI drill). */
+.defense-feedback[data-verdict='wrong'] .defense-verdict {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+.defense-feedback[data-verdict='right'] .defense-verdict {
+  color: var(--text-lo);
+  font-weight: 400;
+}
+
+.defense-when {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-lo);
+}
+
+.defense-tag {
+  font-size: 10px;
+  color: var(--text-lo);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }

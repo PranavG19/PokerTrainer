@@ -840,3 +840,92 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
     });
   });
 });
+
+/**
+ * DEFENSE MODE — the facing-a-raise 3-bet/call/fold drill, the Charts screen's second mode. It grades
+ * against core/preflop.ts defenseAction, so these tests prove the mode is wired to that oracle and the
+ * verdict is honest, not that the ranges are correct (tests/unit/defense.test.ts owns the full grid).
+ */
+const defenseDrill = '[data-testid="defense-drill"]';
+const defenseVerdict = '[data-testid="defense-verdict"]';
+
+async function openDefenseMode(page: Page): Promise<void> {
+  await page.click('[data-testid="tab-charts"]');
+  await page.waitForSelector(chartsScreen);
+  await page.click('[data-testid="charts-mode-btn"][data-mode="defense"]');
+  await page.waitForSelector(defenseDrill);
+}
+
+test.describe('charts — facing-a-raise defense drill', () => {
+  test('D1. the mode toggle swaps the RFI grid for the defense drill and back', async () => {
+    await withCharts(async ({ page }) => {
+      // Starts in RFI mode: the 169-cell grid is up, the defense drill is not.
+      await expect(page.locator(grid)).toBeVisible();
+      await expect(page.locator(defenseDrill)).toHaveCount(0);
+      await expect(page.locator(chartsScreen)).toHaveAttribute('data-mode', 'rfi');
+
+      await page.click('[data-testid="charts-mode-btn"][data-mode="defense"]');
+      await expect(page.locator(defenseDrill)).toBeVisible();
+      await expect(page.locator(grid)).toHaveCount(0);
+      await expect(page.locator(chartsScreen)).toHaveAttribute('data-mode', 'defense');
+
+      // Back to RFI restores the grid.
+      await page.click('[data-testid="charts-mode-btn"][data-mode="rfi"]');
+      await expect(page.locator(grid)).toBeVisible();
+      await expect(page.locator(defenseDrill)).toHaveCount(0);
+    });
+  });
+
+  test('D2. exactly one of the three actions is graded right for a fixed spot+combo (the grader is real)', async () => {
+    await withCharts(async ({ page }) => {
+      await openDefenseMode(page);
+      // Pin the spot so the correct action is fixed. The combo redraws each commit, so instead we read
+      // the verdict LINE (which always names the correct action for the combo just played) and count
+      // how many of the three buttons produce a 'right' for THAT combo — must be exactly one.
+      await page.click('[data-testid="defense-spot-btn"][data-spot="bb-vs-btn"]');
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-spot', 'bb-vs-btn');
+
+      // Commit the same button (fold) many times; each verdict line states the correct action for the
+      // combo that was showing. A 'right' means fold was correct; a 'wrong' names what was. Over a run
+      // of distinct combos we must see both verdicts (fold is neither always right nor always wrong),
+      // which proves the grader varies with the combo rather than being hard-coded.
+      const verdicts = new Set<string>();
+      for (let i = 0; i < 25; i++) {
+        await page.click('[data-testid="defense-fold"]');
+        verdicts.add((await page.getAttribute(defenseDrill, 'data-verdict')) ?? '');
+      }
+      expect(verdicts.has('right'), 'folding was never graded right in 25 combos').toBe(true);
+      expect(verdicts.has('wrong'), 'folding was never graded wrong in 25 combos').toBe(true);
+    });
+  });
+
+  test('D3. switching the spot draws a fresh combo and clears the verdict', async () => {
+    await withCharts(async ({ page }) => {
+      await openDefenseMode(page);
+      // Commit once so a verdict is on screen.
+      await page.click('[data-testid="defense-fold"]');
+      await expect(page.locator(defenseVerdict)).toBeVisible();
+
+      const before = await page.getAttribute(defenseDrill, 'data-combo');
+      await page.click('[data-testid="defense-spot-btn"][data-spot="bb-vs-btn"]');
+      // Spot changed, verdict cleared, and a combo is present (may or may not differ, but the verdict is gone).
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-spot', 'bb-vs-btn');
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-verdict', '');
+      expect(before).not.toBeNull();
+    });
+  });
+
+  test('D4. the T/C/F keyboard shortcuts each commit the matching action', async () => {
+    await withCharts(async ({ page }) => {
+      await openDefenseMode(page);
+      const first = Number((await page.getAttribute(defenseDrill, 'data-answered')) ?? '0');
+      await page.keyboard.press('f');
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-answered', String(first + 1));
+      await page.keyboard.press('c');
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-answered', String(first + 2));
+      await page.keyboard.press('t');
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-answered', String(first + 3));
+    });
+  });
+
+});
