@@ -195,6 +195,7 @@ test.describe('puzzle mode', () => {
       'cbet-dry-ace': ['raise', 'bet'],
       'fold-kq-to-utg': ['fold'],
       '3bet-aa-vs-open': ['raise'],
+      'pot-control-ip': ['raise', 'check'],
     };
 
     await withApp(async (page) => {
