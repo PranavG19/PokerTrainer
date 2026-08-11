@@ -1253,6 +1253,73 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    id: 'probe-turn-after-checkback',
+    title: 'Probing the turn after the raiser gives up',
+    setup:
+      'You defend 9♠8♠ in the big blind against a button open. You check the K♦7♣3♥ flop and the button checks back. The turn is the 9♥ and it is on you again.',
+    seatCount: 3,
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['9s', '8s'],
+      ['Ad', 'Qc'],
+      ['Jd', 'Tc'],
+    ],
+    board: ['Kd', '7c', '3h', '9h', '2s'],
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          '9♠8♠ is a fine big-blind defend against a button open: a suited connector getting a great price to close the action, and it flops straights and flushes that play well enough to continue out of position.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'You have only backdoor draws on K♦7♣3♥, and it is a king-high board that favours the raiser. Check to them — leading into their range gains nothing, and checking keeps your own weak-and-strong hands together rather than turning your hand face up.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The button CHECKED BACK the flop, which caps their range — a real king almost always continuation-bets. The 9♥ pairs you, so you now likely hold the best hand. Lead the turn: this "probe bet" takes back the betting lead the raiser surrendered, charges their overcards and gutshots, and wins a pot they have already shown they do not want.',
+      },
+    ],
+  },
+  {
+    id: 'blocker-3bet-bluff-a5s',
+    title: '3-bet bluffing with a blocker',
+    setup:
+      'It folds to the button, who opens to 2.5bb. You are in the big blind with A♠5♠, 100bb deep, facing a wide, positional steal.',
+    seatCount: 3,
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', '5s'],
+      ['Jc', 'Ts'],
+      ['7h', '2d'],
+    ],
+    board: ['2c', '9d', 'Kh', '4s', '8h'],
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠5♠ is a premium 3-bet BLUFF against a wide button open. The ace BLOCKS the strongest hands in their continuing range — AA, AK, AQ — so they fold more often and are less likely to have you crushed when they do call. It is not a pure bluff either: called, it makes the nut flush and wheel straights, so it realises its equity well. Attacking a loose open with blocker hands, not only with monsters, is what keeps you from being exploitably tight from the blinds.',
+      },
+    ],
+  },
+  {
     id: 'checkback-underpair-multiway',
     title: 'Checking back an underpair in a multiway pot',
     setup:

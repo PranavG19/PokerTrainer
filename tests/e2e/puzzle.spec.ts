@@ -230,6 +230,8 @@ test.describe('puzzle mode', () => {
       'raise-donk-bet-set': ['raise', 'raise'],
       'overbet-river-nut-flush': ['raise', 'bet', 'bet', 'bet'],
       'checkback-underpair-multiway': ['raise', 'check'],
+      'probe-turn-after-checkback': ['call', 'check', 'bet'],
+      'blocker-3bet-bluff-a5s': ['raise'],
     };
 
     await withApp(async (page) => {
