@@ -1,16 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import type { Grade } from '../../src/core/coach.js';
+import type { GiftEntry } from '../../src/core/giftLedger.js';
 import type { HandRecord, SessionState } from '../../src/core/session.js';
 import {
   DEFAULT_BANKROLL,
+  MAX_GIFT_LOG,
   MAX_HAND_LOG,
   computeStats,
   deserialize,
   emptySession,
   gradeRecordsFrom,
+  recordGifts,
   recordHand,
   serialize,
 } from '../../src/core/session.js';
+
+function gift(overrides: Partial<GiftEntry> = {}): GiftEntry {
+  return {
+    seq: 0,
+    handNumber: 1,
+    villainSeatId: 2,
+    villainName: 'Bo',
+    villainHole: ['Qh', 'Qd'],
+    heroHole: ['As', 'Ah'],
+    board: ['2s', '7d', 'Kc', '9h', '3c'],
+    street: 'river',
+    action: 'call',
+    villainEquity: 0,
+    breakEven: 0.25,
+    evChips: -50,
+    giftChips: 50,
+    ...overrides,
+  };
+}
 
 function hand(overrides: Partial<HandRecord> = {}): HandRecord {
   return {
@@ -206,6 +228,40 @@ describe('leak aggregation', () => {
     const s = playHands(records);
     expect(s.hands.length).toBe(MAX_HAND_LOG);
     expect(s.stats.leaks['pot odds']).toBe(MAX_HAND_LOG + 20);
+  });
+});
+
+describe('gift ledger persistence (O5)', () => {
+  it('recordGifts appends and survives a round trip', () => {
+    const s = recordGifts(emptySession(), [gift(), gift({ seq: 1, villainName: 'Cy', giftChips: 120 })]);
+    expect(s.gifts.map((g) => g.villainName)).toEqual(['Bo', 'Cy']);
+    const round = deserialize(serialize(s));
+    expect(round.gifts).toEqual(s.gifts);
+  });
+
+  it('recordGifts with nothing observed leaves the state object untouched', () => {
+    const s = emptySession();
+    expect(recordGifts(s, [])).toBe(s);
+  });
+
+  it('bounds the persisted gift log', () => {
+    const many = Array.from({ length: MAX_GIFT_LOG + 30 }, (_, i) => gift({ seq: i }));
+    const s = recordGifts(emptySession(), many);
+    expect(s.gifts.length).toBe(MAX_GIFT_LOG);
+    // The newest are kept: slice(-N) drops the oldest, so the last seq must survive.
+    expect(s.gifts[s.gifts.length - 1].seq).toBe(MAX_GIFT_LOG + 29);
+  });
+
+  it('a save file predating the gift ledger still loads with an empty list', () => {
+    const legacy = { bankroll: 12000, hands: [], stats: { handsPlayed: 3 } };
+    expect(deserialize(legacy).gifts).toEqual([]);
+  });
+
+  it('drops a malformed gift rather than resurrecting fabricated numbers', () => {
+    const raw = serialize(recordGifts(emptySession(), [gift()]));
+    // Corrupt the one entry: a gift with no equity number cannot be reconstructed from real fields.
+    (raw.gifts as Record<string, unknown>[])[0].villainEquity = 'nonsense';
+    expect(deserialize(raw).gifts).toEqual([]);
   });
 });
 

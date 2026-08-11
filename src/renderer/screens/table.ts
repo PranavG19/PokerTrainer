@@ -22,6 +22,8 @@ import {
 } from '../../core/archetypes.js';
 import { visibleArchetypeLabel } from '../../core/jitter.js';
 import { mulberry32, shuffle } from '../../core/rng.js';
+import { createGiftLedger, type GiftEntry } from '../../core/giftLedger.js';
+import { isCallingAction, recordHandGifts, type VillainCall } from '../../core/giftObserve.js';
 import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session.js';
 import type { PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
@@ -74,6 +76,13 @@ export function renderTable(opts: {
    * decides, so this cannot go stale against a setting changed mid-session.
    */
   onVerdict?: (message: string | null) => void;
+  /**
+   * O5/story 34: the -EV villain calls this hand's showdown REVEALED, auto-populated so the ledger
+   * cannot be inflated. Called once per completed hand with the gifts observed (empty for a hand that
+   * revealed none), so the caller persists them. The table observes; it never scores — the ledger
+   * derives every number from the revealed cards.
+   */
+  onGifts?: (gifts: readonly GiftEntry[]) => void;
 }): TableHandle {
   const root = document.createElement('div');
   root.className = 'table-screen';
@@ -168,6 +177,15 @@ export function renderTable(opts: {
   let grades: GradeRecord[] = [];
   /** Every hero decision in order, captured pre-action so the review can replay the spot as seen. */
   let decisions: DecisionRecord[] = [];
+  /**
+   * O5: every villain call this hand, captured PRE-action (the pot, board and price are overwritten
+   * as the hand runs on). Reset per hand; resolved against the settled table at finishHand, where the
+   * showdown decides which callers revealed and are therefore observable. Held cards are read from
+   * the settled state, not captured here, so a caller who later folds contributes nothing.
+   */
+  let villainCalls: VillainCall[] = [];
+  /** Session-lived so a gift's `seq` is monotonic across hands, matching giftLedger's contract. */
+  const giftLedger = createGiftLedger();
   let heroVpip = false;
   let heroPfr = false;
   let heroStartStack = state.seats[0].stack + state.seats[0].committed;
@@ -275,6 +293,13 @@ export function renderTable(opts: {
       grades,
       decisions,
     });
+
+    // O5: resolve the hand's captured villain calls against the SETTLED table, which fixes who
+    // revealed. recordHandGifts filters to observable showdowns and the ledger scores each by exact
+    // equity; onGifts fires only when the hand actually revealed a -EV call, so a gift-less hand
+    // persists nothing.
+    const gifts = recordHandGifts(giftLedger, state, villainCalls);
+    if (gifts.length > 0) opts.onGifts?.(gifts);
   }
 
   function advance(): void {
@@ -307,6 +332,30 @@ export function renderTable(opts: {
       // consumes aiRng in the same count/order as ai.ts's decideActionAs (three draws per decision),
       // so the long-lived stream advances identically — only the profile thresholds differ.
       const action = decideArchetypeAction(profile, state, state.toAct, aiRng);
+      // O5 capture, PRE-action. Only a CALL against a live bet is scorable, so an all-in is captured
+      // only when it is a call for the stack (its total does not exceed the current bet) — never a
+      // raise-shove, which is aggression whose EV needs the fold equity a showdown does not record
+      // (giftLedger's "why only calls"). The pot here is before this seat's chips go in (it already
+      // holds the bettor's bet); cost is the seat's own contribution, capped at its stack for a short
+      // all-in, the same min the engine applies (table.ts call/allin) — the price actually paid.
+      if (isCallingAction(action.kind)) {
+        const villain = state.seats[state.toAct];
+        const isCallForStack = villain.committed + villain.stack <= state.currentBet;
+        const scorable = action.kind === 'call' || isCallForStack;
+        const cost = Math.min(state.currentBet - villain.committed, villain.stack);
+        if (scorable && cost > 0) {
+          villainCalls.push({
+            handNumber: state.handNumber,
+            villainSeatId: villain.id,
+            villainName: villain.name,
+            action: action.kind,
+            board: [...state.board],
+            street: state.street,
+            potBefore: state.pot,
+            cost,
+          });
+        }
+      }
       state = applyAction(state, action);
       advance();
     }, AI_DELAY_MS);
@@ -361,6 +410,7 @@ export function renderTable(opts: {
     if (pendingTimer !== null) clearTimeout(pendingTimer);
     grades = [];
     decisions = [];
+    villainCalls = [];
     heroVpip = false;
     heroPfr = false;
     settled = false;

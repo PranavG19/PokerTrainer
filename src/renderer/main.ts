@@ -7,12 +7,14 @@ import type { HandRecord, SessionState } from '../core/session.js';
 import {
   deserialize,
   rebuy,
+  recordGifts,
   recordHand,
   recordPrediction,
   serialize,
   setCoachedMode,
   setSpokenVerdicts,
 } from '../core/session.js';
+import type { GiftEntry } from '../core/giftLedger.js';
 import type { PredictOutcome } from '../core/predict.js';
 import {
   accept as acceptSuggestion,
@@ -199,6 +201,12 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /** O5: persist the -EV villain calls a completed hand revealed. The table already scored them. */
+  async function onGifts(gifts: readonly GiftEntry[]): Promise<void> {
+    session = recordGifts(session, gifts);
+    await io.saveState(serialize(session));
+  }
+
   async function onPrediction(outcome: PredictOutcome): Promise<void> {
     session = recordPrediction(session, outcome);
     await io.saveState(serialize(session));
@@ -316,6 +324,7 @@ async function boot(): Promise<void> {
       coachedMode: session.coachedMode,
       onHandComplete: (r) => void onHandComplete(r),
       onRebuy: () => void onRebuy(),
+      onGifts: (gifts) => void onGifts(gifts),
       onPrediction: (outcome) => void onPrediction(outcome),
       onCoachedModeChange: (on) => void onCoachedModeChange(on),
       onVerdict: (message) => narrate(message),

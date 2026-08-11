@@ -1,6 +1,10 @@
 import type { SessionState } from '../../core/session.js';
 import { computeStats } from '../../core/session.js';
 import { calibrationLine } from '../../core/predict.js';
+import { describeGift, type GiftEntry } from '../../core/giftLedger.js';
+
+/** How many gifts to list; the rest are summarised in the count. Newest are the most useful. */
+const GIFT_DISPLAY_CAP = 12;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_WIDTH = 320;
@@ -31,6 +35,17 @@ export function renderProfile(opts: {
   const leaks = section('Leaks by concept', renderLeaks(summary.leaks));
   leaks.classList.add('profile-leaks');
   root.appendChild(leaks);
+
+  // The gift section shares the column's one block of flexible height with the leak list (both are
+  // variable-length signal lists that shrink-and-scroll). When there are no gifts yet it is omitted
+  // rather than shown as an empty slab: the column at the 900x640 minimum is tuned to the pixel and
+  // has no room for a sixth always-present section, and "nothing observed" is already the honest
+  // reading of its absence. It appears the moment the first gift is recorded.
+  if (opts.session.gifts.length > 0) {
+    const gifts = section('Gifts received', renderGifts(opts.session.gifts));
+    gifts.classList.add('profile-gifts');
+    root.appendChild(gifts);
+  }
 
   root.appendChild(
     section(
@@ -244,6 +259,46 @@ function renderLeaks(leaks: { principle: string; count: number; costBb: number }
     cost.textContent = `${leak.costBb.toFixed(1)} bb · ${leak.count}×`;
     item.appendChild(cost);
 
+    list.appendChild(item);
+  }
+
+  return list;
+}
+
+/**
+ * O5/story 34: the -EV villain calls the learner OBSERVED at showdown, in action-with-a-holding
+ * form. Every line is `describeGift`'s sentence — the module owns the wording, so the screen never
+ * reassembles the price from parts. Newest first, since a recent gift is the most instructive; the
+ * total chips handed over is summarised so the ledger's magnitude is visible without scrolling.
+ */
+function renderGifts(gifts: readonly GiftEntry[]): HTMLElement {
+  const list = document.createElement('ol');
+  list.className = 'gift-list';
+  list.dataset.testid = 'gift-list';
+
+  if (gifts.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'gift-empty';
+    empty.dataset.testid = 'gift-empty';
+    empty.textContent = 'No gifts observed yet — they appear when an opponent shows down a losing call.';
+    list.appendChild(empty);
+    return list;
+  }
+
+  const totalChips = gifts.reduce((sum, g) => sum + g.giftChips, 0);
+  const total = document.createElement('li');
+  total.className = 'gift-total';
+  total.dataset.testid = 'gift-total';
+  total.textContent = `${gifts.length} observed · ${totalChips} chips handed over`;
+  list.appendChild(total);
+
+  // Newest first; only the most recent are drawn, the rest live in the count above.
+  for (const gift of [...gifts].reverse().slice(0, GIFT_DISPLAY_CAP)) {
+    const item = document.createElement('li');
+    item.className = 'list-row gift-row';
+    item.dataset.testid = 'gift-row';
+    item.dataset.seat = String(gift.villainSeatId);
+    item.textContent = describeGift(gift);
     list.appendChild(item);
   }
 
