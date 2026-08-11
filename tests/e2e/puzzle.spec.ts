@@ -199,6 +199,7 @@ test.describe('puzzle mode', () => {
       'call-flush-draw-odds': ['call', 'check', 'call'],
       'fold-open-to-3bet': ['raise', 'fold'],
       'barrel-turn-overpair': ['raise', 'bet', 'bet'],
+      'call-river-bluffcatch': ['raise', 'check', 'check', 'call'],
     };
 
     await withApp(async (page) => {

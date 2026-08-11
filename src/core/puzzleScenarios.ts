@@ -339,6 +339,57 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'call-river-bluffcatch',
+    title: 'Calling a river bluff-catch with second pair',
+    setup:
+      'You open T♣9♣ on the button, the big blind calls, and you check J♠9♦4♥ and the 2♣ turn back for pot control. On the 7♠ river the big blind — who has shown nothing all hand — fires a bet. Do you pay it off?',
+    seatCount: 3,
+    // pot-control-ip layout (button on seat 0 = hero): the hero opens preflop first, but is the button
+    // so acts LAST on every postflop street. The live caller is the BB (seat 2), who therefore acts
+    // first postflop — letting them bet INTO the hero on the river, the bluff-catch spot.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button/opener). Seat 1 = SB. Seat 2 = BB (caller/bluffer).
+    holes: [
+      ['Tc', '9c'],
+      ['3s', '3d'], // SB: folds preflop
+      ['Ah', 'Kh'], // BB: misses everything — ace-high, a pure bluff on the river
+    ],
+    board: ['Js', '9d', '4h', '2c', '7s'],
+    // SB folds preflop, BB calls. Postflop the hero acts last, so on each street the BB acts first:
+    // BB checks the flop, checks the turn, then bets the river as a bluff.
+    villainScript: [
+      { kind: 'fold' }, // SB folds the open
+      { kind: 'call' }, // BB calls
+      { kind: 'check' }, // BB checks the flop (acts first postflop)
+      { kind: 'check' }, // BB checks the turn
+      { kind: 'bet', to: 150 }, // BB bluffs the river
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation: 'T9s is a standard button open — suited, connected, and it plays well in position.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'You flopped second pair on J-9-4. It has showdown value but is not strong enough to bet three streets; checking back controls the pot, keeps the bluffs in the caller’s range, and lets you get to showdown cheaply.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'The 2 is a blank and your hand has not improved. Keep pot-controlling: betting now only folds out worse and gets called by better, while checking keeps the pot small with a medium hand.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'The 7 completes no obvious draw, and a player who checked the flop and turn has a range full of missed draws and give-ups. Second pair beats every bluff, and you are getting a price — folding here is the over-fold that pays off every bluffer. When they have shown no strength and the price is right, one pair is enough to catch a bluff.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
