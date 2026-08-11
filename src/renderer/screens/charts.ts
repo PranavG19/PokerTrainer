@@ -16,6 +16,7 @@ import {
   type Position,
 } from '../../core/preflop.js';
 import { mulberry32, type Rng } from '../../core/rng.js';
+import { pickWeightedClass, type ClassTally } from '../../core/masteryDrill.js';
 import { renderCard } from '../components/card.js';
 
 /**
@@ -64,14 +65,12 @@ export function renderCharts(): HTMLElement {
   );
 
   let position: Position = 'CO';
-  let spotsDrawn = 1;
-  let spot: Combo = nextSpot(rng, 0);
+  let spot: Combo = nextSpot(rng, tallies);
   let feedback: Feedback | null = null;
   let answered = 0;
 
   function drawSpot(): void {
-    spot = nextSpot(rng, spotsDrawn);
-    spotsDrawn += 1;
+    spot = nextSpot(rng, tallies);
   }
 
   function selectPosition(next: Position): void {
@@ -516,12 +515,18 @@ function cardsFor(combo: Combo): Card[] {
 }
 
 /**
- * Round-robin over the six classes rather than a uniform draw over the 169 cells: uniform sampling
- * is over half trash, so the small classes — where the boundaries live — would almost never come
- * up, and the per-class readout is the entire payload of the drill.
+ * Draw the next class by MASTERY WEIGHT rather than a fixed round-robin: a class the learner keeps
+ * missing (or has never seen) comes up more often, a mastered one still recurs but rarely. Uniform
+ * sampling over the 169 cells is over half trash and would starve the small classes where the
+ * boundaries live; a round-robin fixes that but spends equal reps on the aced class and the failed
+ * one. The weighting — and the guarantee no class is starved — lives in core/masteryDrill.ts; the
+ * combo WITHIN the chosen class is still uniform. Two rng() calls per draw (class, then combo).
  */
-function nextSpot(rng: Rng, index: number): Combo {
-  const handClass = HAND_CLASSES[index % HAND_CLASSES.length];
+function nextSpot(rng: Rng, tallies: ReadonlyMap<HandClassId, Tally>): Combo {
+  const ordered: ClassTally[] = HAND_CLASSES.map(
+    (c) => tallies.get(c.id) ?? { attempts: 0, correct: 0 },
+  );
+  const handClass = HAND_CLASSES[pickWeightedClass(ordered, rng)];
   const candidates = combosInClass(handClass.id);
   return candidates[Math.floor(rng() * candidates.length)];
 }
