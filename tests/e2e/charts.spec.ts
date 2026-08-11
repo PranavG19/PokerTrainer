@@ -683,6 +683,66 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
     });
   });
 
+  /**
+   * MASTERY-WEIGHTED SAMPLING (core/masteryDrill.ts, wired through nextSpot). A class the learner
+   * keeps missing must be drilled MORE than the ones they have mastered — the whole point of the
+   * adaptive draw. This fails one chosen class on every appearance and aces every other, then counts
+   * which classes come up over a measurement window: the failed class must be the most-drawn, and
+   * come up well above the flat 1-in-6 a round-robin would give it. Deterministic: seed 42 plus a
+   * fixed commit rule fixes the entire sequence, so this is not a statistical flake.
+   */
+  test('12. a class the learner keeps missing is drilled more than the ones they ace', async () => {
+    const FAILED = 'broadway';
+
+    /** The class of the spot currently on screen, read off its own grid cell — never recomputed. */
+    const spotClass = async (page: Page): Promise<string> => {
+      const spot = await currentSpot(page);
+      const klass = await page.getAttribute(`${cell}[data-combo="${spot}"]`, 'data-class');
+      expect(klass, `no grid cell class for ${spot}`).not.toBeNull();
+      return klass ?? '';
+    };
+
+    /** Miss FAILED on sight, ace everything else — so FAILED alone accumulates a bad record. */
+    const commitByRule = async (page: Page): Promise<void> => {
+      const spot = await currentSpot(page);
+      const opens = await spotOpens(page, spot);
+      const rightKey = opens ? 'o' : 'f';
+      const wrongKey = opens ? 'f' : 'o';
+      await commitKey(page, (await spotClass(page)) === FAILED ? wrongKey : rightKey);
+    };
+
+    await withCharts(async ({ page }) => {
+      await selectPosition(page, 'CO');
+
+      // Warm-up: let every class pick up a record under the rule (unseen classes are drawn first, so
+      // this visits all six), driving FAILED's accuracy down and the rest to mastered.
+      for (let i = 0; i < 40; i += 1) await commitByRule(page);
+
+      // Measure: count the class PRESENTED on each of the next draws, still applying the rule so
+      // FAILED stays failing and the others stay mastered throughout.
+      const MEASURE = 120;
+      const counts = new Map<string, number>(CLASS_IDS.map((id) => [id, 0]));
+      for (let i = 0; i < MEASURE; i += 1) {
+        const klass = await spotClass(page);
+        counts.set(klass, (counts.get(klass) ?? 0) + 1);
+        await commitByRule(page);
+      }
+
+      const failedCount = counts.get(FAILED) ?? 0;
+      // The most-drawn class over the window is the one being missed.
+      for (const id of CLASS_IDS) {
+        if (id === FAILED) continue;
+        expect(
+          failedCount,
+          `${FAILED} (${failedCount}) was not drilled more than ${id} (${counts.get(id)})`,
+        ).toBeGreaterThan(counts.get(id) ?? 0);
+      }
+      // And comfortably above the flat 1-in-6 a round-robin would give it — proof the weighting bites.
+      expect(failedCount, `${FAILED} share ${failedCount}/${MEASURE} is not above a flat sixth`)
+        .toBeGreaterThan(MEASURE / 6);
+    });
+  });
+
   test('11. screenshots at both documented sizes', async () => {
     await withCharts(async ({ app, page }) => {
       await useViewport(app, page, DEFAULT_WIDTH, DEFAULT_HEIGHT);
