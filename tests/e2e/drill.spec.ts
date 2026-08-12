@@ -47,6 +47,7 @@ const unit = '[data-testid="drill-unit"]';
 const hint = '[data-testid="drill-hint"]';
 const side = '[data-testid="drill-side"]';
 const work = '[data-testid="drill-work"]';
+const announcer = '[data-testid="drill-announcer"]';
 
 /** DRILL_KINDS in core/arithmetic.ts, mirrored so a silent edit to either side shows up here. */
 const KINDS = ['pot-odds', 'alpha', 'mdf', 'spr'] as const;
@@ -922,5 +923,45 @@ test.describe('the Drill tab: the verdict settles in, and respects reduced motio
     } finally {
       await close().catch(() => {});
     }
+  });
+});
+
+/*
+ * ACCESSIBILITY — the graded verdict reaches screen readers. The verdict updates in place on commit,
+ * so without a live region an SR learner gets no feedback. An always-present visually-hidden
+ * role=status region mirrors the verdict wording at the shown rung. It survives paint()'s
+ * replaceChildren, is empty while answering, and clears on the next problem.
+ */
+test.describe('the Drill tab: the verdict reaches screen readers', () => {
+  test('A1. the announcer is a polite live region, empty until a verdict lands', async () => {
+    await withDrill(async ({ page }) => {
+      const region = page.locator(announcer);
+      await expect(region).toHaveAttribute('role', 'status');
+      await expect(region).toHaveAttribute('aria-live', 'polite');
+      // Answering, nothing graded yet.
+      await expect(region).toHaveText('');
+    });
+  });
+
+  test('A2. a graded verdict is announced, opening with the same verdict line the panel shows', async () => {
+    await withDrill(async ({ page }) => {
+      await answerWithEnter(page, '33.33');
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-verdict', 'right');
+      const spoken = (await page.locator(announcer).textContent()) ?? '';
+      // Same wording as the visible verdict line, plus the correction the panel shows at rung 0.
+      const line = (await page.locator(verdictLine).textContent()) ?? '';
+      expect(spoken.startsWith(line)).toBe(true);
+      expect(spoken).toContain('You said 33.33%');
+      expect(spoken).toContain('The answer 33.33%');
+    });
+  });
+
+  test('A3. the announcement clears on the next problem, leaving no stale verdict', async () => {
+    await withDrill(async ({ page }) => {
+      await answerWithEnter(page, '33.33');
+      await expect(page.locator(announcer)).not.toHaveText('');
+      await advanceWithEnter(page);
+      await expect(page.locator(announcer)).toHaveText('');
+    });
   });
 });
