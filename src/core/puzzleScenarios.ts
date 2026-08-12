@@ -1320,6 +1320,46 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    id: 'delayed-cbet-turn',
+    title: 'Delaying the c-bet, then firing the turn',
+    setup:
+      'You open A♣J♦ on the button and the big blind calls. On T♠6♥3♦ they check and you check back. The turn is the J♣ — you now have top pair — and the big blind checks to you again. How do you play the flop and turn?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['Ac', 'Jd'],
+      ['7c', '2h'],
+      ['Kd', 'Qh'],
+    ],
+    board: ['Ts', '6h', '3d', 'Jc', '4s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♣J♦ is a standard button open: an ace-high hand with a decent kicker that flops top pairs and gutshots and plays well heads-up in position.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'On T♠6♥3♦ you have only ace-high. Betting folds out the worse hands you beat and gets called by the pairs that beat you, so a c-bet here is mostly value-cutting yourself. Check back to keep the pot small, realise your equity for free, and disguise a hand that can improve — the delayed line.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The J♣ gives you top pair with a strong kicker, and the big blind has now checked twice — a range full of weak pairs, worse jacks, and busted floats. This is the delayed c-bet: because you checked the flop, your bet is disguised, and you charge the hands that would have folded to a flop bet but call once they have connected. Betting now takes the value the flop check set up.',
+      },
+    ],
+  },
+  {
     id: 'checkback-underpair-multiway',
     title: 'Checking back an underpair in a multiway pot',
     setup:
@@ -1351,6 +1391,120 @@ export const SCENARIOS: readonly Scenario[] = [
         action: 'check',
         explanation:
           'Both blinds called, so you are three-way, and K♠9♥5♣ puts an overcard to your tens on the board. Betting an underpair into two players turns showdown value into a bluff — worse hands fold, and any king (far likelier across two ranges) calls or raises you. Check back to keep the pot small and take a cheap turn card with a hand that is often still best but cannot stand pressure. Betting here mostly folds out what you beat and isolates you against what beats you.',
+      },
+    ],
+  },
+  {
+    id: 'trap-flopped-set-dry',
+    title: 'Trapping with a flopped set on a dry board',
+    setup:
+      'You open 9♦9♣ on the button and the big blind calls. The flop is K♠9♥2♦ — you have middle set on a dry, disconnected board. The big blind checks to you. Do you bet or trap?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['9d', '9c'],
+      ['Ah', 'Qs'],
+      ['Jd', 'Tc'],
+    ],
+    board: ['Ks', '9h', '2d', '7c', '4s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          '9♦9♣ is a routine button open: a middle pocket pair with position, happy to win preflop or flop a set in a single-raised pot.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'You flopped a set, but K♠9♥2♦ is bone dry — no flush draw, no straight draw, nothing that can outdraw you cheaply. Against a checking big blind, betting only folds out the air you dominate and gets called by the odd king. Check back to trap: let them catch a piece or turn a bluff on a later street, and keep their whole range in against a hand almost nothing beats. On a wet board you would fast-play to charge draws; here there are none to charge, so the value comes from disguise, not protection.',
+      },
+    ],
+  },
+  {
+    id: 'call-3bet-oop-99',
+    title: 'Flatting a 3-bet out of position',
+    setup:
+      'The button folds and you open 9♥9♠ from the small blind. The big blind 3-bets to 350, and it is back on you — 100bb deep, out of position with a middle pair. Do you 4-bet, call, or fold?',
+    seatCount: 3,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['9h', '9s'],
+      ['As', 'Kd'],
+      ['4c', '3d'],
+    ],
+    board: ['Qd', '8s', '5c', 'Jh', '2s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'raise', to: 350 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          '9♥9♠ is a clear small-blind open: a middle pair is far ahead of the big blind’s range, and raising takes the initiative and denies them a cheap flop rather than limping into a passive pot out of position.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'Facing a 3-bet with 99 out of position, calling is the middle path between two worse options. Folding is far too tight — 99 crushes the big blind’s 3-bet bluffs, dominates their worse pairs, and flips only against overcards like A-K. 4-betting turns your hand into a bluff that only gets called by the hands that beat you (bigger pairs, AK) and folds out everything you dominate. Flatting keeps their bluffs in, keeps the pot controlled out of position, and lets you set-mine or stack off on a good flop. It is the disciplined line: not every strong hand wants to build a huge pot before the flop.',
+      },
+    ],
+  },
+  {
+    id: 'river-bluff-blocker',
+    title: 'Bluffing the river with the nut blocker',
+    setup:
+      'You raise A♠7♥ on the button and the big blind calls. You c-bet the K♠9♠4♥ flop and they call; the turn 2♣ checks through. The river is the J♠ — a third spade — and the big blind checks a final time. You have only ace-high, but the one spade you hold is the A♠. Do you give up or bluff?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', '7h'],
+      ['Qh', 'Jd'],
+      ['Td', '9c'],
+    ],
+    board: ['Ks', '9s', '4h', '2c', 'Js'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠7♥ is a routine button steal — every offsuit ace opens from the button, taking position and the betting lead against the blinds.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'K♠9♠4♥ is a king-high board that favours your opening range far more than the big blind’s calling range, so a standard c-bet applies pressure with equity to spare: you hold a backdoor flush draw (the A♠ with the two board spades) and the ace as a live overcard. Bet to fold out the air and set up later barrels.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'The 2♣ is a total blank — you are still only ace-high, and the backdoor draws did not advance. There is nothing to value-bet and little to fold out that has called a flop bet, so check back, keep the pot small, and keep the A♠ live as a river bluffing card.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'The J♠ puts a third spade out, so a flush is now possible — and you hold the A♠ without a second spade, so YOU have no flush but block the best one. Your hand is only ace-high, making this a pure bluff, but it is the right one: holding the A♠ means the big blind can never have the nut (ace-high) flush, so their check-and-call range is capped at worse flushes and one-pair hands that fold to a big bet. Bet, representing the flush you block them from holding. A busted hand is not an automatic give-up when you hold the card that removes villain’s strongest holding.',
       },
     ],
   },
