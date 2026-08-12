@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { launchApp, sel } from './helpers.js';
-import { tableScreen, waitForIdle } from './flow.js';
+import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
 
 /**
  * ACCESSIBILITY — the coach verdict reaches screen readers. The coach PANEL toggles `hidden`, which
@@ -14,6 +14,7 @@ import { tableScreen, waitForIdle } from './flow.js';
  */
 
 const announcer = '[data-testid="coach-announcer"]';
+const outcomeAnnouncer = '[data-testid="outcome-announcer"]';
 
 async function openTable(page: Page): Promise<void> {
   await page.waitForSelector('[data-testid="home-screen"]');
@@ -85,6 +86,24 @@ test('the announcer clears on the next hand, leaving no stale verdict in the a11
     await waitForIdle(page);
     // Fresh hand: the previous verdict must not still be announced.
     await expect(page.locator(announcer)).toHaveText('');
+  } finally {
+    await close();
+  }
+});
+
+test('the showdown outcome is announced once at settle, matching the winner-summary panel', async () => {
+  const { page, close } = await launchApp({ seed: 8 });
+  try {
+    await openTable(page);
+    // Play the hand out passively to settle.
+    expect(await playToShowdown(page)).not.toHaveLength(0);
+    await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
+
+    // The visible winner summary and the outcome announcement are one string — the outcome the hand
+    // just decided reaches SR users via a dedicated polite region, distinct from the coach verdict.
+    const summaryText = (await page.locator('[data-testid="winner-summary"]').textContent()) ?? '';
+    expect(summaryText).toMatch(/wins \d+/);
+    await expect(page.locator(outcomeAnnouncer)).toHaveText(summaryText);
   } finally {
     await close();
   }
