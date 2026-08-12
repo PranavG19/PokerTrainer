@@ -333,3 +333,67 @@ test('the screen fits both documented window sizes, then screenshots', async () 
     await shot(page, 'progress-empty');
   });
 });
+
+/**
+ * P2 — the primary progress surface is no longer blank. main.ts used to pass kcs:[] even though
+ * deriveConcepts() already ran for the recommender/spacing views; the bars now render each concept's
+ * OWN graded-rep history as a beta-binomial posterior + gate status. This is the wiring claim: play a
+ * few Drill reps (which persist graded fading events → session.fadingLog → deriveConcepts), then the
+ * Progress screen shows a bar for that concept. Nothing is fabricated — a fresh profile stays empty
+ * (the 'nothing is locked' test above), and the bar is the learner's real reps, not a solver number.
+ */
+const drillScreen = '[data-testid="drill-screen"]';
+const answerBox = '[data-testid="drill-answer"]';
+
+/** Grade one Drill rep (any answer — a graded event is logged whether right or wrong) and advance. */
+async function gradeOneDrillRep(page: Page, typed: string): Promise<void> {
+  await page.fill(answerBox, typed);
+  await page.keyboard.press('Enter');
+  await expect(page.locator(drillScreen)).toHaveAttribute('data-phase', 'graded');
+  const before = Number(await page.getAttribute(drillScreen, 'data-index'));
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(
+    (want: number) =>
+      Number(
+        (document.querySelector('[data-testid="drill-screen"]') as HTMLElement | null)?.dataset.index ??
+          '-1',
+      ) === want,
+    before + 1,
+  );
+}
+
+test('P2 — mastery bars render from real Drill reps, and a fresh profile shows none', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    // Fresh profile: the bars are empty, shown as "nothing is locked" (proven by the empty-profile test
+    // above; re-asserted here so this test's "bars appear" claim is non-vacuous against a real baseline).
+    await openProgress(page);
+    await expect(page.locator('[data-testid="kc-empty"]')).toBeVisible();
+    await expect(page.locator('[data-testid="kc-row"]')).toHaveCount(0);
+
+    // Play three graded Drill reps on the default 'pot-odds' kind.
+    await page.click('[data-testid="tab-drill"]');
+    await page.waitForSelector(drillScreen);
+    await expect(page.locator(answerBox)).toBeVisible();
+    const kind = (await page.getAttribute(drillScreen, 'data-kind')) ?? 'pot-odds';
+    for (let rep = 0; rep < 3; rep++) await gradeOneDrillRep(page, '25');
+
+    // Back to Progress: a bar now exists for the drilled concept, labelled by its id, with a fill in
+    // range and a caption. The empty state is gone.
+    await page.locator('[data-testid="tab-progress"]').click();
+    await page.waitForSelector(screen);
+    await expect(page.locator('[data-testid="kc-empty"]')).toHaveCount(0);
+    const rows = page.locator('[data-testid="kc-row"]');
+    expect(await rows.count(), 'a drilled concept produced no mastery bar').toBeGreaterThanOrEqual(1);
+
+    const row = page.locator(`[data-testid="kc-row"][data-kc="${kind}"]`);
+    await expect(row).toHaveCount(1);
+    await expect(row.locator('[data-testid="kc-label"]')).toHaveText(kind);
+    // The fill is the posterior mean, a fraction in [0, 1] (rendered as a width percentage).
+    const fillWidth = await row.locator('[data-testid="kc-fill"]').evaluate((el) => el.style.width);
+    expect(fillWidth, 'the bar fill carries no width').toMatch(/%$/);
+    await expect(row.locator('[data-testid="kc-caption"]')).not.toHaveText('');
+  } finally {
+    await close();
+  }
+});

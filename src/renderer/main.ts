@@ -37,7 +37,7 @@ import { computeStats } from '../core/session.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderProgressScreen } from './screens/progress.js';
-import { decisionRecordsFromHands } from '../core/progress.js';
+import { decisionRecordsFromHands, type KcEvidence } from '../core/progress.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
@@ -49,7 +49,7 @@ import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
-import { conceptStatesFromLog, type ConceptState } from '../core/schedule.js';
+import { conceptStatesFromLog, gate, posterior, type ConceptState } from '../core/schedule.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 import { renderMultiplayerScreen } from './screens/multiplayer.js';
 
@@ -286,6 +286,32 @@ async function boot(): Promise<void> {
    */
   function deriveConcepts(): ConceptState[] {
     return conceptStatesFromLog(session.fadingLog.filter((event) => event.kind === 'graded'));
+  }
+
+  /**
+   * Per-KC mastery bars for the Progress screen (P2, "the primary progress surface"). The composition
+   * root is the right home for this: progress.ts and schedule.ts deliberately do not import each other
+   * (progress.ts:330 — one owns the beta-binomial learner model, the other the display), so main.ts is
+   * where their plain shapes meet. Each concept's own graded-rep history becomes a posterior + gate
+   * status; nothing is invented. `errorSignature` is null because the graded fadingLog carries no error
+   * tag — fabricating one would be the exact dishonesty the progress module exists to avoid, and
+   * kcCaption already renders null as 'unattributed'. The concept id is used as the label, matching how
+   * the Spacing screen already surfaces concepts.
+   */
+  function deriveKcs(now: number): KcEvidence[] {
+    return deriveConcepts().map((state): KcEvidence => {
+      const p = posterior(state, now);
+      return {
+        id: state.id,
+        label: state.id,
+        status: gate(state, now).status,
+        posteriorMean: p.mean,
+        ciLower: p.ciLower,
+        ciUpper: p.ciUpper,
+        opportunities: p.opportunities,
+        errorSignature: null,
+      };
+    });
   }
 
   /**
@@ -535,6 +561,7 @@ async function boot(): Promise<void> {
        * Core's refusals then do the right thing: the win rate reads "need more hands", the results graph
        * is refused with its route out, and the assessment EV-loss stays empty (no assessment block runs).
        */
+      const progressNow = Date.now();
       return renderProgressScreen({
         input: {
           decisions: decisionRecordsFromHands(session.hands),
@@ -542,8 +569,11 @@ async function boot(): Promise<void> {
           fluency: [],
           botConfigId: 'default',
         },
-        kcs: [],
-        now: Date.now(),
+        // The bars ARE the primary surface (P2): each concept's real graded-rep history rendered as a
+        // posterior + gate status. Empty on a fresh profile (no reps yet), which the screen shows as
+        // "nothing is locked" rather than a blank — so this never fabricates a first bar.
+        kcs: deriveKcs(progressNow),
+        now: progressNow,
         onOpenVariance: () => {
           tab = 'learn';
           render();
