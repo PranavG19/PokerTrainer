@@ -239,13 +239,15 @@ test.describe('puzzle mode', () => {
       'sb-raise-or-fold-ajo': ['raise'],
       'fold-tptk-turn-flush-in': ['raise', 'bet', 'fold'],
       'fold-weak-pair-river-overbet': ['raise', 'check', 'check', 'fold'],
+      'fold-weak-ace-to-ep-open': ['fold'],
+      '3bet-aqs-vs-btn-steal': ['raise'],
     };
 
     await withApp(async (page) => {
       await openPuzzle(page);
 
       const seen = new Set<string>();
-      for (let visited = 0; visited < 43; visited++) {
+      for (let visited = 0; visited < 45; visited++) {
         const id = (await page.locator(screen).getAttribute('data-scenario')) ?? '';
         if (seen.has(id)) break; // wrapped back to the first puzzle — the whole library was walked
         seen.add(id);
