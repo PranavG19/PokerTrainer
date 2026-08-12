@@ -19,6 +19,7 @@ import { mulberry32, type Rng } from '../../core/rng.js';
 import { pickWeightedClass, weakestAttemptedClass, type ClassTally } from '../../core/masteryDrill.js';
 import { renderCard } from '../components/card.js';
 import { renderDefenseDrill } from './defenseDrill.js';
+import { renderThreeBetResponseDrill } from './threeBetResponseDrill.js';
 
 /**
  * PREFLOP CHART TRAINER — PRODUCT-SPEC N3.
@@ -91,16 +92,18 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
   let answered = 0;
 
   /**
-   * The screen has two modes: 'rfi' (the open-first-in trainer, the default and original behaviour)
-   * and 'defense' (the facing-a-raise 3-bet/call/fold drill). Defense lives here rather than in a
-   * 14th tab because the tab bar is at its width budget (see the memory note). The defense panel is a
-   * self-contained component; RFI mode renders exactly as before, so its tests are untouched.
+   * The screen has three modes: 'rfi' (the open-first-in trainer, the default and original behaviour),
+   * 'defense' (the facing-a-raise 3-bet/call/fold drill), and '3bet-response' (the opener's response
+   * to a 3-bet: 4-bet/call/fold). All three live here rather than in extra tabs because the tab bar is
+   * at its width budget (see the memory note). Each drill panel is a self-contained component; RFI mode
+   * renders exactly as before, so its tests are untouched.
    */
-  let mode: 'rfi' | 'defense' = 'rfi';
-  // Built once and reused so its own internal state (spot, streak) survives a mode toggle back and forth.
+  let mode: ChartsMode = 'rfi';
+  // Built once and reused so each panel's internal state (spot, streak) survives a mode toggle.
   let defensePanel: HTMLElement | null = null;
+  let threeBetPanel: HTMLElement | null = null;
 
-  function selectMode(next: 'rfi' | 'defense'): void {
+  function selectMode(next: ChartsMode): void {
     if (next === mode) return;
     mode = next;
     paint();
@@ -175,6 +178,12 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
       return;
     }
 
+    if (mode === '3bet-response') {
+      threeBetPanel ??= renderThreeBetResponseDrill();
+      root.replaceChildren(renderModeToggle(mode, selectMode), threeBetPanel);
+      return;
+    }
+
     root.replaceChildren(
       renderModeToggle(mode, selectMode),
       // DOM ORDER IS THE CONTRACT: the compressed form precedes the grid (N3).
@@ -188,17 +197,23 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
 }
 
 // ---------------------------------------------------------------------------
-// Mode toggle — RFI (open first in) vs Defense (facing a raise)
+// Mode toggle — RFI (open first in) / Defense (facing a raise) / 3-bet response
 // ---------------------------------------------------------------------------
 
-function renderModeToggle(active: 'rfi' | 'defense', onSelect: (mode: 'rfi' | 'defense') => void): HTMLElement {
+/** The three preflop drills the Charts screen hosts (no extra tabs — the bar is at its width budget). */
+type ChartsMode = 'rfi' | 'defense' | '3bet-response';
+
+function renderModeToggle(active: ChartsMode, onSelect: (mode: ChartsMode) => void): HTMLElement {
   const row = document.createElement('div');
   row.className = 'charts-modes';
   row.dataset.testid = 'charts-modes';
 
-  const modes: { id: 'rfi' | 'defense'; label: string }[] = [
-    { id: 'rfi', label: 'Open (first in)' },
-    { id: 'defense', label: 'Facing a raise' },
+  // Terse labels so three modes fit one row inside the fixed 300px column 1 at the 900x640 minimum — a
+  // third full-length label wrapped the row and pushed the RFI grid 11px past the 760px budget.
+  const modes: { id: ChartsMode; label: string }[] = [
+    { id: 'rfi', label: 'Open' },
+    { id: 'defense', label: 'vs Raise' },
+    { id: '3bet-response', label: 'vs 3-bet' },
   ];
   for (const m of modes) {
     const button = document.createElement('button');
