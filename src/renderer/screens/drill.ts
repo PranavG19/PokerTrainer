@@ -116,6 +116,19 @@ export function renderDrillScreen(options: DrillOptions = {}): HTMLElement {
   root.className = 'drill-screen';
   root.dataset.testid = 'drill-screen';
 
+  // The graded verdict updates in place on commit, so a screen-reader user gets no feedback without a
+  // live region. This always-present polite region carries the verdict line (right/wrong + the gap or
+  // principle at the shown rung), mirroring exactly what renderVerdict paints. It is visually hidden
+  // (sighted learners read the panel) and survives paint()'s replaceChildren because paint swaps only
+  // the sidebar and work panels, never this node. Absolute-positioned (.visually-hidden), so it does
+  // not take a grid cell.
+  const verdictAnnouncer = document.createElement('div');
+  verdictAnnouncer.className = 'visually-hidden';
+  verdictAnnouncer.dataset.testid = 'drill-announcer';
+  verdictAnnouncer.setAttribute('role', 'status');
+  verdictAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(verdictAnnouncer);
+
   const tallies = new Map<DrillKind, Tally>(
     DRILL_KINDS.map((kind) => [kind, { attempted: 0, correct: 0 }]),
   );
@@ -242,10 +255,18 @@ export function renderDrillScreen(options: DrillOptions = {}): HTMLElement {
     root.dataset.rung = String(support.rung);
     root.dataset.support = support.id;
 
+    // Swap the two visible panels, but keep the always-present announcer as the root's first child so
+    // its aria-live region is never torn out of the a11y tree by a repaint.
     root.replaceChildren(
+      verdictAnnouncer,
       renderSidebar({ kind, tallies, onSelect: selectKind, support }),
       renderWork({ problem, committed, unreadable, rung: support.rung, onCommit: commit, onNext: next }),
     );
+
+    // Mirror the on-screen verdict into the live region: the same wording at the same rung, so the
+    // spoken and visual feedback can never disagree. Empty while answering (nothing graded to announce).
+    verdictAnnouncer.textContent =
+      committed === null ? '' : verdictAnnouncement(committed, support.rung);
 
     // Keyboard-first: the box takes focus on every paint that has one, so a learner can type the
     // next answer straight after Enter without reaching for the mouse.
@@ -548,6 +569,20 @@ function renderVerdict(committed: Committed, rung: Rung): HTMLElement {
   wrap.appendChild(gap);
 
   return wrap;
+}
+
+/**
+ * The verdict as one spoken line for the screen-reader live region, mirroring renderVerdict's wording
+ * at the SAME rung so the announced and visible feedback can never disagree. Rung 3: the bare verdict.
+ * Rung 2: verdict + principle. Rung 0-1: verdict + the two numbers + the gap sentence.
+ */
+function verdictAnnouncement(committed: Committed, rung: Rung): string {
+  const line = committed.grading.correct ? 'Inside the band.' : 'Outside the band.';
+  if (rung >= 3) return line;
+  if (rung === 2) return `${line} ${PRINCIPLES[committed.problem.kind]}`;
+  const yours = inUnit(committed.problem.kind, committed.given);
+  const answer = inUnit(committed.problem.kind, committed.problem.answer);
+  return `${line} You said ${yours}. The answer ${answer}. ${gapSentence(committed)}`;
 }
 
 /**
