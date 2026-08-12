@@ -50,6 +50,14 @@ export interface DecisionRecord {
   amount: number | null;
   /** null only in a save written before verdicts were stored per decision. */
   verdict: Grade | null;
+  /**
+   * State-4 GATE (five-state protocol): how many self-explanation attempts the learner made before the
+   * verdict was revealed. 0 = the gate fired but its budget expired with no submission ("I don't know"
+   * is a commitment, spec G5a); 1 or 2 = attempts made. ABSENT when the gate never fired — the decision
+   * was below the T2 severity threshold, or coached mode was off — matching the `playedAt` precedent
+   * where absence means "did not apply", never 0.
+   */
+  gateAttempts?: 0 | 1 | 2;
 }
 
 export interface HandRecord {
@@ -746,6 +754,7 @@ const ACTION_KINDS: ActionKind[] = ['fold', 'check', 'call', 'bet', 'raise', 'al
 function parseDecision(raw: unknown): DecisionRecord {
   const obj = asRecord(raw);
   const amount = obj.amount;
+  const gate = obj.gateAttempts;
   return {
     street: STREETS.includes(obj.street as Street) ? (obj.street as Street) : 'preflop',
     board: asStrings(obj.board),
@@ -754,6 +763,8 @@ function parseDecision(raw: unknown): DecisionRecord {
     action: ACTION_KINDS.includes(obj.action as ActionKind) ? (obj.action as ActionKind) : 'check',
     amount: typeof amount === 'number' && Number.isFinite(amount) ? amount : null,
     verdict: parseVerdict(obj.verdict),
+    // Absent stays absent (gate never fired); only a literal 0|1|2 is carried through.
+    ...(gate === 0 || gate === 1 || gate === 2 ? { gateAttempts: gate } : {}),
   };
 }
 

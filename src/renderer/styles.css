@@ -26,6 +26,9 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --motion-fast: 140ms;
   --motion-panel: 200ms;
+  /* The GATE (state 4) self-explanation budget. Mirrors GATE_BUDGET_MS in table.ts, which owns the
+   * real deadline; this only drives the budget bar's drain so the two stay visually in sync. */
+  --gate-budget: 8000ms;
 
   font-family: system-ui, 'Poppins', 'SF Pro Rounded', -apple-system, sans-serif;
   color: var(--text-hi);
@@ -768,6 +771,20 @@ body {
   }
 }
 /*
+ * The GATE (state 4) budget bar drains left-to-right over its 8s window. transform:scaleX only, so it
+ * is compositor-only and never reflows; the JS timer in table.ts is the source of truth for the actual
+ * deadline, this is only its visual echo. Disabled under reduced-motion (foot of this file) — the
+ * timer still enforces the budget, the bar just holds full.
+ */
+@keyframes offsuit-gate-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+/*
  * Every screen fades in on mount. main.ts swaps the single child of .screen on each tab switch, so a
  * quiet opacity cross-fade aids orientation across the 13-tab bar without moving anything — opacity
  * only, so no reflow and hit-testing is unaffected. .table-screen matches both this and its own rule
@@ -794,6 +811,8 @@ body {
   .table-screen,
   .winner-summary,
   .coach:not([hidden]),
+  .coach-gate,
+  .coach-gate-bar-fill,
   .predict {
     animation: none;
   }

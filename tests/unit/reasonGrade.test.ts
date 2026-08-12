@@ -7,6 +7,7 @@ import {
   G4_SEVERITY,
   REASON_CATEGORIES,
   applyG4Override,
+  gateAttemptIsHit,
   gradeReason,
   type ReasonCategory,
   type ReasonGraderSource,
@@ -488,5 +489,37 @@ describe('G4 constants agree with the severity type this build grades in', () =>
 
   it('names exactly the two reason labels spec line 212 lists', () => {
     expect([...G4_REASONS].sort()).toEqual(['hand-strength', 'none']);
+  });
+});
+
+describe('gateAttemptIsHit — the GATE (state 4) early-resolution predicate', () => {
+  // These exact strings are reused verbatim by tests/e2e/gate.spec.ts. Pinning them here means a regex
+  // edit to gradeReason that silently reclassifies a gate reason reddens a unit test rather than
+  // surfacing only as a flaky e2e — the strings and their hit/miss verdict are the contract.
+  it('a range rationale is a hit', () => {
+    expect(gateAttemptIsHit(gradeReason('villain only continues a stronger range here'))).toBe(true);
+  });
+
+  it('a price rationale is a hit', () => {
+    expect(gateAttemptIsHit(gradeReason("the pot odds don't justify it"))).toBe(true);
+  });
+
+  it('a bare hand-strength claim is a miss (a real mechanism was not named)', () => {
+    expect(gradeReason('my hand is too weak').category).toBe('hand-strength');
+    expect(gateAttemptIsHit(gradeReason('my hand is too weak'))).toBe(false);
+  });
+
+  it('an explicit guess is a miss', () => {
+    const graded = gradeReason('idk');
+    expect(graded.category).toBe('none');
+    expect(graded.explicitGuess).toBe(true);
+    expect(gateAttemptIsHit(graded)).toBe(false);
+  });
+
+  it('is exactly range-or-price and nothing else', () => {
+    expect(gateAttemptIsHit({ category: 'range', explicitGuess: false })).toBe(true);
+    expect(gateAttemptIsHit({ category: 'price', explicitGuess: false })).toBe(true);
+    expect(gateAttemptIsHit({ category: 'hand-strength', explicitGuess: false })).toBe(false);
+    expect(gateAttemptIsHit({ category: 'none', explicitGuess: false })).toBe(false);
   });
 });

@@ -93,6 +93,74 @@
   color: var(--text-lo);
 }
 
+/* ─── GATE (state 4): pre-reveal self-explanation ─── */
+/* Borrows the coach box (no extra vertical budget). Hue-neutral: the verdict tier is withheld here, so
+ * nothing borrows the severity colours; emphasis is by weight/size, never hue. */
+.coach-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+}
+
+.coach-gate[hidden] {
+  display: none;
+}
+
+/* The draining budget bar: a 2px hairline that scales from full to empty over the 8s window. Neutral
+ * ink, transform-origin left so it drains toward the start; the drain animation is set inline (its
+ * duration is the budget) and disabled under reduced-motion. */
+.coach-gate-bar {
+  height: 2px;
+  background: var(--surface-hi);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.coach-gate-bar-fill {
+  height: 100%;
+  background: var(--text-lo);
+  transform-origin: left center;
+  /* Declared here (not inline) so the reduced-motion guard can disable it. Duration is the shared
+   * --gate-budget so the bar drains over the same window the timer enforces. Only animates while the
+   * gate is open — the box is display:none otherwise, so a fresh open restarts the drain. */
+  animation: offsuit-gate-drain var(--gate-budget) linear forwards;
+}
+
+.coach-gate-prompt {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-hi);
+}
+
+.coach-gate-count {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+
+.coach-gate-input {
+  resize: none;
+  width: 100%;
+}
+
+/* The miss note is louder by WEIGHT and full ink, never by a new hue — the locked severity-by-weight
+ * rule (the tier stays withheld until reveal, so no severity colour is available anyway). */
+.coach-gate-note {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-hi);
+}
+
+.coach-gate-note[hidden] {
+  display: none;
+}
+
+.coach-gate-submit {
+  align-self: flex-start;
+}
+
 /* ─── Predict panel (prediction-before-reveal) ─── */
 /* Only in the DOM while coached mode is on, so uncoached play keeps its exact height budget. */
 .predict {
@@ -202,7 +270,9 @@
 /* The reveal animations respect a reduced-motion preference (parity with styles.css). */
 @media (prefers-reduced-motion: reduce) {
   .predict-result,
-  .coach-reason-note {
+  .coach-reason-note,
+  .coach-gate,
+  .coach-gate-bar-fill {
     animation: none;
   }
 }
