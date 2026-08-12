@@ -892,3 +892,35 @@ test.describe('the Drill tab: per-concept scaffolding fades (T6/T7)', () => {
     }
   });
 });
+
+/*
+ * VERDICT SETTLE-IN (V2 motion). The graded verdict fades in via the shared opacity-only keyframe, and
+ * it must be silenced for a learner who has asked for reduced motion. The oracle is computed style —
+ * the suite has no screenshot diffing — matching charts.spec's getComputedStyle idiom.
+ */
+test.describe('the Drill tab: the verdict settles in, and respects reduced motion', () => {
+  test('M1. a graded verdict carries the opacity settle-in animation', async () => {
+    await withDrill(async ({ page }) => {
+      await answerWithEnter(page, '33.33');
+      const name = await page
+        .locator(verdict)
+        .evaluate((el) => getComputedStyle(el).animationName);
+      expect(name).toBe('offsuit-surface-in');
+    });
+  });
+
+  test('M2. reduced-motion turns the settle-in off', async () => {
+    const { page, close } = await launchApp({ seed: 42 });
+    try {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await openDrill(page);
+      await answerWithEnter(page, '33.33');
+      const name = await page
+        .locator(verdict)
+        .evaluate((el) => getComputedStyle(el).animationName);
+      expect(name, 'reduced-motion must disable the verdict animation').toBe('none');
+    } finally {
+      await close().catch(() => {});
+    }
+  });
+});

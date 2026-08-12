@@ -231,6 +231,9 @@
   gap: 6px;
   border-top: 1px solid var(--surface-hi);
   padding-top: 10px;
+  /* Quiet settle-in as the verdict lands. Opacity only (this pane is pixel-tight); same animation for
+   * pass and fail, so it is not a severity channel. Reduced-motion guard at the foot of this file. */
+  animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
 }
 
 /*
@@ -298,5 +301,12 @@
 
   .anomaly-truth {
     font-size: 14px;
+  }
+}
+
+/* The verdict settle-in respects a reduced-motion preference (parity with styles.css). */
+@media (prefers-reduced-motion: reduce) {
+  .anomaly-verdict {
+    animation: none;
   }
 }
