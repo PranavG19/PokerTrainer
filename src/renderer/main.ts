@@ -55,6 +55,7 @@ import { renderTable, type TableHandle } from './screens/table.js';
 import { renderMultiplayerScreen } from './screens/multiplayer.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
 import type { AssessmentGrade } from '../core/assessmentBlock.js';
+import { renderVarianceScreen } from './screens/variance.js';
 
 const DEFAULT_SEED = 42;
 
@@ -176,6 +177,12 @@ async function boot(): Promise<void> {
    * returns to Home. It swaps out like the table does, so its keydown listener tears down on unmount.
    */
   let assessmentActive = false;
+  /**
+   * The variance explainer is a PANEL within the Play tab (same as multiplayer/assessment — the tab bar
+   * is full). Opened from the Progress results-graph refusal's "read the variance module" route; leaving
+   * it returns to Progress, where the learner came from.
+   */
+  let varianceActive = false;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
   /**
    * Where the Profile tab is: the profile itself, the hand picker, or one hand's replay. The picker
@@ -515,6 +522,18 @@ async function boot(): Promise<void> {
       );
       return;
     }
+    if (varianceActive) {
+      screen.replaceChildren(
+        renderVarianceScreen({
+          onExit: () => {
+            varianceActive = false;
+            tab = 'progress';
+            render();
+          },
+        }),
+      );
+      return;
+    }
     if (table) {
       screen.replaceChildren(table.root);
       return;
@@ -632,7 +651,10 @@ async function boot(): Promise<void> {
         kcs: deriveKcs(progressNow),
         now: progressNow,
         onOpenVariance: () => {
-          tab = 'learn';
+          // The refusal's promised route now lands on the honest variance explainer (a Play-tab panel),
+          // not the generic Learn list — the alternative the refusal names is a real page, not a shrug.
+          varianceActive = true;
+          tab = 'play';
           render();
         },
         onStartAssessment: () => {

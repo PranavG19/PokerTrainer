@@ -151,9 +151,10 @@ test('P3 — the results graph is refused below 10,000 hands, with a route out',
     await expect(route, 'the refusal offers no way forward').toBeEnabled();
     await expect(route).toHaveAttribute('data-route', 'variance-module');
 
-    // The route is live, not decorative.
+    // The route is live and lands on the honest variance explainer — the alternative the refusal names
+    // is a real page with the actual arithmetic, not a generic dump on the Learn list.
     await route.click();
-    await expect(page.locator('[data-testid="tab-learn"]')).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-testid="variance-screen"]')).toBeVisible();
   });
 });
 
