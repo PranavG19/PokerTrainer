@@ -182,6 +182,20 @@ function classify(trimmed: string): ReasonCategory {
 }
 
 /**
+ * Whether a GATE (five-state protocol state 4) reason attempt names a real mechanism — a `range` or
+ * `price` rationale — as opposed to a bare hand-strength claim or nothing (`none`). Used ONLY to decide
+ * whether the learner's FIRST self-explanation resolves the gate early or buys a second prompt. It is
+ * deliberately reveal-neutral: it never gates the verdict (the gate always reveals on exhaustion/expiry),
+ * never escalates severity, and never installs a rule — that honesty debt belongs to G4's `applyG4Override`
+ * alone, which is why this lives here beside it rather than in the presentation layer. The gate fires on
+ * solver ground-truth severity (coach.ts), not on this label, so the ~63% precision of the `none` class
+ * only ever costs a needlessly-shown second prompt, never a wrong interrupt or a fabricated grade.
+ */
+export function gateAttemptIsHit(reason: ReasonGrade): boolean {
+  return reason.category === 'range' || reason.category === 'price';
+}
+
+/**
  * Which grader produced the label.
  *
  * 'tutor' — the model grader. EXPERIMENT-3 measured G4 precision 98.6% (adversarial floor 90.9%)

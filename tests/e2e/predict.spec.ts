@@ -67,6 +67,20 @@ async function commit(page: Page, action: string, confidence: 'sure' | 'guess'):
 }
 
 /**
+ * A committed T2+ mistake now opens the state-4 GATE (gate.spec.ts owns it), which withholds the
+ * verdict and locks the action buttons until a self-explanation is submitted. Tests here that
+ * deliberately make mistakes must clear it to reach the reveal / keep the hand moving. Submits a
+ * passing (range) reason so the gate resolves on the first attempt. No-op when no gate is open.
+ */
+async function dismissGateIfOpen(page: Page): Promise<void> {
+  if ((await page.getAttribute(tableScreen, 'data-gate')) === 'open') {
+    await page.locator('[data-testid="gate-input"]').fill('villain only continues a stronger range here');
+    await page.locator('[data-testid="gate-submit"]').click();
+    await expect(page.locator(tableScreen)).toHaveAttribute('data-gate', 'closed');
+  }
+}
+
+/**
  * Local coached-mode showdown driver. flow.ts's playToShowdown cannot be used here and must not be
  * edited: it clicks the first ENABLED action button, and in coached mode every button is disabled
  * until a commitment exists — which is the feature, so its "hero turn with no enabled action
@@ -82,6 +96,9 @@ async function playCoachedToShowdown(page: Page): Promise<void> {
         break;
       }
     }
+    // A T2+ mistake among these passive actions opens the gate and locks the buttons; clear it so the
+    // next iteration can act. (waitForIdle is blind during a gate, so this must run before it.)
+    await dismissGateIfOpen(page);
   }
   throw new Error('coached hand did not settle within 20 hero actions');
 }
@@ -345,10 +362,12 @@ test.describe('the reveal', () => {
           line = (await support.textContent()) ?? '';
           return;
         }
-        // The wrong cell: fold the flop as the graded mistake.
+        // The wrong cell: fold as the graded mistake. That is a T2+ error, so it now opens the gate;
+        // clear it so the withheld verdict + support reveal.
         expect(await waitForIdle(page)).toBe('hero');
         await commit(page, 'fold', confidenceWrong);
         await page.locator(sel.btnFold).click();
+        await dismissGateIfOpen(page);
         const support = page.locator(predictSupport);
         await expect(support).toBeVisible();
         line = (await support.textContent()) ?? '';

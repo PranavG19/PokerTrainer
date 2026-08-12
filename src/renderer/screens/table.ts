@@ -10,7 +10,7 @@ import {
   settle,
   startHand,
 } from '../../core/table.js';
-import type { Grade } from '../../core/coach.js';
+import type { Grade, Severity } from '../../core/coach.js';
 import { gradeDecision } from '../../core/coach.js';
 import {
   ARCHETYPE_EXPLOITS,
@@ -29,9 +29,19 @@ import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session
 import type { Confidence, PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { routeFor } from '../../core/confidence.js';
-import { applyG4Override, gradeReason } from '../../core/reasonGrade.js';
+import { applyG4Override, gateAttemptIsHit, gradeReason } from '../../core/reasonGrade.js';
 import { renderCard, renderCardRow } from '../components/card.js';
-import { renderCoachPanel, showGrade, showReasonNote, clearCoach } from '../components/coachPanel.js';
+import {
+  clearGate,
+  clearCoach,
+  readGateInput,
+  recordGateAttempts,
+  renderCoachPanel,
+  showGate,
+  showGateRetry,
+  showGrade,
+  showReasonNote,
+} from '../components/coachPanel.js';
 import {
   clearPredictPanel,
   committedPrediction,
@@ -47,6 +57,18 @@ const SB = 25;
 const BB = 50;
 const START_STACK = 5000;
 const AI_DELAY_MS = 450;
+
+/**
+ * GATE — state 4 of the five-state protocol (PRODUCT-SPEC G5a). When the hero commits a coached
+ * action whose coach severity is T2+ (notable/serious), the verdict is WITHHELD and the learner is
+ * asked to name the mechanism in one line before the reveal. Up to two attempts inside a single
+ * budget; the gate ALWAYS reveals on a passing attempt, on exhaustion, or on expiry (spec: "expiry
+ * advances the state rather than failing the spot"). It never changes the verdict, never escalates
+ * severity — it is a retrieval prompt at the moment of maximum error signal.
+ */
+const GATE_BUDGET_MS = 8000;
+const GATE_MAX_ATTEMPTS = 2;
+const GATE_PROMPT = 'In one line: what range or price drives this?';
 
 /**
  * Villains sit at 1..3. Each session a seeded 3-of-6 shuffle (see selectRng below) picks which of
@@ -88,6 +110,9 @@ export function renderTable(opts: {
   const root = document.createElement('div');
   root.className = 'table-screen';
   root.dataset.testid = 'table-screen';
+  // GATE (state 4) sync oracle: 'open' while a self-explanation is pending, 'closed' otherwise. Waited
+  // on by e2e because data-awaiting stays 'hero' while the gated action's application is deferred.
+  root.dataset.gate = 'closed';
 
   const seatsWrap = document.createElement('div');
   seatsWrap.className = 'seats';
@@ -116,7 +141,7 @@ export function renderTable(opts: {
   heroCards.dataset.testid = 'hero-cards';
   heroWrap.appendChild(heroCards);
 
-  const coach = renderCoachPanel();
+  const coach = renderCoachPanel(() => submitGate());
   root.appendChild(coach);
 
   let coachedMode = opts.coachedMode === true;
@@ -212,6 +237,22 @@ export function renderTable(opts: {
    */
   let adviceShown = false;
 
+  /**
+   * The open GATE (state 4), or null when no gate is up. Non-null means the hero has committed a T2+
+   * action whose verdict is WITHHELD pending a self-explanation: `proceed` is the deferred continuation
+   * that reveals the grade and applies the action, `attemptsUsed` counts submissions so far. While it
+   * is non-null the action buttons and keyboard are locked (heroAct re-entry guard), and `state` is NOT
+   * mutated — applyAction is deferred into `proceed`, so the pot/board the decision was made against
+   * stay the pre-action readings the replay contract needs.
+   */
+  let gate: {
+    readonly grade: Grade;
+    readonly reasonText: string;
+    readonly proceed: (attempts: 0 | 1 | 2) => void;
+    attemptsUsed: 0 | 1 | 2;
+  } | null = null;
+  let gateTimer: ReturnType<typeof setTimeout> | null = null;
+
   const heroSeat = (): Seat => state.seats[0];
 
   function setAwaiting(v: 'hero' | 'ai' | 'handover'): void {
@@ -238,11 +279,14 @@ export function renderTable(opts: {
     render();
   }
 
-  function recordHeroGrade(chosen: ActionKind, betSize?: number, reasonText = ''): Grade {
+  /** Grade the hero's decision. Pure of any panel effect, so the verdict can be WITHHELD behind a
+   *  gate and revealed later without re-running the seeded Monte Carlo (a re-grade is a different
+   *  number). */
+  function computeHeroGrade(chosen: ActionKind, betSize?: number): Grade {
     const hero = heroSeat();
     const toCall = Math.max(0, state.currentBet - hero.committed);
     const opponents = state.seats.filter((s) => !s.folded && s.id !== hero.id).length;
-    const grade: Grade = gradeDecision({
+    return gradeDecision({
       hole: hero.hole,
       board: state.board,
       street: state.street,
@@ -255,6 +299,11 @@ export function renderTable(opts: {
       opponents: Math.max(1, opponents),
       seed: opts.seed + state.handNumber,
     });
+  }
+
+  /** Paint a computed grade into the coach panel — the REVEAL. Split out of the old recordHeroGrade so
+   *  the GATE can defer this without changing a single line of what is shown. */
+  function revealHeroGrade(grade: Grade, reasonText: string): void {
     showGrade(coach, grade);
     // G4 (story 14): grade the reason SEPARATELY and, if the action was EV-fine but the reason was a
     // hand-strength/none rationale, flag "right for the wrong reason" — escalating only on an explicit
@@ -280,7 +329,58 @@ export function renderTable(opts: {
         evLossBb: grade.evLossBb,
       });
     }
-    return grade;
+  }
+
+  // ── GATE (state 4) ──────────────────────────────────────────────────
+  /** The gate fires only in coached mode and only on a genuine mistake — coach severity T2+. Below
+   *  that, or uncoached, the verdict reveals immediately as before. */
+  function gateShouldFire(severity: Severity): boolean {
+    return coachedMode && (severity === 'notable' || severity === 'serious');
+  }
+
+  /** Open the gate: withhold the verdict, prompt for the mechanism, and start the single shared budget.
+   *  render() re-locks the action controls while the gate is up. */
+  function openGate(grade: Grade, reasonText: string, proceed: (attempts: 0 | 1 | 2) => void): void {
+    gate = { grade, reasonText, proceed, attemptsUsed: 0 };
+    root.dataset.gate = 'open';
+    showGate(coach, GATE_PROMPT, GATE_BUDGET_MS, GATE_MAX_ATTEMPTS);
+    render();
+    gateTimer = setTimeout(resolveGate, GATE_BUDGET_MS);
+  }
+
+  /** A submission. A range/price rationale resolves the gate immediately; anything weaker buys the one
+   *  remaining attempt, then the second submission resolves regardless (the gate never fails the spot).
+   *  The budget timer keeps running across both attempts — it is a per-gate budget, not per-attempt. */
+  function submitGate(): void {
+    if (gate === null) return;
+    const hit = gateAttemptIsHit(gradeReason(readGateInput(coach)));
+    gate.attemptsUsed = (gate.attemptsUsed + 1) as 1 | 2;
+    if (hit || gate.attemptsUsed >= GATE_MAX_ATTEMPTS) {
+      resolveGate();
+      return;
+    }
+    // Missed on the first of two: re-prompt for the last attempt, same budget still ticking.
+    showGateRetry(coach, gate.attemptsUsed, GATE_MAX_ATTEMPTS);
+  }
+
+  /** Reveal the withheld verdict and run the deferred continuation. Called on a passing attempt, on
+   *  exhausting attempts, or on budget expiry — every path reveals. attempts is 0 only when the budget
+   *  expired with no submission. */
+  function resolveGate(): void {
+    if (gate === null) return;
+    if (gateTimer !== null) {
+      clearTimeout(gateTimer);
+      gateTimer = null;
+    }
+    const { attemptsUsed, proceed } = gate;
+    // Publish the final attempt count on the panel BEFORE clearGate (clearGate leaves it in place for
+    // the reveal, but the resolving submit itself never went through showGateRetry, so 0/1-attempt
+    // resolutions would otherwise show a stale count).
+    recordGateAttempts(coach, attemptsUsed);
+    clearGate(coach);
+    root.dataset.gate = 'closed';
+    gate = null;
+    proceed(attemptsUsed);
   }
 
   function finishHand(): void {
@@ -375,14 +475,16 @@ export function renderTable(opts: {
   }
 
   function heroAct(action: Action): void {
-    if (state.toAct !== 0 || settled) return;
+    // `gate !== null` is the re-entry lock: while a gate is open the action is already committed and
+    // its reveal deferred, so neither a button nor a keyboard shortcut may commit another.
+    if (state.toAct !== 0 || settled || gate !== null) return;
     if (!legalActions(state).includes(action.kind)) return;
     // The lockout, not a hint: with no commitment the action does not happen at all, so the
     // keyboard shortcuts cannot walk around the disabled buttons either.
     const prediction = coachedMode ? committedPrediction(predict) : null;
     if (coachedMode && prediction === null) return;
-    // Read the reason BEFORE recordHeroGrade (which does not reset it) and before resetCommit below
-    // clears it. Empty in uncoached play, so the G4 path is coached-only by construction.
+    // Read the reason BEFORE the grade path and before resetCommit (in the continuation) clears it.
+    // Empty in uncoached play, so the G4 path is coached-only by construction.
     const reasonText = coachedMode ? committedReason(predict) : '';
 
     if (state.street === 'preflop') {
@@ -393,34 +495,61 @@ export function renderTable(opts: {
       if (action.kind === 'raise' || action.kind === 'bet') heroPfr = true;
     }
 
-    const grade = recordHeroGrade(action.kind, action.amount, reasonText);
-    // Logged from the PRE-action state, which is still `state` here: the pot and board the hero was
-    // looking at when they decided. The verdict is stored verbatim rather than re-derived later,
-    // because gradeDecision runs a seeded Monte Carlo and a re-grade is a different number.
-    decisions.push({
-      street: state.street,
-      board: [...state.board],
-      pot: state.pot,
-      toCall: Math.max(0, state.currentBet - heroSeat().committed),
-      action: action.kind,
-      amount: action.amount ?? null,
-      verdict: { ...grade },
-    });
+    const grade = computeHeroGrade(action.kind, action.amount);
 
-    if (prediction !== null) {
-      const outcome = predictOutcome(prediction, action.kind, grade.severity === 'free');
-      const route = routeFor(prediction, outcome);
-      showPredictResult(predict, outcome, predictResultText(prediction, action.kind, outcome), route);
-      opts.onPrediction?.(outcome, prediction.confidence);
-      // Fresh commitment for the next street; the reveal line stays up until the next hand.
-      resetCommit(predict);
-    }
-    state = applyAction(state, action);
-    advance();
+    // Everything downstream of the grade — reveal, decision log, predict result, applying the action —
+    // is deferred into this continuation. When the gate fires it runs after the self-explanation; when
+    // it does not, it runs immediately. Captured by value from the PRE-action state (the pot/board the
+    // hero decided against), because the gate holds `state` unmutated until this runs.
+    const street = state.street;
+    const board = [...state.board];
+    const pot = state.pot;
+    const toCall = Math.max(0, state.currentBet - heroSeat().committed);
+    const gated = gateShouldFire(grade.severity);
+    const proceed = (gateAttempts: 0 | 1 | 2): void => {
+      revealHeroGrade(grade, reasonText);
+      const decision: DecisionRecord = {
+        street,
+        board,
+        pot,
+        toCall,
+        action: action.kind,
+        amount: action.amount ?? null,
+        verdict: { ...grade },
+      };
+      // Logged only when the gate actually fired; absent otherwise (matches the schema: absent = the
+      // gate did not apply, never 0).
+      if (gated) decision.gateAttempts = gateAttempts;
+      decisions.push(decision);
+
+      if (prediction !== null) {
+        const outcome = predictOutcome(prediction, action.kind, grade.severity === 'free');
+        const route = routeFor(prediction, outcome);
+        showPredictResult(predict, outcome, predictResultText(prediction, action.kind, outcome), route);
+        opts.onPrediction?.(outcome, prediction.confidence);
+        // Fresh commitment for the next street; the reveal line stays up until the next hand.
+        resetCommit(predict);
+      }
+      state = applyAction(state, action);
+      advance();
+    };
+
+    if (gated) openGate(grade, reasonText, proceed);
+    else proceed(0);
   }
 
   function nextHand(): void {
     if (pendingTimer !== null) clearTimeout(pendingTimer);
+    // A gate always resolves before advance()/finishHand run (they live in its deferred tail), so no
+    // hand normally starts with a gate open. This only guards a tab-switch-mid-gate: drop the
+    // un-applied action and its pending timer exactly as a pending villain action would be dropped.
+    if (gateTimer !== null) {
+      clearTimeout(gateTimer);
+      gateTimer = null;
+    }
+    gate = null;
+    clearGate(coach);
+    root.dataset.gate = 'closed';
     grades = [];
     decisions = [];
     villainCalls = [];
@@ -560,8 +689,10 @@ export function renderTable(opts: {
     const heroTurn = state.toAct === 0;
     const hero = heroSeat();
     const toCall = Math.max(0, state.currentBet - hero.committed);
-    // Coached mode only: no committed prediction, no acting. `true` when the gate is open.
-    const committed = !coachedMode || committedPrediction(predict) !== null;
+    // Coached mode only: no committed prediction, no acting. Also greyed while a GATE is open — the
+    // action is already committed and awaiting a self-explanation, so the pills lock (the heroAct
+    // `gate !== null` guard is the real lockout; this is the visible half of it).
+    const committed = (!coachedMode || committedPrediction(predict) !== null) && gate === null;
 
     const fold = pill('Fold', 'btn-fold', () => heroAct({ kind: 'fold' }));
     fold.disabled = !heroTurn || !committed || !legal.includes('fold');
@@ -656,6 +787,7 @@ export function renderTable(opts: {
     root,
     destroy: () => {
       if (pendingTimer !== null) clearTimeout(pendingTimer);
+      if (gateTimer !== null) clearTimeout(gateTimer);
       window.removeEventListener('keydown', onKey);
       // Switching tabs unmounts the panel holding the verdict, so the voice reading it must stop too.
       if (adviceShown) opts.onVerdict?.(null);

@@ -145,6 +145,14 @@ async function reachGradedCoachedHandover(page: Page): Promise<void> {
   await page.locator('[data-testid="predict-fold"]').click();
   await page.locator('[data-testid="confidence-sure"]').click();
   await page.locator(sel.btnFold).click();
+  // The serious fold now opens the state-4 GATE (gate.spec.ts owns it): the verdict is withheld and
+  // the hand does not advance until a self-explanation is submitted. Clear it with a passing reason so
+  // the hand reaches handover with the verdict up — the state this test is about.
+  if ((await page.getAttribute(tableScreen, 'data-gate')) === 'open') {
+    await page.locator('[data-testid="gate-input"]').fill('villain only continues a stronger range here');
+    await page.locator('[data-testid="gate-submit"]').click();
+    await expect(page.locator(tableScreen)).toHaveAttribute('data-gate', 'closed');
+  }
   expect(await waitForIdle(page)).toBe('handover');
 
   // The state under test is only interesting if the coach is actually speaking and the verdict
