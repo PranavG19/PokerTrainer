@@ -19,7 +19,7 @@ import {
 } from '../../src/core/session.js';
 import { createLexicon } from '../../src/core/lexicon.js';
 import { deriveState, type FadingEvent } from '../../src/core/fading.js';
-import { recordFadingEvents, recordInterleaveSpot } from '../../src/core/session.js';
+import { recordAnomalyResponse, recordFadingEvents, recordInterleaveSpot } from '../../src/core/session.js';
 
 function gift(overrides: Partial<GiftEntry> = {}): GiftEntry {
   return {
@@ -316,6 +316,71 @@ describe('chart-drill mastery persistence', () => {
       // premium: attempts 0, correct clamped to 0 → dropped as empty
       strong: { attempts: 4, correct: 4 },
       broadway: { attempts: 6, correct: 2 },
+    });
+  });
+});
+
+describe('anomaly-drill tally persistence (O8)', () => {
+  it('recordAnomalyResponse ticks attempts always, and the right buckets by verdict', () => {
+    let s = emptySession();
+    s = recordAnomalyResponse(s, { correct: true, fast: true, tag: null }); // a clean pass
+    s = recordAnomalyResponse(s, { correct: false, fast: true, tag: 'missed-anomaly' });
+    s = recordAnomalyResponse(s, { correct: false, fast: false, tag: 'false-alarm' });
+    s = recordAnomalyResponse(s, { correct: true, fast: false, tag: 'slow' });
+    expect(s.anomalyTally).toEqual({
+      attempts: 4,
+      correct: 2,
+      fast: 2,
+      missedAnomaly: 1,
+      falseAlarm: 1,
+      slow: 1,
+    });
+  });
+
+  it('is pure — the prior tally is not mutated', () => {
+    const before = recordAnomalyResponse(emptySession(), { correct: true, fast: true, tag: null });
+    const snapshot = JSON.parse(JSON.stringify(before.anomalyTally));
+    recordAnomalyResponse(before, { correct: false, fast: false, tag: 'slow' });
+    expect(before.anomalyTally).toEqual(snapshot);
+  });
+
+  it('survives a round trip', () => {
+    let s = emptySession();
+    s = recordAnomalyResponse(s, { correct: true, fast: true, tag: null });
+    s = recordAnomalyResponse(s, { correct: false, fast: true, tag: 'missed-anomaly' });
+    expect(deserialize(JSON.parse(JSON.stringify(serialize(s))))).toEqual(s);
+  });
+
+  it('a save file predating the tally loads with zeros', () => {
+    const legacy = { bankroll: 12000, hands: [], stats: { handsPlayed: 3 } };
+    expect(deserialize(legacy).anomalyTally).toEqual({
+      attempts: 0,
+      correct: 0,
+      fast: 0,
+      missedAnomaly: 0,
+      falseAlarm: 0,
+      slow: 0,
+    });
+  });
+
+  it('clamps a corrupt tally so it cannot report more right or tagged than played', () => {
+    const raw = deserialize({
+      anomalyTally: {
+        attempts: 5,
+        correct: 99, // above attempts → clamped
+        fast: -3, // negative → 0
+        missedAnomaly: 40, // above attempts → clamped
+        falseAlarm: 1,
+        slow: 'lots', // non-numeric → 0
+      },
+    });
+    expect(raw.anomalyTally).toEqual({
+      attempts: 5,
+      correct: 5,
+      fast: 0,
+      missedAnomaly: 5,
+      falseAlarm: 1,
+      slow: 0,
     });
   });
 });

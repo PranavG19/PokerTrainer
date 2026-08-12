@@ -155,6 +155,22 @@ export interface SessionState {
    * sittings. The key and module are bare strings; an unknown module simply never assembles.
    */
   interleavingSpots: Record<string, { module: string; attempts: number; correct: number }>;
+  /**
+   * O8: a lifetime tally of anomaly-drill responses, so the drill's real graded outcomes survive a tab
+   * switch and a restart instead of being thrown away with the screen's local array every visit. This
+   * is a CUMULATIVE record, deliberately separate from the in-sitting fluency gate (which windows over
+   * one block's responses and must not): `attempts`/`correct`/`fast` are counts, and the three error
+   * tags mirror anomaly.ts's ErrorTag exactly. Mirrors chartMastery/puzzleProgress — the record only
+   * teaches across sittings.
+   */
+  anomalyTally: {
+    attempts: number;
+    correct: number;
+    fast: number;
+    missedAnomaly: number;
+    falseAlarm: number;
+    slow: number;
+  };
 }
 
 export interface SessionSummary {
@@ -182,6 +198,31 @@ export function emptySession(): SessionState {
     lexicon: [],
     fadingLog: [],
     interleavingSpots: {},
+    anomalyTally: { attempts: 0, correct: 0, fast: 0, missedAnomaly: 0, falseAlarm: 0, slow: 0 },
+  };
+}
+
+/**
+ * Record one graded anomaly-drill response into the lifetime tally. Pure and cumulative. The scored
+ * fields come straight from anomaly.ts's ScoredResponse so the persisted record and the on-screen
+ * verdict can never disagree — this reducer only counts, it does not re-grade. `tag` is one of the
+ * three ErrorTags or null (a correct, fast response has no tag and only ticks attempts/correct/fast).
+ */
+export function recordAnomalyResponse(
+  state: SessionState,
+  scored: { correct: boolean; fast: boolean; tag: 'missed-anomaly' | 'false-alarm' | 'slow' | null },
+): SessionState {
+  const t = state.anomalyTally;
+  return {
+    ...state,
+    anomalyTally: {
+      attempts: t.attempts + 1,
+      correct: t.correct + (scored.correct ? 1 : 0),
+      fast: t.fast + (scored.fast ? 1 : 0),
+      missedAnomaly: t.missedAnomaly + (scored.tag === 'missed-anomaly' ? 1 : 0),
+      falseAlarm: t.falseAlarm + (scored.tag === 'false-alarm' ? 1 : 0),
+      slow: t.slow + (scored.tag === 'slow' ? 1 : 0),
+    },
   };
 }
 
@@ -400,6 +441,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     lexicon: structuredClone(state.lexicon),
     fadingLog: structuredClone(state.fadingLog),
     interleavingSpots: structuredClone(state.interleavingSpots),
+    anomalyTally: { ...state.anomalyTally },
   };
 }
 
@@ -447,6 +489,29 @@ export function deserialize(raw: unknown): SessionState {
     fadingLog: parseFadingLog(obj.fadingLog),
     // Legacy saves predate interleaving spots; an empty map is the honest reading of a missing field.
     interleavingSpots: parseInterleavingSpots(obj.interleavingSpots),
+    // Legacy saves predate the anomaly tally; zeros are the honest reading of a missing field.
+    anomalyTally: parseAnomalyTally(obj.anomalyTally),
+  };
+}
+
+/**
+ * Tolerant like every parser here. Every field is a non-negative count; a corrupt one degrades to 0.
+ * `correct` and `fast` are clamped to `attempts`, and the three error tags clamped to the wrong-or-slow
+ * remainder, so a garbled save can never make the drill report more right (or more tagged) than played.
+ */
+function parseAnomalyTally(raw: unknown): SessionState['anomalyTally'] {
+  const obj = asRecord(raw);
+  const count = (value: unknown): number => Math.max(0, Math.floor(asNumber(value, 0)));
+  const attempts = count(obj.attempts);
+  const correct = Math.min(count(obj.correct), attempts);
+  return {
+    attempts,
+    correct,
+    fast: Math.min(count(obj.fast), attempts),
+    // The three tags only attach to a wrong or slow response, so together they cannot exceed attempts.
+    missedAnomaly: Math.min(count(obj.missedAnomaly), attempts),
+    falseAlarm: Math.min(count(obj.falseAlarm), attempts),
+    slow: Math.min(count(obj.slow), attempts),
   };
 }
 

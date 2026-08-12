@@ -108,6 +108,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ─── The lifetime tally: a record across sittings, stated plainly (no colour, V2). ─── */
+.anomaly-lifetime {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--surface-hi);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.anomaly-lifetime-line {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-lo);
+}
+
 /* ─── The fluency gate ─── */
 .anomaly-gate {
   display: flex;

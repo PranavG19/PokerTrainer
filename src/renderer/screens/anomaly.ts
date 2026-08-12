@@ -103,7 +103,27 @@ interface Graded {
   readonly scored: ScoredResponse;
 }
 
-export function renderAnomalyScreen(): HTMLElement {
+export interface AnomalyLifetimeTally {
+  readonly attempts: number;
+  readonly correct: number;
+  readonly fast: number;
+  readonly missedAnomaly: number;
+  readonly falseAlarm: number;
+  readonly slow: number;
+}
+
+export interface AnomalyOpts {
+  /** The persisted lifetime tally, shown alongside the in-sitting gate so history survives a restart. */
+  readonly lifetime?: AnomalyLifetimeTally;
+  /** Fired once per graded response so main.ts can fold it into the persisted tally and save. */
+  readonly onResponse?: (scored: {
+    correct: boolean;
+    fast: boolean;
+    tag: ErrorTag | null;
+  }) => void;
+}
+
+export function renderAnomalyScreen(opts: AnomalyOpts = {}): HTMLElement {
   const root = document.createElement('div');
   root.className = 'anomaly-screen';
   root.dataset.testid = 'anomaly-screen';
@@ -115,6 +135,18 @@ export function renderAnomalyScreen(): HTMLElement {
     TRIGGER_CATEGORIES.map((category) => [category, { met: 0, caught: 0 }]),
   );
   const responses: Response[] = [];
+
+  // The lifetime tally, seeded from what was persisted and advanced live as the learner answers, so the
+  // block reflects this sitting's responses immediately rather than only after the next launch. A local
+  // mutable copy — the caller's object is never touched; main.ts owns the persisted one via onResponse.
+  const lifetime = {
+    attempts: opts.lifetime?.attempts ?? 0,
+    correct: opts.lifetime?.correct ?? 0,
+    fast: opts.lifetime?.fast ?? 0,
+    missedAnomaly: opts.lifetime?.missedAnomaly ?? 0,
+    falseAlarm: opts.lifetime?.falseAlarm ?? 0,
+    slow: opts.lifetime?.slow ?? 0,
+  };
 
   let index = 0;
   let draw = drawStimulus(seedFor(index), categoryFor(index), seen.get(categoryFor(index)));
@@ -144,7 +176,19 @@ export function renderAnomalyScreen(): HTMLElement {
       }
     }
 
+    // Advance the live lifetime tally the same way the reducer does, so the on-screen block reflects
+    // this response at once and matches what main.ts persists.
+    lifetime.attempts += 1;
+    if (scored.correct) lifetime.correct += 1;
+    if (scored.fast) lifetime.fast += 1;
+    if (scored.tag === 'missed-anomaly') lifetime.missedAnomaly += 1;
+    else if (scored.tag === 'false-alarm') lifetime.falseAlarm += 1;
+    else if (scored.tag === 'slow') lifetime.slow += 1;
+
     graded = { stimulus, answeredStandard, rtMs: response.rtMs, scored };
+    // Fold this graded response into the persisted lifetime tally. Only the scored verdict is sent —
+    // main.ts counts, it does not re-grade — so the on-screen verdict and the saved record agree.
+    opts.onResponse?.({ correct: scored.correct, fast: scored.fast, tag: scored.tag });
     paint();
   }
 
@@ -197,7 +241,7 @@ export function renderAnomalyScreen(): HTMLElement {
     root.dataset.gate = gate.passed ? 'pass' : 'fail';
 
     root.replaceChildren(
-      renderSide({ gate, tallies, firedBy: graded }),
+      renderSide({ gate, tallies, firedBy: graded, lifetime }),
       renderWork({ draw, graded, onCommit: commit, onNext: advance }),
     );
   }
@@ -219,6 +263,7 @@ function renderSide(opts: {
   gate: ReturnType<typeof fluencyGate>;
   tallies: ReadonlyMap<TriggerCategory, TriggerTally>;
   firedBy: Graded | null;
+  lifetime?: AnomalyLifetimeTally;
 }): HTMLElement {
   const panel = document.createElement('section');
   panel.className = 'anomaly-side';
@@ -236,8 +281,39 @@ function renderSide(opts: {
   panel.appendChild(text('div', 'stat-label', 'The four triggers'));
   panel.appendChild(renderTriggerList(opts.tallies, opts.firedBy));
   panel.appendChild(renderGate(opts.gate));
+  if (opts.lifetime !== undefined && opts.lifetime.attempts > 0) {
+    panel.appendChild(renderLifetime(opts.lifetime));
+  }
 
   return panel;
+}
+
+/**
+ * The lifetime tally — the drill's real graded history across sittings, distinct from the in-block
+ * gate above it. Stated plainly, no colour: these counts are a record, not a verdict, and the same V2
+ * palette rules apply as everywhere in this drill. Only shown once something has been attempted, so a
+ * fresh profile is not handed a wall of zeros.
+ */
+function renderLifetime(lifetime: AnomalyLifetimeTally): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'anomaly-lifetime';
+  wrap.dataset.testid = 'anomaly-lifetime';
+  wrap.dataset.attempts = String(lifetime.attempts);
+  wrap.dataset.correct = String(lifetime.correct);
+  wrap.dataset.fast = String(lifetime.fast);
+  wrap.dataset.missedAnomaly = String(lifetime.missedAnomaly);
+  wrap.dataset.falseAlarm = String(lifetime.falseAlarm);
+  wrap.dataset.slow = String(lifetime.slow);
+
+  wrap.appendChild(text('div', 'stat-label', 'Lifetime — across every sitting'));
+  wrap.appendChild(
+    text(
+      'p',
+      'anomaly-lifetime-line',
+      `${lifetime.correct}/${lifetime.attempts} correct, ${lifetime.fast} fast · ${lifetime.missedAnomaly} missed, ${lifetime.falseAlarm} false alarms, ${lifetime.slow} slow`,
+    ),
+  );
+  return wrap;
 }
 
 /**

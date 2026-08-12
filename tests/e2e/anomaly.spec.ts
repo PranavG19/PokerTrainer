@@ -1,4 +1,7 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { launchApp, shot } from './helpers.js';
 import {
   DISABLED_MESSAGE,
@@ -1497,5 +1500,59 @@ test.describe('O8 anomaly trigger drill', () => {
       await useViewport(app, page, MIN_WIDTH, MIN_HEIGHT);
       await shot(page, 'anomaly-900x640-missed');
     });
+  });
+
+  test('the lifetime tally accumulates real responses and survives a restart', async () => {
+    /**
+     * The drill's graded responses used to live in a screen-local array, thrown away on every tab
+     * switch and every restart. They now fold into session.anomalyTally. This walks a known run of
+     * trials, reads the lifetime block off its data-* attributes, then RELAUNCHES the same profile and
+     * asserts the counts are unchanged — the property that only a persisted tally can have.
+     */
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-anomaly-'));
+    let expectedAttempts = 0;
+
+    const first = await launchApp({ seed: 42, userDataDir });
+    try {
+      await openAnomaly(first.page);
+      // Answer five trials truthfully (so they are correct), advancing between each. Scripted keypresses
+      // are fast, so these are correct-and-fast — the exact count matters, the verdict split does not.
+      await walkTo(first.page, 5);
+      expectedAttempts = 5;
+
+      const lifetime = first.page.locator('[data-testid="anomaly-lifetime"]');
+      await expect(lifetime).toBeVisible();
+      await expect(lifetime).toHaveAttribute('data-attempts', String(expectedAttempts));
+      // Everything answered correctly, so correct === attempts and no error tags fired.
+      await expect(lifetime).toHaveAttribute('data-correct', String(expectedAttempts));
+      await expect(lifetime).toHaveAttribute('data-missed-anomaly', '0');
+      await expect(lifetime).toHaveAttribute('data-false-alarm', '0');
+
+      // Wait for the tally to reach disk before relaunching.
+      await expect
+        .poll(() => {
+          try {
+            const raw = fs.readFileSync(path.join(userDataDir, 'offsuit-state.json'), 'utf-8');
+            return (JSON.parse(raw).anomalyTally as { attempts: number } | undefined)?.attempts ?? -1;
+          } catch {
+            return -1;
+          }
+        })
+        .toBe(expectedAttempts);
+    } finally {
+      await first.close();
+    }
+
+    // Relaunch the same profile: the lifetime block is rebuilt from the persisted tally.
+    const second = await launchApp({ seed: 42, userDataDir });
+    try {
+      await openAnomaly(second.page);
+      const lifetime = second.page.locator('[data-testid="anomaly-lifetime"]');
+      await expect(lifetime).toBeVisible();
+      await expect(lifetime).toHaveAttribute('data-attempts', String(expectedAttempts));
+      await expect(lifetime).toHaveAttribute('data-correct', String(expectedAttempts));
+    } finally {
+      await second.close();
+    }
   });
 });
