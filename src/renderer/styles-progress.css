@@ -38,6 +38,18 @@
   grid-column: 1 / -1;
 }
 
+/* Section headings adopt the app's eyebrow idiom (.phase-label / .recommendation-heading), so
+ * "What you know…" and "Five numbers" read as section markers instead of flattening into the metric
+ * labels below them. Direct-child scope leaves the metric-label captions (nested in .progress-metric)
+ * sentence-case; text-transform keeps textContent intact for e2e. One short line, no added height. */
+.progress-section > .stat-label,
+.progress-numbers > .stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-lo);
+}
+
 .progress-metric {
   display: flex;
   flex-direction: column;
@@ -186,9 +198,10 @@
   font-size: 12px;
   color: var(--text-hi);
   font-variant-numeric: tabular-nums;
-  padding: 5px 12px;
-  border-radius: 8px;
-  background: var(--surface);
+  /* Single-line data rows, so drop the per-row surface fill: a short list of error tags read as a stack
+   * of boxes on a screen already dense with slabs. The section gap carries the separation; colour, size
+   * and tabular alignment are untouched. A background is removed, not added — no new hue. */
+  padding: 5px 0;
 }
 
 .progress-empty,
