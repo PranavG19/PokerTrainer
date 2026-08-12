@@ -679,6 +679,11 @@ function renderSeat(
   if (sittingOut) el.dataset.out = 'true';
   if (seat.allIn) el.dataset.allin = 'true';
   if (state.toAct === seat.id && state.winners === null) el.dataset.toAct = 'true';
+  // At showdown the pod that took the pot carries the same mint ring the to-act pod wore while the
+  // hand was live — the ring is never on two pods at once (to-act is guarded off once winners land),
+  // so it reads as "the action resolved HERE". Mint marks the winner, matching the winner-summary
+  // text below it, so no new colour enters the palette.
+  if (state.winners?.some((w) => w.seatId === seat.id)) el.dataset.winner = 'true';
 
   const avatar = document.createElement('div');
   avatar.className = 'seat-avatar';
