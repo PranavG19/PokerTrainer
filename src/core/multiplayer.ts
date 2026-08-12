@@ -19,7 +19,9 @@ import type { Card } from './cards.js';
 import {
   applyAction,
   createTable,
+  isHandOver,
   legalActions,
+  settle,
   startHand,
   type Action,
   type Seat,
@@ -171,12 +173,18 @@ export function playerLeaves(room: RoomState, playerId: PlayerId): RoomState {
 }
 
 /**
- * Deal a hand. Builds the real engine table from the seated players (a seat with no player is a
- * chipless empty seat the engine will skip), posts blinds, and returns the room with a live table.
- * Requires at least two seated players.
+ * Deal a hand. On the FIRST hand it builds the engine table from the seated players (a seat with no
+ * player is a chipless empty seat the engine sits out); on every SUBSEQUENT hand it calls startHand on
+ * the EXISTING table so the engine carries stacks forward, rotates the dealer, advances the hand
+ * number and reshuffles (seed + handNumber) — building a fresh createTable each time would reset the
+ * seed and stacks and re-deal the identical hand. Requires at least two seated players.
  */
 export function startRoomHand(room: RoomState): RoomState | { error: string } {
   if (room.players.length < 2) return { error: 'need at least two players to start' };
+  if (room.table !== null) {
+    // A table already exists (a prior hand): advance it rather than rebuilding from scratch.
+    return { ...room, table: startHand(room.table) };
+  }
   const seats = Array.from({ length: room.seatCount }, (_unused, i) => {
     const player = room.players.find((p) => p.seatId === i);
     return {
@@ -214,7 +222,12 @@ export function applyPlayerAction(
   if (!legalActions(room.table).includes(action.kind)) {
     return { error: `illegal action: ${action.kind}` };
   }
-  return { ...room, table: applyAction(room.table, action) };
+  const played = applyAction(room.table, action);
+  // If the action ended the hand (a fold-out or the river closing), settle it now so the pot is
+  // awarded, winners are populated and showdown cards reveal — the same isHandOver→settle step the
+  // single-player table screen runs. applyAction does NOT settle on its own.
+  const table = isHandOver(played) ? settle(played) : played;
+  return { ...room, table };
 }
 
 // ── Redaction (the security boundary) ────────────────────────────────────────
