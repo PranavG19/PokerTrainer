@@ -504,4 +504,29 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
     });
   });
+
+  test('16. the spot names its curriculum module, and the module tracks the scenario', async () => {
+    /**
+     * The module line makes the preflop→river progression legible WHILE playing, not just in the
+     * open picker. It is derived from the curriculum (moduleForScenario), so it must name the right
+     * module for the current spot and follow a jump to a different module's scenario.
+     */
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      const moduleLine = page.locator('[data-testid="puzzle-module"]');
+
+      // The first scenario (btn-open-aks) is in module 1, preflop fundamentals.
+      await expect(moduleLine).toBeVisible();
+      await expect(moduleLine).toHaveAttribute('data-module-key', 'preflop-fundamentals');
+      await expect(moduleLine).toContainText('Module 1 of 7');
+      await expect(moduleLine).toContainText('Preflop Fundamentals');
+
+      // Jump to a river scenario: the module line follows to module 7.
+      const select = page.locator(picker);
+      await select.selectOption({ label: 'Folding the busted flush draw on the river' });
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'fold-busted-draw-river');
+      await expect(moduleLine).toHaveAttribute('data-module-key', 'the-river');
+      await expect(moduleLine).toContainText('Module 7 of 7');
+    });
+  });
 });
