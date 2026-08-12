@@ -460,4 +460,48 @@ test.describe('puzzle mode', () => {
       expect(missed.toLowerCase()).toContain('bet');
     });
   });
+
+  test('15. the picker groups every scenario into an ordered curriculum, and grouping keeps jump-by-index working', async () => {
+    /**
+     * The curriculum is a VIEW over the flat library: the picker's options are grouped into an
+     * <optgroup> per teaching module (preflop → flop → turn → river), but the option VALUE stays the
+     * scenario's index in SCENARIOS, so nothing about "Next puzzle" or jump-by-index changes. This
+     * test pins three things: the groups exist and are ordered/labelled, EVERY scenario lives in
+     * exactly one group (no spot silently dropped from the grouped list), and selecting a grouped
+     * option still jumps to its scenario.
+     */
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      const select = page.locator(picker);
+
+      // Seven modules, in the taught order, each header carrying a per-module "done/total" count.
+      const groups = select.locator('optgroup');
+      await expect(groups).toHaveCount(7);
+      const labels = await groups.evaluateAll((els) => els.map((el) => (el as HTMLOptGroupElement).label));
+      expect(labels[0], 'the first module is preflop fundamentals').toContain('Preflop Fundamentals');
+      expect(labels[6], 'the last module is the river').toContain('The River');
+      for (const label of labels) {
+        // Every header states progress as N/M, and a fresh profile has nothing mastered.
+        expect(label, `module header "${label}" carries no done/total count`).toMatch(/— 0\/\d+$/);
+      }
+
+      // Every scenario option lives inside a group — the grouped option count equals the flat library,
+      // so no scenario was orphaned by the grouping. (The flat count is asserted >= 11 by test 9; here
+      // we assert the grouped total matches the ungrouped total exactly.)
+      const totalOptions = await select.locator('option').count();
+      const groupedOptions = await select.locator('optgroup > option').count();
+      expect(groupedOptions, 'some scenarios are not inside any curriculum module').toBe(totalOptions);
+
+      // The sum of the module counts in the headers equals the library size — the partition is total.
+      const perModule = labels.map((l) => Number(/\/(\d+)$/.exec(l)?.[1] ?? '0'));
+      expect(perModule.reduce((a, b) => a + b, 0)).toBe(totalOptions);
+
+      // Grouping did not break selection: a grouped option still jumps to its scenario at a fresh step.
+      // On a fresh profile nothing is attempted or mastered, so the option label is exactly the title.
+      await select.selectOption({ label: 'Barrelling the turn with an overpair' });
+      await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'barrel-turn-overpair');
+      await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+    });
+  });
 });
