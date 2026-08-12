@@ -51,6 +51,7 @@ import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
 import { conceptStatesFromLog, type ConceptState } from '../core/schedule.js';
 import { renderTable, type TableHandle } from './screens/table.js';
+import { renderMultiplayerScreen } from './screens/multiplayer.js';
 
 const DEFAULT_SEED = 42;
 
@@ -68,6 +69,15 @@ interface OffsuitBridge {
   deleteProfile?: (confirmation: string) => Promise<{ deleted: boolean }>;
   /** Narration. `null` stops the current utterance. Absent outside Electron. */
   speak?: (text: string | null) => Promise<SpeakResult>;
+  /** Multiplayer (local relay). All absent outside Electron; the socket lives in main behind an opt-in. */
+  mpStatus?: () => Promise<{ enabled: boolean; active: boolean }>;
+  mpSetEnabled?: (enabled: boolean) => Promise<boolean>;
+  mpHost?: (opts: { seatCount?: number }) => Promise<{ port?: number; error?: string }>;
+  mpJoin?: (address: { host: string; port: number; name?: string }) => Promise<{ joined?: boolean; error?: string }>;
+  mpAction?: (action: unknown) => Promise<void>;
+  mpDeal?: () => Promise<void>;
+  mpStop?: () => Promise<void>;
+  onMpEvent?: (handler: (event: unknown) => void) => () => void;
 }
 
 declare global {
@@ -151,6 +161,12 @@ async function boot(): Promise<void> {
 
   let tab: Tab = 'play';
   let table: TableHandle | null = null;
+  /**
+   * Multiplayer is a PANEL within the Play tab, not its own tab (the tab bar is at its 13-tab budget).
+   * When true, the Play tab shows the multiplayer screen instead of Home or a solo table; leaving it
+   * returns to Home. It swaps out like the table does, so its pushed-event subscription is torn down.
+   */
+  let multiplayerActive = false;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
   /**
    * Where the Profile tab is: the profile itself, the hand picker, or one hand's replay. The picker
@@ -417,7 +433,19 @@ async function boot(): Promise<void> {
 
     teardownReview();
 
-    // Play tab: keep a live table mounted if there is one, else the home screen.
+    // Play tab: the multiplayer panel wins if it is open, then a live solo table, else home.
+    if (multiplayerActive) {
+      screen.replaceChildren(
+        renderMultiplayerScreen({
+          bridge: io,
+          onExit: () => {
+            multiplayerActive = false;
+            render();
+          },
+        }),
+      );
+      return;
+    }
     if (table) {
       screen.replaceChildren(table.root);
       return;
@@ -426,6 +454,10 @@ async function boot(): Promise<void> {
       renderHome({
         session,
         onNewSession: () => startTable(),
+        onPlayWithFriends: () => {
+          multiplayerActive = true;
+          render();
+        },
         recommendation: currentRecommendation(),
         recommendationHandlers: {
           onAccept: (suggestion) => void onAcceptSuggestion(suggestion),

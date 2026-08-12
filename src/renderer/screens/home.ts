@@ -10,6 +10,8 @@ const RECENT_LIMIT = 5;
 export function renderHome(opts: {
   session: SessionState;
   onNewSession: () => void;
+  /** Open the multiplayer (local relay) panel. Absent when the caller has not wired multiplayer. */
+  onPlayWithFriends?: () => void;
   onOpenHand?: (handNumber: number) => void;
   /**
    * N2's single suggestion, already computed by core. Home does NOT rank anything — the launcher
@@ -41,6 +43,7 @@ export function renderHome(opts: {
   }
 
   root.appendChild(renderNewSessionCard(opts.onNewSession));
+  if (opts.onPlayWithFriends) root.appendChild(renderPlayWithFriendsCard(opts.onPlayWithFriends));
   root.appendChild(renderRecentHands(opts.session.hands, opts.onOpenHand));
   /**
    * S1's "Start session" lives here because N5 makes home the launcher: choosing how long you are
@@ -98,6 +101,26 @@ function renderNewSessionCard(onNewSession: () => void): HTMLElement {
   const meta = document.createElement('span');
   meta.className = 'session-card-meta';
   meta.textContent = 'Sit down and play a hand with the coach watching';
+  card.appendChild(meta);
+
+  return card;
+}
+
+function renderPlayWithFriendsCard(onPlayWithFriends: () => void): HTMLElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'session-card';
+  card.dataset.testid = 'play-with-friends';
+  card.addEventListener('click', onPlayWithFriends);
+
+  const title = document.createElement('span');
+  title.className = 'session-card-title';
+  title.textContent = 'Play with friends';
+  card.appendChild(title);
+
+  const meta = document.createElement('span');
+  meta.className = 'session-card-meta';
+  meta.textContent = 'Host or join a table on your local network';
   card.appendChild(meta);
 
   return card;

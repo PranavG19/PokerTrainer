@@ -1,0 +1,142 @@
+.mp-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.mp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mp-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.mp-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--elev-1);
+}
+
+.mp-explain {
+  color: var(--text-lo);
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 46ch;
+}
+
+.mp-notice {
+  font-size: 13px;
+  color: var(--text-hi);
+  background: var(--surface-hi);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+.mp-connecting {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.mp-share {
+  font-size: 14px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-join-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mp-input {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-hi);
+  background: var(--surface-hi);
+  border: 1px solid var(--surface-hi);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.mp-input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.mp-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--elev-1);
+}
+
+.mp-pot {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-hi);
+  text-align: center;
+}
+
+.mp-seats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mp-seat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hi);
+}
+
+/* The acting seat comes forward by depth, not colour — the same differential-emphasis rule the live
+ * table uses. Folded seats recede via opacity, matching the seat state channel elsewhere. */
+.mp-seat[data-to-act='true'] {
+  box-shadow: var(--ring-active);
+}
+
+.mp-seat[data-folded='true'] {
+  opacity: 0.4;
+}
+
+.mp-seat-name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.mp-seat-cards {
+  display: flex;
+  gap: 4px;
+}
+
+.mp-seat-stack {
+  font-size: 13px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
