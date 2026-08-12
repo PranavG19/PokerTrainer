@@ -381,6 +381,95 @@ const DEFENSE_SPECS: Record<DefensePosition, DefenseSpec> = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Facing-a-3-bet response ranges (the opener, having raised, now faces a 3-bet)
+// ---------------------------------------------------------------------------
+
+/**
+ * The opener's response to a 3-bet, keyed by the position they OPENED from. Same monotonic-threshold
+ * shape and the same honesty discipline as the defense ranges (offsuit-defense-range-model): each spot
+ * carries a `call` (flat) range and a `fourBet` (linear value) range, both PURE — no mixed
+ * frequencies. The 4-bet is value-only; polar 4-bet bluffs (e.g. A5s) cannot be expressed as a single
+ * kicker floor per row, so they are folded into the fold region rather than faked. This is a documented
+ * beginner simplification, not a solver solve.
+ *
+ * WIDTH ORDERING (continue = call + 4-bet), strictly increasing UTG < HJ < CO < BTN: a tight opener
+ * (UTG) faces a tighter, more credible 3-bet and continues narrowly; a wide opener (BTN) faces a wider,
+ * more bluff-heavy 3-bet and both 4-bets more for value and flats more. This is the mirror of the RFI
+ * width ordering, and getting it backwards teaches the exact opposite of play.
+ */
+export type ThreeBetResponsePosition = 'UTG' | 'HJ' | 'CO' | 'BTN';
+
+/** Opener positions in strictly increasing continue-width order. */
+export const THREEBET_RESPONSE_WIDTH_ORDER = ['UTG', 'HJ', 'CO', 'BTN'] as const;
+
+interface ThreeBetResponseSpec {
+  readonly call: RfiSpec;
+  readonly fourBet: RfiSpec;
+}
+
+const THREEBET_RESPONSE_SPECS: Record<ThreeBetResponsePosition, ThreeBetResponseSpec> = {
+  // UTG opened into the field and now faces a 3-bet: continue tightest. 4-bet the top value (QQ+, AK);
+  // flat the strong-but-dominated broadways and the set-miners (TT-JJ, AQs, KQs).
+  UTG: {
+    call: {
+      pairsDownTo: 'T',
+      suited: { 'A': 'Q', 'K': 'Q' },
+      offsuit: {},
+    },
+    fourBet: {
+      pairsDownTo: 'Q',
+      suited: { 'A': 'K' },
+      offsuit: { 'A': 'K' },
+    },
+  },
+  // HJ opens a touch wider, faces a slightly wider 3-bet: add JJ and AJs/KQs to the flats, AQs to 4-bet.
+  HJ: {
+    call: {
+      pairsDownTo: '9',
+      suited: { 'A': 'J', 'K': 'Q' },
+      offsuit: {},
+    },
+    fourBet: {
+      pairsDownTo: 'Q',
+      suited: { 'A': 'Q' },
+      offsuit: { 'A': 'K' },
+    },
+  },
+  // CO opens wider still: flat down to 88 and the suited broadways / suited aces, 4-bet JJ+ and AQs+.
+  // No offsuit flats: CO is frequently OUT OF POSITION vs a button 3-bettor, and the one candidate
+  // (AQo) is reverse-dominated by the 3-bet value core (AK/AQs/QQ+) — solvers play it 4-bet-or-fold,
+  // never a pure flat OOP. Flatting it would teach a real EV leak, so it folds (an adversarial range
+  // audit flagged this as the single worst inclusion; the ace-blocker offsuit flats survive only where
+  // the opener is always in position, i.e. the button below).
+  CO: {
+    call: {
+      pairsDownTo: '8',
+      suited: { 'A': 'T', 'K': 'J', 'Q': 'J' },
+      offsuit: {},
+    },
+    fourBet: {
+      pairsDownTo: 'J',
+      suited: { 'A': 'Q' },
+      offsuit: { 'A': 'K' },
+    },
+  },
+  // BTN opens widest and faces the widest, most bluff-heavy 3-bet: flat broadly (77+, suited aces,
+  // suited broadways, KQo) and 4-bet the widest value (TT+, AQs+, AK).
+  BTN: {
+    call: {
+      pairsDownTo: '7',
+      suited: { 'A': 'T', 'K': 'T', 'Q': 'T', 'J': 'T' },
+      offsuit: { 'A': 'Q', 'K': 'Q' },
+    },
+    fourBet: {
+      pairsDownTo: 'T',
+      suited: { 'A': 'Q' },
+      offsuit: { 'A': 'K' },
+    },
+  },
+};
+
 /** Whether a combo satisfies one RfiSpec's monotonic thresholds — the same logic as isInRfiRange. */
 function inThresholds(combo: Combo, spec: RfiSpec): boolean {
   const hand = parse(combo);
@@ -406,6 +495,27 @@ export function defenseAction(combo: Combo, spot: DefensePosition): DefenseActio
 export function defenseWidth(spot: DefensePosition): number {
   const weighted = ALL_COMBOS.reduce(
     (sum, combo) => (defenseAction(combo, spot) === 'fold' ? sum : sum + comboWeight(combo)),
+    0,
+  );
+  return weighted / TOTAL_COMBINATIONS;
+}
+
+/** The opener's action facing a 3-bet. Reuses DefenseAction ('threebet' reads as '4-bet' in this spot —
+ *  the drill labels it). FOUR-BET IS EVALUATED FIRST: any premium that ALSO sits in the wider call
+ *  region (the pairs and suited aces, whose fourBet floor is above their call floor) would otherwise be
+ *  mis-graded as a flat. (Not every 4-bet combo is in the call region — AKo at UTG/HJ is 4-bet-only,
+ *  since those spots flat no offsuit hands — but fourBet-first grades it correctly regardless.) */
+export function threeBetResponseAction(combo: Combo, position: ThreeBetResponsePosition): DefenseAction {
+  const spec = THREEBET_RESPONSE_SPECS[position];
+  if (inThresholds(combo, spec.fourBet)) return 'threebet';
+  if (inThresholds(combo, spec.call)) return 'call';
+  return 'fold';
+}
+
+/** The combo-weighted share of hands that CONTINUE (call or 4-bet) facing a 3-bet as the opener. */
+export function threeBetResponseWidth(position: ThreeBetResponsePosition): number {
+  const weighted = ALL_COMBOS.reduce(
+    (sum, combo) => (threeBetResponseAction(combo, position) === 'fold' ? sum : sum + comboWeight(combo)),
     0,
   );
   return weighted / TOTAL_COMBINATIONS;
