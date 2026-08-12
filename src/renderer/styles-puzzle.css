@@ -39,6 +39,14 @@
   box-shadow: var(--focus-ring);
 }
 
+/* The curriculum module this spot sits in — a quiet caption above the title, so the preflop→river
+ * progression is legible while playing. Muted and small so it frames the title without competing. */
+.puzzle-module {
+  font-size: 12px;
+  color: var(--text-lo);
+  margin-top: 6px;
+}
+
 .puzzle-title {
   font-size: 20px;
   font-weight: 600;
@@ -50,6 +58,9 @@
   font-size: 14px;
   line-height: 1.4;
   margin-top: 4px;
+  /* Cap the secondary spot-setup to a comfortable reading measure so it reads as scannable prose
+   * (read-order step 1) rather than a full-width block competing with the title and table. */
+  max-width: 46ch;
 }
 
 .puzzle-table {
@@ -62,19 +73,28 @@
   box-shadow: var(--elev-1);
 }
 
+/* The pot governs every price decision, so it renders in full ink and medium weight — the same
+ * inverted-hierarchy fix the table's .pot already carries (styles.css). Size unchanged, so no rect
+ * moves; text-hi is a neutral high-contrast token, not a severity colour. */
 .puzzle-pot {
   font-size: 13px;
-  color: var(--text-lo);
+  color: var(--text-hi);
+  font-weight: 500;
   text-align: center;
 }
 
 /* The price the hero is being laid, shown only when facing a bet. Tabular so the percentage does not
  * jitter, and mint (the reserved "this is the teaching signal" accent) to draw the eye to the number. */
 .puzzle-odds {
-  font-size: 12px;
+  /* The core teaching signal: mint is the reserved teaching accent, and size+weight (not more colour)
+   * make it a focal point. It fades up quickly the moment the hero faces a real bet — opacity-only,
+   * so it cannot nudge geometry — drawing the eye to the price as it appears. */
+  font-size: 16px;
+  font-weight: 600;
   color: var(--mint);
   text-align: center;
   font-variant-numeric: tabular-nums;
+  animation: offsuit-surface-in var(--motion-fast) var(--ease-out);
 }
 
 .puzzle-board,
@@ -121,8 +141,16 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  box-shadow: var(--elev-1);
+  /* Lift the conclusion above the acting-state table (which sits at --elev-1): verdict and complete are
+   * mutually exclusive with the controls per paint, so this is the one focal surface when it appears. */
+  box-shadow: var(--elev-2);
   animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+}
+
+/* The completion screen stacks up to four identical pills; give only the primary forward action more
+ * weight (not colour, not a shadow that would fight the focus ring) so one clear next step stands out. */
+.puzzle-complete .pill[data-testid='puzzle-next-scenario'] {
+  font-weight: 600;
 }
 
 .puzzle-verdict[data-correct='true'] .puzzle-verdict-head {
@@ -133,9 +161,12 @@
   color: var(--chip-blind);
 }
 
+/* The graded conclusion the eye lands on — carried by weight and size so it does not lean on the
+ * mint/chip-blind text colour to read as the verdict. line-height keeps the longer "Not quite…" tidy. */
 .puzzle-verdict-head {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.3;
 }
 
 .puzzle-explanation {
@@ -181,7 +212,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .puzzle-verdict,
-  .puzzle-complete {
+  .puzzle-complete,
+  .puzzle-odds {
     animation: none;
   }
 }
