@@ -96,6 +96,18 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
   root.dataset.testid = 'repair-screen';
   root.dataset.queueLength = String(queue.length);
 
+  // The verdict on a committed sentence updates in place, so a screen-reader user gets no feedback
+  // without a live region. This always-present polite region mirrors renderLexiconFeedback's wording;
+  // it is kept as the root's first child in every paint branch so it survives replaceChildren, and is
+  // visually hidden + absolute-positioned so it takes no space in the flex column. Empty until a commit
+  // and cleared on a concept/view switch (lastAttempt resets there).
+  const verdictAnnouncer = document.createElement('div');
+  verdictAnnouncer.className = 'visually-hidden';
+  verdictAnnouncer.dataset.testid = 'lexicon-announcer';
+  verdictAnnouncer.setAttribute('role', 'status');
+  verdictAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(verdictAnnouncer);
+
   /**
    * The queue and one concept are separate views rather than one column, for the same reason
    * lesson.ts splits its list from its lesson: at the documented 900x640 minimum the queue alone
@@ -151,11 +163,17 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
 
   function paint(): void {
     root.dataset.view = view;
+    // Mirror the last verdict into the live region — same wording as renderLexiconFeedback — only in the
+    // concept view (the queue and empty views have no verdict). Empty otherwise.
+    verdictAnnouncer.textContent =
+      view === 'concept' && lastAttempt !== null ? lexiconVerdictAnnouncement(lastAttempt) : '';
+
     if (queue.length === 0) {
       root.dataset.kind = 'empty';
       delete root.dataset.conceptId;
       delete root.dataset.axis;
       root.replaceChildren(
+        verdictAnnouncer,
         heading(),
         emptyState(
           'No repairs in this build',
@@ -169,7 +187,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
       delete root.dataset.conceptId;
       delete root.dataset.axis;
       delete root.dataset.kind;
-      root.replaceChildren(heading(), renderQueue());
+      root.replaceChildren(verdictAnnouncer, heading(), renderQueue());
       return;
     }
 
@@ -182,7 +200,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
     if (showing === null) delete root.dataset.axis;
     else root.dataset.axis = showing;
 
-    root.replaceChildren(renderConcept(item, remediation, showing));
+    root.replaceChildren(verdictAnnouncer, renderConcept(item, remediation, showing));
   }
 
   /** The axis whose set is on screen: the learner's pick when it built, else the first that did. */
@@ -574,6 +592,21 @@ function axisValue(variant: ContrastVariant, axis: ContrastAxis): string {
  * celebrated; a rejected one states L2's correction in full-contrast medium type, and the first
  * rejection per concept invites a reframe (the "pushes back once" flag). Both are recorded either way.
  */
+/**
+ * The verdict as one spoken line for the screen-reader live region, mirroring renderLexiconFeedback's
+ * wording: the adopted confirmation and its frame label, or the rejection reason and its pushback note.
+ * Same strings as the DOM feedback so the two cannot drift.
+ */
+function lexiconVerdictAnnouncement(attempt: LexiconAttempt): string {
+  if (attempt.outcome === 'accepted') {
+    return `Adopted — this now opens your feedback on this concept. ${FRAME_LABELS[attempt.frame]}`;
+  }
+  const pushback = attempt.pushback
+    ? ' Reframe it and try again — the sentence is kept either way.'
+    : '';
+  return `${attempt.reasonText}${pushback}`;
+}
+
 function renderLexiconFeedback(attempt: LexiconAttempt): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'lexicon-feedback';
