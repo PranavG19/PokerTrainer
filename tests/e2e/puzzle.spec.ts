@@ -232,6 +232,10 @@ test.describe('puzzle mode', () => {
       'checkback-underpair-multiway': ['raise', 'check'],
       'probe-turn-after-checkback': ['call', 'check', 'bet'],
       'blocker-3bet-bluff-a5s': ['raise'],
+      'delayed-cbet-turn': ['raise', 'check', 'bet'],
+      'trap-flopped-set-dry': ['raise', 'check'],
+      'call-3bet-oop-99': ['raise', 'call'],
+      'river-bluff-blocker': ['raise', 'bet', 'check', 'bet'],
     };
 
     await withApp(async (page) => {
