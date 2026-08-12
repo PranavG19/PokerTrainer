@@ -277,13 +277,23 @@ test.describe('puzzle mode', () => {
       'fold-weak-pair-river-overbet': ['raise', 'check', 'check', 'fold'],
       'fold-weak-ace-to-ep-open': ['fold'],
       '3bet-aqs-vs-btn-steal': ['raise'],
+      // Stack-depth / SPR module (40bb commit, 200bb pot-control) — added with the depth scenarios.
+      'commit-tptk-40bb': ['raise', 'bet'],
+      'commit-overpair-40bb': ['raise', 'bet'],
+      'commit-flush-draw-jam-40bb': ['raise', 'raise'],
+      'deep-fold-tptk-200bb': ['raise', 'bet', 'check', 'fold'],
+      'deep-pot-control-overpair-200bb': ['raise', 'bet', 'call'],
+      'deep-stack-set-200bb': ['raise'],
     };
 
     await withApp(async (page) => {
       await openPuzzle(page);
 
       const seen = new Set<string>();
-      for (let visited = 0; visited < 45; visited++) {
+      // One iteration per library scenario, plus a small margin so the wrap-detection (not the bound)
+      // is what ends the walk. Grows automatically as the library does.
+      const walkLimit = Object.keys(lines).length + 5;
+      for (let visited = 0; visited < walkLimit; visited++) {
         const id = (await page.locator(screen).getAttribute('data-scenario')) ?? '';
         if (seen.has(id)) break; // wrapped back to the first puzzle — the whole library was walked
         seen.add(id);
@@ -538,12 +548,13 @@ test.describe('puzzle mode', () => {
       await passClassify(page);
       const select = page.locator(picker);
 
-      // Seven modules, in the taught order, each header carrying a per-module "done/total" count.
+      // Eight modules, in the taught order, each header carrying a per-module "done/total" count.
       const groups = select.locator('optgroup');
-      await expect(groups).toHaveCount(7);
+      await expect(groups).toHaveCount(8);
       const labels = await groups.evaluateAll((els) => els.map((el) => (el as HTMLOptGroupElement).label));
       expect(labels[0], 'the first module is preflop fundamentals').toContain('Preflop Fundamentals');
-      expect(labels[6], 'the last module is the river').toContain('The River');
+      expect(labels[6], 'the seventh module is the river').toContain('The River');
+      expect(labels[7], 'the last module is stack depth').toContain('Stack Depth');
       for (const label of labels) {
         // Every header states progress as N/M, and a fresh profile has nothing mastered.
         expect(label, `module header "${label}" carries no done/total count`).toMatch(/— 0\/\d+$/);
@@ -586,7 +597,7 @@ test.describe('puzzle mode', () => {
       // The first scenario (btn-open-aks) is in module 1, preflop fundamentals.
       await expect(moduleLine).toBeVisible();
       await expect(moduleLine).toHaveAttribute('data-module-key', 'preflop-fundamentals');
-      await expect(moduleLine).toContainText('Module 1 of 7');
+      await expect(moduleLine).toContainText('Module 1 of 8');
       await expect(moduleLine).toContainText('Preflop Fundamentals');
 
       // Jump to a river scenario: the module line follows to module 7. The jump lands on that scenario's
@@ -596,7 +607,7 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'fold-busted-draw-river');
       await passClassify(page);
       await expect(moduleLine).toHaveAttribute('data-module-key', 'the-river');
-      await expect(moduleLine).toContainText('Module 7 of 7');
+      await expect(moduleLine).toContainText('Module 7 of 8');
     });
   });
 
