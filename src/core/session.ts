@@ -17,6 +17,8 @@ const KNOWN_SOURCES = new Set<string>(SOURCES);
 
 /** Bound the log so the on-disk JSON cannot grow without limit. */
 export const MAX_HAND_LOG = 500;
+/** Bound the assessment log the same way. One block is 30 spots, so this holds many blocks of history. */
+export const MAX_ASSESSMENT_LOG = 500;
 export const DEFAULT_BANKROLL = 10000;
 
 const SEVERITIES: Severity[] = ['free', 'notable', 'serious'];
@@ -82,6 +84,24 @@ export interface HandRecord {
    * into one representation.
    */
   decisions?: DecisionRecord[];
+}
+
+/**
+ * P4/G2: one graded spot from an assessment block. The block runs like coached play but withholds the
+ * coach's feedback until the end and tags every decision so it feeds the assessment-EV-loss metric
+ * ALONE (progress.ts filters `mode === 'assessment'`). Deliberately the honest minimum the metric reads:
+ * `evLossBb` is the coach's own grade for the spot (never re-graded here), `at` places it in a week, and
+ * `correct` mirrors the practice path (a decision that cost nothing is correct). No `mode` field — it is
+ * baked to 'assessment' when these are mapped into the progress input, because that is the only mode an
+ * AssessmentDecision can carry.
+ */
+export interface AssessmentDecision {
+  /** Absolute epoch ms the spot was graded. */
+  readonly at: number;
+  /** bb lost relative to the best action, straight from coach.gradeDecision. Zero cost a free spot. */
+  readonly evLossBb: number;
+  /** True when the spot cost nothing (severity 'free'), mirroring decisionRecordsFromHands. */
+  readonly correct: boolean;
 }
 
 /** Lifetime counters. Kept cumulative because the hand log is capped. */
@@ -179,6 +199,13 @@ export interface SessionState {
     falseAlarm: number;
     slow: number;
   };
+  /**
+   * P4/G2: the graded spots from assessment blocks, newest last. Persisted because the assessment-EV-loss
+   * metric is the whole point of the block — a session-scoped log would make the metric forget every
+   * launch, and the spec asks for a durable read on how the learner does with feedback withheld. Bounded
+   * by MAX_ASSESSMENT_LOG the same way the hand log is. Append-only (the only writer is recordAssessment).
+   */
+  assessments: AssessmentDecision[];
 }
 
 export interface SessionSummary {
@@ -207,6 +234,7 @@ export function emptySession(): SessionState {
     fadingLog: [],
     interleavingSpots: {},
     anomalyTally: { attempts: 0, correct: 0, fast: 0, missedAnomaly: 0, falseAlarm: 0, slow: 0 },
+    assessments: [],
   };
 }
 
@@ -232,6 +260,15 @@ export function recordAnomalyResponse(
       slow: t.slow + (scored.tag === 'slow' ? 1 : 0),
     },
   };
+}
+
+/**
+ * Append one graded assessment spot, newest last, bounded to MAX_ASSESSMENT_LOG. Pure. The grade comes
+ * straight from coach.gradeDecision (the caller has already graded the spot), so this reducer only
+ * records — it never re-grades — and the persisted evLossBb can never disagree with the coach's own.
+ */
+export function recordAssessment(state: SessionState, decision: AssessmentDecision): SessionState {
+  return { ...state, assessments: [...state.assessments, { ...decision }].slice(-MAX_ASSESSMENT_LOG) };
 }
 
 /**
@@ -450,6 +487,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     fadingLog: structuredClone(state.fadingLog),
     interleavingSpots: structuredClone(state.interleavingSpots),
     anomalyTally: { ...state.anomalyTally },
+    assessments: state.assessments.map((a) => ({ ...a })),
   };
 }
 
@@ -499,6 +537,11 @@ export function deserialize(raw: unknown): SessionState {
     interleavingSpots: parseInterleavingSpots(obj.interleavingSpots),
     // Legacy saves predate the anomaly tally; zeros are the honest reading of a missing field.
     anomalyTally: parseAnomalyTally(obj.anomalyTally),
+    // Legacy saves predate assessment blocks; an empty log is the honest reading of a missing field.
+    assessments: asArray(obj.assessments)
+      .map(parseAssessment)
+      .filter((a): a is AssessmentDecision => a !== null)
+      .slice(-MAX_ASSESSMENT_LOG),
   };
 }
 
@@ -520,6 +563,23 @@ function parseAnomalyTally(raw: unknown): SessionState['anomalyTally'] {
     missedAnomaly: Math.min(count(obj.missedAnomaly), attempts),
     falseAlarm: Math.min(count(obj.falseAlarm), attempts),
     slow: Math.min(count(obj.slow), attempts),
+  };
+}
+
+/**
+ * Tolerant like every parser here. A spot is kept only with a real, finite timestamp — without one it
+ * cannot be placed in a week and pretending it happened now would inflate the metric, so it is dropped
+ * rather than resurrected with a fabricated `at`. A negative evLossBb is clamped to 0 (the coach never
+ * awards a spot that BEAT the best action; a negative is corruption). `correct` degrades to false.
+ */
+function parseAssessment(raw: unknown): AssessmentDecision | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.at !== 'number' || !Number.isFinite(obj.at)) return null;
+  return {
+    at: obj.at,
+    evLossBb: Math.max(0, asNumber(obj.evLossBb, 0)),
+    correct: obj.correct === true,
   };
 }
 

@@ -559,12 +559,26 @@ async function boot(): Promise<void> {
        *    number P1 most forbids faking.
        *  - `fluency: []` because no reaction time is recorded anywhere, so no category can honestly pass.
        * Core's refusals then do the right thing: the win rate reads "need more hands", the results graph
-       * is refused with its route out, and the assessment EV-loss stays empty (no assessment block runs).
+       * is refused with its route out, and the assessment EV-loss reads from real blocks when the learner
+       * has played one (empty until then — never a fabricated zero).
        */
       const progressNow = Date.now();
       return renderProgressScreen({
         input: {
-          decisions: decisionRecordsFromHands(session.hands),
+          // Practice decisions come from real play; assessment spots are the separately-tagged block
+          // decisions, mapped to mode:'assessment' so they feed the assessment-EV-loss metric ALONE
+          // (progress.ts filters on mode). tag/sure mirror the practice path: the block records neither.
+          decisions: [
+            ...decisionRecordsFromHands(session.hands),
+            ...session.assessments.map((a) => ({
+              at: a.at,
+              mode: 'assessment' as const,
+              evLossBb: a.evLossBb,
+              tag: null,
+              sure: false,
+              correct: a.correct,
+            })),
+          ],
           hands: [],
           fluency: [],
           botConfigId: 'default',
