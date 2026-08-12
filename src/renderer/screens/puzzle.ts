@@ -13,6 +13,14 @@ import {
 } from '../../core/puzzle.js';
 import { SCENARIOS } from '../../core/puzzleScenarios.js';
 import { CURRICULUM, moduleForScenario } from '../../core/puzzleCurriculum.js';
+import {
+  gradeSpotType,
+  isClassifiable,
+  PREFLOP_SPOT_TYPES,
+  SPOT_TYPE_LABELS,
+  type SpotType,
+  type SpotTypeVerdict,
+} from '../../core/spotType.js';
 import { renderCardRow } from '../components/card.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
@@ -65,6 +73,17 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
   /** Guards a single onComplete per completion, so re-paints of the complete screen do not re-record. */
   let recordedComplete = false;
   const records: StepRecord[] = [];
+
+  /**
+   * State 1 of the five-state protocol (CLASSIFY): before the FIRST action of a classifiable (preflop)
+   * spot, the learner names the spot type. Graded independently of the action and NEVER blocks progress
+   * (spec: "no skip button — 'I don't know' is a commitment and scores as a miss"), so a wrong or absent
+   * classification does not change the action grade or the completion score. `classifyVerdict` holds the
+   * scored pick until dismissed; `classifyDone` marks that this spot's classify step is finished (asked
+   * or skipped) so it is asked at most once per scenario, before acting.
+   */
+  let classifyVerdict: SpotTypeVerdict | null = null;
+  let classifyDone = false;
 
   const scenario = (): Scenario => SCENARIOS[scenarioIndex];
 
@@ -148,7 +167,47 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     lastVerdict = null;
     recordedComplete = false;
     records.length = 0;
+    classifyVerdict = null;
+    classifyDone = false;
     advanceToHero();
+    paint();
+  }
+
+  /** True when the learner should be asked to classify the spot RIGHT NOW: it is the hero's first
+   *  decision, the spot is classifiable (preflop), and they have not yet classified this scenario. */
+  function classifyPending(): boolean {
+    return (
+      !classifyDone &&
+      classifyVerdict === null &&
+      stepIndex === 0 &&
+      state.toAct === HERO &&
+      !isComplete(scenario(), stepIndex) &&
+      isClassifiable(state)
+    );
+  }
+
+  /**
+   * The classify phase = the picker is up OR its verdict is on screen. While it is, the header hides
+   * everything that would pre-classify the spot (the title, the setup prose, the by-title picker and
+   * the module caption all NAME the spot type), so the learner classifies from the table alone. That
+   * is the whole point of the step — a heading that says "Opening the button" deletes the sub-skill.
+   */
+  function inClassifyPhase(): boolean {
+    return classifyPending() || classifyVerdict !== null;
+  }
+
+  /** Grade the learner's spot-type pick (independent of the action) and show the verdict. */
+  function takeClassify(picked: SpotType): void {
+    if (!classifyPending()) return;
+    classifyVerdict = gradeSpotType(state, picked);
+    paint();
+  }
+
+  /** Dismiss the classify verdict and fall through to the action controls. Marks classify done so it
+   *  is asked once per scenario, whatever the pick was. */
+  function continueClassify(): void {
+    classifyVerdict = null;
+    classifyDone = true;
     paint();
   }
 
@@ -178,9 +237,21 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     root.dataset.scenario = s.id;
     root.dataset.step = String(stepIndex);
     root.dataset.total = String(s.target.length);
-    root.dataset.phase = lastVerdict !== null ? 'graded' : done ? 'complete' : 'acting';
+    root.dataset.phase =
+      lastVerdict !== null
+        ? 'graded'
+        : done
+          ? 'complete'
+          : classifyVerdict !== null
+            ? 'classified'
+            : classifyPending()
+              ? 'classify'
+              : 'acting';
     root.dataset.verdict = lastVerdict === null ? '' : lastVerdict.correct ? 'right' : 'wrong';
     root.dataset.correct = String(correct);
+    // The classify pick's own result, exposed separately so a test can assert it is scored
+    // independently of the action verdict.
+    root.dataset.classify = classifyVerdict === null ? '' : classifyVerdict.right ? 'right' : 'wrong';
 
     // The completion screen is shown once the line is done and its last verdict has been dismissed.
     // Record the result exactly once (recordedComplete guards re-paints): update the local badge map
@@ -195,12 +266,17 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
       options.onComplete?.(s.id, correct);
     }
 
-    root.replaceChildren(
-      header(s),
-      table(s),
-      lastVerdict !== null ? verdictBlock(lastVerdict) : done ? completeBlock(s) : controls(),
-      railSeam(),
-    );
+    const body =
+      lastVerdict !== null
+        ? verdictBlock(lastVerdict)
+        : done
+          ? completeBlock(s)
+          : classifyVerdict !== null
+            ? classifyVerdictBlock(classifyVerdict)
+            : classifyPending()
+              ? classifyControls()
+              : controls();
+    root.replaceChildren(header(s), table(s), body, railSeam());
   }
 
   // ── rendering ──────────────────────────────────────────────────────────────
@@ -208,6 +284,17 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
   function header(s: Scenario): HTMLElement {
     const el = document.createElement('div');
     el.className = 'puzzle-header';
+
+    // During the classify step the header is blinded: the picker, module caption, title and setup all
+    // name the spot type, so showing them while asking "what kind of spot is this?" would hand over the
+    // answer. Present a neutral prompt instead until the learner has classified.
+    if (inClassifyPhase()) {
+      const blind = text('h2', 'puzzle-title', 'Read the table — what kind of spot is this?');
+      blind.dataset.testid = 'puzzle-title';
+      blind.dataset.blinded = 'true';
+      el.appendChild(blind);
+      return el;
+    }
 
     // Picker row: the "N of M" label plus a jump-to-any-scenario dropdown. Sequential "Next puzzle"
     // still works at completion, but with a growing library a learner needs to reach a specific spot
@@ -338,6 +425,61 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     hero.appendChild(heroCards);
     hero.appendChild(text('div', 'puzzle-hero-stack', `Stack ${state.seats[HERO].stack} · committed ${state.seats[HERO].committed}`));
     el.appendChild(hero);
+    return el;
+  }
+
+  /**
+   * State 1 CLASSIFY: name the spot before acting. The app shows the closed set but never the answer —
+   * that is the sub-skill. A prompt plus one button per preflop spot type; picking grades it.
+   */
+  function classifyControls(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'puzzle-classify';
+    el.dataset.testid = 'puzzle-classify';
+
+    const prompt = text('div', 'puzzle-classify-prompt', 'What kind of spot is this?');
+    prompt.dataset.testid = 'puzzle-classify-prompt';
+    el.appendChild(prompt);
+
+    const picks = document.createElement('div');
+    picks.className = 'puzzle-classify-picks';
+    for (const type of PREFLOP_SPOT_TYPES) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pill';
+      b.dataset.testid = `puzzle-classify-${type}`;
+      b.textContent = SPOT_TYPE_LABELS[type];
+      b.addEventListener('click', () => takeClassify(type));
+      picks.appendChild(b);
+    }
+    el.appendChild(picks);
+    return el;
+  }
+
+  /** The classify result — scored on its own, then a Continue that falls through to the action. */
+  function classifyVerdictBlock(verdict: SpotTypeVerdict): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'puzzle-classify-verdict';
+    el.dataset.testid = 'puzzle-classify-verdict';
+    el.dataset.correct = String(verdict.right);
+
+    const head = text(
+      'div',
+      'puzzle-verdict-head',
+      verdict.right
+        ? `Correct — this is a ${SPOT_TYPE_LABELS[verdict.correct].toLowerCase()} spot.`
+        : `Not quite — this is a ${SPOT_TYPE_LABELS[verdict.correct].toLowerCase()} spot, not ${SPOT_TYPE_LABELS[verdict.picked].toLowerCase()}.`,
+    );
+    head.dataset.testid = 'puzzle-classify-verdict-head';
+    el.appendChild(head);
+
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'pill';
+    next.dataset.testid = 'puzzle-classify-continue';
+    next.textContent = 'Now play it';
+    next.addEventListener('click', continueClassify);
+    el.appendChild(next);
     return el;
   }
 
@@ -482,9 +624,13 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     const target = event.target;
     if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) return;
 
-    // Enter or Space advances: dismiss a verdict, or move to the next puzzle once complete.
+    // Enter or Space advances: dismiss a classify verdict, dismiss an action verdict, or move to the
+    // next puzzle once complete.
     if (event.key === 'Enter' || event.key === ' ') {
-      if (lastVerdict !== null) {
+      if (classifyVerdict !== null) {
+        event.preventDefault();
+        continueClassify();
+      } else if (lastVerdict !== null) {
         event.preventDefault();
         continueOn();
       } else if (isComplete(scenario(), stepIndex)) {
@@ -493,6 +639,10 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
       }
       return;
     }
+
+    // While classifying (picker shown, or its verdict up) the action keys are inert — the action
+    // controls are not on screen, and classify is picked by clicking a spot-type button.
+    if (classifyVerdict !== null || classifyPending()) return;
 
     const kind = ACTION_KEYS[event.key.toLowerCase()];
     // Only a currently-legal hero action fires — the same set the on-screen buttons enable, so a key

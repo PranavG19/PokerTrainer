@@ -27,6 +27,9 @@ const oddsLine = '[data-testid="puzzle-odds"]';
 const progressLabel = '[data-testid="puzzle-progress-label"]';
 const picker = '[data-testid="puzzle-picker"]';
 
+const classify = '[data-testid="puzzle-classify"]';
+const classifyContinue = '[data-testid="puzzle-classify-continue"]';
+
 const railSeam = '[data-testid="puzzle-tutor-rail"]';
 const rail = '[data-testid="tutor-rail"]';
 const tutorInput = '[data-testid="tutor-input"]';
@@ -36,6 +39,21 @@ const tutorAnswer = '[data-testid="tutor-answer"]';
 async function openPuzzle(page: Page): Promise<void> {
   await page.locator(puzzleTab).click();
   await page.locator(screen).waitFor();
+}
+
+/**
+ * State 1 CLASSIFY fires before the FIRST hero action of every (preflop-opening) scenario: the learner
+ * names the spot type, it is graded independently, then a Continue falls through to the action. Most
+ * tests below care about the action decision, not the classify sub-skill, so this helper clears the
+ * classify step by picking any spot type and continuing. Tests that assert on classify itself (the
+ * dedicated ones) do not use this. No-op when the classify picker is not up (e.g. mid-hand, post-flop).
+ */
+async function passClassify(page: Page): Promise<void> {
+  if (await page.locator(screen).getAttribute('data-phase') === 'classify') {
+    await page.locator('[data-testid="puzzle-classify-rfi"]').click();
+    await page.locator(classifyContinue).click();
+    await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+  }
 }
 
 /** Ask the puzzle rail a question and block until nothing is in flight. No sleep. */
@@ -61,9 +79,15 @@ test.describe('puzzle mode', () => {
       page.on('pageerror', (e) => errors.push(String(e)));
       await openPuzzle(page);
 
-      // The first scenario is BTN-open AKs: two hero cards, an acting phase, step 0 of its line.
-      await expect(page.locator(title)).toHaveText('Opening the button with AKs');
+      // State 1 CLASSIFY runs first: the spot opens in the classify phase with the hero cards visible
+      // but the title BLINDED, so the heading cannot hand over the spot type before the learner names it.
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'classify');
       await expect(page.locator(`${heroCards} [data-testid="card"]`)).toHaveCount(2);
+      await expect(page.locator(title)).toHaveAttribute('data-blinded', 'true');
+      await passClassify(page);
+
+      // Once classified, the real scenario is revealed: BTN-open AKs, acting phase, step 0 of its line.
+      await expect(page.locator(title)).toHaveText('Opening the button with AKs');
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
       await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
       expect(errors).toEqual([]);
@@ -73,6 +97,7 @@ test.describe('puzzle mode', () => {
   test('2. the correct action is graded right and shows the explanation', async () => {
     await withApp(async (page) => {
       await openPuzzle(page);
+      await passClassify(page);
       // AKs on the button: the target is to raise.
       await page.locator('[data-testid="puzzle-raise"]').click();
 
@@ -88,6 +113,7 @@ test.describe('puzzle mode', () => {
   test('3. a wrong action is graded wrong but STILL teaches the reason', async () => {
     await withApp(async (page) => {
       await openPuzzle(page);
+      await passClassify(page);
       // Folding AKs on the button is the mistake.
       await page.locator('[data-testid="puzzle-fold"]').click();
 
@@ -102,6 +128,7 @@ test.describe('puzzle mode', () => {
   test('4. a single-step scenario reaches completion and can advance to the next puzzle', async () => {
     await withApp(async (page) => {
       await openPuzzle(page);
+      await passClassify(page);
       await page.locator('[data-testid="puzzle-raise"]').click();
       await page.locator(continueBtn).click();
 
@@ -109,8 +136,10 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
       await expect(page.locator(complete)).toBeVisible();
 
-      // Advancing loads the second scenario.
+      // Advancing loads the second scenario, which opens in its own classify step; clear it, then the
+      // real title is revealed.
       await page.locator(nextScenario).click();
+      await passClassify(page);
       await expect(page.locator(title)).toHaveText('Defending the big blind vs a button open');
       await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
     });
@@ -120,9 +149,11 @@ test.describe('puzzle mode', () => {
     await withApp(async (page) => {
       await openPuzzle(page);
       // Advance to the second scenario (BB defend vs BTN): call, then bet the flop.
+      await passClassify(page);
       await page.locator('[data-testid="puzzle-raise"]').click();
       await page.locator(continueBtn).click();
       await page.locator(nextScenario).click();
+      await passClassify(page);
       await expect(page.locator(title)).toHaveText('Defending the big blind vs a button open');
 
       // Step 0: the target is to call the button's open.
@@ -172,7 +203,8 @@ test.describe('puzzle mode', () => {
       await askRail(page, 'should I raise or fold here');
       await expect(page.locator(tutorAnswer).last()).toHaveAttribute('data-state', 'blocked');
 
-      // Act, so the spot flips to post-reveal.
+      // Clear the classify step, then act so the spot flips to post-reveal.
+      await passClassify(page);
       await page.locator('[data-testid="puzzle-raise"]').click();
       await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
 
@@ -194,6 +226,10 @@ test.describe('puzzle mode', () => {
    * count and covers scenarios added after this test was written that are listed below.
    */
   test('8. every scenario in the library plays its taught line to completion, graded right', async () => {
+    // This is the one long walk: it plays EVERY scenario's full line, and each now opens with a CLASSIFY
+    // round-trip before the action row — ~45 scenarios × (classify + continue + line) is a lot of UI
+    // actions, so it runs past the default 60s. Triple the budget rather than trim coverage.
+    test.slow();
     // The target line per scenario, by the id the screen publishes on data-scenario. A scenario not
     // listed here is played by its first legal action, which still exercises the deal and navigation.
     const lines: Record<string, string[]> = {
@@ -255,6 +291,10 @@ test.describe('puzzle mode', () => {
         const steps = lines[id];
         expect(steps, `scenario ${id} has no line in the test's map — add its target actions`).toBeDefined();
 
+        // Every scenario opens on the CLASSIFY step (preflop first decision); clear it before playing
+        // the taught action line. The classify pick is scored independently and never blocks progress.
+        await passClassify(page);
+
         for (const action of steps) {
           await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
           await page.locator(`[data-testid="puzzle-${action}"]`).click();
@@ -279,23 +319,29 @@ test.describe('puzzle mode', () => {
   test('9. the picker jumps directly to any scenario without clicking through the library', async () => {
     await withApp(async (page) => {
       await openPuzzle(page);
-      // Opens on the first scenario.
+      // Opens on the first scenario (its id is published even under the blinded classify header).
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      // The picker lives in the header, which is blinded during CLASSIFY; clear the classify step to
+      // reveal it (the labels name the spot, so it stays hidden until the learner has named it).
+      await passClassify(page);
 
       const picker = page.locator('[data-testid="puzzle-picker"]');
       // Every scenario is listed, so the whole library is reachable in one hop.
       const optionCount = await picker.locator('option').count();
       expect(optionCount).toBeGreaterThanOrEqual(11);
 
-      // Jump straight to a late scenario by its title — no "Next puzzle" clicking.
+      // Jump straight to a late scenario by its title — no "Next puzzle" clicking. The jump lands on
+      // that scenario's own classify step; clear it, then the title is revealed.
       await picker.selectOption({ label: 'Calling a river bluff-catch with second pair' });
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'call-river-bluffcatch');
+      await passClassify(page);
       await expect(page.locator(title)).toHaveText('Calling a river bluff-catch with second pair');
       // Landed fresh at step 0 in the acting phase, no stale progress carried in.
       await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
 
-      // A mid-hand jump elsewhere still resets cleanly.
+      // A mid-hand jump elsewhere still resets cleanly. Raising leaves a verdict on screen (a non-classify
+      // phase), where the picker is visible again to jump from.
       await page.locator('[data-testid="puzzle-raise"]').click();
       await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
       await picker.selectOption({ label: 'Opening the button with AKs' });
@@ -308,8 +354,10 @@ test.describe('puzzle mode', () => {
   test('10. keyboard shortcuts drill a spot without the mouse, and the rail box is not hijacked', async () => {
     await withApp(async (page) => {
       await openPuzzle(page);
-      // First scenario is BTN-open AKs: the taught action is raise, bound to "r".
+      // First scenario is BTN-open AKs: the taught action is raise, bound to "r". Clear the classify
+      // step first (action keys are inert during classify — it is picked by clicking a spot type).
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await passClassify(page);
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
 
       // A letter for an ILLEGAL action does nothing — you cannot check when facing the blinds to open.
@@ -325,9 +373,11 @@ test.describe('puzzle mode', () => {
       await page.keyboard.press('Enter');
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
 
-      // Enter again loads the next puzzle from the complete screen.
+      // Enter again loads the next puzzle from the complete screen — which opens on its classify step.
       await page.keyboard.press('Enter');
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'bb-defend-vs-btn');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'classify');
+      await passClassify(page);
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
 
       // The shortcut must NOT fire while typing into the tutor rail: an "r" in a question is text.
@@ -341,14 +391,18 @@ test.describe('puzzle mode', () => {
     await withApp(async (page) => {
       await openPuzzle(page);
 
-      // Preflop, first to open, there is no bet to call — so no odds line yet.
+      // Clear the classify step to reveal the picker (blinded during CLASSIFY).
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await passClassify(page);
+
+      // Preflop, first to open, there is no bet to call — so no odds line yet.
       await expect(page.locator(oddsLine)).toHaveCount(0);
 
       // Jump to the flush-draw scenario and advance to the flop, where the hero faces a c-bet.
       const picker = page.locator('[data-testid="puzzle-picker"]');
       await picker.selectOption({ label: 'Calling a flush draw when the price is right' });
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'call-flush-draw-odds');
+      await passClassify(page);
 
       // Step 0 (call the preflop open) then check the flop; the villain then c-bets into the hero.
       await page.locator('[data-testid="puzzle-call"]').click();
@@ -381,6 +435,7 @@ test.describe('puzzle mode', () => {
     try {
       await openPuzzle(first.page);
       await expect(first.page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await passClassify(first.page);
       // Nothing mastered yet.
       await expect(first.page.locator(progressLabel)).toHaveAttribute('data-mastered', '0');
       await first.page.locator('[data-testid="puzzle-raise"]').click();
@@ -396,6 +451,8 @@ test.describe('puzzle mode', () => {
     const second = await launchApp({ seed: 1, userDataDir: dir });
     try {
       await openPuzzle(second.page);
+      // The progress label and picker live in the header, blinded during CLASSIFY; clear it to read them.
+      await passClassify(second.page);
       await expect(second.page.locator(progressLabel)).toHaveAttribute('data-mastered', '1');
       // The solved scenario's option carries the ✓ mastered mark.
       const firstOption = second.page.locator(`${picker} option`).first();
@@ -410,17 +467,20 @@ test.describe('puzzle mode', () => {
       await openPuzzle(page);
       // Master the opener (one raise), so it is no longer a gap.
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'btn-open-aks');
+      await passClassify(page);
       await page.locator('[data-testid="puzzle-raise"]').click();
       await page.locator(continueBtn).click();
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
 
       // The steer-to-gap control is offered and jumps to a DIFFERENT, still-unmastered scenario —
-      // not back to the one just mastered.
+      // not back to the one just mastered. It lands on that scenario's classify step.
       const toGap = page.locator('[data-testid="puzzle-next-unmastered"]');
       await expect(toGap).toBeVisible();
       await toGap.click();
-      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'classify');
       await expect(page.locator(screen)).not.toHaveAttribute('data-scenario', 'btn-open-aks');
+      await passClassify(page);
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
       await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
     });
   });
@@ -429,9 +489,11 @@ test.describe('puzzle mode', () => {
     await withApp(async (page) => {
       await openPuzzle(page);
       // Advance to the two-step BB-defend scenario (same as test 5).
+      await passClassify(page);
       await page.locator('[data-testid="puzzle-raise"]').click();
       await page.locator(continueBtn).click();
       await page.locator(nextScenario).click();
+      await passClassify(page);
       await expect(page.locator(title)).toHaveText('Defending the big blind vs a button open');
 
       // Step 0: play the taught call — a hit. (Folding here would end the hand before step 1, so the
@@ -472,6 +534,8 @@ test.describe('puzzle mode', () => {
      */
     await withApp(async (page) => {
       await openPuzzle(page);
+      // The picker lives in the header, blinded during CLASSIFY; clear it to reveal the picker.
+      await passClassify(page);
       const select = page.locator(picker);
 
       // Seven modules, in the taught order, each header carrying a per-module "done/total" count.
@@ -501,6 +565,8 @@ test.describe('puzzle mode', () => {
       await select.selectOption({ label: 'Barrelling the turn with an overpair' });
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'barrel-turn-overpair');
       await expect(page.locator(screen)).toHaveAttribute('data-step', '0');
+      // The jump lands on that scenario's classify step; clearing it reaches the acting phase.
+      await passClassify(page);
       await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
     });
   });
@@ -513,6 +579,8 @@ test.describe('puzzle mode', () => {
      */
     await withApp(async (page) => {
       await openPuzzle(page);
+      // The module caption lives in the header, blinded during CLASSIFY; clear it to read the caption.
+      await passClassify(page);
       const moduleLine = page.locator('[data-testid="puzzle-module"]');
 
       // The first scenario (btn-open-aks) is in module 1, preflop fundamentals.
@@ -521,12 +589,68 @@ test.describe('puzzle mode', () => {
       await expect(moduleLine).toContainText('Module 1 of 7');
       await expect(moduleLine).toContainText('Preflop Fundamentals');
 
-      // Jump to a river scenario: the module line follows to module 7.
+      // Jump to a river scenario: the module line follows to module 7. The jump lands on that scenario's
+      // classify step; clear it so the (blinded-during-classify) module caption is shown again.
       const select = page.locator(picker);
       await select.selectOption({ label: 'Folding the busted flush draw on the river' });
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'fold-busted-draw-river');
+      await passClassify(page);
       await expect(moduleLine).toHaveAttribute('data-module-key', 'the-river');
       await expect(moduleLine).toContainText('Module 7 of 7');
+    });
+  });
+
+  /**
+   * State 1 CLASSIFY (PRODUCT-SPEC G5a): the learner NAMES the spot type before acting, the app never
+   * labels it, and it is scored INDEPENDENTLY of whether the action is right. These two tests own that
+   * contract: (17) the picker offers the closed set with the title blinded and grades the pick, and
+   * (18) a WRONG classification does not touch the action grade or the completion score.
+   */
+  test('17. the classify step names the spot type from a blinded table, and grades the pick', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+
+      // Opens in the classify phase: the picker is shown, the title is blinded (no pre-classification),
+      // and the four preflop spot types are offered.
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'classify');
+      await expect(page.locator(classify)).toBeVisible();
+      await expect(page.locator(title)).toHaveAttribute('data-blinded', 'true');
+      for (const type of ['rfi', 'defend', '3bet-response', 'squeeze']) {
+        await expect(page.locator(`[data-testid="puzzle-classify-${type}"]`)).toBeVisible();
+      }
+
+      // btn-open-aks is a first-in open → RFI. Picking it is graded right and published separately from
+      // the (still-unset) action verdict.
+      await page.locator('[data-testid="puzzle-classify-rfi"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'classified');
+      await expect(page.locator(screen)).toHaveAttribute('data-classify', 'right');
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', '');
+      await expect(page.locator('[data-testid="puzzle-classify-verdict"]')).toHaveAttribute('data-correct', 'true');
+
+      // Continue falls through to the real action decision.
+      await page.locator(classifyContinue).click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+    });
+  });
+
+  test('18. a wrong classification is scored on its own and does NOT taint the action grade', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'classify');
+
+      // Misname the RFI spot as a defend: graded wrong, but this is a separate sub-skill.
+      await page.locator('[data-testid="puzzle-classify-defend"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-classify', 'wrong');
+      await expect(page.locator('[data-testid="puzzle-classify-verdict"]')).toHaveAttribute('data-correct', 'false');
+      await page.locator(classifyContinue).click();
+
+      // The action is still played and graded on its own merits: raising AKs is right, and the scenario
+      // completes at its full score despite the missed classification — classify never blocks progress.
+      await page.locator('[data-testid="puzzle-raise"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
+      await page.locator(continueBtn).click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
+      await expect(page.locator(screen)).toHaveAttribute('data-correct', '1');
     });
   });
 });
