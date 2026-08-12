@@ -22,7 +22,7 @@
 
 import * as net from 'node:net';
 import { RelayServer, type Outbound } from '../core/relayServer.js';
-import type { ClientMessage, PlayerId } from '../core/multiplayer.js';
+import type { ClientMessage, PlayerId, ServerMessage } from '../core/multiplayer.js';
 import type { ActionKind } from '../core/table.js';
 
 /** The engine's action kinds, used to reject an unknown kind before it reaches the room. */
@@ -95,6 +95,13 @@ export interface RelayHostOptions {
   readonly host?: string;
   /** Called after the first/next hand should be dealt — the transport exposes dealNext to a control path. */
   readonly onListening?: (port: number) => void;
+  /**
+   * An in-process player (the local HOST seat) that has no socket. When set, any broadcast the server
+   * addresses to `localDelivery.playerId` is handed to `localDelivery.deliver` instead of looked up in
+   * the socket map — otherwise a broadcast triggered by a REMOTE player's activity (which routes
+   * through this deliver()) would silently drop the local host's own view.
+   */
+  readonly localDelivery?: { readonly playerId: PlayerId; readonly deliver: (message: ServerMessage) => void };
 }
 
 /**
@@ -106,9 +113,14 @@ export function createRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   const sockets = new Map<PlayerId, net.Socket>();
   let nextId = 0;
 
-  /** Deliver a batch of server outputs to the sockets they are addressed to. */
+  /** Deliver a batch of server outputs to the sockets they are addressed to — or to the in-process
+   *  local player's callback when one is configured for that id. */
   const deliver = (outbound: Outbound[]): void => {
     for (const item of outbound) {
+      if (options.localDelivery !== undefined && item.to === options.localDelivery.playerId) {
+        options.localDelivery.deliver(item.message);
+        continue;
+      }
       const socket = sockets.get(item.to);
       if (socket !== undefined && !socket.destroyed) socket.write(encodeLine(item.message));
     }
