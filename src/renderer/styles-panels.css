@@ -41,6 +41,14 @@
   gap: 6px;
 }
 
+/* When the sheet opens, the breakdown fades and rises in. Height cannot animate (the MOTION RULE bans
+ * animating layout), but the display:none->flex flip on open lets a declared animation begin; closing
+ * stays instant. updateStatsSheet only replaceChildren()'s the body's contents, not the body element,
+ * so a content refresh does not restart this. offsuit-panel-in is global (styles.css). */
+.stats-sheet[data-open='true'] .stats-body {
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+}
+
 .stats-cat {
   display: flex;
   align-items: baseline;
@@ -272,7 +280,8 @@
   .predict-result,
   .coach-reason-note,
   .coach-gate,
-  .coach-gate-bar-fill {
+  .coach-gate-bar-fill,
+  .stats-sheet[data-open='true'] .stats-body {
     animation: none;
   }
 }
