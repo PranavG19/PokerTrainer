@@ -677,6 +677,17 @@ body {
 .seat[data-to-act='true'] {
   box-shadow: var(--ring-active), var(--elev-1);
 }
+/*
+ * The pod that won the pot wears the same mint ring the to-act pod wore in-hand. Never on two pods at
+ * once — table.ts guards data-to-act off once winners land — so the ring reads as "the action
+ * resolved here", and mint matches the winner-summary text. The ring is a border + shadow only, NOT an
+ * opacity fade: seats already carry opacity as a state channel (folded 0.4, out 0.22, live 1) that the
+ * busted/folded specs measure, so animating a pod's opacity would collide with that channel.
+ */
+.seat[data-winner='true'] {
+  border-color: var(--mint);
+  box-shadow: var(--ring-active), var(--elev-1);
+}
 .stats-sheet {
   box-shadow: var(--elev-2);
 }

@@ -136,6 +136,41 @@ test.describe('gameplay', () => {
     });
   });
 
+  test('the winning pod carries the mint winner ring, and no pod is still to-act (UI)', async () => {
+    await withApp(SEED, async (page) => {
+      await sitDown(page);
+      await playToShowdown(page);
+      await expect(page.locator('[data-testid="winner-summary"]')).toBeVisible();
+
+      // The ring belongs to whoever the summary names, so derive the expected winners from it rather
+      // than from a seat attribute — that is the human-visible claim the ring is decorating.
+      const summary = (await page.locator('[data-testid="winner-summary"]').first().textContent()) ?? '';
+      const marked = await page.evaluate(() => {
+        const seats = [...document.querySelectorAll<HTMLElement>('[data-testid="seat"]')];
+        return {
+          winners: seats
+            .filter((s) => s.dataset.winner === 'true')
+            .map((s) => s.querySelector('.seat-name')?.textContent ?? ''),
+          toAct: seats.filter((s) => s.dataset.toAct === 'true').length,
+          ringHue: seats
+            .filter((s) => s.dataset.winner === 'true')
+            .map((s) => getComputedStyle(s).borderTopColor),
+        };
+      });
+
+      // At least one pod won, every marked pod's name appears in the summary, and the ring is never
+      // on a pod that is also still to-act (table.ts guards those apart).
+      expect(marked.winners.length, 'no pod carries the winner ring at showdown').toBeGreaterThanOrEqual(1);
+      for (const name of marked.winners) {
+        expect(name, 'a nameless pod is ringed').not.toBe('');
+        expect(summary, `winner ring on "${name}" but the summary does not name it`).toContain(name);
+      }
+      expect(marked.toAct, 'a pod is still marked to-act after the hand resolved').toBe(0);
+      // Mint is #3DDC97 → rgb(61, 220, 151). The ring must be that colour, never the blue leak class.
+      for (const hue of marked.ringHue) expect(hue).toBe('rgb(61, 220, 151)');
+    });
+  });
+
   test('villain hole cards are revealed at showdown', async () => {
     await withApp(SEED, async (page) => {
       await sitDown(page);
