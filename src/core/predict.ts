@@ -27,12 +27,23 @@ export interface Calibration {
   total: number;
   correct: number;
   sureWrong: number;
+  /**
+   * The same tested predictions, split by the confidence declared at commit time. The whole point of
+   * the confidence mechanic is "are you calibrated?" — a SURE prediction should be more accurate than a
+   * GUESS — and that is invisible while only the flat total is kept, because a correct sure and a
+   * correct guess both collapse to a 'match'. These carry the confidence a 'match' outcome drops, so
+   * sure-accuracy and guess-accuracy can be read independently. total === sureTotal + guessTotal.
+   */
+  sureTotal: number;
+  sureCorrect: number;
+  guessTotal: number;
+  guessCorrect: number;
 }
 
 export const PREDICTED_ACTIONS: readonly PredictedAction[] = ['fold', 'check', 'call', 'raise'];
 
 export function emptyCalibration(): Calibration {
-  return { total: 0, correct: 0, sureWrong: 0 };
+  return { total: 0, correct: 0, sureWrong: 0, sureTotal: 0, sureCorrect: 0, guessTotal: 0, guessCorrect: 0 };
 }
 
 /**
@@ -74,14 +85,39 @@ export function predictOutcome(
   return prediction.confidence === 'sure' ? 'sure-wrong' : 'guess-wrong';
 }
 
-export function tally(cal: Calibration, outcome: PredictOutcome): Calibration {
+/**
+ * Fold one graded prediction into the running calibration. `confidence` is taken explicitly rather
+ * than re-derived from the outcome, because a 'match' outcome has already dropped it — a correct sure
+ * and a correct guess are the same outcome but must land in different buckets. A 'sure-wrong' outcome
+ * is by definition 'sure' and a 'guess-wrong' is 'guess', so passing the two consistently is the
+ * caller's job; predictOutcome + the committed prediction give both from the same commit.
+ */
+export function tally(cal: Calibration, outcome: PredictOutcome, confidence: Confidence): Calibration {
   // A hero who committed to one action and played another never tested the prediction.
   if (outcome === 'deviated') return { ...cal };
+  const correct = outcome === 'match' ? 1 : 0;
+  const isSure = confidence === 'sure';
   return {
     total: cal.total + 1,
-    correct: cal.correct + (outcome === 'match' ? 1 : 0),
+    correct: cal.correct + correct,
     sureWrong: cal.sureWrong + (outcome === 'sure-wrong' ? 1 : 0),
+    sureTotal: cal.sureTotal + (isSure ? 1 : 0),
+    sureCorrect: cal.sureCorrect + (isSure ? correct : 0),
+    guessTotal: cal.guessTotal + (isSure ? 0 : 1),
+    guessCorrect: cal.guessCorrect + (isSure ? 0 : correct),
   };
+}
+
+/** Sure-prediction accuracy as a percent, 0–100. No sure predictions is 0%, never NaN. */
+export function sureAccuracy(cal: Calibration): number {
+  if (cal.sureTotal === 0) return 0;
+  return (cal.sureCorrect / cal.sureTotal) * 100;
+}
+
+/** Guess-prediction accuracy as a percent, 0–100. No guesses is 0%, never NaN. */
+export function guessAccuracy(cal: Calibration): number {
+  if (cal.guessTotal === 0) return 0;
+  return (cal.guessCorrect / cal.guessTotal) * 100;
 }
 
 /** Percent, 0–100. Zero predictions is 0%, never NaN. */
@@ -92,7 +128,13 @@ export function calibrationAccuracy(cal: Calibration): number {
 
 export function calibrationLine(cal: Calibration): string {
   if (cal.total === 0) return 'No predictions yet';
-  return `${cal.correct}/${cal.total} correct (${calibrationAccuracy(cal).toFixed(0)}%) · ${cal.sureWrong} sure-but-wrong`;
+  const base = `${cal.correct}/${cal.total} correct (${calibrationAccuracy(cal).toFixed(0)}%) · ${cal.sureWrong} sure-but-wrong`;
+  // The calibration split is the teaching: is a SURE prediction actually more accurate than a GUESS?
+  // Only shown once each side has been tested, so a one-sided sample never prints a misleading 0%.
+  if (cal.sureTotal > 0 && cal.guessTotal > 0) {
+    return `${base} · sure ${sureAccuracy(cal).toFixed(0)}% vs guess ${guessAccuracy(cal).toFixed(0)}%`;
+  }
+  return base;
 }
 
 export function predictResultText(

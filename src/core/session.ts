@@ -1,7 +1,7 @@
 import type { Card } from './cards.js';
 import type { Grade, Severity } from './coach.js';
 import type { ActionKind, Street } from './table.js';
-import type { Calibration, PredictOutcome } from './predict.js';
+import type { Calibration, Confidence, PredictOutcome } from './predict.js';
 import { emptyCalibration, tally } from './predict.js';
 import { SOURCES, emptyRecommender, type RecommenderState, type Source } from './recommend.js';
 import type { GiftEntry } from './giftLedger.js';
@@ -280,9 +280,17 @@ export function recordGifts(state: SessionState, gifts: readonly GiftEntry[]): S
   return { ...state, gifts: [...state.gifts, ...gifts].slice(-MAX_GIFT_LOG) };
 }
 
-/** One graded prediction. Per decision, not per hand, so it cannot live in recordHand. */
-export function recordPrediction(state: SessionState, outcome: PredictOutcome): SessionState {
-  return { ...state, calibration: tally(state.calibration, outcome) };
+/**
+ * One graded prediction. Per decision, not per hand, so it cannot live in recordHand. The confidence
+ * is threaded through because a correct 'sure' and a correct 'guess' are the same outcome but belong
+ * in different calibration buckets.
+ */
+export function recordPrediction(
+  state: SessionState,
+  outcome: PredictOutcome,
+  confidence: Confidence,
+): SessionState {
+  return { ...state, calibration: tally(state.calibration, outcome, confidence) };
 }
 
 export function setCoachedMode(state: SessionState, on: boolean): SessionState {
@@ -626,10 +634,18 @@ function parseRecommender(raw: unknown): RecommenderState {
 function parseCalibration(raw: unknown): Calibration {
   const obj = asRecord(raw);
   const count = (value: unknown): number => Math.max(0, Math.floor(asNumber(value, 0)));
+  // Correct-in-bucket can never exceed the bucket total, so clamp rather than trust a corrupt save —
+  // an impossible sureCorrect > sureTotal would print an accuracy over 100%.
+  const sureTotal = count(obj.sureTotal);
+  const guessTotal = count(obj.guessTotal);
   return {
     total: count(obj.total),
     correct: count(obj.correct),
     sureWrong: count(obj.sureWrong),
+    sureTotal,
+    sureCorrect: Math.min(count(obj.sureCorrect), sureTotal),
+    guessTotal,
+    guessCorrect: Math.min(count(obj.guessCorrect), guessTotal),
   };
 }
 
