@@ -465,8 +465,59 @@ test.describe('calibration', () => {
       await expect(line).toHaveAttribute('data-sure-wrong', '1');
       await expect(line).toContainText('1/2');
       await expect(line).toContainText('1 sure-but-wrong');
+      // The confidence split: both commits were SURE (one match, one wrong), so sure-accuracy is 50%
+      // and the guess bucket is untouched — the line must not print a misleading one-sided comparison.
+      await expect(line).toHaveAttribute('data-sure-total', '2');
+      await expect(line).toHaveAttribute('data-sure-accuracy', '50');
+      await expect(line).toHaveAttribute('data-guess-total', '0');
+      await expect(line).toHaveAttribute('data-guess-accuracy', '');
+      await expect(line, 'a one-sided sample must not print the sure-vs-guess split').not.toContainText(
+        'vs guess',
+      );
       expect(await page.innerText(profileScreen)).not.toMatch(/NaN|undefined/);
       await shot(page, 'predict-calibration');
+    });
+  });
+
+  test('12b. sure-accuracy and guess-accuracy are split once both have been tested', async () => {
+    /**
+     * The calibration mechanic's whole point — is a SURE prediction more accurate than a GUESS? —
+     * needs both buckets populated. Commit the first decision SURE (a match) and the second as a GUESS
+     * (the graded fold), so the sure bucket is 1/1 and the guess bucket is 0/1, and the profile line
+     * prints the comparison.
+     */
+    const userDataDir = freshUserDataDir();
+    await withApp({ seed: 8, userDataDir }, async (page) => {
+      await openTable(page);
+      await enableCoachedMode(page);
+
+      await commit(page, 'call', 'sure');
+      await page.locator(sel.btnCall).click();
+      expect(await waitForIdle(page)).toBe('hero');
+      await commit(page, 'fold', 'guess');
+      await page.locator(sel.btnFold).click();
+
+      await expect
+        .poll(() => {
+          try {
+            return (readSaved(userDataDir).calibration as { total: number }).total;
+          } catch {
+            return -1;
+          }
+        })
+        .toBe(2);
+
+      await page.locator(sel.tabProfile).click();
+      await page.waitForSelector(profileScreen);
+      const line = page.locator(calibration);
+      // Sure: 1/1 = 100%. Guess: 0/1 = 0%. Read independently off their own buckets.
+      await expect(line).toHaveAttribute('data-sure-total', '1');
+      await expect(line).toHaveAttribute('data-sure-accuracy', '100');
+      await expect(line).toHaveAttribute('data-guess-total', '1');
+      await expect(line).toHaveAttribute('data-guess-accuracy', '0');
+      // With both sides tested, the rendered line now carries the comparison.
+      await expect(line).toContainText('sure 100% vs guess 0%');
+      expect(await page.innerText(profileScreen)).not.toMatch(/NaN|undefined/);
     });
   });
 

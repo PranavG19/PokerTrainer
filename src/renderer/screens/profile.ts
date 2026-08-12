@@ -1,6 +1,6 @@
 import type { SessionState } from '../../core/session.js';
 import { computeStats } from '../../core/session.js';
-import { calibrationLine } from '../../core/predict.js';
+import { calibrationLine, guessAccuracy, sureAccuracy } from '../../core/predict.js';
 import { describeGift, type GiftEntry } from '../../core/giftLedger.js';
 
 /** How many gifts to list; the rest are summarised in the count. Newest are the most useful. */
@@ -209,13 +209,19 @@ function renderRebuys(rebuys: number): HTMLElement {
  * is neither a lifetime play statistic nor a chart label.
  */
 function renderCalibration(session: SessionState): HTMLElement {
+  const cal = session.calibration;
   const wrap = document.createElement('div');
   wrap.className = 'calibration';
   wrap.dataset.testid = 'calibration';
-  wrap.dataset.total = String(session.calibration.total);
-  wrap.dataset.correct = String(session.calibration.correct);
-  wrap.dataset.sureWrong = String(session.calibration.sureWrong);
-  wrap.textContent = calibrationLine(session.calibration);
+  wrap.dataset.total = String(cal.total);
+  wrap.dataset.correct = String(cal.correct);
+  wrap.dataset.sureWrong = String(cal.sureWrong);
+  // The confidence split, so a test — and a learner — can read sure-accuracy against guess-accuracy.
+  wrap.dataset.sureTotal = String(cal.sureTotal);
+  wrap.dataset.guessTotal = String(cal.guessTotal);
+  wrap.dataset.sureAccuracy = cal.sureTotal === 0 ? '' : sureAccuracy(cal).toFixed(0);
+  wrap.dataset.guessAccuracy = cal.guessTotal === 0 ? '' : guessAccuracy(cal).toFixed(0);
+  wrap.textContent = calibrationLine(cal);
   return wrap;
 }
 

@@ -26,7 +26,7 @@ import { createGiftLedger, type GiftEntry } from '../../core/giftLedger.js';
 import { isCallingAction, recordHandGifts, type VillainCall } from '../../core/giftObserve.js';
 import { quipFor } from '../../core/tableTalk.js';
 import type { DecisionRecord, GradeRecord, HandRecord } from '../../core/session.js';
-import type { PredictOutcome } from '../../core/predict.js';
+import type { Confidence, PredictOutcome } from '../../core/predict.js';
 import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { routeFor } from '../../core/confidence.js';
 import { applyG4Override, gradeReason } from '../../core/reasonGrade.js';
@@ -69,7 +69,7 @@ export function renderTable(opts: {
   onHandComplete: (record: HandRecord) => void;
   onSessionOver?: () => void;
   onRebuy?: () => void;
-  onPrediction?: (outcome: PredictOutcome) => void;
+  onPrediction?: (outcome: PredictOutcome, confidence: Confidence) => void;
   onCoachedModeChange?: (on: boolean) => void;
   /**
    * Called with each verdict at the moment it is shown, and with null when the table stops owning
@@ -409,7 +409,7 @@ export function renderTable(opts: {
       const outcome = predictOutcome(prediction, action.kind, grade.severity === 'free');
       const route = routeFor(prediction, outcome);
       showPredictResult(predict, outcome, predictResultText(prediction, action.kind, outcome), route);
-      opts.onPrediction?.(outcome);
+      opts.onPrediction?.(outcome, prediction.confidence);
       // Fresh commitment for the next street; the reveal line stays up until the next hand.
       resetCommit(predict);
     }

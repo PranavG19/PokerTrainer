@@ -22,7 +22,7 @@ import {
   setSpokenVerdicts,
 } from '../core/session.js';
 import type { GiftEntry } from '../core/giftLedger.js';
-import type { PredictOutcome } from '../core/predict.js';
+import type { Confidence, PredictOutcome } from '../core/predict.js';
 import {
   accept as acceptSuggestion,
   decline as declineSuggestion,
@@ -215,8 +215,8 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
-  async function onPrediction(outcome: PredictOutcome): Promise<void> {
-    session = recordPrediction(session, outcome);
+  async function onPrediction(outcome: PredictOutcome, confidence: Confidence): Promise<void> {
+    session = recordPrediction(session, outcome, confidence);
     await io.saveState(serialize(session));
   }
 
@@ -373,7 +373,7 @@ async function boot(): Promise<void> {
       onHandComplete: (r) => void onHandComplete(r),
       onRebuy: () => void onRebuy(),
       onGifts: (gifts) => void onGifts(gifts),
-      onPrediction: (outcome) => void onPrediction(outcome),
+      onPrediction: (outcome, confidence) => void onPrediction(outcome, confidence),
       onCoachedModeChange: (on) => void onCoachedModeChange(on),
       onVerdict: (message) => narrate(message),
       // Hero busted out: drop back to home, where a fresh table can be started.
