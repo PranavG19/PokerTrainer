@@ -46,11 +46,19 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--motion-fast) var(--ease-out);
 }
 
 .session-card:hover {
   background: var(--surface-hi);
+}
+
+/* The hover transition is disabled under reduced motion (transitions, unlike keyframes, need the
+ * selector named locally in the sheet that declares them). */
+@media (prefers-reduced-motion: reduce) {
+  .session-card {
+    transition: none;
+  }
 }
 
 .session-card-title {
