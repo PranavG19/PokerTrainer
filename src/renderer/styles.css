@@ -480,6 +480,10 @@ body {
   font-size: 14px;
   width: 100%;
   text-align: center;
+  /* The result line fades up as the pot is awarded. Opacity only (this is a mint element by the
+   * controls, so no rise that could nudge the measured control rects); table.ts builds it fresh only
+   * when state.winners !== null, so it fires at showdown, not on every render. Reduced-motion guarded. */
+  animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
 }
 
 /*
@@ -761,14 +765,20 @@ body {
 .table-screen {
   animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
 }
+/*
+ * The teaching panels fade in without a rise. The 6px translate now belongs to the verdict lines INSIDE
+ * them (.predict-result, .coach-reason-note in styles-panels.css), so the panel itself only fades —
+ * otherwise the panel and its own child would both slide on first appearance.
+ */
 .coach:not([hidden]),
 .predict {
-  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+  animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .screen > *,
   .table-screen,
+  .winner-summary,
   .coach:not([hidden]),
   .predict {
     animation: none;
