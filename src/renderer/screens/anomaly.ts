@@ -128,6 +128,18 @@ export function renderAnomalyScreen(opts: AnomalyOpts = {}): HTMLElement {
   root.className = 'anomaly-screen';
   root.dataset.testid = 'anomaly-screen';
 
+  // The graded verdict updates in place on commit, so a screen-reader user gets no feedback without a
+  // live region. This always-present polite region carries the verdict (what the slot was, the trigger,
+  // the response time, and core's comment), mirroring renderVerdict. Visually hidden (sighted learners
+  // read the panel) and absolute-positioned, so it survives paint()'s replaceChildren and takes no grid
+  // cell — paint keeps it as the root's first child.
+  const verdictAnnouncer = document.createElement('div');
+  verdictAnnouncer.className = 'visually-hidden';
+  verdictAnnouncer.dataset.testid = 'anomaly-announcer';
+  verdictAnnouncer.setAttribute('role', 'status');
+  verdictAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(verdictAnnouncer);
+
   const seen = new Map<TriggerCategory, Set<string>>(
     TRIGGER_CATEGORIES.map((category) => [category, new Set<string>()]),
   );
@@ -240,10 +252,17 @@ export function renderAnomalyScreen(opts: AnomalyOpts = {}): HTMLElement {
     root.dataset.lastAnomalous = graded === null ? '' : String(graded.stimulus.anomalous);
     root.dataset.gate = gate.passed ? 'pass' : 'fail';
 
+    // Keep the announcer as the root's first child so its live region is never torn out of the a11y
+    // tree by a repaint.
     root.replaceChildren(
+      verdictAnnouncer,
       renderSide({ gate, tallies, firedBy: graded, lifetime }),
       renderWork({ draw, graded, onCommit: commit, onNext: advance }),
     );
+
+    // Mirror the on-screen verdict into the live region — the same facts in the same words — so the
+    // spoken and visual feedback can never disagree. Empty while answering (nothing graded to announce).
+    verdictAnnouncer.textContent = graded === null ? '' : verdictAnnouncement(graded);
   }
 
   paint();
@@ -541,6 +560,24 @@ function answerKey(
  * long the judgment took — so a miss is a comparison rather than a rebuke. A pass says only that,
  * with no praise (G3), because a correct and fast answer is the baseline this drill assumes.
  */
+/**
+ * The verdict as one spoken line for the screen-reader live region, mirroring renderVerdict's facts in
+ * the same words: what the slot was, the trigger (or that every feature was in range), the response
+ * time against the gate, and core's comment when it has one. One source of truth would be ideal, but
+ * renderVerdict builds DOM nodes; this keeps the SAME strings so the two cannot drift.
+ */
+function verdictAnnouncement(graded: Graded): string {
+  const truth = graded.stimulus.anomalous ? 'That slot was anomalous.' : 'That slot was standard.';
+  const trigger =
+    graded.stimulus.trigger === null
+      ? 'Every feature was inside the trained ranges.'
+      : `Trigger: ${TRIGGERS[graded.stimulus.trigger].label.toLowerCase()} — ${TRIGGERS[graded.stimulus.trigger].watch}.`;
+  const rt = `${seconds(graded.rtMs)} — ${graded.scored.fast ? `inside the ${seconds(RT_THRESHOLD_MS)} gate` : `over the ${seconds(RT_THRESHOLD_MS)} gate`}`;
+  const parts = [truth, trigger, rt];
+  if (graded.scored.comment !== null) parts.push(graded.scored.comment);
+  return parts.join(' ');
+}
+
 function renderVerdict(graded: Graded): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'anomaly-verdict';

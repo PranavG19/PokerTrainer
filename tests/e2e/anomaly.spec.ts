@@ -60,6 +60,7 @@ const gateReason = '[data-testid="anomaly-gate-reason"]';
 const medianRt = '[data-testid="anomaly-median-rt"]';
 const rateLine = '[data-testid="anomaly-rate"]';
 const tagRow = '[data-testid="tag-row"]';
+const announcer = '[data-testid="anomaly-announcer"]';
 
 /** SPEC.md's documented window: "1100x760, non-resizable-min 900x640". */
 const DEFAULT_WIDTH = 1100;
@@ -1554,5 +1555,42 @@ test.describe('O8 anomaly trigger drill', () => {
     } finally {
       await second.close();
     }
+  });
+
+  /*
+   * ACCESSIBILITY — the graded verdict reaches screen readers. The verdict updates in place on commit,
+   * so without a live region an SR learner gets no feedback. An always-present visually-hidden
+   * role=status region mirrors the verdict wording. It survives paint()'s replaceChildren, is empty
+   * while answering, and clears on the next slot.
+   */
+  test('A1. the announcer is a polite live region, empty until a verdict lands', async () => {
+    await withAnomaly(async ({ page }) => {
+      const region = page.locator(announcer);
+      await expect(region).toHaveAttribute('role', 'status');
+      await expect(region).toHaveAttribute('aria-live', 'polite');
+      await expect(region).toHaveText('');
+    });
+  });
+
+  test('A2. a graded verdict is announced, opening with the same slot-truth the panel shows', async () => {
+    await withAnomaly(async ({ page }) => {
+      // Trial 0 (seed 811) is standard; answering "standard" grades it.
+      await answer(page, true);
+      const spoken = (await page.locator(announcer).textContent()) ?? '';
+      const truthLine = (await page.locator(truth).textContent()) ?? '';
+      expect(truthLine.length).toBeGreaterThan(0);
+      // The announcement leads with the slot truth and carries the response-time line's gate wording.
+      expect(spoken.startsWith(truthLine)).toBe(true);
+      expect(spoken).toContain('gate');
+    });
+  });
+
+  test('A3. the announcement clears on the next slot, leaving no stale verdict', async () => {
+    await withAnomaly(async ({ page }) => {
+      await answer(page, true);
+      await expect(page.locator(announcer)).not.toHaveText('');
+      await advance(page);
+      await expect(page.locator(announcer)).toHaveText('');
+    });
   });
 });
