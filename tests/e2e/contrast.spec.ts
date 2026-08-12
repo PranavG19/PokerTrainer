@@ -793,4 +793,33 @@ test.describe('naming the concept — the learner lexicon (L1/L2/L3)', () => {
       expect(rejectedWeight).toBeGreaterThan(acceptedWeight);
     });
   });
+
+  /*
+   * ACCESSIBILITY — the verdict reaches screen readers. It updates in place on commit, so without a live
+   * region an SR learner gets no feedback. An always-present visually-hidden role=status region mirrors
+   * the verdict wording, empty until a commit and carrying the same verdict text the panel shows.
+   */
+  test('L5. the verdict is announced to screen readers, matching the visible verdict text', async () => {
+    await withApp({}, async ({ page }) => {
+      await openAnySet(page);
+      const announcer = page.locator('[data-testid="lexicon-announcer"]');
+      await expect(announcer).toHaveAttribute('role', 'status');
+      await expect(announcer).toHaveAttribute('aria-live', 'polite');
+      await expect(announcer).toHaveText('');
+
+      // Accepted: the announcement leads with the visible verdict text (the "Adopted…" confirmation).
+      await submitSentence(page, MECHANISM);
+      await expect(page.locator(lexiconFeedback)).toHaveAttribute('data-verdict', 'accepted');
+      const acceptedVerdict = (await page.locator(lexiconVerdict).textContent()) ?? '';
+      expect(acceptedVerdict.length).toBeGreaterThan(0);
+      expect((await announcer.textContent()) ?? '').toContain(acceptedVerdict);
+
+      // Rejected: the SAME region carries the correction text — the opposite verdict, still announced.
+      await submitSentence(page, CACHED_CELL);
+      await expect(page.locator(lexiconFeedback)).toHaveAttribute('data-verdict', 'rejected');
+      const rejectedVerdict = (await page.locator(lexiconVerdict).textContent()) ?? '';
+      expect(rejectedVerdict.length).toBeGreaterThan(0);
+      expect((await announcer.textContent()) ?? '').toContain(rejectedVerdict);
+    });
+  });
 });
