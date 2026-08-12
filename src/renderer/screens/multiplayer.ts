@@ -3,6 +3,7 @@ import type { Action } from '../../core/table.js';
 import type { RoomView, ServerMessage } from '../../core/multiplayer.js';
 import { applyServerMessage, initialClientState, type ClientState } from '../../core/relayClient.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { seatPositions } from '../../core/seatPositions.js';
 
 /**
  * MULTIPLAYER screen — host or join a local-relay table and play it.
@@ -301,8 +302,13 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
 
     const seats = document.createElement('div');
     seats.className = 'mp-seats';
+    // Position labels (BTN/SB/BB/UTG…) derived once from the same inputs the engine uses: the dealer
+    // index and which seats were dealt in (stack + committed > 0; an empty or busted seat is 0). Pure,
+    // so the labels always match where the blinds actually posted.
+    const funded = view.seats.map((s) => s.stack + s.committed > 0);
+    const positions = seatPositions(view.dealer, funded);
     for (const seat of view.seats) {
-      seats.appendChild(seatRow(seat, view));
+      seats.appendChild(seatRow(seat, view, positions[seat.id] ?? null));
     }
     el.appendChild(seats);
 
@@ -310,7 +316,11 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     return el;
   }
 
-  function seatRow(seat: RoomView['seats'][number], view: RoomView): HTMLElement {
+  function seatRow(
+    seat: RoomView['seats'][number],
+    view: RoomView,
+    position: string | null,
+  ): HTMLElement {
     const row = document.createElement('div');
     row.className = 'mp-seat';
     row.dataset.testid = 'mp-seat';
@@ -323,6 +333,29 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     name.className = 'mp-seat-name';
     name.textContent = seat.isYou ? `${seat.name} (you)` : seat.name;
     row.appendChild(name);
+
+    // The poker position (BTN/SB/BB/UTG…), derived in core from the dealer + who was dealt in, so it
+    // cannot drift from where the blinds posted. Position is the first thing this app teaches; showing
+    // it on a live table is where a learner connects the name to the seat.
+    if (position !== null) {
+      const pos = document.createElement('span');
+      pos.className = 'mp-seat-position';
+      pos.dataset.testid = 'mp-seat-position';
+      pos.dataset.position = position;
+      pos.textContent = position;
+      row.appendChild(pos);
+    }
+
+    // A distinct dealer-button marker from the view's dealer index. Heads-up the button seat is the SB
+    // (no 'BTN' position label exists then), so the button is shown as its own chip, not folded into
+    // the label — a learner must see "this seat has the button" even when its position reads SB.
+    if (view.dealer === seat.id) {
+      const btn = document.createElement('span');
+      btn.className = 'mp-seat-button';
+      btn.dataset.testid = 'mp-dealer-button';
+      btn.textContent = 'D';
+      row.appendChild(btn);
+    }
 
     // The redaction made visible: the player's own cards face up, everyone else face down (hole===null).
     const cards = document.createElement('span');

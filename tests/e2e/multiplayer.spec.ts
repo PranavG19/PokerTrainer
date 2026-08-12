@@ -86,6 +86,22 @@ test('enabling then hosting shows a port, and a real client that joins is dealt 
     const oppBacks = oppSeat.locator('[data-testid="card"][data-card="back"]');
     await expect(oppBacks, 'the opponent’s cards must be face down on the host screen').toHaveCount(2);
 
+    // Position labels are shown, derived in core from the dealer + who was dealt in. Heads-up (two
+    // funded seats) the labels are SB and BB, and the dealer-button chip marks the button seat.
+    await expect(
+      page.locator('[data-testid="mp-dealer-button"]'),
+      'the dealer button must mark exactly one seat',
+    ).toHaveCount(1);
+    await expect(
+      page.locator('[data-testid="mp-seat-position"]'),
+      'both live seats carry a position label (SB and BB heads-up)',
+    ).toHaveCount(2);
+    // Heads-up, the two positions are exactly SB and BB.
+    const positions = await page
+      .locator('[data-testid="mp-seat-position"]')
+      .evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.position).sort());
+    expect(positions).toEqual(['BB', 'SB']);
+
     // The client also received state, and no message it got contains the deck or a real opponent card
     // field beyond what redaction allows — spot-check the deck never crossed the wire.
     expect(messages.join('')).not.toContain('"deck"');
