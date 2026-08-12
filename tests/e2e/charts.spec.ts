@@ -512,6 +512,36 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
   });
 
   /**
+   * The revealed cell settles in with a quiet opacity fade as its ring lands (UI polish). Opacity only,
+   * so the colour/contrast oracle in 6b is untouched; the second half is the V2 contract that it is off
+   * under a reduced-motion preference.
+   */
+  test('6d. the revealed cell carries the settle-in fade, and honours reduced motion (UI)', async () => {
+    await withCharts(async ({ page }) => {
+      await selectPosition(page, 'CO');
+      const spot = await currentSpot(page);
+      const opens = await spotOpens(page, spot);
+      await commitKey(page, opens ? 'o' : 'f');
+
+      const revealed = page.locator('[data-testid="chart-cell"][data-revealed="true"]').first();
+      await expect(revealed).toBeAttached();
+      expect(await revealed.evaluate((el) => getComputedStyle(el).animationName)).toBe('offsuit-surface-in');
+    });
+
+    await withCharts(async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await selectPosition(page, 'CO');
+      const spot = await currentSpot(page);
+      const opens = await spotOpens(page, spot);
+      await commitKey(page, opens ? 'o' : 'f');
+
+      const revealed = page.locator('[data-testid="chart-cell"][data-revealed="true"]').first();
+      await expect(revealed).toBeAttached();
+      expect(await revealed.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+    });
+  });
+
+  /**
    * THE "review" MARKER. The adaptive draw (test 12) is otherwise invisible: a learner seeing one class
    * come up repeatedly cannot tell it is targeting their weak spot rather than misbehaving. The weakest
    * ATTEMPTED class carries a visible "review" flag; a fresh scoreboard marks nothing (nothing attempted
