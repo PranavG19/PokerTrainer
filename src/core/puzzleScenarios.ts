@@ -1803,7 +1803,7 @@ export const SCENARIOS: readonly Scenario[] = [
     id: 'deep-fold-tptk-200bb',
     title: 'Laying down top pair 200bb deep',
     setup:
-      'A 200bb-deep game. You open the button with A♣Q♠, the big blind calls, and on Q♦8♠4♣ you bet and are called. The turn 5♥ goes check-call, and on the river J♠ the big blind fires a huge bet — and there is still a very deep stack behind it. Top pair, top kicker. Do you pay?',
+      'A 200bb-deep game. You open the button with A♣Q♠, the big blind calls, and on Q♦8♠4♣ you bet and are called. You check the turn 5♥ back, and on the river J♠ the big blind fires a huge bet — and there is still a very deep stack behind it. Top pair, top kicker. Do you pay?',
     seatCount: 3,
     button: 0,
     smallBlind: 25,
@@ -1835,9 +1835,9 @@ export const SCENARIOS: readonly Scenario[] = [
           'Top pair top kicker on Q♦8♠4♣ is ahead of a calling range. Bet for value and to charge the draws.',
       },
       {
-        action: 'call',
+        action: 'check',
         explanation:
-          'The 5♥ changes little; top pair is still good enough to bet or, facing a check, to call for value on a card that completed the T9-type straight draw. Keep the pot moving without bloating it 200bb deep.',
+          'The 5♥ completes the T9-type straight draw and improves little for you. 200bb deep, checking back keeps the pot controlled: top pair does not want to build a huge pot on a card that helps the calling range more than it helps you, and a free showdown against the many hands you still beat is worth more than a bet that only gets called by better. Take the free card rather than bloating the pot with one pair this deep.',
       },
       {
         action: 'fold',
@@ -1850,7 +1850,7 @@ export const SCENARIOS: readonly Scenario[] = [
     id: 'deep-pot-control-overpair-200bb',
     title: 'Pot-controlling an overpair 200bb deep',
     setup:
-      'A 200bb game. You open the cutoff with J♣J♦, the button calls, and the flop is 9♠6♦2♣ — an overpair on a dry board. You bet the flop and are called. The turn is the 3♥ and you check; the button bets. 200bb deep, on a board that misses almost nothing you fear. What now?',
+      'A 200bb game. You open the cutoff with J♣J♦, the button calls, and the flop is 9♠6♦2♣ — an overpair on a dry board. You bet, and the button raises you. 200bb deep, on a board that misses almost nothing you fear, facing a raise. What now?',
     seatCount: 3,
     button: 2,
     smallBlind: 25,
@@ -1882,7 +1882,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'Here is the deep-stack discipline. 200bb deep the stack-to-pot ratio is high, so jacks are a one-pair hand that does not want to build a huge pot: raising the turn bloats the stack in on a hand that gets called only by better. Just call and keep the pot controlled — an overpair is worth a modest pot, not a stack, when the money is this deep and a raise only folds worse and stacks off against better.',
+          'Here is the deep-stack discipline. Facing a flop raise 200bb deep, jacks are a one-pair hand that does not want to build a huge pot: re-raising bloats the stack in on a hand that a deep flat-then-raise range beats. Just call and keep the pot controlled — an overpair is worth a modest pot, not a stack, when the money is this deep and re-raising only folds worse while stacking off against better.',
       },
     ],
   },
