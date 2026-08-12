@@ -287,6 +287,8 @@ export function renderProgressScreen(opts: {
   readonly kcs?: Parameters<typeof kcBars>[0];
   readonly now: number;
   readonly onOpenVariance?: () => void;
+  /** Launch a weekly assessment block. The button sits by the assessment metric this block feeds. */
+  readonly onStartAssessment?: () => void;
 }): HTMLElement {
   const root = el('div', 'progress-screen');
   root.dataset.testid = 'progress-screen';
@@ -322,6 +324,17 @@ export function renderProgressScreen(opts: {
   numbers.appendChild(el('div', 'stat-label', 'Five numbers'));
   numbers.appendChild(renderMetric(metrics.gradedDecisionsThisWeek));
   numbers.appendChild(renderMetric(metrics.assessmentEvLossBb100));
+  // The assessment metric is the ONLY one the learner fills on purpose (the rest accrue from play), so
+  // its launch lives right beside it — "this number is empty; here is how to earn it".
+  if (opts.onStartAssessment) {
+    const launch = document.createElement('button');
+    launch.type = 'button';
+    launch.className = 'pill progress-start-assessment';
+    launch.dataset.testid = 'progress-start-assessment';
+    launch.textContent = 'Start an assessment block';
+    launch.addEventListener('click', opts.onStartAssessment);
+    numbers.appendChild(launch);
+  }
   numbers.appendChild(renderMetric(metrics.fluentCategories));
   numbers.appendChild(renderMetric(metrics.sureWrongThisWeek));
   numbers.appendChild(renderWinRate(metrics.winRateVsBots, handsForConfig));
