@@ -59,6 +59,18 @@ export function renderDefenseDrill(): HTMLElement {
   root.className = 'defense-drill';
   root.dataset.testid = 'defense-drill';
 
+  // The verdict updates in place on commit, so a screen-reader user gets no feedback without a live
+  // region. This always-present polite region carries the verdict wording, kept as the root's first
+  // child so it survives paint()'s replaceChildren. Visually hidden and absolute-positioned, so it
+  // takes no layout space. (This drill mounts inside the Charts screen, which has its own separate
+  // announcer for the RFI mode; two distinct polite regions do not collide.)
+  const verdictAnnouncer = document.createElement('div');
+  verdictAnnouncer.className = 'visually-hidden';
+  verdictAnnouncer.dataset.testid = 'defense-announcer';
+  verdictAnnouncer.setAttribute('role', 'status');
+  verdictAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(verdictAnnouncer);
+
   const rng = mulberry32(DRILL_SEED);
   let spot: DefensePosition = SPOTS[0];
   let combo: Combo = nextCombo(rng);
@@ -102,7 +114,10 @@ export function renderDefenseDrill(): HTMLElement {
     root.dataset.combo = combo;
     root.dataset.answered = String(answered);
     root.dataset.verdict = feedback === null ? '' : feedback.chose === feedback.correct ? 'right' : 'wrong';
-    root.replaceChildren(renderSpotSelector(spot, selectSpot), renderPrompt(combo, commit), renderFeedback(feedback));
+    // Mirror the verdict into the live region — same wording as renderFeedback — so spoken and visual
+    // feedback can never disagree. Empty until the first commit.
+    verdictAnnouncer.textContent = feedback === null ? '' : verdictAnnouncement(feedback);
+    root.replaceChildren(verdictAnnouncer, renderSpotSelector(spot, selectSpot), renderPrompt(combo, commit), renderFeedback(feedback));
   }
 
   paint();
@@ -170,6 +185,19 @@ function renderPrompt(combo: Combo, onCommit: (action: DefenseAction) => void): 
  * rather than colour — the same restraint as the RFI drill. Silence is not praise, so a correct
  * commit gets the combo and the action, nothing more.
  */
+/**
+ * The verdict as one spoken line for the screen-reader live region, mirroring renderFeedback's
+ * wording: the "last" label, the same right/wrong sentence, and the hand class. Same strings as the
+ * DOM feedback so the two cannot drift.
+ */
+function verdictAnnouncement(feedback: Feedback): string {
+  const right = feedback.chose === feedback.correct;
+  const line = right
+    ? `${feedback.combo} ${ACTION_LABEL[feedback.correct].toLowerCase()}`
+    : `${feedback.combo} is a ${ACTION_LABEL[feedback.correct].toLowerCase()}, not a ${ACTION_LABEL[feedback.chose].toLowerCase()}`;
+  return `last ${line} ${classOf(feedback.combo)}`;
+}
+
 function renderFeedback(feedback: Feedback | null): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'defense-feedback';
