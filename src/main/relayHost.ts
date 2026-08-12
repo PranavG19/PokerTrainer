@@ -59,6 +59,7 @@ export function parseClientMessage(line: string): ClientMessage | null {
     return { type: 'join', name: typeof record.name === 'string' ? record.name : 'Player' };
   }
   if (record.type === 'leave') return { type: 'leave' };
+  if (record.type === 'deal') return { type: 'deal' };
   if (record.type === 'action') {
     const action = record.action;
     if (typeof action !== 'object' || action === null) return null;
@@ -83,6 +84,13 @@ export function encodeLine(message: unknown): string {
 export interface RelayHost {
   /** The port the server is listening on (useful when 0 was passed to get an ephemeral port). */
   readonly port: number;
+  /**
+   * Route a batch of server outputs to their recipients — remote players' to their sockets, the
+   * in-process local player's to its callback. The host session calls this after driving the server
+   * on the LOCAL player's behalf (its own action/deal), so a host action reaches the remote players
+   * too, not just the host's own UI.
+   */
+  deliver(outbound: Outbound[]): void;
   /** Stop the server and drop every connection. */
   close(): Promise<void>;
 }
@@ -167,6 +175,7 @@ export function createRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       options.onListening?.(port);
       resolve({
         port,
+        deliver,
         close: () =>
           new Promise<void>((res) => {
             for (const socket of sockets.values()) socket.destroy();

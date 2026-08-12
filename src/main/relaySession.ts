@@ -47,16 +47,6 @@ export interface RelaySession {
   stop(): Promise<void>;
 }
 
-/** Route a batch of the server's outputs: the local player's go to the callbacks, others are ignored
- *  here (the relayHost delivers those to their sockets directly). */
-function routeLocal(callbacks: SessionCallbacks, outbound: ReturnType<RelayServer['connect']>): void {
-  for (const item of outbound) {
-    if (item.to !== LOCAL_PLAYER) continue;
-    if (item.message.type === 'state') callbacks.onState(item.message.view);
-    else callbacks.onError(item.message.reason);
-  }
-}
-
 /**
  * Start hosting: a RelayServer, a TCP host for remote players, and the local player seated in-process.
  * The local player's broadcasts are delivered via the callbacks; remote players' broadcasts go out
@@ -80,18 +70,22 @@ export async function hostSession(
       },
     },
   });
-  // Seat the local player in-process; the initial connect broadcast is routed the same way.
-  routeLocal(callbacks, server.connect(LOCAL_PLAYER, 'You'));
+  // Seat the local player in-process, delivering to EVERY recipient: the initial connect broadcasts to
+  // any already-connected remote players too, not just the local callback. host.deliver routes locals
+  // to the callback and remotes to their sockets.
+  host.deliver(server.connect(LOCAL_PLAYER, 'You'));
 
   let stopped = false;
   const session: RelaySession = {
     action(action: Action): void {
       if (stopped) return;
-      routeLocal(callbacks, server.message(LOCAL_PLAYER, { type: 'action', action }));
+      // Deliver to ALL players: a host action moves everyone's state, so the remote players' sockets
+      // must receive it too — delivering only to the local callback froze the guests.
+      host.deliver(server.message(LOCAL_PLAYER, { type: 'action', action }));
     },
     dealNext(): void {
       if (stopped) return;
-      routeLocal(callbacks, server.dealNext());
+      host.deliver(server.dealNext());
     },
     async stop(): Promise<void> {
       if (stopped) return;
@@ -140,9 +134,13 @@ export function joinSession(
       if (stopped || socket.destroyed) return;
       socket.write(encodeLine({ type: 'action', action }));
     },
-    // A joined player is not the authority, so it cannot deal; asking to deal is a no-op. (The host
-    // controls the deal.) Kept on the interface so main.ts treats host and join uniformly.
-    dealNext(): void {},
+    // A joined player is not the authority, so it cannot deal directly — it REQUESTS the next hand and
+    // the host's relay deals it (a no-op there while a hand is still live). This lets a guest advance a
+    // finished hand instead of waiting on the host.
+    dealNext(): void {
+      if (stopped || socket.destroyed) return;
+      socket.write(encodeLine({ type: 'deal' }));
+    },
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;

@@ -105,6 +105,10 @@ export class RelayServer {
         // wipe the showdown before anyone saw it.
         return this.broadcastState();
       }
+      case 'deal':
+        // Any seated player may ask for the next hand once the current one is settled; dealNext is a
+        // no-op while a hand is still live, so this cannot interrupt play.
+        return this.dealNext();
     }
   }
 
