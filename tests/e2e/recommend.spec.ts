@@ -40,8 +40,15 @@ interface Leak {
   costBb: number;
 }
 
+interface GradedEvent {
+  kind: 'graded';
+  conceptId: string;
+  at: number;
+  correct: boolean;
+}
+
 /** Write a profile with the given leaks, so a scenario is exact rather than played toward. */
-function profileWith(opts: { leaks?: Leak[]; recommender?: unknown } = {}): string {
+function profileWith(opts: { leaks?: Leak[]; recommender?: unknown; fadingLog?: GradedEvent[] } = {}): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-rec-'));
   const leaks: Record<string, number> = {};
   const leakCostBb: Record<string, number> = {};
@@ -57,10 +64,29 @@ function profileWith(opts: { leaks?: Leak[]; recommender?: unknown } = {}): stri
     calibration: { total: 0, correct: 0, sureWrong: 0 },
     coachedMode: false,
     spokenVerdicts: false,
+    ...(opts.fadingLog ? { fadingLog: opts.fadingLog } : {}),
     ...(opts.recommender ? { recommender: opts.recommender } : {}),
   };
   fs.writeFileSync(path.join(dir, STATE_FILE), JSON.stringify(state));
   return dir;
+}
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * A graded-drill history for one concept, its first rep `daysAgo` in the past. Used to make a concept
+ * genuinely overdue for a spacing wave, so the recommender's spacing-debt source has real data to fire
+ * on — the same shape the app itself writes when the Drill is answered.
+ */
+function drilledConcept(conceptId: string, reps: number, daysAgo: number, now: number): GradedEvent[] {
+  const firstSeen = now - daysAgo * MS_PER_DAY;
+  return Array.from({ length: reps }, (_, i) => ({
+    kind: 'graded' as const,
+    conceptId,
+    // Cluster the reps around first exposure (a day-0 block), so the concept is well past its day-7 wave.
+    at: firstSeen + Math.min(i, 1) * 60_000,
+    correct: true,
+  }));
 }
 
 function readPersisted(dir: string): {
@@ -124,6 +150,34 @@ test('one suggestion is rendered, never a list, even with several candidates', a
     for (const hidden of ['overfold-to-turn-bets', 'misses-thin-value', 'bluffs-into-strength']) {
       expect(text, `${hidden} is named on screen, which makes the card a queue`).not.toContain(hidden);
     }
+  } finally {
+    await close();
+  }
+});
+
+test('an overdue drill concept produces a spacing-debt suggestion that outranks a cheap leak', async () => {
+  /**
+   * THE WIRING CLAIM for the recommender: main.ts now derives real ConceptStates from the persisted
+   * Drill log (conceptStatesFromLog), so the spacing-debt / mastery sources — dead while concepts was
+   * hardcoded to [] — can finally fire on Home. A concept first drilled 15 days ago is well past its
+   * day-7 wave, so its spacing debt (weight 100+) must beat a present-but-cheap error-tag leak. This is
+   * exactly the case the unit test cannot see: that the app actually feeds the log through.
+   */
+  const now = Date.now();
+  const dir = profileWith({
+    // One genuinely overdue concept, plus a cheap leak that WOULD win if concepts were still empty.
+    fadingLog: drilledConcept('pot-odds', 10, 15, now),
+    leaks: [{ principle: 'overfold-to-turn-bets', count: 3, costBb: 1 }],
+  });
+  const { page, close } = await launchApp({ seed: 42, userDataDir: dir });
+  try {
+    await atHome(page);
+    await expect(page.locator(card)).toBeVisible();
+    // The spacing debt wins — proving the concept states reached the recommender, not just the leak.
+    await expect(page.locator(card)).toHaveAttribute('data-source', 'spacing-debt');
+    await expect(page.locator(card)).toHaveAttribute('data-subject', 'pot-odds');
+    // The reason names the concept, so it is about the drilled KC and not a generic prompt.
+    await expect(page.locator(cardReason)).toContainText('pot-odds');
   } finally {
     await close();
   }

@@ -47,7 +47,7 @@ import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
-import { conceptStatesFromLog } from '../core/schedule.js';
+import { conceptStatesFromLog, type ConceptState } from '../core/schedule.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
 const DEFAULT_SEED = 42;
@@ -251,20 +251,30 @@ async function boot(): Promise<void> {
   }
 
   /**
+   * The per-concept learner states the scheduler and recommender both reason over, derived from the
+   * Drill's persisted graded history. Only 'graded' events are opportunities (hint / support-faded
+   * events are not), so the states are built from real reps with nothing invented. Shared by the
+   * Spacing queue and the launcher recommendation so both see the same history.
+   */
+  function deriveConcepts(): ConceptState[] {
+    return conceptStatesFromLog(session.fadingLog.filter((event) => event.kind === 'graded'));
+  }
+
+  /**
    * N2's single suggestion for the launcher.
    *
-   * `concepts: []` IS HONEST, NOT A STUB, and worth stating plainly: nothing in the app records per-KC
-   * opportunity histories yet, so there are no ConceptStates to reason about and the recommender must
-   * not be handed invented ones. What the session DOES record is leak cost per principle, so that is
-   * what it gets — and `recommend` returns null until there is something real, which the card renders as
-   * "nothing is owed yet" rather than as a fabricated first task. When concept tracking lands, it is one
-   * argument here and no change to the recommender or the card.
+   * The recommender now sees REAL concept states derived from the Drill log, so its spacing-debt,
+   * fluency-gate and mastery sources can actually fire — they read the beta-binomial posterior and the
+   * due schedule, both computable from graded reps alone. Reaction-time fluency is NOT among them and
+   * stays unrecorded, so nothing here fabricates timing data. On a fresh profile the log is empty, the
+   * concept list is empty, and `recommend` falls back to leak-cost candidates or returns null, which
+   * the card renders as "nothing is owed yet" rather than a fabricated first task.
    *
    * `now` is passed rather than read inside core, so the recommendation stays a pure function of state.
    */
   function currentRecommendation(): { suggestion: Suggestion | null; askPreference: boolean } {
     const suggestion = recommend({
-      concepts: [],
+      concepts: deriveConcepts(),
       leaks: computeStats(session).leaks,
       recommender: session.recommender,
       now: Date.now(),
@@ -452,16 +462,9 @@ async function boot(): Promise<void> {
     if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
     if (which === 'spacing') {
-      /*
-       * The fading log is the drill's real graded history; group its graded events into the per-concept
-       * states the scheduler reasons over. Only 'graded' events carry a correct/incorrect outcome —
-       * hint and support-faded events are not opportunities — so the queue runs on genuine learner data
-       * with nothing invented. On a fresh profile the log is empty and the screen says so.
-       */
-      const concepts = conceptStatesFromLog(
-        session.fadingLog.filter((event) => event.kind === 'graded'),
-      );
-      return renderSpacing({ concepts, now: Date.now() });
+      // Real graded history, grouped into per-concept states (see deriveConcepts). On a fresh profile
+      // the log is empty and the screen says so.
+      return renderSpacing({ concepts: deriveConcepts(), now: Date.now() });
     }
     if (which === 'progress') {
       /*
