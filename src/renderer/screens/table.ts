@@ -127,6 +127,17 @@ export function renderTable(opts: {
   announcer.setAttribute('aria-live', 'polite');
   root.appendChild(announcer);
 
+  // A SEPARATE polite region for the hand OUTCOME (who won, how much). It must not share the coach
+  // region: a hero fold triggers the verdict and ends the hand in the same tick, so a shared region
+  // would clobber the teaching verdict with the outcome and the SR user would never hear the verdict.
+  // Two regions let a screen reader queue both announcements. Written once at settle, cleared on nextHand.
+  const outcomeAnnouncer = document.createElement('div');
+  outcomeAnnouncer.className = 'visually-hidden';
+  outcomeAnnouncer.dataset.testid = 'outcome-announcer';
+  outcomeAnnouncer.setAttribute('role', 'status');
+  outcomeAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(outcomeAnnouncer);
+
   const seatsWrap = document.createElement('div');
   seatsWrap.className = 'seats';
   root.appendChild(seatsWrap);
@@ -407,11 +418,23 @@ export function renderTable(opts: {
     proceed(attemptsUsed);
   }
 
+  // One source of truth for the showdown outcome line, shared by the visible winner-summary panel and
+  // the screen-reader announcement so the two can never disagree.
+  function winnerSummaryText(): string {
+    return (state.winners ?? [])
+      .map((w) => `${state.seats[w.seatId].name} wins ${w.amount} (${w.description})`)
+      .join(' · ');
+  }
+
   function finishHand(): void {
     if (settled) return;
     settled = true;
     state = settle(state);
     setAwaiting('handover');
+    // The hand's outcome reaches screen readers via its own polite region. Written once here at settle
+    // (not in the per-render controls, which would re-announce every re-render) and cleared on nextHand.
+    // Kept distinct from the coach region so a fold that both grades and ends the hand announces both.
+    outcomeAnnouncer.textContent = winnerSummaryText();
     render();
 
     const hero = heroSeat();
@@ -584,8 +607,10 @@ export function renderTable(opts: {
     heroPfr = false;
     settled = false;
     clearCoach(coach);
-    // Clear the SR announcement too, so a new hand does not leave last hand's verdict in the a11y tree.
+    // Clear the SR announcements too, so a new hand leaves neither last hand's verdict nor its outcome
+    // lingering in the a11y tree.
     announcer.textContent = '';
+    outcomeAnnouncer.textContent = '';
     if (adviceShown) opts.onVerdict?.(null);
     adviceShown = false;
     clearPredictPanel(predict);
@@ -682,9 +707,7 @@ export function renderTable(opts: {
       const summary = document.createElement('div');
       summary.className = 'winner-summary';
       summary.dataset.testid = 'winner-summary';
-      summary.textContent = state.winners
-        .map((w) => `${state.seats[w.seatId].name} wins ${w.amount} (${w.description})`)
-        .join(' · ');
+      summary.textContent = winnerSummaryText();
       controls.appendChild(summary);
 
       // A busted hero sits out every future hand, so "Next hand" would be a no-op forever.
