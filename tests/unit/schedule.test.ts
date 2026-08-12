@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ConceptState, Opportunity } from '../../src/core/schedule.js';
+import type { ConceptState, GradedAttempt, Opportunity } from '../../src/core/schedule.js';
 import {
   DECAY_HALF_LIFE_DAYS,
   MAX_OPPORTUNITIES,
@@ -7,6 +7,7 @@ import {
   MS_PER_DAY,
   WAVES,
   assertFlatGaps,
+  conceptStatesFromLog,
   dueNow,
   gate,
   nextDue,
@@ -303,5 +304,83 @@ describe('freezing judges history, mastery judges freshness', () => {
     const struggled = Array.from({ length: MAX_OPPORTUNITIES }, (_, i) => at(0, i % 5 !== 0));
     expect(gate(concept(struggled), day(0)).status).toBe('frozen');
     expect(gate(concept(struggled), day(60)).status).toBe('frozen');
+  });
+});
+
+describe('conceptStatesFromLog — the drill log adapter that feeds the real Spacing queue', () => {
+  /**
+   * The seam that lets the spacing engine run on genuine learner history instead of the e2e fixture.
+   * The contract: it INVENTS nothing. Every ConceptState field must be reconstructible from the log
+   * alone, and — the load-bearing check — a state built from the log must drive the scheduler to the
+   * same verdict a hand-authored fixture with the same opportunities would. If those diverge, the
+   * adapter is lying, and the Spacing screen would show a different queue than the drill earned.
+   */
+  const graded = (conceptId: string, day: number, correct: boolean): GradedAttempt => ({
+    conceptId,
+    at: T0 + day * MS_PER_DAY,
+    correct,
+  });
+
+  it('groups a flat log by concept: N events for one concept become one state with N opportunities', () => {
+    const states = conceptStatesFromLog([
+      graded('pot-odds', 0, true),
+      graded('pot-odds', 1, false),
+      graded('pot-odds', 7, true),
+    ]);
+
+    expect(states).toHaveLength(1);
+    expect(states[0].id).toBe('pot-odds');
+    expect(states[0].opportunities).toHaveLength(3);
+    // firstSeen is the earliest attempt, not an invented epoch.
+    expect(states[0].firstSeen).toBe(T0);
+    // Nothing in the log is a probe miss, so the adapter must not manufacture one.
+    expect(states[0].probeMisses).toBe(0);
+  });
+
+  it('takes firstSeen as the earliest attempt even when the log arrives out of order', () => {
+    const states = conceptStatesFromLog([
+      graded('spr', 21, true),
+      graded('spr', 7, true),
+      graded('spr', 30, false),
+    ]);
+    expect(states[0].firstSeen).toBe(T0 + 7 * MS_PER_DAY);
+    // Opportunities are sorted oldest-first regardless of input order.
+    expect(states[0].opportunities.map((o) => o.at)).toEqual([
+      T0 + 7 * MS_PER_DAY,
+      T0 + 21 * MS_PER_DAY,
+      T0 + 30 * MS_PER_DAY,
+    ]);
+  });
+
+  it('separates multiple concepts and orders them deterministically by id', () => {
+    const states = conceptStatesFromLog([
+      graded('zeta', 0, true),
+      graded('alpha', 0, true),
+      graded('alpha', 1, false),
+    ]);
+    expect(states.map((s) => s.id)).toEqual(['alpha', 'zeta']);
+    expect(states.find((s) => s.id === 'alpha')?.opportunities).toHaveLength(2);
+  });
+
+  it('an empty log yields no states — a fresh profile has an empty queue, not a fabricated one', () => {
+    expect(conceptStatesFromLog([])).toEqual([]);
+  });
+
+  it('a state built from the log drives the scheduler identically to a hand-authored fixture', () => {
+    // The load-bearing check: build the SAME opportunities two ways and demand the same verdict. Forty
+    // correct reps on day 0 is the count the mastery-gate test above uses to clear the 0.9 posterior /
+    // 0.85 CI floor, so the shared verdict is a meaningful 'mastered' rather than the 'learning' every
+    // fresh concept starts in.
+    const REPS = 40;
+    const events = Array.from({ length: REPS }, () => graded('c-bet-frequency', 0, true));
+    const fromLog = conceptStatesFromLog(events)[0];
+    const fixture = concept(Array.from({ length: REPS }, () => at(0, true)));
+
+    const fromLogGate = gate(fromLog, day(0));
+    const fixtureGate = gate({ ...fixture, id: fromLog.id }, day(0));
+    expect(fromLogGate.status).toBe(fixtureGate.status);
+    expect(fromLogGate.status).toBe('mastered');
+    // And the posterior mean matches to the digit the screen would print.
+    expect(posterior(fromLog, day(0)).mean).toBeCloseTo(posterior(fixture, day(0)).mean, 10);
   });
 });

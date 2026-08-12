@@ -310,3 +310,50 @@ export function remediationDays(firstRepairDay = 2): number[] {
   }
   return days;
 }
+
+/**
+ * One graded attempt on a concept, as the drill's fading log records it. Typed structurally rather
+ * than importing fading.ts's GradedEvent so the scheduler stays free of a dependency on the drill —
+ * a GradedEvent is assignable to this, which is the whole point of the adapter.
+ */
+export interface GradedAttempt {
+  readonly conceptId: string;
+  readonly at: number;
+  readonly correct: boolean;
+}
+
+/**
+ * Group a flat, time-ordered log of graded attempts into the per-concept states the scheduler reasons
+ * over. This is the seam that lets the Spacing queue run on REAL learner history instead of the e2e
+ * `__offsuitSpacing` seam: every field is derived from attempts the drill actually recorded, so no
+ * data is invented — `firstSeen` is the earliest attempt on that concept and `opportunities` is the
+ * log itself, regrouped. `probeMisses` starts at zero because the log records graded reps, not
+ * decay-probe outcomes; nothing in the app emits a probe miss yet, and inventing one here would be
+ * inventing exactly the Q5 signal this module exists to keep honest.
+ */
+export function conceptStatesFromLog(attempts: readonly GradedAttempt[]): ConceptState[] {
+  const byConcept = new Map<string, { firstSeen: number; opportunities: Opportunity[] }>();
+  for (const attempt of attempts) {
+    const existing = byConcept.get(attempt.conceptId);
+    if (existing === undefined) {
+      byConcept.set(attempt.conceptId, {
+        firstSeen: attempt.at,
+        opportunities: [{ at: attempt.at, correct: attempt.correct }],
+      });
+    } else {
+      existing.firstSeen = Math.min(existing.firstSeen, attempt.at);
+      existing.opportunities.push({ at: attempt.at, correct: attempt.correct });
+    }
+  }
+
+  return [...byConcept.entries()]
+    .map(([id, { firstSeen, opportunities }]) => ({
+      id,
+      firstSeen,
+      // Oldest first, so a caller reading the timeline sees it in the order it happened regardless of
+      // how the log was ordered on the way in.
+      opportunities: [...opportunities].sort((a, b) => a.at - b.at),
+      probeMisses: 0,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
