@@ -286,6 +286,10 @@
   border-style: solid;
   border-width: 2px;
   border-color: var(--text-hi);
+  /* The cell the commit was just about settles in as its ring lands — opacity only (offsuit-surface-in
+   * is defined in styles.css; keyframes are global across the loaded sheets), so nothing in the grid
+   * reflows and charts.spec's colour/contrast scan is unaffected. Reduced-motion guard at the foot. */
+  animation: offsuit-surface-in var(--motion-fast) var(--ease-out);
 }
 
 .chart-cell[data-revealed='true'][data-open='true'] {
@@ -511,4 +515,11 @@
   color: var(--text-lo);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* The revealed-cell settle-in respects a reduced-motion preference (parity with styles.css). */
+@media (prefers-reduced-motion: reduce) {
+  .chart-cell[data-revealed='true'] {
+    animation: none;
+  }
 }
