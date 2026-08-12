@@ -1211,3 +1211,54 @@ test.describe('charts — facing-a-3-bet response drill', () => {
     });
   });
 });
+
+/*
+ * ACCESSIBILITY — the RFI verdict reaches screen readers. The verdict updates in place on commit, so
+ * without a live region an SR learner gets no feedback. An always-present visually-hidden role=status
+ * region mirrors the feedback wording. It survives paint()'s replaceChildren and mode switches, is
+ * empty until the first commit, and carries the same string the visible feedback shows.
+ */
+test.describe('charts — the RFI verdict reaches screen readers', () => {
+  const announcer = '[data-testid="charts-announcer"]';
+
+  test('A1. the announcer is a polite live region, empty until a commit', async () => {
+    await withCharts(async ({ page }) => {
+      const region = page.locator(announcer);
+      await expect(region).toHaveAttribute('role', 'status');
+      await expect(region).toHaveAttribute('aria-live', 'polite');
+      await expect(region).toHaveText('');
+    });
+  });
+
+  test('A2. a commit is announced, carrying the same verdict wording the panel shows', async () => {
+    await withCharts(async ({ page }) => {
+      await selectPosition(page, 'CO');
+      const spot = await currentSpot(page);
+      const rightKey = (await spotOpens(page, spot)) ? 'o' : 'f';
+      await commitKey(page, rightKey);
+
+      const spoken = (await page.locator(announcer).textContent()) ?? '';
+      // The verdict line the panel shows (its own testid) is carried verbatim in the announcement — one
+      // source of truth for the wording. The spot is named and the "last" label leads, like the panel.
+      const verdictLine = (await page.locator(drillVerdict).textContent()) ?? '';
+      expect(verdictLine.length).toBeGreaterThan(0);
+      expect(spoken).toContain(verdictLine);
+      expect(spoken).toContain(spot);
+      expect(spoken.toLowerCase().startsWith('last')).toBe(true);
+    });
+  });
+
+  test('A3. switching to a self-verdicting mode clears the RFI announcement', async () => {
+    await withCharts(async ({ page }) => {
+      await selectPosition(page, 'CO');
+      const spot = await currentSpot(page);
+      await commitKey(page, (await spotOpens(page, spot)) ? 'o' : 'f');
+      await expect(page.locator(announcer)).not.toHaveText('');
+
+      // The defense drill owns its own verdict, so the RFI region must not keep announcing a stale one.
+      await page.click('[data-testid="charts-mode-btn"][data-mode="defense"]');
+      await expect(page.locator(chartsScreen)).toHaveAttribute('data-mode', 'defense');
+      await expect(page.locator(announcer)).toHaveText('');
+    });
+  });
+});

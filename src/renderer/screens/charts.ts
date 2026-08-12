@@ -78,6 +78,18 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
   root.className = 'charts-screen';
   root.dataset.testid = 'charts-screen';
 
+  // The RFI verdict updates in place on commit, so a screen-reader user gets no feedback without a live
+  // region. This always-present polite region carries the verdict wording; it is kept as the root's
+  // first child in every paint branch so it is never torn out of the a11y tree by a mode switch or a
+  // repaint. Visually hidden and absolute-positioned, so it takes no grid cell. Only RFI mode fills it
+  // here — the defense and 3-bet-response drills carry their own verdicts, so this clears in those modes.
+  const verdictAnnouncer = document.createElement('div');
+  verdictAnnouncer.className = 'visually-hidden';
+  verdictAnnouncer.dataset.testid = 'charts-announcer';
+  verdictAnnouncer.setAttribute('role', 'status');
+  verdictAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(verdictAnnouncer);
+
   const rng = mulberry32(DRILL_SEED);
   const tallies = new Map<HandClassId, Tally>(
     HAND_CLASSES.map((c) => {
@@ -174,17 +186,24 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
 
     if (mode === 'defense') {
       defensePanel ??= renderDefenseDrill();
-      root.replaceChildren(renderModeToggle(mode, selectMode), defensePanel);
+      // The defense drill owns its verdict; nothing to announce from the RFI region here.
+      verdictAnnouncer.textContent = '';
+      root.replaceChildren(verdictAnnouncer, renderModeToggle(mode, selectMode), defensePanel);
       return;
     }
 
     if (mode === '3bet-response') {
       threeBetPanel ??= renderThreeBetResponseDrill();
-      root.replaceChildren(renderModeToggle(mode, selectMode), threeBetPanel);
+      verdictAnnouncer.textContent = '';
+      root.replaceChildren(verdictAnnouncer, renderModeToggle(mode, selectMode), threeBetPanel);
       return;
     }
 
+    // Mirror the RFI verdict into the live region — the same wording the panel shows — so the spoken
+    // and visual feedback can never disagree. Empty until the first commit.
+    verdictAnnouncer.textContent = feedback === null ? '' : rfiVerdictAnnouncement(feedback);
     root.replaceChildren(
+      verdictAnnouncer,
       renderModeToggle(mode, selectMode),
       // DOM ORDER IS THE CONTRACT: the compressed form precedes the grid (N3).
       renderCompressed({ position, tallies, onSelect: selectPosition }),
@@ -560,6 +579,19 @@ function renderDrill(opts: {
  * red X measures d = 0.05 — indistinguishable from no feedback at all. A correct commit gets the
  * combo and the word, nothing more; G3, silence is not praise, so there is no "correct!" anywhere.
  */
+/**
+ * The RFI verdict as one spoken line for the screen-reader live region, mirroring renderFeedback's
+ * wording: the "last" label, the same right/wrong sentence, and the hand class. Same strings as the
+ * DOM feedback so the two cannot drift.
+ */
+function rfiVerdictAnnouncement(feedback: Feedback): string {
+  const right = feedback.chose === feedback.correct;
+  const line = right
+    ? `${feedback.combo} ${feedback.correct}`
+    : `${feedback.combo} is ${feedback.correct}, not ${feedback.chose}`;
+  return `last ${line} ${feedback.handClass}`;
+}
+
 function renderFeedback(feedback: Feedback | null): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'drill-feedback';
