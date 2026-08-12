@@ -14,6 +14,7 @@ import {
   recordGifts,
   recordFadingEvents,
   recordHand,
+  recordAssessment,
   recordInterleaveSpot,
   recordLexiconAttempt,
   recordPrediction,
@@ -52,6 +53,8 @@ import { renderSpacing } from './screens/spacing.js';
 import { conceptStatesFromLog, gate, posterior, type ConceptState } from '../core/schedule.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 import { renderMultiplayerScreen } from './screens/multiplayer.js';
+import { renderAssessmentScreen } from './screens/assessment.js';
+import type { AssessmentGrade } from '../core/assessmentBlock.js';
 
 const DEFAULT_SEED = 42;
 
@@ -167,6 +170,12 @@ async function boot(): Promise<void> {
    * returns to Home. It swaps out like the table does, so its pushed-event subscription is torn down.
    */
   let multiplayerActive = false;
+  /**
+   * The weekly assessment is a PANEL within the Play tab, same as multiplayer (the tab bar is full). When
+   * true the Play tab shows the assessment block instead of Home or a solo table; finishing or leaving it
+   * returns to Home. It swaps out like the table does, so its keydown listener tears down on unmount.
+   */
+  let assessmentActive = false;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
   /**
    * Where the Profile tab is: the profile itself, the hand picker, or one hand's replay. The picker
@@ -247,6 +256,24 @@ async function boot(): Promise<void> {
   /** Persist one completed puzzle scenario so its best score survives a restart. */
   async function onPuzzleComplete(scenarioId: string, correct: number): Promise<void> {
     session = recordPuzzleResult(session, scenarioId, correct);
+    await io.saveState(serialize(session));
+  }
+
+  /**
+   * Persist every graded decision from a finished assessment block. Each becomes an AssessmentDecision
+   * tagged (in the progress input) mode:'assessment', so it feeds the assessment-EV-loss metric alone.
+   * `correct` mirrors the practice path: a decision that cost nothing (severity 'free') is correct. One
+   * timestamp for the whole block — the block was played in one sitting, so the week window is the same.
+   */
+  async function onAssessmentComplete(grades: readonly AssessmentGrade[]): Promise<void> {
+    const at = Date.now();
+    for (const g of grades) {
+      session = recordAssessment(session, {
+        at,
+        evLossBb: g.grade.evLossBb,
+        correct: g.grade.severity === 'free',
+      });
+    }
     await io.saveState(serialize(session));
   }
 
@@ -459,13 +486,29 @@ async function boot(): Promise<void> {
 
     teardownReview();
 
-    // Play tab: the multiplayer panel wins if it is open, then a live solo table, else home.
+    // Play tab: the multiplayer panel wins if it is open, then the assessment block, then a live solo
+    // table, else home.
     if (multiplayerActive) {
       screen.replaceChildren(
         renderMultiplayerScreen({
           bridge: io,
           onExit: () => {
             multiplayerActive = false;
+            render();
+          },
+        }),
+      );
+      return;
+    }
+    if (assessmentActive) {
+      screen.replaceChildren(
+        renderAssessmentScreen({
+          // The session seed offset by the hand count so successive blocks are not identical, while any
+          // one block stays reproducible for its run.
+          seed: seed + session.stats.handsPlayed,
+          onComplete: (grades) => void onAssessmentComplete(grades),
+          onExit: () => {
+            assessmentActive = false;
             render();
           },
         }),
@@ -590,6 +633,11 @@ async function boot(): Promise<void> {
         now: progressNow,
         onOpenVariance: () => {
           tab = 'learn';
+          render();
+        },
+        onStartAssessment: () => {
+          assessmentActive = true;
+          tab = 'play';
           render();
         },
       });

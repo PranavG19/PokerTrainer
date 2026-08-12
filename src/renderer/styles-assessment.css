@@ -1,0 +1,131 @@
+/* ASSESSMENT screen — the weekly assessment block. Deliberately spare: it reuses the puzzle screen's
+ * surface treatment so the play view feels like the rest of the app, but shows NO severity colour during
+ * play (the whole point is withheld feedback) and reserves the mint teaching accent for nowhere here —
+ * the end-of-block score is a neutral summary, not a "good/bad" signal, so it renders in plain ink. */
+
+.assessment-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.assessment-play,
+.assessment-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.assessment-progress {
+  font-size: 12px;
+  color: var(--text-lo);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.assessment-note {
+  color: var(--text-lo);
+  font-size: 13px;
+  text-align: center;
+  margin: 0;
+}
+
+.assessment-table {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--elev-1);
+}
+
+.assessment-pot {
+  font-size: 13px;
+  color: var(--text-hi);
+  font-weight: 500;
+  text-align: center;
+}
+
+.assessment-board,
+.assessment-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.assessment-board-empty {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.assessment-hero-label,
+.assessment-hero-stack {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.assessment-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.assessment-key-hint {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The single end-of-block reveal — the one focal surface, lifted above the play table's elevation. */
+.assessment-reveal {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  align-items: center;
+  text-align: center;
+  box-shadow: var(--elev-2);
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+}
+
+.assessment-reveal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Plain high-contrast ink, NOT mint: the assessment score is a neutral instrument, not the reserved
+ * teaching signal, and colouring it would read as praise or alarm the number is not meant to carry. */
+.assessment-score {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+.assessment-sample {
+  color: var(--text-lo);
+}
+
+.assessment-spread {
+  font-size: 13px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.assessment-done {
+  margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assessment-reveal {
+    animation: none;
+  }
+}
