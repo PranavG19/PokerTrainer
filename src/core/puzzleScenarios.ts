@@ -1509,6 +1509,50 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    id: 'fold-tptk-turn-flush-in',
+    title: 'Laying down top pair when the flush gets there',
+    setup:
+      'You open A♦Q♣ on the button and the big blind calls. You c-bet the Q♠8♠4♦ flop with top pair, top kicker and they call. The turn is the 7♠ — a third spade — and now the big blind leads into you for a big bet. Top pair was ahead a moment ago. Is it still?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button/opener). Seat 1 = SB. Seat 2 = BB (caller, then the turn donk-bettor).
+    holes: [
+      ['Ad', 'Qc'],
+      ['5h', '5d'],
+      ['Js', 'Ts'],
+    ],
+    board: ['Qs', '8s', '4d', '7s', '2c'],
+    // SB folds preflop; BB calls the open, then check-CALLS the flop c-bet, then LEADS (donks) the turn.
+    // Postflop the BB acts first each street: check (flop) → call the hero's c-bet → bet out on the turn.
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'raise', to: 900 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♦Q♣ is a standard button open — a strong, dominating hand that wants to play a heads-up pot in position against the blinds.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'You flopped top pair with the best kicker on Q♠8♠4♦. C-bet for value and to charge the spade and straight draws this semi-wet board gives the big blind’s range.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'The 7♠ completes the flush, and the big blind LEADS into the preflop aggressor for a big bet — a line that is almost never a bluff at these stakes. A check-call flop then a turn donk-lead screams a made hand: flushes (the flush draw that just got there, J♠T♠ and other spade combos), sometimes two pair or a set. You hold no spade, so you cannot make the flush; against that range your top pair is drawing thin — a queen only gives you trips that still lose to a flush. One pair is rarely worth stacking off when the obvious draw arrives and a passive player suddenly bets big into you, so fold and keep the pot small.',
+      },
+    ],
+  },
+  {
     id: 'sb-raise-or-fold-ajo',
     title: 'The small blind raises or folds — it never limps',
     setup:
