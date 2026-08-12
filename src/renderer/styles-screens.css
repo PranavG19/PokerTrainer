@@ -402,9 +402,9 @@ button.hand-row {
   width: 100%;
   padding: 18px 20px;
   border-radius: 16px;
-  /* A left rule rather than a filled panel: it marks the card as advice without
-     competing with the bankroll headline above it. */
-  border-left: 3px solid var(--accent, #4a9eff);
+  /* Marked as advice by its uppercase muted heading, not by a coloured rule: an undefined
+     --accent was falling back to an off-palette blue (#4a9eff) here, the one hue outside the
+     whole palette, on the loudest mark of the launcher. The heading carries "advice" already. */
   background: var(--surface);
 }
 
@@ -459,7 +459,7 @@ button.hand-row {
    soft lock. Understated, not hidden — hiding it would be the same lock. */
 .recommendation-skip {
   padding: 5px 12px;
-  border: 1px solid var(--line, #333);
+  border: 1px solid var(--surface-hi);
   border-radius: 999px;
   background: none;
   color: var(--text-lo);
@@ -486,7 +486,7 @@ button.hand-row {
   width: 100%;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--line, #333);
+  border-top: 1px solid var(--surface-hi);
 }
 
 .recommendation-ask-prompt {
@@ -502,7 +502,7 @@ button.hand-row {
 
 .recommendation-ask-option {
   padding: 6px 12px;
-  border: 1px solid var(--line, #333);
+  border: 1px solid var(--surface-hi);
   border-radius: 999px;
   background: none;
   color: var(--text-lo);
