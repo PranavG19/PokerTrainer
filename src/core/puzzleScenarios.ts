@@ -1509,6 +1509,58 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    id: 'fold-weak-pair-river-overbet',
+    title: 'Folding a weak pair to a river overbet',
+    setup:
+      'You open K♣J♦ on the button, the big blind calls, and you check the Q♠J♥4♠ flop back with middle pair. The 8♦ turn checks through too. On the 3♥ river the big blind suddenly OVERBETS — more than the pot — into you. A pair of jacks felt fine a second ago. Does the size change the answer?',
+    seatCount: 3,
+    // pot-control-ip / call-river-bluffcatch layout: button on seat 0 = hero, so the hero opens
+    // preflop but acts LAST postflop; the BB (seat 2) is the live caller and acts first on every
+    // postflop street, letting them bet INTO the hero on the river.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button/opener). Seat 1 = SB (folds). Seat 2 = BB (caller, then river overbettor).
+    holes: [
+      ['Kc', 'Jd'],
+      ['6s', '6d'],
+      ['Ts', '9s'],
+    ],
+    board: ['Qs', 'Jh', '4s', '8d', '3h'],
+    // SB folds preflop, BB calls. Postflop the hero acts last, so the BB acts first each street: checks
+    // the flop, checks the turn, then OVERBETS the river (to 1200 into a ~300 pot — a polarising size).
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'check' },
+      { kind: 'bet', to: 1200 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'KJs is a routine button open — suited, two broadway cards, and it plays well in position against the blinds.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'On Q♠J♥4♠ you have only middle pair (jacks) with a king kicker. It has showdown value but is not strong enough to bet for three streets; check back to control the pot and get to showdown cheaply, keeping the caller’s bluffs in.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'The 8♦ is a blank and your hand did not improve. Keep pot-controlling — betting a medium hand here only folds out worse and gets called by better.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'The size is the whole read. A player who checked twice and then fires MORE THAN THE POT is polarised: at these stakes an overbet is weighted heavily toward the top of the range — sets (QQ, JJ, 44), two pair (QJ), the T9 straight — with only a thin slice of bluffs. Your pair of jacks with a king kicker beats none of that value and only chops or loses to the other one-pair hands that would bet this big. To call an overbet you need far more equity than you needed against the small stab in the bluff-catch spot, and one pair does not have it. Unlike a small bet into a passive line, a big overbet is not a bluff-catch — it is a fold. Reading the SIZE, not just the pair, is what this spot is teaching.',
+      },
+    ],
+  },
+  {
     id: 'fold-tptk-turn-flush-in',
     title: 'Laying down top pair when the flush gets there',
     setup:
