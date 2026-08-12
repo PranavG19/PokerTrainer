@@ -204,6 +204,14 @@ export function renderTable(opts: {
   /** Every hero decision in order, captured pre-action so the review can replay the spot as seen. */
   let decisions: DecisionRecord[] = [];
   /**
+   * How many community cards were on the board at the previous render, so render() can animate ONLY the
+   * cards dealt since — a board diff. Without it, render() (which runs on every state change: pot, seat
+   * action, coach reveal) rebuilds the whole board row and every card would re-fire its deal-in. Reset
+   * to 0 per hand in nextHand so a fresh flop deals in. -1 initially so the very first paint of an empty
+   * board is not treated as a deal.
+   */
+  let prevBoardLen = 0;
+  /**
    * O5: every villain call this hand, captured PRE-action (the pot, board and price are overwritten
    * as the hand runs on). Reset per hand; resolved against the settled table at finishHand, where the
    * showdown decides which callers revealed and are therefore observable. Held cards are read from
@@ -553,6 +561,8 @@ export function renderTable(opts: {
     grades = [];
     decisions = [];
     villainCalls = [];
+    // A new hand starts with an empty board; reset so the next flop deals in fresh.
+    prevBoardLen = 0;
     lastActionBySeat.clear();
     heroVpip = false;
     heroPfr = false;
@@ -583,7 +593,16 @@ export function renderTable(opts: {
   function render(): void {
     potEl.textContent = `Pot ${state.pot}`;
 
-    boardWrap.replaceChildren(renderCardRow(state.board));
+    // Board diff: rebuild the row (cheap), but tag only the cards dealt SINCE the last render as
+    // data-deal-in so the CSS deal animation fires once per card as it arrives, not on every re-render
+    // at the same street. A shrink (new hand resets prevBoardLen to 0) animates the next street's deal.
+    const row = renderCardRow(state.board);
+    if (state.board.length > prevBoardLen) {
+      const cards = row.querySelectorAll<HTMLElement>('[data-testid="card"]');
+      for (let i = prevBoardLen; i < cards.length; i++) cards[i].dataset.dealIn = 'true';
+    }
+    prevBoardLen = state.board.length;
+    boardWrap.replaceChildren(row);
 
     const hero = heroSeat();
     heroCards.replaceChildren(

@@ -808,6 +808,27 @@ body {
   }
 }
 /*
+ * A newly-dealt community card slides down into the felt as it appears. table.ts tags ONLY the cards
+ * that are new this street with data-deal-in (the board diff), so this fires once per card as it is
+ * dealt — never on a re-render at the same street. Opacity + transform only (compositor-only, no
+ * reflow, hit-testing unaffected), and disabled under reduced-motion at the foot of this file, where
+ * the card simply appears. The pot/flop reveal is the moment worth a beat; nothing else moves.
+ */
+@keyframes offsuit-card-deal {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.board .card[data-deal-in='true'],
+.board .card-back[data-deal-in='true'] {
+  animation: offsuit-card-deal var(--motion-panel) var(--ease-out);
+}
+/*
  * Every screen fades in on mount. main.ts swaps the single child of .screen on each tab switch, so a
  * quiet opacity cross-fade aids orientation across the 13-tab bar without moving anything — opacity
  * only, so no reflow and hit-testing is unaffected. .table-screen matches both this and its own rule
@@ -836,6 +857,8 @@ body {
   .coach:not([hidden]),
   .coach-gate,
   .coach-gate-bar-fill,
+  .board .card[data-deal-in='true'],
+  .board .card-back[data-deal-in='true'],
   .predict {
     animation: none;
   }
