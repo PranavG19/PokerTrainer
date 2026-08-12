@@ -395,3 +395,28 @@ test('the card fits both documented window sizes, then screenshots', async () =>
     await close();
   }
 });
+
+test('the advice card carries no off-palette colour (an undefined --accent used to fall back to blue)', async () => {
+  /**
+   * PALETTE REGRESSION. styles-screens.css referenced `var(--accent, #4a9eff)` for the recommendation
+   * card's left rule, but --accent is defined nowhere, so it fell back to a blue that is outside the
+   * entire app palette — on the loudest mark of the launcher, and against the app's own
+   * no-off-palette-colour thesis. The rule is gone; the uppercase muted heading carries "advice".
+   * Oracle is computed style (the suite has no screenshot diffing), matching charts.spec's hue scan.
+   */
+  const { page, close } = await launchApp({ seed: 42, userDataDir: profileWith() });
+  try {
+    await atHome(page);
+    await expect(page.locator(card)).toBeVisible();
+    const style = await page.locator(card).evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { borderLeftWidth: cs.borderLeftWidth, borderLeftColor: cs.borderLeftColor };
+    });
+    // No left rule at all now, so nothing can carry the off-palette hue.
+    expect(style.borderLeftWidth).toBe('0px');
+    // And defensively: the blue 74,158,255 must not appear on the card's borders anywhere.
+    expect(style.borderLeftColor).not.toContain('74, 158, 255');
+  } finally {
+    await close();
+  }
+});
