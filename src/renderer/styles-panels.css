@@ -90,6 +90,12 @@
   font-size: 14px;
   font-weight: 400;
   color: var(--text-hi);
+  /* The EV grade arrives with the same entrance beat .predict-result and .coach-reason-note already
+   * use — reusing the existing offsuit-panel-in keyframe (opacity + translateY, compositor-only).
+   * Guarded in the reduced-motion block below. Note: in coached mode a notable/serious verdict passes
+   * through the GATE first (which unhides .coach), so this lands cleanly for immediate reveals; that is
+   * acceptable — a re-fire on the gated path is not worth re-mounting the panel. */
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
 }
 
 .coach[data-severity='serious'] .coach-message {
@@ -279,6 +285,7 @@
 @media (prefers-reduced-motion: reduce) {
   .predict-result,
   .coach-reason-note,
+  .coach-message,
   .coach-gate,
   .coach-gate-bar-fill,
   .stats-sheet[data-open='true'] .stats-body {

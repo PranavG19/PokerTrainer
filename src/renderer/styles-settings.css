@@ -33,6 +33,16 @@
   flex: 0 0 auto;
 }
 
+/* Section heading in the app's eyebrow idiom (.phase-label / .recommendation-heading), matching Home
+ * and Progress so every screen's section markers read alike. Direct-child scope; text-transform leaves
+ * textContent intact for e2e. */
+.settings-section > .stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-lo);
+}
+
 .settings-block {
   display: flex;
   flex-direction: column;

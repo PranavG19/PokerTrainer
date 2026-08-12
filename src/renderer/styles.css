@@ -401,16 +401,23 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  /* A static radial light-pool seats the board on lit "felt" under the cards' existing shadow. White
-   * over the pure-black bg resolves to a faint grey lift (no new hue, mint stays reserved); the
-   * transparent outer stop means no hard rect edge. Background only — no padding, no layout, no motion,
+  /* A static two-layer light-pool seats the board on lit "felt" under the cards' existing shadow: a
+   * tight inner hotspot over the broader pool, so the light reads as a source rather than a flat wash.
+   * White over the pure-black bg resolves to a faint grey lift (no new hue, mint stays reserved); the
+   * transparent outer stops mean no hard rect edge. Background only — no padding, no layout, no motion,
    * so it adds zero net height (the table centre has no vertical budget) and layout.spec is unchanged. */
-  background: radial-gradient(
-    ellipse 130% 95% at 50% 42%,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.018) 34%,
-    transparent 68%
-  );
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% 40%,
+      rgba(255, 255, 255, 0.045) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 130% 95% at 50% 42%,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.018) 34%,
+      transparent 68%
+    );
   border-radius: var(--radius-lg);
 }
 
@@ -421,6 +428,16 @@ body {
 .hero-wrap {
   display: flex;
   justify-content: center;
+  /* The hero's own cards get the same felt light-pool the community board sits in, so the player's
+   * decision surface is lit to match rather than reading flatter than the board. White over black
+   * resolves to grey (no hue, mint stays reserved); background only, no layout, no motion — .hero-wrap
+   * sits outside .table-centre so this adds no row to the budget-locked centre. */
+  background: radial-gradient(
+    ellipse 90% 120% at 50% 55%,
+    rgba(255, 255, 255, 0.04) 0%,
+    transparent 66%
+  );
+  border-radius: var(--radius-lg);
 }
 
 .hero-cards {
@@ -665,6 +682,14 @@ body {
 .predict {
   box-shadow: var(--elev-1);
 }
+/* At the moment of a real mistake the coach panel lifts one elevation step further, bringing the most
+ * important teaching surface physically forward. Severity by ELEVATION, never hue — the sanctioned
+ * channel. Static value (no transition on box-shadow), and the shadow paints outside the box so no
+ * reflow. The data-severity attribute is set by the coach panel; 'free' keeps the base elevation. */
+.coach[data-severity='notable'],
+.coach[data-severity='serious'] {
+  box-shadow: var(--elev-2);
+}
 /*
  * A resting seat gets a single soft shadow, NOT the heavy layered --elev-1 the panels use: eight pods
  * each casting an 18px blur made the whole table read as loud. Emphasis is now differential — only the
@@ -719,7 +744,14 @@ body {
   transition:
     background var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out),
     color var(--motion-fast) var(--ease-out);
+}
+/* Tactile press feedback on the core actions: a small compositor-only scale on :active, so fold/call/
+ * raise feel like buttons. Rest scale is identity, so layout.spec rects (measured at rest) are
+ * unchanged; the transition is already disabled under prefers-reduced-motion (block below lists .pill). */
+.pill:not(:disabled):active {
+  transform: scale(0.97);
 }
 .pill:not(:disabled):hover {
   background: var(--surface-hover);

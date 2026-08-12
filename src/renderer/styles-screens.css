@@ -77,6 +77,18 @@
   gap: 8px;
 }
 
+/* Section heading adopts the app's established eyebrow idiom (.phase-label / .recommendation-heading):
+ * a quiet 11px uppercase label, so the "Recent hands" heading reads as a section marker rather than
+ * competing with the row content. Direct-child scope hits only the heading, not any nested label; text-
+ * transform leaves textContent intact so e2e getByText is unaffected, and 11px on one line adds no
+ * height (Home is 640px zero-slack). */
+.home-recent > .stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-lo);
+}
+
 .hand-list {
   display: flex;
   flex-direction: column;
@@ -142,7 +154,9 @@ button.hand-row {
 
 .empty-state-title {
   font-size: 15px;
-  font-weight: 500;
+  /* Regular weight so "No hands yet" recedes rather than announcing itself — an empty state should be
+   * quiet. Weight-only change (the sanctioned emphasis channel), no size/height change. */
+  font-weight: 400;
   color: var(--text-hi);
 }
 
