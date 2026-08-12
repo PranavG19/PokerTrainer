@@ -664,4 +664,51 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-correct', '1');
     });
   });
+
+  /*
+   * ACCESSIBILITY — the graded outputs reach screen readers. The classify verdict, the action verdict,
+   * and the completion score all update in place, so without a live region an SR learner gets no
+   * feedback. An always-present visually-hidden role=status region mirrors whichever verdict the body
+   * is showing, and is empty while acting/classifying. This walks all three graded states.
+   */
+  test('19. the classify, action, and completion verdicts are all announced to screen readers', async () => {
+    await withApp(async (page) => {
+      const announcer = page.locator('[data-testid="puzzle-announcer"]');
+      await openPuzzle(page);
+
+      // Live region, empty while the picker is up (classify phase, nothing graded yet).
+      await expect(announcer).toHaveAttribute('role', 'status');
+      await expect(announcer).toHaveAttribute('aria-live', 'polite');
+      await expect(announcer).toHaveText('');
+
+      // (1) Classify verdict — announcement carries the same head the classify block shows.
+      await page.locator('[data-testid="puzzle-classify-rfi"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'classified');
+      const classifyHead =
+        (await page.locator('[data-testid="puzzle-classify-verdict-head"]').textContent()) ?? '';
+      expect(classifyHead.length).toBeGreaterThan(0);
+      await expect(announcer).toHaveText(classifyHead);
+
+      // Falling through to the action clears the announcement (acting phase, nothing graded).
+      await page.locator(classifyContinue).click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'acting');
+      await expect(announcer).toHaveText('');
+
+      // (2) Action verdict — announcement leads with the verdict head and includes the taught reason.
+      await page.locator('[data-testid="puzzle-raise"]').click();
+      await expect(page.locator(screen)).toHaveAttribute('data-verdict', 'right');
+      const head = (await page.locator(verdictHead).textContent()) ?? '';
+      const why = (await page.locator(explanation).textContent()) ?? '';
+      const spoken = (await announcer.textContent()) ?? '';
+      expect(spoken.startsWith(head)).toBe(true);
+      expect(spoken).toContain(why);
+
+      // (3) Completion — the score line is announced, and it is the same line the complete block shows.
+      await page.locator(continueBtn).click();
+      await expect(page.locator(screen)).toHaveAttribute('data-phase', 'complete');
+      const announcedScore = (await announcer.textContent()) ?? '';
+      expect(announcedScore).toMatch(/You played \d+ of \d+ decisions the GTO way\./);
+      expect((await page.locator(complete).textContent()) ?? '').toContain(announcedScore);
+    });
+  });
 });
