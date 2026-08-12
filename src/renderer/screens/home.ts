@@ -42,8 +42,18 @@ export function renderHome(opts: {
     );
   }
 
-  root.appendChild(renderNewSessionCard(opts.onNewSession));
-  if (opts.onPlayWithFriends) root.appendChild(renderPlayWithFriendsCard(opts.onPlayWithFriends));
+  // The two launch cards sit side by side rather than stacked: Home is exactly 640px at the minimum
+  // window with no spare height (session-plan.spec test 17), so a second stacked card grew a page
+  // scrollbar. A row adds the multiplayer entry at zero net height.
+  if (opts.onPlayWithFriends) {
+    const cards = document.createElement('div');
+    cards.className = 'home-session-cards';
+    cards.appendChild(renderNewSessionCard(opts.onNewSession));
+    cards.appendChild(renderPlayWithFriendsCard(opts.onPlayWithFriends));
+    root.appendChild(cards);
+  } else {
+    root.appendChild(renderNewSessionCard(opts.onNewSession));
+  }
   root.appendChild(renderRecentHands(opts.session.hands, opts.onOpenHand));
   /**
    * S1's "Start session" lives here because N5 makes home the launcher: choosing how long you are

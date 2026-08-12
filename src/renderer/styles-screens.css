@@ -21,6 +21,17 @@
   letter-spacing: -2px;
 }
 
+/* The two launch cards share a row so multiplayer adds no net height to a 640px-exact home. */
+.home-session-cards {
+  display: flex;
+  gap: 12px;
+}
+
+.home-session-cards .session-card {
+  flex: 1;
+  min-width: 0;
+}
+
 .session-card {
   display: flex;
   flex-direction: column;
