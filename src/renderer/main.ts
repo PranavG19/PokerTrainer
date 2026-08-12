@@ -9,6 +9,7 @@ import type { FadingEvent } from '../core/fading.js';
 import {
   deserialize,
   rebuy,
+  recordAnomalyResponse,
   recordChartAnswer,
   recordGifts,
   recordFadingEvents,
@@ -251,6 +252,16 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /** Persist one graded anomaly-drill response so the lifetime tally survives a restart (O8). */
+  async function onAnomalyResponse(scored: {
+    correct: boolean;
+    fast: boolean;
+    tag: 'missed-anomaly' | 'false-alarm' | 'slow' | null;
+  }): Promise<void> {
+    session = recordAnomalyResponse(session, scored);
+    await io.saveState(serialize(session));
+  }
+
   /**
    * The per-concept learner states the scheduler and recommender both reason over, derived from the
    * Drill's persisted graded history. Only 'graded' events are opportunities (hint / support-faded
@@ -459,7 +470,20 @@ async function boot(): Promise<void> {
         onFadingEvents: (events) => void onFadingEvents(events),
       });
     }
-    if (which === 'anomaly') return renderAnomalyScreen();
+    if (which === 'anomaly') {
+      const t = session.anomalyTally;
+      return renderAnomalyScreen({
+        lifetime: {
+          attempts: t.attempts,
+          correct: t.correct,
+          fast: t.fast,
+          missedAnomaly: t.missedAnomaly,
+          falseAlarm: t.falseAlarm,
+          slow: t.slow,
+        },
+        onResponse: (scored) => void onAnomalyResponse(scored),
+      });
+    }
     if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
     if (which === 'spacing') {
