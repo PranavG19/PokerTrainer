@@ -18,6 +18,8 @@ import {
   serialize,
 } from '../../src/core/session.js';
 import { createLexicon } from '../../src/core/lexicon.js';
+import { deriveState, type FadingEvent } from '../../src/core/fading.js';
+import { recordFadingEvents } from '../../src/core/session.js';
 
 function gift(overrides: Partial<GiftEntry> = {}): GiftEntry {
   return {
@@ -426,6 +428,60 @@ describe('lexicon persistence (L1/L3)', () => {
       reasonText: 'this states a memorised conclusion rather than a mechanism',
       pushback: true,
     });
+  });
+});
+
+describe('fading log persistence (T6/T7)', () => {
+  const graded = (conceptId: string, correct: boolean, at = 0): FadingEvent => ({ kind: 'graded', conceptId, at, correct });
+
+  it('recordFadingEvents appends in order and is pure', () => {
+    const before = emptySession();
+    const after = recordFadingEvents(before, [graded('spr', true, 1), graded('spr', false, 2)]);
+    expect(before.fadingLog).toEqual([]); // prior untouched
+    expect(after.fadingLog).toHaveLength(2);
+    expect(after.fadingLog.map((e) => e.at)).toEqual([1, 2]);
+  });
+
+  it('an empty batch is a no-op that returns the same state', () => {
+    const s = emptySession();
+    expect(recordFadingEvents(s, [])).toBe(s);
+  });
+
+  it('survives a round trip, and the rehydrated log derives the same rung', () => {
+    let s = emptySession();
+    // Three correct then a fade event on pot-odds — the drill's own promotion shape.
+    s = recordFadingEvents(s, [
+      graded('pot-odds', true, 1),
+      graded('pot-odds', true, 2),
+      graded('pot-odds', true, 3),
+      { kind: 'supportFaded', conceptId: 'pot-odds', at: 3 },
+    ]);
+    const round = deserialize(JSON.parse(JSON.stringify(serialize(s))));
+    expect(round).toEqual(s);
+    expect(deriveState('pot-odds', round.fadingLog).rung).toBe(1);
+  });
+
+  it('a save file predating the fading log loads with an empty log', () => {
+    expect(deserialize({ bankroll: 12000, hands: [], stats: {} }).fadingLog).toEqual([]);
+  });
+
+  it('drops malformed events but keeps the well-formed ones in order', () => {
+    const raw = deserialize({
+      fadingLog: [
+        { kind: 'graded', conceptId: 'spr', at: 1, correct: true }, // kept
+        { kind: 'graded', conceptId: 'spr', at: 2, correct: 'yes' }, // non-boolean correct → dropped
+        { kind: 'graded', conceptId: '   ', at: 3, correct: false }, // blank conceptId → dropped
+        { kind: 'supportFaded', conceptId: 'spr', at: 4 }, // kept
+        { kind: 'hintRequested', conceptId: 'spr', at: 5, quotedRungAfter: 9 }, // out-of-range rung → dropped
+        { kind: 'hintRequested', conceptId: 'spr', at: 6, quotedRungAfter: 2 }, // kept
+        { kind: 'nonsense', conceptId: 'spr', at: 7 }, // unknown kind → dropped
+      ],
+    });
+    expect(raw.fadingLog.map((e) => [e.kind, e.at])).toEqual([
+      ['graded', 1],
+      ['supportFaded', 4],
+      ['hintRequested', 6],
+    ]);
   });
 });
 

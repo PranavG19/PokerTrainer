@@ -5,11 +5,13 @@ import './styles-settings.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
 import type { LexiconAttempt } from '../core/lexicon.js';
+import type { FadingEvent } from '../core/fading.js';
 import {
   deserialize,
   rebuy,
   recordChartAnswer,
   recordGifts,
+  recordFadingEvents,
   recordHand,
   recordLexiconAttempt,
   recordPrediction,
@@ -234,6 +236,12 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /** Persist drill fading events so a concept's scaffolding rung survives a restart (T6/T7). */
+  async function onFadingEvents(events: readonly FadingEvent[]): Promise<void> {
+    session = recordFadingEvents(session, events);
+    await io.saveState(serialize(session));
+  }
+
   /**
    * N2's single suggestion for the launcher.
    *
@@ -425,7 +433,12 @@ async function boot(): Promise<void> {
         onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
       });
     }
-    if (which === 'drill') return renderDrillScreen();
+    if (which === 'drill') {
+      return renderDrillScreen({
+        fadingLog: session.fadingLog,
+        onFadingEvents: (events) => void onFadingEvents(events),
+      });
+    }
     if (which === 'anomaly') return renderAnomalyScreen();
     if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
