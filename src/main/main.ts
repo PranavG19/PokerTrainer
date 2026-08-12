@@ -6,13 +6,18 @@ import { cancelSpeech, speak } from './speech.js';
 import {
   deleteProfile,
   load,
+  loadMultiplayerEnabled,
   loadTutorEnabled,
   profileStatus,
   save,
+  saveMultiplayerEnabled,
   saveTutorEnabled,
 } from './store.js';
 import { askTutor, resolveTutor, type AskInput, type ResolvedTutor } from './tutor/index.js';
 import { nullModelClient, nullTutor } from './tutor/nullTutor.js';
+import { hostSession, joinSession, type RelaySession } from './relaySession.js';
+import type { Action } from '../core/table.js';
+import type { RoomView } from '../core/multiplayer.js';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -30,6 +35,33 @@ const configured = resolveTutor(process.env);
  * ask path therefore cannot leak, because there is no client to leak through.
  */
 let tutorEnabled = loadTutorEnabled();
+
+/**
+ * Multiplayer opt-in and the single live session (host or join), if any. Defaults OFF: multiplayer
+ * opens a socket, so a fresh profile is never networkable and the seal stays total. Every host/join
+ * entry point re-checks this flag, so turning it off is structural — with it off there is no code path
+ * that opens a socket.
+ */
+let multiplayerEnabled = loadMultiplayerEnabled();
+let relaySession: RelaySession | null = null;
+
+/**
+ * Push a multiplayer event to the renderer. The relay server BROADCASTS unprompted (a remote player
+ * acting moves everyone's state), so unlike the request/response tutor this is a one-way channel from
+ * main to the renderer via webContents.send.
+ */
+function pushMultiplayerEvent(event: { type: 'state'; view: RoomView } | { type: 'error'; reason: string }): void {
+  if (mainWindow !== null && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('mp:event', event);
+  }
+}
+
+/** Tear down any live session — on stop, on a new host/join, and on quit. */
+async function stopRelaySession(): Promise<void> {
+  const session = relaySession;
+  relaySession = null;
+  await session?.stop();
+}
 
 function activeTutor(): ResolvedTutor {
   if (tutorEnabled) return configured;
@@ -223,6 +255,63 @@ app.whenReady().then(() => {
     return tutorEnabled;
   });
 
+  // ── Multiplayer (local relay) ──────────────────────────────────────────────
+  // The opt-in is the structural gate: host/join refuse while it is off, so with multiplayer disabled
+  // there is no path that opens a socket and the network seal is intact (no-network.spec stays green).
+
+  ipcMain.handle('mp:status', () => ({ enabled: multiplayerEnabled, active: relaySession !== null }));
+
+  ipcMain.handle('mp:setEnabled', async (_event, enabled: boolean) => {
+    multiplayerEnabled = enabled === true;
+    saveMultiplayerEnabled(multiplayerEnabled);
+    // Turning it off must also drop any live session — leaving a socket open would defeat the switch.
+    if (!multiplayerEnabled) await stopRelaySession();
+    return multiplayerEnabled;
+  });
+
+  const sessionCallbacks = {
+    onState: (view: RoomView) => pushMultiplayerEvent({ type: 'state', view }),
+    onError: (reason: string) => pushMultiplayerEvent({ type: 'error', reason }),
+  };
+
+  ipcMain.handle('mp:host', async (_event, opts: { seatCount?: number }) => {
+    if (!multiplayerEnabled) return { error: 'multiplayer is off' };
+    await stopRelaySession();
+    const seatCount = Math.min(6, Math.max(2, Math.floor(opts?.seatCount ?? 3)));
+    const { session, info } = await hostSession(
+      { roomId: 'local', seatCount, sb: 25, bb: 50, startStack: 5000, seed: seed ?? 1 },
+      sessionCallbacks,
+    );
+    relaySession = session;
+    return { port: info.port };
+  });
+
+  ipcMain.handle('mp:join', async (_event, address: { host: string; port: number; name?: string }) => {
+    if (!multiplayerEnabled) return { error: 'multiplayer is off' };
+    if (typeof address?.host !== 'string' || !Number.isFinite(address?.port)) {
+      return { error: 'a host and port are required' };
+    }
+    await stopRelaySession();
+    relaySession = joinSession(
+      { host: address.host, port: Math.floor(address.port) },
+      typeof address.name === 'string' ? address.name : 'Guest',
+      sessionCallbacks,
+    );
+    return { joined: true };
+  });
+
+  ipcMain.handle('mp:action', (_event, action: Action) => {
+    relaySession?.action(action);
+  });
+
+  ipcMain.handle('mp:deal', () => {
+    relaySession?.dealNext();
+  });
+
+  ipcMain.handle('mp:stop', async () => {
+    await stopRelaySession();
+  });
+
   // The gate is here and in core/backup.ts, never in the renderer: a UI bug must
   // not be able to destroy the decision log.
   ipcMain.handle('settings:deleteProfile', (_event, confirmation: unknown) =>
@@ -260,4 +349,6 @@ app.on('window-all-closed', () => {
  */
 app.on('will-quit', () => {
   cancelSpeech();
+  // A relay socket must not outlive the app that opened it: drop any live host/join on quit.
+  void stopRelaySession();
 });
