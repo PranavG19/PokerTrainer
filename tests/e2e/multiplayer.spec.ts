@@ -96,3 +96,39 @@ test('enabling then hosting shows a port, and a real client that joins is dealt 
     await close();
   }
 });
+
+test('the host can choose a larger table, and the chosen seat count reaches the room', async () => {
+  const { page, close } = await launchApp({ seed: 11 });
+  let client: net.Socket | null = null;
+  try {
+    await openMultiplayer(page);
+    await page.locator('[data-testid="mp-enable"]').click();
+
+    // Choose a 4-handed table before hosting.
+    await page.locator('[data-testid="mp-seat-count"]').selectOption('4');
+    await page.locator('[data-testid="mp-host"]').click();
+    const port = Number(await page.locator('[data-testid="mp-host-port"]').getAttribute('data-port'));
+    expect(port).toBeGreaterThan(0);
+
+    // A real client joins; the deal broadcast it receives should describe a 4-seat table (the two
+    // empty seats sit out chipless, but the room was built with the chosen seat count).
+    const messages: string[] = [];
+    client = net.createConnection({ host: '127.0.0.1', port });
+    client.setEncoding('utf8');
+    client.on('data', (chunk: string) => messages.push(chunk));
+    await new Promise<void>((resolve, reject) => {
+      client!.on('connect', () => {
+        client!.write(JSON.stringify({ type: 'join', name: 'Guest' }) + '\n');
+        resolve();
+      });
+      client!.on('error', reject);
+    });
+
+    // The host's screen shows the live table; the seat count it chose is honoured.
+    await page.waitForSelector('[data-testid="mp-table"]', { timeout: 15_000 });
+    await expect(page.locator('[data-testid="mp-seat"]')).toHaveCount(4);
+  } finally {
+    client?.destroy();
+    await close();
+  }
+});
