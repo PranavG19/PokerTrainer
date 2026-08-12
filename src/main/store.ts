@@ -75,5 +75,41 @@ export function loadTutorEnabled(): boolean {
 export function saveTutorEnabled(enabled: boolean): void {
   // Atomic, without version history: this file holds one boolean the learner can
   // always re-set, so a rolling backup of it would buy nothing.
-  atomicWrite(SETTINGS_FILE, JSON.stringify({ tutorEnabled: enabled }, null, 2));
+  writeSettings({ tutorEnabled: enabled });
+}
+
+/**
+ * Multiplayer defaults OFF, the OPPOSITE of the tutor. The tutor is a no-op without credentials, so
+ * defaulting it on is harmless; multiplayer OPENS A SOCKET, so a fresh profile that never chose it must
+ * not be networkable — that is what keeps the network seal intact (and no-network.spec green) with no
+ * settings file present. Only an explicit `true` turns it on.
+ */
+export function loadMultiplayerEnabled(): boolean {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    if (typeof parsed !== 'object' || parsed === null) return false;
+    return (parsed as { multiplayerEnabled?: unknown }).multiplayerEnabled === true;
+  } catch {
+    return false;
+  }
+}
+
+export function saveMultiplayerEnabled(enabled: boolean): void {
+  writeSettings({ multiplayerEnabled: enabled });
+}
+
+/**
+ * Merge one or more settings keys into the settings file, preserving the others. Both switches share
+ * the file, so writing one must not clobber the other — a naive `atomicWrite({tutorEnabled})` erased a
+ * saved multiplayer choice and vice versa.
+ */
+function writeSettings(patch: Record<string, unknown>): void {
+  let current: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    if (typeof parsed === 'object' && parsed !== null) current = parsed as Record<string, unknown>;
+  } catch {
+    current = {};
+  }
+  atomicWrite(SETTINGS_FILE, JSON.stringify({ ...current, ...patch }, null, 2));
 }
