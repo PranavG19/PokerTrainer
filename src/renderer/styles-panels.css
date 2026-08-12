@@ -131,6 +131,10 @@
 .predict-result {
   font-size: 13px;
   color: var(--text-hi);
+  /* The verdict lands with the same 6px rise + fade its parent .predict panel uses. The element
+   * persists and predictPanel.ts clears [hidden] to reveal it, so the keyframe fires once per reveal.
+   * offsuit-panel-in is defined in styles.css (keyframes are global). Reduced-motion guard at foot. */
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
 }
 
 .predict-result[hidden] {
@@ -156,6 +160,10 @@
   font-size: 12px;
   color: var(--chip-blind);
   margin-top: 4px;
+  /* The G4 "right action, wrong reason" note rises + fades in when coachPanel.ts clears [hidden], so
+   * the separate reason verdict reads as its own arrival rather than snapping in. Reduced-motion guard
+   * at the foot of this file. */
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
 }
 
 .coach-reason-note[hidden] {
@@ -189,4 +197,12 @@
   margin-left: 4px;
   font-size: 12px;
   letter-spacing: 0.04em;
+}
+
+/* The reveal animations respect a reduced-motion preference (parity with styles.css). */
+@media (prefers-reduced-motion: reduce) {
+  .predict-result,
+  .coach-reason-note {
+    animation: none;
+  }
 }

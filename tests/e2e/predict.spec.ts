@@ -268,6 +268,8 @@ test.describe('the reveal', () => {
       await expect(result).toBeVisible();
       await expect(result).toHaveAttribute('data-outcome', 'match');
       await expect(result).toContainText(/agree/i);
+      // The verdict settles in with the panel's rise+fade when [hidden] clears (UI polish).
+      expect(await result.evaluate((el) => getComputedStyle(el).animationName)).toBe('offsuit-panel-in');
       await shot(page, 'predict-match');
     });
   });
@@ -783,6 +785,10 @@ test.describe('G4 — the reason is graded separately from the action', () => {
       );
       // Not escalated: the EV grade stays silent (free), so the panel severity is not 'serious'.
       await expect(page.locator(coachPanel)).not.toHaveAttribute('data-severity', 'serious');
+      // The G4 note rises + fades in as it is revealed (UI polish).
+      expect(
+        await page.locator(reasonNote).evaluate((el) => getComputedStyle(el).animationName),
+      ).toBe('offsuit-panel-in');
     });
   });
 

@@ -141,6 +141,13 @@ test.describe('gameplay', () => {
       await sitDown(page);
       await playToShowdown(page);
       await expect(page.locator('[data-testid="winner-summary"]')).toBeVisible();
+      // The result line fades up as the pot is awarded (opacity-only, UI polish).
+      expect(
+        await page
+          .locator('[data-testid="winner-summary"]')
+          .first()
+          .evaluate((el) => getComputedStyle(el).animationName),
+      ).toBe('offsuit-surface-in');
 
       // The ring belongs to whoever the summary names, so derive the expected winners from it rather
       // than from a seat attribute — that is the human-visible claim the ring is decorating.
