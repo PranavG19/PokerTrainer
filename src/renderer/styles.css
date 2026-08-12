@@ -292,6 +292,22 @@ body {
   padding: 20px;
 }
 
+/* Present in the accessibility tree and readable by screen readers, but removed from the visual layout
+ * and taking no space. The standard clip-rect pattern (not display:none / visibility:hidden, which also
+ * hide from assistive tech). Used for the coach verdict's aria-live announcer. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ─── Table screen (R2) ─── */
 .table-screen {
   display: flex;

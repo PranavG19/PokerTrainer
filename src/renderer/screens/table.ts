@@ -114,6 +114,19 @@ export function renderTable(opts: {
   // on by e2e because data-awaiting stays 'hero' while the gated action's application is deferred.
   root.dataset.gate = 'closed';
 
+  // A screen-reader announcement channel for the coach verdict. The coach PANEL toggles `hidden`, which
+  // pulls it from the accessibility tree — so an aria-live on the panel itself would not reliably
+  // announce. This region is ALWAYS in the tree and only its text changes, which is the pattern SRs
+  // announce dependably. It carries the same verdict string that drives voice narration (revealHeroGrade
+  // → onVerdict), so the spoken, visual and screen-reader channels can never disagree. Visually hidden
+  // (.visually-hidden) since sighted users read the panel; role=status = polite, non-interrupting.
+  const announcer = document.createElement('div');
+  announcer.className = 'visually-hidden';
+  announcer.dataset.testid = 'coach-announcer';
+  announcer.setAttribute('role', 'status');
+  announcer.setAttribute('aria-live', 'polite');
+  root.appendChild(announcer);
+
   const seatsWrap = document.createElement('div');
   seatsWrap.className = 'seats';
   root.appendChild(seatsWrap);
@@ -330,6 +343,9 @@ export function renderTable(opts: {
     // Exactly the condition showGrade paints under, so narration and the panel can never disagree
     // about whether there is a verdict — one call per verdict shown, none for a silent grade.
     if (adviceShown) opts.onVerdict?.(grade.message);
+    // Same condition, same string: announce the verdict to screen readers via the always-present live
+    // region. A silent (free) grade announces nothing, matching the panel's silence rule exactly.
+    announcer.textContent = adviceShown ? (grade.message ?? '') : '';
     if (grade.principle !== null) {
       grades.push({
         severity: grade.severity,
@@ -568,6 +584,8 @@ export function renderTable(opts: {
     heroPfr = false;
     settled = false;
     clearCoach(coach);
+    // Clear the SR announcement too, so a new hand does not leave last hand's verdict in the a11y tree.
+    announcer.textContent = '';
     if (adviceShown) opts.onVerdict?.(null);
     adviceShown = false;
     clearPredictPanel(predict);
