@@ -48,10 +48,14 @@
   font-weight: 500;
 }
 
+/* While connecting, the shared port is the one thing the host must read and act on. Full ink (a
+ * neutral high-contrast token, not a severity colour) and the opacity-only surface-in entrance the
+ * puzzle teaching number uses — it appears once when the port resolves. tabular-nums keeps it steady. */
 .mp-share {
   font-size: 14px;
-  color: var(--text-lo);
+  color: var(--text-hi);
   font-variant-numeric: tabular-nums;
+  animation: offsuit-surface-in var(--motion-fast) var(--ease-out);
 }
 
 .mp-join-row {
@@ -59,6 +63,14 @@
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.mp-seat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-lo);
 }
 
 .mp-input {
@@ -106,12 +118,21 @@
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   background: var(--surface-hi);
+  /* A single soft shadow so a seat reads as a card, not a text row — the live table's resting-pod
+   * treatment. Opacity is deliberately NOT in the transition: folded seats carry opacity as a locked
+   * state channel (0.4 below), so tweening it would collide with that. */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition:
+    box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
-/* The acting seat comes forward by depth, not colour — the same differential-emphasis rule the live
- * table uses. Folded seats recede via opacity, matching the seat state channel elsewhere. */
+/* The acting seat comes forward by depth, not colour — the live table's exact to-act treatment: the
+ * reserved mint ring layered over elevation plus a 2% scale, so "who acts now" is read from depth.
+ * Folded seats recede via opacity, matching the seat state channel elsewhere. */
 .mp-seat[data-to-act='true'] {
-  box-shadow: var(--ring-active);
+  box-shadow: var(--ring-active), var(--elev-2);
+  transform: scale(1.02);
 }
 
 .mp-seat[data-folded='true'] {
@@ -139,4 +160,25 @@
   gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* The committing action reads as primary by depth, not hue — the live table lifts only the enabled
+ * raise pill (no mint, no red). The emphasis tracks actionability: controls() disables illegal actions. */
+.mp-controls .pill[data-testid='mp-raise']:not(:disabled) {
+  box-shadow: var(--elev-1);
+}
+
+/* At hand-end the deal button is the sole forward action, so give it presence by weight — the same
+ * treatment the puzzle completion screen's primary pill uses. */
+.mp-controls .pill[data-testid='mp-deal'] {
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-seat {
+    transition: none;
+  }
+  .mp-share {
+    animation: none;
+  }
 }

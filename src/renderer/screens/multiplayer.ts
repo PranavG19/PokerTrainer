@@ -46,6 +46,9 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
   let hostPort: number | null = null;
   let notice = '';
   let enabled = false;
+  // How many seats a hosted table has (2–6). The whole point of multiplayer is multi-way play, so the
+  // host picks the size; the main handler clamps it to 2..6 as a backstop.
+  let seatCount = 2;
 
   // Subscribe to pushed relay events for this screen's lifetime; unsubscribe when it leaves the DOM.
   const unsubscribe = bridge.onMpEvent?.((event) => {
@@ -80,7 +83,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     phase = 'connecting';
     notice = '';
     paint();
-    const result = await bridge.mpHost?.({ seatCount: 2 });
+    const result = await bridge.mpHost?.({ seatCount });
     if (result?.error) {
       notice = result.error;
       phase = 'setup';
@@ -199,14 +202,37 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       return el;
     }
 
-    // Host / join choice.
+    // Host a table: pick the seat count (2–6) first, then host.
+    const hostRow = document.createElement('div');
+    hostRow.className = 'mp-join-row';
+
+    const seatLabel = document.createElement('label');
+    seatLabel.className = 'mp-seat-label';
+    seatLabel.textContent = 'Players';
+    const seatSelect = document.createElement('select');
+    seatSelect.className = 'mp-input';
+    seatSelect.dataset.testid = 'mp-seat-count';
+    for (const n of [2, 3, 4, 5, 6]) {
+      const option = document.createElement('option');
+      option.value = String(n);
+      option.textContent = String(n);
+      option.selected = n === seatCount;
+      seatSelect.appendChild(option);
+    }
+    seatSelect.addEventListener('change', () => {
+      seatCount = Number(seatSelect.value);
+    });
+    seatLabel.appendChild(seatSelect);
+    hostRow.appendChild(seatLabel);
+
     const hostBtn = document.createElement('button');
     hostBtn.type = 'button';
     hostBtn.className = 'pill';
     hostBtn.dataset.testid = 'mp-host';
     hostBtn.textContent = 'Host a table';
     hostBtn.addEventListener('click', () => void host());
-    el.appendChild(hostBtn);
+    hostRow.appendChild(hostBtn);
+    el.appendChild(hostRow);
 
     const joinRow = document.createElement('div');
     joinRow.className = 'mp-join-row';
