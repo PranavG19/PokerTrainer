@@ -107,4 +107,27 @@ describe('host + join end to end', () => {
     await waitFor(() => (hostSide.latest()?.handNumber ?? 0) > firstHand);
     expect(hostSide.latest()!.winners).toBeNull();
   });
+
+  it('a JOINED (non-host) player can request the next hand, and the host relay deals it', async () => {
+    const hostSide = collector();
+    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
+    sessions.push(host);
+    const guestSide = collector();
+    const guest = joinSession({ host: '127.0.0.1', port: info.port }, 'Guest', guestSide.callbacks);
+    sessions.push(guest);
+    await waitFor(() => (hostSide.latest()?.handNumber ?? 0) >= 1 && (guestSide.latest()?.handNumber ?? 0) >= 1);
+
+    const firstHand = guestSide.latest()!.handNumber;
+    // End the hand by folding whichever side is to act.
+    if (hostSide.latest()!.yourTurn) host.action({ kind: 'fold' });
+    else guest.action({ kind: 'fold' });
+    await waitFor(() => guestSide.latest()?.winners !== null);
+
+    // The GUEST asks for the next hand (a 'deal' request over the socket); the host relay deals it and
+    // both sides advance — the guest is no longer stuck waiting on the host.
+    guest.dealNext();
+    await waitFor(() => (guestSide.latest()?.handNumber ?? 0) > firstHand);
+    expect(guestSide.latest()!.winners).toBeNull();
+    expect(hostSide.latest()!.handNumber).toBe(guestSide.latest()!.handNumber);
+  });
 });

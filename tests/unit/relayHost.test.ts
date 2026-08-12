@@ -40,6 +40,7 @@ describe('framing helpers (pure)', () => {
 
   it('parses valid client messages and rejects malformed or hostile input', () => {
     expect(parseClientMessage('{"type":"leave"}')).toEqual({ type: 'leave' });
+    expect(parseClientMessage('{"type":"deal"}')).toEqual({ type: 'deal' });
     expect(parseClientMessage('{"type":"join","name":"Al"}')).toEqual({ type: 'join', name: 'Al' });
     expect(parseClientMessage('{"type":"action","action":{"kind":"fold"}}')).toEqual({
       type: 'action',

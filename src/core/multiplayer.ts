@@ -62,7 +62,11 @@ export interface RoomState {
 export type ClientMessage =
   | { readonly type: 'join'; readonly name: string }
   | { readonly type: 'leave' }
-  | { readonly type: 'action'; readonly action: Action };
+  | { readonly type: 'action'; readonly action: Action }
+  // Request the next hand after one has ended. Any seated player may ask — the server only deals when
+  // the current hand is settled, so a mid-hand request is a harmless no-op. Lets a joined (non-host)
+  // player advance a finished hand instead of waiting on the host.
+  | { readonly type: 'deal' };
 
 /** Server → client. `state` is ALWAYS the redacted view for the recipient (see viewFor). */
 export type ServerMessage =
