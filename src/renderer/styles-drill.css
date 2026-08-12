@@ -58,6 +58,34 @@
   padding-bottom: 2px;
 }
 
+/*
+ * The current scaffolding rung (T6/T7). No colour: rung 0 is quiet (full support is the resting state,
+ * not an achievement), and a faded rung is stated in fuller ink so the learner knows support was
+ * withdrawn on purpose rather than by a bug. Weight and ink carry it, matching the drill's V2 palette.
+ */
+.drill-support {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-lo);
+  padding-bottom: 4px;
+}
+
+.drill-support[data-rung='0'] {
+  color: var(--surface-hi);
+}
+
+.drill-support:not([data-rung='0']) {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+
+/* The principle line shown at rung 2 in place of the worked method: the idea, named, without figures. */
+.drill-principle {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-hi);
+}
+
 .drill-kinds {
   display: flex;
   flex-wrap: wrap;

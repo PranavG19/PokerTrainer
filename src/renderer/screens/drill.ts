@@ -14,6 +14,18 @@ import {
   type DrillKind,
   type Grading,
 } from '../../core/arithmetic.js';
+import {
+  LEAST_SUPPORT_RUNG,
+  RESTORE_STREAK,
+  applyEvent,
+  deriveState,
+  initialState,
+  supportFor,
+  type FadingEvent,
+  type FadingState,
+  type Rung,
+  type SupportLevel,
+} from '../../core/fading.js';
 
 /**
  * THE DRILL TAB — the arithmetic trainer. A PURE READER over src/core/arithmetic.ts: every number
@@ -37,10 +49,30 @@ import {
  * arithmetic laid out line by line, the learner's own number printed beside the right one, and the
  * band core's tolerance actually allows. G3 keeps the mirror image true as well — a correct answer
  * gets no praise, just the method it should have used.
+ *
+ * SCAFFOLDING FADES PER KIND (T6/T7, core/fading.ts). Each DrillKind is a faded concept. A learner
+ * who keeps getting a kind right no longer needs the full worked method every time, so support is
+ * withdrawn a rung at a time: rung 0 shows the whole method (the behaviour above, and what a fresh
+ * session always starts on), then the method contracts to the answer, then to the principle line,
+ * then to a bare verdict. The rungs come from `supportFor` and the promotion — three consecutive
+ * correct with no hint owed, per core's own RESTORE_STREAK — is the ONLY upward step; the accuracy
+ * rule inside core drops a rung back on a bad run. The fade stops at rung 3: the drill is an
+ * immediate-feedback surface, and rung 4 (batched self-marked review) is a different interaction that
+ * belongs to a review surface, not here. The event log persists so the ladder is not reset each launch.
  */
 
 /** Fixed base: the sequence must be identical on every launch for the e2e suite to pin it. */
 const BASE_SEED = 101;
+
+/**
+ * The drill fades no further than rung 3 ("bare incorrect"). Rung 4 is batched self-marked review —
+ * a deferred-feedback interaction that contradicts this screen's immediate-verdict contract — so it is
+ * left for a review surface. Asserted against core so a change to the ladder is noticed here.
+ */
+const DRILL_MAX_RUNG: Rung = 3;
+if (DRILL_MAX_RUNG >= LEAST_SUPPORT_RUNG) {
+  throw new Error('drill fade cap must stay below core LEAST_SUPPORT_RUNG (rung 4 is self-marked review)');
+}
 
 const seedFor = (index: number): number => BASE_SEED + index;
 
@@ -69,13 +101,30 @@ interface Committed {
   readonly grading: Grading;
 }
 
-export function renderDrillScreen(): HTMLElement {
+export interface DrillOptions {
+  /**
+   * The persisted fading event log, rehydrated so a concept faded across sittings stays faded. Absent
+   * or empty → every kind starts at rung 0 (worked examples), which is the pre-fading behaviour.
+   */
+  readonly fadingLog?: readonly FadingEvent[];
+  /** Persist newly-appended fading events. Called on each commit; main.ts folds them in and saves. */
+  readonly onFadingEvents?: (events: readonly FadingEvent[]) => void;
+}
+
+export function renderDrillScreen(options: DrillOptions = {}): HTMLElement {
   const root = document.createElement('div');
   root.className = 'drill-screen';
   root.dataset.testid = 'drill-screen';
 
   const tallies = new Map<DrillKind, Tally>(
     DRILL_KINDS.map((kind) => [kind, { attempted: 0, correct: 0 }]),
+  );
+
+  // Per-kind fading state, derived from the persisted log. The conceptId IS the DrillKind, so a kind's
+  // scaffolding is remembered independently of the others — mastering pot-odds does not fade SPR.
+  const fadingLog: FadingEvent[] = [...(options.fadingLog ?? [])];
+  const fadingState = new Map<DrillKind, FadingState>(
+    DRILL_KINDS.map((kind) => [kind, deriveState(kind, fadingLog)]),
   );
 
   let kind: DrillKind = DRILL_KINDS[0];
@@ -115,10 +164,35 @@ export function renderDrillScreen(): HTMLElement {
       if (grading.correct) tally.correct += 1;
     }
 
+    recordFading(problem.kind, grading.correct);
+
     committed = { problem, typed, given, grading };
     unreadable = false;
     commits += 1;
     paint();
+  }
+
+  /**
+   * Fold this graded answer into the kind's fading state, then apply the promotion rule: three
+   * consecutive correct with no hint debt owed earns one rung of fade (up to rung 3 on this screen).
+   * The promotion is the ONLY upward step — core's own accuracy rule handles drops on a bad run. Both
+   * the graded event and any earned fade are appended to the log and handed up for persistence, so the
+   * ladder survives a restart.
+   */
+  function recordFading(kind: DrillKind, correct: boolean): void {
+    const graded: FadingEvent = { kind: 'graded', conceptId: kind, at: Date.now(), correct };
+    const emitted: FadingEvent[] = [graded];
+    let next = applyEvent(fadingState.get(kind) ?? initialState(kind), graded);
+
+    if (next.consecutiveCorrect === RESTORE_STREAK && next.hintDebt === 0 && next.rung < DRILL_MAX_RUNG) {
+      const faded: FadingEvent = { kind: 'supportFaded', conceptId: kind, at: Date.now() };
+      emitted.push(faded);
+      next = applyEvent(next, faded);
+    }
+
+    fadingState.set(kind, next);
+    fadingLog.push(...emitted);
+    options.onFadingEvents?.(emitted);
   }
 
   function next(): void {
@@ -155,6 +229,7 @@ export function renderDrillScreen(): HTMLElement {
   window.addEventListener('keydown', onKey);
 
   function paint(): void {
+    const support = supportFor(fadingState.get(kind) ?? initialState(kind));
     // The screen's sync oracle: every e2e wait keys off these attributes, never a sleep.
     root.dataset.kind = kind;
     root.dataset.seed = String(seedFor(index));
@@ -163,10 +238,13 @@ export function renderDrillScreen(): HTMLElement {
     root.dataset.commits = String(commits);
     root.dataset.verdict =
       committed === null ? '' : committed.grading.correct ? 'right' : 'wrong';
+    // The current kind's scaffolding rung, so the e2e can assert the fade without reading the log.
+    root.dataset.rung = String(support.rung);
+    root.dataset.support = support.id;
 
     root.replaceChildren(
-      renderSidebar({ kind, tallies, onSelect: selectKind }),
-      renderWork({ problem, committed, unreadable, onCommit: commit, onNext: next }),
+      renderSidebar({ kind, tallies, onSelect: selectKind, support }),
+      renderWork({ problem, committed, unreadable, rung: support.rung, onCommit: commit, onNext: next }),
     );
 
     // Keyboard-first: the box takes focus on every paint that has one, so a learner can type the
@@ -186,6 +264,7 @@ function renderSidebar(opts: {
   kind: DrillKind;
   tallies: ReadonlyMap<DrillKind, Tally>;
   onSelect: (kind: DrillKind) => void;
+  support: SupportLevel;
 }): HTMLElement {
   const panel = document.createElement('section');
   panel.className = 'drill-side';
@@ -200,6 +279,20 @@ function renderSidebar(opts: {
   now.dataset.kind = opts.kind;
   panel.appendChild(now);
   panel.appendChild(text('div', 'drill-now-asks', KINDS[opts.kind].asks));
+
+  // T6/T7: the current scaffolding level for this kind, named so the fade is legible rather than a
+  // silent shrinking of the panel. Rung 0 says the method is on; higher rungs say it is being withdrawn.
+  const support = text(
+    'div',
+    'drill-support',
+    opts.support.rung === 0
+      ? 'Full worked method'
+      : `Scaffolding faded: ${opts.support.description}`,
+  );
+  support.dataset.testid = 'drill-support';
+  support.dataset.rung = String(opts.support.rung);
+  support.dataset.support = opts.support.id;
+  panel.appendChild(support);
 
   panel.appendChild(renderKindSelector(opts.kind, opts.onSelect));
 
@@ -297,10 +390,31 @@ function renderTallies(tallies: ReadonlyMap<DrillKind, Tally>): HTMLElement {
 // The problem, the box, and the worked method
 // ---------------------------------------------------------------------------
 
+/**
+ * The one-sentence principle per kind, shown at rung 2 in place of the worked method: the name of the
+ * idea the learner is now expected to carry unaided. Read as the last method step's claim, kept here so
+ * the principle rung has a source that does not depend on rebuilding the full method.
+ */
+const PRINCIPLES: Record<DrillKind, string> = {
+  'pot-odds': 'Pot odds: your call over the pot it would close, including the call itself.',
+  alpha: 'Alpha: the bet over the pot it creates — how often a bluff needs a fold.',
+  mdf: 'MDF: everything alpha is not — defend enough that folding more would print a bluff.',
+  spr: 'SPR: stack behind over the pot — how many bets stand between here and all-in.',
+};
+
+/**
+ * T7's ladder decides HOW MUCH of the correction shows, never whether the answer was graded:
+ *   rung 0 — the full worked method (the default, and what a fresh session always shows).
+ *   rung 1 — the correction: the learner's number beside the right one, but no step-by-step method.
+ *   rung 2 — the principle named, without the figures — recall the idea, not the arithmetic.
+ *   rung 3 — a bare verdict: inside the band or not, and nothing else.
+ * The verdict line itself is shown at every rung, because "was I right" is never the scaffolding.
+ */
 function renderWork(opts: {
   problem: ArithmeticProblem;
   committed: Committed | null;
   unreadable: boolean;
+  rung: Rung;
   onCommit: () => void;
   onNext: () => void;
 }): HTMLElement {
@@ -317,8 +431,8 @@ function renderWork(opts: {
     return panel;
   }
 
-  panel.appendChild(renderVerdict(opts.committed));
-  panel.appendChild(renderMethod(opts.committed.problem));
+  panel.appendChild(renderVerdict(opts.committed, opts.rung));
+  if (opts.rung === 0) panel.appendChild(renderMethod(opts.committed.problem));
 
   const advance = document.createElement('button');
   advance.type = 'button';
@@ -383,16 +497,20 @@ function renderAnswerRow(
 }
 
 /**
- * The learner's number beside the right one, always both, and the band core actually allows.
+ * The learner's number beside the right one, and the band core actually allows — SHOWN IN FULL AT
+ * RUNG 0-1 ONLY. At rung 2 the figures are withdrawn and the principle is named instead; at rung 3
+ * only the bare verdict line remains. The verdict line is present at every rung, because whether the
+ * answer was inside the band is the grade, not the scaffolding.
  *
  * V2: no colour and no icon. Right and wrong are told apart by wording and type weight, and the
  * two numbers sit in the same layout either way so a miss is a comparison rather than a rebuke.
  */
-function renderVerdict(committed: Committed): HTMLElement {
+function renderVerdict(committed: Committed, rung: Rung): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'drill-verdict';
   wrap.dataset.testid = 'drill-verdict';
   wrap.dataset.verdict = committed.grading.correct ? 'right' : 'wrong';
+  wrap.dataset.rung = String(rung);
 
   const line = text(
     'div',
@@ -402,6 +520,18 @@ function renderVerdict(committed: Committed): HTMLElement {
   line.dataset.testid = 'drill-verdict-line';
   wrap.appendChild(line);
 
+  // Rung 3: the bare verdict is the whole of it. No figures, no principle.
+  if (rung >= 3) return wrap;
+
+  // Rung 2: name the principle, withhold the figures — recall the idea unaided.
+  if (rung === 2) {
+    const principle = text('p', 'drill-principle', PRINCIPLES[committed.problem.kind]);
+    principle.dataset.testid = 'drill-principle';
+    wrap.appendChild(principle);
+    return wrap;
+  }
+
+  // Rung 0-1: the learner's number beside the right one, and the size of the miss.
   const pair = document.createElement('div');
   pair.className = 'drill-pair';
 

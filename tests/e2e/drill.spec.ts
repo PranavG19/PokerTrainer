@@ -1,4 +1,7 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { launchApp, shot } from './helpers.js';
 
 /**
@@ -790,3 +793,102 @@ async function advanceWithEnterAfterAnswer(page: Page, typed: string): Promise<v
   await answerWithEnter(page, typed);
   await advanceWithEnter(page);
 }
+
+/*
+ * SCAFFOLDING FADES PER KIND (T6/T7, core/fading.ts wired through drill.ts). A learner who keeps
+ * getting a kind right stops seeing the full worked method: the panel contracts a rung at a time, and
+ * the fade persists across launches. The root publishes data-rung / data-support for the current kind
+ * so these assertions never sleep. pot-odds is DRILL_KINDS[0], so it is what a fresh screen opens on.
+ */
+
+/** Correct pot-odds answers at seeds 101,102,103 — computed from core, the same way test 7 does. */
+const POT_ODDS_CORRECT = ['33.33', '28.26', '35.71'] as const;
+
+const rungOf = (page: Page): Promise<string | null> =>
+  page.getAttribute(drillScreen, 'data-rung');
+
+test.describe('the Drill tab: per-concept scaffolding fades (T6/T7)', () => {
+  test('F1. a fresh screen opens at rung 0 with the full method', async () => {
+    await withDrill(async ({ page }) => {
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-rung', '0');
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-support', 'worked-examples');
+      // The full method is still there before any fade — the pre-fading behaviour, unchanged.
+      await answerWithEnter(page, POT_ODDS_CORRECT[0]);
+      await expect(page.locator(method)).toHaveCount(1);
+      await expect(page.locator(step)).toHaveCount(5);
+    });
+  });
+
+  test('F2. three correct in a row fades one rung, and the worked method withdraws', async () => {
+    await withDrill(async ({ page }) => {
+      // Two correct: still rung 0 (the promotion needs three). The method is still shown.
+      await advanceWithEnterAfterAnswer(page, POT_ODDS_CORRECT[0]);
+      await advanceWithEnterAfterAnswer(page, POT_ODDS_CORRECT[1]);
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-rung', '0');
+
+      // The THIRD consecutive correct earns the fade: rung 0 → 1, method gone, verdict still there.
+      await answerWithEnter(page, POT_ODDS_CORRECT[2]);
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-rung', '1');
+      await expect(page.locator(verdictLine)).toHaveText('Inside the band.');
+      await expect(page.locator(method)).toHaveCount(0);
+      await expect(page.locator(step)).toHaveCount(0);
+      // Rung 1 keeps the figures (the correction), just not the step-by-step.
+      await expect(page.locator(right)).toHaveText('35.71%');
+    });
+  });
+
+  test('F3. a wrong answer resets the streak, so support is not faded by a lucky pair', async () => {
+    await withDrill(async ({ page }) => {
+      await advanceWithEnterAfterAnswer(page, POT_ODDS_CORRECT[0]); // index 0 → 1
+      await advanceWithEnterAfterAnswer(page, POT_ODDS_CORRECT[1]); // index 1 → 2
+      // Miss the third (seed 103): the consecutive-correct count returns to zero.
+      await advanceWithEnterAfterAnswer(page, '0'); // index 2 → 3
+      // A single correct after the miss (seed 104 answers 35.71) is streak 1, not 3 — no fade.
+      await answerWithEnter(page, '35.71');
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-verdict', 'right');
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-rung', '0');
+      await expect(page.locator(method)).toHaveCount(1);
+    });
+  });
+
+  test('F4. the fade is per KIND — mastering pot-odds does not fade SPR', async () => {
+    await withDrill(async ({ page }) => {
+      await advanceWithEnterAfterAnswer(page, POT_ODDS_CORRECT[0]);
+      await advanceWithEnterAfterAnswer(page, POT_ODDS_CORRECT[1]);
+      await answerWithEnter(page, POT_ODDS_CORRECT[2]);
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-rung', '1'); // pot-odds faded
+
+      await advanceWithEnter(page);
+      await selectKind(page, 'spr');
+      // SPR was never drilled, so it is still at full support.
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-rung', '0');
+      await expect(page.locator(drillScreen)).toHaveAttribute('data-support', 'worked-examples');
+    });
+  });
+
+  test('F5. a faded rung survives closing and reopening the app', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-fading-persist-'));
+
+    const first = await launchApp({ seed: 42, userDataDir: dir });
+    try {
+      await openDrill(first.page);
+      await advanceWithEnterAfterAnswer(first.page, POT_ODDS_CORRECT[0]);
+      await advanceWithEnterAfterAnswer(first.page, POT_ODDS_CORRECT[1]);
+      await answerWithEnter(first.page, POT_ODDS_CORRECT[2]);
+      await expect(first.page.locator(drillScreen)).toHaveAttribute('data-rung', '1');
+      // Let the async saveState flush before the window closes.
+      await first.page.waitForTimeout(200);
+    } finally {
+      await first.close().catch(() => {});
+    }
+
+    // Second sitting, SAME dir: pot-odds must open already faded, before answering anything.
+    const second = await launchApp({ seed: 42, userDataDir: dir });
+    try {
+      await openDrill(second.page);
+      expect(await rungOf(second.page), 'the faded rung did not survive the restart').toBe('1');
+    } finally {
+      await second.close().catch(() => {});
+    }
+  });
+});

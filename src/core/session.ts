@@ -7,6 +7,7 @@ import { SOURCES, emptyRecommender, type RecommenderState, type Source } from '.
 import type { GiftEntry } from './giftLedger.js';
 import { MECHANISM_FRAMES, REJECTION_TEXT, type Decider, type LexiconAttempt, type RejectionReason } from './lexicon.js';
 import type { ContrastAxis } from './contrast.js';
+import type { FadingEvent, Rung } from './fading.js';
 
 /** Bound the persisted gift log the same way the hand log is bounded, so the JSON cannot grow forever. */
 export const MAX_GIFT_LOG = 200;
@@ -132,6 +133,14 @@ export interface SessionState {
    * only writer is `recordLexiconAttempt`, mirroring the store's own L3 refusal to edit or delete.
    */
   lexicon: LexiconAttempt[];
+  /**
+   * T6/T7: the per-concept support-fading event log the drill's scaffolding is derived from. Persisted
+   * because the fading ladder only teaches across sittings — a learner who has faded a concept to a
+   * lighter rung must not snap back to worked examples every launch, and a bad run's rung drop must
+   * survive too. Append-only (the only writer is `recordFadingEvents`), so the log replays to exactly
+   * the state that produced it. Each event carries its own conceptId; `deriveState` filters per concept.
+   */
+  fadingLog: FadingEvent[];
 }
 
 export interface SessionSummary {
@@ -157,7 +166,19 @@ export function emptySession(): SessionState {
     chartMastery: {},
     puzzleProgress: {},
     lexicon: [],
+    fadingLog: [],
   };
+}
+
+/**
+ * Append graded/fade events to the fading log. Pure and append-only, matching the lexicon: the log only
+ * grows, and replaying it through `deriveState` reproduces every concept's rung. The events are built by
+ * the caller (the drill folds a GradedEvent, and the promotion rule a SupportFadedEvent), so this adds
+ * no fading logic of its own.
+ */
+export function recordFadingEvents(state: SessionState, events: readonly FadingEvent[]): SessionState {
+  if (events.length === 0) return state;
+  return { ...state, fadingLog: [...state.fadingLog, ...events] };
 }
 
 /**
@@ -329,6 +350,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     chartMastery: structuredClone(state.chartMastery),
     puzzleProgress: structuredClone(state.puzzleProgress),
     lexicon: structuredClone(state.lexicon),
+    fadingLog: structuredClone(state.fadingLog),
   };
 }
 
@@ -372,7 +394,39 @@ export function deserialize(raw: unknown): SessionState {
     puzzleProgress: parsePuzzleProgress(obj.puzzleProgress),
     // Legacy saves predate the lexicon; an empty log is the honest reading of a missing field.
     lexicon: parseLexicon(obj.lexicon),
+    // Legacy saves predate the fading log; an empty log means every concept starts at worked examples.
+    fadingLog: parseFadingLog(obj.fadingLog),
   };
+}
+
+/** Whole rungs 0–4 only; a fade/hint event carrying anything else is a corrupt record and dropped. */
+const RUNGS: readonly Rung[] = [0, 1, 2, 3, 4];
+
+/**
+ * Tolerant like every parser here. A fading event is kept only when its kind and conceptId are valid and
+ * its kind-specific field is well-formed; anything else is DROPPED rather than replayed, because a
+ * malformed event fed to `applyEvent` would either be ignored or throw (a bad hint rung is rejected by
+ * the module). Append order is preserved — `deriveState` folds the log in order, so order is the truth.
+ */
+function parseFadingLog(raw: unknown): FadingEvent[] {
+  const out: FadingEvent[] = [];
+  for (const value of asArray(raw)) {
+    const entry = asRecord(value);
+    const conceptId = typeof entry.conceptId === 'string' ? entry.conceptId.trim() : '';
+    if (conceptId === '') continue;
+    const at = asNumber(entry.at, 0);
+    if (entry.kind === 'graded') {
+      if (typeof entry.correct !== 'boolean') continue;
+      out.push({ kind: 'graded', conceptId, at, correct: entry.correct });
+    } else if (entry.kind === 'supportFaded') {
+      out.push({ kind: 'supportFaded', conceptId, at });
+    } else if (entry.kind === 'hintRequested') {
+      const rung = RUNGS.find((r) => r === entry.quotedRungAfter);
+      if (rung === undefined) continue;
+      out.push({ kind: 'hintRequested', conceptId, at, quotedRungAfter: rung });
+    }
+  }
+  return out;
 }
 
 /** The two rejection reasons and three deciders, as membership sets for the tolerant parser below. */
