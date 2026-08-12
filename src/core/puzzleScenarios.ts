@@ -1508,6 +1508,37 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  {
+    id: 'sb-raise-or-fold-ajo',
+    title: 'The small blind raises or folds — it never limps',
+    setup:
+      'It folds to you in the small blind with A♦J♣, the big blind still to act. Only the big blind is left. Do you complete (limp), raise, or fold?',
+    seatCount: 3,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // button:2 seats the hero (seat 0) in the SB. Seat 1 = BB, seat 2 = button. Preflop the button
+    // acts first, then the hero (SB), then the BB — so the button folds before the hero decides.
+    holes: [
+      ['Ad', 'Jc'],
+      ['Kd', 'Qs'],
+      ['7s', '2h'],
+    ],
+    board: ['9h', '6c', '3s', 'Tc', '2d'],
+    // The button folds to the hero; after the hero raises, the big blind folds to the open.
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'fold' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'AJo is far too strong to fold and must never be limped. Completing invites the big blind in for free and surrenders the initiative out of position; raising takes the pot uncontested a large share of the time and, when called, keeps you as the aggressor with a dominating hand. The small blind plays a raise-or-fold strategy — limping is the one option that is always wrong here.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

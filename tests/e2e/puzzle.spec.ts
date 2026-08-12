@@ -236,13 +236,14 @@ test.describe('puzzle mode', () => {
       'trap-flopped-set-dry': ['raise', 'check'],
       'call-3bet-oop-99': ['raise', 'call'],
       'river-bluff-blocker': ['raise', 'bet', 'check', 'bet'],
+      'sb-raise-or-fold-ajo': ['raise'],
     };
 
     await withApp(async (page) => {
       await openPuzzle(page);
 
       const seen = new Set<string>();
-      for (let visited = 0; visited < 40; visited++) {
+      for (let visited = 0; visited < 41; visited++) {
         const id = (await page.locator(screen).getAttribute('data-scenario')) ?? '';
         if (seen.has(id)) break; // wrapped back to the first puzzle — the whole library was walked
         seen.add(id);
