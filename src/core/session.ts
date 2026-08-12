@@ -62,6 +62,12 @@ export interface HandRecord {
   pfr: boolean;
   grades: GradeRecord[];
   /**
+   * Absolute epoch ms the hand was completed. Optional and absent (not zero) on a hand saved before it
+   * was recorded: the Progress "graded decisions this week" metric windows on it, and defaulting a
+   * legacy hand to 0 would silently place it outside every week rather than counting it wrongly.
+   */
+  playedAt?: number;
+  /**
    * Optional, and absent rather than empty on purpose: a hand saved before decision logging existed
    * has no decisions ON RECORD, which is a different fact from a hand where the hero never acted
    * (blinds all-in, or sitting out). Review must be able to say which, so the two cannot collapse
@@ -663,6 +669,9 @@ function parseHand(raw: unknown): HandRecord {
   // The key is only set when the save really has a decision list. Defaulting it to [] would make
   // every pre-review hand claim the hero made no decisions, which is a lie about their history.
   if (Array.isArray(obj.decisions)) hand.decisions = obj.decisions.map(parseDecision);
+  // Only carried when the save actually has a timestamp — a legacy hand stays undefined, not epoch 0,
+  // so the Progress week window omits it rather than counting it in the wrong week.
+  if (typeof obj.playedAt === 'number' && Number.isFinite(obj.playedAt)) hand.playedAt = obj.playedAt;
   return hand;
 }
 

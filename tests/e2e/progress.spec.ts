@@ -5,7 +5,8 @@ import {
   WEEKLY_DECISION_TARGET,
   WIN_RATE_MIN_HANDS,
 } from '../../src/core/progress.js';
-import { launchApp, shot } from './helpers.js';
+import { launchApp, sel, shot } from './helpers.js';
+import { playToShowdown, tableScreen } from './flow.js';
 
 /**
  * THE PROGRESS SURFACE — PRODUCT-SPEC N5's fifth surface, P1/P2/P3/P5 and G7's wording, driven through
@@ -239,6 +240,52 @@ test('the surface survives being left and re-entered, and the table still deals'
     await page.waitForSelector('[data-testid="home-screen"]');
     await page.locator('[data-testid="new-hand"]').click();
     await expect(page.locator('[data-testid="table-screen"]')).toBeVisible();
+  });
+});
+
+test('the effort metric counts real played decisions, while the outcome metrics stay honestly withheld', async () => {
+  /**
+   * THE WIRING CLAIM, and the honesty boundary it must not cross. main.ts now feeds the Progress screen
+   * real DecisionRecords derived from the hand log (decisionRecordsFromHands), so playing a hand must
+   * move "graded decisions this week" off zero. What must NOT move: the win rate stays withheld (it
+   * needs the all-in-adjusted evBb, which the hand log does not store), and the assessment EV-loss and
+   * fluent-categories samples stay at zero (no assessment block and no reaction-time recording exist).
+   * If wiring the effort metric had also lit up an outcome metric, it would be fabricating data.
+   */
+  await withProgress(async ({ page }) => {
+    // Baseline: a fresh profile has zero graded decisions.
+    const effort = page.locator(`${metric}[data-metric="gradedDecisionsThisWeek"] ${metricValue}`);
+    await expect(effort).toContainText('0');
+
+    // Play one hand to completion — every hero action is graded and logged with a verdict + timestamp.
+    await page.locator('[data-testid="tab-play"]').click();
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await page.locator(sel.newHand).click();
+    await expect(page.locator(tableScreen)).toBeVisible();
+    await playToShowdown(page);
+    await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
+
+    // Back to Progress: the effort metric now reports a real record count ("from N records").
+    await page.locator('[data-testid="tab-progress"]').click();
+    await page.waitForSelector(screen);
+    const effortSampleText =
+      (await page
+        .locator(`${metric}[data-metric="gradedDecisionsThisWeek"] [data-testid="metric-sample"]`)
+        .textContent()) ?? '';
+    const effortSample = Number(/from (\d+) record/.exec(effortSampleText)?.[1] ?? '0');
+    expect(effortSample, `a played hand recorded no graded decisions ("${effortSampleText}")`).toBeGreaterThan(0);
+
+    // The honesty boundary: outcome metrics were NOT fabricated by the same wiring.
+    const winRate = page.locator(`${metric}[data-metric="winRateVsBots"]`);
+    await expect(winRate).toHaveAttribute('data-withheld', 'true');
+    await expect(winRate.locator(metricValue)).toContainText('not shown yet');
+    // Assessment EV-loss and fluent categories stay at their empty state — nothing feeds them honestly.
+    await expect(
+      page.locator(`${metric}[data-metric="assessmentEvLossBb100"] [data-testid="metric-sample"]`),
+    ).toContainText('no decisions recorded yet');
+    await expect(
+      page.locator(`${metric}[data-metric="fluentCategories"] [data-testid="metric-sample"]`),
+    ).toContainText('no decisions recorded yet');
   });
 });
 
