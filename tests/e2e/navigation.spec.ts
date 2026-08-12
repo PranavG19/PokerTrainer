@@ -165,6 +165,38 @@ test('tabs survive being visited twice, and Play still deals afterwards', async 
   }
 });
 
+test('the freshly-mounted surface fades in on a tab switch, and honours reduced motion (UI)', async () => {
+  /**
+   * The mount fade is a `.screen > *` rule (styles.css): main.ts swaps the single child of main.screen
+   * on every tab switch, so the incoming surface gets a one-shot opacity fade to aid orientation across
+   * the thirteen-tab bar. Opacity only — layout.spec proves the rect never moves — so the only oracle is
+   * the animation name on the mounted child. The second half is the V2 contract: it is switched off for a
+   * learner who has asked for reduced motion.
+   */
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    await page.locator('[data-testid="tab-drill"]').click();
+    await expect(page.locator('[data-testid="tab-drill"]')).toHaveAttribute('data-active', 'true');
+
+    const mountedChild = page.locator('main.screen > *').first();
+    await expect(mountedChild).toBeAttached();
+    const animName = await mountedChild.evaluate((el) => getComputedStyle(el).animationName);
+    expect(animName, 'the mounted surface does not carry the mount-fade animation').toBe('offsuit-surface-in');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator(sel.tabPlay).click();
+    await page.locator('[data-testid="tab-drill"]').click();
+    const reducedName = await page
+      .locator('main.screen > *')
+      .first()
+      .evaluate((el) => getComputedStyle(el).animationName);
+    expect(reducedName, 'the mount fade ignores prefers-reduced-motion').toBe('none');
+  } finally {
+    await close();
+  }
+});
+
 test("a table left mid-hand does not keep eating keys on another screen", async () => {
   /**
    * THE ORACLE IS THE KEYBOARD, and it took a measurement to get right. I first asserted "no hands

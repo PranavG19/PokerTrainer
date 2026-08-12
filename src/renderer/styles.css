@@ -226,38 +226,6 @@ body {
   text-align: center;
 }
 
-/* ─── Hero Row ─── */
-.hero-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 16px;
-}
-
-.hero-pod {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px;
-}
-
-/* ─── Sheet ─── */
-.sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--surface);
-  border-radius: 20px 20px 0 0;
-  padding: 24px 20px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
 /* ─── Stats ─── */
 .stat-label {
   font-size: 12px;
@@ -268,12 +236,6 @@ body {
   font-size: 24px;
   font-weight: 300;
   color: var(--text-hi);
-}
-
-.stat-value-mint {
-  font-size: 24px;
-  font-weight: 300;
-  color: var(--mint);
 }
 
 /* ─── Home ─── */
@@ -293,23 +255,6 @@ body {
   color: var(--text-hi);
 }
 
-/* ─── Tourney Card ─── */
-.tourney-card {
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 20px;
-  width: 100%;
-  max-width: 360px;
-}
-
-/* ─── Tab Bar ─── */
-.tab-bar {
-  display: flex;
-  gap: 0;
-  background: var(--surface);
-  border-radius: 12px;
-  overflow: hidden;
-}
 
 .tab {
   flex: 1;
@@ -323,8 +268,7 @@ body {
   transition: color 0.15s;
 }
 
-.tab:hover,
-.tab.active {
+.tab:hover {
   color: var(--text-hi);
 }
 
@@ -780,6 +724,15 @@ body {
     transform: none;
   }
 }
+/*
+ * Every screen fades in on mount. main.ts swaps the single child of .screen on each tab switch, so a
+ * quiet opacity cross-fade aids orientation across the 13-tab bar without moving anything — opacity
+ * only, so no reflow and hit-testing is unaffected. .table-screen matches both this and its own rule
+ * below; same keyframe and duration, so the double match is harmless.
+ */
+.screen > * {
+  animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
+}
 .table-screen {
   animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
 }
@@ -789,6 +742,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .screen > *,
   .table-screen,
   .coach:not([hidden]),
   .predict {
