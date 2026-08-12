@@ -126,6 +126,20 @@ export const CURRICULUM: readonly CurriculumModule[] = [
       'fold-weak-pair-river-overbet',
     ],
   },
+  {
+    key: 'stack-depth-and-spr',
+    title: 'Stack Depth: When One Pair Is a Stack, and When It Is Not',
+    blurb:
+      'The same hand plays differently by depth. Shallow (40bb), a low stack-to-pot ratio commits top pair, overpairs and big draws; deep (200bb), a high ratio means one pair pot-controls or folds while sets and the nuts build for stacks.',
+    scenarioIds: [
+      'commit-tptk-40bb',
+      'commit-overpair-40bb',
+      'commit-flush-draw-jam-40bb',
+      'deep-pot-control-overpair-200bb',
+      'deep-fold-tptk-200bb',
+      'deep-stack-set-200bb',
+    ],
+  },
 ];
 
 /**

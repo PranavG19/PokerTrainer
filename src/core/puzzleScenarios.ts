@@ -1695,6 +1695,225 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  // ── SPR / stack-depth module: short (40bb) and deep (200bb) versions of the same commitment question,
+  // so the spr-sets-the-plan lesson gets interactive practice at the depths where its rule bites. ──
+  {
+    id: 'commit-tptk-40bb',
+    title: 'Getting it in with top pair at 40bb',
+    setup:
+      'A 40bb-deep game. You open the button with A♠K♦, the big blind calls, and the flop comes K♥8♣4♦ — top pair, top kicker. The big blind checks. With only 40bb behind, the money is shallow. How do you play it?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 2000,
+    holes: [
+      ['As', 'Kd'],
+      ['Qh', 'Jc'],
+      ['7s', '2h'],
+    ],
+    board: ['Kh', '8c', '4d', '6s', '3h'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠K♦ is a standard button open. Take the lead in position against the blinds.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'Top pair top kicker 40bb deep is a hand you are happy to stack off with. At this depth the stack-to-pot ratio is low — a bet now and one more street puts the rest of the money in without ever needing more than one pair. Shallow money commits top pair: bet, and be prepared to get it all in, because there is no deep stack behind to punish you on a later street.',
+      },
+    ],
+  },
+  {
+    id: 'commit-overpair-40bb',
+    title: 'An overpair is a stack at 40bb',
+    setup:
+      'A 40bb game. You open the cutoff with Q♠Q♦, the button calls, and the flop is J♥7♣2♠ — an overpair on a dry board. With 40bb stacks the pot is already a big fraction of what is left. First to act.',
+    seatCount: 3,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 2000,
+    holes: [
+      ['Qs', 'Qd'],
+      ['5h', '5c'],
+      ['Ah', 'Ts'],
+    ],
+    board: ['Jh', '7c', '2s', '4d', '9h'],
+    villainScript: [
+      { kind: 'call' },
+      { kind: 'fold' },
+      { kind: 'call' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Q♠Q♦ is a premium hand — open it for value from the cutoff.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'An overpair on J♥7♣2♠ is ahead of the button\'s calling range, and 40bb deep the stack-to-pot ratio is low enough that this is a commitment spot. Bet for value and to charge the overcards and gutshots that called preflop. At this depth you are not pot-controlling queens — one pair is enough to get the shallow stack in, so build the pot now rather than trapping and leaving money behind.',
+      },
+    ],
+  },
+  {
+    id: 'commit-flush-draw-jam-40bb',
+    title: 'Jamming a big draw at 40bb',
+    setup:
+      'A 40bb game. You open the button with A♥5♥, the big blind calls, and the flop comes K♥9♥3♣ — the nut flush draw with an ace overcard. The big blind leads into you. Shallow, with a huge draw. What is the play?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 2000,
+    holes: [
+      ['Ah', '5h'],
+      ['Kc', 'Qd'],
+      ['7s', '2c'],
+    ],
+    board: ['Kh', '9h', '3c', '6d', '8s'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'bet', to: 150 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♥5♥ is a fine button open — a suited ace that flops flush draws and can steal the blinds.',
+      },
+      {
+        action: 'raise',
+        explanation:
+          'The nut flush draw plus an ace overcard is a monster semi-bluff, and 40bb deep the maths is simple: raising commits you, and you have so much equity that getting it in is profitable even called. At this shallow depth there is no room to peel and play a big turn — the low stack-to-pot ratio turns a strong draw into a get-it-in hand. Raise now; folding out the lead\'s weaker hands and stacking off with your equity both win.',
+      },
+    ],
+  },
+  {
+    id: 'deep-fold-tptk-200bb',
+    title: 'Laying down top pair 200bb deep',
+    setup:
+      'A 200bb-deep game. You open the button with A♣Q♠, the big blind calls, and on Q♦8♠4♣ you bet and are called. The turn 5♥ goes check-call, and on the river J♠ the big blind fires a huge bet — and there is still a very deep stack behind it. Top pair, top kicker. Do you pay?',
+    seatCount: 3,
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 10000,
+    holes: [
+      ['Ac', 'Qs'],
+      ['Ts', '9s'],
+      ['7d', '2h'],
+    ],
+    board: ['Qd', '8s', '4c', '5h', 'Js'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'call' },
+      { kind: 'check' },
+      { kind: 'bet', to: 4000 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♣Q♠ is a clear button open — a strong, dominating broadway hand.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'Top pair top kicker on Q♦8♠4♣ is ahead of a calling range. Bet for value and to charge the draws.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'The 5♥ changes little; top pair is still good enough to bet or, facing a check, to call for value on a card that completed the T9-type straight draw. Keep the pot moving without bloating it 200bb deep.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'This is the deep-stack lesson. 200bb deep the stack-to-pot ratio was high all hand, so a huge river bet with a very deep stack still behind is the top of the opponent\'s range — straights, two pair, sets — not a hand top pair beats. Deep money demands better than one pair to stack off: the deeper you are, the more the last big bet means, and A-Q here can only beat a bluff on a runout that completed so much. Fold, and note that the same top pair was a stack at 40bb.',
+      },
+    ],
+  },
+  {
+    id: 'deep-pot-control-overpair-200bb',
+    title: 'Pot-controlling an overpair 200bb deep',
+    setup:
+      'A 200bb game. You open the cutoff with J♣J♦, the button calls, and the flop is 9♠6♦2♣ — an overpair on a dry board. You bet the flop and are called. The turn is the 3♥ and you check; the button bets. 200bb deep, on a board that misses almost nothing you fear. What now?',
+    seatCount: 3,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 10000,
+    holes: [
+      ['Jc', 'Jd'],
+      ['Ah', 'Kh'],
+      ['8s', '4s'],
+    ],
+    board: ['9s', '6d', '2c', '3h', 'Qd'],
+    villainScript: [
+      { kind: 'call' },
+      { kind: 'fold' },
+      { kind: 'call' },
+      { kind: 'bet', to: 400 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'J♣J♦ is a premium hand — open it from the cutoff.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'An overpair on 9♠6♦2♣ is ahead — bet for value and to charge the overcards and draws that called preflop.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'Here is the deep-stack discipline. 200bb deep the stack-to-pot ratio is high, so jacks are a one-pair hand that does not want to build a huge pot: raising the turn bloats the stack in on a hand that gets called only by better. Just call and keep the pot controlled — an overpair is worth a modest pot, not a stack, when the money is this deep and a raise only folds worse and stacks off against better.',
+      },
+    ],
+  },
+  {
+    id: 'deep-stack-set-200bb',
+    title: 'The hand that can go deep: a set at 200bb',
+    setup:
+      'A 200bb game. You call a button open from the big blind with 7♠7♦, and the flop comes K♥7♥3♣ — bottom set. You check, the button bets, and you must decide how to play the one hand that welcomes 200bb of stacks. Check-raise or just call?',
+    seatCount: 3,
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 10000,
+    holes: [
+      ['7s', '7d'],
+      ['5c', '5d'],
+      ['Ac', 'Kd'],
+    ],
+    board: ['Kh', '7h', '3c', 'Ts', 'Qd'],
+    villainScript: [
+      { kind: 'fold' },
+      { kind: 'bet', to: 150 },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A set is the hand deep stacks reward. 200bb deep, the high stack-to-pot ratio that made one pair fold now works FOR you: you have the nuts on a wet board and want to build a pot that can eventually hold all 200bb. Check-raise on K♥7♥3♣ — the flush and straight draws pay you now, and against a strong opponent you set up stacking off over three streets. Deep money demands better than one pair to commit, and a set is exactly that hand.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
