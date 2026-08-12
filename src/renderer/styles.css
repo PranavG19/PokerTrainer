@@ -671,20 +671,34 @@ body {
  * properties). Motion is transform/opacity only and is switched off under
  * prefers-reduced-motion at the end of this block. Premium, not gamified. */
 
-/* Play surface: lift the pods and panels off the black. */
-.seat,
+/* Play surface: lift the panels off the black. */
 .coach,
 .predict {
   box-shadow: var(--elev-1);
 }
+/*
+ * A resting seat gets a single soft shadow, NOT the heavy layered --elev-1 the panels use: eight pods
+ * each casting an 18px blur made the whole table read as loud. Emphasis is now differential — only the
+ * pod in the action lifts (below) — which is the point of a shadow at all. Box-shadow only, no reflow;
+ * the opacity state channel (folded 0.4 / out 0.22 / live 1) is untouched.
+ */
 .seat {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   transition:
     border-color var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out),
     opacity var(--motion-fast) var(--ease-out);
 }
+/*
+ * The pod whose turn it is comes forward: the deeper --elev-2 plus a 2% scale lift it off the resting
+ * pods around it, so "who acts now" is read from depth, not just the mint ring. Transform is visual
+ * only (no reflow, no rect change) and eases in via the transition above; the reduced-motion block at
+ * the foot drops the transition so the scale simply holds at 1.02 with no tween.
+ */
 .seat[data-to-act='true'] {
-  box-shadow: var(--ring-active), var(--elev-1);
+  box-shadow: var(--ring-active), var(--elev-2);
+  transform: scale(1.02);
 }
 /*
  * The pod that won the pot wears the same mint ring the to-act pod wore in-hand. Never on two pods at
