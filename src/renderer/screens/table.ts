@@ -300,6 +300,8 @@ export function renderTable(opts: {
       pfr: heroPfr,
       grades,
       decisions,
+      // Stamped at completion (same clock the fading log uses) so the Progress week window is real.
+      playedAt: Date.now(),
     });
 
     // O5: resolve the hand's captured villain calls against the SETTLED table, which fixes who

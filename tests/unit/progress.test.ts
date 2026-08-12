@@ -17,6 +17,7 @@ import {
   WIN_RATE_MIN_HANDS,
   bannedPhrasingIn,
   computeMetrics,
+  decisionRecordsFromHands,
   formatTagAggregate,
   kcBar,
   kcBars,
@@ -24,6 +25,7 @@ import {
   tagAggregates,
   winRateMetric,
 } from '../../src/core/progress.js';
+import type { LoggedHand } from '../../src/core/progress.js';
 
 /**
  * PROGRESS DISPLAY — mostly negative tests, because this module's job is refusal.
@@ -488,3 +490,70 @@ describe('purity', () => {
     expect(hands.map((h) => h.at)).toEqual(before);
   });
 });
+
+describe('decisionRecordsFromHands — the session-log adapter that feeds the effort metric', () => {
+  const gradedDecision = (severity: 'free' | 'notable' | 'serious', evLossBb: number) => ({
+    verdict: { severity, evLossBb },
+  });
+
+  it('flattens every graded decision across hands into practice records at the hand timestamp', () => {
+    const hands: LoggedHand[] = [
+      { playedAt: NOW - DAY, decisions: [gradedDecision('free', 0), gradedDecision('serious', 3.2)] },
+      { playedAt: NOW - 2 * DAY, decisions: [gradedDecision('notable', 1.1)] },
+    ];
+    const records = decisionRecordsFromHands(hands);
+    expect(records).toHaveLength(3);
+    // Every record is practice-mode, inherits its hand's timestamp, and never fabricates a tag or certainty.
+    for (const r of records) {
+      expect(r.mode).toBe('practice');
+      expect(r.tag).toBeNull();
+      expect(r.sure).toBe(false);
+    }
+    expect(records[0]).toMatchObject({ at: NOW - DAY, correct: true, evLossBb: 0 });
+    expect(records[1]).toMatchObject({ at: NOW - DAY, correct: false, evLossBb: 3.2 });
+    expect(records[2]).toMatchObject({ at: NOW - 2 * DAY, correct: false, evLossBb: 1.1 });
+  });
+
+  it("treats the coach's silence (severity 'free') as the only 'correct' decision", () => {
+    const hands: LoggedHand[] = [
+      { playedAt: NOW, decisions: [gradedDecision('free', 0), gradedDecision('notable', 0.4), gradedDecision('serious', 5)] },
+    ];
+    const records = decisionRecordsFromHands(hands);
+    expect(records.map((r) => r.correct)).toEqual([true, false, false]);
+  });
+
+  it('skips a hand with no playedAt — an undated decision cannot be placed in a week', () => {
+    const hands: LoggedHand[] = [
+      { decisions: [gradedDecision('free', 0)] }, // legacy hand, no timestamp
+      { playedAt: NOW, decisions: [gradedDecision('free', 0)] },
+    ];
+    expect(decisionRecordsFromHands(hands)).toHaveLength(1);
+  });
+
+  it('skips a decision with no verdict rather than inventing one', () => {
+    const hands: LoggedHand[] = [
+      { playedAt: NOW, decisions: [{ verdict: null }, gradedDecision('serious', 2)] },
+    ];
+    const records = decisionRecordsFromHands(hands);
+    expect(records).toHaveLength(1);
+    expect(records[0].evLossBb).toBe(2);
+  });
+
+  it('a hand with no decisions array contributes nothing, and an empty log is empty', () => {
+    expect(decisionRecordsFromHands([{ playedAt: NOW }])).toEqual([]);
+    expect(decisionRecordsFromHands([])).toEqual([]);
+  });
+
+  it('feeds the effort metric so the week window counts real decisions', () => {
+    // Two hands this week, one last week: only the two recent decisions are "this week".
+    const hands: LoggedHand[] = [
+      { playedAt: NOW - DAY, decisions: [gradedDecision('free', 0)] },
+      { playedAt: NOW - 2 * DAY, decisions: [gradedDecision('serious', 4)] },
+      { playedAt: NOW - WEEK_MS - DAY, decisions: [gradedDecision('free', 0)] },
+    ];
+    const metrics = computeMetrics(input({ decisions: decisionRecordsFromHands(hands) }), NOW);
+    expect(metrics.gradedDecisionsThisWeek.value).toBe(2);
+    // None are assessment spots, so that metric stays empty — the honesty boundary the wiring keeps.
+    expect(metrics.assessmentEvLossBb100.sample).toBe(0);
+  });
+})

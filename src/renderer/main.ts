@@ -36,6 +36,7 @@ import { computeStats } from '../core/session.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderProgressScreen } from './screens/progress.js';
+import { decisionRecordsFromHands } from '../core/progress.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
@@ -468,15 +469,23 @@ async function boot(): Promise<void> {
     }
     if (which === 'progress') {
       /*
-       * EMPTY INPUTS, HONESTLY. Nothing in the app records per-decision tags, assessment-mode grades,
-       * fluency categories or per-hand bot config ids yet, so there is no ProgressInput to build and
-       * fabricating one would put invented numbers on the one screen a learner will believe hardest.
-       * Core's own refusals then do the right thing: the win rate is withheld with its reason, the
-       * results graph is refused with a route to the variance module, and the bars say what is missing.
-       * When decision recording lands it is these four arrays and no change to the screen.
+       * REAL DECISIONS, HONESTLY WITHHELD ELSEWHERE. The hand log now carries per-decision verdicts
+       * (evLossBb + severity) and a playedAt timestamp, so the effort metric — graded decisions this
+       * week — is computed from real play via decisionRecordsFromHands. What stays empty is deliberate:
+       *  - `hands: []` keeps the win rate WITHHELD. It needs the all-in-adjusted evBb, which HandRecord
+       *    does not store (only actual chips), and fabricating evBb from net would be inventing the one
+       *    number P1 most forbids faking.
+       *  - `fluency: []` because no reaction time is recorded anywhere, so no category can honestly pass.
+       * Core's refusals then do the right thing: the win rate reads "need more hands", the results graph
+       * is refused with its route out, and the assessment EV-loss stays empty (no assessment block runs).
        */
       return renderProgressScreen({
-        input: { decisions: [], hands: [], fluency: [], botConfigId: 'default' },
+        input: {
+          decisions: decisionRecordsFromHands(session.hands),
+          hands: [],
+          fluency: [],
+          botConfigId: 'default',
+        },
         kcs: [],
         now: Date.now(),
         onOpenVariance: () => {

@@ -233,6 +233,49 @@ export function winRateMetric(input: ProgressInput): WinRateMetric | null {
   };
 }
 
+/**
+ * A hand as the session log stores it, seen structurally so this module needs no dependency on
+ * session.ts. Only the fields the decision metric reads are named; a HandRecord is assignable to it.
+ */
+export interface LoggedHand {
+  readonly playedAt?: number;
+  readonly decisions?: readonly {
+    readonly verdict: { readonly severity: 'free' | 'notable' | 'serious'; readonly evLossBb: number } | null;
+  }[];
+}
+
+/**
+ * Flatten a session's hand log into the decision records the effort metric reasons over. Honest by
+ * construction and by omission:
+ *  - Every decision maps to `mode: 'practice'` — nothing in the app runs an assessment block, so the
+ *    assessment EV-loss metric stays legitimately empty rather than being fed practice spots.
+ *  - `correct` is the coach's own silence rule: severity 'free' means it found nothing to fault.
+ *  - `tag` is null: the coach grades by `principle` (e.g. "pot odds"), which is NOT one of G7's
+ *    ErrorTags, so inventing a mapping would fabricate an attribution the coach never made.
+ *  - `sure` is false: whether the hero was sure is the prediction layer's datum (calibration), not a
+ *    property of a played decision, and claiming certainty here would double-count it.
+ * A hand with no `playedAt` (legacy) or no verdict on a decision is skipped — an undated decision
+ * cannot be placed in a week, and pretending it happened now would inflate "this week".
+ */
+export function decisionRecordsFromHands(hands: readonly LoggedHand[]): DecisionRecord[] {
+  const out: DecisionRecord[] = [];
+  for (const hand of hands) {
+    if (hand.playedAt === undefined || hand.decisions === undefined) continue;
+    for (const decision of hand.decisions) {
+      if (decision.verdict === null) continue;
+      out.push({
+        at: hand.playedAt,
+        mode: 'practice',
+        evLossBb: decision.verdict.evLossBb,
+        tag: null,
+        sure: false,
+        correct: decision.verdict.severity === 'free',
+      });
+    }
+  }
+  return out;
+}
+
 export type ResultsGraph =
   | {
       readonly kind: 'refused';
