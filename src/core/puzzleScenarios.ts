@@ -1509,6 +1509,66 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    id: '3bet-aqs-vs-btn-steal',
+    title: '3-betting A♠Q♠ for value against a button steal',
+    setup:
+      'The button opens to 2.5bb trying to steal, the small blind folds, and you are in the big blind with A♠Q♠. Flatting is fine — but against a wide, weak stealing range there is a better option than just calling.',
+    seatCount: 3,
+    // bb-defend seating: button on seat 1 → seat 0 is the BB (hero), seat 1 is the opener/first to act,
+    // seat 2 the SB. The opener's steal is the script's first entry; after the hero 3-bets it folds.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', 'Qs'],
+      ['Jd', 'Tc'],
+      ['7h', '3d'],
+    ],
+    board: ['Kh', '8c', '5s', '2d', '9h'],
+    // Seat 1 (button) opens to 125, SB folds, then the button folds to the hero's 3-bet. One decision.
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+      { kind: 'fold' },
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'AQs dominates a button steal’s range and 3-betting is better than flatting here: it charges the many worse aces, kings and offsuit broadways to continue, denies their equity, seizes the initiative so you are not check-calling out of position, and folds out the raw air that would otherwise get to flop for free. A strong, suited, but still-vulnerable hand wants to build the pot and take control, not passively call and play a guessing game out of position.',
+      },
+    ],
+  },
+  {
+    id: 'fold-weak-ace-to-ep-open',
+    title: 'Folding a weak ace to an early open',
+    setup:
+      'An early-position player opens to 3bb and it folds to you in the big blind with A♠6♦, 100bb deep. It has an ace in it — but an offsuit ace-six against a tight opener is a trap, not a hand.',
+    seatCount: 3,
+    // bb-defend / fold-kq-to-utg seating: button on seat 1 → seat 0 is the BB (hero), seat 1 is the
+    // opener and first to act preflop, seat 2 is the SB. The opener's raise is the script's first entry.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    holes: [
+      ['As', '6d'],
+      ['Kh', 'Kc'],
+      ['9c', '8d'],
+    ],
+    board: ['Qh', '7s', '2c', 'Td', '4h'],
+    // Seat 1 opens to 150; the hero folds facing it. One decision, so the rest is never reached.
+    villainScript: [{ kind: 'raise', to: 150 }],
+    target: [
+      {
+        action: 'fold',
+        explanation:
+          'A6o is a domination trap against a tight early-position range: when an ace flops you are out-kicked by every better ace the opener has (AK, AQ, AJ, AT), and the six pairs into nothing. Out of position with no initiative, "it has an ace" is exactly the reasoning that loses money — fold the weak offsuit aces to early opens and keep the strong, suited, and connected hands. The ace on the front does not make a hand playable.',
+      },
+    ],
+  },
+  {
     id: 'fold-weak-pair-river-overbet',
     title: 'Folding a weak pair to a river overbet',
     setup:
