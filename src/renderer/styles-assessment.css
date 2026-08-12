@@ -120,6 +120,50 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The costliest-decisions post-mortem — the verdicts withheld during play, delivered at the end.
+ * Left-aligned inside the centred reveal so the messages read as a list, not a headline. Severity is
+ * carried by data-severity for the e2e but NOT expressed as hue here (the palette lock): every message
+ * reads in the same ink, ordered by cost, weight alone marking the hand label. */
+.assessment-leaks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  margin-top: 6px;
+}
+
+.assessment-leaks-head {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.assessment-leaks-empty {
+  font-size: 13px;
+  color: var(--text-lo);
+}
+
+.assessment-leak {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--surface-hi);
+  border-radius: var(--radius-sm);
+}
+
+.assessment-leak-hand {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-lo);
+}
+
+.assessment-leak-message {
+  font-size: 13px;
+  color: var(--text-hi);
+  line-height: 1.4;
+}
+
 .assessment-done {
   margin-top: 6px;
 }

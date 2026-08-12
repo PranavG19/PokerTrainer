@@ -212,6 +212,8 @@ function revealBlock(grades: readonly AssessmentGrade[], onDone: () => void): HT
   spread.dataset.serious = String(counts.serious);
   el.appendChild(spread);
 
+  el.appendChild(renderLeaks(grades));
+
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'pill assessment-done';
@@ -220,6 +222,52 @@ function revealBlock(grades: readonly AssessmentGrade[], onDone: () => void): HT
   done.addEventListener('click', onDone);
   el.appendChild(done);
   return el;
+}
+
+/** How many of the block's costliest decisions the post-mortem shows. */
+const MAX_LEAKS = 3;
+
+/**
+ * The block withholds every verdict DURING play; this is where it pays them back — the costliest few
+ * decisions, each with the coach's OWN message. Honest because a single decision's evLossBb is a real
+ * per-hand equity calc (the exact number the live coach shows), NOT a small-sample average — so it does
+ * not contradict the variance lesson, which is about win-rate estimates over many hands. Only non-free
+ * decisions have a message (coach.ts returns null for 'free'), so an all-correct block says so plainly.
+ */
+function renderLeaks(grades: readonly AssessmentGrade[]): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'assessment-leaks';
+  wrap.dataset.testid = 'assessment-leaks';
+
+  const leaks = grades
+    .filter((g) => g.grade.severity !== 'free' && g.grade.message !== null)
+    .sort((a, b) => b.grade.evLossBb - a.grade.evLossBb)
+    .slice(0, MAX_LEAKS);
+  wrap.dataset.count = String(leaks.length);
+
+  if (leaks.length === 0) {
+    // Silence is not praise, but an all-free block genuinely had no costly decision to review.
+    wrap.appendChild(text('div', 'assessment-leaks-empty', 'No notable leaks this block.'));
+    return wrap;
+  }
+
+  wrap.appendChild(text('div', 'assessment-leaks-head stat-label', 'Your costliest decisions'));
+  for (const leak of leaks) {
+    const row = document.createElement('div');
+    row.className = 'assessment-leak';
+    row.dataset.testid = 'assessment-leak';
+    row.dataset.severity = leak.grade.severity;
+    row.dataset.hand = String(leak.hand);
+
+    const where = text('span', 'assessment-leak-hand', `Hand ${leak.hand}`);
+    row.appendChild(where);
+    // The coach's own message — the verdict withheld during play, delivered now.
+    const msg = text('span', 'assessment-leak-message', leak.grade.message ?? '');
+    msg.dataset.testid = 'assessment-leak-message';
+    row.appendChild(msg);
+    wrap.appendChild(row);
+  }
+  return wrap;
 }
 
 function text(tag: string, className: string, content: string): HTMLElement {

@@ -19,6 +19,8 @@ const reveal = '[data-testid="assessment-reveal"]';
 const score = '[data-testid="assessment-score"]';
 const sample = '[data-testid="assessment-sample"]';
 const doneBtn = '[data-testid="assessment-done"]';
+const leaks = '[data-testid="assessment-leaks"]';
+const leakRow = '[data-testid="assessment-leak"]';
 const progressMetric = '[data-testid="progress-metric"]';
 
 /** The block launches from the Progress screen, beside the metric it feeds. */
@@ -103,6 +105,35 @@ test('a full block ends in one reveal with a real EV-loss over a real sample', a
     const bb100 = Number(await page.locator(score).getAttribute('data-bb100'));
     expect(Number.isFinite(bb100)).toBe(true);
     expect(bb100).toBeGreaterThanOrEqual(0);
+  } finally {
+    await close();
+  }
+});
+
+test('the reveal delivers the withheld verdicts as a costliest-decisions post-mortem', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  try {
+    await openAssessment(page);
+    await playToReveal(page);
+    await expect(page.locator(reveal)).toBeVisible();
+
+    // The leaks section is always present; it either lists the costliest decisions or says there were
+    // none. Never more than the top 3, and every listed leak carries the coach's own (non-empty) message.
+    const section = page.locator(leaks);
+    await expect(section).toBeVisible();
+    const shown = Number(await section.getAttribute('data-count'));
+    expect(shown).toBeGreaterThanOrEqual(0);
+    expect(shown).toBeLessThanOrEqual(3);
+
+    const rows = page.locator(leakRow);
+    await expect(rows).toHaveCount(shown);
+    for (let i = 0; i < shown; i++) {
+      const msg = (await rows.nth(i).locator('[data-testid="assessment-leak-message"]').textContent()) ?? '';
+      expect(msg.trim().length, 'a listed leak must carry the coach message it withheld').toBeGreaterThan(0);
+    }
+    // The passive check/call/fold policy folds hands with equity, so this block has at least one leak —
+    // proving the post-mortem populates, not just that the empty state renders.
+    expect(shown, 'a passive block should surface at least one costly decision').toBeGreaterThan(0);
   } finally {
     await close();
   }
