@@ -47,6 +47,7 @@ import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
+import { conceptStatesFromLog } from '../core/schedule.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 
 const DEFAULT_SEED = 42;
@@ -450,7 +451,18 @@ async function boot(): Promise<void> {
     if (which === 'anomaly') return renderAnomalyScreen();
     if (which === 'robustness') return renderRobustnessScreen();
     if (which === 'dossier') return renderDossier();
-    if (which === 'spacing') return renderSpacing();
+    if (which === 'spacing') {
+      /*
+       * The fading log is the drill's real graded history; group its graded events into the per-concept
+       * states the scheduler reasons over. Only 'graded' events carry a correct/incorrect outcome —
+       * hint and support-faded events are not opportunities — so the queue runs on genuine learner data
+       * with nothing invented. On a fresh profile the log is empty and the screen says so.
+       */
+      const concepts = conceptStatesFromLog(
+        session.fadingLog.filter((event) => event.kind === 'graded'),
+      );
+      return renderSpacing({ concepts, now: Date.now() });
+    }
     if (which === 'progress') {
       /*
        * EMPTY INPUTS, HONESTLY. Nothing in the app records per-decision tags, assessment-mode grades,

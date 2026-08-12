@@ -53,10 +53,13 @@ export interface SpacingOpts {
 const FORBIDDEN_LADDER = [1, 2, 4, 8, 16];
 
 export function renderSpacing(opts: SpacingOpts = {}): HTMLElement {
+  // The e2e seam wins when present: spacing.spec pins whole timelines through it, and a test that set
+  // a 45-day fixture must not be silently overridden by whatever real history the app passed in. In
+  // production the seam is absent, so the concepts derived from the fading log are used.
   const seam = window.__offsuitSpacing;
-  const now = opts.now ?? seam?.now ?? Date.now();
+  const now = seam?.now ?? opts.now ?? Date.now();
 
-  let concepts: readonly ConceptState[] = opts.concepts ?? seam?.concepts ?? [];
+  let concepts: readonly ConceptState[] = seam?.concepts ?? opts.concepts ?? [];
   /**
    * Probe misses recorded in this sitting, per concept, oldest first. Kept in memory rather than
    * persisted: nothing else in the app owns concept records yet, so writing them here would invent a
