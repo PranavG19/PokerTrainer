@@ -208,7 +208,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'check',
         explanation:
-          'K-8-3 rainbow gives you nothing but a gutshot and two overcards that are not really overcards to a king. Betting only folds out worse and gets called by better; checking back keeps the pot small, realises your equity for free, and lets you bluff-catch or improve on later streets. Pot control in position is a bet you DON’T make.',
+          'K-8-3 rainbow gives you nothing but two overcards that are not really overcards to a king, with only backdoor straight and flush outs. Betting only folds out worse and gets called by better; checking back keeps the pot small, realises your equity for free, and lets you bluff-catch or improve on later streets. Pot control in position is a bet you DON’T make.',
       },
     ],
   },
@@ -386,7 +386,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'The 7 bricks nearly every draw — the gutshots and the missed flush picks all whiff — and a player who checked the flop and turn has a range full of missed draws and give-ups. Second pair beats every bluff, and you are getting a price — folding here is the over-fold that pays off every bluffer. When they have shown no strength and the price is right, one pair is enough to catch a bluff.',
+          'The 7 bricks nearly every draw — the board stayed rainbow until this spade, so only the straight gutshots were ever live and they all whiff — and a player who checked the flop and turn has a range full of missed draws and give-ups. Second pair beats every bluff, and you are getting a price — folding here is the over-fold that pays off every bluffer. When they have shown no strength and the price is right, one pair is enough to catch a bluff.',
       },
     ],
   },
@@ -1046,7 +1046,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'J♣8♠4♦ hands you an open-ended straight draw — any Q or 7 completes it, eight outs — plus a backdoor flush. Facing one c-bet in position you have the price and, crucially, position to see another card and realize that draw\'s equity, so calling beats folding or raising a raw draw.',
+          'J♣8♠4♦ hands you an open-ended straight draw — any Q or 7 completes it, eight outs. Facing one c-bet in position you have the price and, crucially, position to see another card and realize that draw\'s equity, so calling beats folding or raising a raw draw.',
       },
       {
         action: 'call',
