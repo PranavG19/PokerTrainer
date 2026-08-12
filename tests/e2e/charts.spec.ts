@@ -1086,6 +1086,28 @@ test.describe('charts — facing-a-raise defense drill', () => {
     });
   });
 
+  /*
+   * ACCESSIBILITY — the defense verdict reaches screen readers. An always-present visually-hidden
+   * role=status region inside the drill mirrors the verdict wording, empty until a commit and carrying
+   * the same verdict line the panel shows.
+   */
+  test('D-a11y. the verdict is announced to screen readers, matching the visible verdict line', async () => {
+    await withCharts(async ({ page }) => {
+      await openDefenseMode(page);
+      const announcer = page.locator('[data-testid="defense-announcer"]');
+      await expect(announcer).toHaveAttribute('role', 'status');
+      await expect(announcer).toHaveAttribute('aria-live', 'polite');
+      await expect(announcer).toHaveText('');
+
+      await page.click('[data-testid="defense-fold"]');
+      const line = (await page.locator(defenseVerdict).textContent()) ?? '';
+      expect(line.length).toBeGreaterThan(0);
+      const spoken = (await announcer.textContent()) ?? '';
+      expect(spoken).toContain(line);
+      expect(spoken.toLowerCase().startsWith('last')).toBe(true);
+    });
+  });
+
 });
 
 /**
@@ -1208,6 +1230,28 @@ test.describe('charts — facing-a-3-bet response drill', () => {
       const utgPct = Number(/continue (\d+)%/.exec(utgText)?.[1] ?? 'NaN');
       expect(Number.isNaN(utgPct)).toBe(false);
       expect(utgPct, 'UTG should continue tighter vs a 3-bet than BTN').toBeLessThan(btnPct);
+    });
+  });
+
+  /*
+   * ACCESSIBILITY — the 3-bet-response verdict reaches screen readers. An always-present visually-
+   * hidden role=status region inside the drill mirrors the verdict wording, empty until a commit and
+   * carrying the same verdict line the panel shows.
+   */
+  test('T-a11y. the verdict is announced to screen readers, matching the visible verdict line', async () => {
+    await withCharts(async ({ page }) => {
+      await openThreeBetMode(page);
+      const announcer = page.locator('[data-testid="threebet-announcer"]');
+      await expect(announcer).toHaveAttribute('role', 'status');
+      await expect(announcer).toHaveAttribute('aria-live', 'polite');
+      await expect(announcer).toHaveText('');
+
+      await page.click('[data-testid="threebet-fold"]');
+      const line = (await page.locator(threebetVerdict).textContent()) ?? '';
+      expect(line.length).toBeGreaterThan(0);
+      const spoken = (await announcer.textContent()) ?? '';
+      expect(spoken).toContain(line);
+      expect(spoken.toLowerCase().startsWith('last')).toBe(true);
     });
   });
 });
