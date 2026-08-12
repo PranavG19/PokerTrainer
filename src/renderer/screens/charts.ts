@@ -64,6 +64,12 @@ export interface ChartsOptions {
   readonly mastery?: Record<string, { attempts: number; correct: number }>;
   /** Persist one graded answer. Called once per commit; main.ts folds it into the session and saves. */
   readonly onAnswer?: (handClass: HandClassId, correct: boolean) => void;
+  /**
+   * Q1/Q2: record one graded RFI spot as an interleaving spot class ("AKs-CO"). The module is the
+   * fixed literal the interleaving model assigns the RFI drill. Fired alongside onAnswer on every
+   * graded commit; main.ts folds it into the session. Absent → the interleaving view stays empty.
+   */
+  readonly onSpot?: (spotClass: string, module: string, correct: boolean) => void;
 }
 
 export function renderCharts(options: ChartsOptions = {}): HTMLElement {
@@ -127,6 +133,9 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
     }
     // Persist this answer so the mastery — and the adaptive draw it feeds — survives a restart.
     options.onAnswer?.(handClass, chose === correct);
+    // Q1/Q2: the same graded commit is an interleaving spot. The class is combo-position ("AKs-CO");
+    // the module is the fixed literal interleave.ts assigns the RFI drill. Real graded event, no fabrication.
+    options.onSpot?.(`${combo}-${position}`, 'preflop-rfi', chose === correct);
 
     feedback = { combo, position, handClass, correct, chose };
     answered += 1;

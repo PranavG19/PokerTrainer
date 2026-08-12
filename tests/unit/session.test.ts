@@ -19,7 +19,7 @@ import {
 } from '../../src/core/session.js';
 import { createLexicon } from '../../src/core/lexicon.js';
 import { deriveState, type FadingEvent } from '../../src/core/fading.js';
-import { recordFadingEvents } from '../../src/core/session.js';
+import { recordFadingEvents, recordInterleaveSpot } from '../../src/core/session.js';
 
 function gift(overrides: Partial<GiftEntry> = {}): GiftEntry {
   return {
@@ -482,6 +482,51 @@ describe('fading log persistence (T6/T7)', () => {
       ['supportFaded', 4],
       ['hintRequested', 6],
     ]);
+  });
+});
+
+describe('interleaving spot persistence (Q1/Q2)', () => {
+  it('recordInterleaveSpot ticks attempts always, correct only when right, and keeps the module', () => {
+    let s = emptySession();
+    s = recordInterleaveSpot(s, 'AKs-CO', 'preflop-rfi', true);
+    s = recordInterleaveSpot(s, 'AKs-CO', 'preflop-rfi', false);
+    s = recordInterleaveSpot(s, 'K7s-CO', 'preflop-rfi', true);
+    expect(s.interleavingSpots).toEqual({
+      'AKs-CO': { module: 'preflop-rfi', attempts: 2, correct: 1 },
+      'K7s-CO': { module: 'preflop-rfi', attempts: 1, correct: 1 },
+    });
+  });
+
+  it('is pure — the prior state is not mutated', () => {
+    const before = recordInterleaveSpot(emptySession(), 'AKs-CO', 'preflop-rfi', true);
+    const snapshot = JSON.parse(JSON.stringify(before.interleavingSpots));
+    recordInterleaveSpot(before, 'AKs-CO', 'preflop-rfi', false);
+    expect(before.interleavingSpots).toEqual(snapshot);
+  });
+
+  it('survives a round trip', () => {
+    let s = recordInterleaveSpot(emptySession(), 'AKs-CO', 'preflop-rfi', true);
+    s = recordInterleaveSpot(s, 'QJs-BTN', 'preflop-rfi', false);
+    expect(deserialize(JSON.parse(JSON.stringify(serialize(s))))).toEqual(s);
+  });
+
+  it('a save file predating interleaving spots loads with an empty map', () => {
+    expect(deserialize({ bankroll: 12000, hands: [], stats: {} }).interleavingSpots).toEqual({});
+  });
+
+  it('drops a zero-attempt or module-less entry and clamps correct to attempts', () => {
+    const raw = deserialize({
+      interleavingSpots: {
+        'a': { module: 'preflop-rfi', attempts: 0, correct: 3 }, // no attempts → dropped
+        'b': { module: '', attempts: 2, correct: 1 }, // blank module → dropped
+        'c': { module: 'preflop-rfi', attempts: 2, correct: 9 }, // correct above attempts → clamped
+        'd': { module: 'preflop-rfi', attempts: 3, correct: 2 }, // clean
+      },
+    });
+    expect(raw.interleavingSpots).toEqual({
+      'c': { module: 'preflop-rfi', attempts: 2, correct: 2 },
+      'd': { module: 'preflop-rfi', attempts: 3, correct: 2 },
+    });
   });
 });
 

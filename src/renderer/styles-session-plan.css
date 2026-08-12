@@ -202,3 +202,93 @@
 .planner-start {
   padding: 14px 16px;
 }
+
+/*
+ * ─── Interleaving view (Q1/Q2/Q3) ───
+ * The panel already self-scrolls (max-height valve above), so this body scrolls within it and never
+ * grows the page. No colour: the refusal is stated in fuller ink, the pre-frame and spot rows quiet,
+ * matching the planner's V2 palette.
+ */
+.interleaving-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.interleaving-empty {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-lo);
+}
+
+.interleaving-spots {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  list-style: none;
+}
+
+.interleaving-spot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.interleaving-spot-class {
+  color: var(--text-hi);
+}
+
+.interleaving-spot-score {
+  font-size: 12px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.interleaving-preframe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 16px;
+  margin: 0;
+}
+
+.interleaving-preframe-line {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-lo);
+}
+
+/* Core's own refusal sentence, told apart by weight — this is the teaching, not an error. */
+.interleaving-refusal {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-hi);
+}
+
+/*
+ * Heading and view toggle on one row. The plan view's height budget is at zero slack (home is exactly
+ * 640px), so the toggle must add NO net height: the pills are compact and the row's height is bounded
+ * so it does not exceed the space the heading already occupied. The interleaving body scrolls inside
+ * the panel valve, so only this head row is a permanent cost — and it is made to cost nothing.
+ */
+.planner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.planner-head .planner-views {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+/* Flat, small pills so the head row is no taller than the heading line it shares. */
+.planner-head .view-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+}

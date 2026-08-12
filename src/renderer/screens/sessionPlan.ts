@@ -14,6 +14,14 @@ import {
   type SessionMode,
   type SessionPlan,
 } from '../../core/sessionPlan.js';
+import {
+  FIRST_EXPOSURE_RUNG,
+  INTERLEAVING_PREFRAME,
+  MODULES,
+  assembleInterleavedBlock,
+  type BlockItem,
+  type ModuleId,
+} from '../../core/interleave.js';
 
 /**
  * THE SESSION PLANNER — PRODUCT-SPEC S1, S2, S2a, S2b, S3.
@@ -94,7 +102,17 @@ export interface SessionPlannerOpts {
    */
   conceptStates?: readonly ConceptState[];
   now?: number;
+  /**
+   * Q1/Q2: the graded RFI spots the learner has attempted, keyed by spot class. The interleaving view
+   * reads this to show which classes are in play and to let core decide whether a block can assemble.
+   * Absent → the view shows its honest empty state (nothing graded yet).
+   */
+  interleavingSpots?: Record<string, { module: string; attempts: number; correct: number }>;
 }
+
+/** The real ModuleIds, so a spot's stored module string is validated rather than trusted. */
+const KNOWN_MODULES = new Set<string>(MODULES.map((m) => m.id));
+const isKnownModule = (id: string): id is ModuleId => KNOWN_MODULES.has(id);
 
 declare global {
   interface Window {
@@ -114,9 +132,16 @@ export function renderSessionPlanner(opts: SessionPlannerOpts = {}): HTMLElement
 
   const states = opts.conceptStates ?? window.__offsuitProbeQueue ?? [];
   const dueProbes = dueNow(states, opts.now ?? Date.now()).length;
+  const spots = opts.interleavingSpots ?? {};
 
   let minutes: number = DEFAULT_SESSION_MINUTES;
   let mode: SessionMode = 'session';
+  /**
+   * The panel has two views: 'plan' (the sitting planner, the default and original behaviour) and
+   * 'interleaving' (Q1/Q2, what is in the interleaved block and whether it can run yet). data-VIEW,
+   * not data-mode — data-mode is the session/free-roam planner axis every existing test pins.
+   */
+  let view: 'plan' | 'interleaving' = 'plan';
 
   function selectMinutes(next: number): void {
     minutes = next;
@@ -125,6 +150,12 @@ export function renderSessionPlanner(opts: SessionPlannerOpts = {}): HTMLElement
 
   function selectMode(next: SessionMode): void {
     mode = next;
+    paint();
+  }
+
+  function selectView(next: 'plan' | 'interleaving'): void {
+    if (next === view) return;
+    view = next;
     paint();
   }
 
@@ -139,15 +170,22 @@ export function renderSessionPlanner(opts: SessionPlannerOpts = {}): HTMLElement
     root.dataset.total = result.ok ? String(result.plan.totalMinutes) : '';
     root.dataset.cutCount = result.ok ? String(result.plan.cuts.length) : '';
     root.dataset.deferred = result.ok ? String(result.plan.remediationDeferred) : '';
+    root.dataset.view = view;
 
-    root.replaceChildren(
-      heading('Plan a sitting'),
-      renderLengthRow(minutes, selectMinutes),
-      renderModeRow(mode, selectMode),
-      result.ok
-        ? renderPlan(result.plan, () => opts.onStart?.(minutes, mode))
-        : renderRefusal(minutes, result.reason, () => selectMode('free-roam')),
-    );
+    // The toggle heads the panel in both views; only the BODY swaps, so the plan view's height budget
+    // gains just the one compact pill row (measured against session-plan.spec test 17).
+    const body =
+      view === 'interleaving'
+        ? [renderInterleaving(spots)]
+        : [
+            renderLengthRow(minutes, selectMinutes),
+            renderModeRow(mode, selectMode),
+            result.ok
+              ? renderPlan(result.plan, () => opts.onStart?.(minutes, mode))
+              : renderRefusal(minutes, result.reason, () => selectMode('free-roam')),
+          ];
+
+    root.replaceChildren(renderHeadRow(view, selectView), ...body);
   }
 
   paint();
@@ -203,6 +241,143 @@ function renderModeRow(selected: SessionMode, onSelect: (mode: SessionMode) => v
   }
 
   return row;
+}
+
+/**
+ * The plan/interleaving view toggle. DISTINCT testids from the mode row (view-btn / data-view, not
+ * mode-btn / data-mode), so the existing planner tests that pin the session/free-roam pills never see
+ * it. One compact pill row — the only vertical cost the plan view pays for the second view existing.
+ */
+const VIEW_LABELS: Record<'plan' | 'interleaving', string> = {
+  plan: 'Plan',
+  interleaving: 'Interleaving',
+};
+
+/**
+ * The heading and the view toggle share one row, so the second view costs the plan view NO extra
+ * vertical row — the toggle sits in the space beside the title rather than beneath it. This keeps home
+ * within its 640px height budget (session-plan.spec test 17), which a separate toggle row broke.
+ */
+function renderHeadRow(
+  view: 'plan' | 'interleaving',
+  onSelect: (view: 'plan' | 'interleaving') => void,
+): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'planner-head';
+  row.appendChild(heading('Plan a sitting'));
+  row.appendChild(renderViewToggle(view, onSelect));
+  return row;
+}
+
+function renderViewToggle(
+  selected: 'plan' | 'interleaving',
+  onSelect: (view: 'plan' | 'interleaving') => void,
+): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'planner-row planner-views';
+  row.dataset.testid = 'planner-views';
+
+  for (const view of ['plan', 'interleaving'] as const) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pill view-btn';
+    button.dataset.testid = 'view-btn';
+    button.dataset.view = view;
+    button.dataset.active = String(view === selected);
+    button.textContent = VIEW_LABELS[view];
+    button.addEventListener('click', () => onSelect(view));
+    row.appendChild(button);
+  }
+
+  return row;
+}
+
+/**
+ * Q1/Q2/Q3, the interleaving view. A PURE READER: the classes come from the persisted graded spots,
+ * the pre-frame and the accept/refuse verdict come straight out of core's assembleInterleavedBlock.
+ * Every spot enters at FIRST_EXPOSURE_RUNG, because no fading log feeds this a promoted rung yet — so
+ * a populated block honestly refuses "first exposure" (Q2/Q4: first exposures are blocked micro-blocks,
+ * interleaving is earned). That refusal is the teaching, not a bug, and the screen says so plainly.
+ */
+function renderInterleaving(
+  spots: Record<string, { module: string; attempts: number; correct: number }>,
+): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'interleaving-view';
+  section.dataset.testid = 'interleaving-view';
+
+  const items: BlockItem[] = Object.entries(spots)
+    .filter(([, value]) => isKnownModule(value.module))
+    .map(([spotClass, value]) => ({ spotClass, module: value.module as ModuleId, rung: FIRST_EXPOSURE_RUNG }));
+  section.dataset.spotCount = String(items.length);
+
+  // Q3: the written pre-frame is always shown — it is the price the block is read against.
+  const preframe = document.createElement('ol');
+  preframe.className = 'interleaving-preframe';
+  preframe.dataset.testid = 'interleaving-preframe';
+  for (const line of INTERLEAVING_PREFRAME) {
+    const li = document.createElement('li');
+    li.className = 'interleaving-preframe-line';
+    li.textContent = line;
+    preframe.appendChild(li);
+  }
+
+  if (items.length === 0) {
+    section.dataset.status = 'empty';
+    section.appendChild(
+      text2(
+        'div',
+        'interleaving-empty',
+        'interleaving-empty',
+        'No graded spots yet. Play the chart drill — every class you attempt shows up here, and once you have practised enough of them an interleaved block is assembled.',
+      ),
+    );
+    section.appendChild(preframe);
+    return section;
+  }
+
+  const result = assembleInterleavedBlock({ items, preframeShown: false });
+  section.dataset.status = result.ok ? 'block' : result.refusal;
+
+  section.appendChild(
+    text2('div', 'stat-label', 'interleaving-heading', `${items.length} graded spot classes in play`),
+  );
+
+  const list = document.createElement('ul');
+  list.className = 'interleaving-spots';
+  for (const item of items) {
+    const tally = spots[item.spotClass];
+    const row = document.createElement('li');
+    row.className = 'interleaving-spot';
+    row.dataset.testid = 'interleaving-spot';
+    row.dataset.spotClass = item.spotClass;
+    row.dataset.module = item.module;
+    row.appendChild(text2('span', 'interleaving-spot-class', '', item.spotClass));
+    row.appendChild(
+      text2('span', 'interleaving-spot-score', '', `${tally.correct} of ${tally.attempts}`),
+    );
+    list.appendChild(row);
+  }
+  section.appendChild(list);
+
+  section.appendChild(preframe);
+
+  // Core's own sentence, verbatim — the same discipline renderRefusal uses for the sitting planner.
+  if (!result.ok) {
+    const why = text2('p', 'interleaving-refusal', 'interleaving-refusal', result.reason);
+    section.appendChild(why);
+  }
+
+  return section;
+}
+
+/** Small element builder with an optional testid — local to the interleaving view. */
+function text2(tag: string, className: string, testid: string, content: string): HTMLElement {
+  const el = document.createElement(tag);
+  el.className = className;
+  if (testid !== '') el.dataset.testid = testid;
+  el.textContent = content;
+  return el;
 }
 
 function renderPlan(plan: SessionPlan, onStart: () => void): HTMLElement {

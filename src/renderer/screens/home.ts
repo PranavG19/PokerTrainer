@@ -48,7 +48,12 @@ export function renderHome(opts: {
    * bankroll and the one-click "New session" the rest of the suite drives stay exactly where they
    * were; the planner takes its own column (styles-session-plan.css).
    */
-  root.appendChild(renderSessionPlanner({ onStart: () => opts.onNewSession() }));
+  root.appendChild(
+    renderSessionPlanner({
+      onStart: () => opts.onNewSession(),
+      interleavingSpots: opts.session.interleavingSpots,
+    }),
+  );
 
   return root;
 }
