@@ -1087,3 +1087,127 @@ test.describe('charts — facing-a-raise defense drill', () => {
   });
 
 });
+
+/**
+ * 3-BET RESPONSE MODE — the opener's 4-bet/call/fold drill facing a 3-bet, the Charts screen's THIRD
+ * mode. Grades against core/preflop.ts threeBetResponseAction, so these prove the mode is wired to that
+ * oracle and the verdict is honest — the full grid + range correctness is owned by
+ * tests/unit/threeBetResponse.test.ts.
+ */
+const threebetDrill = '[data-testid="threebet-drill"]';
+const threebetVerdict = '[data-testid="threebet-verdict"]';
+
+async function openThreeBetMode(page: Page): Promise<void> {
+  await page.click('[data-testid="tab-charts"]');
+  await page.waitForSelector(chartsScreen);
+  await page.click('[data-testid="charts-mode-btn"][data-mode="3bet-response"]');
+  await page.waitForSelector(threebetDrill);
+}
+
+test.describe('charts — facing-a-3-bet response drill', () => {
+  test('T1. the mode toggle swaps in the 3-bet drill, and back to the RFI grid', async () => {
+    await withCharts(async ({ page }) => {
+      await expect(page.locator(grid)).toBeVisible();
+      await expect(page.locator(threebetDrill)).toHaveCount(0);
+      await expect(page.locator(chartsScreen)).toHaveAttribute('data-mode', 'rfi');
+
+      await page.click('[data-testid="charts-mode-btn"][data-mode="3bet-response"]');
+      await expect(page.locator(threebetDrill)).toBeVisible();
+      await expect(page.locator(grid)).toHaveCount(0);
+      await expect(page.locator(chartsScreen)).toHaveAttribute('data-mode', '3bet-response');
+
+      await page.click('[data-testid="charts-mode-btn"][data-mode="rfi"]');
+      await expect(page.locator(grid)).toBeVisible();
+      await expect(page.locator(threebetDrill)).toHaveCount(0);
+    });
+  });
+
+  test('T2. the grader is real: 4-bet is graded both right and wrong over a run of combos', async () => {
+    await withCharts(async ({ page }) => {
+      await openThreeBetMode(page);
+      // Pin the opener seat, then commit the same button (4-bet) across many redrawn combos. The verdict
+      // must vary — 4-bet is neither always right nor always wrong — which proves the grade tracks the
+      // combo rather than being hard-coded.
+      await page.click('[data-testid="threebet-spot-btn"][data-spot="BTN"]');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-spot', 'BTN');
+      const verdicts = new Set<string>();
+      for (let i = 0; i < 25; i++) {
+        await page.click('[data-testid="threebet-threebet"]');
+        verdicts.add((await page.getAttribute(threebetDrill, 'data-verdict')) ?? '');
+      }
+      expect(verdicts.has('right'), '4-betting was never graded right in 25 combos').toBe(true);
+      expect(verdicts.has('wrong'), '4-betting was never graded wrong in 25 combos').toBe(true);
+    });
+  });
+
+  test('T3. switching the opener seat draws a fresh combo and clears the verdict', async () => {
+    await withCharts(async ({ page }) => {
+      await openThreeBetMode(page);
+      await page.click('[data-testid="threebet-fold"]');
+      await expect(page.locator(threebetVerdict)).toBeVisible();
+
+      const before = await page.getAttribute(threebetDrill, 'data-combo');
+      await page.click('[data-testid="threebet-spot-btn"][data-spot="CO"]');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-spot', 'CO');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-verdict', '');
+      expect(before).not.toBeNull();
+    });
+  });
+
+  test('T4. the R/C/F keyboard shortcuts each commit the matching action', async () => {
+    await withCharts(async ({ page }) => {
+      await openThreeBetMode(page);
+      const first = Number((await page.getAttribute(threebetDrill, 'data-answered')) ?? '0');
+      await page.keyboard.press('f');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-answered', String(first + 1));
+      await page.keyboard.press('c');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-answered', String(first + 2));
+      await page.keyboard.press('r');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-answered', String(first + 3));
+    });
+  });
+
+  test('T5. a wrong verdict names the correction as 4-bet or call, labelled "last" about the prior combo', async () => {
+    await withCharts(async ({ page }) => {
+      await openThreeBetMode(page);
+      await page.click('[data-testid="threebet-spot-btn"][data-spot="BTN"]');
+      // Fold until fold is graded wrong, so the verdict must name what the play should have been.
+      let wrong = false;
+      for (let i = 0; i < 40 && !wrong; i++) {
+        await page.click('[data-testid="threebet-fold"]');
+        wrong = (await page.getAttribute(threebetDrill, 'data-verdict')) === 'wrong';
+      }
+      expect(wrong, 'folding was never graded wrong in 40 combos — cannot check the correction wording').toBe(true);
+      const verdictText = ((await page.locator(threebetVerdict).textContent()) ?? '').toLowerCase();
+      expect(verdictText, `verdict "${verdictText}"`).toMatch(/is a (4-bet|call), not a fold/);
+      await expect(page.locator('[data-testid="threebet-feedback"]')).toContainText('last');
+      const verdictCombo = await page.locator('[data-testid="threebet-feedback"]').getAttribute('data-combo');
+      const shownCombo = await page.getAttribute(threebetDrill, 'data-combo');
+      expect(verdictCombo).not.toBe(shownCombo);
+    });
+  });
+
+  test('T6. the continue-width line names the opener seat and its %, and widens UTG→BTN', async () => {
+    await withCharts(async ({ page }) => {
+      await openThreeBetMode(page);
+      const widthLine = page.locator('[data-testid="threebet-width"]');
+
+      await page.click('[data-testid="threebet-spot-btn"][data-spot="BTN"]');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-spot', 'BTN');
+      const btnText = (await widthLine.textContent()) ?? '';
+      expect(btnText).toContain('You opened BTN');
+      expect(btnText, `threebet-width "${btnText}"`).toMatch(/continue \d+% vs a 3-bet/);
+      const btnPct = Number(/continue (\d+)%/.exec(btnText)?.[1] ?? 'NaN');
+      expect(Number.isNaN(btnPct)).toBe(false);
+
+      // A tight opener (UTG) continues NARROWER facing a 3-bet than a wide opener (BTN).
+      await page.click('[data-testid="threebet-spot-btn"][data-spot="UTG"]');
+      await expect(page.locator(threebetDrill)).toHaveAttribute('data-spot', 'UTG');
+      const utgText = (await widthLine.textContent()) ?? '';
+      expect(utgText).toContain('You opened UTG');
+      const utgPct = Number(/continue (\d+)%/.exec(utgText)?.[1] ?? 'NaN');
+      expect(Number.isNaN(utgPct)).toBe(false);
+      expect(utgPct, 'UTG should continue tighter vs a 3-bet than BTN').toBeLessThan(btnPct);
+    });
+  });
+});
