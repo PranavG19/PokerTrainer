@@ -13,6 +13,7 @@ import {
   recordGifts,
   recordFadingEvents,
   recordHand,
+  recordInterleaveSpot,
   recordLexiconAttempt,
   recordPrediction,
   recordPuzzleResult,
@@ -242,6 +243,12 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  /** Persist one graded RFI spot so the interleaving view's class list survives a restart (Q1/Q2). */
+  async function onInterleaveSpot(spotClass: string, module: string, correct: boolean): Promise<void> {
+    session = recordInterleaveSpot(session, spotClass, module, correct);
+    await io.saveState(serialize(session));
+  }
+
   /**
    * N2's single suggestion for the launcher.
    *
@@ -431,6 +438,7 @@ async function boot(): Promise<void> {
       return renderCharts({
         mastery: session.chartMastery,
         onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
+        onSpot: (spotClass, module, correct) => void onInterleaveSpot(spotClass, module, correct),
       });
     }
     if (which === 'drill') {

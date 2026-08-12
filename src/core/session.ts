@@ -141,6 +141,14 @@ export interface SessionState {
    * the state that produced it. Each event carries its own conceptId; `deriveState` filters per concept.
    */
   fadingLog: FadingEvent[];
+  /**
+   * Q1/Q2: the graded RFI spots the learner has attempted, keyed by spot class ("AKs-CO"), each with
+   * the content module it belongs to and its attempt tally. The interleaving view reads this to show
+   * which classes are in play and to let core decide (honestly) whether an interleaved block can be
+   * assembled yet. Persisted for the same reason chart mastery is — the record only teaches across
+   * sittings. The key and module are bare strings; an unknown module simply never assembles.
+   */
+  interleavingSpots: Record<string, { module: string; attempts: number; correct: number }>;
 }
 
 export interface SessionSummary {
@@ -167,6 +175,32 @@ export function emptySession(): SessionState {
     puzzleProgress: {},
     lexicon: [],
     fadingLog: [],
+    interleavingSpots: {},
+  };
+}
+
+/**
+ * Record one graded RFI spot for the interleaving view. Pure and cumulative, the same shape
+ * recordChartAnswer uses: attempts always tick, correct ticks on a right answer, and the module is
+ * carried so the reader can tell which content block the class belongs to.
+ */
+export function recordInterleaveSpot(
+  state: SessionState,
+  spotClass: string,
+  module: string,
+  correct: boolean,
+): SessionState {
+  const prior = state.interleavingSpots[spotClass] ?? { module, attempts: 0, correct: 0 };
+  return {
+    ...state,
+    interleavingSpots: {
+      ...state.interleavingSpots,
+      [spotClass]: {
+        module,
+        attempts: prior.attempts + 1,
+        correct: prior.correct + (correct ? 1 : 0),
+      },
+    },
   };
 }
 
@@ -351,6 +385,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     puzzleProgress: structuredClone(state.puzzleProgress),
     lexicon: structuredClone(state.lexicon),
     fadingLog: structuredClone(state.fadingLog),
+    interleavingSpots: structuredClone(state.interleavingSpots),
   };
 }
 
@@ -396,7 +431,29 @@ export function deserialize(raw: unknown): SessionState {
     lexicon: parseLexicon(obj.lexicon),
     // Legacy saves predate the fading log; an empty log means every concept starts at worked examples.
     fadingLog: parseFadingLog(obj.fadingLog),
+    // Legacy saves predate interleaving spots; an empty map is the honest reading of a missing field.
+    interleavingSpots: parseInterleavingSpots(obj.interleavingSpots),
   };
+}
+
+/**
+ * Tolerant like every parser here. An entry is kept only with a real module string and at least one
+ * attempt; correct is clamped to attempts (a record claiming more right than played is corrupt). A
+ * zero-attempt or module-less entry is dropped as nothing worth carrying — the reader validates the
+ * module against the real ModuleIds, so an unknown one simply never assembles.
+ */
+function parseInterleavingSpots(raw: unknown): Record<string, { module: string; attempts: number; correct: number }> {
+  const obj = asRecord(raw);
+  const out: Record<string, { module: string; attempts: number; correct: number }> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const entry = asRecord(value);
+    const attempts = Math.max(0, Math.floor(asNumber(entry.attempts, 0)));
+    const correct = Math.min(attempts, Math.max(0, Math.floor(asNumber(entry.correct, 0))));
+    const module = typeof entry.module === 'string' ? entry.module.trim() : '';
+    if (attempts === 0 || module === '') continue;
+    out[key] = { module, attempts, correct };
+  }
+  return out;
 }
 
 /** Whole rungs 0–4 only; a fade/hint event carrying anything else is a corrupt record and dropped. */
