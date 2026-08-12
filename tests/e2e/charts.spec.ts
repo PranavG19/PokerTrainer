@@ -26,6 +26,7 @@ const boundaryChip = '[data-testid="boundary-chip"]';
 const classRow = '[data-testid="class-row"]';
 const classAccuracy = '[data-testid="class-accuracy"]';
 const classReview = '[data-testid="class-review"]';
+const chartWidthValue = '[data-testid="chart-width"] .chart-width-value';
 const drillHand = '[data-testid="drill-hand"]';
 const drillFeedback = '[data-testid="drill-feedback"]';
 const drillVerdict = '[data-testid="drill-verdict"]';
@@ -579,6 +580,69 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
     });
   });
 
+  test('6e. the RFI-width headline renders a real percentage, tightens with seat, and BB says "no open"', async () => {
+    /**
+     * The FIRST number the learner reads on the screen, in [data-testid=chart-width], and until now no
+     * e2e selected it — a NaN%, a 0% fraction, or a broken BB branch would ship with the whole suite
+     * green (the unit test only checks seat ORDERING, never the rendered string). Assert the rendered
+     * text directly.
+     */
+    await withCharts(async ({ page }) => {
+      // A wide seat prints a concrete, non-zero percentage.
+      await selectPosition(page, 'BTN');
+      const btnText = (await page.locator(chartWidthValue).textContent())?.trim() ?? '';
+      expect(btnText, `BTN width headline "${btnText}"`).toMatch(/^\d+%$/);
+      const btnPct = Number(btnText.replace('%', ''));
+      expect(btnPct, 'the button opens some non-zero share of hands').toBeGreaterThan(0);
+
+      // A tighter seat prints a strictly smaller percentage — the ordering the learner is meant to see.
+      await selectPosition(page, 'UTG');
+      const utgText = (await page.locator(chartWidthValue).textContent())?.trim() ?? '';
+      expect(utgText).toMatch(/^\d+%$/);
+      expect(Number(utgText.replace('%', '')), 'UTG must be tighter than BTN').toBeLessThan(btnPct);
+
+      // BB has no first-in node, so the headline is the words, never "0%".
+      await selectPosition(page, 'BB');
+      await expect(page.locator(chartWidthValue)).toHaveText('no open');
+      await expect(page.locator('[data-testid="chart-width"]')).toContainText(
+        'the big blind has no raise-first-in range',
+      );
+    });
+  });
+
+  test('6f. the class scoreboard renders its accuracy as text, agreeing with the attributes', async () => {
+    /**
+     * The mirror of the anomaly spec's second-channel guard. charts.ts:339 renders the scoreboard text
+     * ('1/1' or '—') beside data-correct/data-attempts, but every other reader keys off the attributes
+     * only — a hardcoded '0', a blank, or a stale '—' in the visible span would pass while the learner
+     * reads a wrong scoreboard. Assert the VISIBLE TEXT and that it agrees with the attributes.
+     */
+    await withCharts(async ({ page }) => {
+      await selectPosition(page, 'CO');
+
+      // Fresh board: every class shows the em-dash, not '0/0'.
+      const dashes = await page.locator(classAccuracy).evaluateAll((els) =>
+        els.map((el) => (el.textContent ?? '').trim()),
+      );
+      expect(dashes.length).toBeGreaterThan(0);
+      for (const text of dashes) expect(text, 'a fresh class score is not the em-dash').toBe('—');
+
+      // Answer one spot correctly, then the scored class's span must read '1/1' — text, not just attrs.
+      const spot = await currentSpot(page);
+      const scoredClass = await page.getAttribute(`${cell}[data-combo="${spot}"]`, 'data-class');
+      await commitKey(page, (await spotOpens(page, spot)) ? 'o' : 'f');
+
+      const scoreEl = page.locator(`${classAccuracy}[data-class="${scoredClass}"]`);
+      await expect(scoreEl).toHaveText('1/1');
+      // The two channels must agree — the whole point of the guard.
+      const agree = await scoreEl.evaluate((el) => {
+        const e = el as HTMLElement;
+        return (el.textContent ?? '').trim() === `${e.dataset.correct}/${e.dataset.attempts}`;
+      });
+      expect(agree, 'the rendered score disagrees with its own data attributes').toBe(true);
+    });
+  });
+
   test('7. a single keystroke is the whole commit, and only o/f count', async () => {
     await withCharts(async ({ page }) => {
       await selectPosition(page, 'BTN');
@@ -955,6 +1019,70 @@ test.describe('charts — facing-a-raise defense drill', () => {
       await expect(page.locator(defenseDrill)).toHaveAttribute('data-answered', String(first + 2));
       await page.keyboard.press('t');
       await expect(page.locator(defenseDrill)).toHaveAttribute('data-answered', String(first + 3));
+    });
+  });
+
+  test('D5. a wrong verdict names the correction and is labelled "last", about the PRIOR combo', async () => {
+    /**
+     * The verdict WORDING, which D2/D3 never read — they key off data-verdict only. The RFI drill asserts
+     * this exact shape (the correction names the right action, prefixed 'last') because an unlabelled
+     * verdict about the prior hand mislabels the fresh one on screen; the defense mode reuses the layout
+     * with none of that coverage. Fold until a 'wrong' lands, then read the string.
+     */
+    await withCharts(async ({ page }) => {
+      await openDefenseMode(page);
+      await page.click('[data-testid="defense-spot-btn"][data-spot="bb-vs-btn"]');
+
+      // Fold repeatedly until fold is graded wrong, so the verdict must name what fold should have been.
+      let wrong = false;
+      for (let i = 0; i < 40 && !wrong; i++) {
+        await page.click('[data-testid="defense-fold"]');
+        wrong = (await page.getAttribute(defenseDrill, 'data-verdict')) === 'wrong';
+      }
+      expect(wrong, 'folding was never graded wrong in 40 combos — cannot check the correction wording').toBe(true);
+
+      // The correction names a non-fold action and says "not a fold" — a real correction, not a label.
+      const verdictText = ((await page.locator(defenseVerdict).textContent()) ?? '').toLowerCase();
+      expect(verdictText, `verdict "${verdictText}"`).toMatch(/is a (3-bet|call), not a fold/);
+      // The feedback block is marked as about the LAST combo, so the fresh combo on screen is not mislabelled.
+      await expect(page.locator('[data-testid="defense-feedback"]')).toContainText('last');
+      // And the combo the verdict is about (from its data-combo) is the prior one, not the one now shown.
+      const verdictCombo = await page.locator('[data-testid="defense-feedback"]').getAttribute('data-combo');
+      const shownCombo = await page.getAttribute(defenseDrill, 'data-combo');
+      expect(verdictCombo, 'the verdict names the combo now on screen — the "last" label would be a lie').not.toBe(
+        shownCombo,
+      );
+    });
+  });
+
+  test('D6. the defense-width line names the active spot and its defend-percentage, and updates on switch', async () => {
+    /**
+     * defenseDrill.ts:132 renders 'BB vs BTN open — defend N% of hands' in [data-testid=defense-width];
+     * no test reads it (defense.test.ts only checks defenseWidth ordering). A NaN%, wrong label, or a
+     * line that fails to update on spot change would ship silently. Assert the rendered string and that
+     * it tracks the selected spot.
+     */
+    await withCharts(async ({ page }) => {
+      await openDefenseMode(page);
+      const widthLine = page.locator('[data-testid="defense-width"]');
+
+      await page.click('[data-testid="defense-spot-btn"][data-spot="bb-vs-btn"]');
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-spot', 'bb-vs-btn');
+      const btnText = (await widthLine.textContent()) ?? '';
+      expect(btnText).toContain('BB vs BTN open');
+      expect(btnText, `defense-width "${btnText}"`).toMatch(/defend \d+% of hands/);
+      const btnPct = Number(/defend (\d+)%/.exec(btnText)?.[1] ?? 'NaN');
+      expect(Number.isNaN(btnPct)).toBe(false);
+
+      // Switch to a tighter-defence spot: the label AND the percentage must change with it. BB defends
+      // widest vs the button (widest opener) and tighter vs an earlier-position open like UTG.
+      await page.click('[data-testid="defense-spot-btn"][data-spot="bb-vs-utg"]');
+      await expect(page.locator(defenseDrill)).toHaveAttribute('data-spot', 'bb-vs-utg');
+      const utgText = (await widthLine.textContent()) ?? '';
+      expect(utgText).toContain('BB vs UTG open');
+      const utgPct = Number(/defend (\d+)%/.exec(utgText)?.[1] ?? 'NaN');
+      expect(Number.isNaN(utgPct)).toBe(false);
+      expect(utgPct, 'BB should defend tighter vs UTG than vs BTN').toBeLessThan(btnPct);
     });
   });
 

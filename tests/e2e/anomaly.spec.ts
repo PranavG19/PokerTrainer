@@ -893,6 +893,50 @@ test.describe('O8 anomaly trigger drill', () => {
     });
   });
 
+  test('6b. an all-correct-but-slow block fails the gate for SPEED, and says so in words', async () => {
+    /**
+     * The slow-fail gate REASON, which no test read on a completed block. anomaly.ts renders it into
+     * [data-testid=anomaly-gate-reason] for a block that is all-correct but over the RT bar, and its
+     * whole point is to name SPEED as the cause — "a learner at 10/10 accuracy who is simply slow must
+     * not be told they got items wrong". Test 6 only reaches 3 trials (below the floor), so the reason
+     * never rendered for a completed slow block. Drive a full ten, every answer correct but each one
+     * pushed past the 2 s gate on the frozen clock, and assert the rendered reason blames speed.
+     */
+    await withAnomaly(async ({ page }) => {
+      await freezeClock(page);
+      // The install reset performance.now()'s origin, so step past the in-flight prompt first.
+      await answer(page, true);
+      await advance(page);
+
+      // Ten trials, all correct, each one a hair over the gate. The block spans indices that include
+      // the anomalies at 4 and 5, so the 2-anomaly floor is met and the ONLY failing half is speed.
+      while (Number(await page.getAttribute(root, 'data-index')) < MIN_TRIALS) {
+        const index = Number(await page.getAttribute(root, 'data-index'));
+        await page.clock.fastForward(RT_THRESHOLD_MS + 1);
+        await answer(page, !ANOMALOUS_INDICES.includes(index));
+        await advance(page);
+      }
+
+      // The gate has its ten trials and both anomalies, is all-correct, yet is NOT passed — purely slow.
+      await expect(page.locator(gate)).toHaveAttribute('data-attempts', String(MIN_TRIALS));
+      await expect(page.locator(gate)).toHaveAttribute('data-correct', String(MIN_TRIALS));
+      await expect(page.locator(gate)).toHaveAttribute('data-anomaly-trials', String(MIN_ANOMALY_TRIALS));
+      await expect(page.locator(gate)).toHaveAttribute('data-passed', 'false');
+      // Well under the 90% bar — the slow trials drag the pass rate down even though every answer is right.
+      const passRate = Number(await page.getAttribute(gate, 'data-pass-rate'));
+      expect(passRate, `pass rate ${passRate} must sit under the ${PASS_RATE} bar`).toBeLessThan(PASS_RATE);
+
+      // The rendered reason blames SPEED, in core's exact wording — not an accuracy or error-tag reason.
+      await expect(page.locator(gateReason)).toContainText('speed is part of the gate');
+      await expect(page.locator(gateReason)).toContainText(`${MIN_TRIALS}/${MIN_TRIALS} correct`);
+      // And it must NOT claim the learner got items wrong.
+      const reasonText = ((await page.locator(gateReason).textContent()) ?? '').toLowerCase();
+      expect(reasonText, `slow-fail reason "${reasonText}" must not blame accuracy`).not.toMatch(
+        /wrong|missed|false.?alarm|incorrect/,
+      );
+    });
+  });
+
   test('7. the gate refuses to certify a short block, and passes a clean ten', async () => {
     await withAnomaly(async ({ page }) => {
       await expect(page.locator(gateHeadline)).toHaveText('—');
