@@ -22,9 +22,10 @@ import { playToShowdown, tableScreen } from './flow.js';
  * RESULTS_GRAPH_MIN_HANDS. If either gate is ever loosened in core, these tests move with it and the
  * loosening shows up as a diff in core, which is where it belongs — not as a silently-still-green suite.
  *
- * THE APP CURRENTLY HAS NO DECISION RECORDING, and that is the honest state this suite pins: the screen
- * renders core's refusals, not fabricated figures. When recording lands, the assertions about the
- * populated states are already here to catch a regression in them.
+ * DECISION RECORDING IS NOW LIVE: played hands feed the effort metric (graded decisions this week) via
+ * decisionRecordsFromHands. What stays refused is the honest boundary — the win rate is still withheld
+ * (it needs the all-in-adjusted evBb, which the hand log does not store) and fluency stays empty (no
+ * reaction time is recorded). The last test in this file pins exactly that: effort moves, outcomes do not.
  */
 
 const screen = '[data-testid="progress-screen"]';
