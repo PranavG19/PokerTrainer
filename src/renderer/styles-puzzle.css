@@ -123,6 +123,40 @@
   flex-wrap: wrap;
 }
 
+/* State 1 CLASSIFY — name the spot before acting. A prompt over the closed set of spot-type buttons,
+ * and its own verdict block, matching the action controls' surface treatment. */
+.puzzle-classify,
+.puzzle-classify-verdict {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--elev-1);
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+}
+
+.puzzle-classify-prompt {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.puzzle-classify-picks {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.puzzle-classify-verdict[data-correct='true'] .puzzle-verdict-head {
+  color: var(--mint);
+}
+
+.puzzle-classify-verdict[data-correct='false'] .puzzle-verdict-head {
+  color: var(--chip-blind);
+}
+
 /* The keyboard shortcut letter, shown after the action label so a learner can drill by keyboard. Muted
  * and small so it reads as a hint, not part of the label; dims with the button when it is disabled. */
 .puzzle-key-hint {
@@ -213,7 +247,9 @@
 @media (prefers-reduced-motion: reduce) {
   .puzzle-verdict,
   .puzzle-complete,
-  .puzzle-odds {
+  .puzzle-odds,
+  .puzzle-classify,
+  .puzzle-classify-verdict {
     animation: none;
   }
 }
