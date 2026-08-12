@@ -164,10 +164,20 @@ test.describe('controls at the hero decision point', () => {
     expect(shadows.raise).not.toBe('missing');
     expect(shadows.fold, 'the secondary actions stay flat').toBe('none');
 
-    // The to-act pod (the hero, whose turn it is) wears the softened mint ring — same 2px geometry,
-    // calmer alpha. The mint is still the only accent; only its opacity changed.
-    const ring = await page().locator(`${HERO_SEAT}[data-to-act="true"]`).evaluate((el) => getComputedStyle(el).boxShadow);
-    expect(ring, 'the to-act ring uses the softened mint alpha').toContain('rgba(61, 220, 151, 0.4)');
+    // The to-act pod (the hero, whose turn it is) comes forward: the softened mint ring, plus a 2%
+    // scale so "who acts now" is read from depth too. A resting seat carries neither.
+    const active = await page()
+      .locator(`${HERO_SEAT}[data-to-act="true"]`)
+      .evaluate((el) => ({ shadow: getComputedStyle(el).boxShadow, transform: getComputedStyle(el).transform }));
+    expect(active.shadow, 'the to-act ring uses the softened mint alpha').toContain('rgba(61, 220, 151, 0.4)');
+    expect(active.transform, 'the to-act pod is lifted with a 2% scale').toBe('matrix(1.02, 0, 0, 1.02, 0, 0)');
+
+    // A resting (non-acting, live) seat stays flat: no scale, and a lighter shadow than the active pod.
+    const restingTransform = await page()
+      .locator(`${sel.seat}:not([data-to-act="true"]):not([data-folded="true"])`)
+      .first()
+      .evaluate((el) => getComputedStyle(el).transform);
+    expect(restingTransform, 'a resting pod is not scaled — emphasis is differential').toBe('none');
   });
 
   test('stats-toggle flips the sheet open and closed', async () => {
