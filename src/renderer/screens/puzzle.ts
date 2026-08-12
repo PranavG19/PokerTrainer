@@ -59,6 +59,18 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
   root.className = 'puzzle-screen';
   root.dataset.testid = 'puzzle-screen';
 
+  // The graded output (classify verdict, action verdict, completion score) updates in place, so a
+  // screen-reader user gets no feedback without a live region. This always-present polite region
+  // mirrors whichever verdict the body is showing. It is kept as the root's first child in every paint
+  // (like the tutor rail) so it survives replaceChildren, and is visually hidden + absolute-positioned
+  // so it takes no layout space in the flex column.
+  const verdictAnnouncer = document.createElement('div');
+  verdictAnnouncer.className = 'visually-hidden';
+  verdictAnnouncer.dataset.testid = 'puzzle-announcer';
+  verdictAnnouncer.setAttribute('role', 'status');
+  verdictAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(verdictAnnouncer);
+
   // A local, live copy of the persisted progress so the picker badges update the moment a scenario is
   // completed this session, without waiting for a re-mount. Seeded from what was saved.
   const progress: Record<string, { attempts: number; bestCorrect: number }> = {
@@ -276,7 +288,18 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
             : classifyPending()
               ? classifyControls()
               : controls();
-    root.replaceChildren(header(s), table(s), body, railSeam());
+
+    // Mirror the graded output into the live region — the same wording the body shows — so the spoken
+    // and visual feedback can never disagree. Empty while acting/classifying (nothing graded yet).
+    verdictAnnouncer.textContent =
+      lastVerdict !== null
+        ? actionVerdictAnnouncement(lastVerdict)
+        : done
+          ? completionAnnouncement(s, correct)
+          : classifyVerdict !== null
+            ? classifyVerdictAnnouncement(classifyVerdict)
+            : '';
+    root.replaceChildren(verdictAnnouncer, header(s), table(s), body, railSeam());
   }
 
   // ── rendering ──────────────────────────────────────────────────────────────
@@ -681,6 +704,26 @@ function seatName(s: Scenario, seat: number): string {
 
 function actionLabel(kind: ActionKind): string {
   return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+// The graded outputs as single spoken lines for the screen-reader live region. Each mirrors the
+// wording of the DOM block it corresponds to (classifyVerdictBlock, verdictBlock, completeBlock) so the
+// spoken and visible feedback cannot drift.
+function classifyVerdictAnnouncement(verdict: SpotTypeVerdict): string {
+  return verdict.right
+    ? `Correct — this is a ${SPOT_TYPE_LABELS[verdict.correct].toLowerCase()} spot.`
+    : `Not quite — this is a ${SPOT_TYPE_LABELS[verdict.correct].toLowerCase()} spot, not ${SPOT_TYPE_LABELS[verdict.picked].toLowerCase()}.`;
+}
+
+function actionVerdictAnnouncement(verdict: StepVerdict): string {
+  const head = verdict.correct
+    ? `Correct — ${actionLabel(verdict.expected)} is the play.`
+    : `Not quite — you ${actionLabel(verdict.played).toLowerCase()}, the play is ${actionLabel(verdict.expected).toLowerCase()}.`;
+  return `${head} ${verdict.explanation}`;
+}
+
+function completionAnnouncement(s: Scenario, correct: number): string {
+  return `You played ${correct} of ${s.target.length} decisions the GTO way.`;
 }
 
 function text(tag: string, className: string, content: string): HTMLElement {
