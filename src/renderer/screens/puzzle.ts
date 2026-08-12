@@ -12,7 +12,7 @@ import {
   type StepVerdict,
 } from '../../core/puzzle.js';
 import { SCENARIOS } from '../../core/puzzleScenarios.js';
-import { CURRICULUM } from '../../core/puzzleCurriculum.js';
+import { CURRICULUM, moduleForScenario } from '../../core/puzzleCurriculum.js';
 import { renderCardRow } from '../components/card.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
@@ -266,6 +266,22 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     pickerRow.appendChild(select);
 
     el.appendChild(pickerRow);
+
+    // The curriculum module this spot belongs to, shown so the learner sees where the current puzzle
+    // sits in the preflop→river progression while playing — not only when the picker is open. Derived
+    // from the curriculum (moduleForScenario), so it adds no state and cannot drift from the grouping.
+    const module = moduleForScenario(s.id);
+    if (module !== undefined) {
+      const moduleIndex = CURRICULUM.indexOf(module);
+      const moduleLine = text(
+        'div',
+        'puzzle-module',
+        `Module ${moduleIndex + 1} of ${CURRICULUM.length} · ${module.title}`,
+      );
+      moduleLine.dataset.testid = 'puzzle-module';
+      moduleLine.dataset.moduleKey = module.key;
+      el.appendChild(moduleLine);
+    }
 
     const title = text('h2', 'puzzle-title', s.title);
     title.dataset.testid = 'puzzle-title';
