@@ -138,6 +138,38 @@ test.describe('controls at the hero decision point', () => {
     }
   });
 
+  test('the pot is the dominant number and the Raise pill is the lifted CTA (UI)', async () => {
+    // Hierarchy: the pot governs every price, so it renders in full ink and medium weight — brighter
+    // and heavier than a seat stack, which is the inverted state this fixes. No colour, no size change.
+    const potStyle = await page()
+      .locator('[data-testid="pot"]')
+      .evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { color: s.color, weight: s.fontWeight, size: s.fontSize };
+      });
+    expect(potStyle.color, 'the pot is full-ink white').toBe('rgb(255, 255, 255)');
+    expect(potStyle.weight).toBe('500');
+    expect(potStyle.size, 'the pot size is unchanged, so no rect moved').toBe('14px');
+
+    // CTA: with a raise legal the enabled Raise pill carries an elevation the flat actions do not.
+    const shadows = await page().evaluate(() => {
+      const raise = document.querySelector('[data-testid="btn-raise"]');
+      const fold = document.querySelector('[data-testid="btn-fold"]');
+      return {
+        raise: raise ? getComputedStyle(raise).boxShadow : 'missing',
+        fold: fold ? getComputedStyle(fold).boxShadow : 'missing',
+      };
+    });
+    expect(shadows.raise, 'the enabled Raise pill must be lifted').not.toBe('none');
+    expect(shadows.raise).not.toBe('missing');
+    expect(shadows.fold, 'the secondary actions stay flat').toBe('none');
+
+    // The to-act pod (the hero, whose turn it is) wears the softened mint ring — same 2px geometry,
+    // calmer alpha. The mint is still the only accent; only its opacity changed.
+    const ring = await page().locator(`${HERO_SEAT}[data-to-act="true"]`).evaluate((el) => getComputedStyle(el).boxShadow);
+    expect(ring, 'the to-act ring uses the softened mint alpha').toContain('rgba(61, 220, 151, 0.4)');
+  });
+
   test('stats-toggle flips the sheet open and closed', async () => {
     const sheet = page().locator(sel.statsSheet);
     const toggle = page().locator('[data-testid="stats-toggle"]');
