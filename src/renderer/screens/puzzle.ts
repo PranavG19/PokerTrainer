@@ -12,6 +12,7 @@ import {
   type StepVerdict,
 } from '../../core/puzzle.js';
 import { SCENARIOS } from '../../core/puzzleScenarios.js';
+import { CURRICULUM } from '../../core/puzzleCurriculum.js';
 import { renderCardRow } from '../components/card.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
@@ -229,15 +230,36 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     const select = document.createElement('select');
     select.className = 'puzzle-picker';
     select.dataset.testid = 'puzzle-picker';
-    SCENARIOS.forEach((scen, i) => {
+    // Group the options by curriculum module (an <optgroup> per module) so the dropdown reads as a
+    // teaching progression — preflop → flop → turn → river — rather than 44 undifferentiated spots.
+    // The option VALUE stays the scenario's index in SCENARIOS, so jump-by-index and "Next puzzle"
+    // (which walk the underlying array) are unchanged; only the visual grouping is added.
+    const indexById = new Map(SCENARIOS.map((scen, i) => [scen.id, i]));
+    const optionFor = (scen: Scenario, i: number): HTMLOptionElement => {
       const option = document.createElement('option');
       option.value = String(i);
       // Prefix a mastery mark so the dropdown shows what is done: ✓ mastered, ◐ attempted-not-yet, none untried.
       const mark = isMastered(scen) ? '✓ ' : progress[scen.id] ? '◐ ' : '';
       option.textContent = `${mark}${scen.title}`;
       option.selected = i === scenarioIndex;
-      select.appendChild(option);
-    });
+      return option;
+    };
+    for (const module of CURRICULUM) {
+      const group = document.createElement('optgroup');
+      // Count mastered spots in the module so the group header shows per-module progress at a glance.
+      const total = module.scenarioIds.length;
+      const done = module.scenarioIds.filter((id) => {
+        const scen = SCENARIOS[indexById.get(id) ?? -1];
+        return scen !== undefined && isMastered(scen);
+      }).length;
+      group.label = `${module.title} — ${done}/${total}`;
+      for (const id of module.scenarioIds) {
+        const i = indexById.get(id);
+        if (i === undefined) continue; // guarded by curriculum's load-time partition assert
+        group.appendChild(optionFor(SCENARIOS[i], i));
+      }
+      select.appendChild(group);
+    }
     // Jump straight to the chosen puzzle. loadScenario resets step/verdict/records, so a mid-hand jump
     // cannot carry stale progress into the new spot.
     select.addEventListener('change', () => loadScenario(Number(select.value)));
