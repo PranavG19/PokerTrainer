@@ -773,6 +773,10 @@ body {
 }
 .pill:not(:disabled):hover {
   background: var(--surface-hover);
+  /* The hover lift the comment above promises: elevation-as-affordance, matching btn-raise's resting
+   * lift. box-shadow paints outside the layout box, so bounding rects (measured at rest, unhovered)
+   * never move; the box-shadow transition is already declared above and reduced-motion-guarded. */
+  box-shadow: var(--elev-1);
 }
 
 /*
