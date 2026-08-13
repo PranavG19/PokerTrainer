@@ -54,7 +54,8 @@ import {
 import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
 
 const SB = 25;
-const BB = 50;
+/** The big blind, exported so the caller can size a depth-derived starting stack in the same units. */
+export const BB = 50;
 const START_STACK = 5000;
 const AI_DELAY_MS = 450;
 
@@ -87,6 +88,13 @@ export function renderTable(opts: {
   seed: number;
   bankroll: number;
   handNumber: number;
+  /**
+   * The hero's (and villains') starting stack in chips, so the table depth tracks the learner's earned
+   * STANDING (a 200bb table is a genuinely different game than a 40bb one — the Depth climb payoff).
+   * Absent means the classic 100bb table (START_STACK), which is what every test and a fresh/Calibrating
+   * profile gets, so nothing changes unless a depth is explicitly wired in.
+   */
+  startStack?: number;
   coachedMode?: boolean;
   onHandComplete: (record: HandRecord) => void;
   onSessionOver?: () => void;
@@ -107,6 +115,10 @@ export function renderTable(opts: {
    */
   onGifts?: (gifts: readonly GiftEntry[]) => void;
 }): TableHandle {
+  // The depth-driven starting stack, defaulting to the classic 100bb table. A single local so the
+  // initial deal, the bust top-up and the rebuy prompt all agree — a rebuy must match the table's depth.
+  const startStack = opts.startStack ?? START_STACK;
+
   const root = document.createElement('div');
   root.className = 'table-screen';
   root.dataset.testid = 'table-screen';
@@ -192,7 +204,7 @@ export function renderTable(opts: {
   const table = createTable({
     seats: SEAT_NAMES.map((name, i) => ({
       name,
-      stack: START_STACK,
+      stack: startStack,
       isHero: i === 0,
       avatar: name[0],
     })),
@@ -622,12 +634,12 @@ export function renderTable(opts: {
   /**
    * Top the busted hero back up and deal on. Same table: handNumber, the dealer rotation and the
    * session's recorded stats all carry over, because only the hero's stack changed. nextHand()
-   * re-reads heroStartStack after the top-up, so the next hand's `net` is measured from 5000 and
-   * the injected chips are never mistaken for a win.
+   * re-reads heroStartStack after the top-up, so the next hand's `net` is measured from the table's
+   * starting stack and the injected chips are never mistaken for a win.
    */
   function rebuyAndContinue(): void {
     if (heroSeat().stack !== 0) return;
-    state.seats[0].stack = START_STACK;
+    state.seats[0].stack = startStack;
     opts.onRebuy?.();
     nextHand();
   }
@@ -716,9 +728,9 @@ export function renderTable(opts: {
         const over = document.createElement('div');
         over.className = 'winner-summary';
         over.dataset.testid = 'session-over';
-        over.textContent = `You are out of chips. Rebuy for ${START_STACK} to keep this table, or start a new session.`;
+        over.textContent = `You are out of chips. Rebuy for ${startStack} to keep this table, or start a new session.`;
         controls.appendChild(over);
-        controls.appendChild(pill(`Rebuy ${START_STACK}`, 'btn-rebuy', () => rebuyAndContinue()));
+        controls.appendChild(pill(`Rebuy ${startStack}`, 'btn-rebuy', () => rebuyAndContinue()));
         controls.appendChild(
           pill('New session', 'new-session', () => opts.onSessionOver?.()),
         );

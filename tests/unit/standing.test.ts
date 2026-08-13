@@ -6,6 +6,7 @@ import {
   MIN_FORM_SAMPLE,
   currentForm,
   depthLabel,
+  depthToStack,
   masteryGate,
   playGate,
   playScore,
@@ -217,6 +218,28 @@ describe('currentForm reads the recent window without touching the floor', () =>
     const form = currentForm([...oldClean, ...recentBad], NOW);
     expect(form.sample).toBe(FORM_WINDOW);
     expect(form.state).toBe('rusty');
+  });
+});
+
+describe('depthToStack sizes the table by earned depth', () => {
+  const BB = 50; // matches table.ts
+
+  it('Calibrating (depth 0) returns null — the caller uses the classic 100bb default', () => {
+    expect(depthToStack(0, BB)).toBeNull();
+  });
+
+  it('a depth is that many big blinds in chips', () => {
+    expect(depthToStack(40, BB)).toBe(2000);
+    expect(depthToStack(75, BB)).toBe(3750);
+    expect(depthToStack(125, BB)).toBe(6250);
+    expect(depthToStack(200, BB)).toBe(10000);
+  });
+
+  it('a deeper depth is a strictly bigger stack — the climb actually changes the game', () => {
+    const stacks = DEPTHS.filter((d) => d !== 0).map((d) => depthToStack(d, BB) ?? 0);
+    for (let i = 1; i < stacks.length; i++) {
+      expect(stacks[i]).toBeGreaterThan(stacks[i - 1]);
+    }
   });
 });
 
