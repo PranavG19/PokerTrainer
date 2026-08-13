@@ -10,7 +10,7 @@ import {
   type AgentResult,
   type SpotContext,
 } from '../../src/main/tutor/agent.js';
-import { buildRulesRequest } from '../../src/main/tutor/requests.js';
+import { buildRulesRequest, buildStrategyRequest } from '../../src/main/tutor/requests.js';
 import { numericPhrasesFor } from '../../src/main/tutor/numericPhrases.js';
 import type {
   AgentEnvelope,
@@ -358,6 +358,52 @@ describe('the numeric-phrase channel and post-reveal wiring', () => {
     expect(toolResult).toContain('this hand holds 63% pot share');
     // It was admitted (not the refusal stub), proving the engine channel is clean.
     expect(toolResult).not.toContain('not available');
+  });
+
+  it('recall_grade post-reveal surfaces the grade — numerals routed through numericPhrasesFor', async () => {
+    // Verify-flagged regression: renderGradeProse used to emit raw formats like "equity: 63%" and
+    // "deltaEv: 1.73bb" that matched no approved phrase, so checkPhraseUse flagged every numeral and
+    // guardToolResult scrubbed the ENTIRE result to the refusal stub — making recall_grade dead
+    // weight post-reveal. The fix routes numeric fields through numericPhrasesFor (their approved
+    // shape) and keeps only the word-only fields alongside them.
+    const ctx = postReveal('explain');
+    const client = mockClient([
+      toolUse({ name: TOOL.recallGrade }),
+      text(CLEAN_POST_REVEAL),
+    ]);
+    await runTutorAgent(ctx, { client });
+    const toolResult = ctx.transcript.filter((m) => m.role === 'tool')[0].text;
+    // NOT the refusal stub — the grade is really surfaced.
+    expect(toolResult).not.toContain('not available');
+    // Every numeric grade field arrives in its exact approved-phrase shape.
+    expect(toolResult).toContain('costs 1.7 bb');
+    expect(toolResult).toContain('a 11 bb pot');
+    expect(toolResult).toContain('this hand holds 63% pot share');
+    expect(toolResult).toContain('check is worth 3.4 bb');
+    expect(toolResult).toContain('bet is worth 5.1 bb');
+    expect(toolResult).toContain('2.9 bb/100 across this spot class');
+    // Word-only fields survive unchanged (no digits to trip the phrase check).
+    expect(toolResult).toContain('chosen: check');
+    expect(toolResult).toContain('best: bet');
+    expect(toolResult).toContain('error tag: TEXTURE');
+    expect(toolResult).toContain('principle: Nut advantage sets the size');
+    expect(toolResult).toContain('flipping variable: one seat of position');
+  });
+
+  it('ORACLE-CAN-FAIL: without numericPhrasesFor, recall_grade WOULD scrub to the refusal stub', () => {
+    // The mutation, inlined: render the grade in its OLD raw shape ("equity: 63%") and score it. This
+    // is what the buggy version emitted, and this test proves the guard rejects it — so the fix
+    // (composing from numericPhrasesFor) is load-bearing, not decorative.
+    const request = buildStrategyRequest(
+      { prompt: 'explain', table: TABLE, grade: GRADE, lexicon: [] },
+      'correction',
+    ).payload;
+    const phrases = numericPhrasesFor(GRADE);
+    // A raw-shape line every one of these numerals is a grade field, so plain provenance passes;
+    // but each numeral sits OUTSIDE every approved phrase, so checkPhraseUse rejects the whole line
+    // and guardToolResult returns the refusal stub.
+    const rawShape = 'deltaEv: 1.73bb\nequity: 63%\npot before action: 11bb';
+    expect(guardToolResult(rawShape, request, phrases)).toContain('not available');
   });
 });
 
