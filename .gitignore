@@ -4,3 +4,7 @@ out/
 *.log
 .DS_Store
 test-results/
+# Scratch scaffolding for scenario authoring (one-off generators, drafts, probes) — never committed.
+tests/tmp/
+# Generated codebase overview, not source.
+CODEBASE-OVERVIEW.html
