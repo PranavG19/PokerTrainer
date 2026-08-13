@@ -102,9 +102,11 @@ export const CURRICULUM: readonly CurriculumModule[] = [
     key: 'the-turn',
     title: 'The Turn: Second Barrels and Big Draws',
     blurb:
-      'Keep the pressure on — barrel value, delay and probe, semi-bluff your equity, call the big draw on implied odds, and fold when the scare card lands.',
+      'Keep the pressure on when the turn blanks — barrel value, delay and probe, semi-bluff your equity — but read the SCARE cards that reprice you: check down when an overcard hits their range, fold to a donk-lead that suddenly wakes up on that overcard, and lay down the big draw when the price and implied odds are gone.',
     scenarioIds: [
       'barrel-turn-overpair',
+      'shutdown-qq-ace-turn',
+      'fold-kk-donk-ace-turn',
       'delayed-cbet-turn',
       'probe-turn-after-checkback',
       'double-barrel-semibluff',
