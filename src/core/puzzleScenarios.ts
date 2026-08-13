@@ -2074,6 +2074,55 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  // ── Reading small bet sizing — the counterpoint to fold-weak-pair-river-overbet and fold-flush-
+  // draw-to-flop-overbet. The library taught that a BIG bet is polar (fold marginals), but never the
+  // mirror: a SMALL bet caps the bettor's range and lays a great price, so continue with hands that
+  // would fold to a normal bet. The teaching is the sizing tell itself, not the equity math. ──
+  {
+    id: 'call-tiny-cbet-ace-high',
+    title: 'Calling a tiny c-bet with ace-high on a dry board',
+    setup:
+      'The button opens to 2.5bb and you defend A♠4♠ in the big blind. The flop is K♣8♦3♥ — you missed — you check, and the button c-bets just one big blind into a big pot. You have ace-high, no draw yet. Fold or call?',
+    seatCount: 3,
+    // bb-defend layout (button seat 1): hero seat 0 = BB, seat 1 = opener + c-bettor, seat 2 = SB
+    // (folds). Preflop: seat 1 opens, seat 2 folds, seat 0 calls (step 1). Flop: seat 0 checks first
+    // OOP (step 2), seat 1 makes a tiny c-bet, seat 0 calls (step 3). The sizing IS the lesson.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB, A4s). Seat 1 = button (opens, then range-bets small on the dry board). Seat 2 = SB (folds).
+    holes: [
+      ['As', '4s'],
+      ['Kd', 'Qh'], // button: opened KQ, flopped top pair, RANGE-BETS small on this dry board (KQ is fine value bet-small)
+      ['Jc', '9d'], // SB: folds
+    ],
+    board: ['Kc', '8d', '3h', '6s', '2c'],
+    // Ask order: seat 1 (opens) → seat 2 (folds) → seat 0 (calls). Flop: seat 0 (checks) → seat 1
+    // (c-bets 50 — the minimum, ~18% of the ~275 pot) → seat 0 (calls at a great price).
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+      { kind: 'bet', to: 50 }, // tiny c-bet: minimum bet (1bb), ~18% of pot — a range-bet size on a dry board
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'A♠4♠ is a routine BB defend getting a great price closing the action: a suited ace with a wheel-straight draw and blocker equity, an easy call against a wide button open.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'Check to the raiser out of position. Let their range c-bet first — donk-leading reveals nothing about the defending range and gives up the check-raise option.',
+      },
+      {
+        action: 'call',
+        explanation:
+          'Call. This is the mirror of the overbet-fold lesson: a TINY c-bet is not a scary bet — it is a CHEAP bet, and small sizing tells you something specific. A range-bet size on a dry board CAPS the bettor at "a wide continuation range" — value hands would size up for protection on connected boards, and the size that fits is a value/thin/bluff mix betting small to fold out air cheaply. The price (~18%) is a fraction of your ace-high equity against that whole range (top-pair-weak-kicker aside, you have live overcards plus wheel-draw backdoor equity), and hitting an ace pairs to a strong bluff-catcher on this board. The general skill is READING the size: overbet = polar = tighten up; small bet = wide = defend wider. Beginners over-fold to every bet regardless of size — the fix is trusting the sizing tell.',
+      },
+    ],
+  },
   // ── Scare-card shutdown — the counterpoint to barrel-turn-overpair. The library teaches firing a
   // BLANK turn with a strong hand; these teach checking or folding the SAME strong-looking hand when
   // the turn hits the caller's range harder than yours. Missing this half leaves the learner over-
