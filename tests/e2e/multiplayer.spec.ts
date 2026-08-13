@@ -113,6 +113,64 @@ test('enabling then hosting shows a port, and a real client that joins is dealt 
   }
 });
 
+test('hosting surfaces the LAN address a guest types, not just a bare port', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  try {
+    await openMultiplayer(page);
+    await page.locator('[data-testid="mp-enable"]').click();
+    await page.locator('[data-testid="mp-host"]').click();
+
+    const portEl = page.locator('[data-testid="mp-host-port"]');
+    await expect(portEl).toBeVisible();
+    const port = Number(await portEl.getAttribute('data-port'));
+    expect(port).toBeGreaterThan(0);
+
+    // The share block carries the machine's advertised LAN addresses (data-addresses). A guest on
+    // another machine needs host:port, not a bare port — a loopback-only host could never advertise one.
+    // On a network-less runner the list is legitimately empty (then the copy is the port-only fallback);
+    // assert the address→port pairing only when there IS an address to advertise.
+    const addressesAttr = (await portEl.getAttribute('data-addresses')) ?? '';
+    const addresses = addressesAttr.split(',').filter((a) => a.length > 0);
+    const text = (await portEl.textContent()) ?? '';
+    if (addresses.length > 0) {
+      // The advertised string a guest copies is address:port, and the primary address appears in the copy.
+      expect(text).toContain(`${addresses[0]}:${port}`);
+    } else {
+      // No LAN address: the fallback still names the port and tells the host to share an address.
+      expect(text).toContain(String(port));
+    }
+  } finally {
+    await close();
+  }
+});
+
+test('the join box rejects a bad address with a specific notice, without opening a socket', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(`${e.name}: ${e.message}`));
+  try {
+    await openMultiplayer(page);
+    await page.locator('[data-testid="mp-enable"]').click();
+
+    // A host with no port (neither field supplies one) is refused with a reason, and the screen stays on
+    // the setup panel — the parser ran in the renderer before any join was attempted.
+    await page.locator('[data-testid="mp-join-host"]').fill('192.168.1.5');
+    await page.locator('[data-testid="mp-join-port"]').fill('');
+    await page.locator('[data-testid="mp-join"]').click();
+    await expect(page.locator('[data-testid="mp-notice"]')).toContainText('port');
+    await expect(page.locator('[data-testid="mp-setup"]')).toBeVisible();
+
+    // A pasted host:port with a non-numeric port is likewise refused with a number-specific message.
+    await page.locator('[data-testid="mp-join-host"]').fill('192.168.1.5:notaport');
+    await page.locator('[data-testid="mp-join"]').click();
+    await expect(page.locator('[data-testid="mp-notice"]')).toBeVisible();
+
+    expect(errors, 'the multiplayer screen threw').toEqual([]);
+  } finally {
+    await close();
+  }
+});
+
 test('the host can choose a larger table, and the chosen seat count reaches the room', async () => {
   const { page, close } = await launchApp({ seed: 11 });
   let client: net.Socket | null = null;
