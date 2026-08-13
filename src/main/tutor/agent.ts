@@ -229,6 +229,18 @@ const PRINCIPLES: Readonly<Record<string, PrincipleEntry>> = {
     text: 'The button marks the dealer seat and moves one seat clockwise after each hand. It is the last seat to act on every postflop street, which is why the button is the best seat at the table.',
     mechanics: true,
   },
+  '3-bet': {
+    text: 'A 3-bet is the third bet on a street: the big blind was the first, the opener\'s raise was the second, and re-raising the opener puts in the third. A 4-bet re-raises a 3-bet, and so on.',
+    mechanics: true,
+  },
+  'cold-call': {
+    text: 'A cold-call is calling a raise from a player who has not yet put chips in this hand — cold because it means entering the pot for the raised amount, not adding to a bet already made.',
+    mechanics: true,
+  },
+  'check-raise': {
+    text: 'A check-raise is checking first when the action reaches a seat, then raising a later bet on the same street after another player has bet into the same seat.',
+    mechanics: true,
+  },
   // Strategy — reachable only post-reveal, keyed by ErrorTag.
   RANGE: {
     text: 'A range is the whole set of hands a line represents. Compare the range that continues against the range that takes the line, not one hand against another.',
