@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEPTHS,
+  FORM_WINDOW,
   MIN_CONTESTED,
+  MIN_FORM_SAMPLE,
+  currentForm,
   depthLabel,
   masteryGate,
   playGate,
@@ -181,6 +184,39 @@ describe('puzzleCoverage counts only clean full solves', () => {
 
   it('ignores a zero-step entry (a scenario with no target is not coverage)', () => {
     expect(puzzleCoverage({ z: { bestCorrect: 0 } }, { z: 0 })).toBe(0);
+  });
+});
+
+describe('currentForm reads the recent window without touching the floor', () => {
+  it('is settling below the minimum sample (honest "not enough to say")', () => {
+    const form = currentForm(block(MIN_FORM_SAMPLE - 1, 0), NOW);
+    expect(form.state).toBe('settling');
+    expect(Number.isNaN(form.meanEvLossBb)).toBe(true);
+    expect(form.sample).toBe(MIN_FORM_SAMPLE - 1);
+  });
+
+  it('reads sharp for a clean recent window and rusty for a leaky one', () => {
+    expect(currentForm(block(MIN_FORM_SAMPLE, 0.2), NOW).state).toBe('sharp');
+    expect(currentForm(block(MIN_FORM_SAMPLE, 3.5), NOW).state).toBe('rusty');
+    expect(currentForm(block(MIN_FORM_SAMPLE, 1.8), NOW).state).toBe('warming up');
+  });
+
+  it('excludes the same value-or-bluff and free-fold decisions as playScore', () => {
+    const junk = [
+      ...block(MIN_FORM_SAMPLE, 5, { principle: 'value or bluff' }),
+      ...block(MIN_FORM_SAMPLE, 4, { principle: null, toCall: 0 }),
+    ];
+    expect(currentForm(junk, NOW).state).toBe('settling');
+  });
+
+  it('reads only the most recent FORM_WINDOW decisions, so old play cannot mask a fresh slump', () => {
+    // A long clean history, then a recent run of bad decisions. Form must reflect the recent slump,
+    // even though the lifetime mean is near zero — this is the whole point of a separate live reading.
+    const oldClean = block(200, 0, { at: NOW - 40 * DAY });
+    const recentBad = block(FORM_WINDOW, 4, { at: NOW });
+    const form = currentForm([...oldClean, ...recentBad], NOW);
+    expect(form.sample).toBe(FORM_WINDOW);
+    expect(form.state).toBe('rusty');
   });
 });
 

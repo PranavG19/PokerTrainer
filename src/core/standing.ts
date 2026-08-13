@@ -209,6 +209,57 @@ export function standing(
 }
 
 /**
+ * CURRENT FORM (clause c of the Depth design) — a coarse, three-state reading of how the learner is playing
+ * RIGHT NOW, deliberately separate from the ratcheted depth. Depth never drops; a bad night shows up HERE
+ * instead. This is a mood, not a gate: it routes into the recommender ("warm up first") and never touches
+ * the floor. It reads the same honest evLossBb over the same eligible+contested filter as playScore, but
+ * only over the most recent decisions, and uses a PLAIN mean — no CI band — because a short window's band
+ * is so wide it would read 'rusty' forever, defeating the point of a live signal.
+ *
+ * PROVISIONAL CONSTANTS (audit with the ceilings): the window size, the minimum sample to say anything, and
+ * the two mean-EV thresholds.
+ */
+export const FORM_WINDOW = 15;
+export const MIN_FORM_SAMPLE = 6;
+const FORM_SHARP_CEILING = 1.0;
+const FORM_WARMING_CEILING = 2.5;
+
+export type FormState = 'settling' | 'sharp' | 'warming up' | 'rusty';
+
+export interface CurrentForm {
+  /** 'settling' when too few recent eligible decisions to read; otherwise the mood. */
+  readonly state: FormState;
+  /** Plain mean EV-loss (bb) over the recent eligible, contested window. NaN when settling. */
+  readonly meanEvLossBb: number;
+  /** How many recent eligible, contested decisions the reading is based on. */
+  readonly sample: number;
+}
+
+/**
+ * Read current form over the most recent FORM_WINDOW eligible, contested decisions. `decisions` may be in
+ * any order; recency is taken by `at`, so a caller need not pre-sort. Below MIN_FORM_SAMPLE it is 'settling'
+ * (honest "not enough to say" — never a fabricated verdict). No decay weighting: the window is already short
+ * and every decision in it is recent, so an extra half-life curve would just add noise to a mood reading.
+ */
+export function currentForm(decisions: readonly StandingDecision[], now: number): CurrentForm {
+  void now; // recency comes from ordering by `at`, not a decay curve — kept for signature parity with playScore.
+  const recent = decisions
+    .filter(counts)
+    .slice()
+    .sort((a, b) => b.at - a.at)
+    .slice(0, FORM_WINDOW);
+
+  if (recent.length < MIN_FORM_SAMPLE) {
+    return { state: 'settling', meanEvLossBb: NaN, sample: recent.length };
+  }
+
+  const mean = recent.reduce((s, d) => s + d.evLossBb, 0) / recent.length;
+  const state: FormState =
+    mean < FORM_SHARP_CEILING ? 'sharp' : mean < FORM_WARMING_CEILING ? 'warming up' : 'rusty';
+  return { state, meanEvLossBb: mean, sample: recent.length };
+}
+
+/**
  * Puzzle coverage = how many scenarios the learner has SOLVED CLEAN (best solve got every decision right,
  * i.e. bestCorrect === the scenario's step count). Pure so main.ts stays a thin assembler and this counting
  * rule is unit-tested rather than hand-inlined at the composition root. A scenario absent from progress, or
