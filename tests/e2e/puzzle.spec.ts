@@ -291,6 +291,11 @@ test.describe('puzzle mode', () => {
       'multiway-no-cbet-bluff-air': ['raise', 'check'],
       'multiway-tighten-value-bet': ['call', 'bet'],
       'multiway-set-mine-price': ['call'],
+      // Blind-vs-blind module — heads-up ranges explode (steal wide, defend wider, 3-bet value, range c-bet).
+      'bvb-sb-open-wide': ['raise'],
+      'bvb-bb-defend-wide': ['call'],
+      'bvb-bb-3bet-value': ['raise'],
+      'bvb-sb-cbet-dry': ['raise', 'bet'],
     };
 
     await withApp(async (page) => {
@@ -557,12 +562,13 @@ test.describe('puzzle mode', () => {
 
       // Nine modules, in the taught order, each header carrying a per-module "done/total" count.
       const groups = select.locator('optgroup');
-      await expect(groups).toHaveCount(9);
+      await expect(groups).toHaveCount(10);
       const labels = await groups.evaluateAll((els) => els.map((el) => (el as HTMLOptGroupElement).label));
       expect(labels[0], 'the first module is preflop fundamentals').toContain('Preflop Fundamentals');
       expect(labels[6], 'the seventh module is the river').toContain('The River');
       expect(labels[7], 'the eighth module is multiway pots').toContain('Multiway Pots');
-      expect(labels[8], 'the last module is stack depth').toContain('Stack Depth');
+      expect(labels[8], 'the ninth module is blind vs blind').toContain('Blind vs Blind');
+      expect(labels[9], 'the last module is stack depth').toContain('Stack Depth');
       for (const label of labels) {
         // Every header states progress as N/M, and a fresh profile has nothing mastered.
         expect(label, `module header "${label}" carries no done/total count`).toMatch(/— 0\/\d+$/);
@@ -605,7 +611,7 @@ test.describe('puzzle mode', () => {
       // The first scenario (btn-open-aks) is in module 1, preflop fundamentals.
       await expect(moduleLine).toBeVisible();
       await expect(moduleLine).toHaveAttribute('data-module-key', 'preflop-fundamentals');
-      await expect(moduleLine).toContainText('Module 1 of 9');
+      await expect(moduleLine).toContainText('Module 1 of 10');
       await expect(moduleLine).toContainText('Preflop Fundamentals');
 
       // Jump to a river scenario: the module line follows to module 7. The jump lands on that scenario's
@@ -615,7 +621,7 @@ test.describe('puzzle mode', () => {
       await expect(page.locator(screen)).toHaveAttribute('data-scenario', 'fold-busted-draw-river');
       await passClassify(page);
       await expect(moduleLine).toHaveAttribute('data-module-key', 'the-river');
-      await expect(moduleLine).toContainText('Module 7 of 9');
+      await expect(moduleLine).toContainText('Module 7 of 10');
     });
   });
 
