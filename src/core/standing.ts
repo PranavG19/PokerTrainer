@@ -207,3 +207,21 @@ export function standing(
   const depth = (Math.max(current, floor) as Depth);
   return { depth, floor, current };
 }
+
+/**
+ * Puzzle coverage = how many scenarios the learner has SOLVED CLEAN (best solve got every decision right,
+ * i.e. bestCorrect === the scenario's step count). Pure so main.ts stays a thin assembler and this counting
+ * rule is unit-tested rather than hand-inlined at the composition root. A scenario absent from progress, or
+ * whose best solve missed a step, does not count. `stepCounts` maps scenarioId → number of target steps
+ * (the caller reads it from SCENARIOS.target.length), so this module needs no puzzle import.
+ */
+export function puzzleCoverage(
+  progress: Readonly<Record<string, { readonly bestCorrect: number }>>,
+  stepCounts: Readonly<Record<string, number>>,
+): number {
+  let solved = 0;
+  for (const [id, steps] of Object.entries(stepCounts)) {
+    if (steps > 0 && progress[id]?.bestCorrect === steps) solved += 1;
+  }
+  return solved;
+}
