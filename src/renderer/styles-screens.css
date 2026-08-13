@@ -74,6 +74,10 @@
   border: none;
   border-radius: 16px;
   background: var(--surface);
+  /* Lift the actionable launch cards off the black so they read as pressable, distinct from the flat
+   * informational slabs (.empty-state/.recommendation) beside them — figure/ground by elevation, the
+   * sanctioned depth channel, no hue. Static shadow, so layout rects and Home's 640px budget are unmoved. */
+  box-shadow: var(--elev-1);
   color: var(--text-hi);
   font: inherit;
   text-align: left;
@@ -410,8 +414,9 @@ button.hand-row {
   font-weight: 500;
   color: var(--mint);
   font-variant-numeric: tabular-nums;
+  /* The total is already set apart three ways (only mint line, only 500-weight, first with a gap below),
+   * so the drawn divider was a fourth redundant signal. Keep the padding for breathing room, drop the rule. */
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--surface-hi);
 }
 
 .gift-row {
@@ -551,9 +556,10 @@ button.hand-row {
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  /* 24px of combined whitespace (margin+padding) already separates this continuation; the drawn rule on
+   * top of that air was a divider where a gap does the work (same call as the dropped tag-row fills). */
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--surface-hi);
 }
 
 .recommendation-ask-prompt {
