@@ -2119,7 +2119,7 @@ export const SCENARIOS: readonly Scenario[] = [
       {
         action: 'call',
         explanation:
-          'Call. This is the mirror of the overbet-fold lesson: a TINY c-bet is not a scary bet — it is a CHEAP bet, and small sizing tells you something specific. A range-bet size on a dry board CAPS the bettor at "a wide continuation range" — value hands would size up for protection on connected boards, and the size that fits is a value/thin/bluff mix betting small to fold out air cheaply. The price (~18%) is a fraction of your ace-high equity against that whole range (top-pair-weak-kicker aside, you have live overcards plus wheel-draw backdoor equity), and hitting an ace pairs to a strong bluff-catcher on this board. The general skill is READING the size: overbet = polar = tighten up; small bet = wide = defend wider. Beginners over-fold to every bet regardless of size — the fix is trusting the sizing tell.',
+          'Call. This is the mirror of the overbet-fold lesson: a TINY c-bet is not a scary bet — it is a CHEAP bet, and small sizing tells you something specific. A range-bet size on a dry board CAPS the bettor at "a wide continuation range" — value hands would size up for protection on connected boards, and the size that fits is a value/thin/bluff mix betting small to fold out air cheaply. The price (~18%) is a fraction of your ace-high equity against that whole range (top-pair-weak-kicker aside, you hold a live overcard plus wheel-draw backdoor equity), and hitting an ace pairs to a strong bluff-catcher on this board. The general skill is READING the size: overbet = polar = tighten up; small bet = wide = defend wider. Beginners over-fold to every bet regardless of size — the fix is trusting the sizing tell.',
       },
     ],
   },
