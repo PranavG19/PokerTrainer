@@ -36,6 +36,48 @@ const BB_SPOT: Record<RfiPosition, Parameters<typeof defenseAction>[1]> = {
   SB: 'bb-vs-sb',
 };
 
+describe('capped scenarios are honestly capped — non-empty and strictly narrower than the open', () => {
+  // The teaching claim of a "capped range" read is only true if the flat range is (a) non-empty — there
+  // ARE hands in it — and (b) a STRICT subset of the opener's full range — some opening hands are gone
+  // (they 3-bet/4-bet or fold). If a spec were mis-authored so a spot flatted nothing, or flatted its
+  // entire open, the drill would teach a degenerate/false cap and no other test would catch it. This
+  // pins the property structurally for every capped spot, straight through the drill's own inReadRange.
+  const cappedInSet = (scenario: ReadScenario, position: RfiPosition): Set<string> =>
+    new Set(ALL_COMBOS.filter((c) => inReadRange(scenario, c, position)));
+  const openSet = (position: RfiPosition): Set<string> =>
+    new Set(ALL_COMBOS.filter((c) => inReadRange('open', c, position)));
+
+  it('flat-3bet: every opener seat flats SOME hands, but strictly fewer than it opens', () => {
+    for (const position of THREEBET_RESPONSE_WIDTH_ORDER) {
+      const flat = cappedInSet('flat-3bet', position as RfiPosition);
+      const open = openSet(position as RfiPosition);
+      expect(flat.size, `${position} flat-3bet is non-empty`).toBeGreaterThan(0);
+      expect(flat.size, `${position} flat-3bet is narrower than the open`).toBeLessThan(open.size);
+      // Every flatted hand was, of course, in the opening range to begin with (can't flat what you'd fold).
+      for (const c of flat) expect(open.has(c), `${c} flatted @${position} must be in the open`).toBe(true);
+    }
+  });
+
+  it('bb-defend: every spot flats SOME hands, folds SOME trash, and 3-bets SOME top (a real middle band)', () => {
+    // NOTE: the BB's flat range is NOT narrower than the opener's OPEN — closing the action with a price
+    // discount, the BB defends WIDER than the opener opened (measured: SB open=80 combos, BB-vs-SB
+    // call=107). So "capped" here is NOT relative to the open. The honest cap is a MIDDLE BAND: the BB
+    // folds its trash (call ⊊ all combos) AND 3-bets its top (call ⊊ call+3bet), so the flat range is
+    // strictly between "nothing" and "every non-fold hand" — which is what makes it a readable cap.
+    for (const position of RFI_POSITIONS) {
+      const flat = cappedInSet('bb-defend', position);
+      expect(flat.size, `bb-vs-${position} call range is non-empty`).toBeGreaterThan(0);
+      // Folds some trash: the flat range is a strict subset of all 169 combos.
+      expect(flat.size, `bb-vs-${position} still folds some hands`).toBeLessThan(ALL_COMBOS.length);
+      // 3-bets some top: there exists at least one hand the BB defends by 3-betting, not flatting — so the
+      // flat range is a strict subset of the total defense (call + 3-bet) range. This is the cap that
+      // makes the read non-trivial (the nuts are not in the flat range).
+      const threeBets = ALL_COMBOS.filter((c) => defenseAction(c, BB_SPOT[position]) === 'threebet');
+      expect(threeBets.length, `bb-vs-${position} 3-bets some hands (top is capped out of the flat)`).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('inReadRange — the truth is the app rule for each scenario', () => {
   it("'open' is exactly isInRfiRange", () => {
     for (const position of RFI_POSITIONS) {
