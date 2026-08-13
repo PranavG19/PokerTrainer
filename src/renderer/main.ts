@@ -39,7 +39,7 @@ import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderProgressScreen } from './screens/progress.js';
 import { decisionRecordsFromHands, type KcEvidence } from '../core/progress.js';
-import { standing, currentForm, puzzleCoverage, depthLabel, type Depth, type FormState } from '../core/standing.js';
+import { standing, currentForm, puzzleCoverage, depthLabel, depthToStack, type Depth, type FormState } from '../core/standing.js';
 import { SCENARIOS } from '../core/puzzleScenarios.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
@@ -55,7 +55,7 @@ import { renderSpacing } from './screens/spacing.js';
 import { renderTrainScreen, type TrainMode as TrainModeSpec } from './screens/train.js';
 import { conceptStatesFromLog, dueNow, gate, posterior, type ConceptState } from '../core/schedule.js';
 import { remediationQueue } from '../core/contrastManifest.js';
-import { renderTable, type TableHandle } from './screens/table.js';
+import { renderTable, BB, type TableHandle } from './screens/table.js';
 import { renderMultiplayerScreen } from './screens/multiplayer.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
 import type { AssessmentGrade } from '../core/assessmentBlock.js';
@@ -518,10 +518,16 @@ async function boot(): Promise<void> {
 
   function startTable(): void {
     teardownTable();
+    // The table's depth tracks the learner's earned STANDING: a 200bb table is a genuinely different
+    // game than a 40bb one (the climb payoff). Calibrating (depth 0) → null → the classic 100bb table.
+    // The villains' commitTax (ai.ts) makes them play a deep stack honestly, so this is a real reward,
+    // not just a bigger number. undefined leaves renderTable on its default, so nothing changes at depth 0.
+    const depthStack = depthToStack(currentStanding(Date.now()).depth, BB);
     table = renderTable({
       seed,
       bankroll: session.bankroll,
       handNumber: session.stats.handsPlayed + 1,
+      startStack: depthStack ?? undefined,
       coachedMode: session.coachedMode,
       onHandComplete: (r) => void onHandComplete(r),
       onRebuy: () => void onRebuy(),

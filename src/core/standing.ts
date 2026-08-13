@@ -41,6 +41,17 @@ export function depthLabel(depth: Depth): string {
 }
 
 /**
+ * The starting stack in CHIPS for a given depth, at the table's big blind. Depth 0 (Calibrating) has no
+ * earned depth yet, so it plays the classic 100bb table — the caller passes null to mean "use the table
+ * default" rather than forcing a number here. A 40bb table is 40×bb chips, a 200bb table 200×bb, which
+ * is the whole point of the climb: a deeper table is a genuinely different game (the AI's commitTax now
+ * makes villains play it honestly). Pure and unit-tested so main.ts stays a thin assembler.
+ */
+export function depthToStack(depth: Depth, bb: number): number | null {
+  return depth === 0 ? null : depth * bb;
+}
+
+/**
  * The coach charges that are SOUND break-even math and safe to rank on. 'pot odds' (call/fold facing a bet)
  * and 'ranges' (raise over a bet) misjudge a real price. EXCLUDED: 'value or bluff' — the coach has NO
  * fold-equity model, so it charges correct semi-bluffs as leaks; ranking on it would train nitty play.
