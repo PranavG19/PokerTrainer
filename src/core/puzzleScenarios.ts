@@ -459,6 +459,40 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    id: 'check-option-junk-vs-limp',
+    title: 'Checking the big-blind option with J♠4♦ facing a limp',
+    setup:
+      'It folds to the button, who just limps, and the small blind folds. You are in the big blind with J♠4♦ and the option to raise for free or check. A jack looks like something — but is raising into a limper actually the play?',
+    seatCount: 3,
+    // Same seating as isolate-limper-aqs (button on seat 1): seat 0 = BB (hero), seat 1 = button
+    // (limper, first to act preflop), seat 2 = SB. The button limps, the SB folds, and the action
+    // reaches the hero, who CHECKS the option — the mirror of the isolate decision.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = button (limper). Seat 2 = SB (folds).
+    holes: [
+      ['Js', '4d'],
+      ['Th', '8c'], // button: a typical limp — a weak, playable hand that wanted a cheap flop
+      ['9h', '2d'], // SB: folds
+    ],
+    board: ['Kc', '7d', '3s', 'Qh', '5c'],
+    // Ask order: seat 1 (button limps), seat 2 (SB folds), seat 0 (hero checks the option). Checking
+    // as the BB closes the action with currentBet already matched, so the one decision ends here.
+    villainScript: [
+      { kind: 'call' }, // button limps in
+      { kind: 'fold' }, // SB folds
+    ],
+    target: [
+      {
+        action: 'check',
+        explanation:
+          'Check — take the free flop, do not raise. This is the mirror of isolating with A♠Q♠: there the hand dominated the limper’s range, so raising printed. J♠4♦ is the opposite — it is dominated junk. A raise here is a bluff with no plan: the limper limped precisely to see a cheap flop, so he calls with his whole range and folds nothing you actually beat, and you are left playing a bloated pot OUT OF POSITION with a weak jack and a dangling four. The big blind’s free option is the entire point of the seat; wasting it by raising trash forfeits the one edge you have. Check, see the flop for nothing, and play honestly from there. Isolate the limper with hands that dominate him — not with the junk you were dealt for free.',
+      },
+    ],
+  },
+  {
     id: 'squeeze-kk-vs-open-call',
     title: 'Squeezing K♥K♠ over an open and a call',
     setup:

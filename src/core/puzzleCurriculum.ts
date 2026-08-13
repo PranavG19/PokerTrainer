@@ -35,6 +35,7 @@ export const CURRICULUM: readonly CurriculumModule[] = [
       'btn-open-aks',
       'sb-raise-or-fold-ajo',
       'isolate-limper-aqs',
+      'check-option-junk-vs-limp',
       'fold-kq-to-utg',
       'fold-weak-ace-to-ep-open',
     ],
