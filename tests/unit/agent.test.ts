@@ -160,6 +160,31 @@ describe('property (a) — pre-commit, a scripted call to a solver tool reaches 
     expect(toolTexts[0]).toContain('Fold gives up the hand');
     expect(toolTexts[1]).toContain('not available'); // strategy key refused pre-commit
   });
+
+  it('the beginner mechanics keys (position, streets, blinds, button) are reachable pre-commit', async () => {
+    // A learner asking "what is position?" or "what is the button?" is asking a pure mechanics
+    // question — no grade, no equity, no ranked action. These keys carry number-free prose and MUST
+    // resolve pre-commit; a refusal here would leave the tutor mute on the most common beginner
+    // questions.
+    const keys = ['position', 'streets', 'blinds', 'button'] as const;
+    const expectedFragments: Record<(typeof keys)[number], string> = {
+      position: 'seats act after earlier',
+      streets: 'four betting rounds',
+      blinds: 'forced bets',
+      button: 'dealer seat',
+    };
+    for (const key of keys) {
+      const ctx = preCommit(`what is ${key}`);
+      const client = mockClient([
+        toolUse({ name: TOOL.lookupPrinciple, args: { key } }),
+        text('The rules card lists this. Open the rules card.'),
+      ]);
+      await runTutorAgent(ctx, { client });
+      const toolResult = ctx.transcript.filter((m) => m.role === 'tool')[0].text;
+      expect(toolResult, `${key} refused pre-commit`).not.toContain('not available');
+      expect(toolResult, `${key} content missing`).toContain(expectedFragments[key]);
+    }
+  });
 });
 
 describe('THE LOAD-BEARING PRIVACY PROOF — prove the oracle can fail', () => {
