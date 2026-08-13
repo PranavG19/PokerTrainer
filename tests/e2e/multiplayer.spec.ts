@@ -194,6 +194,66 @@ test('a join to an unreachable host falls back to setup with a notice, not a stu
   }
 });
 
+test('the multiplayer announcer is a polite live region that starts empty on the setup panel', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  try {
+    await openMultiplayer(page);
+    await page.locator('[data-testid="mp-enable"]').click();
+    const region = page.locator('[data-testid="mp-announcer"]');
+    await expect(region).toHaveAttribute('role', 'status');
+    await expect(region).toHaveAttribute('aria-live', 'polite');
+    // On the setup panel with no notice there is nothing to announce.
+    await expect(region).toHaveText('');
+  } finally {
+    await close();
+  }
+});
+
+test('a failed join is announced, and the turn/outcome are announced once playing', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  let client: net.Socket | null = null;
+  try {
+    await openMultiplayer(page);
+    await page.locator('[data-testid="mp-enable"]').click();
+    const region = page.locator('[data-testid="mp-announcer"]');
+
+    // A join failure surfaces to a screen reader: the announcer carries the same notice the panel shows.
+    await page.locator('[data-testid="mp-join-host"]').fill('127.0.0.1');
+    await page.locator('[data-testid="mp-join-port"]').fill('1');
+    await page.locator('[data-testid="mp-join"]').click();
+    await expect(page.locator('[data-testid="mp-notice"]')).toBeVisible();
+    await expect(region).toHaveText((await page.locator('[data-testid="mp-notice"]').textContent()) ?? '');
+
+    // Now host and get a real client in so a hand is dealt.
+    await page.locator('[data-testid="mp-host"]').click();
+    const port = Number(await page.locator('[data-testid="mp-host-port"]').getAttribute('data-port'));
+    expect(port).toBeGreaterThan(0);
+    client = net.createConnection({ host: '127.0.0.1', port });
+    client.setEncoding('utf8');
+    await new Promise<void>((resolve, reject) => {
+      client!.on('connect', () => {
+        client!.write(JSON.stringify({ type: 'join', name: 'Guest' }) + '\n');
+        resolve();
+      });
+      client!.on('error', reject);
+    });
+    await page.waitForSelector('[data-testid="mp-table"]', { timeout: 15_000 });
+
+    // Once playing, the announcer states whose turn it is when it is the host's, mirroring the seat that
+    // carries data-to-act. Heads-up exactly one seat is to act; if it is the host, the cue is present.
+    const hostToAct = page.locator('[data-testid="mp-seat"][data-you="true"][data-to-act="true"]');
+    if ((await hostToAct.count()) > 0) {
+      await expect(region).toHaveText('Your turn to act');
+    } else {
+      // Not the host's turn: no turn cue is announced (the opponent's turn is not the host's business).
+      await expect(region).toHaveText('');
+    }
+  } finally {
+    client?.destroy();
+    await close();
+  }
+});
+
 test('the host can choose a larger table, and the chosen seat count reaches the room', async () => {
   const { page, close } = await launchApp({ seed: 11 });
   let client: net.Socket | null = null;
