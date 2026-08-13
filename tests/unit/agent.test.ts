@@ -166,12 +166,15 @@ describe('property (a) — pre-commit, a scripted call to a solver tool reaches 
     // question — no grade, no equity, no ranked action. These keys carry number-free prose and MUST
     // resolve pre-commit; a refusal here would leave the tutor mute on the most common beginner
     // questions.
-    const keys = ['position', 'streets', 'blinds', 'button'] as const;
+    const keys = ['position', 'streets', 'blinds', 'button', '3-bet', 'cold-call', 'check-raise'] as const;
     const expectedFragments: Record<(typeof keys)[number], string> = {
       position: 'seats act after earlier',
       streets: 'four betting rounds',
       blinds: 'forced bets',
       button: 'dealer seat',
+      '3-bet': 'third bet on a street',
+      'cold-call': 'entering the pot for the raised amount',
+      'check-raise': 'raising a later bet on the same street',
     };
     for (const key of keys) {
       const ctx = preCommit(`what is ${key}`);
