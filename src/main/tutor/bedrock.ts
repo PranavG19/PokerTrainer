@@ -14,7 +14,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import type { ModelClient, PromptEnvelope } from './types.js';
+import type { AgentEnvelope, ModelClient, ModelTurn, PromptEnvelope } from './types.js';
 
 export interface BedrockConfig {
   readonly profile: string;
@@ -36,6 +36,78 @@ export function invokeBody(envelope: PromptEnvelope): string {
     system: envelope.system,
     messages: [{ role: 'user', content: [{ type: 'text', text: envelope.user }] }],
   });
+}
+
+/**
+ * Bedrock's InvokeModel body for a MULTI-TURN, TOOL-USING agent conversation. Distinct from
+ * invokeBody() because the wire shape is tools[] + messages[], not a single user turn.
+ *
+ * Anthropic's Bedrock schema mirrors the native Messages API: each tool declares name/description
+ * and an input_schema; each message carries a role + a content list. AgentMessage's 'tool' role
+ * is fed back to the model as an assistant-authored acknowledgement of the tool result — Bedrock's
+ * chat schema only knows 'user' and 'assistant', so tool results ride the assistant channel
+ * (agent.ts already stamps them into the transcript as tool role, and the model reads the prose
+ * content regardless of role label).
+ */
+export function converseBody(envelope: AgentEnvelope): string {
+  return JSON.stringify({
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: envelope.maxTokens,
+    system: envelope.system,
+    tools: envelope.tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      // The agent loop dispatches tool calls locally from the args object, so the schema is
+      // deliberately loose — every argument is accepted at the wire level and validated by the
+      // dispatcher (lookupPrinciple / recallTurn reject non-string / non-integer args as refusal
+      // stubs). Tightening this would duplicate the dispatcher's contract on the wire.
+      input_schema: { type: 'object', properties: {}, additionalProperties: true },
+    })),
+    messages: envelope.messages.map((m) => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: [{ type: 'text', text: m.text }],
+    })),
+  });
+}
+
+/**
+ * Parse an InvokeModel response into a ModelTurn. Tool calls take priority — an Anthropic response
+ * that includes any tool_use block is interpreted as the agent's tool_use turn (mixed text+tool
+ * blocks are treated as a tool_use turn, dropping any preamble text). A response with only text
+ * blocks is a text turn. An empty response throws — that is the same failure surface as
+ * completionFrom(), and the agent loop treats a throw as fallback:error.
+ */
+export function converseTurnFrom(responseBody: string): ModelTurn {
+  const parsed = JSON.parse(responseBody) as {
+    content?: Array<
+      | { type: 'text'; text?: string }
+      | { type: 'tool_use'; id?: string; name?: string; input?: Record<string, unknown> }
+      | { type: string }
+    >;
+  };
+  const blocks = parsed.content ?? [];
+  // Filter to well-formed tool_use blocks up front — a block with no name is undispatchable and
+  // is dropped rather than entering the tool_use branch with an empty calls array, which would
+  // wedge the agent loop.
+  const toolUses = blocks
+    .filter(
+      (b): b is { type: 'tool_use'; name?: string; input?: Record<string, unknown> } =>
+        b.type === 'tool_use',
+    )
+    .filter((t) => typeof t.name === 'string' && t.name.length > 0);
+  if (toolUses.length > 0) {
+    return {
+      kind: 'tool_use',
+      calls: toolUses.map((t) => ({ name: t.name as string, args: t.input ?? {} })),
+    };
+  }
+  const text = blocks
+    .filter((b): b is { type: 'text'; text?: string } => b.type === 'text')
+    .map((b) => (typeof b.text === 'string' ? b.text : ''))
+    .join('')
+    .trim();
+  if (text === '') throw new Error('bedrock returned no text or tool_use block');
+  return { kind: 'text', text };
 }
 
 /** Pull the assistant text out of an InvokeModel response body. */
@@ -69,41 +141,56 @@ function run(
   });
 }
 
+/**
+ * Shared shell-out for both complete() and converse(). Writes `body` to a temp file (avoiding the
+ * platform's argv length limit for long prompts), invokes `aws bedrock-runtime invoke-model`, and
+ * returns the parsed response body via `parse`. Cleans up the temp dir on every exit path.
+ */
+async function invokeModel<T>(
+  config: BedrockConfig,
+  body: string,
+  timeoutMs: number,
+  parse: (responseBody: string) => T,
+): Promise<T> {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-bedrock-'));
+  const bodyPath = path.join(dir, `${crypto.randomUUID()}.json`);
+  const outPath = path.join(dir, 'out.json');
+  try {
+    fs.writeFileSync(bodyPath, body, 'utf-8');
+    await run(
+      'aws',
+      [
+        'bedrock-runtime',
+        'invoke-model',
+        '--region',
+        config.region,
+        '--model-id',
+        config.modelId,
+        '--body',
+        `fileb://${bodyPath}`,
+        '--cli-binary-format',
+        'raw-in-base64-out',
+        outPath,
+      ],
+      { ...process.env, AWS_PROFILE: config.profile },
+      timeoutMs,
+    );
+    return parse(fs.readFileSync(outPath, 'utf-8'));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 export function bedrockClient(config: BedrockConfig): ModelClient {
   const timeoutMs = config.timeoutMs ?? 60_000;
 
   return {
     id: `bedrock:${config.modelId}`,
     async complete(envelope: PromptEnvelope): Promise<string> {
-      // The CLI reads the body from a file rather than argv so a long prompt
-      // cannot hit the platform's argument-length limit.
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-bedrock-'));
-      const bodyPath = path.join(dir, `${crypto.randomUUID()}.json`);
-      const outPath = path.join(dir, 'out.json');
-      try {
-        fs.writeFileSync(bodyPath, invokeBody(envelope), 'utf-8');
-        await run(
-          'aws',
-          [
-            'bedrock-runtime',
-            'invoke-model',
-            '--region',
-            config.region,
-            '--model-id',
-            config.modelId,
-            '--body',
-            `fileb://${bodyPath}`,
-            '--cli-binary-format',
-            'raw-in-base64-out',
-            outPath,
-          ],
-          { ...process.env, AWS_PROFILE: config.profile },
-          timeoutMs,
-        );
-        return completionFrom(fs.readFileSync(outPath, 'utf-8'));
-      } finally {
-        fs.rmSync(dir, { recursive: true, force: true });
-      }
+      return invokeModel(config, invokeBody(envelope), timeoutMs, completionFrom);
+    },
+    async converse(envelope: AgentEnvelope): Promise<ModelTurn> {
+      return invokeModel(config, converseBody(envelope), timeoutMs, converseTurnFrom);
     },
   };
 }

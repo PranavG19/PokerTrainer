@@ -26,9 +26,9 @@
  * table (nullTutor), which is guard-clean by construction. The loop ALWAYS
  * terminates with a guard-clean response.
  *
- * P1 is hermetic: driven by a scripted MockModelClient, ZERO network. The real
- * bedrock.ts converse() impl and the OFFSUIT_LIVE_E2E round-trip are a later
- * phase.
+ * P1 is hermetic: driven by a scripted MockModelClient, ZERO network. bedrock.ts
+ * implements converse() as of this commit; the OFFSUIT_LIVE_E2E round-trip
+ * exercises that impl against the real network in a later phase.
  */
 
 import { LESSONS } from '../../core/lessons/index.js';

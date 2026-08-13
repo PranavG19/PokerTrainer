@@ -101,8 +101,10 @@ export interface ModelClient {
   /**
    * Additive multi-turn seam for the tool-using tutor agent. Optional so the
    * single-shot path and its clients are untouched: the agent depends on a
-   * client that implements it, and the real bedrock.ts impl arrives in a later
-   * phase behind OFFSUIT_LIVE_E2E. Hermetically stubbed by MockModelClient.
+   * client that implements it, and can degrade to the fixed table when a
+   * particular client (e.g. a bare-metal ModelClient in a test) leaves it off.
+   * bedrock.ts implements it; the OFFSUIT_LIVE_E2E round-trip is what drives
+   * a real network exercise of that impl.
    */
   converse?(envelope: AgentEnvelope): Promise<ModelTurn>;
 }
