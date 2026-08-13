@@ -59,7 +59,10 @@
   gap: 10px;
   background: var(--surface);
   border-radius: 16px;
-  padding: 14px 16px;
+  /* Extra bottom padding so the rail's last explanatory line clears the scroll edge instead of sitting
+     flush against it (it read as sheared at the 760px window). The rail scrolls itself, so this only
+     affects where the final line rests, never the grid beside it. */
+  padding: 14px 16px 22px;
   max-height: var(--panel-budget);
   overflow-y: auto;
   overscroll-behavior: contain;
