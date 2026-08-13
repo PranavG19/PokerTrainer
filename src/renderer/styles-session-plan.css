@@ -29,6 +29,10 @@
 
 .home-screen:has(> .session-planner) .home-bankroll .bankroll {
   font-size: 44px;
+  /* This override drops the numeral to 44px but inherited the -2px tracking tuned for the 64px display
+   * size (-0.045em here vs -0.031em there — ~45% tighter, cramping '10000'). Restore the optical ratio.
+   * Horizontal-only, so the line box is unchanged and Home stays 640px (session-plan.spec test 17). */
+  letter-spacing: -1.25px;
 }
 
 .session-planner {
