@@ -46,6 +46,7 @@ import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
 import { renderDrillScreen } from './screens/drill.js';
+import { renderHandReadingDrill } from './screens/handReadingDrill.js';
 import { renderAnomalyScreen } from './screens/anomaly.js';
 import { renderDossier } from './screens/dossier.js';
 import { renderRobustnessScreen } from './screens/robustness.js';
@@ -139,7 +140,7 @@ type Tab =
  * surfaces (day-one usable) from the maintenance ones (history-driven, empty on a fresh profile). See
  * memory offsuit-train-hub-ia for the rename/order/default rationale.
  */
-type TrainMode = 'puzzle' | 'drill' | 'anomaly' | 'robustness' | 'repair' | 'spacing';
+type TrainMode = 'puzzle' | 'drill' | 'reading' | 'anomaly' | 'robustness' | 'repair' | 'spacing';
 const TRAIN_MODES: readonly {
   mode: TrainMode;
   label: string;
@@ -148,6 +149,7 @@ const TRAIN_MODES: readonly {
 }[] = [
   { mode: 'puzzle', label: 'Spots', testid: 'tab-puzzle', band: 'practice' },
   { mode: 'drill', label: 'Math', testid: 'tab-drill', band: 'practice' },
+  { mode: 'reading', label: 'Reading', testid: 'tab-reading', band: 'practice' },
   { mode: 'anomaly', label: 'Speed', testid: 'tab-anomaly', band: 'practice' },
   { mode: 'robustness', label: 'Stress', testid: 'tab-robustness', band: 'practice' },
   { mode: 'repair', label: 'Leaks', testid: 'tab-repair', band: 'maintenance' },
@@ -679,6 +681,7 @@ async function boot(): Promise<void> {
         onResponse: (scored) => void onAnomalyResponse(scored),
       });
     }
+    if (mode === 'reading') return renderHandReadingDrill();
     if (mode === 'robustness') return renderRobustnessScreen();
     // 'spacing' (Upkeep): real graded history grouped into per-concept states (see deriveConcepts). On a
     // fresh profile the log is empty and the screen says so.
