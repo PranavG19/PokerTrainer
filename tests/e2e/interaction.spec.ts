@@ -138,6 +138,25 @@ test.describe('controls at the hero decision point', () => {
     }
   });
 
+  test('the raise controls carry accessible names (slider, fraction presets, dealer button)', async () => {
+    // A range input announces only "slider"; it is named and mirrors its value in aria-valuetext.
+    const slider = page().locator(raiseSlider);
+    await expect(slider).toHaveAttribute('aria-label', 'Raise amount');
+    await page().locator('[data-testid="preset-half"]').click();
+    // aria-valuetext tracks the visible amount so a screen reader reads the chip count.
+    expect(await slider.getAttribute('aria-valuetext')).toBe(await slider.inputValue());
+
+    // The ½/¾ glyph buttons would otherwise be named by a meaningless fraction.
+    await expect(page().locator('[data-testid="preset-half"]')).toHaveAttribute('aria-label', 'Bet half pot');
+    await expect(page().locator('[data-testid="preset-threequarter"]')).toHaveAttribute(
+      'aria-label',
+      'Bet three-quarter pot',
+    );
+
+    // The dealer marker is a bare 'D' glyph; it is named so it is not read as a stray letter.
+    await expect(page().locator('[data-testid="dealer-button"]').first()).toHaveAttribute('aria-label', 'Dealer');
+  });
+
   test('the pot is the dominant number and the Raise pill is the lifted CTA (UI)', async () => {
     // Hierarchy: the pot governs every price, so it renders in full ink and medium weight — brighter
     // and heavier than a seat stack, which is the inverted state this fixes. No colour, no size change.

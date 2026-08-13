@@ -338,6 +338,8 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
     box.dataset.testid = 'lexicon-input';
     box.rows = 2;
     box.placeholder = 'e.g. the worse kicker is dominated when it pairs, so it makes second best…';
+    // The "Name the concept…" prompt above is not associated; name the textarea itself.
+    box.setAttribute('aria-label', 'Name the concept in your own words');
     section.appendChild(box);
 
     const submit = document.createElement('button');

@@ -340,6 +340,8 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     const select = document.createElement('select');
     select.className = 'puzzle-picker';
     select.dataset.testid = 'puzzle-picker';
+    // The visible "Puzzle N of M" label is a sibling div, not associated; name the combobox itself.
+    select.setAttribute('aria-label', 'Jump to puzzle');
     // Group the options by curriculum module (an <optgroup> per module) so the dropdown reads as a
     // teaching progression — preflop → flop → turn → river — rather than 44 undifferentiated spots.
     // The option VALUE stays the scenario's index in SCENARIOS, so jump-by-index and "Next puzzle"

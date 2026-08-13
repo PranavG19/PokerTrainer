@@ -780,6 +780,10 @@ export function renderTable(opts: {
     slider.max = String(max);
     slider.value = String(min);
     slider.disabled = !heroTurn || !canRaise || max <= min;
+    // A range input announces only "slider" and a bare number without a name; label it, and mirror the
+    // visible amount into aria-valuetext so a screen reader reads the chip count as it moves.
+    slider.setAttribute('aria-label', 'Raise amount');
+    slider.setAttribute('aria-valuetext', String(min));
     controls.appendChild(slider);
 
     const amountLabel = document.createElement('span');
@@ -788,6 +792,7 @@ export function renderTable(opts: {
     amountLabel.textContent = String(min);
     slider.addEventListener('input', () => {
       amountLabel.textContent = slider.value;
+      slider.setAttribute('aria-valuetext', slider.value);
     });
     controls.appendChild(amountLabel);
 
@@ -795,16 +800,20 @@ export function renderTable(opts: {
       const target = fraction === Infinity ? max : clamp(Math.round(state.pot * fraction), min, max);
       slider.value = String(target);
       amountLabel.textContent = slider.value;
+      slider.setAttribute('aria-valuetext', slider.value);
     };
 
-    const presets: [string, string, number][] = [
-      ['½', 'preset-half', 0.5],
-      ['¾', 'preset-threequarter', 0.75],
-      ['Pot', 'preset-pot', 1],
-      ['All-in', 'preset-allin', Infinity],
+    // The ½/¾ glyphs are their own accessible name, which reads as a meaningless fraction; spell each
+    // preset out. Pot/All-in already read fine but are labelled too for a consistent "Bet …" phrasing.
+    const presets: [string, string, number, string][] = [
+      ['½', 'preset-half', 0.5, 'Bet half pot'],
+      ['¾', 'preset-threequarter', 0.75, 'Bet three-quarter pot'],
+      ['Pot', 'preset-pot', 1, 'Bet pot'],
+      ['All-in', 'preset-allin', Infinity, 'Bet all-in'],
     ];
-    for (const [label, testid, fraction] of presets) {
+    for (const [label, testid, fraction, ariaLabel] of presets) {
       const b = pill(label, testid, () => setPreset(fraction));
+      b.setAttribute('aria-label', ariaLabel);
       b.disabled = !heroTurn || !canRaise;
       controls.appendChild(b);
     }
@@ -960,6 +969,8 @@ function renderSeat(
     btn.className = 'dealer-button';
     btn.dataset.testid = 'dealer-button';
     btn.textContent = 'D';
+    // The bare 'D' glyph reads as a meaningless letter; name it so the marker is announced.
+    btn.setAttribute('aria-label', 'Dealer');
     el.appendChild(btn);
   }
 
