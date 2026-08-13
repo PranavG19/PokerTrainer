@@ -7,6 +7,7 @@ import {
   maxRaiseTo,
   applyAction,
   isHandOver,
+  settle,
   type Action,
   type TableState,
 } from '../../src/core/table.js';
@@ -432,6 +433,59 @@ describe('a disciplined villain controls the pot when deep', () => {
     const shallow = foldRate('station', 100 * bb);
     const deep = foldRate('station', 250 * bb);
     expect(deep).toBe(shallow);
+  });
+});
+
+// ── Deep-stack integrity (the Depth climb payoff touches money) ──────────────
+
+/** Sum of every seat's stack plus the pot — the total chips in play, invariant within a hand. */
+function totalChips(state: TableState): number {
+  return state.seats.reduce((sum, s) => sum + s.stack, 0) + state.pot;
+}
+
+/**
+ * Play a full AI-driven hand asserting BOTH legality and chip CONSERVATION at every step, then settle
+ * and assert the distributed total equals the starting total. The Depth payoff deals tables as deep as
+ * 200bb (10000 chips at bb=50) where the new commitTax is active, so this drives that exact config to
+ * showdown — a money-touching change gets a money-conservation guard, not just an initial-deal check.
+ */
+function playDeepHandConserving(state: TableState, decisionSeed: number): void {
+  const start = totalChips(state);
+  const rng = mulberry32(decisionSeed);
+  let s = state;
+  let guard = 0;
+  while (!isHandOver(s) && guard < 200) {
+    if (legalActions(s).length === 0) break;
+    const action = decideAction(s, s.toAct, rng);
+    assertLegal(s, action);
+    s = applyAction(s, action);
+    expect(totalChips(s), `chips changed mid-hand at step ${guard}`).toBe(start);
+    guard++;
+  }
+  expect(guard).toBeLessThan(200);
+  const settled = settle(s);
+  // After settle the pot is distributed back to stacks; not one chip is created or destroyed.
+  expect(settled.seats.reduce((sum, seat) => sum + seat.stack, 0)).toBe(start);
+}
+
+describe('deep tables (the climb payoff) stay legal and conserve chips', () => {
+  // makeTable uses bb=10, so a 4000-chip stack is 400bb — well past commitTax's 100bb pivot and into its
+  // saturated cap, which is the regime the deep climb tables live in. The property (legality + chip
+  // conservation) holds at any bb; the point is exercising a full hand while the depth tax is active.
+  it('plays very deep AI-vs-AI hands to showdown without leaking a chip, across many seeds', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const n = 2 + (seed % 5); // 2..6 seats
+      playDeepHandConserving(makeTable(n, 10_000, seed), seed * 29); // 1000bb: commitTax fully saturated
+    }
+  });
+
+  it('plays a ladder of depths spanning the commitTax pivot, legally and chip-neutrally', () => {
+    for (const stackBb of [40, 75, 125, 200, 400]) {
+      const stack = stackBb * 10; // bb = 10 in makeTable
+      for (let seed = 1; seed <= 12; seed++) {
+        playDeepHandConserving(makeTable(3, stack, seed + stackBb), seed * 23);
+      }
+    }
   });
 });
 
