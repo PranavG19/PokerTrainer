@@ -45,11 +45,23 @@ interface FixtureHand {
   grades: { severity: string; principle: string; evLossBb: number }[];
 }
 
+/** One graded assessment spot, as serialize() writes it (the standing/form score reads these). */
+interface FixtureAssessment {
+  at: number;
+  evLossBb: number;
+  correct: boolean;
+  principle?: string | null;
+  toCall?: number;
+  street?: string;
+}
+
 /** Mirrors core/session.ts serialize() — what the app itself writes to disk. */
 interface Fixture {
   bankroll: number;
   /** The ratcheted Depth floor (0/40/75/125/200). Optional: absent means a fresh profile at 0. */
   depthFloor?: number;
+  /** Graded assessment spots. Optional: absent means none, so current form reads 'settling'. */
+  assessments?: FixtureAssessment[];
   hands: FixtureHand[];
   stats: {
     handsPlayed: number;
@@ -323,6 +335,43 @@ test.describe('R8 home screen', () => {
       // The depth is also exposed as a data attribute for downstream wiring; it must agree.
       const depth = await page.getAttribute('[data-testid="home-standing"]', 'data-depth');
       expect(depth).toBe('40');
+    } finally {
+      await close();
+    }
+  });
+
+  test('1d. current form surfaces beside the standing (sharp on a clean recent window)', async () => {
+    // A block of clean, contested, sound-math assessment spots drives currentForm to 'sharp'. Form is the
+    // SEPARATE live reading — it appears in the standing caption, and must never be a BANNED word.
+    const at = 1_000 * 86_400_000; // fixed clock; recency is relative, so the exact value is arbitrary.
+    const assessments: FixtureAssessment[] = Array.from({ length: 10 }, (_, i) => ({
+      at: at + i * 60_000,
+      evLossBb: 0.1,
+      correct: true,
+      principle: 'pot odds',
+      toCall: 50,
+      street: 'flop',
+    }));
+    const fixture: Fixture = {
+      bankroll: 10000,
+      assessments,
+      hands: [],
+      stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {}, leakCostBb: {} },
+    };
+    const userDataDir = seedSave(fixture);
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      const caption = (await page.textContent('[data-testid="home-standing-caption"]')) ?? '';
+      // A real form reading replaces the neutral "Standing" caption.
+      expect(caption.trim()).toBe('sharp');
+      const dataForm = await page.getAttribute('[data-testid="home-standing-caption"]', 'data-form');
+      expect(dataForm).toBe('sharp');
+
+      const lower = caption.toLowerCase();
+      for (const banned of ['rank', 'percentile', 'level', 'elo', 'tier', 'leaderboard', 'streak', 'xp']) {
+        expect(lower, `form caption "${caption}" leaked a banned word`).not.toContain(banned);
+      }
     } finally {
       await close();
     }

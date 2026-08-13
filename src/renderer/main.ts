@@ -39,7 +39,7 @@ import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderProgressScreen } from './screens/progress.js';
 import { decisionRecordsFromHands, type KcEvidence } from '../core/progress.js';
-import { standing, puzzleCoverage, depthLabel, type Depth } from '../core/standing.js';
+import { standing, currentForm, puzzleCoverage, depthLabel, type Depth, type FormState } from '../core/standing.js';
 import { SCENARIOS } from '../core/puzzleScenarios.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
@@ -364,7 +364,7 @@ async function boot(): Promise<void> {
    * coverage — plus the assessment decisions (already structurally StandingDecision). The ratcheted floor
    * is persisted back onto the session so it only ever climbs.
    */
-  function currentStanding(now: number): { depth: Depth; label: string } {
+  function currentStanding(now: number): { depth: Depth; label: string; form: FormState } {
     const masteredKcCount = deriveConcepts().filter((state) => gate(state, now).status === 'mastered').length;
     const coverage = puzzleCoverage(session.puzzleProgress, puzzleStepCounts);
     const result = standing(
@@ -382,7 +382,10 @@ async function boot(): Promise<void> {
       session = { ...session, depthFloor: result.current };
       void io.saveState(serialize(session));
     }
-    return { depth: result.depth, label: depthLabel(result.depth) };
+    // Current form is the SEPARATE live reading (clause c) — it never touches the ratcheted depth; a bad
+    // run shows up here, not as a demotion. Same honest evLossBb over the same eligibility filter.
+    const form = currentForm(session.assessments, now).state;
+    return { depth: result.depth, label: depthLabel(result.depth), form };
   }
 
   /**

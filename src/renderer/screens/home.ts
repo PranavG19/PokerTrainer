@@ -13,8 +13,10 @@ export function renderHome(opts: {
    * The learner's STANDING (Depth): the table depth earned from decision quality, never chips
    * (PRODUCT-SPEC v2.1 amendment, scoped to this Play surface). Rendered beside the bankroll as a peer
    * headline so it costs zero net height on the 640px-exact home. Absent when the caller has not wired it.
+   * `form` is the SEPARATE live reading (settling/sharp/warming up/rusty) — a bad run shows up here, never
+   * as a demotion of the ratcheted depth.
    */
-  standing?: { depth: number; label: string };
+  standing?: { depth: number; label: string; form?: string };
   onNewSession: () => void;
   /** Open the multiplayer (local relay) panel. Absent when the caller has not wired multiplayer. */
   onPlayWithFriends?: () => void;
@@ -85,7 +87,7 @@ export function renderHome(opts: {
  * exceeds. The standing is deliberately quiet: a small label + depth, NOT a big competing number, and it
  * is never mint (mint stays reserved for win% / gate / winner / pot-odds).
  */
-function renderHeadline(bankroll: number, standing?: { depth: number; label: string }): HTMLElement {
+function renderHeadline(bankroll: number, standing?: { depth: number; label: string; form?: string }): HTMLElement {
   const row = document.createElement('div');
   row.className = 'home-headline';
   row.appendChild(renderBankroll(bankroll));
@@ -93,7 +95,7 @@ function renderHeadline(bankroll: number, standing?: { depth: number; label: str
   return row;
 }
 
-function renderStanding(standing: { depth: number; label: string }): HTMLElement {
+function renderStanding(standing: { depth: number; label: string; form?: string }): HTMLElement {
   const block = document.createElement('div');
   block.className = 'home-standing';
   block.dataset.testid = 'home-standing';
@@ -105,12 +107,18 @@ function renderStanding(standing: { depth: number; label: string }): HTMLElement
   value.textContent = standing.label;
   block.appendChild(value);
 
-  const label = document.createElement('div');
-  label.className = 'stat-label';
-  // "Standing" names it without any BANNED_PHRASINGS word (rank/level/percentile). The value itself is
-  // the concrete table depth ("40bb table" / "Calibrating"), so nothing here reads as a leaderboard.
-  label.textContent = 'Standing';
-  block.appendChild(label);
+  const caption = document.createElement('div');
+  caption.className = 'stat-label';
+  caption.dataset.testid = 'home-standing-caption';
+  // The caption carries the SEPARATE live "current form" reading when there is one to show — a bad run
+  // surfaces HERE, never as a demotion of the ratcheted depth above. 'settling' means "not enough to say"
+  // yet, so it falls back to the neutral "Standing" caption rather than announcing a verdict it lacks.
+  // All form words (sharp/warming up/rusty) and "Standing" are BANNED_PHRASINGS-clean — no rank/level word.
+  const form = standing.form;
+  const showsForm = form != null && form !== 'settling';
+  caption.textContent = showsForm ? (form as string) : 'Standing';
+  if (showsForm) caption.dataset.form = form as string;
+  block.appendChild(caption);
 
   return block;
 }
