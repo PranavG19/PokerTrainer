@@ -335,14 +335,10 @@ test('a full session across every surface leaves the table playable', async () =
   const dir = freshUserDataDir();
   const { app, page } = await launchApp({ seed: 11, userDataDir: dir });
   const errors = watchPageErrors(page);
-  const tabs = [
-    'tab-learn',
-    'tab-drill',
-    'tab-charts',
-    'tab-anomaly',
-    'tab-profile',
-    'tab-settings',
-  ] as const;
+  // Top-level tabs after the 13→8 fold. Train opens the hub; two former mode-tabs are toured via the
+  // rail below to prove those remounts (the RT-gated Speed screen especially) are still clean.
+  const tabs = ['tab-learn', 'tab-train', 'tab-charts', 'tab-profile', 'tab-settings'] as const;
+  const trainRungs = ['tab-drill', 'tab-anomaly'] as const;
   try {
     await sitDown(page);
     await soak(page, dir, 'mixed', 4);
@@ -354,6 +350,15 @@ test('a full session across every surface leaves the table playable', async () =
       await expect(button, `${tab} is not reachable`).toBeEnabled();
       await button.click();
       await expect(page.locator(`[data-testid="${tab}"]`)).toHaveAttribute('data-active', 'true');
+    }
+
+    // Tour the hub rungs too: open Train, then each rail button, remounting its screen.
+    await page.locator('[data-testid="tab-train"]').click();
+    for (const rung of trainRungs) {
+      const button = page.locator(`[data-testid="${rung}"]`);
+      await expect(button, `${rung} rung is not reachable`).toBeEnabled();
+      await button.click();
+      await expect(button).toHaveAttribute('data-active', 'true');
     }
 
     // Back to play, and the table must still deal.

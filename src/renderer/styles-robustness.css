@@ -8,9 +8,11 @@
  *
  * BUDGET, measured rather than estimated. The shell spends 45px on the tab bar and 40px on
  * .screen's vertical padding, so the column budget is 100vh - 85px: 555px in a 640px window, 675px
- * in a 760px one. Width at the 900px minimum: 900 - 40px of .screen padding = 860px, of which the
- * sidebar takes a fixed 210px and the gap 16px, leaving 634px for the report — four continuation
- * columns at minmax(0, 1fr) plus three 8px gaps, so they compress instead of overflowing.
+ * in a 760px one. WIDTH now accounts for the Train hub rail: the screen mounts inside .train-body,
+ * which at the 900px minimum leaves ~756px (860 - the rail's 92px - the 12px hub gap) rather than the
+ * full 860px. So the sidebar is trimmed to 168px and the report gap to 6px, leaving ~576px for the
+ * four continuation columns at minmax(0, 1fr) — enough that the labels no longer wrap to a taller box
+ * (the wrap was what pushed the report 31px past the height budget once the rail took its width).
  *
  * BOTH COLUMNS SCROLL THEMSELVES rather than letting the page grow, the same valve the charts and
  * drill screens use. robustness.spec.ts asserts the internal overflow is zero at both documented
@@ -21,8 +23,8 @@
   --panel-budget: calc(100vh - 85px);
 
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
 }
 
@@ -70,10 +72,13 @@
 .robust-work {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* gap and vertical padding trimmed slightly (10→8, 14→12) to give back the ~16px the report needed
+   * once the Train hub rail took some of its width — the four columns then fit without the last one
+   * scrolling. Measured against robustness.spec test 10 at both documented sizes. */
+  gap: 8px;
   background: var(--surface);
   border-radius: 16px;
-  padding: 14px 16px;
+  padding: 12px 16px;
   max-height: var(--panel-budget);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -163,7 +168,8 @@
   gap: 4px;
   background: var(--surface-hi);
   border-radius: 12px;
-  padding: 10px 12px;
+  /* Vertical padding trimmed 10→7 for the last few px of the hub-rail width reclaim (see .robust-work). */
+  padding: 7px 12px;
   /* Quiet settle-in as the verdict lands. Opacity only; identical for robust and leak, so it is not a
    * severity channel. Reduced-motion guard at the foot of this file. */
   animation: offsuit-surface-in var(--motion-panel) var(--ease-out);

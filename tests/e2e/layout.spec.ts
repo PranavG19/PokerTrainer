@@ -351,7 +351,9 @@ test.describe('layout', () => {
       });
 
       // A sanity floor: if the bar ever renders no tabs the assertions below would pass vacuously.
-      expect(bar.count, 'no tabs rendered, so this test proves nothing').toBeGreaterThanOrEqual(10);
+      // Lowered from 10 when the 13-tab bar was folded to 8 (Play·Learn·Train·Charts·Dossier·Progress·
+      // Profile·Settings) — the six practice/maintenance modes now live behind the Train hub's left rail.
+      expect(bar.count, 'no tabs rendered, so this test proves nothing').toBeGreaterThanOrEqual(6);
       expect(
         bar.offscreen,
         `${bar.offscreen.length} of ${bar.count} tabs extend past the ${MIN_WIDTH}px viewport (rightmost edge ${Math.round(bar.rightmost)}px): ${bar.offscreen.join(', ')}`,

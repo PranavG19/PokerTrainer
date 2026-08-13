@@ -1,0 +1,94 @@
+/*
+ * THE TRAIN HUB — a persistent left rail + a body that swaps between six former tabs. Palette from
+ * styles.css: no new colours, no mint (reserved for win% / gate / winner / pot-odds), no red (reserved
+ * for irreversible). The active rung is carried by ink and a left edge marker, never by hue.
+ *
+ * WIDTH IS THE CONSTRAINT. The six body screens were each authored to fill the whole .screen width
+ * (860px at the 900px minimum). The rail now takes some of that, so it is kept DELIBERATELY NARROW —
+ * the mode renames (Spots/Math/Speed/Stress/Leaks/Upkeep, all <=6 chars) exist partly to allow this.
+ * At 900px: 860 - 132 (rail 116 + gap 16) = 728px for the body. The drill (the tightest body, a fixed
+ * 240px sidebar + a minmax(0,1fr) method that shrinks) still fits, and layout.spec/drill.spec measure
+ * it at both documented sizes rather than trusting this arithmetic.
+ */
+.train-screen {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.train-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* The rail scrolls with the page only if it ever outgrows the window; six short rungs never do, so
+   * it needs no max-height valve of its own. */
+}
+
+.train-rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-lo);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.train-rail-btn:hover {
+  background: var(--surface);
+  color: var(--text-hi);
+}
+
+/* The active rung: full ink + a left edge marker + a faint fill. Weight and edge, never a colour, so a
+ * greyscale print still shows which mode is open. */
+.train-rail-btn[data-active='true'] {
+  background: var(--surface-hi);
+  color: var(--text-hi);
+  border-left-color: var(--text-hi);
+  font-weight: 600;
+}
+
+.train-rail-label {
+  line-height: 1.2;
+}
+
+/* The muted, zero-suppressed status count ("3 to fix"). Plain text, never a badge — no fill, no hue. */
+.train-rail-note {
+  font-size: 10.5px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+.train-rail-btn[data-active='true'] .train-rail-note {
+  color: var(--text-hi);
+}
+
+/* One hairline between the practice band and the maintenance band — a visual grouping, no label. */
+.train-rail-divider {
+  height: 1px;
+  margin: 6px 10px;
+  background: var(--surface-hi);
+}
+
+/* The body just hosts whichever screen is mounted; the screen owns its own budget and scrolling. The
+ * min-width:0 lets a grid child (e.g. the drill) shrink its method column instead of overflowing. */
+.train-body {
+  min-width: 0;
+}
+
+.train-rail-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

@@ -94,16 +94,18 @@ test('the browser process makes no request at all, measured at a loopback proxy'
       }
     }
 
-    for (const tab of [
-      'tab-learn',
-      'tab-drill',
-      'tab-charts',
-      'tab-anomaly',
-      'tab-profile',
-      'tab-settings',
-    ]) {
+    // The top-level tabs after the 13→8 fold. Train opens the hub (Spots by default); the former
+    // drill/anomaly surfaces are exercised via the hub rail below.
+    for (const tab of ['tab-learn', 'tab-train', 'tab-charts', 'tab-profile', 'tab-settings']) {
       await page.locator(`[data-testid="${tab}"]`).click();
       await expect(page.locator(`[data-testid="${tab}"]`)).toHaveAttribute('data-active', 'true');
+    }
+
+    // And a couple of hub rungs, which mount their own (network-free) screens: Math and Speed.
+    await page.locator('[data-testid="tab-train"]').click();
+    for (const rung of ['tab-drill', 'tab-anomaly']) {
+      await page.locator(`[data-testid="${rung}"]`).click();
+      await expect(page.locator(`[data-testid="${rung}"]`)).toHaveAttribute('data-active', 'true');
     }
 
     // Give any deferred background task a window to fire. Chromium's component and safe-browsing

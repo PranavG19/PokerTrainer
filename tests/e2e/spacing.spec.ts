@@ -80,6 +80,8 @@ async function openSpacing(
   await page.evaluate((seam: { now: number; concepts: ConceptFixture[] }) => {
     Object.assign(window, { __offsuitSpacing: seam });
   }, input);
+  // Upkeep (spacing) now lives behind the Train hub; open the hub, then its rail button.
+  await page.locator('[data-testid="tab-train"]').click();
   await page.locator(spacingTab).click();
   await page.locator(spacingScreen).waitFor();
   await expect(page.locator(spacingScreen)).toHaveAttribute('data-now', String(input.now));

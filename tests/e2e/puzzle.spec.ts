@@ -37,6 +37,8 @@ const tutorSend = '[data-testid="tutor-send"]';
 const tutorAnswer = '[data-testid="tutor-answer"]';
 
 async function openPuzzle(page: Page): Promise<void> {
+  // Spots (puzzle) now lives behind the Train hub; open the hub, then its rail button.
+  await page.locator('[data-testid="tab-train"]').click();
   await page.locator(puzzleTab).click();
   await page.locator(screen).waitFor();
 }
