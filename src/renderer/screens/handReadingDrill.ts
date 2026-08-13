@@ -25,11 +25,11 @@ const ANSWER_KEY: Record<Answer, string> = { in: 'I', folded: 'O' };
 
 /** Human labels for the opener seat — the situation, never the answer. */
 const POSITION_LABEL: Record<string, string> = {
-  UTG: 'UTG open',
-  HJ: 'HJ open',
-  CO: 'CO open',
-  BTN: 'BTN open',
-  SB: 'SB open',
+  UTG: 'UTG',
+  HJ: 'the hijack',
+  CO: 'the cutoff',
+  BTN: 'the button',
+  SB: 'the small blind',
 };
 
 interface Feedback {
@@ -82,6 +82,7 @@ export function renderHandReadingDrill(): HTMLElement {
   function paint(): void {
     root.dataset.position = question.position;
     root.dataset.combo = question.combo;
+    root.dataset.scenario = question.scenario;
     root.dataset.answered = String(answered);
     root.dataset.verdict = feedback === null ? '' : feedback.correct ? 'right' : 'wrong';
     verdictAnnouncer.textContent = feedback === null ? '' : verdictAnnouncement(feedback);
@@ -101,7 +102,14 @@ function renderPrompt(question: HandReadingQuestion, onCommit: (answer: Answer) 
   const situation = document.createElement('div');
   situation.className = 'defense-width stat-label';
   situation.dataset.testid = 'hand-reading-situation';
-  situation.textContent = `A player opens from ${POSITION_LABEL[question.position] ?? question.position}. Is this hand in their range?`;
+  situation.dataset.scenario = question.scenario;
+  const seat = POSITION_LABEL[question.position] ?? question.position;
+  // The flat-3bet line names the capping action (they called a 3-bet) without stating the answer — the
+  // learner must realise for themselves that the nuts 4-bet and the trash folds, so those are gone.
+  situation.textContent =
+    question.scenario === 'flat-3bet'
+      ? `A player opens from ${seat}, then flat-calls your 3-bet. Is this hand still in their range?`
+      : `A player opens from ${seat}. Is this hand in their range?`;
   panel.appendChild(situation);
 
   const hand = document.createElement('div');
