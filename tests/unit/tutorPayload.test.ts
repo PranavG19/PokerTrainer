@@ -12,7 +12,13 @@ import { askTutor, resolveTutor } from '../../src/main/tutor/index.js';
 import { liveTutor } from '../../src/main/tutor/liveTutor.js';
 import { nullTutor } from '../../src/main/tutor/nullTutor.js';
 import { openReplayCache, promptHash } from '../../src/main/tutor/replayCache.js';
-import { bedrockHost, completionFrom, invokeBody } from '../../src/main/tutor/bedrock.js';
+import {
+  bedrockHost,
+  completionFrom,
+  converseBody,
+  converseTurnFrom,
+  invokeBody,
+} from '../../src/main/tutor/bedrock.js';
 import type {
   GradePayload,
   ModelClient,
@@ -474,5 +480,135 @@ describe('the Bedrock InvokeModel wire shape', () => {
     expect(() => completionFrom('{"content":[]}')).toThrow(/no text block/);
     expect(() => completionFrom('{}')).toThrow(/no text block/);
     expect(() => completionFrom('{"content":[{"type":"text","text":"  "}]}')).toThrow(/no text block/);
+  });
+});
+
+describe('the Bedrock InvokeModel wire shape — multi-turn/tool converse', () => {
+  const ENVELOPE = {
+    system: 'sys prompt',
+    tools: [
+      { name: 'recall_table', description: 'the table as prose' },
+      { name: 'lookup_principle', description: 'principle key lookup' },
+    ],
+    messages: [
+      { role: 'user' as const, text: 'what does check mean' },
+      { role: 'assistant' as const, text: '[requested: recall_table]' },
+      { role: 'tool' as const, text: 'street: flop\nboard: Kh Td 4c' },
+    ],
+    maxTokens: 400,
+  };
+
+  it('converseBody wraps system + tools + messages in the Anthropic Bedrock schema', () => {
+    const body = JSON.parse(converseBody(ENVELOPE)) as Record<string, unknown>;
+    expect(body.anthropic_version).toBe('bedrock-2023-05-31');
+    expect(body.max_tokens).toBe(400);
+    expect(body.system).toBe('sys prompt');
+    expect(body.tools).toEqual([
+      {
+        name: 'recall_table',
+        description: 'the table as prose',
+        input_schema: { type: 'object', properties: {}, additionalProperties: true },
+      },
+      {
+        name: 'lookup_principle',
+        description: 'principle key lookup',
+        input_schema: { type: 'object', properties: {}, additionalProperties: true },
+      },
+    ]);
+    // 'tool' role gets mapped to 'user' so Bedrock's chat schema accepts it — the prose content
+    // is what the model reads, and the transcript's tool role is agent.ts's own bookkeeping.
+    expect(body.messages).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'what does check mean' }] },
+      { role: 'assistant', content: [{ type: 'text', text: '[requested: recall_table]' }] },
+      { role: 'user', content: [{ type: 'text', text: 'street: flop\nboard: Kh Td 4c' }] },
+    ]);
+  });
+
+  it('converseTurnFrom parses a text-only response into a text ModelTurn', () => {
+    const turn = converseTurnFrom(
+      JSON.stringify({
+        content: [
+          { type: 'text', text: 'Check passes without adding chips.' },
+        ],
+      }),
+    );
+    expect(turn).toEqual({ kind: 'text', text: 'Check passes without adding chips.' });
+  });
+
+  it('converseTurnFrom parses a tool-use response into a tool_use ModelTurn with parsed args', () => {
+    const turn = converseTurnFrom(
+      JSON.stringify({
+        content: [
+          {
+            type: 'tool_use',
+            id: 'call_1',
+            name: 'lookup_principle',
+            input: { key: 'pot-odds-as-a-price' },
+          },
+        ],
+      }),
+    );
+    expect(turn).toEqual({
+      kind: 'tool_use',
+      calls: [{ name: 'lookup_principle', args: { key: 'pot-odds-as-a-price' } }],
+    });
+  });
+
+  it('converseTurnFrom prefers tool_use blocks over preamble text (the model reasoning aloud must not leak as text)', () => {
+    // Anthropic can emit text then tool_use in the same turn ("Let me look this up..."). Treating
+    // the preamble as a text turn would ship the reasoning as if it were the final answer, so
+    // tool_use takes priority — the preamble is discarded, the tool is executed, and the loop
+    // continues.
+    const turn = converseTurnFrom(
+      JSON.stringify({
+        content: [
+          { type: 'text', text: 'Let me look this up first.' },
+          { type: 'tool_use', id: 'a', name: 'recall_table', input: {} },
+        ],
+      }),
+    );
+    expect(turn.kind).toBe('tool_use');
+    if (turn.kind === 'tool_use') expect(turn.calls[0].name).toBe('recall_table');
+  });
+
+  it('converseTurnFrom handles multiple tool_uses in one response as parallel calls', () => {
+    const turn = converseTurnFrom(
+      JSON.stringify({
+        content: [
+          { type: 'tool_use', id: 'a', name: 'recall_table', input: {} },
+          { type: 'tool_use', id: 'b', name: 'lookup_principle', input: { key: 'actions' } },
+        ],
+      }),
+    );
+    expect(turn.kind).toBe('tool_use');
+    if (turn.kind === 'tool_use') {
+      expect(turn.calls.map((c) => c.name)).toEqual(['recall_table', 'lookup_principle']);
+    }
+  });
+
+  it('converseTurnFrom throws on an empty or content-free response — no silent empty turn', () => {
+    // Same failure surface as completionFrom(): the agent loop treats a throw as fallback:error,
+    // so an empty response must throw rather than resolve to a spurious empty text turn.
+    expect(() => converseTurnFrom('{"content":[]}')).toThrow(/no text or tool_use/);
+    expect(() => converseTurnFrom('{}')).toThrow(/no text or tool_use/);
+    expect(() => converseTurnFrom('{"content":[{"type":"text","text":"   "}]}')).toThrow(
+      /no text or tool_use/,
+    );
+  });
+
+  it('converseTurnFrom drops tool_use blocks with an empty/missing name — cannot fabricate a call', () => {
+    // A malformed tool_use block without a name would be undispatchable and could not be refused
+    // by any registry check — so the parser drops it, and if the block list contained ONLY the
+    // malformed one plus text, the text path wins.
+    const turn = converseTurnFrom(
+      JSON.stringify({
+        content: [
+          { type: 'tool_use', id: 'a', input: {} },
+          { type: 'text', text: 'fallback text' },
+        ],
+      }),
+    );
+    // The nameless tool_use is dropped → tool_use array becomes empty → text path wins.
+    expect(turn).toEqual({ kind: 'text', text: 'fallback text' });
   });
 });
