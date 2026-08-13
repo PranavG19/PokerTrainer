@@ -11,6 +11,7 @@ import {
 import {
   RFI_POSITIONS,
   THREEBET_RESPONSE_WIDTH_ORDER,
+  defenseAction,
   isInRfiRange,
   threeBetResponseAction,
   ALL_COMBOS,
@@ -24,7 +25,16 @@ import {
  * rules for both scenarios, proves the boundary sampler surfaces genuine edges, and proves determinism.
  */
 
-const SCENARIOS: ReadScenario[] = ['open', 'flat-3bet'];
+const SCENARIOS: ReadScenario[] = ['open', 'flat-3bet', 'bb-defend'];
+
+/** Every RFI opener seat has a matching bb-vs-{opener} defense spot; mirror of the core's private map. */
+const BB_SPOT: Record<RfiPosition, Parameters<typeof defenseAction>[1]> = {
+  UTG: 'bb-vs-utg',
+  HJ: 'bb-vs-hj',
+  CO: 'bb-vs-co',
+  BTN: 'bb-vs-btn',
+  SB: 'bb-vs-sb',
+};
 
 describe('inReadRange — the truth is the app rule for each scenario', () => {
   it("'open' is exactly isInRfiRange", () => {
@@ -57,6 +67,24 @@ describe('inReadRange — the truth is the app rule for each scenario', () => {
   it("'flat-3bet' at an SB open (no 3-bet-response range) is empty, never throws", () => {
     for (const combo of ['AA', 'T9s', '72o'] as const) {
       expect(inReadRange('flat-3bet', combo, 'SB')).toBe(false);
+    }
+  });
+
+  it("'bb-defend' is exactly the CALL subset of the BB's defense action for the matching spot", () => {
+    for (const position of RFI_POSITIONS) {
+      for (const combo of ALL_COMBOS) {
+        const expected = defenseAction(combo, BB_SPOT[position]) === 'call';
+        expect(inReadRange('bb-defend', combo, position), `${combo}@bb-vs-${position}`).toBe(expected);
+      }
+    }
+  });
+
+  it("'bb-defend' caps the top: a hand the BB 3-bets is NOT in its flat-calling range", () => {
+    // AKs is a 3-bet for the BB vs a range of opens, so it must read OUT of the flat range there.
+    for (const position of RFI_POSITIONS) {
+      if (defenseAction('AKs', BB_SPOT[position]) === 'threebet') {
+        expect(inReadRange('bb-defend', 'AKs', position), `AKs@bb-vs-${position}`).toBe(false);
+      }
     }
   });
 });
@@ -152,11 +180,11 @@ describe('nextQuestion — seed-deterministic and self-consistent across both sc
     }
   });
 
-  it('both scenarios actually occur over a run (the mix is not stuck on one)', () => {
+  it('all three scenarios actually occur over a run (the mix is not stuck on a subset)', () => {
     const rng = mulberry32(99);
     const seen = new Set<ReadScenario>();
-    for (let i = 0; i < 50; i++) seen.add(nextQuestion(rng).scenario);
-    expect(seen).toEqual(new Set(['open', 'flat-3bet']));
+    for (let i = 0; i < 60; i++) seen.add(nextQuestion(rng).scenario);
+    expect(seen).toEqual(new Set(['open', 'flat-3bet', 'bb-defend']));
   });
 
   it('edgeBias=1 draws only boundary combos for its scenario', () => {

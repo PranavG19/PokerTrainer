@@ -20,21 +20,35 @@ import {
   ALL_COMBOS,
   RFI_POSITIONS,
   THREEBET_RESPONSE_WIDTH_ORDER,
+  defenseAction,
   isInRfiRange,
   threeBetResponseAction,
   type Combo,
+  type DefensePosition,
   type RfiPosition,
   type ThreeBetResponsePosition,
 } from './preflop.js';
 
 /**
- * Which read the question poses:
- *  - 'open'       — they OPENED first-in from `position`; range = the RFI range (isInRfiRange).
- *  - 'flat-3bet'  — they opened, then FLAT-CALLED a 3-bet; range = the CAPPED continue range, i.e. the
- *                   combos whose 3-bet response is 'call' (they'd have 4-bet AA/KK/AK, folded the trash).
- * Both keys are the app's OWN rule-stated ranges — no fabrication, no solver data.
+ * Which read the question poses (all keyed on the OPENER's `position`; every key is one of the app's OWN
+ * rule-stated ranges — no fabrication, no solver data):
+ *  - 'open'       — they OPENED first-in; range = the RFI range (isInRfiRange).
+ *  - 'flat-3bet'  — they opened, then FLAT-CALLED a 3-bet; range = the CAPPED continue range, the combos
+ *                   whose 3-bet response is 'call' (they'd have 4-bet AA/KK/AK, folded the trash).
+ *  - 'bb-defend'  — the BB FLAT-CALLED this opener (rather than 3-betting or folding); range = the combos
+ *                   whose defense action is 'call' — the BB's flat range, which excludes the 3-bet hands
+ *                   at the top and the folds at the bottom (a different cap than flat-3bet).
  */
-export type ReadScenario = 'open' | 'flat-3bet';
+export type ReadScenario = 'open' | 'flat-3bet' | 'bb-defend';
+
+/** The BB-defense spot for an opener the BB faces — every RFI seat has a matching bb-vs-{opener} spot. */
+const BB_DEFENSE_SPOT: Record<RfiPosition, DefensePosition> = {
+  UTG: 'bb-vs-utg',
+  HJ: 'bb-vs-hj',
+  CO: 'bb-vs-co',
+  BTN: 'bb-vs-btn',
+  SB: 'bb-vs-sb',
+};
 
 /** One posed question: does `combo` belong to the villain's range in this `scenario` from `position`? */
 export interface HandReadingQuestion {
@@ -52,6 +66,7 @@ export interface HandReadingQuestion {
  */
 export function inReadRange(scenario: ReadScenario, combo: Combo, position: RfiPosition): boolean {
   if (scenario === 'open') return isInRfiRange(combo, position);
+  if (scenario === 'bb-defend') return defenseAction(combo, BB_DEFENSE_SPOT[position]) === 'call';
   // flat-3bet is only defined for the four opener seats that have a 3-bet-response range.
   if (!THREEBET_RESPONSE_WIDTH_ORDER.includes(position as ThreeBetResponsePosition)) return false;
   return threeBetResponseAction(combo, position as ThreeBetResponsePosition) === 'call';
@@ -125,12 +140,14 @@ function neighbours(combo: Combo): Combo[] {
  * seed-determined. Falls back to a uniform combo when a position somehow has no edges (never happens for
  * the real ranges, but keeps the function total).
  */
+const SCENARIOS: readonly ReadScenario[] = ['open', 'flat-3bet', 'bb-defend'];
+
 export function nextQuestion(rng: Rng, edgeBias = 0.7): HandReadingQuestion {
-  // Half the questions read an open, half a flat-called 3-bet (the capped range) — one rng() call to pick,
-  // so the mix is seed-determined and both concepts recur.
-  const scenario: ReadScenario = rng() < 0.5 ? 'open' : 'flat-3bet';
-  // flat-3bet only applies to the four opener seats with a 3-bet-response range (no SB there); 'open'
-  // uses all five RFI seats.
+  // Rotate evenly over the three reads with one rng() call, so the mix is seed-determined and every
+  // concept recurs (open, the capped flat-3bet range, the BB flat-defense range).
+  const scenario = SCENARIOS[Math.floor(rng() * SCENARIOS.length)];
+  // flat-3bet only applies to the four opener seats with a 3-bet-response range (no SB there); 'open' and
+  // 'bb-defend' both use all five RFI seats (every opener has a bb-vs-{opener} defense spot).
   const seats: readonly RfiPosition[] =
     scenario === 'flat-3bet' ? (THREEBET_RESPONSE_WIDTH_ORDER as readonly RfiPosition[]) : RFI_POSITIONS;
   const position = seats[Math.floor(rng() * seats.length)];
