@@ -64,6 +64,8 @@ async function commitDrillAnswers(page: Page, count: number): Promise<void> {
 }
 
 async function openDrillKind(page: Page, kind: string): Promise<void> {
+  // Math (drill) and Upkeep (spacing) both live behind the Train hub now.
+  await page.click('[data-testid="tab-train"]');
   await page.click('[data-testid="tab-drill"]');
   await page.waitForSelector(drillScreen);
   await page.click(`[data-testid="drill-kind-btn"][data-kind="${kind}"]`);
@@ -101,6 +103,7 @@ test.describe('the Spacing queue runs on real Drill history, not only the e2e se
     // Restart against the same profile: the derived concept row is rebuilt from the persisted log.
     const second = await launchApp({ seed: 42, userDataDir });
     try {
+      await second.page.click('[data-testid="tab-train"]');
       await second.page.click('[data-testid="tab-spacing"]');
       await second.page.waitForSelector(spacingScreen);
       const row = second.page.locator(`[data-testid="concept-row"][data-concept="${CONCEPT}"]`);
@@ -115,6 +118,7 @@ test.describe('the Spacing queue runs on real Drill history, not only the e2e se
     const userDataDir = freshUserDataDir();
     const app = await launchApp({ seed: 42, userDataDir });
     try {
+      await app.page.click('[data-testid="tab-train"]');
       await app.page.click('[data-testid="tab-spacing"]');
       await app.page.waitForSelector(spacingScreen);
       // No drill history: no concept rows, and the screen says so rather than inventing one.

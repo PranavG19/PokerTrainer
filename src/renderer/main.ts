@@ -52,6 +52,7 @@ import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
+import { renderTrainScreen, type TrainMode as TrainModeSpec } from './screens/train.js';
 import { conceptStatesFromLog, gate, posterior, type ConceptState } from '../core/schedule.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 import { renderMultiplayerScreen } from './screens/multiplayer.js';
@@ -123,17 +124,34 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
 type Tab =
   | 'play'
   | 'learn'
-  | 'puzzle'
-  | 'repair'
-  | 'drill'
-  | 'anomaly'
-  | 'robustness'
+  | 'train'
   | 'charts'
   | 'dossier'
-  | 'spacing'
   | 'progress'
   | 'profile'
   | 'settings';
+
+/**
+ * The six practice/maintenance surfaces the Train hub folds together, in rail order. Each `mode` is
+ * the id the hub tracks; `testid` is the OLD per-tab testid, kept on the rail button so every deep-link
+ * spec still resolves after one prepended click on tab-train. `band` splits the evergreen practice
+ * surfaces (day-one usable) from the maintenance ones (history-driven, empty on a fresh profile). See
+ * memory offsuit-train-hub-ia for the rename/order/default rationale.
+ */
+type TrainMode = 'puzzle' | 'drill' | 'anomaly' | 'robustness' | 'repair' | 'spacing';
+const TRAIN_MODES: readonly {
+  mode: TrainMode;
+  label: string;
+  testid: string;
+  band: 'practice' | 'maintenance';
+}[] = [
+  { mode: 'puzzle', label: 'Spots', testid: 'tab-puzzle', band: 'practice' },
+  { mode: 'drill', label: 'Math', testid: 'tab-drill', band: 'practice' },
+  { mode: 'anomaly', label: 'Speed', testid: 'tab-anomaly', band: 'practice' },
+  { mode: 'robustness', label: 'Stress', testid: 'tab-robustness', band: 'practice' },
+  { mode: 'repair', label: 'Leaks', testid: 'tab-repair', band: 'maintenance' },
+  { mode: 'spacing', label: 'Upkeep', testid: 'tab-spacing', band: 'maintenance' },
+];
 
 /**
  * The tab bar, in spine order: play, then the teaching surfaces, then progress.
@@ -147,14 +165,9 @@ type Tab =
 const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'play', label: 'Play', testid: 'tab-play' },
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
-  { id: 'puzzle', label: 'Puzzle', testid: 'tab-puzzle' },
-  { id: 'repair', label: 'Repair', testid: 'tab-repair' },
-  { id: 'drill', label: 'Drill', testid: 'tab-drill' },
-  { id: 'robustness', label: 'Robustness', testid: 'tab-robustness' },
+  { id: 'train', label: 'Train', testid: 'tab-train' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
-  { id: 'anomaly', label: 'Anomaly', testid: 'tab-anomaly' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
-  { id: 'spacing', label: 'Spacing', testid: 'tab-spacing' },
   { id: 'progress', label: 'Progress', testid: 'tab-progress' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
   { id: 'settings', label: 'Settings', testid: 'tab-settings' },
@@ -166,6 +179,10 @@ async function boot(): Promise<void> {
   let session: SessionState = deserialize(await io.loadState());
 
   let tab: Tab = 'play';
+  // Which mode the Train hub opens on. Set by a deep-link (the recommender's "drill" route) or a rail
+  // click; defaults to Spots, the one surface usable with zero prior state (the maintenance rungs are
+  // empty on a fresh profile, so landing there would be a dead front door — see offsuit-train-hub-ia).
+  let trainMode: TrainMode = 'puzzle';
   let table: TableHandle | null = null;
   /**
    * Multiplayer is a PANEL within the Play tab, not its own tab (the tab bar is at its 13-tab budget).
@@ -417,7 +434,14 @@ async function boot(): Promise<void> {
    */
   async function onAcceptSuggestion(suggestion: Suggestion): Promise<void> {
     session = { ...session, recommender: acceptSuggestion(session.recommender) };
-    tab = suggestion.source === 'error-tag' ? 'learn' : 'drill';
+    // The non-error-tag route lands on the Math (drill) rung of the Train hub — the arithmetic trainer
+    // that used to be its own tab. error-tag routes to Learn as before.
+    if (suggestion.source === 'error-tag') {
+      tab = 'learn';
+    } else {
+      tab = 'train';
+      trainMode = 'drill';
+    }
     render();
     await io.saveState(serialize(session));
   }
@@ -602,36 +626,32 @@ async function boot(): Promise<void> {
    * `learn`, `drill` and `charts` land as their modules are built — until then they show a real
    * empty state, because N1 forbids hiding a surface and a blank panel would read as a bug.
    */
-  function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
-    if (which === 'profile') return renderProfileTab();
-    if (which === 'learn') return renderLessonScreen();
-    if (which === 'puzzle') {
+  /**
+   * Renders one of the six Train-hub surfaces, with the EXACT props each had as a standalone tab — the
+   * screen modules are unchanged, they simply mount inside the hub body now. Called fresh on every rail
+   * switch (the hub never caches a node), so the RT-gated Speed screen's timers do not outlive a visit.
+   */
+  function renderTrainMode(mode: TrainMode): HTMLElement {
+    if (mode === 'puzzle') {
       return renderPuzzleScreen({
         progress: session.puzzleProgress,
         onComplete: (scenarioId, correct) => void onPuzzleComplete(scenarioId, correct),
       });
     }
-    if (which === 'repair') {
+    if (mode === 'repair') {
       return renderContrastScreen({
         hands: session.hands,
         lexicon: session.lexicon,
         onLexiconAttempt: (attempt) => void onLexiconAttempt(attempt),
       });
     }
-    if (which === 'charts') {
-      return renderCharts({
-        mastery: session.chartMastery,
-        onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
-        onSpot: (spotClass, module, correct) => void onInterleaveSpot(spotClass, module, correct),
-      });
-    }
-    if (which === 'drill') {
+    if (mode === 'drill') {
       return renderDrillScreen({
         fadingLog: session.fadingLog,
         onFadingEvents: (events) => void onFadingEvents(events),
       });
     }
-    if (which === 'anomaly') {
+    if (mode === 'anomaly') {
       const t = session.anomalyTally;
       return renderAnomalyScreen({
         lifetime: {
@@ -645,13 +665,36 @@ async function boot(): Promise<void> {
         onResponse: (scored) => void onAnomalyResponse(scored),
       });
     }
-    if (which === 'robustness') return renderRobustnessScreen();
-    if (which === 'dossier') return renderDossier();
-    if (which === 'spacing') {
-      // Real graded history, grouped into per-concept states (see deriveConcepts). On a fresh profile
-      // the log is empty and the screen says so.
-      return renderSpacing({ concepts: deriveConcepts(), now: Date.now() });
+    if (mode === 'robustness') return renderRobustnessScreen();
+    // 'spacing' (Upkeep): real graded history grouped into per-concept states (see deriveConcepts). On a
+    // fresh profile the log is empty and the screen says so.
+    return renderSpacing({ concepts: deriveConcepts(), now: Date.now() });
+  }
+
+  /** Builds the hub's mode list, binding each rung to its fresh-render thunk and old testid. */
+  function renderTrainTab(): HTMLElement {
+    const modes: TrainModeSpec[] = TRAIN_MODES.map((m) => ({
+      id: m.mode,
+      label: m.label,
+      testid: m.testid,
+      band: m.band,
+      render: () => renderTrainMode(m.mode),
+    }));
+    return renderTrainScreen({ modes, initialMode: trainMode });
+  }
+
+  function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
+    if (which === 'profile') return renderProfileTab();
+    if (which === 'learn') return renderLessonScreen();
+    if (which === 'train') return renderTrainTab();
+    if (which === 'charts') {
+      return renderCharts({
+        mastery: session.chartMastery,
+        onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
+        onSpot: (spotClass, module, correct) => void onInterleaveSpot(spotClass, module, correct),
+      });
     }
+    if (which === 'dossier') return renderDossier();
     if (which === 'progress') {
       /*
        * REAL DECISIONS, HONESTLY WITHHELD ELSEWHERE. The hand log now carries per-decision verdicts

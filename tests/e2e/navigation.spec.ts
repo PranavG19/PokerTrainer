@@ -176,8 +176,10 @@ test('the freshly-mounted surface fades in on a tab switch, and honours reduced 
   const { page, close } = await launchApp({ seed: 42 });
   try {
     await page.waitForSelector(homeScreen);
-    await page.locator('[data-testid="tab-drill"]').click();
-    await expect(page.locator('[data-testid="tab-drill"]')).toHaveAttribute('data-active', 'true');
+    // Math (drill) lives behind the Train hub now: the top-level tab is Train, and the drill is a rail
+    // button inside it. The mount fade is on the top-level surface swap, so open the hub tab.
+    await page.locator('[data-testid="tab-train"]').click();
+    await expect(page.locator('[data-testid="tab-train"]')).toHaveAttribute('data-active', 'true');
 
     const mountedChild = page.locator('main.screen > *').first();
     await expect(mountedChild).toBeAttached();
@@ -186,7 +188,7 @@ test('the freshly-mounted surface fades in on a tab switch, and honours reduced 
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.locator(sel.tabPlay).click();
-    await page.locator('[data-testid="tab-drill"]').click();
+    await page.locator('[data-testid="tab-train"]').click();
     const reducedName = await page
       .locator('main.screen > *')
       .first()
@@ -219,7 +221,8 @@ test("a table left mid-hand does not keep eating keys on another screen", async 
     // Wait for the hero's turn, so the table is in a state where its shortcuts DO something.
     await expect(page.locator('[data-testid="table-screen"]')).toHaveAttribute('data-awaiting', 'hero');
 
-    // Leave for a surface with its own keyboard handling.
+    // Leave for a surface with its own keyboard handling: the Math (drill) rung of the Train hub.
+    await page.locator('[data-testid="tab-train"]').click();
     await page.locator('[data-testid="tab-drill"]').click();
     await expect(page.locator('[data-testid="tab-drill"]')).toHaveAttribute('data-active', 'true');
 

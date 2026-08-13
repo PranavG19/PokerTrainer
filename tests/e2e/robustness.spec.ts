@@ -121,6 +121,8 @@ function inputFor(id: string): RobustnessInput {
 }
 
 async function openRobustness(page: Page): Promise<void> {
+  // Stress (robustness) now lives behind the Train hub.
+  await page.click('[data-testid="tab-train"]');
   await page.click('[data-testid="tab-robustness"]');
   await page.waitForSelector(screen);
   await expect(page.locator(column)).toHaveCount(CONTINUATIONS.length);

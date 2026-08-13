@@ -176,6 +176,8 @@ const ANOMALOUS_INDICES = [4, 5, 17, 31, 32];
 const RUN_LENGTH = 40;
 
 async function openAnomaly(page: Page): Promise<void> {
+  // Speed (anomaly) now lives behind the Train hub.
+  await page.click('[data-testid="tab-train"]');
   await page.click('[data-testid="tab-anomaly"]');
   await page.waitForSelector(root);
   await expect(page.locator(prompt)).toBeVisible();
@@ -1321,6 +1323,7 @@ test.describe('O8 anomaly trigger drill', () => {
       expect(stashed?.index, 'a leaked listener advanced a detached screen').toBe('1');
 
       // And the screen is healthy on return: a fresh mount, back at the pinned first trial.
+      await page.click('[data-testid="tab-train"]');
       await page.click('[data-testid="tab-anomaly"]');
       await page.waitForSelector(root);
       await expect(page.locator(root)).toHaveAttribute('data-index', '0');

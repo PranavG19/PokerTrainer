@@ -372,7 +372,8 @@ test('P2 — mastery bars render from real Drill reps, and a fresh profile shows
     await expect(page.locator('[data-testid="kc-empty"]')).toBeVisible();
     await expect(page.locator('[data-testid="kc-row"]')).toHaveCount(0);
 
-    // Play three graded Drill reps on the default 'pot-odds' kind.
+    // Play three graded Drill reps on the default 'pot-odds' kind (Math rung of the Train hub now).
+    await page.click('[data-testid="tab-train"]');
     await page.click('[data-testid="tab-drill"]');
     await page.waitForSelector(drillScreen);
     await expect(page.locator(answerBox)).toBeVisible();

@@ -118,6 +118,8 @@ async function withApp(
 
 /** Open the Repair tab and block until the queue view has published its first paint. */
 async function openRepair(page: Page): Promise<void> {
+  // Leaks (repair) now lives behind the Train hub; open the hub, then its rail button.
+  await page.locator('[data-testid="tab-train"]').click();
   await page.locator(repairTab).click();
   await page.locator(repairScreen).waitFor();
   await expect(page.locator(repairScreen)).toHaveAttribute('data-view', 'queue');

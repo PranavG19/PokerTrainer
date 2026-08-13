@@ -62,6 +62,9 @@ const MIN_HEIGHT = 640;
 const FIRST_SEED = '101';
 
 async function openDrill(page: Page): Promise<void> {
+  // The Math (drill) surface now lives behind the Train hub: open the hub, then its rail button (which
+  // keeps the old tab-drill testid).
+  await page.click('[data-testid="tab-train"]');
   await page.click('[data-testid="tab-drill"]');
   await page.waitForSelector(drillScreen);
   await expect(page.locator(answerBox)).toBeVisible();
