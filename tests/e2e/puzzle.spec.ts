@@ -298,6 +298,9 @@ test.describe('puzzle mode', () => {
       'bvb-bb-checkraise-semibluff': ['call', 'check', 'raise'],
       'bvb-sb-cbet-dry': ['raise', 'bet'],
       'bvb-sb-double-barrel-value': ['raise', 'bet', 'bet'],
+      // Fold-draws-for-wrong-price — mirror of call-flush-draw-odds, module 4.
+      'fold-gutshot-to-flop-cbet': ['call', 'check', 'fold'],
+      'fold-flush-draw-to-flop-overbet': ['call', 'check', 'fold'],
     };
 
     await withApp(async (page) => {
