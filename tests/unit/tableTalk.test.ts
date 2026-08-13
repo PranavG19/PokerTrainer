@@ -29,6 +29,15 @@ describe('villain table-talk', () => {
     expect(quipFor('bet', null, 999999).length).toBeGreaterThan(0);
   });
 
+  it('offers at least six DISTINCT in-hand lines per action — a busy table stays varied', () => {
+    // A full ring can have several villains taking the same action on one street; too few variants
+    // and they chorus. Pin a floor so a future edit cannot silently shrink the pool back to a chant.
+    for (const action of ACTIONS) {
+      const distinct = new Set(Array.from({ length: 6 }, (_unused, variant) => quipFor(action, null, variant)));
+      expect(distinct.size, `${action} has fewer than 6 distinct in-hand lines`).toBe(6);
+    }
+  });
+
   /**
    * THE LOAD-BEARING INVARIANT. O3 hides the archetype label mid-hand and the learner classifies the
    * villain from behaviour. So an IN-HAND line (revealed === null) must not contain any archetype

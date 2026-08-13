@@ -28,12 +28,54 @@ import type { ArchetypeName } from './archetypes.js';
  * action has a few variants so a busy table does not repeat one phrase.
  */
 const IN_HAND_LINES: Record<ActionKind, readonly string[]> = {
-  fold: ['I’ll let this one go.', 'Not this time.', 'Too rich for me here.'],
-  check: ['Check.', 'I’ll see a card.', 'Tap tap.'],
-  call: ['I call.', 'I’ll come along.', 'Sure, I’ll pay to see it.'],
-  bet: ['Let’s put some in.', 'I’ll bet.', 'Pressure’s on.'],
-  raise: ['Raise it up.', 'I’ll make it more.', 'Let’s build it.'],
-  allin: ['All in.', 'Everything.', 'Let’s gamble.'],
+  fold: [
+    'I’ll let this one go.',
+    'Not this time.',
+    'Too rich for me here.',
+    'You can have it.',
+    'I’m out.',
+    'Nope, done with this one.',
+  ],
+  check: [
+    'Check.',
+    'I’ll see a card.',
+    'Tap tap.',
+    'Nothing from me.',
+    'I’ll wait.',
+    'Over to you.',
+  ],
+  call: [
+    'I call.',
+    'I’ll come along.',
+    'Sure, I’ll pay to see it.',
+    'I’m in.',
+    'Let’s keep going.',
+    'I’ll match that.',
+  ],
+  bet: [
+    'Let’s put some in.',
+    'I’ll bet.',
+    'Pressure’s on.',
+    'Chips in the middle.',
+    'Your move now.',
+    'Let’s make it interesting.',
+  ],
+  raise: [
+    'Raise it up.',
+    'I’ll make it more.',
+    'Let’s build it.',
+    'Bump it.',
+    'More than that.',
+    'Let’s turn it up.',
+  ],
+  allin: [
+    'All in.',
+    'Everything.',
+    'Let’s gamble.',
+    'The whole stack.',
+    'Every chip.',
+    'This is the one.',
+  ],
 };
 
 /**
