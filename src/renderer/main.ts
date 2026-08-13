@@ -39,6 +39,8 @@ import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderProgressScreen } from './screens/progress.js';
 import { decisionRecordsFromHands, type KcEvidence } from '../core/progress.js';
+import { standing, puzzleCoverage, depthLabel, type Depth } from '../core/standing.js';
+import { SCENARIOS } from '../core/puzzleScenarios.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
@@ -352,6 +354,37 @@ async function boot(): Promise<void> {
     });
   }
 
+  /** Steps per puzzle scenario, so puzzleCoverage can count clean full solves. Read from SCENARIOS. */
+  const puzzleStepCounts = Object.fromEntries(SCENARIOS.map((s) => [s.id, s.target.length]));
+
+  /**
+   * The learner's STANDING ("Depth"): the table depth earned from decision quality + mastery, never
+   * chips (see [[offsuit-ranking-design]] / PRODUCT-SPEC v2.1 amendment). Computed from the same honest
+   * inputs the Progress screen uses — the mastered-KC count from the gated concept states, and puzzle
+   * coverage — plus the assessment decisions (already structurally StandingDecision). The ratcheted floor
+   * is persisted back onto the session so it only ever climbs.
+   */
+  function currentStanding(now: number): { depth: Depth; label: string } {
+    const masteredKcCount = deriveConcepts().filter((state) => gate(state, now).status === 'mastered').length;
+    const coverage = puzzleCoverage(session.puzzleProgress, puzzleStepCounts);
+    const result = standing(
+      {
+        decisions: session.assessments,
+        masteredKcCount,
+        puzzleCoverage: coverage,
+        depthFloor: session.depthFloor,
+      },
+      now,
+    );
+    // Ratchet: persist the deepest earned depth so it never drops. Only write when it actually grows,
+    // so a plain re-render does not churn the save file.
+    if (result.current > session.depthFloor) {
+      session = { ...session, depthFloor: result.current };
+      void io.saveState(serialize(session));
+    }
+    return { depth: result.depth, label: depthLabel(result.depth) };
+  }
+
   /**
    * N2's single suggestion for the launcher.
    *
@@ -545,6 +578,7 @@ async function boot(): Promise<void> {
     screen.replaceChildren(
       renderHome({
         session,
+        standing: currentStanding(Date.now()),
         onNewSession: () => startTable(),
         onPlayWithFriends: () => {
           multiplayerActive = true;

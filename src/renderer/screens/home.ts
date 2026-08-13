@@ -9,6 +9,12 @@ const RECENT_LIMIT = 5;
 
 export function renderHome(opts: {
   session: SessionState;
+  /**
+   * The learner's STANDING (Depth): the table depth earned from decision quality, never chips
+   * (PRODUCT-SPEC v2.1 amendment, scoped to this Play surface). Rendered beside the bankroll as a peer
+   * headline so it costs zero net height on the 640px-exact home. Absent when the caller has not wired it.
+   */
+  standing?: { depth: number; label: string };
   onNewSession: () => void;
   /** Open the multiplayer (local relay) panel. Absent when the caller has not wired multiplayer. */
   onPlayWithFriends?: () => void;
@@ -25,7 +31,7 @@ export function renderHome(opts: {
   root.className = 'home-screen';
   root.dataset.testid = 'home-screen';
 
-  root.appendChild(renderBankroll(opts.session.bankroll));
+  root.appendChild(renderHeadline(opts.session.bankroll, opts.standing));
 
   /*
    * FIRST, ABOVE THE SESSION BUTTON. N5 calls Home "a launcher, not a surface", and the one thing a
@@ -69,6 +75,44 @@ export function renderHome(opts: {
   );
 
   return root;
+}
+
+/**
+ * The headline row: bankroll on the left, and (when wired) the earned STANDING beside it. A horizontal
+ * row so the standing sits in the column's otherwise-empty right side and adds ZERO vertical height —
+ * home is 640px-exact at the minimum window (session-plan.spec test 17), so a stacked block would grow a
+ * page scrollbar. The row's height is the taller child (the 64px bankroll), which the standing never
+ * exceeds. The standing is deliberately quiet: a small label + depth, NOT a big competing number, and it
+ * is never mint (mint stays reserved for win% / gate / winner / pot-odds).
+ */
+function renderHeadline(bankroll: number, standing?: { depth: number; label: string }): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'home-headline';
+  row.appendChild(renderBankroll(bankroll));
+  if (standing) row.appendChild(renderStanding(standing));
+  return row;
+}
+
+function renderStanding(standing: { depth: number; label: string }): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'home-standing';
+  block.dataset.testid = 'home-standing';
+  block.dataset.depth = String(standing.depth);
+
+  const value = document.createElement('div');
+  value.className = 'home-standing-value';
+  value.dataset.testid = 'home-standing-label';
+  value.textContent = standing.label;
+  block.appendChild(value);
+
+  const label = document.createElement('div');
+  label.className = 'stat-label';
+  // "Standing" names it without any BANNED_PHRASINGS word (rank/level/percentile). The value itself is
+  // the concrete table depth ("40bb table" / "Calibrating"), so nothing here reads as a leaderboard.
+  label.textContent = 'Standing';
+  block.appendChild(label);
+
+  return block;
 }
 
 function renderBankroll(bankroll: number): HTMLElement {
