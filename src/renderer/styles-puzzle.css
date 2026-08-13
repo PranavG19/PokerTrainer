@@ -124,7 +124,8 @@
 }
 
 /* State 1 CLASSIFY — name the spot before acting. A prompt over the closed set of spot-type buttons,
- * and its own verdict block, matching the action controls' surface treatment. */
+ * and its own verdict block, matching the action controls' surface treatment. The PICKER stays at
+ * --elev-1: while classifying, the table is deliberately the focal surface ("read the table"). */
 .puzzle-classify,
 .puzzle-classify-verdict {
   background: var(--surface);
@@ -135,6 +136,14 @@
   gap: 10px;
   box-shadow: var(--elev-1);
   animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+}
+
+/* The classify VERDICT is the graded conclusion of the CLASSIFY state — the analog of
+ * .puzzle-verdict / .puzzle-complete, which lift to --elev-2 above the always-rendered table
+ * (--elev-1) so the graded conclusion is the one focal surface when it appears. The classify verdict
+ * shared the picker's --elev-1 and so had no focal lift; raise it to match the other conclusions. */
+.puzzle-classify-verdict {
+  box-shadow: var(--elev-2);
 }
 
 .puzzle-classify-prompt {
