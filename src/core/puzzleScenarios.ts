@@ -2074,6 +2074,99 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  // ── Folding draws for the wrong price — the mirror of call-flush-draw-odds and the biggest low-
+  // stakes leak: "I have a draw so I have to call" ignores that outs, one-card-to-come equity, and
+  // implied odds ALL have to be there. The answer key is the same rule-of-4/2 pot-odds math the
+  // continue-side scenarios use, just resolved to a fold. ──
+  {
+    id: 'fold-gutshot-to-flop-cbet',
+    title: 'Folding a K-high gutshot facing a flop c-bet',
+    setup:
+      'The button opens to 2.5bb and you defend K♥Q♥ in the big blind. The flop is A♠T♦5♣, you check, and the button continuation-bets a small size. You picked up a gutshot to broadway — is that enough?',
+    seatCount: 3,
+    // bb-defend layout: button seat 1 → hero seat 0 = BB, seat 1 = opener (button), seat 2 = SB.
+    // Preflop: seat 1 opens, seat 2 folds, seat 0 calls (step 1). Flop: seat 0 checks first OOP
+    // (step 2), seat 1 c-bets, seat 0 folds (step 3). Same shape as bb-defend-vs-btn.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = button (opener + c-bettor). Seat 2 = SB (folds).
+    holes: [
+      ['Kh', 'Qh'],
+      ['Ac', '9d'], // button: opened Ax, flopped top pair, c-bets range
+      ['7s', '3d'], // SB: folds
+    ],
+    board: ['As', 'Td', '5c', '4h', '2s'],
+    // Ask order: seat 1 (opens) → seat 2 (folds) → seat 0 (calls). Flop: seat 0 (checks) → seat 1
+    // (c-bets) → seat 0 (folds).
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+      { kind: 'bet', to: 75 }, // small c-bet (~28% pot after preflop calls, pot ~275)
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'K♥Q♥ is a routine BB defend closing the action for 75 more into a big pot: two broadway cards, suited, that flop pairs, straights and flush draws — an easy call, not a 3-bet.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'Standard OOP: check to the preflop raiser and let their range c-bet first. Donk-leading gives up the option to check-raise and turns a defending range into an information leak.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'Fold. A gutshot has FOUR outs (any jack), which is about 8% on one card and 17% on two — well short of the ~25% price a small c-bet lays. You have no overcards to the ace, backdoor equity is minimal, and IMPLIED ODDS are weak: a jack completes an obvious straight that a thinking opener will slow down on. "I have a draw, I call" is the biggest low-stakes leak — a draw needs the OUTS, the PRICE, and the IMPLIED ODDS all to line up. Here they do not, and calling to hit ~1-in-6 with reverse implied odds is how a small draw becomes a slow drain.',
+      },
+    ],
+  },
+  {
+    id: 'fold-flush-draw-to-flop-overbet',
+    title: 'Folding a live flush draw facing a flop overbet',
+    setup:
+      'The button opens to 2.5bb and you defend 7♥6♥ in the big blind. The flop is K♥9♥2♠ — a flush draw with backdoor straight equity — you check, and the button OVERBETS more than twice the pot. The draw is live, but is the price right?',
+    seatCount: 3,
+    // Same bb-defend seating: button seat 1 → hero seat 0 = BB, seat 1 = opener (overbetter), seat
+    // 2 = SB (folds). One flop decision: hero checks first, villain overbets, hero folds.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB, flush draw). Seat 1 = button (opener + overbetter). Seat 2 = SB (folds).
+    holes: [
+      ['7h', '6h'],
+      ['Kd', 'Qc'], // button: opened KQ, flopped top pair strong kicker, overbets polar
+      ['Jc', '4d'], // SB: folds
+    ],
+    board: ['Kh', '9h', '2s', '3c', '8s'],
+    // Ask order: seat 1 (opens) → seat 2 (folds) → seat 0 (calls). Flop: seat 0 (checks first OOP)
+    // → seat 1 (overbets) → seat 0 (folds).
+    villainScript: [
+      { kind: 'raise', to: 125 },
+      { kind: 'fold' },
+      { kind: 'bet', to: 600 }, // ~2.2x the ~275 pot — a clear polar overbet
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          '7♥6♥ is a routine BB defend heads-up: suited connectors that flop flushes, straights and pairs, getting a great price closing the action against a wide open.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'Check first. Out of position with a draw, let the aggressor bet before deciding the pot size — donk-leading forecloses the check-raise option and reveals nothing about the defending range.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'Fold — an overbet REPRICES the draw. The flush is ~36% with two cards to come, but a 2.2x-pot bet demands roughly 40% pot equity to break even, so the price alone is short. Worse, IMPLIED ODDS collapse against a polar overbet: villain’s range here is nutted-or-air (K-x strong kickers, sets, and the occasional bluff), and the range that overbets can also raise a flushed river or check-fold when the third heart lands, so hitting rarely wins a big pot. A live flush draw is not automatically a call — it is a call at the right PRICE, and the wrong price with a shrinking implied-odds profile is a fold. Discipline is folding a draw the math and the sizing both refuse.',
+      },
+    ],
+  },
   // ── Blind vs blind: heads-up, the ranges explode. Open wide, defend wider, 3-bet your monsters for
   // value, and range-c-bet the boards that favour the opener. (The library's only seatCount:2 spots.) ──
   {

@@ -72,11 +72,13 @@ export const CURRICULUM: readonly CurriculumModule[] = [
     key: 'flop-cbet-pot-control',
     title: 'Playing the Flop: C-Bets and Pot Control',
     blurb:
-      'The everyday flop — whose range does the board favor? C-bet where you have it, call with a price, control the pot with marginal hands, and give up when you miss.',
+      'The everyday flop — whose range does the board favor? C-bet where you have it, call the draws that have the price, FOLD the draws that do not, control the pot with marginal hands, and give up when you miss.',
     scenarioIds: [
       'bb-defend-vs-btn',
       'cbet-dry-ace',
       'call-flush-draw-odds',
+      'fold-gutshot-to-flop-cbet',
+      'fold-flush-draw-to-flop-overbet',
       'pot-control-ip',
       'checkback-underpair-multiway',
       'fold-flop-airball',
