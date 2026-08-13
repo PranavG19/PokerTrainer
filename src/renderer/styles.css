@@ -181,7 +181,7 @@ body {
   background: var(--text-hi);
   color: var(--ink);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -194,7 +194,7 @@ body {
   background: var(--chip-blind);
   color: var(--ink);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -279,7 +279,9 @@ body {
 .tabs {
   display: flex;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--surface-hi);
+  /* No drawn rule under the nav: the active tab's --surface-hi fill and the .screen padding already
+   * demarcate it, so a full-width hairline on pure black was chrome noise. Removal only shrinks the bar
+   * (never adds height); no e2e pins this border. */
 }
 
 .tab[data-active='true'] {
@@ -407,7 +409,7 @@ body {
   background: var(--text-hi);
   color: var(--ink);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   display: grid;
   place-items: center;
 }

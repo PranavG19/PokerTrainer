@@ -50,6 +50,10 @@
   padding: 16px 18px;
   border-radius: 16px;
   background: var(--surface);
+  /* The largest surface on Home floated flat against the black; --elev-1 gives it the same lifted-paper
+   * read the play-surface panels already have, unifying the depth language. Shadow paints outside the
+   * scroll box, so no layout height is added (session-plan.spec test 17's 640px budget is unaffected). */
+  box-shadow: var(--elev-1);
   max-height: calc(100vh - 85px);
   overflow-y: auto;
 }

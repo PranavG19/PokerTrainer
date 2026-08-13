@@ -60,6 +60,10 @@
   padding: 10px 14px;
   border-radius: 12px;
   background: var(--surface);
+  /* Lift the metric tiles together off the black so the grid reads as one cohesive data layer rather
+   * than disconnected flat patches. Uniform --elev-1 because these are peer readouts; no hue. Static,
+   * and the Progress screen scrolls internally, so no layout-height effect. */
+  box-shadow: var(--elev-1);
 }
 
 /* The gated fifth number spans the row: its withheld state carries a sentence, not a figure. */
@@ -209,7 +213,7 @@
 
 .progress-empty,
 .progress-footer {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-lo);
   line-height: 1.45;
 }
