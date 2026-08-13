@@ -213,6 +213,22 @@ const PRINCIPLES: Readonly<Record<string, PrincipleEntry>> = {
     text: 'At showdown each player makes the best five-card hand from their two hole cards and the five board cards; the strongest hand wins the pot, and equal hands split it.',
     mechanics: true,
   },
+  position: {
+    text: 'Position is where you sit relative to the button. Later seats act after earlier ones on every postflop street, so a later seat sees more information before it must decide — playing more hands and applying more pressure from position is standard.',
+    mechanics: true,
+  },
+  streets: {
+    text: 'A hand has four betting rounds: preflop with two hole cards, the flop with three community cards, the turn with a fourth, and the river with a fifth. A round of betting completes each street before the next card is dealt.',
+    mechanics: true,
+  },
+  blinds: {
+    text: 'The small blind and big blind are forced bets posted before the cards are dealt, one seat and two seats left of the button. They seed the pot and set the amount everyone else must call or raise to enter the hand.',
+    mechanics: true,
+  },
+  button: {
+    text: 'The button marks the dealer seat and moves one seat clockwise after each hand. It is the last seat to act on every postflop street, which is why the button is the best seat at the table.',
+    mechanics: true,
+  },
   // Strategy — reachable only post-reveal, keyed by ErrorTag.
   RANGE: {
     text: 'A range is the whole set of hands a line represents. Compare the range that continues against the range that takes the line, not one hand against another.',
