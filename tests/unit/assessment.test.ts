@@ -126,4 +126,38 @@ describe('parseAssessment (via deserialize) is tolerant', () => {
     expect(deserialize({}).assessments).toEqual([]);
     expect(deserialize({ assessments: 'nope' }).assessments).toEqual([]);
   });
+
+  it('round-trips the standing fields (principle, toCall, street) when present', () => {
+    const state = [
+      spot({ at: 10, evLossBb: 1.5, correct: false, principle: 'pot odds', toCall: 50, street: 'flop' }),
+      spot({ at: 20, principle: null, toCall: 0, street: 'preflop' }),
+    ].reduce(recordAssessment, emptySession());
+    const revived = deserialize(JSON.parse(JSON.stringify(serialize(state))));
+    expect(revived.assessments).toEqual(state.assessments);
+  });
+
+  it('omits standing fields that are absent or malformed rather than inventing them', () => {
+    const revived = deserialize({
+      assessments: [
+        { at: 1, evLossBb: 1, correct: true }, // legacy: no standing fields at all
+        { at: 2, evLossBb: 1, correct: true, principle: 42, toCall: 'lots', street: 'nope' }, // all malformed
+        { at: 3, evLossBb: 1, correct: true, principle: null, toCall: -5, street: 'turn' }, // toCall clamped >= 0
+      ],
+    });
+    // Legacy entry carries none of the optional fields.
+    expect(revived.assessments[0]).toEqual({ at: 1, evLossBb: 1, correct: true });
+    // Malformed optional fields are dropped, leaving the base three.
+    expect(revived.assessments[1]).toEqual({ at: 2, evLossBb: 1, correct: true });
+    // A valid null principle and street survive; a negative toCall clamps to 0.
+    expect(revived.assessments[2]).toEqual({ at: 3, evLossBb: 1, correct: true, principle: null, toCall: 0, street: 'turn' });
+  });
+
+  it('round-trips the depthFloor ratchet field, defaulting legacy saves to 0', () => {
+    const state = { ...emptySession(), depthFloor: 125 };
+    const revived = deserialize(JSON.parse(JSON.stringify(serialize(state))));
+    expect(revived.depthFloor).toBe(125);
+    // Legacy save with no depthFloor reads as 0 (never certified), never negative.
+    expect(deserialize({}).depthFloor).toBe(0);
+    expect(deserialize({ depthFloor: -50 }).depthFloor).toBe(0);
+  });
 });

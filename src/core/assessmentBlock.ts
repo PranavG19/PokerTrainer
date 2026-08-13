@@ -6,6 +6,7 @@ import {
   startHand,
   type Action,
   type ActionKind,
+  type Street,
   type TableState,
 } from './table.js';
 import { gradeDecision, type Grade } from './coach.js';
@@ -67,6 +68,10 @@ export interface AssessmentGrade {
   readonly hand: number;
   readonly chosen: ActionKind;
   readonly grade: Grade;
+  /** The street the decision was made on — carried so the standing score can require contested postflop spots. */
+  readonly street: Street;
+  /** What it cost the hero to continue (0 when a check was free) — carried for the standing CONTESTED filter. */
+  readonly toCall: number;
 }
 
 export interface AssessmentBlockOptions {
@@ -144,7 +149,14 @@ export class AssessmentBlock {
     const spot = this.current();
     if (spot === null) return null;
     const grade = this.gradeHere(chosen);
-    const result: AssessmentGrade = { index: this.recorded.length, hand: this.handNumber, chosen, grade };
+    const result: AssessmentGrade = {
+      index: this.recorded.length,
+      hand: this.handNumber,
+      chosen,
+      grade,
+      street: this.state.street,
+      toCall: this.heroToCall(),
+    };
     this.recorded.push(result);
 
     this.state = applyAction(this.state, this.legalize(chosen));
