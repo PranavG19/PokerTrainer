@@ -18,6 +18,7 @@
  */
 
 import * as net from 'node:net';
+import * as os from 'node:os';
 import { RelayServer } from '../core/relayServer.js';
 import { createRelayHost, encodeLine, splitLines, type RelayHost } from './relayHost.js';
 import type { Action } from '../core/table.js';
@@ -35,6 +36,33 @@ export interface SessionCallbacks {
 
 export interface HostInfo {
   readonly port: number;
+  /**
+   * The host machine's LAN IPv4 address(es) a guest types to join — the piece a bare port cannot supply.
+   * Loopback and internal interfaces are excluded (a guest on another machine can't use 127.0.0.1). May
+   * be empty on a machine with no LAN interface (then the guest must be told the address another way);
+   * the host still listens, so this is informational, not a failure.
+   */
+  readonly addresses: readonly string[];
+}
+
+/**
+ * The non-internal IPv4 addresses of this machine — what a guest on the same network types to reach the
+ * host. Takes the interface map as an argument (defaulting to os.networkInterfaces()) so the selection
+ * rule is unit-testable without depending on the test machine's real interfaces. IPv6 is excluded: the
+ * join UI and relay use plain host:port and a link-local v6 address needs a zone id most users can't give.
+ */
+export function lanAddresses(
+  interfaces: NodeJS.Dict<os.NetworkInterfaceInfo[]> = os.networkInterfaces(),
+): string[] {
+  const out: string[] = [];
+  for (const infos of Object.values(interfaces)) {
+    for (const info of infos ?? []) {
+      // Node <18 typed `family` as a string ('IPv4'); >=18 as a number (4). Accept both.
+      const isV4 = info.family === 'IPv4' || (info.family as unknown) === 4;
+      if (isV4 && !info.internal) out.push(info.address);
+    }
+  }
+  return out;
 }
 
 /**
@@ -62,6 +90,10 @@ export async function hostSession(
   // host's deliver(). Without this, a deal fired when the guest joins would never reach the host UI.
   const host: RelayHost = await createRelayHost({
     server,
+    // Bind ALL interfaces, not the loopback default: "Play with friends on your local network" is the
+    // whole point, and a loopback-only host silently refuses every LAN peer. Safe — the relay is behind
+    // the explicit multiplayer opt-in and lives outside the outbound network seal (see relayHost.ts).
+    host: '0.0.0.0',
     localDelivery: {
       playerId: LOCAL_PLAYER,
       deliver: (message) => {
@@ -93,7 +125,7 @@ export async function hostSession(
       await host.close();
     },
   };
-  return { session, info: { port: host.port } };
+  return { session, info: { port: host.port, addresses: lanAddresses() } };
 }
 
 /**

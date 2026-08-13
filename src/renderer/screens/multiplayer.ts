@@ -21,7 +21,7 @@ import { seatPositions } from '../../core/seatPositions.js';
 export interface MultiplayerBridge {
   mpStatus?: () => Promise<{ enabled: boolean; active: boolean }>;
   mpSetEnabled?: (enabled: boolean) => Promise<boolean>;
-  mpHost?: (opts: { seatCount?: number }) => Promise<{ port?: number; error?: string }>;
+  mpHost?: (opts: { seatCount?: number }) => Promise<{ port?: number; addresses?: string[]; error?: string }>;
   mpJoin?: (address: { host: string; port: number; name?: string }) => Promise<{ joined?: boolean; error?: string }>;
   mpAction?: (action: unknown) => Promise<void>;
   mpDeal?: () => Promise<void>;
@@ -45,6 +45,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
   let role: '' | 'host' | 'join' = '';
   let phase: 'setup' | 'connecting' | 'playing' = 'setup';
   let hostPort: number | null = null;
+  let hostAddresses: string[] = [];
   let notice = '';
   let enabled = false;
   // How many seats a hosted table has (2–6). The whole point of multiplayer is multi-way play, so the
@@ -91,6 +92,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       role = '';
     } else {
       hostPort = result?.port ?? null;
+      hostAddresses = result?.addresses ?? [];
     }
     paint();
   }
@@ -197,7 +199,22 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
         share.className = 'mp-share';
         share.dataset.testid = 'mp-host-port';
         share.dataset.port = String(hostPort);
-        share.textContent = `Share this port with a friend on your network: ${hostPort}`;
+        share.dataset.addresses = hostAddresses.join(',');
+        // A guest needs host:port, not a bare port. Show the machine's LAN address(es) with the port so
+        // the string can be typed straight into the join box. If no LAN address was found (unusual), fall
+        // back to the port alone with a note — the host still listens, the address just isn't auto-known.
+        if (hostAddresses.length > 0) {
+          const primary = hostAddresses[0];
+          share.textContent =
+            hostAddresses.length === 1
+              ? `Tell a friend on your network to join at ${primary}:${hostPort}`
+              : `Tell a friend on your network to join at ${primary}:${hostPort} (also reachable at ${hostAddresses
+                  .slice(1)
+                  .map((a) => `${a}:${hostPort}`)
+                  .join(', ')})`;
+        } else {
+          share.textContent = `Hosting on port ${hostPort} — share your machine's network address and this port with a friend.`;
+        }
         el.appendChild(share);
       }
       return el;
