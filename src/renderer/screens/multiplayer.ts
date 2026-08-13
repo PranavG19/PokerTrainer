@@ -66,6 +66,16 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     // empty waiting room (handNumber 0, table null) from seating itself — staying in 'connecting' then
     // keeps the shareable port on screen until a second player joins and the first hand is dealt.
     if (message.type === 'state' && message.view.handNumber >= 1) phase = 'playing';
+    // An error that arrives WHILE CONNECTING (a joiner's host is unreachable/refused — mpJoin returns
+    // immediately and the socket's async 'connect' failure comes back as this event) would otherwise
+    // leave the screen stuck on "Connecting…" forever: the connecting branch renders no error, and
+    // client.lastError only surfaces once the table view exists. So fall back to the setup panel and show
+    // the reason as its notice. During play an error stays on the table (it shows via mp-error there).
+    else if (message.type === 'error' && phase === 'connecting') {
+      phase = 'setup';
+      role = '';
+      notice = message.reason;
+    }
     paint();
   });
 

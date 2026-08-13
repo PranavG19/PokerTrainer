@@ -171,6 +171,29 @@ test('the join box rejects a bad address with a specific notice, without opening
   }
 });
 
+test('a join to an unreachable host falls back to setup with a notice, not a stuck "Connecting…"', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  try {
+    await openMultiplayer(page);
+    await page.locator('[data-testid="mp-enable"]').click();
+
+    // Join a valid-but-dead address: port 1 passes parseJoinAddress but nothing is listening, so the
+    // socket connect is REFUSED. mpJoin returns immediately (the connect is async), so the failure comes
+    // back later as a pushed 'error' event while the screen is on 'Connecting…'. Without the fallback the
+    // screen hangs there forever (the connecting branch renders no error); with it, we return to setup.
+    await page.locator('[data-testid="mp-join-host"]').fill('127.0.0.1');
+    await page.locator('[data-testid="mp-join-port"]').fill('1');
+    await page.locator('[data-testid="mp-join"]').click();
+
+    // The screen must leave the connecting state and surface the reason on the setup panel.
+    await expect(page.locator('[data-testid="mp-setup"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-testid="mp-notice"]')).toBeVisible();
+    await expect(page.locator('[data-testid="mp-connecting"]')).toHaveCount(0);
+  } finally {
+    await close();
+  }
+});
+
 test('the host can choose a larger table, and the chosen seat count reaches the room', async () => {
   const { page, close } = await launchApp({ seed: 11 });
   let client: net.Socket | null = null;
