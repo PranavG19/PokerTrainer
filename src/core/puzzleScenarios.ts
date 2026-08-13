@@ -2074,6 +2074,105 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  // ── Scare-card shutdown — the counterpoint to barrel-turn-overpair. The library teaches firing a
+  // BLANK turn with a strong hand; these teach checking or folding the SAME strong-looking hand when
+  // the turn hits the caller's range harder than yours. Missing this half leaves the learner over-
+  // barrelling every turn. Same range-composition truth used everywhere else, no fabricated frequency. ──
+  {
+    id: 'shutdown-qq-ace-turn',
+    title: 'Shutting down Q♥Q♠ when the ace lands on the turn',
+    setup:
+      'You open Q♥Q♠ from the cutoff, the big blind calls, and the flop is J♦7♣3♠. You bet, they call. The turn is the A♦ — one of the worst cards in the deck for your hand. Now what?',
+    seatCount: 3,
+    // barrel-turn-overpair seating: button on seat 2, hero on seat 0 (CO/opener), BB on seat 1. Hero
+    // acts FIRST postflop each street, so the hero decides the flop bet AND the turn action. The
+    // whole lesson is that the mirror scenario CHECKS the turn instead of barrelling.
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (CO/opener). Seat 1 = BB (caller — has plenty of Ax in a calling range). Seat 2 = button.
+    holes: [
+      ['Qh', 'Qs'],
+      ['Ah', 'Td'], // BB: called ATo preflop, missed the flop, now rivered top pair with the turn A
+      ['4s', '4d'], // button: folds preflop
+    ],
+    board: ['Jd', '7c', '3s', 'Ad', '8c'],
+    // Preflop: seat 2 (button) folds, seat 1 (BB) calls. Flop: seat 1 checks to hero, hero bets, BB
+    // calls. Turn: hero acts first — CHECKS (the target step). BB checks back the turn (script) so
+    // the puzzle completes at target step 3 without needing a river response.
+    villainScript: [
+      { kind: 'fold' }, // seat 2 (button) folds preflop
+      { kind: 'call' }, // seat 1 (BB) calls the open
+      { kind: 'call' }, // flop: BB calls the c-bet
+      { kind: 'check' }, // turn: BB checks back after the hero checks
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'QQ is a premium cutoff open — a big pair that wants to build a pot against the blinds.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'On J-7-3 your overpair is a mile ahead of a big-blind calling range: c-bet for value and to charge the draws and worse pairs that will pay you.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'Check — the A♦ smashes the caller\'s range and demotes yours. A big blind that called preflop and continued on J-7-3 shows up with plenty of Ax (AJ, AT, A-suited), and the A♦ just gave every one of those hands top pair. Your queens have gone from clear best hand to a bluff-catcher: barrelling now folds out the worse hands you were beating and only gets called (or raised) by hands that now beat you. Check to control the pot, plan to bluff-catch a small river bet, and fold to significant pressure. The barrel-a-blank turn drill has a mirror — and the mirror is knowing when the card does not blank.',
+      },
+    ],
+  },
+  {
+    id: 'fold-kk-donk-ace-turn',
+    title: 'Folding K♣K♦ when the big blind donk-leads the ace turn',
+    setup:
+      'You open K♣K♦ from the button. The small blind folds and the big blind calls. The flop is 7♥5♠2♣, they check, you c-bet, they call. The turn is the A♦ — and the big blind DONK-LEADS into you. What is going on?',
+    seatCount: 3,
+    // pot-control-ip seating: button seat 0 → hero seat 0 = button, seat 1 = SB (folds), seat 2 = BB
+    // (caller). Postflop the BB acts first (SB folded, next live left of dealer), so the DONK-LEAD
+    // is a real, engine-legal action: on the turn the BB is first-to-act and bets into the raiser.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button, opener). Seat 1 = SB (folds). Seat 2 = BB (caller, then donk-leader).
+    holes: [
+      ['Kc', 'Kd'],
+      ['9c', '4d'], // SB: folds
+      ['Ah', '5h'], // BB: called A-x-suited preflop, rivered top pair with the turn A, leads for value
+    ],
+    board: ['7h', '5s', '2c', 'Ad', '8c'],
+    // Ask order: preflop hero opens (target step 1) → SB folds (script) → BB calls (script). Flop:
+    // BB checks first (script) → hero c-bets (target step 2) → BB calls (script). Turn: BB DONKS
+    // (script bet) → hero folds (target step 3).
+    villainScript: [
+      { kind: 'fold' }, // seat 1 (SB) folds
+      { kind: 'call' }, // seat 2 (BB) calls the open
+      { kind: 'check' }, // flop: BB checks to the raiser
+      { kind: 'call' }, // flop: BB calls the c-bet
+      { kind: 'bet', to: 200 }, // turn: BB donk-leads into the raiser after the A hits
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'K♣K♦ is a mandatory button open — the second-best starting hand, opening every time to build a pot with the blinds.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'On 7-5-2 your overpair is far ahead of a big-blind calling range: bet for value and to charge the many draws and worse pairs this connected low board gives them.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'Fold. A passive caller who suddenly LEADS on the exact overcard that beats you is telling you the story: a donk-lead into the preflop raiser is a hand shouting "I improved," and the one card that improves a big-blind flop-calling range is the ace. The BB\'s range here is ace-heavy (A5, A7, A2, A-suited floats, small pairs) and passive; donking the A means an ace, almost never a bluff, and your kings are drawing to two outs. This is where beginners bleed stacks — kings LOOK strong on 7-5-2 so folding feels weak, but the whole hand-reading skill is trusting the story the action tells over the strength of your two cards. Better a small pot lost than a big one paid off.',
+      },
+    ],
+  },
   // ── Folding draws for the wrong price — the mirror of call-flush-draw-odds and the biggest low-
   // stakes leak: "I have a draw so I have to call" ignores that outs, one-card-to-come equity, and
   // implied odds ALL have to be there. The answer key is the same rule-of-4/2 pot-odds math the

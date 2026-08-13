@@ -301,6 +301,9 @@ test.describe('puzzle mode', () => {
       // Fold-draws-for-wrong-price — mirror of call-flush-draw-odds, module 4.
       'fold-gutshot-to-flop-cbet': ['call', 'check', 'fold'],
       'fold-flush-draw-to-flop-overbet': ['call', 'check', 'fold'],
+      // Scare-card shutdown — mirror of barrel-turn-overpair, module 6 (the-turn).
+      'shutdown-qq-ace-turn': ['raise', 'bet', 'check'],
+      'fold-kk-donk-ace-turn': ['raise', 'bet', 'fold'],
     };
 
     await withApp(async (page) => {
