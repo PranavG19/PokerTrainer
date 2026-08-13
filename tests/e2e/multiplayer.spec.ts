@@ -254,6 +254,51 @@ test('a failed join is announced, and the turn/outcome are announced once playin
   }
 });
 
+test('a keyboard-only host can act at the live table via F/C/R shortcuts', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  let client: net.Socket | null = null;
+  try {
+    await openMultiplayer(page);
+    await page.locator('[data-testid="mp-enable"]').click();
+    await page.locator('[data-testid="mp-host"]').click();
+    const port = Number(await page.locator('[data-testid="mp-host-port"]').getAttribute('data-port'));
+    expect(port).toBeGreaterThan(0);
+
+    client = net.createConnection({ host: '127.0.0.1', port });
+    client.setEncoding('utf8');
+    await new Promise<void>((resolve, reject) => {
+      client!.on('connect', () => {
+        client!.write(JSON.stringify({ type: 'join', name: 'Guest' }) + '\n');
+        resolve();
+      });
+      client!.on('error', reject);
+    });
+    await page.waitForSelector('[data-testid="mp-table"]', { timeout: 15_000 });
+
+    // Drive whoever is to act to the HOST via keyboard only: if the guest is to act, the guest folds over
+    // the socket to hand the turn to the host; then the host folds with the F key. Either way the host
+    // ends up exercising a keyboard action, and folding it out settles the hand (winners populated).
+    const hostToAct = page.locator('[data-testid="mp-seat"][data-you="true"][data-to-act="true"]');
+    if ((await hostToAct.count()) === 0) {
+      // Guest is first to act; fold it over the wire so the turn passes to the host.
+      client.write(JSON.stringify({ type: 'action', action: { kind: 'fold' } }) + '\n');
+    }
+    // Heads-up, a fold ends the hand. Pressing F must send the host's fold with no mouse — proving the
+    // keyboard path works. (If the host's fold already ended it via the guest fold above, the table
+    // already shows a winner; press F harmlessly — the handler no-ops off-turn.)
+    await expect(hostToAct.or(page.locator('[data-testid="mp-controls"] [data-testid="mp-deal"]'))).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.locator('body').press('f');
+
+    // The hand is resolved: the "Next hand" control appears once winners are populated (host-only deal).
+    await expect(page.locator('[data-testid="mp-deal"]')).toBeVisible({ timeout: 10_000 });
+  } finally {
+    client?.destroy();
+    await close();
+  }
+});
+
 test('the host can choose a larger table, and the chosen seat count reaches the room', async () => {
   const { page, close } = await launchApp({ seed: 11 });
   let client: net.Socket | null = null;

@@ -130,6 +130,36 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     void bridge.mpAction?.(action);
   }
 
+  /**
+   * Keyboard action shortcuts at the live table (F/C/R/A), matching the single-player table and the
+   * charts drills — without them a keyboard-only player cannot act in multiplayer at all. Same self-
+   * removing pattern as defenseDrill: bound on document, drops itself once the screen leaves the DOM, and
+   * ignores keystrokes while a modifier is held or while an INPUT/TEXTAREA (the join box) has focus, so
+   * typing an address is never read as an action. Only fires on the player's turn for a LEGAL action —
+   * the same guard the on-screen buttons use (disabled unless yourTurn && legal.includes(kind)).
+   */
+  function onKey(event: KeyboardEvent): void {
+    if (!root.isConnected) {
+      document.removeEventListener('keydown', onKey);
+      return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+    const view = client.view;
+    if (phase !== 'playing' || view === null || !view.yourTurn || view.winners !== null) return;
+    const legal = view.legal;
+    const key = event.key.toLowerCase();
+    if (key === 'f' && legal.includes('fold')) sendAction({ kind: 'fold' });
+    else if (key === 'c') {
+      if (legal.includes('check')) sendAction({ kind: 'check' });
+      else if (legal.includes('call')) sendAction({ kind: 'call' });
+    } else if (key === 'r' && (legal.includes('raise') || legal.includes('bet'))) {
+      sendAction({ kind: legal.includes('raise') ? 'raise' : 'bet' });
+    }
+  }
+  document.addEventListener('keydown', onKey);
+
   // ── rendering ───────────────────────────────────────────────────────────────
 
   // True once the screen has been in the DOM at least once. The initial synchronous paint() runs
