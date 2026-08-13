@@ -79,6 +79,7 @@ export const CURRICULUM: readonly CurriculumModule[] = [
       'call-flush-draw-odds',
       'fold-gutshot-to-flop-cbet',
       'fold-flush-draw-to-flop-overbet',
+      'call-tiny-cbet-ace-high',
       'pot-control-ip',
       'checkback-underpair-multiway',
       'fold-flop-airball',

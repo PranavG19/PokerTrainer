@@ -304,6 +304,8 @@ test.describe('puzzle mode', () => {
       // Scare-card shutdown — mirror of barrel-turn-overpair, module 6 (the-turn).
       'shutdown-qq-ace-turn': ['raise', 'bet', 'check'],
       'fold-kk-donk-ace-turn': ['raise', 'bet', 'fold'],
+      // Reading small-bet sizing — mirror of fold-*-overbet, module 4.
+      'call-tiny-cbet-ace-high': ['call', 'check', 'call'],
     };
 
     await withApp(async (page) => {
