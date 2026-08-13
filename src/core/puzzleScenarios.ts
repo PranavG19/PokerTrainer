@@ -2168,6 +2168,95 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    id: 'bvb-bb-checkraise-semibluff',
+    title: 'Check-raising a big draw in the big blind, heads-up',
+    setup:
+      'Heads-up, the small blind opens and you call in the big blind with 7♠6♠. The flop is 8♥5♠4♣ — an open-ended straight draw with a backdoor flush — and it is on you. Play it passive, or turn a draw into a weapon?',
+    seatCount: 2,
+    // Same heads-up seating as bvb-bb-defend-wide: button seat 1 → hero seat 0 = BB, villain seat 1 =
+    // SB. SB acts first preflop (opens), BB acts FIRST postflop (out of position, non-button).
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = SB (opener).
+    holes: [
+      ['7s', '6s'],
+      ['Kh', 'Td'], // SB: opens Kx, whiffs 854 and c-bets a small range stab
+    ],
+    board: ['8h', '5s', '4c', '2d', '9h'],
+    // Ask order: preflop seat 1 (SB opens — first), seat 0 (hero/BB calls — target step 1).
+    // Flop: seat 0 (BB checks first, OOP — target step 2), seat 1 (SB c-bets), seat 0 (hero check-
+    // raises — target step 3).
+    villainScript: [
+      { kind: 'raise', to: 125 }, // seat 1 (SB) opens
+      { kind: 'bet', to: 150 }, // flop: SB c-bets after the BB checks
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          '7♠6♠ is a routine BB defend heads-up — suited connectors that flop straights, flushes and pairs, getting a great price closing the action against a wide SB open.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'Check first — you are out of position with a draw, not a made hand, and you want the initiative-holder to bet before you decide the pot size. Leading (donk-betting) into the pre-flop raiser reveals nothing about your range and gives up the option to check-raise; the standard line is to CHECK to the aggressor and let their range c-bet into you.',
+      },
+      {
+        action: 'raise',
+        explanation:
+          'Now raise — a semi-bluff. You have eight straight outs plus backdoor flush and pair equity, so even called you are almost never crushed, and RAISING adds a huge fold-equity layer that just calling does not: against a small c-bet from a whiffed opener, most of their air folds. The draw becomes a weapon: fold out the two overcards that beat you right now, build the pot for when you get there, and take the initiative back in a heads-up game where the aggressor usually wins. Check-CALLING passively realises equity but caps you at "made hand or bust"; check-raising says "pay me now or fold."',
+      },
+    ],
+  },
+  {
+    id: 'bvb-sb-double-barrel-value',
+    title: 'Double-barrelling TPTK from the SB, heads-up',
+    setup:
+      'Heads-up, you open A♠J♣ from the small blind. The big blind calls, the flop is J♦7♠3♣ — top pair top kicker on a dry board — and it checks to you. You c-bet, the BB calls, and the turn is the 5♦. It checks to you again. Fire again, or shut down?',
+    seatCount: 2,
+    // Same heads-up seating as bvb-sb-open-wide: button seat 0 → hero seat 0 = SB/button. SB acts
+    // first preflop (opens); BB acts first postflop (non-button OOP), so BB checks to the hero on
+    // each street and the hero (in position) decides.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (SB/button, the opener). Seat 1 = BB (caller).
+    holes: [
+      ['As', 'Jc'],
+      ['Qd', 'Th'], // BB: calls with a broadway hand, flops a gutshot + overcard on J-7-3
+    ],
+    board: ['Jd', '7s', '3c', '5d', '2h'],
+    // Ask order: preflop seat 0 (hero opens — target step 1), seat 1 (BB calls). Flop: seat 1 (BB
+    // checks first, OOP), seat 0 (hero c-bets — target step 2), seat 1 (BB calls). Turn: seat 1 (BB
+    // checks), seat 0 (hero barrels — target step 3).
+    villainScript: [
+      { kind: 'call' }, // seat 1 (BB) calls the open
+      { kind: 'check' }, // flop: BB checks to the raiser
+      { kind: 'call' }, // flop: BB calls the c-bet with the gutshot + overcard
+      { kind: 'check' }, // turn: BB checks again
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠J♣ is a strong small-blind open heads-up — top of most opening ranges, dominates the BB’s weaker aces and jacks, and plays well in position for the whole hand.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'C-bet for value. J♦7♠3♣ is dry, hits your opening range far more than the caller’s (who never has jacks that raised, and few nutted hands), and you hold top pair top kicker. A small c-bet charges the many draws and worse jacks the BB peels with and folds out their air; against ace-high and second pair you are getting called by hands you crush. This is a mechanical value bet, not a bluff.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'Fire again — this is the barrel that separates value bettors from pot-controllers. The 5♦ is a brick: it changes nothing on the range advantage, and a BB who called flop with a worse jack, a pair, or a draw is still calling. Shutting down leaks value: the pot grows only if you keep betting, and the WORSE hands that will pay you (KJ, QJ, second pair, gutshots, T9, 88-99) still have plenty of reasons to peel one more. Top pair top kicker with position on a static board is EXACTLY the hand profile that wants to build the pot over three streets — bet, and be prepared to bet again on most rivers.',
+      },
+    ],
+  },
+  {
     id: 'bvb-sb-cbet-dry',
     title: 'Range-betting a K-high board heads-up',
     setup:

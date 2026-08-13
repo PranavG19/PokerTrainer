@@ -295,7 +295,9 @@ test.describe('puzzle mode', () => {
       'bvb-sb-open-wide': ['raise'],
       'bvb-bb-defend-wide': ['call'],
       'bvb-bb-3bet-value': ['raise'],
+      'bvb-bb-checkraise-semibluff': ['call', 'check', 'raise'],
       'bvb-sb-cbet-dry': ['raise', 'bet'],
+      'bvb-sb-double-barrel-value': ['raise', 'bet', 'bet'],
     };
 
     await withApp(async (page) => {

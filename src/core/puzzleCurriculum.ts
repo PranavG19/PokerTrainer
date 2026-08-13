@@ -142,12 +142,14 @@ export const CURRICULUM: readonly CurriculumModule[] = [
     key: 'blind-vs-blind',
     title: 'Blind vs Blind: Heads-Up, the Ranges Explode',
     blurb:
-      'One opponent and position guaranteed to the small blind: open a huge share of hands, defend the big blind even wider on the price, 3-bet your good hands for value against a range that opens everything, and range-c-bet the boards that favour the opener.',
+      'One opponent and position guaranteed to the small blind: open a huge share of hands, defend the big blind even wider on the price, 3-bet your good hands for value against a range that opens everything, then postflop check-raise the big draws OOP, range-c-bet the boards that favour you, and double-barrel top pair for value on the runouts that keep the range advantage.',
     scenarioIds: [
       'bvb-sb-open-wide',
       'bvb-bb-defend-wide',
       'bvb-bb-3bet-value',
+      'bvb-bb-checkraise-semibluff',
       'bvb-sb-cbet-dry',
+      'bvb-sb-double-barrel-value',
     ],
   },
   {
