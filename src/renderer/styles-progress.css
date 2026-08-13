@@ -20,9 +20,12 @@
   flex: 0 0 auto;
 }
 
-/* P2's bars are the primary surface, so they get the room and they scroll rather than pushing the
-   five numbers off screen. */
-#app .progress-screen > [data-testid='kc-section'] {
+/* P2's bars are the primary surface, so when there ARE bars they get the room and scroll internally
+   rather than pushing the five numbers off screen. Scoped to the populated case with :has(.kc-row): an
+   EMPTY kc-section (just the two-line "no evidence yet" state) must keep the section default
+   flex: 0 0 auto, or flexbox squeezes it below its own content height and its overflow-y paints a stray
+   scrollbar thumb over the heading (visible bug on a fresh profile). No bars → nothing to scroll. */
+#app .progress-screen > [data-testid='kc-section']:has(.kc-row) {
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
