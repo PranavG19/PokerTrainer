@@ -52,6 +52,23 @@ export function depthToStack(depth: Depth, bb: number): number | null {
 }
 
 /**
+ * The chips the hero may actually BUY IN with, bounding the earned depth by affordability. `bankroll` is
+ * "pocket + chips on the table" modelled around the classic `standardStack` (100bb) sit-down, so a learner
+ * may not sit DEEPER than they can back: the deep stack is capped at the bankroll, floored at the standard
+ * table. So a flush learner sits at full earned depth, an in-between one at what they own, and a broke one
+ * still gets the classic table (today's behaviour). `depthStack` null (Calibrating) returns null → the
+ * caller uses the table default; nothing changes for a fresh profile. Pure so the rule is unit-tested.
+ */
+export function affordableStack(
+  depthStack: number | null,
+  bankroll: number,
+  standardStack: number,
+): number | null {
+  if (depthStack === null) return null;
+  return Math.min(depthStack, Math.max(bankroll, standardStack));
+}
+
+/**
  * The coach charges that are SOUND break-even math and safe to rank on. 'pot odds' (call/fold facing a bet)
  * and 'ranges' (raise over a bet) misjudge a real price. EXCLUDED: 'value or bluff' — the coach has NO
  * fold-equity model, so it charges correct semi-bluffs as leaks; ranking on it would train nitty play.

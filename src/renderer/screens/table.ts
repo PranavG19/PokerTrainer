@@ -56,7 +56,8 @@ import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../compone
 const SB = 25;
 /** The big blind, exported so the caller can size a depth-derived starting stack in the same units. */
 export const BB = 50;
-const START_STACK = 5000;
+/** The classic 100bb buy-in, exported as the affordability floor for a depth-derived deep stack. */
+export const START_STACK = 5000;
 const AI_DELAY_MS = 450;
 
 /**
