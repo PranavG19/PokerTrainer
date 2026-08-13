@@ -15,6 +15,7 @@ import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
 
 const announcer = '[data-testid="coach-announcer"]';
 const outcomeAnnouncer = '[data-testid="outcome-announcer"]';
+const potAnnouncer = '[data-testid="pot-announcer"]';
 
 async function openTable(page: Page): Promise<void> {
   await page.waitForSelector('[data-testid="home-screen"]');
@@ -86,6 +87,44 @@ test('the announcer clears on the next hand, leaving no stale verdict in the a11
     await waitForIdle(page);
     // Fresh hand: the previous verdict must not still be announced.
     await expect(page.locator(announcer)).toHaveText('');
+  } finally {
+    await close();
+  }
+});
+
+test('the pot is announced at a street boundary, matching the felt, and is empty preflop', async () => {
+  const { page, close } = await launchApp({ seed: 8 });
+  try {
+    await openTable(page);
+    // Preflop, before any street was dealt, the pot announcer has nothing to say (it fires on the flop).
+    expect(await waitForIdle(page)).toBe('hero');
+    await expect(page.locator(potAnnouncer)).toHaveText('');
+
+    // Play passively (check/call) until the board reaches the flop (3+ cards) or the hand settles.
+    let reachedFlop = false;
+    for (let i = 0; i < 40; i++) {
+      const boardCards = await page.locator('[data-testid="board"] [data-testid="card"]').count();
+      if (boardCards >= 3) {
+        reachedFlop = true;
+        break;
+      }
+      if ((await waitForIdle(page)) === 'handover') break;
+      for (const s of [sel.btnCheck, sel.btnCall]) {
+        const b = page.locator(s);
+        if (await b.isEnabled()) {
+          await b.click();
+          break;
+        }
+      }
+    }
+    // This seed's line must actually see a flop for the assertion to mean anything.
+    expect(reachedFlop, 'the passive line should reach a flop on this seed').toBe(true);
+
+    // The announced pot is the felt's pot verbatim — one polite region, distinct from coach/outcome, so
+    // a street deal that coincides with a verdict cannot clobber the teaching output.
+    const potText = (await page.locator('[data-testid="pot"]').textContent()) ?? '';
+    expect(potText).toMatch(/^Pot \d+$/);
+    await expect(page.locator(potAnnouncer)).toHaveText(potText);
   } finally {
     await close();
   }
