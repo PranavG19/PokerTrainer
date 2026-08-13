@@ -53,7 +53,8 @@ import { renderReview, renderReviewList, type ReviewHandle } from './screens/rev
 import { renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
 import { renderTrainScreen, type TrainMode as TrainModeSpec } from './screens/train.js';
-import { conceptStatesFromLog, gate, posterior, type ConceptState } from '../core/schedule.js';
+import { conceptStatesFromLog, dueNow, gate, posterior, type ConceptState } from '../core/schedule.js';
+import { remediationQueue } from '../core/contrastManifest.js';
 import { renderTable, type TableHandle } from './screens/table.js';
 import { renderMultiplayerScreen } from './screens/multiplayer.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
@@ -671,13 +672,35 @@ async function boot(): Promise<void> {
     return renderSpacing({ concepts: deriveConcepts(), now: Date.now() });
   }
 
-  /** Builds the hub's mode list, binding each rung to its fresh-render thunk and old testid. */
+  /**
+   * The muted, zero-suppressed count a maintenance rung shows after its label. Both are REAL pending
+   * work the app already computes for the screens themselves — Leaks reads the remediation queue the
+   * repair screen builds, Upkeep the due-rep count the spacing screen shows — so the rail never
+   * fabricates a number. Zero returns null (the hub then shows nothing), so a fresh profile's empty
+   * rungs stay bare rather than announcing "0 to fix".
+   */
+  function trainNote(mode: TrainMode): string | null {
+    if (mode === 'repair') {
+      // remediationQueue returns the WHOLE manifest (fired entries first, then the rest as null), so its
+      // length is constant — the honest count is only the entries a real leak actually FIRED.
+      const n = remediationQueue(session.hands).filter((q) => q.firedBy !== null).length;
+      return n > 0 ? `${n} to fix` : null;
+    }
+    if (mode === 'spacing') {
+      const n = dueNow(deriveConcepts(), Date.now()).length;
+      return n > 0 ? `${n} due` : null;
+    }
+    return null;
+  }
+
+  /** Builds the hub's mode list, binding each rung to its fresh-render thunk, old testid and any count. */
   function renderTrainTab(): HTMLElement {
     const modes: TrainModeSpec[] = TRAIN_MODES.map((m) => ({
       id: m.mode,
       label: m.label,
       testid: m.testid,
       band: m.band,
+      note: trainNote(m.mode),
       render: () => renderTrainMode(m.mode),
     }));
     return renderTrainScreen({ modes, initialMode: trainMode });

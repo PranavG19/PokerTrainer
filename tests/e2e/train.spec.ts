@@ -1,5 +1,46 @@
 import { expect, test } from '@playwright/test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { launchApp } from './helpers.js';
+
+const STATE_FILE = 'offsuit-state.json';
+
+/**
+ * Seed a save whose hands carry a T2 ('notable') leak on the given principle, so the remediation queue
+ * the Leaks rung counts actually fires. Mirrors core/session.ts serialize() (the same shape contrast.spec
+ * writes). Returns the userDataDir to launch against.
+ */
+function seedLeakSave(principle: string, count: number): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-train-'));
+  const hands = Array.from({ length: count }, (_, i) => ({
+    handNumber: i + 1,
+    hole: ['Ah', 'Kd'],
+    board: [],
+    net: -100,
+    vpip: true,
+    pfr: false,
+    grades: [{ severity: 'notable', principle, evLossBb: 1.2 }],
+  }));
+  fs.writeFileSync(
+    path.join(dir, STATE_FILE),
+    JSON.stringify({
+      bankroll: 10000,
+      hands,
+      rebuys: 0,
+      stats: {
+        handsPlayed: count,
+        vpipHands: count,
+        pfrHands: 0,
+        evLossBb: 1.2 * count,
+        leaks: { [principle]: count },
+        leakCostBb: { [principle]: 1.2 * count },
+      },
+    }),
+    'utf-8',
+  );
+  return dir;
+}
 
 /**
  * THE TRAIN HUB — the left-rail screen that folded six former tabs (Spots·Math·Speed·Stress·Leaks·Upkeep)
@@ -144,6 +185,46 @@ test.describe('the Train hub', () => {
       await page.keyboard.press('ArrowDown');
       await expect(page.locator(hub)).toHaveAttribute('data-mode', 'drill');
       await expect(page.locator('[data-testid="tab-drill"]')).toHaveAttribute('data-active', 'true');
+    } finally {
+      await close();
+    }
+  });
+
+  test('a fresh profile shows NO rung counts — nothing is fabricated', async () => {
+    const { page, close } = await launchApp({ seed: 42 });
+    try {
+      await page.click(tabTrain);
+      await page.waitForSelector(hub);
+      // No hands played, nothing due: the maintenance rungs carry no count at all (zero-suppressed).
+      await expect(page.locator('[data-testid="train-rail-note"]')).toHaveCount(0);
+    } finally {
+      await close();
+    }
+  });
+
+  test('the Leaks rung shows a real "N to fix" count when leaks have actually fired', async () => {
+    // Seed hands with T2 ('notable') 'pot odds' leaks so the remediation queue fires. The count is the
+    // fired entries, not the whole manifest — a fresh profile (test above) shows nothing.
+    const userDataDir = seedLeakSave('pot odds', 3);
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.click(tabTrain);
+      await page.waitForSelector(hub);
+
+      // The note rides on the Leaks (repair) rung, and reads as a plain "N to fix" — a count, not a badge.
+      const leaksNote = page.locator('[data-testid="tab-repair"] [data-testid="train-rail-note"]');
+      await expect(leaksNote).toHaveCount(1);
+      const text = (await leaksNote.textContent()) ?? '';
+      expect(text).toMatch(/^\d+ to fix$/);
+      // At least one entry fired (the exact manifest count for 'pot odds' is core's business, not this test's).
+      const n = Number(text.replace(' to fix', ''));
+      expect(n).toBeGreaterThan(0);
+
+      // BANNED_PHRASINGS stays clean on the rail: no rank/level/streak/xp leaked into the count.
+      const lower = text.toLowerCase();
+      for (const banned of ['rank', 'level', 'streak', 'xp', 'badge', 'percentile']) {
+        expect(lower, `rail note "${text}" leaked a banned word`).not.toContain(banned);
+      }
     } finally {
       await close();
     }
