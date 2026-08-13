@@ -10,6 +10,18 @@
   margin: 0 auto;
 }
 
+/*
+ * Bankroll and the earned STANDING sit on one baseline-aligned row so the standing costs zero net
+ * height on the 640px-exact home (session-plan.spec test 17). The row's height is the tall bankroll
+ * number; the standing block is shorter, so it never grows the column.
+ */
+.home-headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+}
+
 .home-bankroll {
   display: flex;
   flex-direction: column;
@@ -19,6 +31,26 @@
 .home-bankroll .bankroll {
   font-size: 64px;
   letter-spacing: -2px;
+}
+
+/*
+ * The standing is quiet by design: right-aligned, smaller than the bankroll, and NOT mint (mint stays
+ * reserved for win% / gate / winner / pot-odds). It names the earned table depth, not a leaderboard rank.
+ */
+.home-standing {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.home-standing-value {
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  color: var(--text-hi);
 }
 
 /* The two launch cards share a row so multiplayer adds no net height to a 640px-exact home. */

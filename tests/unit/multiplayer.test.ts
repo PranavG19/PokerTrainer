@@ -91,7 +91,7 @@ describe('redaction — the security boundary', () => {
     const view = viewFor(room, 'p0');
     if ('error' in view) throw new Error(view.error);
     // The deck is the one field that would let a client compute the runout; it must not exist anywhere.
-    expect((view as Record<string, unknown>).deck).toBeUndefined();
+    expect((view as unknown as Record<string, unknown>).deck).toBeUndefined();
     expect(JSON.stringify(view)).not.toContain('"deck"');
   });
 
