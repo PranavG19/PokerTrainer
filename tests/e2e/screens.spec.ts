@@ -311,6 +311,37 @@ test.describe('R8 home screen', () => {
         return b.bottom > s.top && s.bottom > b.top;
       });
       expect(sameRow, 'standing is not on the same row as the bankroll').toBe(true);
+
+      // DISCOVERABILITY: "Calibrating" is a dead end unless it says how to leave it. Both depth and form
+      // read only assessment blocks, so the caption points there. It must be present, ban-clean, and
+      // NOT wider than the "Calibrating" value above it (else it would push the headline row at 900px).
+      const caption = page.locator('[data-testid="home-standing-caption"]');
+      await expect(caption).toHaveText('Run an assessment');
+      await expect(caption).toHaveAttribute('data-calibrating', 'true');
+      const captionLower = ((await caption.textContent()) ?? '').toLowerCase();
+      for (const banned of ['rank', 'percentile', 'level', 'elo', 'tier', 'leaderboard']) {
+        expect(captionLower, 'calibrating caption leaked a banned word').not.toContain(banned);
+      }
+      // The pointer is longer than the "Calibrating" value, so what matters is the ROW still fits at the
+      // 900px minimum: the standing block must clear the bankroll (no overlap) and nothing overflows.
+      // (session-plan.spec 17 is the dedicated zero-slack guard; this pins it at the narrow width here.)
+      await page.setViewportSize({ width: 900, height: 640 });
+      const rowFits = await page.evaluate(() => {
+        const bank = document.querySelector('[data-testid="bankroll"]');
+        const stand = document.querySelector('[data-testid="home-standing"]');
+        if (bank === null || stand === null) return { ok: false, scrollW: 0, innerW: 0 };
+        const b = bank.getBoundingClientRect();
+        const s = stand.getBoundingClientRect();
+        return {
+          ok: s.left >= b.right, // standing starts to the right of the bankroll — no horizontal overlap
+          scrollW: document.documentElement.scrollWidth,
+          innerW: window.innerWidth,
+        };
+      });
+      expect(rowFits.ok, 'the calibrating caption pushed the standing into the bankroll at 900px').toBe(true);
+      expect(rowFits.scrollW, 'home overflows horizontally at 900px with the calibrating caption').toBeLessThanOrEqual(
+        rowFits.innerW + 1,
+      );
     } finally {
       await close();
     }

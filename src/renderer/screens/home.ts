@@ -112,12 +112,24 @@ function renderStanding(standing: { depth: number; label: string; form?: string 
   caption.dataset.testid = 'home-standing-caption';
   // The caption carries the SEPARATE live "current form" reading when there is one to show — a bad run
   // surfaces HERE, never as a demotion of the ratcheted depth above. 'settling' means "not enough to say"
-  // yet, so it falls back to the neutral "Standing" caption rather than announcing a verdict it lacks.
-  // All form words (sharp/warming up/rusty) and "Standing" are BANNED_PHRASINGS-clean — no rank/level word.
+  // yet, so it falls back to a caption that depends on WHY there is nothing to say:
+  //  - Calibrating (depth 0, no earned depth): point the learner at the ONE thing that moves the standing
+  //    — an assessment block (both depth and form read only session.assessments). Without this the word
+  //    "Calibrating" is a dead end: a casual player never learns how to leave it. The pointer is short
+  //    ("Run an assessment", shorter than the "Calibrating" value above it, so it adds no width) and
+  //    BANNED_PHRASINGS-clean (no rank/level/percentile word).
+  //  - A real depth but a still-settling form: the neutral "Standing".
+  // All form words (sharp/warming up/rusty) are also ban-clean.
   const form = standing.form;
   const showsForm = form != null && form !== 'settling';
-  caption.textContent = showsForm ? (form as string) : 'Standing';
+  const calibrating = standing.depth === 0;
+  caption.textContent = showsForm
+    ? (form as string)
+    : calibrating
+      ? 'Run an assessment'
+      : 'Standing';
   if (showsForm) caption.dataset.form = form as string;
+  if (calibrating && !showsForm) caption.dataset.calibrating = 'true';
   block.appendChild(caption);
 
   return block;
