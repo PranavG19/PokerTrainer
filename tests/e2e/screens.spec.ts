@@ -48,6 +48,8 @@ interface FixtureHand {
 /** Mirrors core/session.ts serialize() — what the app itself writes to disk. */
 interface Fixture {
   bankroll: number;
+  /** The ratcheted Depth floor (0/40/75/125/200). Optional: absent means a fresh profile at 0. */
+  depthFloor?: number;
   hands: FixtureHand[];
   stats: {
     handsPlayed: number;
@@ -297,6 +299,30 @@ test.describe('R8 home screen', () => {
         return b.bottom > s.top && s.bottom > b.top;
       });
       expect(sameRow, 'standing is not on the same row as the bankroll').toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
+  test('1c. a persisted Depth floor renders as the earned table, proving the render reflects real state', async () => {
+    // The ratchet floor is persisted state, and standing() shows max(current, floor). A save with
+    // depthFloor:40 must therefore read "40bb table" — this proves the label is computed from the
+    // session, not a hardcoded string that would pass test 1b's "Calibrating" case by accident.
+    const fixture: Fixture = {
+      bankroll: 10000,
+      depthFloor: 40,
+      hands: [],
+      stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {}, leakCostBb: {} },
+    };
+    const userDataDir = seedSave(fixture);
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      const label = (await page.textContent('[data-testid="home-standing-label"]')) ?? '';
+      expect(label.trim()).toBe('40bb table');
+      // The depth is also exposed as a data attribute for downstream wiring; it must agree.
+      const depth = await page.getAttribute('[data-testid="home-standing"]', 'data-depth');
+      expect(depth).toBe('40');
     } finally {
       await close();
     }
