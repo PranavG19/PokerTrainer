@@ -244,6 +244,8 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     hostInput.dataset.testid = 'mp-join-host';
     hostInput.placeholder = 'Host (e.g. 127.0.0.1)';
     hostInput.value = '127.0.0.1';
+    // Placeholders are not accessible names; label each field.
+    hostInput.setAttribute('aria-label', 'Host address');
     joinRow.appendChild(hostInput);
 
     const portInput = document.createElement('input');
@@ -251,6 +253,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     portInput.className = 'mp-input';
     portInput.dataset.testid = 'mp-join-port';
     portInput.placeholder = 'Port';
+    portInput.setAttribute('aria-label', 'Port');
     joinRow.appendChild(portInput);
 
     const joinBtn = document.createElement('button');

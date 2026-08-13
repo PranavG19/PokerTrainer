@@ -484,6 +484,12 @@ function renderAnswerRow(
   input.inputMode = 'decimal';
   input.autocomplete = 'off';
   input.placeholder = KINDS[problem.kind].unit === '%' ? 'e.g. 25' : 'e.g. 2.5';
+  // A placeholder is not an accessible name; name the box after what it asks and the expected unit so a
+  // screen reader announces the task, not just "edit text".
+  input.setAttribute(
+    'aria-label',
+    `${KINDS[problem.kind].label} — ${KINDS[problem.kind].asks}, in ${KINDS[problem.kind].unit === '%' ? 'percent' : 'ratio to 1'}`,
+  );
   field.appendChild(input);
 
   // The unit is beside the box, not implied: "25" and "0.25" are both plausible answers to a

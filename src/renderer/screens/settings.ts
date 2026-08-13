@@ -223,6 +223,9 @@ function renderNarration(spokenVerdicts: boolean, handlers: SettingsHandlers): H
   // state the label is also carrying. Here the label states the state and the note explains it.
   button.dataset.on = String(spokenVerdicts);
   button.textContent = spokenVerdicts ? 'On' : 'Off';
+  // The visible "On"/"Off" label (a voice.spec contract) does not name what it controls; an aria-label
+  // does, without touching the asserted textContent.
+  button.setAttribute('aria-label', `Read verdicts aloud: ${spokenVerdicts ? 'on' : 'off'}`);
   button.addEventListener('click', () => handlers.onSpokenVerdictsChange(!spokenVerdicts));
   wrap.appendChild(button);
 
