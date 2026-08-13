@@ -190,6 +190,32 @@ describe('property (a) — pre-commit, a scripted call to a solver tool reaches 
     }
   });
 
+  it('lookup_principle description enumerates the phase-appropriate keys — no guessing', () => {
+    // The model gets the tool description in envelope.tools[]. Before this wiring the description
+    // said 'Pass { key }' without saying WHICH keys were valid; with 28 keys now, that was a real
+    // limitation. Assert both phase-scoped descriptions list their reachable keys.
+    const preRegistry = registryFor('pre-commit');
+    const postRegistry = registryFor('post-reveal');
+    const preLookup = preRegistry.find((t) => t.name === TOOL.lookupPrinciple);
+    const postLookup = postRegistry.find((t) => t.name === TOOL.lookupPrinciple);
+    // Sanity — the pre-commit description scopes the mechanics-only restriction.
+    expect(preLookup?.description).toContain('Mechanics keys only pre-commit');
+    // A mechanics lesson id appears in both descriptions.
+    expect(preLookup?.description).toContain('what-the-actions-mean');
+    expect(postLookup?.description).toContain('what-the-actions-mean');
+    // A strategy lesson id appears ONLY post-reveal.
+    const strategyLesson = LESSONS.find((l) => l.phase === 3);
+    if (strategyLesson) {
+      expect(preLookup?.description).not.toContain(strategyLesson.id);
+      expect(postLookup?.description).toContain(strategyLesson.id);
+    }
+    // A hand-authored mechanics key (button) is enumerated.
+    expect(preLookup?.description).toContain('button');
+    // An ErrorTag strategy key appears ONLY post-reveal.
+    expect(preLookup?.description).not.toContain('TEXTURE');
+    expect(postLookup?.description).toContain('TEXTURE');
+  });
+
   it('every lesson in src/core/lessons is reachable through lookup_principle', async () => {
     // Drift guard: adding a lesson to src/core/lessons must automatically make it a valid
     // PRINCIPLES key. This test iterates every LESSONS entry, calls lookup_principle with the

@@ -151,14 +151,37 @@ const NUMERIC_PHRASES: ToolSpec = {
   name: TOOL.numericPhrases,
   description: 'Engine-authored numeric phrases you may quote verbatim. The only sanctioned source of numbers.',
 };
-const LOOKUP_PRINCIPLE: ToolSpec = {
-  name: TOOL.lookupPrinciple,
-  description: 'Fixed lesson text for a principle key. Pass { key }. Mechanics keys only pre-commit.',
-};
 const RECALL_TURN: ToolSpec = {
   name: TOOL.recallTurn,
   description: 'The text of an earlier turn in this spot. Pass { index }.',
 };
+
+/**
+ * The keys reachable in each phase. Pre-commit sees mechanics-only; post-reveal sees all. Derived
+ * at module load, deterministic, and enumerated in the tool description so the model does not have
+ * to guess valid keys. New lessons added to src/core/lessons appear here automatically via
+ * LESSON_PRINCIPLES; the drift-guard test enforces that path.
+ */
+function principleKeysFor(phase: SpotPhase): readonly string[] {
+  return Object.entries(PRINCIPLES)
+    .filter(([, entry]) => phase === 'post-reveal' || entry.mechanics)
+    .map(([key]) => key)
+    .sort();
+}
+
+/**
+ * Build the LOOKUP_PRINCIPLE ToolSpec for a given phase, enumerating the valid keys inline. Kept
+ * as a function (not a module-level const) to defer the PRINCIPLES read past its declaration —
+ * PRINCIPLES is initialised later in this module.
+ */
+function lookupPrincipleSpec(phase: SpotPhase): ToolSpec {
+  const keys = principleKeysFor(phase).join(', ');
+  const scope = phase === 'pre-commit' ? 'Mechanics keys only pre-commit. ' : '';
+  return {
+    name: TOOL.lookupPrinciple,
+    description: `Fixed lesson text for a principle key. Pass { key }. ${scope}Valid keys: ${keys}.`,
+  };
+}
 
 /**
  * THE PHASE GATE. Pre-commit omits recall_grade and numeric_phrases — the two
@@ -168,9 +191,9 @@ const RECALL_TURN: ToolSpec = {
  */
 export function registryFor(phase: SpotPhase): readonly ToolSpec[] {
   if (phase === 'pre-commit') {
-    return [RECALL_TABLE, LOOKUP_PRINCIPLE, RECALL_TURN];
+    return [RECALL_TABLE, lookupPrincipleSpec('pre-commit'), RECALL_TURN];
   }
-  return [RECALL_TABLE, RECALL_GRADE, NUMERIC_PHRASES, LOOKUP_PRINCIPLE, RECALL_TURN];
+  return [RECALL_TABLE, RECALL_GRADE, NUMERIC_PHRASES, lookupPrincipleSpec('post-reveal'), RECALL_TURN];
 }
 
 /** Fast membership test for the dispatcher's refusal path. */
