@@ -10,8 +10,13 @@ import { launchApp } from './helpers.js';
  * else.
  */
 
+/** The six modes that now live behind the Train hub's left rail rather than on the top tab bar. */
+const TRAIN_MODES = new Set(['puzzle', 'drill', 'anomaly', 'robustness', 'repair', 'spacing']);
+
 async function openTab(page: Page, tab: string): Promise<void> {
   await page.waitForSelector('[data-testid="home-screen"]');
+  // A folded mode's old testid rides on its rail button, so open the Train hub first.
+  if (TRAIN_MODES.has(tab)) await page.click('[data-testid="tab-train"]');
   await page.click(`[data-testid="tab-${tab}"]`);
 }
 
