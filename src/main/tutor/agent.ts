@@ -40,6 +40,7 @@ import {
   type NumericPhrase,
 } from './numericPhrases.js';
 import { fixedResponse } from './nullTutor.js';
+import type { ReplayCache } from './replayCache.js';
 import { buildRulesRequest, buildStrategyRequest } from './requests.js';
 import type {
   AgentEnvelope,
@@ -89,9 +90,18 @@ export const DEFAULT_CAPS: AgentCaps = { maxTurns: 4, maxToolCalls: 6 };
 const transcriptCap = (caps: AgentCaps): number => caps.maxTurns + caps.maxToolCalls + 1;
 
 export interface AgentDeps {
-  /** Must implement converse(). The mock supplies it hermetically; bedrock.ts will later. */
+  /** Must implement converse(). The mock supplies it hermetically; bedrock.ts implements it live. */
   readonly client: ModelClient;
   readonly caps?: Partial<AgentCaps>;
+  /**
+   * Optional replay cache for the multi-turn channel (readTurn/writeTurn). In 'replay' mode a
+   * recorded ModelTurn short-circuits the converse() call, making a recorded conversation
+   * deterministic without the network; in 'record' mode each live turn is written back. Absent or
+   * disabled → every turn hits converse() directly, exactly as before. This is the multi-turn
+   * analogue of liveTutor's single-shot cache and is what lets OFFSUIT_LIVE_E2E record once and
+   * replay hermetically.
+   */
+  readonly cache?: ReplayCache;
 }
 
 /** How the loop ended, for diagnostics and tests. */
@@ -506,9 +516,10 @@ function systemFor(ctx: SpotContext, phrases: readonly NumericPhrase[]): string 
 }
 
 /**
- * Drive the capped tool-dispatch loop. Pure and hermetic: the only side effect is
- * appending guard-passed turns to ctx.transcript. Never touches the network — it
- * calls deps.client.converse(), which the mock (and later bedrock.ts) supplies.
+ * Drive the capped tool-dispatch loop. The only side effect is appending guard-passed turns to
+ * ctx.transcript. It calls deps.client.converse() (bedrock.ts live, MockModelClient hermetic);
+ * with a replay cache in 'replay' mode a recorded ModelTurn short-circuits the network call, and
+ * in 'record' mode each live turn is written back — the multi-turn analogue of liveTutor's cache.
  */
 export async function runTutorAgent(ctx: SpotContext, deps: AgentDeps): Promise<AgentResult> {
   const caps: AgentCaps = { ...DEFAULT_CAPS, ...deps.caps };
@@ -521,12 +532,16 @@ export async function runTutorAgent(ctx: SpotContext, deps: AgentDeps): Promise<
   const system = systemFor(ctx, phrases);
 
   const converse = deps.client.converse;
+  const cache = deps.cache;
   const fall = (termination: Termination, turns: number, toolCalls: number): AgentResult => {
     const fixed = fixedResponse(request);
     return { ...fixed, termination, turns, toolCalls };
   };
 
-  if (converse === undefined) return fall('fallback:error', 0, 0);
+  // A 'replay' cache can drive the loop with NO live client: a recorded turn short-circuits
+  // converse(). Only bail for lack of a client when the cache cannot supply the turn either.
+  const canReplay = cache !== undefined && cache.mode === 'replay';
+  if (converse === undefined && !canReplay) return fall('fallback:error', 0, 0);
 
   let turns = 0;
   let toolCalls = 0;
@@ -543,9 +558,18 @@ export async function runTutorAgent(ctx: SpotContext, deps: AgentDeps): Promise<
     };
 
     let turn;
-    try {
-      turn = await converse.call(deps.client, envelope);
-    } catch {
+    const cached = cache?.readTurn(envelope) ?? null;
+    if (cached !== null) {
+      turn = cached;
+    } else if (converse !== undefined) {
+      try {
+        turn = await converse.call(deps.client, envelope);
+      } catch {
+        return fall('fallback:error', turns, toolCalls);
+      }
+      cache?.writeTurn(envelope, turn);
+    } else {
+      // No cached turn and no live client to produce one (replay miss): fall to the fixed table.
       return fall('fallback:error', turns, toolCalls);
     }
     turns += 1;

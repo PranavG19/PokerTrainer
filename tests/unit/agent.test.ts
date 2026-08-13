@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import {
   DEFAULT_CAPS,
   TOOL,
@@ -12,7 +12,11 @@ import {
 } from '../../src/main/tutor/agent.js';
 import { buildRulesRequest, buildStrategyRequest } from '../../src/main/tutor/requests.js';
 import { numericPhrasesFor } from '../../src/main/tutor/numericPhrases.js';
+import { openReplayCache } from '../../src/main/tutor/replayCache.js';
 import { LESSONS } from '../../src/core/lessons/index.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type {
   AgentEnvelope,
   GradePayload,
@@ -523,5 +527,104 @@ describe('bounds and the context manager', () => {
     expect(a.transcript).not.toBe(b.transcript);
     expect(b.transcript[0].text).toBe('question two');
     expect(b.transcript).toHaveLength(1);
+  });
+});
+
+describe('the multi-turn replay cache (record → replay round-trip)', () => {
+  // A cache in 'record' mode writes each live ModelTurn keyed by the AgentEnvelope; a cache in
+  // 'replay' mode reads it back and short-circuits converse(). This is the multi-turn analogue of
+  // liveTutor's single-shot cache and is what lets OFFSUIT_LIVE_E2E record once, replay hermetically.
+  let dir: string;
+  const dirs: string[] = [];
+  const freshDir = (): string => {
+    // Date.now/Math.random are unavailable in workflow scripts but fine here; still, vary by length.
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), `offsuit-agent-cache-${dirs.length}-`));
+    dirs.push(d);
+    return d;
+  };
+
+  it('records the live turns, then replays them with zero converse() calls', async () => {
+    dir = freshDir();
+
+    // 1) RECORD: a live (mock) client answers a two-turn conversation; record mode captures both.
+    const recordCache = openReplayCache({ mode: 'record', dir });
+    const recordCtx = preCommit('what does check mean');
+    const liveClient = mockClient([
+      toolUse({ name: TOOL.recallTable }),
+      text('The rules card lists what each action does. Open the rules card.'),
+    ]);
+    const recorded = await runTutorAgent(recordCtx, { client: liveClient, cache: recordCache });
+    expect(recorded.source).toBe('model');
+    const liveCalls = liveClient.calls;
+    expect(liveCalls).toBeGreaterThan(0);
+
+    // 2) REPLAY: a client whose converse() THROWS if called proves the cache short-circuits it.
+    const replayCache = openReplayCache({ mode: 'replay', dir });
+    const replayCtx = preCommit('what does check mean');
+    let replayConverseCalls = 0;
+    const forbiddenClient: ModelClient = {
+      id: 'forbidden',
+      async complete() {
+        throw new Error('complete must not be called');
+      },
+      async converse(): Promise<ModelTurn> {
+        replayConverseCalls += 1;
+        throw new Error('converse must not be called in replay — the cache should supply the turn');
+      },
+    };
+    const replayed = await runTutorAgent(replayCtx, { client: forbiddenClient, cache: replayCache });
+    expect(replayConverseCalls, 'replay must not hit the network').toBe(0);
+    // Same final text and same transcript shape as the recorded run.
+    expect(replayed.source).toBe('model');
+    expect(replayed.text).toBe(recorded.text);
+    expect(replayCtx.transcript.map((m) => m.role)).toEqual(recordCtx.transcript.map((m) => m.role));
+  });
+
+  it('replay with NO live client still drives the loop from recordings', async () => {
+    dir = freshDir();
+    // Record with a live client first.
+    const recordCtx = preCommit('what does check mean');
+    await runTutorAgent(recordCtx, {
+      client: mockClient([text('The rules card lists what each action does. Open the rules card.')]),
+      cache: openReplayCache({ mode: 'record', dir }),
+    });
+
+    // Replay against a client that has NO converse() at all — the cache is the only source of turns.
+    const noConverse: ModelClient = { id: 'legacy', async complete() { return 'x'; } };
+    const replayCtx = preCommit('what does check mean');
+    const replayed = await runTutorAgent(replayCtx, {
+      client: noConverse,
+      cache: openReplayCache({ mode: 'replay', dir }),
+    });
+    expect(replayed.source).toBe('model');
+    expect(replayed.text).toBe('The rules card lists what each action does. Open the rules card.');
+  });
+
+  it('a replay MISS (no recording) with no live converse falls to the fixed table', async () => {
+    dir = freshDir(); // empty dir — nothing recorded
+    const noConverse: ModelClient = { id: 'legacy', async complete() { return 'x'; } };
+    const result = await runTutorAgent(preCommit('what does check mean'), {
+      client: noConverse,
+      cache: openReplayCache({ mode: 'replay', dir }),
+    });
+    expect(result.source).toBe('fixed');
+    expect(result.termination).toBe('fallback:error');
+  });
+
+  it('a disabled cache leaves the converse() path byte-for-byte unchanged', async () => {
+    const client = mockClient([text('The rules card lists what each action does. Open the rules card.')]);
+    const withDisabled = await runTutorAgent(preCommit('what does check mean'), {
+      client,
+      cache: openReplayCache({ mode: 'off' }),
+    });
+    const client2 = mockClient([text('The rules card lists what each action does. Open the rules card.')]);
+    const withNoCache = await runTutorAgent(preCommit('what does check mean'), { client: client2 });
+    expect(withDisabled.text).toBe(withNoCache.text);
+    expect(withDisabled.source).toBe('model');
+    expect(withNoCache.source).toBe('model');
+  });
+
+  afterAll(() => {
+    for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
   });
 });

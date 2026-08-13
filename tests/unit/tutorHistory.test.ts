@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { askTutor, type AskInput, type ResolvedTutor } from '../../src/main/tutor/index.js';
 import { nullModelClient, nullTutor } from '../../src/main/tutor/nullTutor.js';
+import { openReplayCache } from '../../src/main/tutor/replayCache.js';
 import type {
   AgentEnvelope,
   GradePayload,
@@ -76,6 +77,7 @@ function resolvedWith(client: ModelClient): ResolvedTutor {
     egressAllowlist: [],
     guardFailures: [],
     client,
+    cache: openReplayCache({ mode: 'off' }),
   };
 }
 

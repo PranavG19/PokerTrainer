@@ -16,7 +16,7 @@ import { bedrockClient, bedrockHost } from './bedrock.js';
 import { liveTutor, type GuardFailure } from './liveTutor.js';
 import { askVerdict, type TutorContext } from './muteMatrix.js';
 import { nullModelClient, nullTutor, type Tutor } from './nullTutor.js';
-import { openReplayCache, type ReplayMode } from './replayCache.js';
+import { openReplayCache, type ReplayCache, type ReplayMode } from './replayCache.js';
 import { buildRulesRequest, buildStrategyRequest } from './requests.js';
 import type {
   AgentMessage,
@@ -50,6 +50,12 @@ export interface ResolvedTutor {
    * are different seams; both are backed by the same configuration.
    */
   readonly client: ModelClient;
+  /**
+   * The same replay cache the single-shot `tutor` wraps, exposed so the multi-turn agent
+   * (runTutorAgent) shares one recording surface with liveTutor. Disabled (mode 'off') unless
+   * OFFSUIT_REPLAY_MODE + OFFSUIT_REPLAY_DIR are set, so the default path is untouched.
+   */
+  readonly cache: ReplayCache;
 }
 
 function replayMode(raw: string | undefined): ReplayMode {
@@ -64,22 +70,29 @@ export function resolveTutor(env: TutorEnvConfig): ResolvedTutor {
   const modelId = env.OFFSUIT_BEDROCK_MODEL;
 
   if (profile === undefined || region === undefined || modelId === undefined) {
+    // No credentials: a disabled cache still satisfies the ResolvedTutor shape, and a replay-mode
+    // cache with a dir can drive the agent from recordings even without a live client.
     return {
       tutor: nullTutor,
       credentialsConfigured: false,
       egressAllowlist: [],
       guardFailures,
       client: nullModelClient,
+      cache: openReplayCache({
+        mode: replayMode(env.OFFSUIT_REPLAY_MODE),
+        dir: env.OFFSUIT_REPLAY_DIR,
+      }),
     };
   }
 
   const client = bedrockClient({ profile, region, modelId });
+  const cache = openReplayCache({
+    mode: replayMode(env.OFFSUIT_REPLAY_MODE),
+    dir: env.OFFSUIT_REPLAY_DIR,
+  });
   const tutor = liveTutor({
     client,
-    cache: openReplayCache({
-      mode: replayMode(env.OFFSUIT_REPLAY_MODE),
-      dir: env.OFFSUIT_REPLAY_DIR,
-    }),
+    cache,
     onGuardFailure: (failure) => guardFailures.push(failure),
   });
 
@@ -89,6 +102,7 @@ export function resolveTutor(env: TutorEnvConfig): ResolvedTutor {
     egressAllowlist: [bedrockHost(region)],
     guardFailures,
     client,
+    cache,
   };
 }
 
@@ -238,7 +252,7 @@ export async function askTutor(resolved: ResolvedTutor, input: AskInput): Promis
       question: input.question,
       seedTranscript: seedFromHistory(input.history),
     });
-    const result = await runTutorAgent(ctx, { client: resolved.client });
+    const result = await runTutorAgent(ctx, { client: resolved.client, cache: resolved.cache });
     return {
       tutorId: resolved.tutor.id,
       questionKind: kind,

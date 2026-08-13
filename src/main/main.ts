@@ -73,6 +73,10 @@ function activeTutor(): ResolvedTutor {
     // Off means the null (no-network) client too, same structural guarantee as the
     // null tutor: a follow-up while disabled has no client to leak through.
     client: nullModelClient,
+    // Keep the configured cache: with the tutor OFF and the null client, a 'replay' cache still
+    // cannot produce anything the guard would not clear (recorded turns are re-guarded per turn),
+    // and 'record' never fires because the null client has no converse() to record.
+    cache: configured.cache,
   };
 }
 
