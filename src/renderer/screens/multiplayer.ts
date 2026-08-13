@@ -1,7 +1,12 @@
 import '../styles-multiplayer.css';
 import type { Action } from '../../core/table.js';
 import type { RoomView, ServerMessage } from '../../core/multiplayer.js';
-import { applyServerMessage, initialClientState, type ClientState } from '../../core/relayClient.js';
+import {
+  applyServerMessage,
+  initialClientState,
+  parseJoinAddress,
+  type ClientState,
+} from '../../core/relayClient.js';
 import { renderCard, renderCardRow } from '../components/card.js';
 import { seatPositions } from '../../core/seatPositions.js';
 
@@ -259,7 +264,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     hostInput.type = 'text';
     hostInput.className = 'mp-input';
     hostInput.dataset.testid = 'mp-join-host';
-    hostInput.placeholder = 'Host (e.g. 127.0.0.1)';
+    hostInput.placeholder = 'Host (e.g. 192.168.1.5 or 192.168.1.5:50000)';
     hostInput.value = '127.0.0.1';
     // Placeholders are not accessible names; label each field.
     hostInput.setAttribute('aria-label', 'Host address');
@@ -279,13 +284,15 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     joinBtn.dataset.testid = 'mp-join';
     joinBtn.textContent = 'Join a table';
     joinBtn.addEventListener('click', () => {
-      const port = Number(portInput.value);
-      if (!Number.isFinite(port) || port <= 0) {
-        notice = 'Enter the port your host shared.';
+      // Accept a whole `host:port` pasted into the host field (what the host screen advertises) as well
+      // as the two fields filled separately — parseJoinAddress reconciles both and reports why not.
+      const parsed = parseJoinAddress(hostInput.value, portInput.value);
+      if ('error' in parsed) {
+        notice = parsed.error;
         paint();
         return;
       }
-      void join(hostInput.value.trim() || '127.0.0.1', port);
+      void join(parsed.host, parsed.port);
     });
     joinRow.appendChild(joinBtn);
     el.appendChild(joinRow);
