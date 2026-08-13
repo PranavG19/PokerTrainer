@@ -12,6 +12,7 @@ import {
 } from '../../src/main/tutor/agent.js';
 import { buildRulesRequest, buildStrategyRequest } from '../../src/main/tutor/requests.js';
 import { numericPhrasesFor } from '../../src/main/tutor/numericPhrases.js';
+import { LESSONS } from '../../src/core/lessons/index.js';
 import type {
   AgentEnvelope,
   GradePayload,
@@ -186,6 +187,36 @@ describe('property (a) — pre-commit, a scripted call to a solver tool reaches 
       const toolResult = ctx.transcript.filter((m) => m.role === 'tool')[0].text;
       expect(toolResult, `${key} refused pre-commit`).not.toContain('not available');
       expect(toolResult, `${key} content missing`).toContain(expectedFragments[key]);
+    }
+  });
+
+  it('every lesson in src/core/lessons is reachable through lookup_principle', async () => {
+    // Drift guard: adding a lesson to src/core/lessons must automatically make it a valid
+    // PRINCIPLES key. This test iterates every LESSONS entry, calls lookup_principle with the
+    // lesson.id in the phase its mechanics flag targets (pre-commit for phase 0-2, post-reveal
+    // for phase 3), and asserts the tool result is NOT the refusal stub. It also asserts the
+    // content matches either the sanitized override or the raw mechanism.
+    const OVERRIDES: Record<string, string> = {
+      'pot-odds-as-a-price':
+        'Pot odds are a price: the chips a call costs against the chips it can win, read as a natural frequency.',
+      'counting-outs-as-a-frequency':
+        'An out count becomes a frequency by comparing outs against unseen cards, one card at a time.',
+    };
+    for (const lesson of LESSONS) {
+      const expectedText = OVERRIDES[lesson.id] ?? lesson.mechanism;
+      const ctx =
+        lesson.phase <= 2
+          ? preCommit(`explain ${lesson.id}`)
+          : postReveal(`explain ${lesson.id}`);
+      const client = mockClient([
+        toolUse({ name: TOOL.lookupPrinciple, args: { key: lesson.id } }),
+        // A guard-clean second turn so runTutorAgent terminates cleanly.
+        text(lesson.phase <= 2 ? 'Rules card lists this. Open the rules card.' : CLEAN_POST_REVEAL),
+      ]);
+      await runTutorAgent(ctx, { client });
+      const toolResult = ctx.transcript.filter((m) => m.role === 'tool')[0].text;
+      expect(toolResult, `${lesson.id} refused (phase ${lesson.phase})`).not.toContain('not available');
+      expect(toolResult, `${lesson.id} content mismatch`).toBe(expectedText);
     }
   });
 });
