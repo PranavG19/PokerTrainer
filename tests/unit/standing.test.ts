@@ -6,6 +6,7 @@ import {
   masteryGate,
   playGate,
   playScore,
+  puzzleCoverage,
   standing,
   type StandingDecision,
 } from '../../src/core/standing.js';
@@ -157,6 +158,29 @@ describe('standing combines the gates and ratchets', () => {
     );
     expect(s.current).toBe(200);
     expect(s.depth).toBe(200);
+  });
+});
+
+describe('puzzleCoverage counts only clean full solves', () => {
+  const steps = { a: 1, b: 2, c: 3 };
+
+  it('counts a scenario only when bestCorrect equals its step count', () => {
+    const progress = {
+      a: { bestCorrect: 1 }, // clean 1/1 → counts
+      b: { bestCorrect: 1 }, // 1/2, missed a step → does not count
+      c: { bestCorrect: 3 }, // clean 3/3 → counts
+    };
+    expect(puzzleCoverage(progress, steps)).toBe(2);
+  });
+
+  it('ignores scenarios absent from progress and never over-counts', () => {
+    expect(puzzleCoverage({}, steps)).toBe(0);
+    // A stale record claiming MORE than the steps must not count (corrupt / renamed scenario).
+    expect(puzzleCoverage({ a: { bestCorrect: 5 } }, steps)).toBe(0);
+  });
+
+  it('ignores a zero-step entry (a scenario with no target is not coverage)', () => {
+    expect(puzzleCoverage({ z: { bestCorrect: 0 } }, { z: 0 })).toBe(0);
   });
 });
 
