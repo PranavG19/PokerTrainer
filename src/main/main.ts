@@ -283,7 +283,7 @@ app.whenReady().then(() => {
       sessionCallbacks,
     );
     relaySession = session;
-    return { port: info.port };
+    return { port: info.port, addresses: info.addresses };
   });
 
   ipcMain.handle('mp:join', async (_event, address: { host: string; port: number; name?: string }) => {
