@@ -1,5 +1,5 @@
 import { classOf, type Combo } from '../../core/preflop.js';
-import { grade, nextQuestion, type HandReadingQuestion } from '../../core/handReading.js';
+import { grade, nextQuestion, type HandReadingQuestion, type ReadScenario } from '../../core/handReading.js';
 import type { Card } from '../../core/cards.js';
 import { mulberry32 } from '../../core/rng.js';
 import { renderCard } from '../components/card.js';
@@ -30,6 +30,20 @@ const POSITION_LABEL: Record<string, string> = {
   CO: 'the cutoff',
   BTN: 'the button',
   SB: 'the small blind',
+};
+
+/**
+ * The situation sentence per scenario, given the opener's seat label. Each names the action that shapes
+ * the range (and, for the two flat scenarios, the capping action) but never states which hands are in —
+ * the read is the learner's to make. The word "3-bet" in the flat-3bet line and "flat-calls" in both flat
+ * lines are what the e2e keys on.
+ */
+const SITUATION: Record<ReadScenario, (seat: string) => string> = {
+  open: (seat) => `A player opens from ${seat}. Is this hand in their range?`,
+  'flat-3bet': (seat) =>
+    `A player opens from ${seat}, then flat-calls your 3-bet. Is this hand still in their range?`,
+  'bb-defend': (seat) =>
+    `A player opens from ${seat} and the big blind flat-calls. Is this hand in the big blind's calling range?`,
 };
 
 interface Feedback {
@@ -104,12 +118,9 @@ function renderPrompt(question: HandReadingQuestion, onCommit: (answer: Answer) 
   situation.dataset.testid = 'hand-reading-situation';
   situation.dataset.scenario = question.scenario;
   const seat = POSITION_LABEL[question.position] ?? question.position;
-  // The flat-3bet line names the capping action (they called a 3-bet) without stating the answer — the
-  // learner must realise for themselves that the nuts 4-bet and the trash folds, so those are gone.
-  situation.textContent =
-    question.scenario === 'flat-3bet'
-      ? `A player opens from ${seat}, then flat-calls your 3-bet. Is this hand still in their range?`
-      : `A player opens from ${seat}. Is this hand in their range?`;
+  // Each line names the situation (and the capping action, for the two flat scenarios) but never the
+  // answer — the learner must realise for themselves which hands the action removes from the range.
+  situation.textContent = SITUATION[question.scenario](seat);
   panel.appendChild(situation);
 
   const hand = document.createElement('div');
