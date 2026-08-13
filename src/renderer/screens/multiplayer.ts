@@ -137,6 +137,43 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
   // paint would mistake "not yet mounted" for "removed" and tear down the event subscription instantly.
   let hasMounted = false;
 
+  // A screen-reader announcement channel — the one dynamic surface that lacked one, unlike every other
+  // screen (drill/charts/puzzle/anomaly/contrast/table all announce). A blind player hosting or joining
+  // otherwise gets no cue when the connection state changes, when it becomes their turn, when a hand is
+  // won, or when a join fails. Always in the DOM (first child of every repaint, so replaceChildren never
+  // tears it from the a11y tree) and only its text changes — the pattern SRs announce dependably.
+  // role=status = polite, non-interrupting; visually hidden since sighted users read the panel/table.
+  const announcer = document.createElement('div');
+  announcer.className = 'visually-hidden';
+  announcer.dataset.testid = 'mp-announcer';
+  announcer.setAttribute('role', 'status');
+  announcer.setAttribute('aria-live', 'polite');
+  // The last string written, so an unrelated repaint (a pot tick, an opponent acting) does NOT
+  // re-announce "Your turn" and spam the reader — only a CHANGED message is spoken.
+  let lastAnnounced = '';
+
+  /**
+   * The single most relevant thing to announce for the current state, mirroring wording already on
+   * screen so the spoken and visual channels can never disagree. Priority: a notice (a join error the
+   * setup panel shows) → the hand outcome (who won) → your-turn cue → connecting. Empty when there is
+   * nothing new to say (e.g. waiting on an opponent), which clears the region.
+   */
+  function announcement(): string {
+    if (notice) return notice;
+    const view = client.view;
+    if (phase === 'playing' && view !== null) {
+      if (view.winners !== null && view.winners.length > 0) {
+        return view.winners
+          .map((w) => `${view.seats[w.seatId]?.name ?? 'Seat'} wins ${w.amount} (${w.description})`)
+          .join(' · ');
+      }
+      if (view.yourTurn) return 'Your turn to act';
+      return '';
+    }
+    if (phase === 'connecting') return role === 'host' ? 'Starting a table' : 'Connecting';
+    return '';
+  }
+
   function paint(): void {
     root.dataset.mpPhase = phase;
     root.dataset.mpRole = role;
@@ -146,7 +183,13 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       cleanup();
       return;
     }
-    root.replaceChildren(header(), phase === 'playing' ? table() : setupPanel());
+    // Announcer stays the root's FIRST child so replaceChildren never pulls it from the a11y tree.
+    root.replaceChildren(announcer, header(), phase === 'playing' ? table() : setupPanel());
+    const next = announcement();
+    if (next !== lastAnnounced) {
+      lastAnnounced = next;
+      announcer.textContent = next;
+    }
   }
 
   function header(): HTMLElement {
