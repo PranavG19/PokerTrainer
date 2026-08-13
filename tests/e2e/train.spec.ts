@@ -57,6 +57,7 @@ const tabTrain = '[data-testid="tab-train"]';
 const RAIL_ORDER: { testid: string; label: string }[] = [
   { testid: 'tab-puzzle', label: 'Spots' },
   { testid: 'tab-drill', label: 'Math' },
+  { testid: 'tab-reading', label: 'Reading' },
   { testid: 'tab-anomaly', label: 'Speed' },
   { testid: 'tab-robustness', label: 'Stress' },
   { testid: 'tab-repair', label: 'Leaks' },
@@ -64,13 +65,13 @@ const RAIL_ORDER: { testid: string; label: string }[] = [
 ];
 
 test.describe('the Train hub', () => {
-  test('opens on Spots and lists the six modes in rail order with their old testids', async () => {
+  test('opens on Spots and lists the modes in rail order with their old testids', async () => {
     const { page, close } = await launchApp({ seed: 42 });
     try {
       await page.click(tabTrain);
       await page.waitForSelector(hub);
 
-      // The rail carries all six rungs, in order, each labelled and keyed by its OLD tab testid.
+      // The rail carries every rung, in order, each labelled and keyed by its OLD tab testid.
       const rungs = await page.$$eval(`${rail} .train-rail-btn`, (btns) =>
         btns.map((b) => ({
           testid: (b as HTMLElement).dataset.testid ?? '',
