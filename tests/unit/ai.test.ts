@@ -16,6 +16,10 @@ import {
   decideActionAs,
   archetypeForSeat,
   ARCHETYPES,
+  commitTax,
+  REFERENCE_BB,
+  MAX_COMMIT_TAX,
+  SPR_DISCIPLINE,
   type Archetype,
 } from '../../src/core/ai.js';
 
@@ -353,6 +357,81 @@ describe('signature behaviours', () => {
       if (action.kind === 'call') passive++;
     }
     expect(passive).toBeLessThan(6); // mostly raising, not just calling
+  });
+});
+
+// ── Pot control when deep (SPR discipline) ───────────────────────────────────
+
+describe('commitTax — the stack-depth commitment penalty', () => {
+  it('is exactly zero at or below the 100bb reference, so no shallow decision changes', () => {
+    expect(commitTax(100 * 10, 10, 1)).toBe(0); // exactly 100bb
+    expect(commitTax(40 * 10, 10, 1)).toBe(0); // 40bb
+    expect(commitTax(0, 10, 1)).toBe(0);
+  });
+
+  it('grows with depth beyond 100bb and saturates at the cap by 200bb', () => {
+    const at150 = commitTax(150 * 10, 10, 1);
+    const at200 = commitTax(200 * 10, 10, 1);
+    const at300 = commitTax(300 * 10, 10, 1);
+    expect(at150).toBeGreaterThan(0);
+    expect(at200).toBeGreaterThan(at150);
+    expect(at200).toBeCloseTo(MAX_COMMIT_TAX, 12); // saturates at 200bb (100bb over the reference)
+    expect(at300).toBe(at200); // clamped, never exceeds the cap
+  });
+
+  it('scales with discipline: zero discipline is always zero tax, whatever the depth', () => {
+    expect(commitTax(200 * 10, 10, 0)).toBe(0);
+    expect(commitTax(200 * 10, 10, 0.5)).toBeCloseTo(MAX_COMMIT_TAX * 0.5, 12);
+  });
+
+  it('the station has zero SPR discipline (its leak); nit and tag have full discipline', () => {
+    expect(SPR_DISCIPLINE.station).toBe(0);
+    expect(SPR_DISCIPLINE.nit).toBe(1);
+    expect(SPR_DISCIPLINE.tag).toBe(1);
+    // REFERENCE_BB is the documented pivot; guard it so a silent change is caught.
+    expect(REFERENCE_BB).toBe(100);
+  });
+});
+
+describe('a disciplined villain controls the pot when deep', () => {
+  /**
+   * A one-pair hand facing a pot-sized bet: exactly the marginal spot the depth tax governs. Built at a
+   * chosen stack depth by overriding the seats' stacks after the bet, so the only variable is depth.
+   */
+  function onePairVsPotBet(stackBehind: number): TableState {
+    const state = flopBetSpot(6);
+    const spot = JSON.parse(JSON.stringify(state)) as TableState;
+    // Middle pair (~0.685 equity-vs-random): deliberately in the tax WINDOW — above tag's 0.55
+    // callStrength (so it calls at 100bb) but below 0.55 + the 0.15 deep tax (so it folds when deep).
+    // Top pair would be too strong to ever fold and would hide the effect.
+    spot.seats[1].hole = ['7h', '6d'];
+    spot.board = ['Ks', '7c', '2d'];
+    spot.seats[1].stack = stackBehind;
+    return spot;
+  }
+
+  function foldRate(archetype: Archetype, stackBehind: number): number {
+    const spot = onePairVsPotBet(stackBehind);
+    let folds = 0;
+    const N = 40;
+    for (let seed = 1; seed <= N; seed++) {
+      if (decideActionAs(archetype, spot, spot.toAct, mulberry32(seed)).kind === 'fold') folds++;
+    }
+    return folds / N;
+  }
+
+  it('a disciplined villain (tag) folds top pair to a big bet MORE OFTEN when deep than at 100bb', () => {
+    const bb = 10;
+    const shallow = foldRate('tag', 100 * bb); // 100bb: tax is zero
+    const deep = foldRate('tag', 250 * bb); // very deep: full tax
+    expect(deep).toBeGreaterThan(shallow);
+  });
+
+  it('the station does NOT adjust to depth — its fold rate is the same deep as shallow (its leak)', () => {
+    const bb = 10;
+    const shallow = foldRate('station', 100 * bb);
+    const deep = foldRate('station', 250 * bb);
+    expect(deep).toBe(shallow);
   });
 });
 
