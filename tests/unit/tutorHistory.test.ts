@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { askTutor, type AskInput, type ResolvedTutor } from '../../src/main/tutor/index.js';
 import { nullModelClient, nullTutor } from '../../src/main/tutor/nullTutor.js';
-import { openReplayCache } from '../../src/main/tutor/replayCache.js';
+import { openReplayCache, type ReplayCache } from '../../src/main/tutor/replayCache.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type {
   AgentEnvelope,
   GradePayload,
@@ -69,15 +72,15 @@ function mockClient(turns: readonly ModelTurn[]): ModelClient & {
   };
 }
 
-/** A ResolvedTutor wrapping a specific client, otherwise the no-credentials defaults. */
-function resolvedWith(client: ModelClient): ResolvedTutor {
+/** A ResolvedTutor wrapping a specific client and cache, otherwise the no-credentials defaults. */
+function resolvedWith(client: ModelClient, cache?: ReplayCache): ResolvedTutor {
   return {
     tutor: nullTutor,
     credentialsConfigured: false,
     egressAllowlist: [],
     guardFailures: [],
     client,
-    cache: openReplayCache({ mode: 'off' }),
+    cache: cache ?? openReplayCache({ mode: 'off' }),
   };
 }
 
@@ -232,5 +235,52 @@ describe('the no-credentials follow-up is byte-for-byte the null tutor', () => {
     expect(result.text).toBeNull();
     // Blocked → no payload built at all, even with history present.
     expect(result.payloadKeys).toEqual([]);
+  });
+});
+
+describe('askTutor threads the replay cache into the multi-turn agent (OFFSUIT_LIVE_E2E foundation)', () => {
+  // The single-shot path (liveTutor) has always recorded/replayed via the cache; this proves the
+  // SAME ResolvedTutor.cache reaches the multi-turn agent through askTutor, so a follow-up
+  // conversation can be recorded once against real Bedrock and replayed hermetically — the
+  // mechanism the OFFSUIT_LIVE_E2E harness will stand on. Zero network in this test.
+  const dirs: string[] = [];
+  const freshDir = (): string => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), `offsuit-askTutor-cache-${dirs.length}-`));
+    dirs.push(d);
+    return d;
+  };
+  const followUp: AskInput = {
+    context: 'spot-pre-commit',
+    question: 'and who acts first',
+    table: TABLE,
+    history: [{ question: 'what does check mean', answerText: CLEAN_RULES }],
+  };
+
+  it('records a follow-up through askTutor, then replays it with a converse() that must not fire', async () => {
+    const dir = freshDir();
+
+    // RECORD via askTutor: a live mock client answers, the cache captures the turn.
+    const recordCache = openReplayCache({ mode: 'record', dir });
+    const recorded = await askTutor(resolvedWith(mockClient([text(CLEAN_RULES)]), recordCache), followUp);
+    expect(recorded.answeredBy).toBe('model');
+
+    // REPLAY via askTutor: a client whose converse() THROWS proves the cache short-circuited it.
+    const replayCache = openReplayCache({ mode: 'replay', dir });
+    const forbidden: ModelClient = {
+      id: 'forbidden',
+      async complete() {
+        throw new Error('complete must not fire');
+      },
+      async converse(): Promise<ModelTurn> {
+        throw new Error('converse must not fire in replay — the cache supplies the turn');
+      },
+    };
+    const replayed = await askTutor(resolvedWith(forbidden, replayCache), followUp);
+    expect(replayed.answeredBy).toBe('model');
+    expect(replayed.text).toBe(recorded.text);
+  });
+
+  afterAll(() => {
+    for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
   });
 });
