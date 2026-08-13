@@ -262,24 +262,27 @@ function renderTableProse(table: VisibleTable): string {
   ].join('\n');
 }
 
-/** Post-reveal only. Every numeral here is a raw grade field, so it is in allowedNumerals(strategy). */
+/**
+ * Post-reveal only. The tool result must survive guardToolResult, which post-reveal judges numerals
+ * via checkPhraseUse — every digit must sit inside an engine-authored numeric phrase. So the numeric
+ * fields (deltaEv, pot, equity, action EVs, class RW) are rendered as those exact phrases; the
+ * word-only fields (chosen, best, error tag, principle, flipping variable) pass on their own.
+ *
+ * Omitted (verify-flagged bug): `tier` ("T0".."T4") and `boundaryHand` (e.g. "76s") carry stray
+ * digits that no phrase covers, so including them made the ENTIRE result scrubbed to the refusal
+ * stub. They are not lost — the model gets `tier` and `boundaryHand` in the strategy request
+ * payload (renderGrade in requests.ts), so they land in the prompt itself; they just cannot be
+ * re-surfaced via this guard-scored tool result.
+ */
 function renderGradeProse(grade: GradePayload): string {
-  const evs = Object.entries(grade.actionEvsBb)
-    .map(([action, ev]) => `${action}=${ev}bb`)
-    .join(', ');
+  const phrases = numericPhrasesFor(grade).map((p) => p.text);
   return [
-    `tier: ${grade.tier}`,
-    `deltaEv: ${grade.deltaEvBb}bb`,
-    `pot before action: ${grade.potBeforeActionBb}bb`,
+    ...phrases,
     `chosen: ${grade.chosenAction}`,
     `best: ${grade.bestAction}`,
-    `action EVs: ${evs}`,
-    `equity: ${grade.equityPct}%`,
     `error tag: ${grade.errorTag}`,
     `principle: ${grade.principle}`,
-    `boundary hand: ${grade.boundaryHand}`,
     `flipping variable: ${grade.flippingVariable}`,
-    `class RW: ${grade.classRwBbPer100}bb/100`,
   ].join('\n');
 }
 
