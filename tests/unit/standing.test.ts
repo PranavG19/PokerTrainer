@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEPTHS,
+  DEPTH_CEILING,
   FORM_WINDOW,
   MIN_CONTESTED,
   MIN_FORM_SAMPLE,
@@ -106,6 +107,45 @@ describe('playGate requires contested POSTFLOP decisions for deep tiers', () => 
     // Sound and clean, so it earns a shallow tier, but the postflop-gated deep tiers are withheld.
     expect(gate).toBeLessThan(125);
     expect(gate).toBeGreaterThan(0);
+  });
+});
+
+describe('the depth ceilings are monotonic and every tier is reachable', () => {
+  // DEPTH_CEILING is a bag of PROVISIONAL, intuition-set numbers. playGate walks the ladder shallow→deep
+  // and BREAKS the moment score > ceiling, which is only correct if the ceilings strictly TIGHTEN with
+  // depth. A non-decreasing pair, or a ceiling so tight no clean sample clears it, is a real bug the loop
+  // cannot self-detect — these guards state the design intent so the constants can't silently drift.
+
+  it('ceilings strictly decrease with depth — a deeper table demands a smaller proven leak', () => {
+    const ordered = DEPTHS.filter((d) => d !== 0).map((d) => DEPTH_CEILING[d as 40 | 75 | 125 | 200]);
+    for (let i = 1; i < ordered.length; i++) {
+      expect(ordered[i], `ceiling for tier ${i} is not tighter than the one before`).toBeLessThan(
+        ordered[i - 1],
+      );
+    }
+  });
+
+  it('a near-flawless deep sample reaches the DEEPEST tier — 200bb is not accidentally unreachable', () => {
+    // A large, essentially clean contested-postflop sample (tiny 0.1bb mean leak) must clear the tightest
+    // ceiling. If 200bb were unreachable, the top of the ladder would be dead and the climb would cap early.
+    const nearFlawless = block(MIN_CONTESTED * 4, 0.1, { street: 'flop' });
+    expect(playGate(playScore(nearFlawless, NOW))).toBe(200);
+  });
+
+  it('a leak above the shallowest ceiling earns NO play depth — the floor tier is not trivially reachable', () => {
+    // A mean leak worse than the 40bb ceiling (with a large sample so the CI band is tight, ruling out
+    // "thin sample" as the reason) must fail even the shallowest tier: depth is earned, not given.
+    const leaky = block(MIN_CONTESTED * 4, DEPTH_CEILING[40] + 1.0, { street: 'flop' });
+    expect(playGate(playScore(leaky, NOW))).toBe(0);
+  });
+
+  it('a clean sample sitting between two ceilings lands on exactly the tier it earned', () => {
+    // A mean leak between the 75bb and 125bb ceilings should earn 75bb (clears 40 and 75, misses 125),
+    // proving the break-on-first-miss walk stops at the right rung rather than under- or over-shooting.
+    const midLeak = (DEPTH_CEILING[125] + DEPTH_CEILING[75]) / 2;
+    const sample = block(MIN_CONTESTED * 4, midLeak, { street: 'flop' });
+    // The pessimistic bound adds ~0 for a zero-variance constant sample, so the mean IS the score here.
+    expect(playGate(playScore(sample, NOW))).toBe(75);
   });
 });
 

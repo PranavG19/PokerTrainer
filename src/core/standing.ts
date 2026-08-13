@@ -88,8 +88,10 @@ export const MIN_CONTESTED_POSTFLOP_DEEP = 20;
 
 /** EV-loss/decision ceilings (bb) that TIGHTEN with depth: a deeper table demands a smaller proven leak.
  *  The score compared against these is the PESSIMISTIC (CI-upper) bound, so a thin/lucky sample scores
- *  worse and cannot buy a promotion. */
-const DEPTH_CEILING: Record<Exclude<Depth, 0>, number> = {
+ *  worse and cannot buy a promotion. Exported so a test can pin monotonicity and reachability — these are
+ *  PROVISIONAL, intuition-set numbers, and a non-decreasing pair or an unreachable ceiling is a real bug
+ *  the playGate loop cannot self-detect. */
+export const DEPTH_CEILING: Record<Exclude<Depth, 0>, number> = {
   40: 3.0,
   75: 2.2,
   125: 1.4,
