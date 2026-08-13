@@ -160,6 +160,39 @@ describe('masteryGate is the study key', () => {
     // 12 mastered KCs but zero puzzles solved: the paired floor holds it back.
     expect(masteryGate(12, 0)).toBe(0);
   });
+
+  it('puzzle coverage without mastered KCs cannot alone reach a deep tier either', () => {
+    // The mirror of the above: 8 puzzles solved but nothing mastered still gates to 0. BOTH axes are
+    // required at every rung, so neither dimension alone buys depth.
+    expect(masteryGate(0, 8)).toBe(0);
+  });
+
+  // NOTE: a "monotonic in both inputs" sweep was considered and REJECTED as a vacuous guard — masteryGate
+  // returns the highest-matching tier from a highest-first cascade, so it is monotonic BY CONSTRUCTION for
+  // any positive thresholds and no constant drift can make such a test fail (verified by mutation). The
+  // real risk is the threshold VALUES / cascade order, which the exact-rung guard below actually catches.
+
+  it('gates each rung of the ladder exactly at its paired threshold — no tier is skipped', () => {
+    // Every DEPTHS rung must be produced by SOME (kc, puzzle) input, or that tier is dead on the mastery
+    // axis. Walk the intended thresholds and confirm each lands on its own rung, and that one short of a
+    // threshold falls to the rung below (the cascade is exact, not off-by-one).
+    expect(masteryGate(2, 1)).toBe(40);
+    expect(masteryGate(1, 1)).toBe(0); // one KC short of 40
+    expect(masteryGate(5, 3)).toBe(75);
+    expect(masteryGate(4, 3)).toBe(40); // one KC short of 75 → the rung below, not 0
+    expect(masteryGate(8, 5)).toBe(125);
+    expect(masteryGate(8, 4)).toBe(75); // one puzzle short of 125 → the rung below
+    expect(masteryGate(12, 8)).toBe(200);
+    expect(masteryGate(11, 8)).toBe(125); // one KC short of 200 → the rung below
+    // Every non-zero depth is reachable via mastery.
+    const reachable = new Set([
+      masteryGate(2, 1),
+      masteryGate(5, 3),
+      masteryGate(8, 5),
+      masteryGate(12, 8),
+    ]);
+    for (const d of DEPTHS) if (d !== 0) expect(reachable.has(d), `depth ${d} unreachable via mastery`).toBe(true);
+  });
 });
 
 describe('standing combines the gates and ratchets', () => {
