@@ -4,6 +4,7 @@ import {
   clearError,
   initialClientState,
   markDisconnected,
+  parseJoinAddress,
 } from '../../src/core/relayClient.js';
 import type { RoomView, ServerMessage } from '../../src/core/multiplayer.js';
 
@@ -76,5 +77,56 @@ describe('relay client reducer', () => {
     expect(s.lastError).toBe('room is full');
     s = clearError(s);
     expect(s.lastError).toBeNull();
+  });
+});
+
+describe('parseJoinAddress — the join box accepts a pasted host:port', () => {
+  it('combines the two separate fields when the host carries no port', () => {
+    expect(parseJoinAddress('192.168.1.5', '50000')).toEqual({ host: '192.168.1.5', port: 50000 });
+  });
+
+  it('accepts a whole host:port pasted into the host field (what the host advertises)', () => {
+    // The guest copies "192.168.1.5:50000" from the host screen straight into the host box; the separate
+    // port field is left empty and must not be required.
+    expect(parseJoinAddress('192.168.1.5:50000', '')).toEqual({ host: '192.168.1.5', port: 50000 });
+  });
+
+  it('lets an embedded port win over the separate port field', () => {
+    // A pasted complete address is the guest's clear intent; a leftover value in the port field must not
+    // override it (else pasting over a stale port connects to the wrong place).
+    expect(parseJoinAddress('192.168.1.5:50000', '25')).toEqual({ host: '192.168.1.5', port: 50000 });
+  });
+
+  it('trims surrounding whitespace on both fields', () => {
+    expect(parseJoinAddress('  10.0.0.9  ', '  6000 ')).toEqual({ host: '10.0.0.9', port: 6000 });
+  });
+
+  it('rejects an empty host', () => {
+    expect(parseJoinAddress('   ', '50000')).toEqual({ error: expect.stringContaining('host') });
+  });
+
+  it('rejects a missing port when neither field supplies one', () => {
+    expect(parseJoinAddress('192.168.1.5', '')).toEqual({ error: expect.stringContaining('port') });
+  });
+
+  it('rejects a non-numeric port', () => {
+    expect(parseJoinAddress('192.168.1.5', '50000abc')).toEqual({ error: expect.stringContaining('number') });
+    // A decimal is not a port either — /^\d+$/ rejects it rather than Math.floor-ing silently.
+    expect('error' in parseJoinAddress('192.168.1.5', '5.5')).toBe(true);
+  });
+
+  it('rejects a port out of the 1..65535 range', () => {
+    expect('error' in parseJoinAddress('192.168.1.5', '0')).toBe(true);
+    expect('error' in parseJoinAddress('192.168.1.5', '70000')).toBe(true);
+    // The boundaries themselves are valid.
+    expect(parseJoinAddress('192.168.1.5', '65535')).toEqual({ host: '192.168.1.5', port: 65535 });
+    expect(parseJoinAddress('192.168.1.5', '1')).toEqual({ host: '192.168.1.5', port: 1 });
+  });
+
+  it('refuses an IPv6 literal rather than mangling it (the LAN relay is IPv4 host:port only)', () => {
+    // A bare IPv6 address has multiple colons; splitting on the first would treat a hextet as the port.
+    expect('error' in parseJoinAddress('fe80::1', '50000')).toBe(true);
+    // A bracketed IPv6 literal is likewise unsupported and refused explicitly.
+    expect('error' in parseJoinAddress('[fe80::1]:50000', '')).toBe(true);
   });
 });
