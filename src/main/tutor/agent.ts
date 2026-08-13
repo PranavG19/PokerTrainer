@@ -31,6 +31,7 @@
  * phase.
  */
 
+import { LESSONS } from '../../core/lessons/index.js';
 import { checkTutorOutput, type GuardViolation } from './guard.js';
 import {
   checkPhraseUse,
@@ -186,16 +187,51 @@ interface PrincipleEntry {
 }
 
 /**
+ * Two sanitized overrides for the lesson mechanisms whose natural phrasing embeds a numeric
+ * example ("2 times in 7", "1 time in 5"). Those digits would fail number-provenance against a
+ * RulesRequest (whose allowedNumerals come from the visible table + question), so the lesson
+ * text is rewritten to preserve the teaching intent without the numeric example.
+ */
+const LESSON_MECHANISM_OVERRIDES: Readonly<Record<string, string>> = {
+  'pot-odds-as-a-price':
+    'Pot odds are a price: the chips a call costs against the chips it can win, read as a natural frequency.',
+  'counting-outs-as-a-frequency':
+    'An out count becomes a frequency by comparing outs against unseen cards, one card at a time.',
+};
+
+/**
+ * The lesson corpus (src/core/lessons) auto-mapped into PrincipleEntries so the tutor names
+ * the same concepts the lessons teach. Phase 0-2 (Rules/Eyes/Arithmetic) is mechanics —
+ * reachable pre-commit. Phase 3 (Principles) is strategy — post-reveal only. The corpus
+ * import is safe because tsconfig.main.json pins rootDir="src" (main.ts, store.ts and others
+ * already routinely import from ../core/); the earlier "widens emit root" concern is resolved.
+ */
+const LESSON_PRINCIPLES: Readonly<Record<string, PrincipleEntry>> = Object.freeze(
+  Object.fromEntries(
+    LESSONS.map((lesson) => [
+      lesson.id,
+      {
+        text: LESSON_MECHANISM_OVERRIDES[lesson.id] ?? lesson.mechanism,
+        mechanics: lesson.phase <= 2,
+      },
+    ]),
+  ),
+);
+
+/**
  * A fixed lesson corpus keyed by an enum the context supplies, never by
- * free-text the model authors. Every entry is number-free, so it passes
+ * free-text the model authors. Every entry is number-free (or sanitized), so it passes
  * guardToolResult against any request. Pre-commit, only `mechanics` keys are
  * reachable — a strategy key from a pre-commit call is refused.
  *
- * NOTE: kept local to keep P1 hermetic. src/core/lessons is the eventual source
- * but importing it from src/main widens tsc's emit root (see tsconfig.main.json),
- * so wiring the real corpus is deferred with the live round-trip.
+ * Order: lesson-derived keys first (17 from src/core/lessons), then the hand-authored keys
+ * for concepts the lesson corpus does not name directly (button, blinds, 3-bet, cold-call,
+ * check-raise, showdown, position, streets, actions, order, hand-rankings, and the seven
+ * ErrorTag strategy entries). No key collides — lesson ids are kebab-case, hand-authored keys
+ * are short nouns or ErrorTag ALL-CAPS.
  */
 const PRINCIPLES: Readonly<Record<string, PrincipleEntry>> = {
+  ...LESSON_PRINCIPLES,
   // Mechanics — reachable in every phase.
   actions: {
     text: 'Fold gives up the hand; check passes without adding chips when no bet is live; call matches the current bet; bet or raise puts chips in and asks the others to match.',
