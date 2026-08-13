@@ -151,6 +151,18 @@ export function renderTable(opts: {
   outcomeAnnouncer.setAttribute('aria-live', 'polite');
   root.appendChild(outcomeAnnouncer);
 
+  // A THIRD polite region for the POT at STREET BOUNDARIES. A sighted player reads the pot off the felt
+  // before sizing a bet; a screen-reader user got nothing. It fires only when the board grows (flop/turn/
+  // river) — at most three times a hand — NOT on every bet, because a pot that re-announces on each chip
+  // movement is noise a reader cannot use. Its own region for the same reason as the outcome one: a street
+  // deal can coincide with a verdict, and a shared region would clobber the teaching output.
+  const potAnnouncer = document.createElement('div');
+  potAnnouncer.className = 'visually-hidden';
+  potAnnouncer.dataset.testid = 'pot-announcer';
+  potAnnouncer.setAttribute('role', 'status');
+  potAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(potAnnouncer);
+
   const seatsWrap = document.createElement('div');
   seatsWrap.className = 'seats';
   root.appendChild(seatsWrap);
@@ -621,9 +633,10 @@ export function renderTable(opts: {
     settled = false;
     clearCoach(coach);
     // Clear the SR announcements too, so a new hand leaves neither last hand's verdict nor its outcome
-    // lingering in the a11y tree.
+    // nor its pot lingering in the a11y tree.
     announcer.textContent = '';
     outcomeAnnouncer.textContent = '';
+    potAnnouncer.textContent = '';
     if (adviceShown) opts.onVerdict?.(null);
     adviceShown = false;
     clearPredictPanel(predict);
@@ -656,6 +669,10 @@ export function renderTable(opts: {
     if (state.board.length > prevBoardLen) {
       const cards = row.querySelectorAll<HTMLElement>('[data-testid="card"]');
       for (let i = prevBoardLen; i < cards.length; i++) cards[i].dataset.dealIn = 'true';
+      // The board just grew (a new street was dealt) — announce the pot the player is now sizing against.
+      // Only here, so a reader hears the pot at each street rather than on every intervening chip move.
+      // Skipped at showdown (winners set): the outcome announcer already says who won how much.
+      if (state.winners === null) potAnnouncer.textContent = `Pot ${state.pot}`;
     }
     prevBoardLen = state.board.length;
     boardWrap.replaceChildren(row);
