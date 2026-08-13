@@ -66,6 +66,16 @@
   box-shadow: var(--elev-1);
 }
 
+/* The one tile the learner ACTS on (start an assessment) must not sit flatter than the readouts around
+ * it. The .pill base has no shadow, so once .progress-metric gained --elev-1 the actionable pill read as
+ * recessed — an inverted hierarchy. --elev-2 lifts it one step FORWARD of the readouts: emphasis by
+ * elevation, the sanctioned channel (grey white-over-black, no hue). Static value, so the .pill's existing
+ * box-shadow transition never fires on a state and is already reduced-motion-guarded; focus-visible still
+ * wins with --focus-ring. Progress self-scrolls, so no layout-height concern. */
+.progress-start-assessment {
+  box-shadow: var(--elev-2);
+}
+
 /* The gated fifth number spans the row: its withheld state carries a sentence, not a figure. */
 .progress-winrate {
   grid-column: 1 / -1;

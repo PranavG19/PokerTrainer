@@ -165,6 +165,10 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-hi);
+  /* The retry note is unhidden into the already-open gate (showGateRetry), so it snapped in mid-countdown;
+   * the same entrance beat lands it rather than popping. Fires only on the retry path. Compositor-only,
+   * identity at rest; reduced-motion guard at foot. */
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
 }
 
 .coach-gate-note[hidden] {
@@ -226,6 +230,10 @@
 .predict-support {
   font-size: 12px;
   color: var(--text-lo);
+  /* Arrive WITH the verdict, not a frame behind it: showPredictResult unhides .predict-result (which
+   * already carries this beat) and .predict-support in the same call, so the support line gets the same
+   * entrance. Compositor-only opacity+translateY, identity at rest; reduced-motion guard at foot. */
+  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
 }
 
 /* G4's optional "why" box. One compact row so it does not add a second line of height to a panel
@@ -284,9 +292,11 @@
 /* The reveal animations respect a reduced-motion preference (parity with styles.css). */
 @media (prefers-reduced-motion: reduce) {
   .predict-result,
+  .predict-support,
   .coach-reason-note,
   .coach-message,
   .coach-gate,
+  .coach-gate-note,
   .coach-gate-bar-fill,
   .stats-sheet[data-open='true'] .stats-body {
     animation: none;
