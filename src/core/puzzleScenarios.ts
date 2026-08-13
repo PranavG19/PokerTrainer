@@ -1914,6 +1914,166 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  // ── Multiway pots: the field is stronger, so tighten value, cut the bluffs, and lean on pot odds. ──
+  {
+    id: 'multiway-fold-ako-to-3bet-and-call',
+    title: 'Laying down A♠K♦ facing a 3-bet AND a cold-call',
+    setup:
+      'Four-handed you open A♠K♦ from UTG. The button 3-bets, the small blind cold-calls the 3-bet, and it is back on you. A 3-bet is one thing — but a caller piling in behind it changes everything.',
+    seatCount: 4,
+    // Verified 4-handed seating (fold-multiway-ajo): button seat 2 → SB=3, BB=0, first to act preflop =
+    // seat 1. Here the HERO opens from seat 1 (UTG-equivalent, first to act), the button 3-bets, the SB
+    // cold-calls, the BB folds, and the action returns to the hero for the fold decision.
+    // HERO MUST BE SEAT 0 (the puzzle driver treats seat 0 as the hero). button=1 → SB=2, BB=3, and
+    // first-to-act preflop = seat 0, so the hero opens UTG-style with the field behind and acts again
+    // after the reraise war. Verified against the engine's blind/first-to-act logic.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (opener, first to act). Seat 1 = button (3-bettor). Seat 2 = SB (cold-caller). Seat 3 = BB.
+    holes: [
+      ['As', 'Kd'], // hero opens, then faces a 3-bet + a cold-call
+      ['Ah', 'Ac'], // button: 3-bets aces
+      ['Kh', 'Ks'], // SB: cold-calls with kings (capped by not 4-betting, but crushing AK)
+      ['2c', '2d'], // BB: folds
+    ],
+    board: ['Qd', '8s', '5c', '4h', '2h'],
+    // Ask order preflop: seat 0 (hero opens — target step 1), seat 1 (button 3-bets), seat 2 (SB calls),
+    // seat 3 (BB folds), back to seat 0 (hero folds — target step 2).
+    villainScript: [
+      { kind: 'raise', to: 450 }, // seat 1 (button) 3-bets over the hero's open
+      { kind: 'call' }, // seat 2 (SB) cold-calls the 3-bet
+      { kind: 'fold' }, // seat 3 (BB) folds
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'AKo is a clear first-in open from UTG — a premium that wants to build the pot and take the lead.',
+      },
+      {
+        action: 'fold',
+        explanation:
+          'Now fold. A 3-bet you might 4-bet or call; a 3-bet WITH a cold-caller behind it is a different world. Two players have voluntarily committed big money into your open, and AKo is a drawing hand that needs to flop to win — it is dominated by the AA/KK/QQ/AK that show up here and flips at best against the rest. Out of position against two strong, uncapped ranges with a hand that whiffs the flop two-thirds of the time, calling to "see a flop" torches money. The extra caller multiplies the strength in front of you; discipline is folding the prettiest hand at the table.',
+      },
+    ],
+  },
+  {
+    id: 'multiway-no-cbet-bluff-air',
+    title: 'Giving up A♠5♠ in a three-way pot',
+    setup:
+      'You raised the button with A♠5♠, and BOTH blinds called — three to the flop. It comes K♦9♥4♣ and both check to you. Heads-up this is a routine c-bet; three-handed, is it?',
+    seatCount: 3,
+    // bb-defend seating (button seat 0 = hero): postflop the hero (button/PFR) acts LAST, so both blinds
+    // check first, then the hero decides. Verified: seat 0 = button (hero), seat 1 = SB, seat 2 = BB.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (button/opener). Seat 1 = SB (caller). Seat 2 = BB (caller).
+    holes: [
+      ['As', '5s'],
+      ['Kc', 'Td'], // SB: called with KT, flopped top pair — will not fold
+      ['9c', '8d'], // BB: called with 98s-type, flopped a pair too
+    ],
+    board: ['Kd', '9h', '4c', '2s', '7d'],
+    // Preflop: hero opens (target step 1), SB calls, BB calls. Flop: SB checks, BB checks, hero checks
+    // (target step 2 — the give-up).
+    villainScript: [
+      { kind: 'call' }, // seat 1 (SB) calls the open
+      { kind: 'call' }, // seat 2 (BB) calls the open
+      { kind: 'check' }, // flop: SB checks
+      { kind: 'check' }, // flop: BB checks
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠5♠ is a fine button open first-in — a suited ace with blocker and flush potential that plays well in position.',
+      },
+      {
+        action: 'check',
+        explanation:
+          'Check it back and give up. A c-bet bluff needs fold equity, and multiway there is almost none: with two callers, someone connects with K♦9♥4♣ far more often, and a bet that gets through heads-up gets called (or raised) three-handed. You have ace-high with a backdoor draw and no pair — betting only builds a pot you will usually lose and folds out the hands you already beat. The core multiway adjustment is to slash your bluffs: bet for value, check your air. Take the free card and hope to improve.',
+      },
+    ],
+  },
+  {
+    id: 'multiway-tighten-value-bet',
+    title: 'Value-betting top pair thinner OOP three-way',
+    setup:
+      'Three players see a Q♣7♦2♠ flop. You are first to act in the big blind with A♣Q♦ — top pair, top kicker on a dry board. Bet it, or is a made hand worth less with two players still to act?',
+    seatCount: 3,
+    // Standard 3-handed: button seat 1 → seat 0 = BB (hero, acts FIRST postflop), seat 2 = SB. Preflop
+    // the button opens, SB calls, hero (BB) calls closing a 3-way pot; on the flop the hero leads first.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = button (opener). Seat 2 = SB (cold-caller).
+    holes: [
+      ['Ac', 'Qd'],
+      ['Kd', 'Qs'], // button: opened KQ, flopped a worse top pair — pays a bet
+      ['5h', '5c'], // SB: called a small pair, will fold the flop
+    ],
+    board: ['Qc', '7d', '2s', '8h', '3d'],
+    // Ask order: seat 1 (button opens), seat 2 (SB calls), seat 0 (hero/BB calls — target step 1). Flop:
+    // hero first to act and bets (target step 2), then the villains' scripted flop actions follow.
+    villainScript: [
+      { kind: 'raise', to: 150 }, // seat 1 (button) opens
+      { kind: 'call' }, // seat 2 (SB) cold-calls
+      { kind: 'call' }, // flop: button calls the hero's bet
+      { kind: 'fold' }, // flop: SB folds
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'Getting a price closing the action in the big blind, A♣Q♦ is an easy call — it dominates the button’s opening range and flops well. Flatting keeps the pot manageable out of position rather than bloating it three-way with a 3-bet.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'Bet — but the multiway adjustment is about SIZING and hand selection, not skipping value. Top pair top kicker is still ahead and must charge the draws and worse queens on Q♣7♦2♠, and with two players in there is more money to win. Bet a touch smaller than heads-up (a wet multiway board gives more hands a reason to continue), and be ready to slow down if the action gets heavy — three-way, a raise behind means far more than it does heads-up. Value your made hands; just respect that a caller, then a raiser, are each stronger with a crowd.',
+      },
+    ],
+  },
+  {
+    id: 'multiway-set-mine-price',
+    title: 'Set-mining 4♦4♥ with the whole field in',
+    setup:
+      'UTG opens and the button calls before it folds to you in the big blind with 4♦4♥. Two players in and a cheap price to close — the classic multiway set-mine, if the math is right.',
+    seatCount: 4,
+    // Verified 4-handed seating: button seat 2 → SB=3, BB=0 (hero), first to act preflop = seat 1 (UTG).
+    // The hero (BB) acts last preflop after UTG opens and the button flat-calls — the multiway set-mine.
+    button: 2,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = UTG (opener). Seat 2 = button (flat-caller). Seat 3 = SB (folds).
+    holes: [
+      ['4d', '4h'],
+      ['Ah', 'Ks'], // UTG: strong opener
+      ['Jc', 'Js'], // button: flats a big pair
+      ['9c', '2d'], // SB: folds
+    ],
+    board: ['4s', 'Td', '6c', 'Qh', '2h'],
+    // Ask order: seat 1 (UTG opens), seat 2 (button calls), seat 3 (SB folds), seat 0 (hero/BB calls —
+    // the one target step). One preflop decision; the flopped set is the reward the math is paying for.
+    villainScript: [
+      { kind: 'raise', to: 150 }, // seat 1 (UTG) opens
+      { kind: 'call' }, // seat 2 (button) flat-calls
+      { kind: 'fold' }, // seat 3 (SB) folds
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'Call and set-mine. A small pair’s value multiway is almost entirely in flopping a set (about 1 in 8.5) and getting paid — and a multiway pot is IDEAL for it: two players are already in, so the implied odds are excellent and you are last to act closing the action for one more small bet. You are not calling to win with a pair of fours; you are calling to hit a set and stack a big pair or top pair. Do not 3-bet (you fold out the hands you want to trap and bloat a pot with a hand that whiffs the flop seven times in eight); do not fold (the price and the field make this a clear, +EV call). If you miss the flop, you are done — one-and-done set-mining is what makes the call profitable.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {

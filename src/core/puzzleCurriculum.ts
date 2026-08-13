@@ -127,6 +127,18 @@ export const CURRICULUM: readonly CurriculumModule[] = [
     ],
   },
   {
+    key: 'multiway-pots',
+    title: 'Multiway Pots: A Crowd Changes Everything',
+    blurb:
+      'With more players in, hands go up in value and bluffs go down. Fold the dominated big cards when a raise gets a caller, give up your air instead of c-betting into a field, value-bet a touch smaller, and set-mine the small pairs the price now rewards.',
+    scenarioIds: [
+      'multiway-fold-ako-to-3bet-and-call',
+      'multiway-no-cbet-bluff-air',
+      'multiway-tighten-value-bet',
+      'multiway-set-mine-price',
+    ],
+  },
+  {
     key: 'stack-depth-and-spr',
     title: 'Stack Depth: When One Pair Is a Stack, and When It Is Not',
     blurb:
