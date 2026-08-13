@@ -19,17 +19,42 @@ import type { Rng } from './rng.js';
 import {
   ALL_COMBOS,
   RFI_POSITIONS,
+  THREEBET_RESPONSE_WIDTH_ORDER,
   isInRfiRange,
+  threeBetResponseAction,
   type Combo,
   type RfiPosition,
+  type ThreeBetResponsePosition,
 } from './preflop.js';
 
-/** One posed question: does `combo` belong to an opener's first-in range from `position`? */
+/**
+ * Which read the question poses:
+ *  - 'open'       — they OPENED first-in from `position`; range = the RFI range (isInRfiRange).
+ *  - 'flat-3bet'  — they opened, then FLAT-CALLED a 3-bet; range = the CAPPED continue range, i.e. the
+ *                   combos whose 3-bet response is 'call' (they'd have 4-bet AA/KK/AK, folded the trash).
+ * Both keys are the app's OWN rule-stated ranges — no fabrication, no solver data.
+ */
+export type ReadScenario = 'open' | 'flat-3bet';
+
+/** One posed question: does `combo` belong to the villain's range in this `scenario` from `position`? */
 export interface HandReadingQuestion {
+  readonly scenario: ReadScenario;
   readonly position: RfiPosition;
   readonly combo: Combo;
-  /** The correct answer, derived from the app's own RFI range — never fabricated. */
+  /** The correct answer, derived from the app's own range rule — never fabricated. */
   readonly inRange: boolean;
+}
+
+/**
+ * Whether `combo` is in the villain's range for a scenario+position, straight from the app's rules.
+ * 'open' → the RFI range. 'flat-3bet' → the CAPPED range: exactly the flat-call combos (4-bets and folds
+ * are excluded — that is what makes a flat-called range capped, the read the drill teaches).
+ */
+export function inReadRange(scenario: ReadScenario, combo: Combo, position: RfiPosition): boolean {
+  if (scenario === 'open') return isInRfiRange(combo, position);
+  // flat-3bet is only defined for the four opener seats that have a 3-bet-response range.
+  if (!THREEBET_RESPONSE_WIDTH_ORDER.includes(position as ThreeBetResponsePosition)) return false;
+  return threeBetResponseAction(combo, position as ThreeBetResponsePosition) === 'call';
 }
 
 /** The learner's answer and how it graded, plus the truth for the feedback line. */
@@ -52,8 +77,8 @@ export interface HandReadingVerdict {
  * biases toward boundary combos: nextQuestion draws from this set with probability edgeBias. This
  * function is exported for the test to pin that edges exist and are a strict subset of all combos.
  */
-export function edgeCombos(position: RfiPosition): readonly Combo[] {
-  const inRange = new Set(ALL_COMBOS.filter((c) => isInRfiRange(c, position)));
+export function edgeCombos(scenario: ReadScenario, position: RfiPosition): readonly Combo[] {
+  const inRange = new Set(ALL_COMBOS.filter((c) => inReadRange(scenario, c, position)));
   return ALL_COMBOS.filter((combo) => {
     const here = inRange.has(combo);
     return neighbours(combo).some((n) => inRange.has(n) !== here);
@@ -101,12 +126,19 @@ function neighbours(combo: Combo): Combo[] {
  * the real ranges, but keeps the function total).
  */
 export function nextQuestion(rng: Rng, edgeBias = 0.7): HandReadingQuestion {
-  const position = RFI_POSITIONS[Math.floor(rng() * RFI_POSITIONS.length)] as RfiPosition;
+  // Half the questions read an open, half a flat-called 3-bet (the capped range) — one rng() call to pick,
+  // so the mix is seed-determined and both concepts recur.
+  const scenario: ReadScenario = rng() < 0.5 ? 'open' : 'flat-3bet';
+  // flat-3bet only applies to the four opener seats with a 3-bet-response range (no SB there); 'open'
+  // uses all five RFI seats.
+  const seats: readonly RfiPosition[] =
+    scenario === 'flat-3bet' ? (THREEBET_RESPONSE_WIDTH_ORDER as readonly RfiPosition[]) : RFI_POSITIONS;
+  const position = seats[Math.floor(rng() * seats.length)];
   const useEdge = rng() < edgeBias;
-  const pool = useEdge ? edgeCombos(position) : ALL_COMBOS;
+  const pool = useEdge ? edgeCombos(scenario, position) : ALL_COMBOS;
   const source = pool.length > 0 ? pool : ALL_COMBOS;
   const combo = source[Math.floor(rng() * source.length)];
-  return { position, combo, inRange: isInRfiRange(combo, position) };
+  return { scenario, position, combo, inRange: inReadRange(scenario, combo, position) };
 }
 
 /** Grade an answer against the question's own truth. Pure; no state. */

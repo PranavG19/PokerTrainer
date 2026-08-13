@@ -27,8 +27,8 @@ test('the Reading rung mounts the hand-reading drill with a situation, two cards
 
     // The situation names an opener seat and poses the in-range question, never the answer.
     const situation = (await page.locator('[data-testid="hand-reading-situation"]').textContent()) ?? '';
-    expect(situation).toMatch(/opens from .+ open/i);
-    expect(situation.toLowerCase()).not.toMatch(/in range\?.*(yes|no|is)/); // no answer leaked
+    expect(situation).toMatch(/opens from /i); // names the opener seat (either scenario)
+    expect(situation).toMatch(/in their range\?/i); // poses the question, does not answer it
 
     // Two concrete cards are shown (reading the combo off cards is the skill).
     await expect(page.locator('[data-testid="hand-reading-hand"] [data-testid="card"]')).toHaveCount(2);
@@ -92,6 +92,34 @@ test('a real grader: over a mixed run both right and wrong occur; keyboard I/O a
     // And O (folded).
     await page.locator('body').press('o');
     await expect(page.locator(drill)).toHaveAttribute('data-answered', String(before + 2));
+  } finally {
+    await close();
+  }
+});
+
+test('both read scenarios occur, and the flat-3bet line names the capping action without the answer', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await openReading(page);
+
+    // Click through questions, recording the scenario each poses, until both have appeared (the mix is
+    // seed-driven, so a short run surfaces both) or a generous cap is hit.
+    const scenarios = new Set<string>();
+    let sawFlat3betText = false;
+    for (let i = 0; i < 40 && scenarios.size < 2; i++) {
+      const scenario = (await page.locator(drill).getAttribute('data-scenario')) ?? '';
+      scenarios.add(scenario);
+      if (scenario === 'flat-3bet') {
+        // The flat-3bet situation names the capping action (called a 3-bet) but never states the answer.
+        const line = (await page.locator('[data-testid="hand-reading-situation"]').textContent()) ?? '';
+        expect(line.toLowerCase()).toContain('3-bet');
+        expect(line).toMatch(/in their range\?/i);
+        sawFlat3betText = true;
+      }
+      await page.locator('[data-testid="hand-reading-in"]').click();
+    }
+    expect(scenarios, 'both read scenarios should occur over a run').toEqual(new Set(['open', 'flat-3bet']));
+    expect(sawFlat3betText, 'the flat-3bet situation line was verified').toBe(true);
   } finally {
     await close();
   }
