@@ -102,6 +102,22 @@ export interface AssessmentDecision {
   readonly evLossBb: number;
   /** True when the spot cost nothing (severity 'free'), mirroring decisionRecordsFromHands. */
   readonly correct: boolean;
+  /**
+   * The coach principle behind the grade ('pot odds' | 'ranges' | 'value or bluff' | null), carried so the
+   * standing score can filter to the SOUND-math charges. The coach has no fold-equity model, so its
+   * 'value or bluff' charges can misgrade correct aggression; standing.ts keeps only 'pot odds'/'ranges'
+   * (and free spots) — see [[offsuit-coach-grading-scope]]. Optional: a save written before this field
+   * existed has no principle on record, which standing.ts treats as ineligible rather than guessing.
+   */
+  readonly principle?: string | null;
+  /**
+   * What it cost the hero to continue at this spot; 0 when checking was free. Carried so standing.ts can
+   * apply the CONTESTED filter (toCall>0) — free checks/folds carry near-zero information and would let a
+   * player pad the sample. Optional for the same legacy reason as `principle`.
+   */
+  readonly toCall?: number;
+  /** The street the decision was made on, so standing.ts can require contested POSTFLOP decisions. Optional (legacy). */
+  readonly street?: Street;
 }
 
 /** Lifetime counters. Kept cumulative because the hand log is capped. */
@@ -120,6 +136,13 @@ export interface SessionState {
   hands: HandRecord[];
   /** How many times the hero has topped their table stack back up after busting. */
   rebuys: number;
+  /**
+   * The deepest table (effective big blinds) the learner has ever EARNED — the standing ratchet. Once a
+   * depth is confirmed it is stored here and never drops, so a losing session can never demote it (the
+   * standing is a skill estimate from graded decisions, not chips). standing.ts computes the current depth
+   * and folds it in with max(); this field only ever moves up. 0 = never certified past 'Calibrating'.
+   */
+  depthFloor: number;
   stats: SessionStats;
   /** Prediction accuracy in coached mode. Lives outside `stats` because it counts decisions, not hands. */
   calibration: Calibration;
@@ -222,6 +245,7 @@ export function emptySession(): SessionState {
     bankroll: DEFAULT_BANKROLL,
     hands: [],
     rebuys: 0,
+    depthFloor: 0,
     stats: { handsPlayed: 0, vpipHands: 0, pfrHands: 0, evLossBb: 0, leaks: {}, leakCostBb: {} },
     calibration: emptyCalibration(),
     coachedMode: false,
@@ -471,6 +495,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     bankroll: state.bankroll,
     hands: structuredClone(state.hands),
     rebuys: state.rebuys,
+    depthFloor: state.depthFloor,
     stats: { ...state.stats, leaks: { ...state.stats.leaks }, leakCostBb: { ...state.stats.leakCostBb } },
     calibration: { ...state.calibration },
     coachedMode: state.coachedMode,
@@ -503,6 +528,9 @@ export function deserialize(raw: unknown): SessionState {
     hands: asArray(obj.hands).map(parseHand).slice(-MAX_HAND_LOG),
     // Legacy saves predate rebuys; 0 is the honest reading, not a missing field.
     rebuys: Math.max(0, Math.floor(asNumber(obj.rebuys, 0))),
+    // Legacy saves predate the standing ratchet; 0 (never certified) is the honest default. Never
+    // negative — a corrupt value cannot demote a real learner below Calibrating.
+    depthFloor: Math.max(0, asNumber(obj.depthFloor, 0)),
     stats: {
       handsPlayed: asNumber(stats.handsPlayed, 0),
       vpipHands: asNumber(stats.vpipHands, 0),
@@ -576,10 +604,22 @@ function parseAssessment(raw: unknown): AssessmentDecision | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const obj = raw as Record<string, unknown>;
   if (typeof obj.at !== 'number' || !Number.isFinite(obj.at)) return null;
-  return {
+  const base: AssessmentDecision = {
     at: obj.at,
     evLossBb: Math.max(0, asNumber(obj.evLossBb, 0)),
     correct: obj.correct === true,
+  };
+  // The standing-score fields are optional: a legacy save simply lacks them, and absence is honest
+  // (standing.ts treats a decision with no principle/toCall as ineligible rather than guessing). Only
+  // carry a value that is actually present and well-typed.
+  const principle = typeof obj.principle === 'string' ? obj.principle : obj.principle === null ? null : undefined;
+  const toCall = typeof obj.toCall === 'number' && Number.isFinite(obj.toCall) ? Math.max(0, obj.toCall) : undefined;
+  const street = STREETS.includes(obj.street as Street) ? (obj.street as Street) : undefined;
+  return {
+    ...base,
+    ...(principle !== undefined ? { principle } : {}),
+    ...(toCall !== undefined ? { toCall } : {}),
+    ...(street !== undefined ? { street } : {}),
   };
 }
 

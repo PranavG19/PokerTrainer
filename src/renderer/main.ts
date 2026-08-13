@@ -279,6 +279,10 @@ async function boot(): Promise<void> {
         at,
         evLossBb: g.grade.evLossBb,
         correct: g.grade.severity === 'free',
+        // Carried so the standing score can filter to sound-math charges on contested spots.
+        principle: g.grade.principle,
+        toCall: g.toCall,
+        street: g.street,
       });
     }
     await io.saveState(serialize(session));
