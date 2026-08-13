@@ -264,6 +264,44 @@ test.describe('R8 home screen', () => {
     }
   });
 
+  test('1b. the earned STANDING renders beside the bankroll and reads Calibrating on a fresh profile', async () => {
+    const { page, close } = await launchApp({ seed: 42, userDataDir: freshUserDataDir() });
+    try {
+      await page.waitForSelector(homeScreen);
+
+      // The standing is a real element, not a silent render: pin the testid so a broken wiring fails
+      // here rather than shipping green (the render had no e2e coverage before this test).
+      const standing = page.locator('[data-testid="home-standing"]');
+      await expect(standing).toBeVisible();
+
+      // A fresh profile has no eligible contested decisions, so the depth is 0 → "Calibrating".
+      const label = (await page.textContent('[data-testid="home-standing-label"]')) ?? '';
+      expect(label.trim()).toBe('Calibrating');
+
+      // The Play-surface amendment allows a single-player STANDING but leaves BANNED_PHRASINGS intact:
+      // the label must never leak a leaderboard word.
+      const lower = label.toLowerCase();
+      for (const banned of ['rank', 'percentile', 'level', 'elo', 'tier', 'leaderboard']) {
+        expect(lower, `standing label "${label}" leaked a banned word`).not.toContain(banned);
+      }
+
+      // Zero net height is asserted structurally by session-plan.spec test 17; here we only confirm it
+      // sits ON the headline row beside the bankroll, not stacked below it.
+      const sameRow = await page.evaluate(() => {
+        const bank = document.querySelector('[data-testid="bankroll"]');
+        const stand = document.querySelector('[data-testid="home-standing"]');
+        if (bank === null || stand === null) return false;
+        const b = bank.getBoundingClientRect();
+        const s = stand.getBoundingClientRect();
+        // Their vertical extents overlap → they share the headline row rather than stacking.
+        return b.bottom > s.top && s.bottom > b.top;
+      });
+      expect(sameRow, 'standing is not on the same row as the bankroll').toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
   test('2. the recent list caps at the render limit, newest first, with cards and a net', async () => {
     const HANDS = RECENT_LIMIT + 2;
     const fixture: Fixture = {
