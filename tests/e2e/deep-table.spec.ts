@@ -19,12 +19,12 @@ import { tableScreen, waitForIdle } from './flow.js';
 const STATE_FILE = 'offsuit-state.json';
 const BB = 50; // matches table.ts
 
-function seedDepthFloor(depthFloor: number): string {
+function seedDepthFloor(depthFloor: number, bankroll = 10000): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-depth-'));
   fs.writeFileSync(
     path.join(dir, STATE_FILE),
     JSON.stringify({
-      bankroll: 10000,
+      bankroll,
       depthFloor,
       hands: [],
       rebuys: 0,
@@ -87,6 +87,41 @@ test.describe('the Depth climb payoff sizes the table', () => {
       await page.waitForSelector(tableScreen);
       await waitForIdle(page);
       expect(await chipsInPlay(page)).toBe(8_000);
+    } finally {
+      await close();
+    }
+  });
+
+  // ── Affordability bound: you cannot buy in deeper than you can back ──────────
+
+  test('a broke learner with high earned depth still sits at the affordable stack, not the full depth', async () => {
+    // 200bb depth would be 10000/seat, but a bankroll of only 3000 can back a shorter table. The hero's
+    // buy-in is capped at the standard 5000 floor (max(bankroll, 5000)) so the hero + villains sit at
+    // 5000 — the classic table — rather than a table deeper than the learner's net worth.
+    const userDataDir = seedDepthFloor(200, 3000);
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(sel.newHand);
+      await page.click(sel.newHand);
+      await page.waitForSelector(tableScreen);
+      await waitForIdle(page);
+      // Capped at the 5000 floor → the classic 4 × 5000 = 20000 table, NOT 40000.
+      expect(await chipsInPlay(page)).toBe(20_000);
+    } finally {
+      await close();
+    }
+  });
+
+  test('an in-between bankroll caps the deep buy-in at what the learner owns', async () => {
+    // 200bb depth (10000/seat) but bankroll 8000: the buy-in is min(10000, 8000) = 8000 per seat.
+    const userDataDir = seedDepthFloor(200, 8000);
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(sel.newHand);
+      await page.click(sel.newHand);
+      await page.waitForSelector(tableScreen);
+      await waitForIdle(page);
+      expect(await chipsInPlay(page)).toBe(32_000); // 4 × 8000
     } finally {
       await close();
     }

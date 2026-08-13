@@ -7,6 +7,7 @@ import {
   currentForm,
   depthLabel,
   depthToStack,
+  affordableStack,
   masteryGate,
   playGate,
   playScore,
@@ -240,6 +241,35 @@ describe('depthToStack sizes the table by earned depth', () => {
     for (let i = 1; i < stacks.length; i++) {
       expect(stacks[i]).toBeGreaterThan(stacks[i - 1]);
     }
+  });
+});
+
+describe('affordableStack bounds the deep buy-in by what the learner can back', () => {
+  const STANDARD = 5000; // the classic 100bb table
+
+  it('a flush learner sits at full earned depth (deep stack <= bankroll)', () => {
+    expect(affordableStack(10_000, 12_000, STANDARD)).toBe(10_000); // 200bb, well afforded
+  });
+
+  it('an in-between bankroll caps the buy-in at what the learner owns', () => {
+    expect(affordableStack(10_000, 8_000, STANDARD)).toBe(8_000);
+  });
+
+  it('a broke learner still gets the standard table, never deeper than the floor', () => {
+    // Bankroll below the standard buy-in: the floor holds it at the classic table (today's behaviour),
+    // never a table deeper than net worth.
+    expect(affordableStack(10_000, 3_000, STANDARD)).toBe(STANDARD);
+    expect(affordableStack(10_000, 0, STANDARD)).toBe(STANDARD);
+  });
+
+  it('a shallow earned depth is never inflated up to the floor', () => {
+    // 40bb (2000) is below the standard floor but it is the EARNED depth, so it stands — the floor only
+    // rescues a deep stack the learner cannot afford, it does not raise a deliberately short table.
+    expect(affordableStack(2_000, 12_000, STANDARD)).toBe(2_000);
+  });
+
+  it('Calibrating (null depth) stays null so the caller uses the table default', () => {
+    expect(affordableStack(null, 3_000, STANDARD)).toBeNull();
   });
 });
 
