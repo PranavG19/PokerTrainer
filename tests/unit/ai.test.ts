@@ -434,6 +434,35 @@ describe('a disciplined villain controls the pot when deep', () => {
     const deep = foldRate('station', 250 * bb);
     expect(deep).toBe(shallow);
   });
+
+  /**
+   * THE OVER-TIGHTENING GUARD, and the reason the tax cap is 0.15 rather than something bigger. A pot-
+   * control tax that folds a marginal pair is right; one that folds a SET deep would be a broken villain
+   * (a nit that never stacks off is not a nit, it is a bug). This pins that a genuinely strong hand still
+   * commits at the deepest table — so the constant can only be raised until this starts failing, which is
+   * the calibration bound stated as a test rather than left to intuition (the constant is PROVISIONAL).
+   */
+  function setVsPotBet(stackBehind: number): TableState {
+    const state = flopBetSpot(6);
+    const spot = JSON.parse(JSON.stringify(state)) as TableState;
+    spot.seats[1].hole = ['7h', '7s']; // pocket sevens → a set on this board (~0.97 equity-vs-random)
+    spot.board = ['Ks', '7c', '2d'];
+    spot.seats[1].stack = stackBehind;
+    return spot;
+  }
+
+  it('a strong hand (a set) still commits at the deepest table — the tax controls marginal spots only', () => {
+    const spot = setVsPotBet(250 * 10); // very deep, tax at its cap
+    for (const archetype of ARCHETYPE_LIST) {
+      let commits = 0;
+      for (let seed = 1; seed <= 20; seed++) {
+        const action = decideActionAs(archetype, spot, spot.toAct, mulberry32(seed));
+        expect(action.kind, `${archetype} folded a set deep — the tax over-tightened`).not.toBe('fold');
+        if (action.kind !== 'fold') commits++;
+      }
+      expect(commits).toBe(20);
+    }
+  });
 });
 
 // ── Deep-stack integrity (the Depth climb payoff touches money) ──────────────
