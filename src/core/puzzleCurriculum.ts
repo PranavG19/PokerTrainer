@@ -139,6 +139,18 @@ export const CURRICULUM: readonly CurriculumModule[] = [
     ],
   },
   {
+    key: 'blind-vs-blind',
+    title: 'Blind vs Blind: Heads-Up, the Ranges Explode',
+    blurb:
+      'One opponent and position guaranteed to the small blind: open a huge share of hands, defend the big blind even wider on the price, 3-bet your good hands for value against a range that opens everything, and range-c-bet the boards that favour the opener.',
+    scenarioIds: [
+      'bvb-sb-open-wide',
+      'bvb-bb-defend-wide',
+      'bvb-bb-3bet-value',
+      'bvb-sb-cbet-dry',
+    ],
+  },
+  {
     key: 'stack-depth-and-spr',
     title: 'Stack Depth: When One Pair Is a Stack, and When It Is Not',
     blurb:

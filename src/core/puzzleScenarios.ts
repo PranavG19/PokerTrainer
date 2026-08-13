@@ -2074,6 +2074,137 @@ export const SCENARIOS: readonly Scenario[] = [
       },
     ],
   },
+  // ── Blind vs blind: heads-up, the ranges explode. Open wide, defend wider, 3-bet your monsters for
+  // value, and range-c-bet the boards that favour the opener. (The library's only seatCount:2 spots.) ──
+  {
+    id: 'bvb-sb-open-wide',
+    title: 'Opening K♠5♦ in the small blind, heads-up',
+    setup:
+      'Heads-up, blind vs blind. It is folded to you in the small blind with K♠5♦ — a hand you would muck without a thought in a full ring. But it is just you and one big blind now. Fold, or take the initiative?',
+    seatCount: 2,
+    // Heads-up: button = dealer = SB, and the SB acts FIRST preflop. button seat 0 → hero seat 0 = SB
+    // (the button), villain seat 1 = BB. Verified against startHand's isHeadsUp branch (sbIdx = dealer,
+    // toAct = sbIdx preflop). The hero opens; the BB folds to the steal.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (SB/button). Seat 1 = BB.
+    holes: [
+      ['Ks', '5d'],
+      ['7c', '2h'], // BB: folds to the open
+    ],
+    board: ['Qd', '8s', '4c', '3h', '9s'],
+    // Ask order preflop: seat 0 (hero opens — the one target step), seat 1 (BB folds).
+    villainScript: [
+      { kind: 'fold' }, // seat 1 (BB) folds to the steal
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Raise. Heads-up, the small blind IS the button — you have position for the whole hand and only one opponent to get through, so you open a huge slice of hands (well over half). K♠5♦ has a king (dominating a chunk of the BB’s range and blocking their strong kings), plus position and the initiative. Limping surrenders the lead and lets a weak BB see a cheap flop; folding gives up the blinds with a hand that is comfortably ahead of a random one. Steal wide and make them play back at you.',
+      },
+    ],
+  },
+  {
+    id: 'bvb-bb-defend-wide',
+    title: 'Defending J♣8♦ in the big blind, heads-up',
+    setup:
+      'Heads-up. The small blind min-raises to 2bb and it is on you in the big blind with J♣8♦. It is not much — but you are getting a great price against a range that is opening almost everything.',
+    seatCount: 2,
+    // Heads-up: button seat 1 → dealer = SB = seat 1 (villain), hero seat 0 = BB. The SB acts first
+    // preflop (toAct = sbIdx = 1), so the script's first entry is the SB's open; the hero then defends.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = SB (opener, first to act).
+    holes: [
+      ['Jc', '8d'],
+      ['As', '5s'], // SB: opens wide, min-raising a suited ace
+    ],
+    board: ['9h', '6c', '2d', 'Kh', '3s'],
+    // Ask order preflop: seat 1 (SB min-raises — first), seat 0 (hero/BB calls — the one target step).
+    villainScript: [
+      { kind: 'raise', to: 100 }, // seat 1 (SB) min-raises to 2bb
+    ],
+    target: [
+      {
+        action: 'call',
+        explanation:
+          'Call. You are closing the action getting 3-to-1 (50 to win 150) against a small blind that opens almost its whole range heads-up, so you defend an enormous share of hands — folding J8o here would be far too tight and hand the button easy profit. J♣8♦ makes pairs, straights, and gutshots, and it flops well enough to realise its equity as the price demands. This is not a 3-bet (too weak to get value, and 3-betting turns a fine flatting hand into a bluff you do not need); it is a routine wide defend.',
+      },
+    ],
+  },
+  {
+    id: 'bvb-bb-3bet-value',
+    title: 'Three-betting A♥Q♣ for value in the big blind, heads-up',
+    setup:
+      'Heads-up. The small blind opens to 2.5bb and you look down at A♥Q♣ in the big blind. Against a range this wide, this is a big hand — do you flat, or punish the steal?',
+    seatCount: 2,
+    // Same heads-up seating as bvb-bb-defend-wide: button seat 1 → hero seat 0 = BB, villain seat 1 = SB
+    // (first to act preflop). The SB opens; the hero 3-bets for value.
+    button: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (BB). Seat 1 = SB (opener, first to act).
+    holes: [
+      ['Ah', 'Qc'],
+      ['Kd', '9s'], // SB: opens a wide, dominated-by-AQ hand
+    ],
+    board: ['Jd', '7c', '3h', 'Ts', '2c'],
+    // Ask order preflop: seat 1 (SB opens — first), seat 0 (hero/BB 3-bets — the one target step).
+    villainScript: [
+      { kind: 'raise', to: 125 }, // seat 1 (SB) opens to 2.5bb
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'Raise — 3-bet for value. Your value 3-betting range gets much wider heads-up because the opener’s range is so wide: A♥Q♣ crushes a small blind that is opening almost everything, dominating its weaker aces and queens and every K-x/Q-x it steals with. Just calling lets a hand that is well ahead play a small, passive pot out of position; 3-betting builds the pot with the best hand, seizes the initiative, and denies equity to the many hands that would happily peel a flop. AQ is not a marginal flat here — it is a monster you raise for value.',
+      },
+    ],
+  },
+  {
+    id: 'bvb-sb-cbet-dry',
+    title: 'Range-betting a K-high board heads-up',
+    setup:
+      'Heads-up, you open A♠9♦ in the small blind and the big blind calls. The flop is K♦7♠2♣ and the big blind checks to you. Your hand missed — but whose range does this board favour?',
+    seatCount: 2,
+    // Heads-up: button seat 0 → hero seat 0 = SB (the button). The SB acts first preflop; postflop the
+    // BB acts first (toAct = first active left of dealer = the non-button), so the BB checks and the hero
+    // (in position) decides. Verified against startHand (heads-up) + the postflop first-to-act rule.
+    button: 0,
+    smallBlind: 25,
+    bigBlind: 50,
+    startStack: 5000,
+    // Seat 0 = hero (SB/button, the opener). Seat 1 = BB (caller).
+    holes: [
+      ['As', '9d'],
+      ['Qh', 'Jc'], // BB: calls the open, whiffs K-7-2 and checks
+    ],
+    board: ['Kc', '7s', '2d', 'Th', '3c'],
+    // Ask order: preflop seat 0 (hero opens — target step 1), seat 1 (BB calls). Flop: seat 1 (BB checks
+    // first, out of position), seat 0 (hero c-bets in position — target step 2).
+    villainScript: [
+      { kind: 'call' }, // seat 1 (BB) calls the open
+      { kind: 'check' }, // flop: BB checks to the opener
+    ],
+    target: [
+      {
+        action: 'raise',
+        explanation:
+          'A♠9♦ is a standard small-blind open heads-up — a suited-less ace with a blocker and position, well within a wide button-opening range.',
+      },
+      {
+        action: 'bet',
+        explanation:
+          'Bet — a small range c-bet. K♦7♠2♣ is dry and favours YOUR opening range far more than the caller’s: you hold the big kings and overpairs a raiser has, while the big blind, having only called, is capped and whiffs this board constantly. Firing a small size folds out their air, charges their few draws, and takes it down immediately most of the time — with ace-high you are betting for the fold equity, not because you need to get value called. On boards that hit the opener, c-bet your whole range small; save the checks for boards that favour the defender.',
+      },
+    ],
+  },
 ];
 
 export function scenarioById(id: string): Scenario | undefined {
