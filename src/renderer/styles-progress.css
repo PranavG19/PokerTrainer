@@ -141,7 +141,7 @@
   position: absolute;
   top: 0;
   height: 100%;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--edge);
 }
 
 /* Frozen is not a failure and must not be styled as one — P5 routes it to a worked example. */
