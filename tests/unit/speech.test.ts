@@ -6,6 +6,7 @@ import {
   recordHand,
   serialize,
   setCoachedMode,
+  setSoundCues,
   setSpokenVerdicts,
 } from '../../src/core/session.js';
 
@@ -129,6 +130,53 @@ describe('spokenVerdicts preference', () => {
   it('a corrupt spokenVerdicts value loads OFF', () => {
     for (const value of ['yes', 1, {}, [], 'true', null]) {
       expect(deserialize({ spokenVerdicts: value }).spokenVerdicts).toBe(false);
+    }
+  });
+});
+
+describe('soundCues preference', () => {
+  it('is OFF in a fresh session', () => {
+    expect(emptySession().soundCues).toBe(false);
+  });
+
+  it('setSoundCues flips the flag without touching anything else', () => {
+    const on = setSoundCues(emptySession(), true);
+    expect(on.soundCues).toBe(true);
+    expect(setSoundCues(on, false).soundCues).toBe(false);
+    expect({ ...on, soundCues: false }).toEqual(emptySession());
+  });
+
+  it('does not mutate the state it is given', () => {
+    const before = emptySession();
+    const snapshot = JSON.stringify(before);
+    setSoundCues(before, true);
+    expect(JSON.stringify(before)).toBe(snapshot);
+  });
+
+  it('is independent of spoken verdicts — a tone and a voice are separate channels', () => {
+    const sound = setSoundCues(emptySession(), true);
+    expect(sound.spokenVerdicts).toBe(false);
+    const spoken = setSpokenVerdicts(emptySession(), true);
+    expect(spoken.soundCues).toBe(false);
+  });
+
+  it('survives a serialize/deserialize round-trip', () => {
+    const state = setSoundCues(emptySession(), true);
+    const revived = deserialize(JSON.parse(JSON.stringify(serialize(state))));
+    expect(revived).toEqual(state);
+    expect(revived.soundCues).toBe(true);
+  });
+
+  /** A save file that says nothing about sound must come back silent. */
+  it('a legacy save with no soundCues field loads OFF', () => {
+    const legacy = { bankroll: 12000, hands: [], stats: {}, coachedMode: true };
+    expect(deserialize(legacy).soundCues).toBe(false);
+  });
+
+  /** Only a real `true` may switch sound on: a truthy string must not. */
+  it('a corrupt soundCues value loads OFF', () => {
+    for (const value of ['yes', 1, {}, [], 'true', null]) {
+      expect(deserialize({ soundCues: value }).soundCues).toBe(false);
     }
   });
 });

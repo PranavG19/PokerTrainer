@@ -154,6 +154,13 @@ export interface SessionState {
    */
   spokenVerdicts: boolean;
   /**
+   * A short synthesized tone at a costly verdict — the same moment the coach shows (and, if enabled,
+   * speaks) a mistake; a correct/'free' decision stays silent, matching the panel's silence rule.
+   * Default false and it stays false until asked for, same as spokenVerdicts: unrequested audio out of
+   * a poker app is a hostile default, and the verdict is fully readable without it — never the only channel.
+   */
+  soundCues: boolean;
+  /**
    * N2/N4. Persisted because the override log is evidence about the learner across sittings — a decline
    * run that reset on every launch could never reach N4's ask-once threshold, and the log the spec asks
    * for would silently be a session-scoped scratchpad.
@@ -250,6 +257,7 @@ export function emptySession(): SessionState {
     calibration: emptyCalibration(),
     coachedMode: false,
     spokenVerdicts: false,
+    soundCues: false,
     recommender: emptyRecommender(),
     gifts: [],
     chartMastery: {},
@@ -417,6 +425,10 @@ export function setSpokenVerdicts(state: SessionState, on: boolean): SessionStat
   return { ...state, spokenVerdicts: on };
 }
 
+export function setSoundCues(state: SessionState, on: boolean): SessionState {
+  return { ...state, soundCues: on };
+}
+
 /**
  * Count a rebuy. The bankroll is deliberately UNCHANGED.
  *
@@ -500,6 +512,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     calibration: { ...state.calibration },
     coachedMode: state.coachedMode,
     spokenVerdicts: state.spokenVerdicts,
+    soundCues: state.soundCues,
     recommender: {
       overrides: state.recommender.overrides.map((o) => ({ ...o })),
       consecutiveDeclines: state.recommender.consecutiveDeclines,
@@ -546,6 +559,9 @@ export function deserialize(raw: unknown): SessionState {
     // Same `=== true` shape and the same reason, doubled: a save that says nothing about narration
     // must come back silent, and a truthy non-boolean ("yes", 1) must not switch a voice on.
     spokenVerdicts: obj.spokenVerdicts === true,
+    // Same `=== true` shape and reason again: a save silent about sound comes back silent, and a
+    // truthy non-boolean must not switch audio on.
+    soundCues: obj.soundCues === true,
     // Legacy saves predate the recommender; an empty one is the honest reading of a missing field.
     recommender: parseRecommender(obj.recommender),
     // Legacy saves predate the gift ledger; an empty list is the honest reading of a missing field.
