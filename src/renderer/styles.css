@@ -5,27 +5,36 @@
    * as ALIASES onto these semantics, so all 20 sibling sheets keep working untouched while a theme
    * only ever needs to redefine the semantic values. Adding a theme = one html[data-theme=…] block.
    *
-   * STEP 1 (this commit): values are IDENTICAL to the historical palette — the alias indirection is
-   * transparent, zero pixels change. STEP 2 flips these values to graphite+champagne.
+   * STEP 2 (this commit): values are the NOCTURNE graphite + champagne palette (the shipped default).
+   * The four pinned roles are held: --text-hi pure white, --positive mint + --ring-active mint alpha,
+   * and --signal (champagne) stays UNCONSUMED so it cannot leak into the anomaly-verdict subtree yet.
    *
    * Pinned roles the e2e suite enforces (never break without deliberately updating the test):
    *   --text-hi MUST stay pure #FFFFFF (interaction.spec: the pot).
    *   --positive MUST stay mint #3DDC97 / its rgba (gameplay+interaction+anomaly: to-act/passed-gate).
-   *   --signal (champagne, added Step 2) must NEVER enter the anomaly-verdict subtree (reddish detector). */
-  --page:      #000000;   /* page background        (alias target of --bg) */
-  --surface:   #1C1C1E;   /* raised surface                                */
-  --surface-2: #2A2A2C;   /* higher surface          (alias target of --surface-hi, 72 refs) */
-  --raise:     #333336;   /* hover/lifted surface    (alias target of --surface-hover) */
+   *   --signal (champagne) must NEVER enter the anomaly-verdict subtree (reddish detector). */
+  --page:      #0A0B0D;   /* graphite page background   (alias target of --bg) */
+  --surface:   #111318;   /* raised surface                                    */
+  --surface-2: #161A20;   /* higher surface          (alias target of --surface-hi, 72 refs) */
+  --raise:     #1C2128;   /* hover/lifted surface    (alias target of --surface-hover) */
 
-  --text-hi:   #FFFFFF;   /* PINNED pure white (pot). Not softened. */
-  --text-lo:   #8E8E93;   /* secondary text (197 refs) */
-  --text-lo-2: #636A74;   /* tertiary text — new, for future third-tier use */
+  --text-hi:   #FFFFFF;   /* PINNED pure white (pot). Not softened to Nocturne #EAEDF1. */
+  --text-lo:   #9AA2AC;   /* secondary text (197 refs) — Nocturne ink-2 */
+  --text-lo-2: #636A74;   /* tertiary text — Nocturne ink-3 */
 
   --positive:  #3DDC97;   /* mint — PINNED by 3 e2e (to-act/positive/passed-gate). NEVER champagne. */
-  --signal:    #3DDC97;   /* accent — Step 1 keeps it mint so nothing changes; Step 2 → champagne. */
-  --suit-red:  #F0483C;   /* loss / suit red   (alias target of --red) */
+  --signal:    #D9B676;   /* champagne accent — NEW value, consumed NOWHERE yet (see Step 4/later). */
+  --signal-dim:    rgba(217, 182, 118, 0.16);
+  --signal-strong: rgba(217, 182, 118, 0.42);
+  --suit-red:  #E4635A;   /* softer Nocturne loss/suit red (alias target of --red) */
 
-  /* Card faces: the white-face / dark-ink pair. Kept as the default card look. */
+  --rule:      rgba(234, 237, 241, 0.08);   /* hairline rules — Nocturne */
+  --rule-soft: rgba(234, 237, 241, 0.045);
+  --edge:      rgba(234, 237, 241, 0.16);
+  --glow:      rgba(234, 237, 241, 0.07);
+
+  /* Card faces: the white-face / dark-ink pair. Kept as the default card look (a dark-face pass is
+   * a separate, deliberate design step — see nocturne-migration-plan). */
   --card-face: #FAFAFA;
   --card-ink:  #0A0A0A;   /* dark text ON the white card face (alias target of --ink, 20 refs) */
 
