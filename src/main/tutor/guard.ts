@@ -75,10 +75,9 @@ const BAN_RULES: readonly BanRule[] = [
       /\b(?:nice|great|excellent|perfect|impressive|awesome|beautiful|congrats|congratulations|well\s+(?:done|played)|good\s+(?:job|read|call|fold|bet|instincts|thinking))\b/i,
   },
 
-  // Streak / rank / percentile language.
-  { name: 'rank:streak', pattern: /\b(?:streak|streaks|in\s+a\s+row|consecutive)\b/i },
-  { name: 'rank:ordinal', pattern: /\b(?:rank|ranks|ranked|ranking|percentile|leaderboard)\b/i },
-  { name: 'rank:gamified', pattern: /\b(?:xp|badge|badges|trophy|level(?:s|led|ing)?\s+up|personal\s+best)\b/i },
+  // Gamification vocabulary (streak/rank/percentile/XP/badge/leaderboard) was ALLOWED on 2026-08-14 by
+  // product decision, so the former rank:streak / rank:ordinal / rank:gamified rules were removed. The
+  // trait, praise and fold-reveal rules stay — those are pedagogy guarantees, not gamification bans.
 
   // Per-hand fold reveal (G10 — prohibited in the string table, permanently).
   { name: 'fold-reveal:you-folded', pattern: /\byou\s+folded\b/i },

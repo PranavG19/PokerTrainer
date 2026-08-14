@@ -91,13 +91,10 @@ const BAN_RULES: readonly BanRule[] = [
       /\b(?:nice|great|excellent|perfect|impressive|awesome|beautiful|congrats|congratulations|well\s+(?:done|played)|good\s+(?:job|read|call|fold|bet|instincts|thinking))\b/i,
   },
 
-  // No streaks, ranks, percentiles, XP.
-  { name: 'rank:streak', pattern: /\b(?:streak|streaks|in\s+a\s+row|consecutive)\b/i },
-  { name: 'rank:ordinal', pattern: /\b(?:rank|ranks|ranked|ranking|percentile|leaderboard)\b/i },
-  {
-    name: 'rank:gamified',
-    pattern: /\b(?:xp|badge|badges|trophy|level(?:s|led|ing)?\s+up|personal\s+best)\b/i,
-  },
+  // Gamification vocabulary (streak/rank/percentile/XP/badge/leaderboard/personal best) was ALLOWED on
+  // 2026-08-14 by product decision — the app now has honest progress features built on real data — so
+  // the former rank:streak / rank:ordinal / rank:gamified rules were removed. The trait, praise and
+  // fold-reveal rules below are separate pedagogy guarantees and stay.
 
   // G10 — per-hand fold reveals are prohibited permanently.
   { name: 'fold-reveal:you-folded', pattern: /\byou\s+folded\b/i },

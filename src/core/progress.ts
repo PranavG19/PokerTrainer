@@ -439,20 +439,13 @@ export function formatTagAggregate(aggregate: TagAggregate): string {
  * XP — all of which reward showing up rather than deciding well) and trait attribution (G7 — a tag
  * describes a decision, an adjective describes a person and cannot be practised).
  */
+// The gamification vocabulary (streak/xp/rank/badge/leaderboard/personal best/…) was removed from this
+// list on 2026-08-14 by explicit product decision: the app is adding honest progress features (streaks,
+// a record screen, milestones) built on real logged data, so those words are now allowed. What REMAINS
+// banned is the G7 pedagogy rule that has nothing to do with gamification: never make a TRAIT claim about
+// the person ("you are a nit", "too loose") and never praise ("great job") — a verb describes a decision
+// the learner can practise, an adjective describes a person and cannot. That principle is unchanged.
 export const BANNED_PHRASINGS: readonly string[] = [
-  'streak',
-  'in a row',
-  'consecutive',
-  'xp',
-  'rank',
-  'percentile',
-  'badge',
-  'trophy',
-  'level up',
-  'leaderboard',
-  'top 1',
-  'better than',
-  'personal best',
   'you are',
   "you're",
   'too loose',
@@ -462,8 +455,6 @@ export const BANNED_PHRASINGS: readonly string[] = [
   'nit',
   'maniac',
   'fish',
-  'trend',
-  'on track',
   'keep it up',
   'great job',
   'well done',

@@ -240,15 +240,17 @@ describe('validator rejects malformed content', () => {
     expect(codes(issues)).toContain('banned-phrase');
   });
 
-  it('catches streak, rank and percentile language', () => {
-    for (const banned of [
+  it('no longer flags streak, rank or percentile language (allowed 2026-08-14)', () => {
+    // Gamification vocabulary is permitted now that the app has honest progress features. These strings
+    // must NOT raise a banned-phrase issue; the trait/praise/fold-reveal guards below still do.
+    for (const allowed of [
       'The price is 1 time in 5. That is three correct in a row. Read the price first.',
       'The price is 1 time in 5. This sits in the 90th percentile. Read the price first.',
       'The price is 1 time in 5. Two more calls to level up. Read the price first.',
     ]) {
-      expect(codes(validateLesson(lesson({ examples: [example({ reasoning: banned })] })))).toContain(
-        'banned-phrase',
-      );
+      expect(
+        codes(validateLesson(lesson({ examples: [example({ reasoning: allowed })] }))),
+      ).not.toContain('banned-phrase');
     }
   });
 
