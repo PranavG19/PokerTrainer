@@ -17,7 +17,7 @@ export const threeBetOrFlatTheDefence: Lesson = {
   phase: 1,
   title: 'Defending: 3-bet the best, flat the rest',
   mechanism:
-    'The big blind does not flat everything it defends: it 3-bets its strongest hands for value and flats the playable rest, folding only the trash.',
+    'The big blind does not flat everything it defends: it re-raises its strongest hands for value and flats the playable rest, folding only the trash.',
   prerequisites: ['defend-the-big-blind'],
   examples: [
     {
