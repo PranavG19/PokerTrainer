@@ -1783,6 +1783,210 @@ html[data-anim="focus-pull"] body.motion-on .deal-item{ animation-name:deal-focu
     body.motion-on .glow{ transform:translate(-50%,-50%) !important; opacity:0.85 !important; }
     body.motion-on .g-fill{ stroke-dashoffset:132.3 !important; }
   }
+  
+  /* ---- charts ---- */
+.charts-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:var(--s6); margin-top:var(--s7); flex-wrap:wrap; }
+  .charts-head .caption{ display:block; margin-bottom:var(--s3); }
+  .charts-head .rule-line{ font-size:22px; color:var(--ink); font-weight:600; letter-spacing:-0.02em; }
+  .charts-head .rule-line .pct{ color:var(--signal); font-family:var(--figure-family); font-variant-numeric:tabular-nums; }
+  .charts-head .combos{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.06em; margin-top:6px; }
+
+  .seg{ display:inline-flex; background:var(--surface); border:1px solid var(--rule); border-radius:9px; padding:3px; }
+  .seg button{ appearance:none; cursor:pointer; background:transparent; border:none; border-radius:6px;
+    color:var(--ink-3); font-family:var(--mono); font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; padding:7px 12px; transition:all 120ms var(--ease); }
+  .seg button:hover{ color:var(--ink-2); }
+  .seg button[aria-pressed="true"]{ background:var(--signal-dim); color:var(--signal); box-shadow:inset 0 0 0 1px var(--signal-strong); }
+
+  .charts-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:var(--s4); margin-top:var(--s6); flex-wrap:wrap; }
+  .pos-seg button{ padding:7px 14px; }
+
+  .charts-stage{ display:grid; grid-template-columns:1fr; gap:var(--s5); margin-top:var(--s6); }
+
+  .cg-frame{
+    background:linear-gradient(180deg,var(--surface-2),var(--surface));
+    border:1px solid var(--rule); border-radius:var(--radius-lg);
+    padding:var(--s6);
+    display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; gap:6px;
+  }
+  .cg-corner{}
+  .cg-colhead, .cg-rowhead{ display:grid; gap:2px; }
+  .cg-colhead{ grid-template-columns:repeat(13,1fr); }
+  .cg-rowhead{ grid-template-rows:repeat(13,1fr); }
+  .cg-colhead span, .cg-rowhead span{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:0.04em; color:var(--ink-3);
+    display:grid; place-items:center;
+  }
+
+  .cg-grid{
+    display:grid; grid-template-columns:repeat(13,1fr); gap:2px;
+    aspect-ratio:1/1;
+  }
+  .cg-cell{
+    display:grid; place-items:center;
+    background:var(--surface-2); border:1px solid var(--rule-soft); border-radius:3px;
+    font-family:var(--mono); font-size:9px; letter-spacing:-0.01em;
+    color:var(--ink-3); font-variant-numeric:tabular-nums;
+    aspect-ratio:1/1; overflow:hidden;
+    transition:transform 120ms var(--spring), border-color 120ms var(--ease);
+  }
+  .cg-cell.on{ background:var(--signal-dim); color:var(--ink); }
+  .cg-cell.pair{ box-shadow:inset 0 0 0 1px var(--rule); }
+  .cg-cell.edge{ border-color:var(--signal); color:var(--signal); }
+  .cg-cell:hover{ transform:scale(1.14); border-color:var(--edge); z-index:2; }
+  .cg-cell.on:hover{ border-color:var(--signal); }
+
+  .cg-legend{ display:flex; align-items:center; gap:var(--s5); flex-wrap:wrap; }
+  .cg-legend .lg{ display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-3); }
+  .cg-legend .sw{ width:14px; height:14px; border-radius:3px; border:1px solid var(--rule-soft); }
+  .cg-legend .sw.open{ background:var(--signal-dim); }
+  .cg-legend .sw.fold{ background:var(--surface-2); }
+  .cg-legend .sw.bound{ background:var(--signal-dim); border-color:var(--signal); }
+
+  @media (max-width:820px){
+    .cg-frame{ padding:var(--s4); }
+    .cg-cell{ font-size:0; }
+    .cg-colhead span, .cg-rowhead span{ font-size:0; }
+  }
+
+  /* ---- progress ---- */
+/* PROGRESS — standing + knowledge-component mastery. Data-forward, calm. */
+.prog-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:var(--s6); margin-top:var(--s7); }
+.prog-head .standing .caption{ display:block; margin-bottom:var(--s3); }
+.prog-head .standing .figure{ display:block; }
+.prog-head .standing .sub{ font-family:var(--mono); font-size:12px; color:var(--ink-3); letter-spacing:0.04em; margin-top:var(--s3); display:inline-block; }
+.prog-head .standing .sub b{ color:var(--signal); font-weight:500; }
+/* calibration meter: how much data the standing rests on */
+.prog-cal{ min-width:180px; }
+.prog-cal .caption{ display:block; margin-bottom:var(--s3); text-align:right; }
+.prog-cal .cal-track{ height:3px; border-radius:2px; background:var(--rule); overflow:hidden; }
+.prog-cal .cal-fill{ height:100%; border-radius:2px; background:var(--signal); }
+.prog-cal .cal-note{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.04em; margin-top:var(--s3); display:block; text-align:right; }
+
+/* triad of tabular stat tiles */
+.prog-stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s4); margin-top:var(--s7); }
+.prog-stats .tile{ min-height:auto; cursor:default; gap:var(--s3); }
+.prog-stats .tile .caption{ color:var(--ink-3); }
+.prog-stats .tile .figure{ font-size:34px; }
+.prog-stats .tile .m{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.04em; }
+.prog-stats .tile .m.up{ color:var(--signal); }
+@media (max-width:640px){ .prog-stats{ grid-template-columns:1fr; } }
+
+/* knowledge-component mastery bars */
+.prog-kc{ margin-top:var(--s8); }
+.kc-row{ display:grid; grid-template-columns:1fr 200px 44px; align-items:center; gap:var(--s4); padding:var(--s3); border-radius:8px; }
+.kc-row .lead{ display:flex; flex-direction:column; gap:1px; }
+.kc-row .lead .t{ color:var(--ink); font-size:14px; }
+.kc-row .lead .m{ color:var(--ink-3); font-size:12px; }
+.kc-track{ height:4px; border-radius:2px; background:var(--rule); overflow:hidden; }
+.kc-fill{ height:100%; border-radius:2px; background:var(--signal); }
+.kc-fill.dim{ background:var(--ink-3); }
+.kc-pct{ font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; text-align:right; }
+.kc-pct.low{ color:var(--ink-3); }
+@media (max-width:640px){ .kc-row{ grid-template-columns:1fr 100px 40px; } }
+
+  /* ---- profile ---- */
+/* ---- PROFILE ---- */
+.profile-top{ display:flex; align-items:flex-end; justify-content:space-between; margin-top:var(--s7); gap:var(--s6); flex-wrap:wrap; }
+.profile-top .bankroll .caption{ display:block; margin-bottom:var(--s3); }
+.profile-top .bankroll .figure{ display:block; }
+.profile-top .bankroll .delta{ font-family:var(--mono); font-size:12px; color:var(--signal); letter-spacing:0.02em; margin-top:var(--s3); display:inline-block; }
+.profile-top .bankroll .delta .muted{ color:var(--ink-3); }
+
+/* two small session stats riding beside the spark */
+.profile-stats{ display:flex; gap:var(--s7); }
+.profile-stats .stat .caption{ display:block; margin-bottom:var(--s2); }
+.profile-stats .stat .v{ font-family:var(--figure-family); font-size:24px; line-height:1; color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:-0.01em; }
+.profile-stats .stat .m{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.04em; margin-top:6px; }
+
+/* calibration line: a slim rail with a --signal marker at the measured accuracy */
+.calib{ margin-top:var(--s5); }
+.calib .head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:var(--s3); }
+.calib .head .v{ font-family:var(--mono); font-size:13px; color:var(--signal); font-variant-numeric:tabular-nums; }
+.calib .bar{ position:relative; height:4px; border-radius:2px; background:var(--surface-2); }
+.calib .bar .mark{ position:absolute; top:-3px; width:2px; height:10px; border-radius:1px; background:var(--signal); box-shadow:0 0 8px 1px var(--signal-dim); }
+.calib .bar .ideal{ position:absolute; top:-5px; bottom:-5px; width:1px; background:var(--edge); }
+.calib .scale{ display:flex; justify-content:space-between; margin-top:6px; font-family:var(--mono); font-size:10px; letter-spacing:0.06em; color:var(--ink-3); }
+
+/* leaks — each row carries a cost bar filling in --signal beneath the lead */
+.profile-lower{ margin-top:var(--s8); }
+.leak{ align-items:center; }
+.leak .lead{ flex:1; min-width:0; }
+.leak .bar{ position:relative; height:3px; border-radius:2px; background:var(--surface-2); margin-top:6px; }
+.leak .bar .fill{ position:absolute; left:0; top:0; bottom:0; border-radius:2px; background:var(--signal); opacity:0.7; }
+.leak .val{ white-space:nowrap; }
+
+/* lifetime counters — a quiet mono grid, hairline-separated */
+.lifetime{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4); margin-top:var(--s8); border-top:1px solid var(--rule); padding-top:var(--s6); }
+@media (max-width:640px){ .lifetime{ grid-template-columns:repeat(2,1fr); } }
+.lifetime .cell{ display:flex; flex-direction:column; gap:var(--s2); }
+.lifetime .cell .caption{ color:var(--ink-3); }
+.lifetime .cell .figure{ font-size:34px; }
+.lifetime .cell .figure.down{ color:var(--suit-red); }
+
+  /* ---- settings ---- */
+.set-wrap{ max-width:640px; margin:var(--s7) 0 0; }
+.set-block{ display:flex; align-items:flex-start; justify-content:space-between; gap:var(--s6); padding:var(--s5) 0; border-top:1px solid var(--rule); }
+.set-block:first-child{ border-top:none; }
+.set-block .lead{ display:flex; flex-direction:column; gap:var(--s2); max-width:44ch; }
+.set-block .lead .t{ color:var(--ink); font-size:15px; font-weight:600; letter-spacing:-0.01em; }
+.set-block .lead .note{ color:var(--ink-3); font-size:13px; line-height:1.6; }
+.toggle{
+  flex:0 0 auto; appearance:none; cursor:pointer; min-width:64px; text-align:center;
+  background:var(--surface); border:1px solid var(--edge); border-radius:999px;
+  color:var(--ink-3); font-family:var(--mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase;
+  padding:7px 14px; transition:background 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease);
+}
+.toggle:hover{ border-color:var(--edge); color:var(--ink-2); }
+.toggle[aria-pressed="true"]{ background:var(--signal-dim); border-color:var(--signal-strong); color:var(--signal); }
+.set-egress{ margin-top:var(--s7); }
+.set-egress .rows{ margin-top:var(--s3); }
+.set-egress .host{ font-family:var(--mono); }
+.set-egress .host .val{ color:var(--ink-3); }
+.set-egress .empty{ color:var(--ink-3); font-size:13px; padding:var(--s3); line-height:1.6; }
+
+  /* ---- train ---- */
+/* ---- TRAIN hub ---- */
+.train-hub{ display:grid; grid-template-columns:220px 1fr; gap:var(--s7); margin-top:var(--s6); }
+@media (max-width:820px){ .train-hub{ grid-template-columns:1fr; } }
+
+.train-rail{ display:flex; flex-direction:column; gap:2px; }
+.train-rail .phase-label{ font-family:var(--mono); font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin-bottom:var(--s3); }
+.rung{
+  position:relative; display:flex; align-items:center; justify-content:space-between; gap:var(--s3);
+  padding:var(--s3); border-radius:8px; text-decoration:none; color:var(--ink-2);
+  transition:background 120ms var(--ease), color 120ms var(--ease);
+}
+.rung:hover{ background:var(--surface-2); color:var(--ink); }
+.rung .rk{ font-size:14px; }
+.rung .rm{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.04em; }
+.rung.active{ background:var(--surface-2); color:var(--ink); }
+.rung.active::before{ content:""; position:absolute; left:0; top:8px; bottom:8px; width:2px; background:var(--signal); border-radius:2px; }
+.rung.active .rk{ color:var(--ink); font-weight:600; }
+.rung.active .rm{ color:var(--signal); }
+
+.train-main{ display:flex; flex-direction:column; gap:var(--s7); }
+.train-launch{
+  position:relative; overflow:hidden;
+  background:linear-gradient(180deg,var(--surface-2),var(--surface));
+  border:1px solid var(--rule); border-radius:var(--radius-lg);
+  padding:var(--s6);
+}
+.train-launch::after{ content:""; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(120% 80% at 85% 0%, var(--signal-dim), transparent 60%); opacity:0.6; }
+.train-launch .caption{ display:block; position:relative; margin-bottom:var(--s3); }
+.train-launch .title{ position:relative; font-size:24px; color:var(--ink); font-weight:600; letter-spacing:-0.02em; margin-bottom:var(--s3); }
+.train-desc{ position:relative; color:var(--ink-2); font-size:14px; line-height:1.7; max-width:56ch; margin:0 0 var(--s5); }
+.train-meta{ position:relative; display:flex; gap:var(--s6); margin-bottom:var(--s6); }
+.train-meta .cell .caption{ display:block; margin-bottom:6px; }
+.train-meta .cell .figure{ font-size:24px; }
+.train-cta{
+  position:relative; appearance:none; cursor:pointer; display:inline-flex; align-items:center; gap:var(--s3);
+  background:var(--signal-dim); border:1px solid var(--signal-strong); border-radius:var(--radius);
+  color:var(--signal); font-family:var(--sans); font-size:15px; font-weight:600; letter-spacing:0.02em;
+  padding:var(--s4) var(--s6); transition:background 140ms var(--ease), transform 160ms var(--spring);
+}
+.train-cta:hover{ background:var(--signal-strong); color:var(--ink); transform:translateY(-2px); }
+  /* SCREENS-CSS-MARKER */
 </style>
 </head>
 <body class="motion-on">
@@ -2100,6 +2304,316 @@ html[data-anim="focus-pull"] body.motion-on .deal-item{ animation-name:deal-focu
           </div>
         </div>
       </section>
+      
+      <!-- CHARTS -->
+      <section class="screen" data-screen-id="charts">
+        <span class="screen-tag">Charts</span>
+        <nav class="top">
+          <span class="brand"><span class="dot"></span>OFFSUIT</span>
+          <ul><li><a href="#">Play</a></li><li><a href="#">Learn</a></li><li><a href="#">Train</a></li><li><a href="#" class="active">Charts</a></li><li><a href="#">Progress</a></li><li><a href="#">Profile</a></li><li><a href="#">Settings</a></li></ul>
+        </nav>
+
+        <div class="charts-head anim">
+          <div>
+            <span class="caption">Preflop range · RFI</span>
+            <div class="rule-line">Button opens <span class="pct">44%</span> of hands</div>
+            <div class="combos">570 / 1,326 combos · fold everything else</div>
+          </div>
+          <div class="seg" role="group" aria-label="Chart mode">
+            <button type="button" aria-pressed="true">Open</button>
+            <button type="button" aria-pressed="false">vs Raise</button>
+            <button type="button" aria-pressed="false">vs 3-bet</button>
+          </div>
+        </div>
+
+        <div class="charts-toolbar anim">
+          <div class="seg pos-seg" role="group" aria-label="Position">
+            <button type="button" aria-pressed="false">UTG</button>
+            <button type="button" aria-pressed="false">HJ</button>
+            <button type="button" aria-pressed="false">CO</button>
+            <button type="button" aria-pressed="true">BTN</button>
+            <button type="button" aria-pressed="false">SB</button>
+            <button type="button" aria-pressed="false">BB</button>
+          </div>
+          <div class="cg-legend">
+            <span class="lg"><span class="sw open"></span>Open</span>
+            <span class="lg"><span class="sw bound"></span>Boundary</span>
+            <span class="lg"><span class="sw fold"></span>Fold</span>
+          </div>
+        </div>
+
+        <div class="charts-stage anim">
+          <div class="cg-frame">
+            <div class="cg-corner"></div>
+            <div class="cg-colhead"><span>A</span><span>K</span><span>Q</span><span>J</span><span>T</span><span>9</span><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span></div>
+            <div class="cg-rowhead"><span>A</span><span>K</span><span>Q</span><span>J</span><span>T</span><span>9</span><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span></div>
+            <div class="cg-grid"><span class="cg-cell pair on">AA</span><span class="cg-cell on">AKs</span><span class="cg-cell on">AQs</span><span class="cg-cell on">AJs</span><span class="cg-cell on">ATs</span><span class="cg-cell on">A9s</span><span class="cg-cell on">A8s</span><span class="cg-cell on">A7s</span><span class="cg-cell on">A6s</span><span class="cg-cell on">A5s</span><span class="cg-cell on">A4s</span><span class="cg-cell on">A3s</span><span class="cg-cell on">A2s</span><span class="cg-cell on">AKo</span><span class="cg-cell pair on">KK</span><span class="cg-cell on">KQs</span><span class="cg-cell on">KJs</span><span class="cg-cell on">KTs</span><span class="cg-cell on">K9s</span><span class="cg-cell on">K8s</span><span class="cg-cell on">K7s</span><span class="cg-cell on">K6s</span><span class="cg-cell on">K5s</span><span class="cg-cell on">K4s</span><span class="cg-cell on">K3s</span><span class="cg-cell on">K2s</span><span class="cg-cell on">AQo</span><span class="cg-cell on">KQo</span><span class="cg-cell pair on">QQ</span><span class="cg-cell on">QJs</span><span class="cg-cell on">QTs</span><span class="cg-cell on">Q9s</span><span class="cg-cell on">Q8s</span><span class="cg-cell on">Q7s</span><span class="cg-cell on">Q6s</span><span class="cg-cell on">Q5s</span><span class="cg-cell on">Q4s</span><span class="cg-cell">Q3s</span><span class="cg-cell">Q2s</span><span class="cg-cell on">AJo</span><span class="cg-cell on">KJo</span><span class="cg-cell on">QJo</span><span class="cg-cell pair on">JJ</span><span class="cg-cell on">JTs</span><span class="cg-cell on">J9s</span><span class="cg-cell on">J8s</span><span class="cg-cell on">J7s</span><span class="cg-cell on edge">J6s</span><span class="cg-cell">J5s</span><span class="cg-cell">J4s</span><span class="cg-cell">J3s</span><span class="cg-cell">J2s</span><span class="cg-cell on">ATo</span><span class="cg-cell on">KTo</span><span class="cg-cell on">QTo</span><span class="cg-cell on">JTo</span><span class="cg-cell pair on">TT</span><span class="cg-cell on">T9s</span><span class="cg-cell on">T8s</span><span class="cg-cell on">T7s</span><span class="cg-cell on edge">T6s</span><span class="cg-cell">T5s</span><span class="cg-cell">T4s</span><span class="cg-cell">T3s</span><span class="cg-cell">T2s</span><span class="cg-cell on">A9o</span><span class="cg-cell on">K9o</span><span class="cg-cell on edge">Q9o</span><span class="cg-cell on edge">J9o</span><span class="cg-cell on edge">T9o</span><span class="cg-cell pair on">99</span><span class="cg-cell on">98s</span><span class="cg-cell on">97s</span><span class="cg-cell on edge">96s</span><span class="cg-cell">95s</span><span class="cg-cell">94s</span><span class="cg-cell">93s</span><span class="cg-cell">92s</span><span class="cg-cell on">A8o</span><span class="cg-cell on edge">K8o</span><span class="cg-cell">Q8o</span><span class="cg-cell">J8o</span><span class="cg-cell">T8o</span><span class="cg-cell on edge">98o</span><span class="cg-cell pair on">88</span><span class="cg-cell on">87s</span><span class="cg-cell on">86s</span><span class="cg-cell on edge">85s</span><span class="cg-cell">84s</span><span class="cg-cell">83s</span><span class="cg-cell">82s</span><span class="cg-cell on">A7o</span><span class="cg-cell">K7o</span><span class="cg-cell">Q7o</span><span class="cg-cell">J7o</span><span class="cg-cell">T7o</span><span class="cg-cell">97o</span><span class="cg-cell">87o</span><span class="cg-cell pair on">77</span><span class="cg-cell on">76s</span><span class="cg-cell on edge">75s</span><span class="cg-cell">74s</span><span class="cg-cell">73s</span><span class="cg-cell">72s</span><span class="cg-cell on">A6o</span><span class="cg-cell">K6o</span><span class="cg-cell">Q6o</span><span class="cg-cell">J6o</span><span class="cg-cell">T6o</span><span class="cg-cell">96o</span><span class="cg-cell">86o</span><span class="cg-cell">76o</span><span class="cg-cell pair on">66</span><span class="cg-cell on">65s</span><span class="cg-cell on">64s</span><span class="cg-cell">63s</span><span class="cg-cell">62s</span><span class="cg-cell on">A5o</span><span class="cg-cell">K5o</span><span class="cg-cell">Q5o</span><span class="cg-cell">J5o</span><span class="cg-cell">T5o</span><span class="cg-cell">95o</span><span class="cg-cell">85o</span><span class="cg-cell">75o</span><span class="cg-cell">65o</span><span class="cg-cell pair on">55</span><span class="cg-cell on">54s</span><span class="cg-cell">53s</span><span class="cg-cell">52s</span><span class="cg-cell on">A4o</span><span class="cg-cell">K4o</span><span class="cg-cell">Q4o</span><span class="cg-cell">J4o</span><span class="cg-cell">T4o</span><span class="cg-cell">94o</span><span class="cg-cell">84o</span><span class="cg-cell">74o</span><span class="cg-cell">64o</span><span class="cg-cell">54o</span><span class="cg-cell pair on">44</span><span class="cg-cell">43s</span><span class="cg-cell">42s</span><span class="cg-cell on">A3o</span><span class="cg-cell">K3o</span><span class="cg-cell">Q3o</span><span class="cg-cell">J3o</span><span class="cg-cell">T3o</span><span class="cg-cell">93o</span><span class="cg-cell">83o</span><span class="cg-cell">73o</span><span class="cg-cell">63o</span><span class="cg-cell">53o</span><span class="cg-cell">43o</span><span class="cg-cell pair on">33</span><span class="cg-cell">32s</span><span class="cg-cell on edge">A2o</span><span class="cg-cell">K2o</span><span class="cg-cell">Q2o</span><span class="cg-cell">J2o</span><span class="cg-cell">T2o</span><span class="cg-cell">92o</span><span class="cg-cell">82o</span><span class="cg-cell">72o</span><span class="cg-cell">62o</span><span class="cg-cell">52o</span><span class="cg-cell">42o</span><span class="cg-cell">32o</span><span class="cg-cell pair on edge">22</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROGRESS -->
+      <section class="screen" data-screen-id="progress" id="progress">
+  <span class="screen-tag">Progress</span>
+  <nav class="top anim">
+    <span class="brand"><span class="dot"></span>OFFSUIT</span>
+    <ul><li><a href="#">Play</a></li><li><a href="#">Learn</a></li><li><a href="#">Train</a></li><li><a href="#">Charts</a></li><li><a href="#" class="active">Progress</a></li><li><a href="#">Profile</a></li><li><a href="#">Settings</a></li></ul>
+  </nav>
+
+  <div class="prog-head anim">
+    <div class="standing">
+      <span class="caption">Standing</span>
+      <span class="figure">Calibrating</span>
+      <span class="sub">Play <b>48 more hands</b> to earn a depth label</span>
+    </div>
+    <div class="prog-cal">
+      <span class="caption">Calibration</span>
+      <div class="cal-track"><div class="cal-fill" style="width:56%"></div></div>
+      <span class="cal-note">152 / 200 assessed</span>
+    </div>
+  </div>
+
+  <div class="prog-stats anim">
+    <div class="tile">
+      <span class="caption">Hands played</span>
+      <span class="figure">1,284</span>
+      <span class="m">across 37 sessions</span>
+    </div>
+    <div class="tile">
+      <span class="caption">Decision accuracy</span>
+      <span class="figure">71<span style="font-size:0.5em;color:var(--ink-3)">%</span></span>
+      <span class="m up">&#9650; +4 pts / 30d</span>
+    </div>
+    <div class="tile">
+      <span class="caption">EV lost</span>
+      <span class="figure">&minus;2.1<span style="font-size:0.5em;color:var(--ink-3)"> bb/100</span></span>
+      <span class="m">mostly turn overbets</span>
+    </div>
+  </div>
+
+  <div class="prog-kc anim">
+    <div class="section-title"><span class="caption">Knowledge components</span><span class="sub">8 tracked</span></div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">Preflop RFI ranges</span><span class="m">Open-raise by position</span></span>
+      <div class="kc-track"><div class="kc-fill" style="width:88%"></div></div>
+      <span class="kc-pct">88</span>
+    </div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">Pot odds &amp; break-even</span><span class="m">Call-price arithmetic</span></span>
+      <div class="kc-track"><div class="kc-fill" style="width:81%"></div></div>
+      <span class="kc-pct">81</span>
+    </div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">3-bet defense</span><span class="m">Call / re-raise vs opens</span></span>
+      <div class="kc-track"><div class="kc-fill" style="width:64%"></div></div>
+      <span class="kc-pct">64</span>
+    </div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">Board reading</span><span class="m">Best five of seven</span></span>
+      <div class="kc-track"><div class="kc-fill" style="width:59%"></div></div>
+      <span class="kc-pct">59</span>
+    </div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">Combo counting</span><span class="m">Blockers &amp; frequencies</span></span>
+      <div class="kc-track"><div class="kc-fill" style="width:47%"></div></div>
+      <span class="kc-pct">47</span>
+    </div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">Turn barrelling</span><span class="m">Second-bullet spots</span></span>
+      <div class="kc-track"><div class="kc-fill dim" style="width:33%"></div></div>
+      <span class="kc-pct low">33</span>
+    </div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">River bluff-catching</span><span class="m">Facing polarised bets</span></span>
+      <div class="kc-track"><div class="kc-fill dim" style="width:28%"></div></div>
+      <span class="kc-pct low">28</span>
+    </div>
+    <div class="kc-row">
+      <span class="lead"><span class="t">Hand reading</span><span class="m">Narrowing villain ranges</span></span>
+      <div class="kc-track"><div class="kc-fill dim" style="width:16%"></div></div>
+      <span class="kc-pct low">16</span>
+    </div>
+  </div>
+</section>
+
+      <!-- PROFILE -->
+      <section class="screen" data-screen-id="profile" id="profile">
+        <span class="screen-tag">Profile</span>
+        <nav class="top anim">
+          <span class="brand"><span class="dot"></span>OFFSUIT</span>
+          <ul><li><a href="#">Play</a></li><li><a href="#">Learn</a></li><li><a href="#">Train</a></li><li><a href="#">Charts</a></li><li><a href="#">Progress</a></li><li><a href="#" class="active">Profile</a></li><li><a href="#">Settings</a></li></ul>
+        </nav>
+
+        <div class="profile-top anim">
+          <div class="bankroll">
+            <span class="caption">Bankroll</span>
+            <span class="figure">10,000</span>
+            <span class="delta">&#9650; +1,140 <span class="muted">/ last session</span></span>
+          </div>
+          <div class="profile-stats">
+            <div class="stat">
+              <span class="caption">Rebuys</span>
+              <span class="v">2</span>
+              <div class="m">Last 20 sessions</div>
+            </div>
+            <svg class="spark" viewBox="0 0 220 64" preserveAspectRatio="none" aria-hidden="true">
+              <path class="line" d="M2,46 L26,42 L50,50 L74,36 L98,40 L122,28 L146,32 L170,20"/>
+              <path class="head" d="M170,20 L194,24 L218,12"/><circle cx="218" cy="12" r="3"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="calib anim">
+          <div class="head">
+            <span class="caption">Prediction calibration</span>
+            <span class="v">64% actual · says 70%</span>
+          </div>
+          <div class="bar">
+            <span class="ideal" style="left:70%"></span>
+            <span class="mark" style="left:64%"></span>
+          </div>
+          <div class="scale"><span>Under-confident</span><span>Calibrated</span><span>Over-confident</span></div>
+        </div>
+
+        <div class="profile-lower anim">
+          <div class="section-title"><span class="caption">Leaks by concept</span><span class="sub">cost per 100 hands</span></div>
+
+          <div class="row leak">
+            <span class="lead">
+              <span class="t">Over-defending the big blind</span>
+              <span class="m">Calls too wide vs button opens</span>
+              <span class="bar"><span class="fill" style="width:100%"></span></span>
+            </span>
+            <span class="val up">1.1 bb &middot; 3x</span>
+          </div>
+          <div class="row leak">
+            <span class="lead">
+              <span class="t">Missed thin river value</span>
+              <span class="m">Checks back second pair in position</span>
+              <span class="bar"><span class="fill" style="width:64%"></span></span>
+            </span>
+            <span class="val up">0.7 bb &middot; 2x</span>
+          </div>
+          <div class="row leak">
+            <span class="lead">
+              <span class="t">Chasing without the price</span>
+              <span class="m">Calls flush draws below break-even</span>
+              <span class="bar"><span class="fill" style="width:45%"></span></span>
+            </span>
+            <span class="val up">0.5 bb &middot; 2x</span>
+          </div>
+          <div class="row leak">
+            <span class="lead">
+              <span class="t">Under-3-betting from the blinds</span>
+              <span class="m">Flats hands that should re-raise</span>
+              <span class="bar"><span class="fill" style="width:27%"></span></span>
+            </span>
+            <span class="val up">0.3 bb &middot; 1x</span>
+          </div>
+        </div>
+
+        <div class="lifetime anim">
+          <div class="cell"><span class="caption">Hands</span><span class="figure">14,208</span></div>
+          <div class="cell"><span class="caption">VPIP</span><span class="figure">23%</span></div>
+          <div class="cell"><span class="caption">PFR</span><span class="figure">18%</span></div>
+          <div class="cell"><span class="caption">EV lost</span><span class="figure down">−412</span></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="screen" data-screen-id="settings" id="settings">
+  <span class="screen-tag">Settings</span>
+  <nav class="top">
+    <span class="brand"><span class="dot"></span>OFFSUIT</span>
+    <ul><li><a href="#">Play</a></li><li><a href="#">Learn</a></li><li><a href="#">Train</a></li><li><a href="#">Charts</a></li><li><a href="#">Progress</a></li><li><a href="#">Profile</a></li><li><a href="#" class="active">Settings</a></li></ul>
+  </nav>
+
+  <div class="set-wrap anim">
+    <div class="set-block">
+      <div class="lead">
+        <span class="t">The tutor</span>
+        <span class="note">A quiet coach reads each spot and offers a line before you commit. It never grades a hand you did not ask about.</span>
+      </div>
+      <button class="toggle" type="button" aria-pressed="true">On</button>
+    </div>
+
+    <div class="set-block">
+      <div class="lead">
+        <span class="t">Reading verdicts aloud</span>
+        <span class="note">Speak the verdict after each decision, so you can keep your eyes on the table.</span>
+      </div>
+      <button class="toggle" type="button" aria-pressed="false">Off</button>
+    </div>
+
+    <div class="set-block">
+      <div class="lead">
+        <span class="t">A sound on a mistake</span>
+        <span class="note">Play a single soft tone when a decision misses the mark. Nothing on a correct line.</span>
+      </div>
+      <button class="toggle" type="button" aria-pressed="false">Off</button>
+    </div>
+  </div>
+
+  <div class="set-egress anim">
+    <div class="section-title">
+      <span class="caption">Where anything goes</span>
+      <span class="sub">egress · allowed hosts</span>
+    </div>
+    <div class="rows">
+      <div class="row host">
+        <span class="lead"><span class="t">bedrock.us-east-1.amazonaws.com</span><span class="m">Live tutor · model calls</span></span>
+        <span class="val up">allowed</span>
+      </div>
+      <div class="row host">
+        <span class="lead"><span class="t">relay.offsuit.local</span><span class="m">Play with friends · local relay</span></span>
+        <span class="val up">allowed</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+      <!-- TRAIN -->
+      <section class="screen" data-screen-id="train">
+  <span class="screen-tag">Train</span>
+  <nav class="top anim">
+    <span class="brand"><span class="dot"></span>OFFSUIT</span>
+    <ul><li><a href="#">Play</a></li><li><a href="#">Learn</a></li><li><a href="#" class="active">Train</a></li><li><a href="#">Charts</a></li><li><a href="#">Progress</a></li><li><a href="#">Profile</a></li><li><a href="#">Settings</a></li></ul>
+  </nav>
+
+  <div class="train-hub">
+    <aside class="train-rail anim">
+      <div class="phase-label">Training</div>
+      <a class="rung active" href="#"><span class="rk">Spots</span><span class="rm">12 spots</span></a>
+      <a class="rung" href="#"><span class="rk">Math</span><span class="rm">pot odds</span></a>
+      <a class="rung" href="#"><span class="rk">Speed</span><span class="rm">timed</span></a>
+      <a class="rung" href="#"><span class="rk">Stress</span><span class="rm">tilt sim</span></a>
+      <a class="rung" href="#"><span class="rk">Leaks</span><span class="rm">3 flagged</span></a>
+      <a class="rung" href="#"><span class="rk">Upkeep</span><span class="rm">review</span></a>
+    </aside>
+
+    <div class="train-main">
+      <div class="train-launch anim">
+        <span class="caption">Spots · scenario drill</span>
+        <div class="title">Preflop RFI, mastery sampler</div>
+        <p class="train-desc">Twelve open-raise decisions drawn by mastery — weak and unseen hand classes surface more often, mastered ones rest. One position, one price, one call. Answers grade against your live opening ranges.</p>
+        <div class="train-meta">
+          <div class="cell"><span class="caption">Spots</span><span class="figure">12</span></div>
+          <div class="cell"><span class="caption">Est. time</span><span class="figure">10<span style="font-size:14px;color:var(--ink-3)"> min</span></span></div>
+          <div class="cell"><span class="caption">Last score</span><span class="figure">83<span style="font-size:14px;color:var(--ink-3)">%</span></span></div>
+        </div>
+        <button class="train-cta" type="button">Begin drill &rarr;</button>
+      </div>
+
+      <div class="anim">
+        <div class="section-title"><span class="caption">Recent drills</span><span class="sub">last 3</span></div>
+        <a class="row" href="#"><span class="lead"><span class="t">Preflop RFI sampler</span><span class="m">Yesterday · 12 spots</span></span><span class="val up">83%</span></a>
+        <a class="row" href="#"><span class="lead"><span class="t">Pot-odds math</span><span class="m">2 days ago · break-even equity</span></span><span class="val up">91%</span></a>
+        <a class="row" href="#"><span class="lead"><span class="t">Board reading, timed</span><span class="m">3 days ago · 7 cards to best 5</span></span><span class="val down">64%</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+      <!-- SCREENS-HTML-MARKER -->
 
     </div>
   </div>
