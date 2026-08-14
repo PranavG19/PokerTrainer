@@ -17,6 +17,8 @@ import { bestFiveFromSeven } from './content/best-five-from-seven.js';
 import { boardTextureDimensions } from './content/board-texture-dimensions.js';
 import { whoHoldsTheNuts } from './content/who-holds-the-nuts.js';
 import { positionSetsYourRange } from './content/position-sets-your-range.js';
+import { defendTheBigBlind } from './content/defend-the-big-blind.js';
+import { facingA3Bet } from './content/facing-a-3bet.js';
 
 /**
  * Every lesson the app knows about. Explicit imports, not a glob: the renderer is bundled
@@ -45,6 +47,8 @@ export const LESSONS: readonly Lesson[] = [
   boardTextureDimensions,
   whoHoldsTheNuts,
   positionSetsYourRange,
+  defendTheBigBlind,
+  facingA3Bet,
 ];
 
 export function lessonById(id: string): Lesson | undefined {
