@@ -136,7 +136,7 @@ export const MODULES: readonly ContentModule[] = [
     source: 'src/core/preflop.ts, src/core/lessons/content (spine phase 1)',
     // The RFI blueprint is generated from thresholds (RFI_SPECS) and carries no authored id; the one
     // authored lesson that teaches the same stimulus→action (seat sets the opening range) belongs here.
-    contentIds: ['position-sets-your-range'],
+    contentIds: ['position-sets-your-range', 'small-blind-raise-or-fold'],
   },
   {
     id: 'preflop-vs-open',

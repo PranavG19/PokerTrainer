@@ -31,6 +31,11 @@ const ANSWER_KEY: Record<string, Record<string, Check>> = {
     'q9o-cutoff-fold': { rule: 'rfi', expectOpen: false },
     'q9o-button-open': { rule: 'rfi', expectOpen: true },
   },
+  'small-blind-raise-or-fold': {
+    'k9o-open': { rule: 'rfi', expectOpen: true },
+    'q9o-fold': { rule: 'rfi', expectOpen: false },
+    '85o-fold': { rule: 'rfi', expectOpen: false },
+  },
   'defend-the-big-blind': {
     'kqo-defend': { rule: 'defence', spot: 'bb-vs-btn', expect: 'call' },
     '72o-fold': { rule: 'defence', spot: 'bb-vs-btn', expect: 'fold' },
@@ -92,8 +97,8 @@ describe('preflop lessons stay consistent with the RFI/defence rules', () => {
     const preflopRuleLessonIds = LESSONS.filter(
       (l) =>
         l.phase === 1 &&
-        ['position-sets-your-range', 'defend-the-big-blind', 'opener-seat-sets-defence-width',
-          'three-bet-or-flat-the-defence', 'facing-a-3bet'].includes(l.id),
+        ['position-sets-your-range', 'small-blind-raise-or-fold', 'defend-the-big-blind',
+          'opener-seat-sets-defence-width', 'three-bet-or-flat-the-defence', 'facing-a-3bet'].includes(l.id),
     ).map((l) => l.id);
     for (const id of preflopRuleLessonIds) {
       expect(RULE_LESSONS.has(id), `${id} has a consistency answer key`).toBe(true);
