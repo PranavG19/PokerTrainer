@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OFFSUIT — Gallery Light</title>
+<style>
+  :root{
+    /* palette */
+    --wall:#EBE8E2; --paper:#F5F3EF; --plate:#FFFFFF;
+    --ink:#1A1714; --ink-2:#6B655C; --ink-3:#9B948A;
+    --hairline:#E0DCD4; --hairline-strong:#CFC9BE; --edge-control:#807970;
+    --accent:#AE4327; --suit-red:#BC3B2A; --shadow-warm:rgba(60,48,36,0.10);
+
+    /* spacing */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+
+    /* motion */
+    --dur-fast:120ms; --dur:200ms; --dur-slow:340ms; --dur-count:520ms;
+    --ease-out:cubic-bezier(0.16,1,0.3,1);
+    --ease-in-out:cubic-bezier(0.65,0,0.35,1);
+    --ease-count:cubic-bezier(0.25,1,0.5,1);
+
+    /* type */
+    --serif:'GT Super','Ivar Display','Iowan Old Style',Georgia,'Times New Roman',serif;
+    --sans:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--sans);
+    background:#E2DDD4;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    padding:72px 40px 96px;
+  }
+
+  /* ---------- shared type helpers ---------- */
+  .tnum{font-feature-settings:'tnum' 1,'lnum' 1;}
+  .display{font-family:var(--serif);font-weight:400;font-size:56px;line-height:1.0;letter-spacing:-0.01em;font-feature-settings:'tnum' 1,'lnum' 1;}
+  .hero-fig{font-family:var(--serif);font-weight:400;font-size:40px;line-height:1.05;letter-spacing:-0.005em;font-feature-settings:'tnum' 1,'lnum' 1;}
+  .title{font-size:20px;line-height:1.3;font-weight:550;color:var(--ink);}
+  .body{font-size:15px;line-height:1.55;font-weight:400;}
+  .small{font-size:13px;line-height:1.5;font-weight:400;}
+  .col-num{font-size:15px;font-weight:500;font-feature-settings:'tnum' 1,'lnum' 1;}
+  .wall-label{
+    font-size:11.5px;line-height:1.2;font-weight:550;
+    text-transform:uppercase;letter-spacing:0.09em;color:var(--ink-2);
+  }
+  .support{color:var(--ink-2);}
+
+  /* ---------- fixed direction bar ---------- */
+  .directionbar{
+    position:fixed;top:0;left:0;right:0;height:48px;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;background:var(--paper);border-bottom:1px solid var(--hairline);
+  }
+  .directionbar .name{font-size:13px;font-weight:550;letter-spacing:0.04em;color:var(--ink);}
+  .directionbar .name em{color:var(--ink-2);font-style:normal;font-weight:400;margin-left:8px;letter-spacing:0.09em;text-transform:uppercase;font-size:11px;}
+  .bar-controls{display:flex;gap:8px;}
+  .bar-btn{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:7px 14px;border-radius:8px;cursor:pointer;
+    background:var(--plate);color:var(--ink);
+    border:1px solid var(--edge-control);
+    transition:transform var(--dur-fast) var(--ease-out);
+  }
+  .bar-btn:hover{transform:translateY(-1px);}
+  .bar-btn:active{transform:scale(0.99);}
+  .bar-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  /* ---------- screen frame ---------- */
+  .stage-label{
+    max-width:1100px;margin:0 auto 12px;
+    font-size:11.5px;font-weight:550;text-transform:uppercase;letter-spacing:0.14em;color:#8c8579;
+  }
+  .screen{
+    max-width:1100px;margin:0 auto 64px;
+    background:var(--wall);
+    border:1px solid var(--hairline);border-radius:16px;
+    overflow:hidden;
+  }
+
+  /* ---------- top nav (in-app) ---------- */
+  nav.appnav{
+    height:56px;display:flex;align-items:center;gap:4px;
+    padding:0 40px;border-bottom:1px solid var(--hairline);
+  }
+  nav.appnav .brand{
+    font-family:var(--serif);font-size:19px;letter-spacing:0.02em;margin-right:auto;color:var(--ink);
+  }
+  nav.appnav a{
+    position:relative;text-decoration:none;color:var(--ink-2);
+    font-size:14px;font-weight:500;padding:8px 14px;border-radius:8px;
+    transition:color var(--dur) var(--ease-out);
+  }
+  nav.appnav a::after{
+    content:"";position:absolute;left:14px;right:14px;bottom:2px;height:2px;
+    background:var(--accent);transform:scaleX(0);transform-origin:left center;
+    transition:transform var(--dur) var(--ease-in-out);
+  }
+  nav.appnav a:hover{color:var(--ink);}
+  nav.appnav a:hover::after{transform:scaleX(0.4);}
+  nav.appnav a.active{color:var(--ink);}
+  nav.appnav a.active::after{transform:scaleX(1);}
+  nav.appnav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .screenbody{padding:48px 64px 56px;}
+
+  /* ---------- title-card component ---------- */
+  .titlecard{display:flex;flex-direction:column;gap:6px;}
+  .titlecard.ruled{padding-left:16px;border-left:2px solid var(--accent);}
+
+  /* ---------- HOME ---------- */
+  .home-head{margin-bottom:48px;}
+  .home-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:640px;margin-bottom:48px;}
+  .tile{
+    background:var(--plate);border:1px solid var(--hairline-strong);border-radius:12px;
+    padding:24px;position:relative;cursor:pointer;
+    box-shadow:0 2px 6px var(--shadow-warm);
+    transition:transform var(--dur-fast) var(--ease-out);
+    display:flex;flex-direction:column;min-height:150px;
+  }
+  .tile::after{
+    content:"";position:absolute;inset:0;border-radius:12px;pointer-events:none;
+    box-shadow:0 6px 16px var(--shadow-warm);opacity:0;
+    transition:opacity var(--dur-fast) var(--ease-out);
+  }
+  .tile:hover{transform:translateY(-1px);}
+  .tile:hover::after{opacity:1;}
+  .tile:active{transform:scale(0.99);}
+  .tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .tile .title{margin-bottom:8px;}
+  .tile .desc{color:var(--ink-2);font-size:15px;line-height:1.5;}
+  .tile .cta-row{margin-top:auto;padding-top:20px;}
+  .tile .eyebrow{margin-bottom:14px;}
+  .tile .puz-fig{font-family:var(--serif);font-size:40px;line-height:1;color:var(--ink);font-feature-settings:'tnum' 1,'lnum' 1;}
+
+  .planner{max-width:640px;}
+  .planner h3{margin:0 0 16px;}
+  .planner .panel{background:var(--paper);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;}
+  .planner .row{
+    display:flex;align-items:center;gap:16px;padding:16px 24px;
+    border-bottom:1px solid var(--hairline);
+    transition:transform var(--dur-fast) var(--ease-out);
+  }
+  .planner .row:last-child{border-bottom:none;}
+  .planner .row:hover{transform:translateY(-1px);}
+  .planner .row .idx{width:22px;color:var(--ink-3);font-size:13px;font-feature-settings:'tnum' 1;}
+  .planner .row .rlabel{flex:1;font-size:15px;color:var(--ink);}
+  .planner .row .rmeta{color:var(--ink-2);font-size:13px;font-feature-settings:'tnum' 1;}
+
+  /* ---------- ink primary CTA ---------- */
+  .btn-ink{
+    display:inline-block;background:var(--ink);color:var(--plate);
+    border:none;border-radius:12px;padding:12px 20px;
+    font-family:var(--sans);font-size:14px;font-weight:550;cursor:pointer;
+    box-shadow:0 2px 6px var(--shadow-warm);position:relative;
+    transition:transform var(--dur-fast) var(--ease-out);
+  }
+  .btn-ink:hover{transform:translateY(-1px);}
+  .btn-ink:active{transform:scale(0.99);}
+  .btn-ink:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .btn-quiet{
+    display:inline-block;background:var(--plate);color:var(--ink);
+    border:1px solid var(--hairline-strong);border-radius:12px;padding:12px 20px;
+    font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;
+    transition:transform var(--dur-fast) var(--ease-out);
+  }
+  .btn-quiet:hover{transform:translateY(-1px);}
+  .btn-quiet:active{transform:scale(0.99);}
+  .btn-quiet:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .btn-text{
+    background:none;border:none;color:var(--ink-2);cursor:pointer;
+    font-family:var(--sans);font-size:14px;font-weight:500;padding:12px 14px;
+    transition:color var(--dur) var(--ease-out);
+  }
+  .btn-text:hover{color:var(--ink);}
+  .btn-text:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px;}
+
+  /* ---------- TABLE ---------- */
+  .table-stage{position:relative;height:620px;}
+
+  /* seat captions */
+  .seat{position:absolute;text-align:center;transform:translateX(-50%);}
+  .seat .name{margin-bottom:4px;position:relative;display:inline-block;padding-left:0;transition:color var(--dur) var(--ease-out);}
+  .seat .stack{color:var(--ink);font-size:13px;font-weight:500;font-feature-settings:'tnum' 1,'lnum' 1;}
+  .seat.acting .name{color:var(--ink);}
+  .seat.acting{padding-left:0;}
+  .seat.acting .capwrap{position:relative;padding-left:12px;}
+  .seat.acting .capwrap::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent);
+    transform:scaleY(0);transform-origin:top center;
+    animation:ruleGrow var(--dur-fast) var(--ease-out) 700ms forwards;
+  }
+  .stage.deal .seat.acting .capwrap::before{transform:scaleY(0);}
+
+  /* villains top rail */
+  .villain{top:8px;}
+  .villain .hidden-pair{display:flex;gap:4px;justify-content:center;margin-top:8px;}
+  .bet-num{color:var(--ink);font-size:13px;font-weight:500;margin-top:8px;font-feature-settings:'tnum' 1,'lnum' 1;}
+
+  /* pot title card */
+  .pot-card{position:absolute;top:96px;left:50%;transform:translateX(-50%);text-align:center;}
+  .pot-card .wall-label{margin-bottom:6px;}
+  .pot-card .display{color:var(--ink);}
+
+  /* board */
+  .board{position:absolute;top:300px;left:50%;transform:translate(-50%,-50%);display:flex;gap:12px;}
+
+  /* hero cluster */
+  .hero-cluster{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;}
+  .hero-cards{display:flex;gap:12px;margin-bottom:16px;}
+  .hero-foot{display:flex;align-items:flex-end;gap:32px;}
+  .hero-cap{text-align:center;}
+  .hero-cap .name{margin-bottom:4px;}
+  .hero-cap .stack{font-size:15px;}
+  .win-card{display:flex;flex-direction:column;gap:6px;text-align:left;}
+  .win-card .wall-label{margin-bottom:2px;}
+  .win-figrow{display:flex;align-items:baseline;gap:10px;}
+  .win-fig{font-family:var(--serif);font-size:40px;line-height:1;color:var(--accent);font-feature-settings:'tnum' 1,'lnum' 1;}
+  .win-tie{color:var(--ink-2);font-size:13px;font-feature-settings:'tnum' 1,'lnum' 1;}
+
+  /* controls */
+  .controls{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;}
+  .control-row{display:flex;align-items:center;gap:12px;}
+  .sizing{
+    display:flex;align-items:center;gap:16px;
+    opacity:0;transform:translateY(4px);pointer-events:none;height:0;overflow:hidden;
+  }
+  .stage.armed .sizing{
+    opacity:1;transform:none;pointer-events:auto;height:auto;
+    animation:riseIn var(--dur) var(--ease-out) both;
+  }
+  .slider{
+    -webkit-appearance:none;appearance:none;width:220px;height:2px;border-radius:2px;
+    background:var(--hairline-strong);outline:none;
+  }
+  .slider::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--ink);cursor:pointer;box-shadow:0 2px 6px var(--shadow-warm);
+  }
+  .slider::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--ink);cursor:pointer;}
+  .seg{display:flex;gap:6px;}
+  .seg button{
+    background:var(--plate);border:1px solid var(--hairline-strong);border-radius:8px;
+    padding:8px 12px;font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;
+    transition:transform var(--dur-fast) var(--ease-out);
+  }
+  .seg button:hover{transform:translateY(-1px);}
+
+  /* ---------- CARD FACE ---------- */
+  .card{
+    position:relative;background:var(--plate);border-radius:8px;
+    border:1px solid var(--hairline-strong);
+    box-shadow:0 6px 16px var(--shadow-warm);
+    font-variant-emoji:text;
+  }
+  .card .corner{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:0.86;}
+  .card .corner.tl{top:6px;left:7px;}
+  .card .corner.br{bottom:6px;right:7px;transform:rotate(180deg);}
+  .card .rank{font-family:var(--serif);font-weight:400;}
+  .card .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);line-height:1;}
+  .card.red .rank,.card.red .pip,.card.red .center{color:var(--suit-red);}
+  .card:not(.red) .rank,.card:not(.red) .pip,.card:not(.red) .center{color:var(--ink);}
+
+  /* board card size 96x134 */
+  .card.board-c{width:96px;height:134px;}
+  .card.board-c .rank{font-size:25px;}
+  .card.board-c .pip{font-size:14px;}
+  .card.board-c .center{font-size:40px;}
+
+  /* hero card size 116x162 + deeper ledge */
+  .card.hero-c{width:116px;height:162px;box-shadow:0 12px 24px var(--shadow-warm);}
+  .card.hero-c .rank{font-size:30px;}
+  .card.hero-c .pip{font-size:17px;}
+  .card.hero-c .center{font-size:49px;}
+
+  /* ghost slot */
+  .slot.ghost{width:96px;height:134px;border:1px solid var(--edge-control);border-radius:8px;background:transparent;}
+
+  /* hidden opponent card (level-1 paper, inset rule) */
+  .hidden-card{
+    width:44px;height:61px;background:var(--paper);border-radius:8px;position:relative;
+  }
+  .hidden-card::after{content:"";position:absolute;inset:6px;border:1px solid var(--hairline-strong);border-radius:4px;}
+
+  /* ---------- MOTION ---------- */
+  @keyframes dealDrop{from{opacity:0;transform:translateY(-14px);}to{opacity:1;transform:none;}}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  @keyframes ruleGrow{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+  @keyframes riseIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  @keyframes screenIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  .screenbody{animation:screenIn var(--dur) var(--ease-out) both;}
+
+  /* deal choreography — only when .deal present */
+  .stage.deal .card.anim{animation:dealDrop var(--dur-slow) var(--ease-out) both;}
+  .stage.deal .hidden-pair{animation:fadeIn var(--dur) var(--ease-out) both;animation-delay:290ms;}
+  .card.d1{animation-delay:200ms;}
+  .card.d2{animation-delay:245ms;}
+  .card.d3{animation-delay:290ms;}
+  .card.dh1{animation-delay:560ms;}
+  .card.dh2{animation-delay:620ms;}
+
+  /* MOTION OFF (toggle) + reduced motion: kill transforms/animations */
+  body.motion-off *{animation:none !important;transition:none !important;}
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition:none !important;}
+    .card.anim{opacity:1 !important;transform:none !important;}
+    .seat.acting .capwrap::before{transform:scaleY(1) !important;}
+  }
+
+  /* ---------- 900x640 responsive ---------- */
+  @media (max-width:980px){
+    body{padding:64px 20px 64px;}
+    .screenbody{padding:32px;}
+    nav.appnav{padding:0 32px;}
+    .display{font-size:44px;}
+    .win-fig,.hero-fig,.tile .puz-fig{font-size:34px;}
+    .home-grid{grid-template-columns:1fr;max-width:100%;}
+    .card.board-c{width:82px;height:114px;}
+    .card.board-c .rank{font-size:21px;}
+    .card.board-c .center{font-size:34px;}
+    .slot.ghost{width:82px;height:114px;}
+    .card.hero-c{width:98px;height:137px;}
+    .card.hero-c .rank{font-size:26px;}
+    .card.hero-c .center{font-size:42px;}
+    .hidden-card{width:38px;height:53px;}
+    .hero-foot{flex-direction:column;align-items:center;gap:12px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="directionbar">
+    <div class="name">OFFSUIT<em>Gallery Light</em></div>
+    <div class="bar-controls">
+      <button class="bar-btn" id="replayBtn" type="button">Replay deal</button>
+      <button class="bar-btn" id="motionBtn" type="button">Motion: on</button>
+    </div>
+  </div>
+
+  <!-- ===================== SCREEN 1 — HOME ===================== -->
+  <div class="stage-label">Screen 1 — Home</div>
+  <section class="screen">
+    <nav class="appnav">
+      <span class="brand">OFFSUIT</span>
+      <a href="#" class="active">Play</a>
+      <a href="#">Learn</a>
+      <a href="#">Train</a>
+      <a href="#">Charts</a>
+      <a href="#">Progress</a>
+      <a href="#">Profile</a>
+      <a href="#">Settings</a>
+    </nav>
+    <div class="screenbody">
+
+      <div class="home-head">
+        <div class="titlecard">
+          <span class="wall-label">Bankroll</span>
+          <span class="display" id="bankrollFig">10000</span>
+        </div>
+      </div>
+
+      <div class="home-grid">
+        <div class="tile" tabindex="0">
+          <span class="wall-label eyebrow">Table</span>
+          <span class="title">New session</span>
+          <span class="desc">Sit down heads-up-to-6. Coach on.</span>
+          <span class="cta-row"><span class="btn-ink">Deal in</span></span>
+        </div>
+
+        <div class="tile" tabindex="0">
+          <span class="wall-label eyebrow">Multiplayer</span>
+          <span class="title">Play with friends</span>
+          <span class="desc">Local relay. Share a room code.</span>
+          <span class="cta-row"><span class="btn-quiet">Open room</span></span>
+        </div>
+
+        <div class="tile" tabindex="0">
+          <span class="wall-label eyebrow">Daily puzzle</span>
+          <span class="title">Turn decision</span>
+          <div class="cta-row"><span class="puz-fig tnum">#4</span></div>
+        </div>
+      </div>
+
+      <div class="planner">
+        <h3 class="wall-label">Session planner</h3>
+        <div class="panel">
+          <div class="row"><span class="idx">01</span><span class="rlabel">Warm up — RFI ranges</span><span class="rmeta">12 min</span></div>
+          <div class="row"><span class="idx">02</span><span class="rlabel">Pot-odds math drill</span><span class="rmeta">8 min</span></div>
+          <div class="row"><span class="idx">03</span><span class="rlabel">Play — 200bb cash, coached</span><span class="rmeta">40 min</span></div>
+          <div class="row"><span class="idx">04</span><span class="rlabel">Review flagged hands</span><span class="rmeta">10 min</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== SCREEN 2 — TABLE ===================== -->
+  <div class="stage-label">Screen 2 — Live table</div>
+  <section class="screen">
+    <nav class="appnav">
+      <span class="brand">OFFSUIT</span>
+      <a href="#" class="active">Play</a>
+      <a href="#">Learn</a>
+      <a href="#">Train</a>
+      <a href="#">Charts</a>
+      <a href="#">Progress</a>
+      <a href="#">Profile</a>
+      <a href="#">Settings</a>
+    </nav>
+    <div class="screenbody">
+      <div class="table-stage stage deal" id="tableStage">
+
+        <!-- villains, far rail: 25 / 50 / 75 -->
+        <div class="seat villain" style="left:25%;">
+          <div class="capwrap">
+            <div class="name wall-label">Ada</div>
+            <div class="stack tnum">4975</div>
+          </div>
+          <div class="hidden-pair"><div class="hidden-card"></div><div class="hidden-card"></div></div>
+        </div>
+
+        <div class="seat villain" style="left:50%;">
+          <div class="capwrap">
+            <div class="name wall-label">Bo</div>
+            <div class="stack tnum">4950</div>
+          </div>
+          <div class="hidden-pair"><div class="hidden-card"></div><div class="hidden-card"></div></div>
+        </div>
+
+        <div class="seat villain acting" style="left:75%;">
+          <div class="capwrap">
+            <div class="name wall-label">Cy</div>
+            <div class="stack tnum">5000</div>
+          </div>
+          <div class="hidden-pair"><div class="hidden-card"></div><div class="hidden-card"></div></div>
+        </div>
+
+        <!-- pot title card -->
+        <div class="pot-card">
+          <div class="wall-label">Pot</div>
+          <div class="display" id="potFig">75</div>
+        </div>
+
+        <!-- community board: Q♠ 8♦ 3♣ + 2 ghosts -->
+        <div class="board">
+          <div class="card board-c anim d1">
+            <span class="corner tl"><span class="rank">Q</span><span class="pip">&spades;</span></span>
+            <span class="center">&spades;</span>
+            <span class="corner br"><span class="rank">Q</span><span class="pip">&spades;</span></span>
+          </div>
+          <div class="card board-c red anim d2">
+            <span class="corner tl"><span class="rank">8</span><span class="pip">&diams;</span></span>
+            <span class="center">&diams;</span>
+            <span class="corner br"><span class="rank">8</span><span class="pip">&diams;</span></span>
+          </div>
+          <div class="card board-c anim d3">
+            <span class="corner tl"><span class="rank">3</span><span class="pip">&clubs;</span></span>
+            <span class="center">&clubs;</span>
+            <span class="corner br"><span class="rank">3</span><span class="pip">&clubs;</span></span>
+          </div>
+          <div class="slot ghost"></div>
+          <div class="slot ghost"></div>
+        </div>
+
+        <!-- hero cluster: cards 2♦ K♥, caption, win placard -->
+        <div class="hero-cluster">
+          <div class="hero-cards">
+            <div class="card hero-c red anim dh1">
+              <span class="corner tl"><span class="rank">2</span><span class="pip">&diams;</span></span>
+              <span class="center">&diams;</span>
+              <span class="corner br"><span class="rank">2</span><span class="pip">&diams;</span></span>
+            </div>
+            <div class="card hero-c red anim dh2">
+              <span class="corner tl"><span class="rank">K</span><span class="pip">&hearts;</span></span>
+              <span class="center">&hearts;</span>
+              <span class="corner br"><span class="rank">K</span><span class="pip">&hearts;</span></span>
+            </div>
+          </div>
+          <div class="hero-foot">
+            <div class="hero-cap">
+              <div class="name wall-label">You&nbsp;· BTN</div>
+              <div class="stack tnum">5000</div>
+            </div>
+            <div class="win-card">
+              <span class="wall-label">Win</span>
+              <div class="win-figrow">
+                <span class="win-fig tnum" id="winFig">22%</span>
+                <span class="win-tie">TIE 3%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- controls: resting row Fold · Call 50 · Raise · Stats -->
+        <div class="controls">
+          <div class="sizing">
+            <input class="slider" type="range" min="50" max="5000" value="150" aria-label="Bet size" />
+            <div class="seg">
+              <button type="button">½</button>
+              <button type="button">¾</button>
+              <button type="button">Pot</button>
+            </div>
+          </div>
+          <div class="control-row">
+            <button class="btn-quiet" type="button">Fold</button>
+            <button class="btn-ink" type="button">Call 50</button>
+            <button class="btn-quiet" type="button" id="raiseBtn">Raise</button>
+            <button class="btn-text" type="button">Stats</button>
+            <button class="btn-text" type="button">Coach</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+<script>
+  // ONLY: motion toggle + replay animations.
+  (function(){
+    var motionBtn = document.getElementById('motionBtn');
+    var replayBtn = document.getElementById('replayBtn');
+    var stage = document.getElementById('tableStage');
+    var raiseBtn = document.getElementById('raiseBtn');
+    var potFig = document.getElementById('potFig');
+    var bankrollFig = document.getElementById('bankrollFig');
+
+    function motionAllowed(){
+      if (document.body.classList.contains('motion-off')) return false;
+      return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function countUp(el, to, dur){
+      if (!el) return;
+      if (!motionAllowed()){ el.textContent = String(to) + (el.dataset.suffix||''); return; }
+      var start = performance.now();
+      var suffix = el.dataset.suffix || '';
+      function frame(now){
+        var t = Math.min(1, (now - start)/dur);
+        var eased = 1 - Math.pow(1 - t, 3); // ease-count feel
+        el.textContent = Math.round(eased * to) + suffix;
+        if (t < 1) requestAnimationFrame(frame);
+        else el.textContent = to + suffix;
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function replay(){
+      // restart deal keyframes
+      stage.classList.remove('deal');
+      void stage.offsetWidth; // reflow
+      stage.classList.add('deal');
+      // count-ups
+      countUp(potFig, 75, 520);
+      countUp(bankrollFig, 10000, 520);
+    }
+
+    replayBtn.addEventListener('click', replay);
+
+    motionBtn.addEventListener('click', function(){
+      var off = document.body.classList.toggle('motion-off');
+      motionBtn.textContent = off ? 'Motion: off' : 'Motion: on';
+      if (!off) replay();
+    });
+
+    raiseBtn.addEventListener('click', function(){
+      stage.classList.toggle('armed');
+    });
+
+    // initial count-up on load
+    if (motionAllowed()){
+      potFig.textContent = '0';
+      bankrollFig.textContent = '0';
+      countUp(potFig, 75, 520);
+      countUp(bankrollFig, 10000, 520);
+    }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OFFSUIT — Editorial Spread</title>
+<style>
+  :root{
+    --page:#0B0A09;
+    --surface:#171512;
+    --raise:#201D19;
+    --bone:#F4F1EA;
+    --bone-2:#B9B4AA;
+    --bone-3:#9A9386;
+    --rule:rgba(244,241,234,0.10);
+    --rule-soft:rgba(244,241,234,0.06);
+    --edge:rgba(244,241,234,0.20);
+    --signal:#4FA986;
+    --suit-red:#C85E44;
+
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+    --s6:32px; --s7:48px; --s8:64px; --s9:96px; --s10:128px;
+
+    --radius:8px;
+
+    --serif:'Signifier','GT Sectra','Newsreader',Georgia,serif;
+    --grot:'Söhne','Neue Haas Grotesk Display','Inter',system-ui,-apple-system,sans-serif;
+
+    --spring-settle:linear(0, 0.05, 0.17, 0.34, 0.53, 0.69, 0.81, 0.89, 0.94, 0.97, 0.986, 0.995, 1);
+    --ease-standard:cubic-bezier(0.2,0,0,1);
+    --ease-in:cubic-bezier(0.4,0,1,1);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--page);
+    color:var(--bone-2);
+    font-family:var(--grot);
+    font-size:15px;
+    line-height:24px;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    font-feature-settings:'tnum' 1,'lnum' 1;
+  }
+
+  /* ===== Demo top bar ===== */
+  .demobar{
+    position:fixed; top:0; left:0; right:0; height:44px; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 var(--s6);
+    background:rgba(11,10,9,0.86);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--rule);
+  }
+  .demobar .name{
+    font-family:var(--serif); font-weight:400; font-size:16px; color:var(--bone);
+    letter-spacing:-0.01em;
+  }
+  .demobar .name em{font-style:normal; color:var(--bone-3);}
+  .demobar .controls{display:flex; gap:var(--s2); align-items:center;}
+
+  .ghost{
+    position:relative; overflow:hidden;
+    appearance:none; background:transparent; cursor:pointer;
+    border:1px solid var(--edge); border-radius:var(--radius);
+    color:var(--bone);
+    font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase;
+    min-height:32px; padding:0 var(--s3);
+    display:inline-flex; align-items:center; justify-content:center; gap:var(--s2);
+  }
+  .ghost::before{ content:""; position:absolute; inset:0; background:var(--surface); opacity:0; z-index:-1; }
+  .ghost:hover::before{ opacity:1; }
+  .ghost:focus-visible{ outline:1px solid var(--signal); outline-offset:2px; }
+
+  /* ===== Page scaffold ===== */
+  .stack{ padding-top:44px; }
+  .screen{
+    position:relative;
+    max-width:1120px; margin:0 auto;
+    padding:var(--s7) var(--s6) var(--s9);
+    border-bottom:1px solid var(--rule);
+  }
+  .screen-tag{
+    position:absolute; top:var(--s4); right:var(--s6);
+    font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--bone-3);
+  }
+
+  /* ===== Product nav ===== */
+  nav.top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding-bottom:var(--s4);
+    border-bottom:1px solid var(--rule);
+  }
+  nav.top .brand{
+    font-family:var(--serif); font-size:20px; color:var(--bone);
+    letter-spacing:0.02em;
+  }
+  nav.top ul{ list-style:none; margin:0; padding:0; display:flex; gap:var(--s5); }
+  nav.top a{
+    font-size:12px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--bone-3); text-decoration:none;
+  }
+  nav.top a.active{ color:var(--bone); }
+  nav.top a:hover{ color:var(--bone-2); }
+
+  /* ===== Section opener (magazine header rule) ===== */
+  .opener{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-top:2px solid var(--edge);
+    padding-top:var(--s2); margin-top:var(--s6);
+  }
+  .runhead{
+    font-family:var(--grot); font-size:11px; font-weight:600;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--bone);
+  }
+  .folio{
+    font-family:var(--grot); font-size:11px; font-weight:500;
+    letter-spacing:0.10em; text-transform:uppercase; color:var(--bone-3);
+  }
+
+  /* ===== Shared type roles ===== */
+  .caption{
+    font-family:var(--grot); font-size:12px; line-height:16px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--bone-2);
+  }
+  .caption.quiet{ color:var(--bone-3); }
+  .figure{
+    font-family:var(--serif); font-weight:300; font-size:52px; line-height:56px;
+    letter-spacing:-0.01em; color:var(--bone);
+    font-feature-settings:'tnum' 1,'lnum' 1;
+  }
+  .display-m{
+    font-family:var(--serif); font-weight:400; font-size:26px; line-height:32px;
+    letter-spacing:-0.01em; color:var(--bone);
+  }
+  .data{
+    font-family:var(--grot); font-size:14px; line-height:20px; font-weight:500;
+    color:var(--bone-2); font-variant-numeric:tabular-nums;
+  }
+
+  /* ===== The magazine spread grid ===== */
+  .spread{ display:grid; margin-top:var(--s6); }
+  .cover{ grid-template-columns:1.5fr 1fr; gap:var(--s8); align-items:start; }
+  .lower{ grid-template-columns:1.2fr 1fr; gap:var(--s8); margin-top:var(--s8); }
+  .col-rule{ border-left:1px solid var(--rule); padding-left:var(--s7); }
+  @media (max-width:800px){
+    .cover, .lower{ grid-template-columns:1fr; gap:var(--s6); }
+    .col-rule{ border-left:none; padding-left:0; border-top:1px solid var(--rule); padding-top:var(--s5); margin-top:var(--s2); }
+  }
+
+  /* cover masthead figure */
+  .kicker{ display:block; margin-bottom:var(--s3); }
+  .cover-figure{ font-family:var(--serif); font-weight:300; font-size:92px; line-height:0.92;
+    letter-spacing:-0.02em; color:var(--bone); font-variant-numeric:tabular-nums; }
+  .lede{
+    font-family:var(--serif); font-weight:300; font-size:18px; line-height:28px;
+    color:var(--bone-2); max-width:36ch; margin:var(--s5) 0 0;
+  }
+  .lede::first-letter{
+    font-family:var(--serif); font-weight:400; font-size:52px; line-height:0.78;
+    float:left; padding:4px 10px 0 0; color:var(--bone);
+  }
+  .colhead{ margin-bottom:var(--s4); display:flex; align-items:baseline; justify-content:space-between; }
+
+  /* hairline-divided list idiom */
+  .list .row{
+    position:relative; overflow:hidden;
+    display:flex; align-items:baseline; justify-content:space-between; gap:var(--s4);
+    padding:var(--s3) 0;
+    border-top:1px solid var(--rule);
+    cursor:pointer; text-decoration:none;
+  }
+  .list .row:last-child{ border-bottom:1px solid var(--rule); }
+  .list .row::before{
+    content:""; position:absolute; inset:0 calc(-1 * var(--s3));
+    background:var(--surface); opacity:0; z-index:-1; border-radius:var(--radius);
+  }
+  .list .row:hover::before{ opacity:1; }
+  .list .row .lead{ display:flex; flex-direction:column; gap:2px; }
+  .list .row .lead .t{ color:var(--bone); font-size:15px; }
+  .list .row .lead .m{ color:var(--bone-3); font-size:13px; line-height:18px; }
+  .list .row .val{ color:var(--bone-2); }
+  .list .row .val.signal{ color:var(--signal); }
+
+  /* ============================================================
+     TABLE  — asymmetric spread (feature + sidebar)
+     ============================================================ */
+  .table-screen{ min-height:600px; }
+  .table-spread{
+    grid-template-columns:1.45fr 1fr; gap:var(--s8);
+    align-items:stretch; margin-top:var(--s6); min-height:480px;
+  }
+  @media (max-width:800px){ .table-spread{ grid-template-columns:1fr; gap:var(--s6);} }
+
+  .col-feature{ display:flex; flex-direction:column; }
+
+  /* standings */
+  .standings{
+    display:flex; justify-content:space-between; gap:var(--s5);
+    padding-bottom:var(--s4); border-bottom:1px solid var(--rule);
+  }
+  .seat{ display:flex; flex-direction:column; align-items:center; gap:var(--s2); position:relative; }
+  .seat .backs{ display:flex; gap:var(--s1); }
+  .seat .name{ color:var(--bone-2); }
+  .seat .stack{ color:var(--bone-2); }
+  .seat .meta{ font-size:11px; letter-spacing:0.04em; color:var(--bone-3); height:14px; }
+  .seat.acting .name, .seat.acting .stack{ color:var(--bone); }
+  .seat .toact{
+    position:absolute; bottom:-17px; height:2px; width:56px;
+    background:var(--signal); transform:scaleX(0); transform-origin:center;
+  }
+  .seat.acting .toact{ transform:scaleX(1); }
+
+  .board-band{
+    flex:1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:var(--s7) 0;
+  }
+  .pot{ text-align:center; margin-bottom:var(--s6); }
+  .pot .caption{ display:block; margin-bottom:var(--s1); color:var(--bone-2); }
+  .board{
+    position:relative;
+    display:flex; gap:var(--s3); align-items:flex-end;
+    padding-bottom:var(--s4);
+  }
+  .board::after{
+    content:""; position:absolute; left:-24px; right:-24px; bottom:0;
+    height:1px; background:var(--rule);
+  }
+
+  /* sidebar */
+  .col-sidebar{ border-left:1px solid var(--rule); padding-left:var(--s7); display:flex; flex-direction:column; }
+  @media (max-width:800px){ .col-sidebar{ border-left:none; padding-left:0; border-top:1px solid var(--rule); padding-top:var(--s5);} }
+  .hero-cards{ display:flex; gap:var(--s3); margin:var(--s5) 0 var(--s4); }
+  .byline{ display:flex; align-items:baseline; gap:var(--s3); padding:var(--s2) 0; }
+  .byline .name{ color:var(--bone); font-size:15px; }
+  .byline .btn-tag{
+    font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--bone-3);
+    border:1px solid var(--edge); border-radius:var(--radius); padding:1px 6px;
+  }
+  .byline .stack{ color:var(--bone-2); }
+  .toggles{ margin-left:auto; display:flex; gap:var(--s4); }
+  .toggles button{
+    background:none; border:none; cursor:pointer;
+    font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--bone-3);
+  }
+  .toggles button:hover{ color:var(--bone-2); }
+
+  /* equity pull-quote row */
+  .win{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+    padding:var(--s4) 0; margin:var(--s5) 0;
+  }
+  .win .caption{ color:var(--bone-2); }
+  .win .figure{ font-size:46px; line-height:1; }
+
+  /* vertical action stack (table-of-contents idiom) */
+  .controls{
+    display:flex; flex-direction:column;
+    border:1px solid var(--edge); border-radius:var(--radius); overflow:hidden;
+  }
+  .controls .act{
+    position:relative; overflow:hidden;
+    appearance:none; background:transparent; cursor:pointer;
+    border:none; border-bottom:1px solid var(--rule);
+    color:var(--bone); font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase;
+    min-height:48px; padding:0 var(--s4);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .controls .act:last-child{ border-bottom:none; }
+  .controls .act .amt{ color:var(--bone-3); font-variant-numeric:tabular-nums; }
+  .controls .act::before{ content:""; position:absolute; inset:0; background:var(--surface); opacity:0; z-index:-1; }
+  .controls .act::after{ content:""; position:absolute; inset:0; background:var(--raise); opacity:0; z-index:-1; }
+  .controls .act:hover::before{ opacity:1; }
+  .controls .act:active::after{ opacity:1; }
+  .controls .act:focus-visible{ outline:1px solid var(--signal); outline-offset:-2px; }
+  .controls .act.suggested{ box-shadow: inset 0 0 0 1px var(--signal); }
+  .controls .act.suggested .amt{ color:var(--signal); }
+
+  .betsize{ display:flex; align-items:center; gap:var(--s4); margin-top:var(--s4); }
+  .betsize .caption{ color:var(--bone-3); }
+  .track{ position:relative; flex:1; height:12px; display:flex; align-items:center; }
+  .track .line{ position:absolute; left:0; right:0; height:1px; background:var(--edge); }
+  .track .fill{ position:absolute; left:0; width:38%; height:1px; background:var(--signal); }
+  .track .thumb{
+    position:absolute; left:38%; width:12px; height:12px; border-radius:50%;
+    background:var(--bone); border:1px solid var(--rule); transform:translateX(-50%);
+  }
+  .betsize .amt{ font-family:var(--serif); font-weight:300; font-size:22px; color:var(--bone); }
+
+  /* ============================================================
+     THE CARD — fine-press object (unchanged from the anchor)
+     ============================================================ */
+  .card{
+    position:relative;
+    background:
+      radial-gradient(115% 78% at 50% 30%, rgba(244,241,234,0.055), rgba(244,241,234,0) 62%),
+      linear-gradient(100deg, rgba(0,0,0,0.10), rgba(0,0,0,0) 22% 78%, rgba(0,0,0,0.12)),
+      linear-gradient(180deg, #1E1B17 0%, #17140F 60%, #110E07 100%);
+    border:1px solid rgba(244,241,234,0.15);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    box-shadow:
+      0 1px 0 0 rgba(244,241,234,0.07) inset,
+      0 -1px 0 0 rgba(0,0,0,0.5) inset,
+      0 12px 26px -16px rgba(0,0,0,0.8),
+      0 2px 6px -4px rgba(0,0,0,0.6);
+  }
+  .card::before{
+    content:""; position:absolute; inset:6px; border-radius:5px;
+    border:1px solid rgba(244,241,234,0.055);
+    box-shadow:0 1px 0 0 rgba(0,0,0,0.35) inset;
+    pointer-events:none;
+  }
+  .card::after{
+    content:""; position:absolute; left:6%; right:6%; top:0; height:38%;
+    background:
+      radial-gradient(120% 140% at 18% 0%, rgba(244,241,234,0.07), rgba(244,241,234,0) 60%),
+      radial-gradient(120% 140% at 82% 0%, rgba(244,241,234,0.05), rgba(244,241,234,0) 60%);
+    border-radius:8px 8px 46% 46%; pointer-events:none;
+  }
+  .card .rank{
+    font-family:var(--serif); font-weight:400; line-height:1;
+    font-variant-numeric:lining-nums; letter-spacing:-0.02em;
+    background-clip:text; -webkit-background-clip:text;
+    color:transparent; -webkit-text-fill-color:transparent;
+  }
+  .card .suit{
+    line-height:1; margin-top:4px;
+    background-clip:text; -webkit-background-clip:text;
+    color:transparent; -webkit-text-fill-color:transparent;
+  }
+  .card.red .rank, .card.red .suit{
+    background-image:linear-gradient(180deg, #D2694E 0%, #C1543B 62%, #AC4830 100%);
+  }
+  .card.black .rank, .card.black .suit{
+    background-image:linear-gradient(180deg, #F6F3EC 0%, #E4DFD5 60%, #CFC9BD 100%);
+  }
+  .card .index{
+    position:absolute; display:flex; flex-direction:column; align-items:center;
+    line-height:0.82;
+    font-family:var(--serif); font-weight:400; letter-spacing:0;
+    font-variant-numeric:lining-nums;
+  }
+  .card .index.tl{ top:7px; left:8px; }
+  .card .index.br{ bottom:7px; right:8px; transform:rotate(180deg); }
+  .card .index .isuit{ margin-top:2px; }
+  .card.red .index{ color:var(--suit-red); }
+  .card.black .index{ color:var(--bone); }
+
+  .card.board{ width:72px; height:101px; border-radius:7px; }
+  .card.board::before{ inset:5px; border-radius:4px; }
+  .card.board .rank{ font-size:37px; }
+  .card.board .suit{ font-size:18px; }
+  .card.board .index{ font-size:12px; }
+  .card.board .index .isuit{ font-size:9px; }
+
+  .card.hero{ width:90px; height:126px; border-radius:9px; }
+  .card.hero::before{ inset:7px; border-radius:5px; }
+  .card.hero .rank{ font-size:50px; }
+  .card.hero .suit{ font-size:25px; }
+  .card.hero .index{ font-size:13px; }
+  .card.hero .index .isuit{ font-size:10px; }
+
+  .card.back{ width:44px; height:62px; border-radius:6px; }
+  .card.back::before{ inset:4px; border-radius:3px; }
+  .card.back .mark{
+    position:absolute; top:50%; left:50%;
+    width:9px; height:9px; transform:translate(-50%,-50%) rotate(45deg);
+    border:1px solid rgba(244,241,234,0.11);
+    box-shadow:0 0 0 3px rgba(244,241,234,0.02);
+    background:rgba(244,241,234,0.025);
+  }
+
+  /* ============================================================
+     MOTION
+     ============================================================ */
+  @keyframes deal{
+    from{ opacity:0; transform:translateY(10px) scale(0.965); }
+    60% { opacity:1; }
+    to  { opacity:1; transform:translateY(0) scale(1); }
+  }
+  @keyframes mount{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes figin{ from{ opacity:0; transform:translateY(3px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes underline{ from{ transform:scaleX(0);} to{ transform:scaleX(1);} }
+
+  body.motion-on .deal-item{ opacity:0; }
+  body.motion-on .screen-anim{ opacity:0; }
+
+  body.motion-on .screen-anim{ animation:mount 220ms var(--spring-settle) forwards; }
+  body.motion-on .sa2{ animation-delay:60ms; }
+  body.motion-on .sa3{ animation-delay:120ms; }
+  body.motion-on .sa4{ animation-delay:180ms; }
+  body.motion-on .figure-anim{ animation:figin 180ms var(--spring-settle) both; }
+
+  body.motion-on .deal-item{ animation:deal 340ms var(--spring-settle) forwards; }
+  body.motion-on .db1{ animation-delay:20ms; }
+  body.motion-on .db2{ animation-delay:60ms; }
+  body.motion-on .db3{ animation-delay:100ms; }
+  body.motion-on .db4{ animation-delay:120ms; }
+  body.motion-on .db5{ animation-delay:160ms; }
+  body.motion-on .db6{ animation-delay:200ms; }
+  body.motion-on .bf1{ animation-delay:300ms; }
+  body.motion-on .bf2{ animation-delay:350ms; }
+  body.motion-on .bf3{ animation-delay:400ms; }
+  body.motion-on .hc1{ animation-delay:480ms; }
+  body.motion-on .hc2{ animation-delay:520ms; }
+
+  body.motion-on .seat.acting .toact{
+    animation:underline 200ms var(--ease-standard) 640ms both;
+    transform:scaleX(0);
+  }
+
+  body.motion-on .ghost::before,
+  body.motion-on .list .row::before,
+  body.motion-on .controls .act::before{ transition:opacity 90ms var(--ease-standard); }
+  body.motion-on .controls .act::after{ transition:opacity 90ms var(--ease-standard); }
+  body.motion-on nav.top a{ transition:color 90ms var(--ease-standard); }
+
+  body:not(.motion-on) .deal-item,
+  body:not(.motion-on) .screen-anim,
+  body:not(.motion-on) .figure-anim{ opacity:1; transform:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    body.motion-on *{ animation:none !important; transition:none !important; }
+    body.motion-on .deal-item,
+    body.motion-on .screen-anim,
+    body.motion-on .figure-anim{ opacity:1 !important; transform:none !important; }
+    body.motion-on .seat.acting .toact{ transform:scaleX(1) !important; }
+  }
+</style>
+</head>
+<body class="motion-on">
+
+  <div class="demobar">
+    <div class="name">Editorial Spread <em>— Monochrome</em></div>
+    <div class="controls">
+      <button class="ghost" id="replay">Replay</button>
+      <button class="ghost" id="motion">Motion: On</button>
+    </div>
+  </div>
+
+  <div class="stack" id="stack">
+
+    <!-- ===================== HOME ===================== -->
+    <section class="screen">
+      <span class="screen-tag">Home</span>
+
+      <nav class="top screen-anim">
+        <span class="brand">OFFSUIT</span>
+        <ul>
+          <li><a href="#" class="active">Play</a></li>
+          <li><a href="#">Learn</a></li>
+          <li><a href="#">Train</a></li>
+          <li><a href="#">Charts</a></li>
+          <li><a href="#">Progress</a></li>
+          <li><a href="#">Profile</a></li>
+          <li><a href="#">Settings</a></li>
+        </ul>
+      </nav>
+
+      <div class="opener screen-anim sa2">
+        <span class="runhead">Play</span>
+        <span class="folio">No. 01 — Home</span>
+      </div>
+
+      <!-- COVER SPREAD -->
+      <div class="spread cover">
+        <div class="screen-anim sa2">
+          <span class="caption quiet kicker">Bankroll</span>
+          <div class="cover-figure figure-anim">10,000</div>
+          <p class="lede">Session ready — no hand in progress. Three blocks are planned for today: warm the ranges, drill the break-even math, then sit down and apply it.</p>
+        </div>
+
+        <div class="col-rule screen-anim sa3">
+          <div class="colhead"><span class="runhead">Start a hand</span></div>
+          <div class="list">
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">New session</span>
+                <span class="m">Cash · 100bb · single table</span>
+              </span>
+              <span class="val signal">Deal →</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">Play with friends</span>
+                <span class="m">Local relay · up to 6 seats</span>
+              </span>
+              <span class="val">Host</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">Daily puzzle</span>
+                <span class="m">Turn decision · river bluff-catch</span>
+              </span>
+              <span class="val">Open</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOWER SPREAD -->
+      <div class="spread lower">
+        <div class="screen-anim sa3">
+          <div class="colhead"><span class="runhead">Recent hands</span><span class="folio">Last 3</span></div>
+          <div class="list">
+            <a class="row" href="#">
+              <span class="lead"><span class="t">AKs vs 3-bet</span><span class="m">Folded river · BTN</span></span>
+              <span class="val">−320</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Set over set</span><span class="m">Won at showdown · CO</span></span>
+              <span class="val signal">+1,140</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Missed flush draw</span><span class="m">Check-fold turn · BB</span></span>
+              <span class="val">−75</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="col-rule screen-anim sa4">
+          <div class="colhead"><span class="runhead">Session planner</span><span class="folio">Today · 3 blocks</span></div>
+          <div class="list">
+            <div class="row" style="cursor:default;">
+              <span class="lead"><span class="t">Preflop RFI drill</span><span class="m">15 spots · mastery sampler</span></span>
+              <span class="val">10 min</span>
+            </div>
+            <div class="row" style="cursor:default;">
+              <span class="lead"><span class="t">Pot-odds math</span><span class="m">Break-even equity</span></span>
+              <span class="val">8 min</span>
+            </div>
+            <div class="row" style="cursor:default;">
+              <span class="lead"><span class="t">Live session</span><span class="m">Apply · 40 hands</span></span>
+              <span class="val signal">Next</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TABLE ===================== -->
+    <section class="screen table-screen">
+      <span class="screen-tag">Live table</span>
+
+      <nav class="top">
+        <span class="brand">OFFSUIT</span>
+        <ul>
+          <li><a href="#" class="active">Play</a></li>
+          <li><a href="#">Learn</a></li>
+          <li><a href="#">Train</a></li>
+          <li><a href="#">Charts</a></li>
+          <li><a href="#">Progress</a></li>
+          <li><a href="#">Profile</a></li>
+          <li><a href="#">Settings</a></li>
+        </ul>
+      </nav>
+
+      <div class="opener">
+        <span class="runhead">Live table</span>
+        <span class="folio">No. 02 — Cash · 100bb</span>
+      </div>
+
+      <!-- FEATURE + SIDEBAR SPREAD -->
+      <div class="spread table-spread">
+
+        <!-- FEATURE — the board -->
+        <div class="col-feature">
+          <div class="standings">
+            <div class="seat">
+              <div class="backs">
+                <div class="card back deal-item db1"><span class="mark"></span></div>
+                <div class="card back deal-item db2"><span class="mark"></span></div>
+              </div>
+              <span class="caption name">Ada</span>
+              <span class="data stack">4,975</span>
+              <span class="meta">checks</span>
+            </div>
+            <div class="seat">
+              <div class="backs">
+                <div class="card back deal-item db3"><span class="mark"></span></div>
+                <div class="card back deal-item db4"><span class="mark"></span></div>
+              </div>
+              <span class="caption name">Bo</span>
+              <span class="data stack">4,950</span>
+              <span class="meta">calls 50</span>
+            </div>
+            <div class="seat acting">
+              <div class="backs">
+                <div class="card back deal-item db5"><span class="mark"></span></div>
+                <div class="card back deal-item db6"><span class="mark"></span></div>
+              </div>
+              <span class="caption name">Cy</span>
+              <span class="data stack">5,000</span>
+              <span class="meta">to act</span>
+              <span class="toact"></span>
+            </div>
+          </div>
+
+          <div class="board-band">
+            <div class="pot">
+              <span class="caption">Pot</span>
+              <span class="figure figure-anim">75</span>
+            </div>
+            <div class="board">
+              <div class="card board black deal-item bf1">
+                <span class="index tl">Q<span class="isuit">♠</span></span>
+                <span class="rank">Q</span><span class="suit">♠</span>
+                <span class="index br">Q<span class="isuit">♠</span></span>
+              </div>
+              <div class="card board red deal-item bf2">
+                <span class="index tl">8<span class="isuit">♦</span></span>
+                <span class="rank">8</span><span class="suit">♦</span>
+                <span class="index br">8<span class="isuit">♦</span></span>
+              </div>
+              <div class="card board black deal-item bf3">
+                <span class="index tl">3<span class="isuit">♣</span></span>
+                <span class="rank">3</span><span class="suit">♣</span>
+                <span class="index br">3<span class="isuit">♣</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIDEBAR — your hand -->
+        <div class="col-sidebar">
+          <div class="colhead"><span class="runhead">Your hand</span></div>
+
+          <div class="hero-cards">
+            <div class="card hero red deal-item hc1">
+              <span class="index tl">2<span class="isuit">♦</span></span>
+              <span class="rank">2</span><span class="suit">♦</span>
+              <span class="index br">2<span class="isuit">♦</span></span>
+            </div>
+            <div class="card hero red deal-item hc2">
+              <span class="index tl">K<span class="isuit">♥</span></span>
+              <span class="rank">K</span><span class="suit">♥</span>
+              <span class="index br">K<span class="isuit">♥</span></span>
+            </div>
+          </div>
+
+          <div class="byline">
+            <span class="name">You</span>
+            <span class="btn-tag">BTN</span>
+            <span class="data stack">5,000</span>
+            <span class="toggles">
+              <button type="button">Coach off</button>
+              <button type="button">Stats</button>
+            </span>
+          </div>
+
+          <div class="win">
+            <span class="caption">Win equity</span>
+            <span class="figure figure-anim">22%</span>
+          </div>
+
+          <div class="controls">
+            <button class="act" type="button"><span>Fold</span><span class="amt">—</span></button>
+            <button class="act suggested" type="button"><span>Call</span><span class="amt">50</span></button>
+            <button class="act" type="button"><span>Raise</span><span class="amt">→</span></button>
+          </div>
+
+          <div class="betsize">
+            <span class="caption">Raise to</span>
+            <div class="track">
+              <div class="line"></div>
+              <div class="fill"></div>
+              <div class="thumb"></div>
+            </div>
+            <span class="amt">150</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+<script>
+  (function(){
+    var body = document.body;
+    var motionBtn = document.getElementById('motion');
+    var replayBtn = document.getElementById('replay');
+
+    motionBtn.addEventListener('click', function(){
+      var on = body.classList.toggle('motion-on');
+      motionBtn.textContent = 'Motion: ' + (on ? 'On' : 'Off');
+    });
+
+    function replay(){
+      if(!body.classList.contains('motion-on')) return;
+      var animated = document.querySelectorAll('.deal-item, .screen-anim, .figure-anim, .toact');
+      animated.forEach(function(el){
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+      });
+    }
+    replayBtn.addEventListener('click', replay);
+  })();
+</script>
+</body>
+</html>

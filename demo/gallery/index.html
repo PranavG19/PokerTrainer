@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Design Gallery (iterating)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#0a0a0b; color:#f2f2f2; font-family: system-ui, -apple-system, sans-serif;
+    padding: 40px; line-height: 1.5; }
+  h1 { font-size: 26px; font-weight: 650; letter-spacing:-.01em; }
+  .sub { color:#8a8a90; font-size: 14px; margin: 8px 0 28px; max-width: 76ch; }
+  h2 { font-size: 12px; letter-spacing:.1em; text-transform:uppercase; color:#6e6e75; margin: 26px 0 12px; }
+  .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 1000px; }
+  @media (max-width: 820px){ .grid { grid-template-columns: 1fr; } }
+  a.card { display:block; text-decoration:none; color:inherit; border:1px solid #26262a;
+    border-radius:14px; padding:20px; background:#141416; transition: transform .14s ease, border-color .14s ease; }
+  a.card:hover { transform: translateY(-3px); border-color:#3a3a40; }
+  a.card.anchor { border-color:#4a7a68; }
+  .n { font-size:17px; font-weight:600; margin-bottom:6px; }
+  .meta { font-size:11px; color:#6e6e75; letter-spacing:.04em; margin-bottom:8px; }
+  .t { font-size:12.5px; color:#9a9aa0; line-height:1.5; }
+  .foot { color:#6e6e75; font-size:12px; margin-top:32px; }
+</style>
+</head>
+<body>
+  <h1>Offsuit — Design Gallery <span style="color:#6e6e75;font-size:15px;font-weight:400;">round 4, iterating</span></h1>
+  <p class="sub">A curated set of premium/minimal directions. Method: 70% close to the editorial anchor, 20%
+  adjacent, 10% wild — judged and pruned each round (near-duplicates and weak variants removed, best kept).
+  Each opens a Home + Table demo with a motion toggle. I keep iterating in the background; nothing is wired
+  into the app. Tell me only when you love one — silence means keep going.</p>
+
+  <h2>Anchor — your current favourite</h2>
+  <div class="grid">
+    <a class="card anchor" href="r0/monochrome-editorial.html"><div class="n">Broadsheet — Monochrome Editorial</div><div class="meta">r0 · anchor</div><div class="t">Printed strategy broadsheet in the dark: ink-on-paper typography, hairline rules, two inks + one jade signal, serif figures. Card as fine-press object; table a typeset data page, no felt.</div></a>
+  </div>
+
+  <h2>Near the anchor (70%)</h2>
+  <div class="grid">
+    <a class="card" href="r2/standings-ledger-r2.html"><div class="n">Standings Ledger</div><div class="meta">r2 · near · polish 88</div><div class="t">The editorial page taken toward a financial standings ledger — the table reads as a beautifully typeset ledger of seats, stacks and pot. The most distinct of the near cohort.</div></a>
+    <a class="card" href="r2/broadsheet-editorial-type-r2.html"><div class="n">Editorial Type</div><div class="meta">r2 · near · polish 88</div><div class="t">The anchor refined purely on the TYPE program: a high-contrast display serif for figures, a reading serif for headings, a size-aware tracking ramp. A re-cut of the same publication.</div></a>
+    <a class="card" href="r4/signal-rationed-r4.html"><div class="n">Signal, Rationed</div><div class="meta">r4 · near · polish 89</div><div class="t">The one accent rationed hard — spent on the single most decision-critical truth per screen and nowhere else, so the eye is pulled to exactly the right place. Supersedes the earlier rare-ink take.</div></a>
+    <a class="card" href="r3/editorial-shell-r3.html"><div class="n">Editorial Shell</div><div class="meta">r3 · near · new</div><div class="t">The product shell elevated: a ♠ monogram masthead, hairline brand divider, uppercase nav with an active-tab underline that draws in along the rule. Feels like a real premium product frame.</div></a>
+    <a class="card" href="r3/broadsheet-strict-column-grid-r3.html"><div class="n">Strict Column Grid</div><div class="meta">r3 · near · new</div><div class="t">The same broadsheet, held to a strict documented 8px baseline — the 12px step banished from vertical rhythm so masthead, lists and table all lock to one grid. Spacing as the upgrade.</div></a>
+    <a class="card" href="r3/broadsheet-micro-motion-r3.html"><div class="n">Micro-Motion</div><div class="meta">r3 · near · new</div><div class="t">Motion layer taken to reference tier: structural hairlines draw in from centre on a spring, the page composes itself, serif figures settle. All 140–320ms, reduced-motion-safe.</div></a>
+  </div>
+
+  <h2>Adjacent (20%)</h2>
+  <div class="grid">
+    <a class="card" href="r2/editorial-spread-r2.html"><div class="n">Editorial Spread</div><div class="meta">r2 · adjacent · polish 87</div><div class="t">Editorial DNA in an asymmetric magazine-spread layout — column-broken rather than centered.</div></a>
+    <a class="card" href="r2/broadsheet-graphite-amp-paper-r2.html"><div class="n">Graphite &amp; Paper</div><div class="meta">r2 · adjacent · polish 86</div><div class="t">The editorial temperature shifted cooler — a graphite/paper cousin of the warm bone anchor, one step away.</div></a>
+    <a class="card" href="r0/obsidian-jewel.html"><div class="n">Obsidian Jewel</div><div class="meta">r0 · adjacent</div><div class="t">Private-bank OLED black; depth by luminance + hairline, one champagne glow for the player to act, ivory cards, weighted motion.</div></a>
+    <a class="card" href="r0/kinetic-minimal.html"><div class="n">Kinetic Minimal</div><div class="meta">r0 · adjacent</div><div class="t">Near-black instrument where motion is the identity; the table is implied by a shared elliptical baseline, never drawn.</div></a>
+  </div>
+
+  <h2>Wild (10%)</h2>
+  <div class="grid">
+    <a class="card" href="r2/graphite-instrument-quant-desk-r2.html"><div class="n">Quant Desk</div><div class="meta">r2 · wild · distinct 90</div><div class="t">A graphite trading-desk instrument — the most distinct direction: poker as a precise quant terminal, still premium/minimal, no felt.</div></a>
+    <a class="card" href="r1/nocturne-spatial-instrument-r1.html"><div class="n">Nocturne — Spatial Instrument</div><div class="meta">r1 · wild · distinct 91</div><div class="t">A spatial nocturne instrument — different concept, still premium/minimal, no felt.</div></a>
+    <a class="card" href="r4/instrument-precision-gauge-r4.html"><div class="n">Precision Gauge</div><div class="meta">r4 · wild · distinct 88</div><div class="t">A Braun/Leica measuring-instrument register — poker read as a precise, machined gauge: tick-marked scales, engraved labels, one live needle. Premium/minimal, no felt.</div></a>
+    <a class="card" href="r0/gallery-light.html"><div class="n">Gallery Light</div><div class="meta">r0 · wild</div><div class="t">A premium LIGHT theme — bone canvas, one oxblood accent, museum whitespace. Cards the only framed objects. Proves premium ≠ dark.</div></a>
+  </div>
+
+  <p class="foot">15 curated candidates (round 4 added 2, superseded the rare-ink take, dropped 2 near-duplicates). I keep adding rounds and pruning near-duplicates; refresh to see new ones.</p>
+</body>
+</html>
