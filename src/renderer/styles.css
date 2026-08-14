@@ -33,10 +33,19 @@
   --edge:      rgba(234, 237, 241, 0.16);
   --glow:      rgba(234, 237, 241, 0.07);
 
-  /* Card faces: the white-face / dark-ink pair. Kept as the default card look (a dark-face pass is
-   * a separate, deliberate design step — see nocturne-migration-plan). */
+  /* The LIGHT-CHIP pair: a light pill with dark text, used by the "loud selected" idiom (position /
+   * drill-kind selectors, dealer/blind badges) and a handful of light panels. NOT the playing card —
+   * these deliberately stay light so those inverted chips keep reading as accents. */
   --card-face: #FAFAFA;
-  --card-ink:  #0A0A0A;   /* dark text ON the white card face (alias target of --ink, 20 refs) */
+  --card-ink:  #0A0A0A;   /* dark text ON the light chip (alias target of --ink) */
+
+  /* The PLAYING CARD face — the Nocturne dark card (a gradient with a lit top edge, per the lab
+   * anchor), used ONLY by .card / .card-back below. Split from --card-face so the felt-dark card and
+   * the light chip are independent. --play-card-ink is the light glyph on the dark face. */
+  --play-card-a:   #20242B;   /* face gradient top */
+  --play-card-b:   #171A20;   /* face gradient bottom */
+  --play-card-top: rgba(234, 237, 241, 0.14);   /* lit top edge */
+  --play-card-ink: #EAEDF1;   /* rank/pip glyph on the dark face */
 
   --chip-blind: #E8E24A;  /* no semantic equivalent; unchanged */
 
@@ -76,6 +85,28 @@
   background: var(--bg);
 }
 
+/* ── Alternate themes. A theme is EXACTLY one block: it overrides only colour-family semantics and
+ * inherits everything else (--positive, --signal, --text-hi, card faces, and ALL geometry/motion) from
+ * :root, which is what guarantees a theme switch changes paint only, never layout. Adding a theme is
+ * this one block plus its id in store.ts's THEMES set — no per-screen edits. Graphite is :root (no
+ * attribute). Keep --positive/--text-hi out of theme blocks so the e2e colour pins hold everywhere. */
+html[data-theme='obsidian'] {
+  --page: #050506;
+  --surface: #0C0D10;
+  --surface-2: #121317;
+  --raise: #181A1F;
+  --text-lo: #98A0AA;
+  --text-lo-2: #565C66;
+  --suit-red: #EA6A60;
+  --rule: rgba(242, 244, 247, 0.07);
+  --rule-soft: rgba(242, 244, 247, 0.04);
+  --edge: rgba(242, 244, 247, 0.15);
+  --glow: rgba(242, 244, 247, 0.06);
+  --play-card-a: #191B20;
+  --play-card-b: #0D0E12;
+  --play-card-top: rgba(242, 244, 247, 0.12);
+}
+
 *,
 *::before,
 *::after {
@@ -95,7 +126,12 @@ body {
   width: 68px;
   height: 92px;
   border-radius: 14px;
-  background: var(--card-face);
+  /* Nocturne dark playing card: a soft top-to-bottom gradient with a lit top edge and a hairline
+   * border, so the card reads as a lifted object on the felt (matches the lab anchor). */
+  background: linear-gradient(180deg, var(--play-card-a), var(--play-card-b));
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--play-card-top);
+  box-shadow: 0 6px 20px -12px rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -115,7 +151,7 @@ body {
   font-size: 28px;
   font-weight: 600;
   line-height: 1;
-  color: var(--ink);
+  color: var(--play-card-ink);
 }
 
 .card.small .card-rank {
@@ -125,7 +161,7 @@ body {
 .card-pip {
   font-size: 18px;
   line-height: 1;
-  color: var(--ink);
+  color: var(--play-card-ink);
   margin-top: 2px;
 }
 
@@ -142,13 +178,17 @@ body {
   width: 68px;
   height: 92px;
   border-radius: 14px;
+  /* Dark hatch on the Nocturne card back: the felt-dark face with a faint lit diagonal, so a face-down
+   * card is unmistakably a card without going bright white against the table. */
   background: repeating-linear-gradient(
     45deg,
-    var(--card-face),
-    var(--card-face) 3px,
-    var(--ink) 3px,
-    var(--ink) 6px
+    var(--play-card-b),
+    var(--play-card-b) 3px,
+    var(--play-card-a) 3px,
+    var(--play-card-a) 6px
   );
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--play-card-top);
   flex-shrink: 0;
 }
 
@@ -878,18 +918,30 @@ body {
  * the card simply appears. The pot/flop reveal is the moment worth a beat; nothing else moves.
  */
 @keyframes offsuit-card-deal {
-  from {
+  0% {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translate(200px, -140px) rotate(20deg) scale(0.88);
   }
-  to {
+  55% {
+    opacity: 1;
+  }
+  80% {
+    transform: translate(-2px, 3px) rotate(-2deg) scale(1.012);
+  }
+  100% {
     opacity: 1;
     transform: none;
   }
 }
 .board .card[data-deal-in='true'],
 .board .card-back[data-deal-in='true'] {
-  animation: offsuit-card-deal var(--motion-panel) var(--ease-out);
+  /* The signature "corner-deal": each new board card is pitched in from the top-right dealer corner
+   * with a rotation + settle overshoot — reads like a card thrown to the felt. --deal-i (set per new
+   * card in table.ts) staggers the flop 0/1/2; a lone turn/river card has no delay. Transform+opacity
+   * only (compositor), will-change held ONLY while dealing, dropped under reduced-motion below. */
+  animation: offsuit-card-deal var(--deal-dur) var(--spring) both;
+  animation-delay: calc(var(--deal-i, 0) * 70ms);
+  will-change: transform, opacity;
 }
 /*
  * Every screen fades in on mount. main.ts swaps the single child of .screen on each tab switch, so a
@@ -920,10 +972,13 @@ body {
   .coach:not([hidden]),
   .coach-gate,
   .coach-gate-bar-fill,
-  .board .card[data-deal-in='true'],
-  .board .card-back[data-deal-in='true'],
   .predict {
     animation: none;
+  }
+  .board .card[data-deal-in='true'],
+  .board .card-back[data-deal-in='true'] {
+    animation: none;
+    will-change: auto;
   }
   .pill,
   .btn,

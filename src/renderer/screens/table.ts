@@ -668,7 +668,12 @@ export function renderTable(opts: {
     const row = renderCardRow(state.board);
     if (state.board.length > prevBoardLen) {
       const cards = row.querySelectorAll<HTMLElement>('[data-testid="card"]');
-      for (let i = prevBoardLen; i < cards.length; i++) cards[i].dataset.dealIn = 'true';
+      for (let i = prevBoardLen; i < cards.length; i++) {
+        cards[i].dataset.dealIn = 'true';
+        // Stagger the corner-deal across cards dealt together (the flop's three): 0, 1, 2. A lone
+        // turn/river card is index 0, so it has no delay. Consumed by animation-delay in styles.css.
+        cards[i].style.setProperty('--deal-i', String(i - prevBoardLen));
+      }
       // The board just grew (a new street was dealt) — announce the pot the player is now sizing against.
       // Only here, so a reader hears the pot at each street rather than on every intervening chip move.
       // Skipped at showdown (winners set): the outcome announcer already says who won how much.
