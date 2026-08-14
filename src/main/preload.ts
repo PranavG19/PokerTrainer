@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('offsuit', {
   readSettings: (): Promise<unknown> => ipcRenderer.invoke('settings:read'),
   setTutorEnabled: (enabled: boolean): Promise<boolean> =>
     ipcRenderer.invoke('settings:setTutorEnabled', enabled),
+  setTheme: (theme: string): Promise<string> => ipcRenderer.invoke('settings:setTheme', theme),
   // The confirmation phrase is re-checked in main; sending it is not authorising it.
   deleteProfile: (confirmation: string): Promise<unknown> =>
     ipcRenderer.invoke('settings:deleteProfile', confirmation),

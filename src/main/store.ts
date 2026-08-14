@@ -99,6 +99,29 @@ export function saveMultiplayerEnabled(enabled: boolean): void {
 }
 
 /**
+ * The visual theme is a device/display preference (like the tutor switch), not learner profile state,
+ * so it lives in the settings file rather than the profile. Graphite is the default: an absent or
+ * unreadable file, or an unknown value, resolves to graphite — the same value :root paints before any
+ * JS runs, so a missing choice never flashes the wrong theme. Only a known theme name is honoured.
+ */
+const THEMES = new Set(['graphite', 'obsidian']);
+
+export function loadTheme(): string {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    const theme = (parsed as { theme?: unknown })?.theme;
+    return typeof theme === 'string' && THEMES.has(theme) ? theme : 'graphite';
+  } catch {
+    return 'graphite';
+  }
+}
+
+export function saveTheme(theme: string): void {
+  if (!THEMES.has(theme)) return;
+  writeSettings({ theme });
+}
+
+/**
  * Merge one or more settings keys into the settings file, preserving the others. Both switches share
  * the file, so writing one must not clobber the other — a naive `atomicWrite({tutorEnabled})` erased a
  * saved multiplayer choice and vice versa.

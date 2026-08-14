@@ -35,6 +35,8 @@ export interface SettingsStatus {
     readonly lastRecovery: string;
   };
   readonly deleteConfirmPhrase: string;
+  /** The chosen visual theme id (graphite default). A device preference, read from the settings file. */
+  readonly theme: string;
 }
 
 export interface SettingsHandlers {
@@ -42,6 +44,7 @@ export interface SettingsHandlers {
   onDeleteProfile: (confirmation: string) => void;
   onSpokenVerdictsChange: (on: boolean) => void;
   onSoundCuesChange: (on: boolean) => void;
+  onThemeChange: (theme: string) => void;
 }
 
 /** T4's diagnostics show "the last few", not the whole history. */
@@ -92,6 +95,7 @@ export function renderSettings(opts: {
   root.appendChild(renderDiagnostics(status));
   root.appendChild(renderNarration(opts.spokenVerdicts, handlers));
   root.appendChild(renderSoundCues(opts.soundCues, handlers));
+  root.appendChild(renderTheme(status.theme, handlers));
   root.appendChild(renderProfileSection(status, handlers));
 
   return root;
@@ -280,6 +284,53 @@ function renderSoundCues(soundCues: boolean, handlers: SettingsHandlers): HTMLEl
 
   body.appendChild(wrap);
   return section('A sound on a mistake', body);
+}
+
+/**
+ * The visual theme. A device/display preference with no egress — the choice is stored in the settings
+ * file (not the profile) and applied as a documentElement attribute the bundled CSS keys off. Graphite
+ * is the default and the value :root paints before any JS. Each option is a pressed/unpressed button so
+ * an e2e can read the active theme off aria-pressed without depending on colour.
+ */
+const THEME_OPTIONS: readonly { id: string; label: string }[] = [
+  { id: 'graphite', label: 'Graphite' },
+  { id: 'obsidian', label: 'Obsidian' },
+];
+
+function renderTheme(theme: string, handlers: SettingsHandlers): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'settings-block';
+
+  const group = document.createElement('div');
+  group.className = 'settings-switch';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Visual theme');
+  group.dataset.testid = 'theme-select';
+  group.dataset.theme = theme;
+
+  for (const option of THEME_OPTIONS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'settings-toggle';
+    button.dataset.testid = `theme-option-${option.id}`;
+    const active = option.id === theme;
+    button.setAttribute('aria-pressed', String(active));
+    button.textContent = option.label;
+    button.setAttribute('aria-label', `Theme ${option.label}: ${active ? 'selected' : 'not selected'}`);
+    button.addEventListener('click', () => {
+      if (option.id !== theme) handlers.onThemeChange(option.id);
+    });
+    group.appendChild(button);
+  }
+  body.appendChild(group);
+
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.dataset.testid = 'theme-note';
+  note.textContent = 'Applies instantly and stays on this machine. Every theme is dark.';
+  body.appendChild(note);
+
+  return section('Theme', body);
 }
 
 /** 1 of 6, second half — the exact allowlist, read from main, never restated. */
