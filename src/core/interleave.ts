@@ -144,7 +144,7 @@ export const MODULES: readonly ContentModule[] = [
     stimulus: 'hole-cards-and-a-seat',
     response: 'an-action',
     source: 'src/core/contrastManifest.ts, src/core/preflop.ts (BB defence rules), src/core/lessons/content',
-    contentIds: ['sb-squeeze', 'defend-the-big-blind', 'facing-a-3bet'],
+    contentIds: ['sb-squeeze', 'defend-the-big-blind', 'opener-seat-sets-defence-width', 'facing-a-3bet'],
   },
   {
     id: 'postflop-nodes',

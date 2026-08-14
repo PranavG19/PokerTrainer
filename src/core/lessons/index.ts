@@ -18,6 +18,7 @@ import { boardTextureDimensions } from './content/board-texture-dimensions.js';
 import { whoHoldsTheNuts } from './content/who-holds-the-nuts.js';
 import { positionSetsYourRange } from './content/position-sets-your-range.js';
 import { defendTheBigBlind } from './content/defend-the-big-blind.js';
+import { openerSeatSetsDefenceWidth } from './content/opener-seat-sets-defence-width.js';
 import { facingA3Bet } from './content/facing-a-3bet.js';
 
 /**
@@ -48,6 +49,7 @@ export const LESSONS: readonly Lesson[] = [
   whoHoldsTheNuts,
   positionSetsYourRange,
   defendTheBigBlind,
+  openerSeatSetsDefenceWidth,
   facingA3Bet,
 ];
 
