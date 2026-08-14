@@ -16,6 +16,7 @@ import { polarityPicksTheSize } from './content/polarity-picks-the-size.js';
 import { bestFiveFromSeven } from './content/best-five-from-seven.js';
 import { boardTextureDimensions } from './content/board-texture-dimensions.js';
 import { whoHoldsTheNuts } from './content/who-holds-the-nuts.js';
+import { positionSetsYourRange } from './content/position-sets-your-range.js';
 
 /**
  * Every lesson the app knows about. Explicit imports, not a glob: the renderer is bundled
@@ -43,6 +44,7 @@ export const LESSONS: readonly Lesson[] = [
   bestFiveFromSeven,
   boardTextureDimensions,
   whoHoldsTheNuts,
+  positionSetsYourRange,
 ];
 
 export function lessonById(id: string): Lesson | undefined {
