@@ -382,12 +382,23 @@ describe('G7 — aggregate by error tag, never by trait', () => {
 });
 
 describe('the ban list', () => {
-  it('catches trait and gamification phrasing', () => {
+  it('still catches TRAIT and praise phrasing (the G7 pedagogy rule, unchanged)', () => {
     expect(bannedPhrasingIn("you're too loose")).not.toBeNull();
-    expect(bannedPhrasingIn('4 correct in a row')).toBe('in a row');
     expect(bannedPhrasingIn('you are a nit')).not.toBeNull();
-    expect(bannedPhrasingIn('top 1% of players')).not.toBeNull();
-    expect(bannedPhrasingIn('your EV trend is up')).toBe('trend');
+    expect(bannedPhrasingIn('great job, well done')).not.toBeNull();
+    expect(bannedPhrasingIn('what a maniac')).not.toBeNull();
+  });
+
+  it('no longer bans gamification vocabulary (removed 2026-08-14 by product decision)', () => {
+    // Streaks, XP, ranks, badges, leaderboards, personal bests are now allowed — the app is adding
+    // honest progress features built on real logged data.
+    expect(bannedPhrasingIn('4 correct in a row')).toBeNull();
+    expect(bannedPhrasingIn('a 7-day streak')).toBeNull();
+    expect(bannedPhrasingIn('top 1% of players')).toBeNull();
+    expect(bannedPhrasingIn('your EV trend is up')).toBeNull();
+    expect(bannedPhrasingIn('you earned 120 XP')).toBeNull();
+    expect(bannedPhrasingIn('a new personal best')).toBeNull();
+    expect(bannedPhrasingIn('milestone badge unlocked')).toBeNull();
   });
 
   it('matches on word boundaries so honest words are not flagged', () => {

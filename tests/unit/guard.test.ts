@@ -127,16 +127,17 @@ describe('T4 check 2 — ban-list lint, adversarial corpus', () => {
     });
   }
 
-  // Streak / rank / percentile.
-  const rank = [
+  // Streak / rank / percentile language is ALLOWED as of 2026-08-14 (product decision) — these must
+  // NOT trip the ban-list guard. Each string is otherwise clean of trait/praise/fold-reveal phrasing.
+  const rankNowAllowed = [
     'The range is capped. That is three RANGE errors in a row.',
-    'The board favours the bettor. Your percentile on this tag is falling.',
+    'The board favours the bettor. The percentile on this tag is falling.',
     'Sizing is off here — this breaks the streak of clean decisions.',
     'The price is wrong. This node now ranks first on the leaderboard of leaks.',
   ];
-  for (const text of rank) {
-    it(`flags streak/rank language: ${text.slice(0, 44)}...`, () => {
-      expect(checks(text)).toContain('ban-list');
+  for (const text of rankNowAllowed) {
+    it(`no longer flags streak/rank language: ${text.slice(0, 44)}...`, () => {
+      expect(checks(text)).not.toContain('ban-list');
     });
   }
 
