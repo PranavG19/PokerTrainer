@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OFFSUIT — Graphite Instrument · Quant Desk</title>
+<style>
+  :root{
+    /* ---- Cool graphite palette ---- */
+    --page:#0A0C0E;
+    --grid:rgba(255,255,255,0.020);
+    --surface:#121619;
+    --surface-2:#171B1F;
+    --raise:#1E2429;
+    --steel:#C7CDD2;      /* primary text */
+    --bright:#EEF1F3;     /* emphasis */
+    --dim:#7A838B;        /* secondary */
+    --faint:#525b62;      /* tertiary */
+    --rule:rgba(255,255,255,0.075);
+    --rule-soft:rgba(255,255,255,0.045);
+    --edge:rgba(255,255,255,0.16);
+    /* the one warm signal — an instrument amber */
+    --amber:#E6A15E;
+    --amber-dim:rgba(230,161,94,0.16);
+    /* cool vermilion for red suits + losses */
+    --suit-red:#E1654B;
+    --loss:#D65B45;
+
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+    --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+
+    --radius:6px;
+
+    --mono:'Berkeley Mono','IBM Plex Mono','JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --grot:'Inter',system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+
+    --spring:linear(0, 0.05, 0.17, 0.34, 0.53, 0.69, 0.81, 0.89, 0.94, 0.97, 0.986, 0.995, 1);
+    --ease:cubic-bezier(0.2,0,0,1);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(var(--grid) 1px, transparent 1.4px) 0 0 / 22px 22px,
+      radial-gradient(120% 90% at 50% -10%, rgba(230,161,94,0.03), transparent 55%),
+      var(--page);
+    color:var(--steel);
+    font-family:var(--grot);
+    font-size:14px; line-height:22px;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ===== Demo top bar ===== */
+  .demobar{
+    position:fixed; top:0; left:0; right:0; height:44px; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 var(--s6);
+    background:rgba(10,12,14,0.82);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--rule);
+  }
+  .demobar .name{
+    font-family:var(--mono); font-size:12px; letter-spacing:0.04em; color:var(--bright);
+    text-transform:uppercase;
+  }
+  .demobar .name em{ font-style:normal; color:var(--faint); }
+  .demobar .controls{ display:flex; gap:var(--s2); }
+  .ghost{
+    position:relative; overflow:hidden;
+    appearance:none; background:transparent; cursor:pointer;
+    border:1px solid var(--edge); border-radius:var(--radius);
+    color:var(--steel);
+    font-family:var(--mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    min-height:30px; padding:0 var(--s3);
+    display:inline-flex; align-items:center;
+  }
+  .ghost::before{ content:""; position:absolute; inset:0; background:var(--surface-2); opacity:0; z-index:-1; }
+  .ghost:hover::before{ opacity:1; }
+  .ghost:focus-visible{ outline:1px solid var(--amber); outline-offset:2px; }
+
+  /* ===== Scaffold ===== */
+  .stack{ padding-top:44px; }
+  .screen{
+    position:relative;
+    max-width:1100px; margin:0 auto;
+    padding:var(--s7) var(--s6) var(--s8);
+    border-bottom:1px solid var(--rule);
+  }
+  .screen-tag{
+    position:absolute; top:var(--s4); right:var(--s6);
+    font-family:var(--mono); font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--faint);
+  }
+  .screen-tag::before{ content:"● "; color:var(--amber); font-size:8px; vertical-align:middle; }
+
+  /* ===== Product nav ===== */
+  nav.top{
+    display:flex; align-items:center; justify-content:space-between;
+    padding-bottom:var(--s4);
+    border-bottom:1px solid var(--rule);
+  }
+  nav.top .brand{ display:flex; align-items:center; gap:var(--s3); }
+  nav.top .brand .glyph{
+    width:22px; height:22px; border:1px solid var(--edge); border-radius:4px;
+    display:grid; place-items:center;
+    font-family:var(--mono); font-size:12px; color:var(--amber);
+    box-shadow: inset 0 0 0 3px rgba(230,161,94,0.06);
+  }
+  nav.top .brand .word{
+    font-family:var(--mono); font-size:14px; letter-spacing:0.22em; color:var(--bright);
+    text-transform:uppercase;
+  }
+  nav.top ul{ list-style:none; margin:0; padding:0; display:flex; gap:var(--s5); }
+  nav.top a{
+    font-family:var(--mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--faint); text-decoration:none;
+  }
+  nav.top a.active{ color:var(--bright); }
+  nav.top a.active::after{ content:""; display:block; height:1px; background:var(--amber); margin-top:5px; }
+  nav.top a:hover{ color:var(--steel); }
+
+  /* ===== Shared type roles ===== */
+  .label{
+    font-family:var(--mono); font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--dim);
+  }
+  .label.faint{ color:var(--faint); }
+  .num{ font-family:var(--mono); font-variant-numeric:tabular-nums; letter-spacing:-0.01em; }
+  .figure{ font-family:var(--mono); font-weight:500; font-size:56px; line-height:60px; color:var(--bright); letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+  .h{ font-family:var(--grot); font-weight:600; font-size:17px; line-height:24px; color:var(--bright); letter-spacing:-0.01em; }
+  .pos{ color:var(--amber); }
+  .neg{ color:var(--loss); }
+
+  /* ============================================================
+     HOME
+     ============================================================ */
+  .bankroll{ margin-top:var(--s7); display:flex; align-items:flex-end; justify-content:space-between; gap:var(--s6); }
+  .bankroll .stat .label{ margin-bottom:var(--s2); display:block; }
+  .bankroll .stat .figure{ display:block; }
+  .bankroll .stat .sub{ margin-top:var(--s2); font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:0.02em; }
+  .bankroll .stat .sub .pos{ color:var(--amber); }
+  /* tick ruler under the bankroll figure */
+  .ruler{ margin-top:var(--s3); height:10px; position:relative; width:280px; max-width:100%; }
+  .ruler .base{ position:absolute; left:0; right:0; top:5px; height:1px; background:var(--rule); }
+  .ruler .ticks{ position:absolute; inset:0; background:repeating-linear-gradient(90deg, var(--rule-soft) 0 1px, transparent 1px 22px); }
+  .ruler .ticks.major{ background:repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 66px); }
+
+  .spark{ align-self:flex-end; }
+  .spark svg{ display:block; }
+
+  .home-grid{
+    display:grid; grid-template-columns:1.15fr 0.85fr; gap:var(--s7);
+    margin-top:var(--s8);
+  }
+  @media (max-width:960px){ .home-grid{ grid-template-columns:1fr; gap:var(--s7);} }
+
+  .block-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:var(--s3); }
+  .block-head .h{ font-size:15px; }
+  .block-head .label{ letter-spacing:0.12em; }
+
+  /* instrument list idiom */
+  .list .row{
+    position:relative; overflow:hidden;
+    display:grid; grid-template-columns:1fr auto; align-items:center; gap:var(--s4);
+    padding:var(--s3) var(--s3);
+    border-top:1px solid var(--rule-soft);
+    text-decoration:none; cursor:pointer;
+    margin:0 calc(-1 * var(--s3));
+  }
+  .list .row:last-child{ border-bottom:1px solid var(--rule-soft); }
+  .list .row::before{ content:""; position:absolute; inset:0; background:var(--surface); opacity:0; z-index:-1; }
+  .list .row:hover::before{ opacity:1; }
+  /* amber left tick on hover / next */
+  .list .row::after{ content:""; position:absolute; left:0; top:8px; bottom:8px; width:2px; background:var(--amber); transform:scaleY(0); transform-origin:center; z-index:0; }
+  .list .row:hover::after, .list .row.next::after{ transform:scaleY(1); }
+  .list .row .lead{ display:flex; flex-direction:column; gap:2px; padding-left:var(--s2); }
+  .list .row .t{ color:var(--bright); font-size:14px; font-weight:500; }
+  .list .row .m{ font-family:var(--mono); color:var(--faint); font-size:11px; letter-spacing:0.02em; }
+  .list .row .val{ font-family:var(--mono); font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:var(--dim); text-align:right; }
+  .list .row .val.go{ color:var(--amber); }
+
+  .panel{
+    background:linear-gradient(180deg, var(--surface) 0%, #0F1316 100%);
+    border:1px solid var(--rule); border-radius:var(--radius);
+    padding:var(--s5);
+  }
+  .panel .block-head{ margin-bottom:var(--s4); }
+  .queue .qrow{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:var(--s3); padding:var(--s3) 0; border-top:1px solid var(--rule-soft); }
+  .queue .qrow:first-of-type{ border-top:none; }
+  .queue .idx{ font-family:var(--mono); font-size:11px; color:var(--faint); }
+  .queue .qt{ color:var(--bright); font-size:13px; }
+  .queue .qm{ font-family:var(--mono); font-size:11px; color:var(--faint); }
+  .queue .qv{ font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:0.04em; text-transform:uppercase; }
+  .queue .qv.go{ color:var(--amber); }
+
+  /* ============================================================
+     TABLE  — positions ledger, no felt
+     ============================================================ */
+  .table-screen{ min-height:640px; }
+  .deck{ margin-top:var(--s6); display:flex; flex-direction:column; }
+
+  /* ledger header + villain rows */
+  .ledger{ border:1px solid var(--rule); border-radius:var(--radius); overflow:hidden; }
+  .ledger .lrow{
+    position:relative;
+    display:grid; grid-template-columns:24px 1.4fr 0.9fr 1fr 1.1fr; align-items:center; gap:var(--s3);
+    padding:var(--s3) var(--s4);
+  }
+  .ledger .lhead{
+    background:var(--surface); border-bottom:1px solid var(--rule);
+  }
+  .ledger .lhead span{ font-family:var(--mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--faint); }
+  .ledger .lbody{ border-top:1px solid var(--rule-soft); }
+  .ledger .lbody:nth-child(2){ border-top:none; }
+  .ledger .lbody .tick{ width:2px; height:16px; background:transparent; border-radius:2px; }
+  .ledger .lbody.acting{ background:linear-gradient(90deg, rgba(230,161,94,0.06), transparent 60%); }
+  .ledger .lbody.acting .tick{ background:var(--amber); }
+  .ledger .who{ display:flex; align-items:center; gap:var(--s3); }
+  .ledger .who .backs{ display:flex; gap:3px; }
+  .ledger .who .nm{ font-size:13px; color:var(--steel); }
+  .ledger .lbody.acting .who .nm{ color:var(--bright); }
+  .ledger .p{ font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:0.06em; text-transform:uppercase; }
+  .ledger .st{ font-family:var(--mono); font-size:13px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .ledger .ac{ font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:0.04em; text-transform:uppercase; }
+  .ledger .lbody.acting .ac{ color:var(--amber); }
+
+  /* board center */
+  .center{
+    display:flex; align-items:center; justify-content:space-between; gap:var(--s7);
+    padding:var(--s7) var(--s2);
+    border-bottom:1px solid var(--rule-soft);
+  }
+  @media (max-width:820px){ .center{ flex-direction:column; align-items:stretch; gap:var(--s6);} }
+  .board-wrap{ display:flex; flex-direction:column; gap:var(--s3); }
+  .board-wrap .label{ letter-spacing:0.12em; }
+  .board{ display:flex; gap:var(--s3); }
+  .potbox{ text-align:right; }
+  @media (max-width:820px){ .potbox{ text-align:left; } }
+  .potbox .label{ display:block; margin-bottom:var(--s1); }
+  .potbox .figure{ font-size:48px; line-height:52px; }
+  .potbox .street{ font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:0.06em; text-transform:uppercase; margin-top:var(--s1); }
+
+  /* hero deck */
+  .herobar{
+    display:flex; align-items:center; justify-content:space-between; gap:var(--s6);
+    padding:var(--s5) 0 var(--s4);
+    flex-wrap:wrap;
+  }
+  .hero-id{ display:flex; align-items:center; gap:var(--s4); }
+  .hero-cards{ display:flex; gap:var(--s2); }
+  .hero-meta{ display:flex; flex-direction:column; gap:2px; }
+  .hero-meta .row1{ display:flex; align-items:center; gap:var(--s2); }
+  .hero-meta .you{ font-size:15px; color:var(--bright); font-weight:600; }
+  .hero-meta .tag{ font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim); border:1px solid var(--edge); border-radius:4px; padding:1px 6px; }
+  .hero-meta .st{ font-family:var(--mono); font-size:13px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .hero-meta .toggles{ display:flex; gap:var(--s4); margin-top:2px; }
+  .hero-meta .toggles button{ background:none; border:none; cursor:pointer; padding:0;
+    font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); }
+  .hero-meta .toggles button:hover{ color:var(--dim); }
+
+  /* equity gauge — segmented VU meter */
+  .equity{ min-width:300px; flex:1; max-width:420px; }
+  .equity .top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:var(--s2); }
+  .equity .top .figure{ font-size:40px; line-height:40px; color:var(--bright); }
+  .equity .top .label{ letter-spacing:0.12em; }
+  .meter{ position:relative; height:14px; border:1px solid var(--rule); border-radius:3px; overflow:hidden; background:#0E1215; }
+  .meter .segs{ position:absolute; inset:0; background:repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 5px, transparent 5px 8px); }
+  .meter .fill{ position:absolute; inset:0; transform-origin:left center; transform:scaleX(0.22);
+    background:repeating-linear-gradient(90deg, var(--amber) 0 5px, rgba(230,161,94,0.35) 5px 8px);
+    box-shadow: inset 0 0 8px rgba(230,161,94,0.3); }
+  .equity .scale{ display:flex; justify-content:space-between; margin-top:var(--s1); }
+  .equity .scale span{ font-family:var(--mono); font-size:9px; color:var(--faint); letter-spacing:0.04em; }
+
+  /* controls */
+  .controls{ display:flex; border:1px solid var(--edge); border-radius:var(--radius); overflow:hidden; margin-top:var(--s5); }
+  .controls .act{
+    position:relative; overflow:hidden; flex:1; appearance:none; background:transparent; cursor:pointer;
+    border:none; border-right:1px solid var(--rule);
+    color:var(--steel); font-family:var(--mono); font-size:12px; letter-spacing:0.06em; text-transform:uppercase;
+    min-height:46px; padding:0 var(--s4);
+    display:flex; align-items:center; justify-content:center; gap:var(--s2);
+  }
+  .controls .act:last-child{ border-right:none; }
+  .controls .act .k{ font-size:9px; color:var(--faint); border:1px solid var(--rule); border-radius:3px; padding:0 4px; }
+  .controls .act::before{ content:""; position:absolute; inset:0; background:var(--surface-2); opacity:0; z-index:-1; }
+  .controls .act:hover::before{ opacity:1; }
+  .controls .act:active::before{ opacity:1; background:var(--raise); }
+  .controls .act:focus-visible{ outline:1px solid var(--amber); outline-offset:-2px; }
+  .controls .act.suggested{ box-shadow: inset 0 0 0 1px var(--amber); color:var(--bright); }
+  .controls .act.suggested .k{ color:var(--amber); border-color:var(--amber-dim); }
+
+  /* bet-size stepper */
+  .betsize{ display:flex; align-items:center; gap:var(--s4); margin-top:var(--s4); }
+  .betsize .label{ letter-spacing:0.1em; }
+  .track{ position:relative; flex:1; height:14px; display:flex; align-items:center; }
+  .track .line{ position:absolute; left:0; right:0; height:1px; background:var(--edge); }
+  .track .grad{ position:absolute; left:0; right:0; top:0; bottom:0; background:repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 26px); }
+  .track .fill{ position:absolute; left:0; width:32%; height:2px; background:var(--amber); }
+  .track .thumb{ position:absolute; left:32%; width:12px; height:12px; border-radius:2px; background:var(--bright); transform:translateX(-50%); box-shadow:0 0 0 3px rgba(10,12,14,0.9), 0 0 0 4px var(--amber-dim); }
+  .betsize .amt{ font-family:var(--mono); font-size:22px; color:var(--bright); font-variant-numeric:tabular-nums; min-width:56px; text-align:right; }
+
+  /* ============================================================
+     THE CARD — precision-milled chip (cool, flat, machined)
+     ============================================================ */
+  .card{
+    position:relative;
+    background:linear-gradient(180deg, #20262B 0%, #171C20 52%, #12161A 100%);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:5px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.06) inset,
+      0 -1px 0 0 rgba(0,0,0,0.5) inset,
+      0 10px 22px -14px rgba(0,0,0,0.85);
+  }
+  /* machined top sheen — a thin milled highlight, not a gloss */
+  .card::before{
+    content:""; position:absolute; left:8%; right:8%; top:0; height:26%;
+    background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0));
+    border-radius:5px 5px 40% 40%; pointer-events:none;
+  }
+  .card .idx{ position:absolute; top:5px; left:6px; display:flex; align-items:center; gap:2px; line-height:1;
+    font-family:var(--mono); font-weight:500; }
+  .card .idx i{ font-style:normal; }
+  .card .face{ display:flex; flex-direction:column; align-items:center; line-height:1; }
+  .card .face .r{ font-family:var(--mono); font-weight:500; letter-spacing:-0.02em; }
+  .card .face .s{ line-height:1; margin-top:3px; }
+  .card.red .idx, .card.red .face .r, .card.red .face .s{ color:var(--suit-red); }
+  .card.black .idx, .card.black .face .r, .card.black .face .s{ color:var(--bright); }
+
+  .card.board{ width:70px; height:98px; }
+  .card.board .idx{ font-size:11px; }
+  .card.board .face .r{ font-size:34px; }
+  .card.board .face .s{ font-size:17px; }
+
+  .card.hero{ width:88px; height:123px; border-radius:6px; }
+  .card.hero .idx{ font-size:12px; top:6px; left:7px; }
+  .card.hero .face .r{ font-size:46px; }
+  .card.hero .face .s{ font-size:23px; }
+
+  .card.back{ width:34px; height:48px; border-radius:4px; }
+  .card.back::after{ content:""; position:absolute; inset:5px; border-radius:2px;
+    background:repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 5px);
+    border:1px solid rgba(255,255,255,0.07); }
+
+  /* ============================================================
+     MOTION
+     ============================================================ */
+  @keyframes deal{
+    from{ opacity:0; transform:translateY(10px) scale(0.96); }
+    to  { opacity:1; transform:translateY(0) scale(1); }
+  }
+  @keyframes mount{ from{ opacity:0; transform:translateY(5px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes figin{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes fill{ from{ transform:scaleX(0);} }
+  @keyframes tickin{ from{ transform:scaleY(0);} to{ transform:scaleY(1);} }
+
+  body.motion-on .deal-item{ opacity:0; }
+  body.motion-on .screen-anim{ opacity:0; animation:mount 240ms var(--spring) forwards; }
+  body.motion-on .figure-anim{ opacity:0; animation:figin 220ms var(--spring) 120ms forwards; }
+  body.motion-on .deal-item{ animation:deal 320ms var(--spring) forwards; }
+
+  body.motion-on .db1{ animation-delay:20ms; }
+  body.motion-on .db2{ animation-delay:55ms; }
+  body.motion-on .db3{ animation-delay:90ms; }
+  body.motion-on .db4{ animation-delay:110ms; }
+  body.motion-on .db5{ animation-delay:145ms; }
+  body.motion-on .db6{ animation-delay:180ms; }
+  body.motion-on .bf1{ animation-delay:280ms; }
+  body.motion-on .bf2{ animation-delay:330ms; }
+  body.motion-on .bf3{ animation-delay:380ms; }
+  body.motion-on .hc1{ animation-delay:460ms; }
+  body.motion-on .hc2{ animation-delay:500ms; }
+
+  body.motion-on .meter .fill{ animation:fill 620ms var(--spring) 560ms both; }
+  body.motion-on .ledger .lbody.acting .tick{ transform-origin:center; animation:tickin 200ms var(--ease) 620ms both; }
+
+  body.motion-on .ghost::before,
+  body.motion-on .list .row::before,
+  body.motion-on .list .row::after,
+  body.motion-on .controls .act::before{ transition:opacity 90ms var(--ease), transform 140ms var(--ease); }
+  body.motion-on nav.top a{ transition:color 90ms var(--ease); }
+
+  body:not(.motion-on) .deal-item,
+  body:not(.motion-on) .screen-anim,
+  body:not(.motion-on) .figure-anim{ opacity:1; transform:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    body.motion-on *{ animation:none !important; transition:none !important; }
+    body.motion-on .deal-item,
+    body.motion-on .screen-anim,
+    body.motion-on .figure-anim{ opacity:1 !important; transform:none !important; }
+    body.motion-on .meter .fill{ transform:scaleX(0.22) !important; }
+    body.motion-on .ledger .lbody.acting .tick{ transform:scaleY(1) !important; }
+  }
+</style>
+</head>
+<body class="motion-on">
+
+  <div class="demobar">
+    <div class="name">Graphite Instrument <em>· Quant Desk</em></div>
+    <div class="controls">
+      <button class="ghost" id="replay">Replay</button>
+      <button class="ghost" id="motion">Motion: On</button>
+    </div>
+  </div>
+
+  <div class="stack" id="stack">
+
+    <!-- ===================== HOME ===================== -->
+    <section class="screen">
+      <span class="screen-tag">Home</span>
+
+      <nav class="top screen-anim">
+        <span class="brand"><span class="glyph">◆</span><span class="word">Offsuit</span></span>
+        <ul>
+          <li><a href="#" class="active">Play</a></li>
+          <li><a href="#">Learn</a></li>
+          <li><a href="#">Train</a></li>
+          <li><a href="#">Charts</a></li>
+          <li><a href="#">Progress</a></li>
+          <li><a href="#">Profile</a></li>
+          <li><a href="#">Settings</a></li>
+        </ul>
+      </nav>
+
+      <div class="bankroll screen-anim">
+        <div class="stat">
+          <span class="label">Bankroll · USD play</span>
+          <span class="figure figure-anim">10,000</span>
+          <div class="ruler"><div class="ticks"></div><div class="ticks major"></div><div class="base"></div></div>
+          <div class="sub">SESSION FLAT · <span class="pos">▲ +1,140</span> LAST 24H</div>
+        </div>
+        <div class="spark">
+          <svg width="220" height="64" viewBox="0 0 220 64" fill="none" aria-hidden="true">
+            <line x1="0" y1="48" x2="220" y2="48" stroke="rgba(255,255,255,0.06)"/>
+            <line x1="0" y1="24" x2="220" y2="24" stroke="rgba(255,255,255,0.04)"/>
+            <polyline points="0,44 26,40 52,46 78,30 104,34 130,22 156,28 182,14 208,20 220,17"
+              fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="220" cy="17" r="2.4" fill="var(--amber)"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="home-grid">
+        <div class="screen-anim">
+          <div class="block-head"><span class="h">Start a hand</span><span class="label faint">Entry</span></div>
+          <div class="list">
+            <a class="row next" href="#">
+              <span class="lead"><span class="t">New session</span><span class="m">CASH · 100BB · SINGLE TABLE</span></span>
+              <span class="val go">Deal →</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Play with friends</span><span class="m">LOCAL RELAY · UP TO 6 SEATS</span></span>
+              <span class="val">Host</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Daily puzzle</span><span class="m">TURN DECISION · RIVER BLUFF-CATCH</span></span>
+              <span class="val">Open</span>
+            </a>
+          </div>
+
+          <div class="block-head" style="margin-top:var(--s7)"><span class="h">Recent hands</span><span class="label faint">Ledger</span></div>
+          <div class="list">
+            <a class="row" href="#">
+              <span class="lead"><span class="t">AKs vs 3-bet</span><span class="m">FOLDED RIVER · BTN</span></span>
+              <span class="val neg">−320</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Set over set</span><span class="m">WON AT SHOWDOWN · CO</span></span>
+              <span class="val go">+1,140</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Missed flush draw</span><span class="m">CHECK-FOLD TURN · BB</span></span>
+              <span class="val neg">−75</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="screen-anim">
+          <div class="block-head"><span class="h">Session planner</span><span class="label faint">3 blocks</span></div>
+          <div class="panel">
+            <div class="queue">
+              <div class="qrow">
+                <span class="idx">01</span>
+                <span class="lead"><span class="qt">Preflop RFI drill</span><br><span class="qm">15 SPOTS · MASTERY SAMPLER</span></span>
+                <span class="qv">10 min</span>
+              </div>
+              <div class="qrow">
+                <span class="idx">02</span>
+                <span class="lead"><span class="qt">Pot-odds math</span><br><span class="qm">BREAK-EVEN EQUITY</span></span>
+                <span class="qv">8 min</span>
+              </div>
+              <div class="qrow">
+                <span class="idx pos">03</span>
+                <span class="lead"><span class="qt">Live session</span><br><span class="qm">APPLY · 40 HANDS</span></span>
+                <span class="qv go">Next</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TABLE ===================== -->
+    <section class="screen table-screen">
+      <span class="screen-tag">Live table</span>
+
+      <nav class="top">
+        <span class="brand"><span class="glyph">◆</span><span class="word">Offsuit</span></span>
+        <ul>
+          <li><a href="#" class="active">Play</a></li>
+          <li><a href="#">Learn</a></li>
+          <li><a href="#">Train</a></li>
+          <li><a href="#">Charts</a></li>
+          <li><a href="#">Progress</a></li>
+          <li><a href="#">Profile</a></li>
+          <li><a href="#">Settings</a></li>
+        </ul>
+      </nav>
+
+      <div class="deck">
+
+        <!-- BAND 1 — positions ledger -->
+        <div class="ledger">
+          <div class="lrow lhead">
+            <span></span><span>Player</span><span>Pos</span><span>Stack</span><span>Action</span>
+          </div>
+          <div class="lrow lbody">
+            <div class="tick"></div>
+            <div class="who"><div class="backs"><div class="card back deal-item db1"></div><div class="card back deal-item db2"></div></div><span class="nm">Ada</span></div>
+            <span class="p">SB</span>
+            <span class="st">4,975</span>
+            <span class="ac">Checks</span>
+          </div>
+          <div class="lrow lbody">
+            <div class="tick"></div>
+            <div class="who"><div class="backs"><div class="card back deal-item db3"></div><div class="card back deal-item db4"></div></div><span class="nm">Bo</span></div>
+            <span class="p">BB</span>
+            <span class="st">4,950</span>
+            <span class="ac">Calls 50</span>
+          </div>
+          <div class="lrow lbody acting">
+            <div class="tick"></div>
+            <div class="who"><div class="backs"><div class="card back deal-item db5"></div><div class="card back deal-item db6"></div></div><span class="nm">Cy</span></div>
+            <span class="p">CO</span>
+            <span class="st">5,000</span>
+            <span class="ac">◂ To act</span>
+          </div>
+        </div>
+
+        <!-- BAND 2 — board + pot readout -->
+        <div class="center">
+          <div class="board-wrap">
+            <span class="label">Board · Flop</span>
+            <div class="board">
+              <div class="card board black deal-item bf1">
+                <span class="idx">Q<i>♠</i></span>
+                <span class="face"><span class="r">Q</span><span class="s">♠</span></span>
+              </div>
+              <div class="card board red deal-item bf2">
+                <span class="idx">8<i>♦</i></span>
+                <span class="face"><span class="r">8</span><span class="s">♦</span></span>
+              </div>
+              <div class="card board black deal-item bf3">
+                <span class="idx">3<i>♣</i></span>
+                <span class="face"><span class="r">3</span><span class="s">♣</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="potbox">
+            <span class="label">Pot</span>
+            <span class="figure figure-anim">75</span>
+            <div class="street">To call · 50</div>
+          </div>
+        </div>
+
+        <!-- BAND 3 — hero deck + equity + controls -->
+        <div class="herobar">
+          <div class="hero-id">
+            <div class="hero-cards">
+              <div class="card hero red deal-item hc1">
+                <span class="idx">2<i>♦</i></span>
+                <span class="face"><span class="r">2</span><span class="s">♦</span></span>
+              </div>
+              <div class="card hero red deal-item hc2">
+                <span class="idx">K<i>♥</i></span>
+                <span class="face"><span class="r">K</span><span class="s">♥</span></span>
+              </div>
+            </div>
+            <div class="hero-meta">
+              <div class="row1"><span class="you">You</span><span class="tag">BTN</span></div>
+              <span class="st">5,000</span>
+              <div class="toggles"><button type="button">Coach off</button><button type="button">Stats</button></div>
+            </div>
+          </div>
+
+          <div class="equity">
+            <div class="top">
+              <span class="figure figure-anim">22%</span>
+              <span class="label">Win equity</span>
+            </div>
+            <div class="meter"><div class="segs"></div><div class="fill"></div></div>
+            <div class="scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="act" type="button">Fold <span class="k">F</span></button>
+          <button class="act" type="button">Check</button>
+          <button class="act suggested" type="button">Call 50 <span class="k">C</span></button>
+          <button class="act" type="button">Raise <span class="k">R</span></button>
+        </div>
+
+        <div class="betsize">
+          <span class="label">Raise to</span>
+          <div class="track"><div class="grad"></div><div class="line"></div><div class="fill"></div><div class="thumb"></div></div>
+          <span class="amt">150</span>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+<script>
+  (function(){
+    var body = document.body;
+    var motionBtn = document.getElementById('motion');
+    var replayBtn = document.getElementById('replay');
+
+    motionBtn.addEventListener('click', function(){
+      var on = body.classList.toggle('motion-on');
+      motionBtn.textContent = 'Motion: ' + (on ? 'On' : 'Off');
+    });
+
+    function replay(){
+      if(!body.classList.contains('motion-on')) return;
+      var animated = document.querySelectorAll('.deal-item, .screen-anim, .figure-anim, .meter .fill, .ledger .lbody.acting .tick');
+      animated.forEach(function(el){
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+      });
+    }
+    replayBtn.addEventListener('click', replay);
+  })();
+</script>
+</body>
+</html>

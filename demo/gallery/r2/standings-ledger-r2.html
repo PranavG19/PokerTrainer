@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OFFSUIT — Standings Ledger · Monochrome Editorial</title>
+<style>
+  :root{
+    --page:#0B0A09;
+    --surface:#171512;
+    --raise:#201D19;
+    --bone:#F4F1EA;
+    --bone-2:#B9B4AA;
+    --bone-3:#9A9386;
+    --rule:rgba(244,241,234,0.10);
+    --rule-soft:rgba(244,241,234,0.06);
+    --edge:rgba(244,241,234,0.20);
+    --signal:#4FA986;
+    --suit-red:#C85E44;
+
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+    --s6:32px; --s7:48px; --s8:64px; --s9:96px; --s10:128px;
+
+    --radius:8px;
+
+    --serif:'Signifier','GT Sectra','Newsreader',Georgia,serif;
+    --grot:'Söhne','Neue Haas Grotesk Display','Inter',system-ui,-apple-system,sans-serif;
+
+    --spring-settle:linear(0, 0.05, 0.17, 0.34, 0.53, 0.69, 0.81, 0.89, 0.94, 0.97, 0.986, 0.995, 1);
+    --ease-standard:cubic-bezier(0.2,0,0,1);
+    --ease-in:cubic-bezier(0.4,0,1,1);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--page);
+    color:var(--bone-2);
+    font-family:var(--grot);
+    font-size:15px;
+    line-height:24px;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    font-feature-settings:'tnum' 1,'lnum' 1;
+  }
+
+  /* ===== Demo top bar (the only non-product chrome) ===== */
+  .demobar{
+    position:fixed; top:0; left:0; right:0; height:44px; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 var(--s6);
+    background:rgba(11,10,9,0.86);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--rule);
+  }
+  .demobar .name{
+    font-family:var(--serif); font-weight:400; font-size:16px; color:var(--bone);
+    letter-spacing:-0.01em;
+  }
+  .demobar .name em{font-style:normal; color:var(--bone-3);}
+  .demobar .controls{display:flex; gap:var(--s2); align-items:center;}
+
+  .ghost{
+    position:relative; overflow:hidden;
+    appearance:none; background:transparent; cursor:pointer;
+    border:1px solid var(--edge); border-radius:var(--radius);
+    color:var(--bone);
+    font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase;
+    min-height:32px; padding:0 var(--s3);
+    display:inline-flex; align-items:center; justify-content:center; gap:var(--s2);
+  }
+  .ghost::before{
+    content:""; position:absolute; inset:0; background:var(--surface);
+    opacity:0; z-index:-1;
+  }
+  .ghost::after{
+    content:""; position:absolute; inset:0; background:var(--raise);
+    opacity:0; z-index:-1;
+  }
+  .ghost:focus-visible{ outline:1px solid var(--signal); outline-offset:2px; }
+
+  /* ===== Page scaffold ===== */
+  .stack{ padding-top:44px; }
+  .screen{
+    position:relative;
+    max-width:1100px; margin:0 auto;
+    padding:var(--s7) var(--s6) var(--s9);
+    border-bottom:1px solid var(--rule);
+  }
+  .screen-tag{
+    position:absolute; top:var(--s4); right:var(--s6);
+    font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--bone-3);
+  }
+
+  /* ===== Product nav ===== */
+  nav.top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding-bottom:var(--s4);
+    border-bottom:1px solid var(--rule);
+  }
+  nav.top .brand{
+    font-family:var(--serif); font-size:20px; color:var(--bone);
+    letter-spacing:0.02em;
+  }
+  nav.top ul{ list-style:none; margin:0; padding:0; display:flex; gap:var(--s5); }
+  nav.top a{
+    font-size:12px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--bone-3); text-decoration:none;
+  }
+  nav.top a.active{ color:var(--bone); }
+  nav.top a:hover{ color:var(--bone-2); }
+
+  /* ===== Shared type roles ===== */
+  .caption{
+    font-family:var(--grot); font-size:12px; line-height:16px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--bone-2);
+  }
+  .caption.quiet{ color:var(--bone-3); }
+  .figure{
+    font-family:var(--serif); font-weight:300; font-size:52px; line-height:56px;
+    letter-spacing:-0.01em; color:var(--bone);
+    font-feature-settings:'tnum' 1,'lnum' 1;
+  }
+  .display-m{
+    font-family:var(--serif); font-weight:400; font-size:30px; line-height:36px;
+    letter-spacing:-0.01em; color:var(--bone);
+  }
+  .title{
+    font-family:var(--grot); font-weight:500; font-size:20px; line-height:28px;
+    color:var(--bone);
+  }
+  .body{ font-size:15px; line-height:24px; color:var(--bone-2); }
+  .data{
+    font-family:var(--grot); font-size:14px; line-height:20px; font-weight:500;
+    color:var(--bone-2); font-feature-settings:'tnum' 1,'lnum' 1;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ============================================================
+     HOME
+     ============================================================ */
+  .home-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:var(--s7);
+    margin-top:var(--s7);
+  }
+  @media (max-width:960px){ .home-grid{ grid-template-columns:1fr; gap:var(--s7);} }
+
+  .masthead-figure .caption{ margin-bottom:var(--s2); }
+  .masthead-figure .figure{ display:block; }
+  .masthead-figure .sub{ margin-top:var(--s2); color:var(--bone-3); font-size:13px; }
+
+  .section-title{ margin-bottom:var(--s4); }
+
+  /* hairline-divided list idiom (one idiom across all screens) */
+  .list .row{
+    position:relative; overflow:hidden;
+    display:flex; align-items:baseline; justify-content:space-between; gap:var(--s4);
+    padding:var(--s3) 0;
+    border-top:1px solid var(--rule);
+    cursor:pointer; text-decoration:none;
+  }
+  .list .row:last-child{ border-bottom:1px solid var(--rule); }
+  .list .row::before{
+    content:""; position:absolute; inset:0 calc(-1 * var(--s3));
+    background:var(--surface); opacity:0; z-index:-1;
+    border-radius:var(--radius);
+  }
+  .list .row:hover::before{ opacity:1; }
+  .list .row .lead{ display:flex; flex-direction:column; gap:2px; }
+  .list .row .lead .t{ color:var(--bone); font-size:15px; }
+  .list .row .lead .m{ color:var(--bone-3); font-size:13px; line-height:18px; }
+  .list .row .val{ color:var(--bone-2); }
+  .list .row .val.signal{ color:var(--signal); }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:var(--s5);
+  }
+  .panel .caption{ margin-bottom:var(--s4); }
+
+  /* ============================================================
+     TABLE
+     ============================================================ */
+  .table-screen{ min-height:640px; }
+  .table-wrap{
+    display:flex; flex-direction:column;
+    margin-top:var(--s6);
+  }
+
+  /* --- Running dateline / folio (broadsheet head) --- */
+  .dateline{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding-bottom:var(--s4);
+  }
+
+  /* ============================================================
+     STANDINGS LEDGER  — the polished table-as-data-page
+     A five-column typeset table: Seat · Player · Hand · Stack · Action.
+     Ruled header, tabular right-aligned stacks, serif names, the acting
+     seat carries the signal underline, the hero row is faintly lit,
+     and the table foots to total chips in play like a ledger.
+     ============================================================ */
+  .ledger{ border-top:1px solid var(--edge); }
+  .lg-head, .lg-row{
+    display:grid;
+    grid-template-columns:56px minmax(110px,1.5fr) 108px 1fr 1.1fr;
+    align-items:center; column-gap:var(--s4);
+  }
+  .lg-head{
+    padding:var(--s2) var(--s3);
+    border-bottom:1px solid var(--rule);
+  }
+  .lg-head .r, .lg-row .r{ text-align:right; }
+
+  .lg-row{
+    position:relative;
+    padding:var(--s3);
+    border-bottom:1px solid var(--rule-soft);
+  }
+  .lg-row .pos{ color:var(--bone-3); }
+  .lg-row .pname{
+    font-family:var(--serif); font-weight:400; font-size:18px; line-height:22px;
+    color:var(--bone-2); position:relative; display:inline-block;
+    letter-spacing:-0.01em;
+  }
+  .lg-row.acting .pname, .lg-row.hero .pname{ color:var(--bone); }
+  /* to-act underline — the anchor's idiom, carried under the acting name */
+  .lg-row .toact{
+    position:absolute; left:0; right:0; bottom:-5px; height:2px;
+    background:var(--signal); transform:scaleX(0); transform-origin:left;
+  }
+  .lg-row.acting .toact{ transform:scaleX(1); }
+
+  /* hero row is faintly lit — the reader's own line in the standings */
+  .lg-row.hero{
+    background:linear-gradient(90deg, rgba(244,241,234,0.05), rgba(244,241,234,0) 72%);
+  }
+
+  .lg-row .hand-cell{ display:flex; gap:5px; align-items:center; }
+  .lg-row .stack{ color:var(--bone-2); }
+  .lg-row.acting .stack, .lg-row.hero .stack{ color:var(--bone); }
+  .lg-row .action{ color:var(--bone-3); }
+  .lg-row .action.signal{ color:var(--signal); }
+
+  /* ledger foot — totals chips in play, like a financial standings table */
+  .lg-foot{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:var(--s3);
+    border-top:1px solid var(--edge);
+  }
+  .lg-foot .data{ font-size:15px; color:var(--bone); }
+
+  /* BAND 2 — board of record */
+  .board-band{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:var(--s7) 0 var(--s6);
+  }
+  .pot{ text-align:center; margin-bottom:var(--s5); }
+  .pot .caption{ display:block; margin-bottom:var(--s1); color:var(--bone-2); }
+  .board{
+    position:relative;
+    display:flex; gap:var(--s3); align-items:flex-end;
+    padding-bottom:var(--s4);
+  }
+  .board::after{
+    content:""; position:absolute; left:-24px; right:-24px; bottom:0;
+    height:1px; background:var(--rule);
+  }
+  .board-caption{ margin-top:var(--s4); }
+
+  /* BAND 3 — hero */
+  .hero-band{ }
+  .hero-cards{ display:flex; gap:var(--s3); justify-content:center; margin-bottom:var(--s4); }
+  .byline{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:var(--s3) 0;
+    border-top:1px solid var(--rule);
+  }
+  .byline .toggles{ display:flex; gap:var(--s4); }
+  .byline .toggles button{
+    background:none; border:none; cursor:pointer;
+    font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--bone-3);
+  }
+  .byline .toggles button:hover{ color:var(--bone-2); }
+  .win{ text-align:right; display:flex; flex-direction:column; align-items:flex-end; }
+  .win .caption{ color:var(--bone-2); margin-bottom:2px; }
+  .win .figure{ line-height:52px; }
+
+  .controls{
+    display:flex; align-items:stretch;
+    border:1px solid var(--edge); border-radius:var(--radius);
+    overflow:hidden; margin-top:var(--s4);
+  }
+  .controls .act{
+    position:relative; overflow:hidden;
+    flex:1; appearance:none; background:transparent; cursor:pointer;
+    border:none; border-right:1px solid var(--rule);
+    color:var(--bone); font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase;
+    min-height:44px; padding:0 var(--s4);
+  }
+  .controls .act:last-child{ border-right:none; }
+  .controls .act::before{ content:""; position:absolute; inset:0; background:var(--surface); opacity:0; z-index:-1; }
+  .controls .act::after{ content:""; position:absolute; inset:0; background:var(--raise); opacity:0; z-index:-1; }
+  .controls .act:hover::before{ opacity:1; }
+  .controls .act:active::after{ opacity:1; }
+  .controls .act:focus-visible{ outline:1px solid var(--signal); outline-offset:2px; }
+  .controls .act.suggested{ box-shadow: inset 0 0 0 1px var(--signal); }
+
+  .betsize{
+    display:flex; align-items:center; gap:var(--s4);
+    margin-top:var(--s4);
+  }
+  .betsize .caption{ color:var(--bone-3); }
+  .track{ position:relative; flex:1; height:12px; display:flex; align-items:center; }
+  .track .line{ position:absolute; left:0; right:0; height:1px; background:var(--edge); }
+  .track .fill{ position:absolute; left:0; width:38%; height:1px; background:var(--signal); }
+  .track .thumb{
+    position:absolute; left:38%; width:12px; height:12px; border-radius:50%;
+    background:var(--bone); border:1px solid var(--rule); transform:translateX(-50%);
+  }
+  .betsize .amt{ font-family:var(--serif); font-weight:300; font-size:24px; color:var(--bone); }
+
+  /* ============================================================
+     THE CARD  — fine-press object (unchanged from the anchor)
+     ============================================================ */
+  .card{
+    position:relative;
+    background:
+      radial-gradient(120% 90% at 50% 8%, rgba(244,241,234,0.045), rgba(244,241,234,0) 60%),
+      linear-gradient(180deg, #1D1A16 0%, #171512 62%, #131108 100%);
+    border:1px solid rgba(244,241,234,0.14);
+    border-radius:7px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    box-shadow:
+      0 1px 0 0 rgba(244,241,234,0.06) inset,
+      0 10px 24px -14px rgba(0,0,0,0.75),
+      0 2px 6px -4px rgba(0,0,0,0.6);
+  }
+  .card::before{
+    content:""; position:absolute; inset:5px; border-radius:4px;
+    border:1px solid rgba(244,241,234,0.05);
+    pointer-events:none;
+  }
+  .card::after{
+    content:""; position:absolute; left:8%; right:8%; top:0; height:34%;
+    background:linear-gradient(180deg, rgba(244,241,234,0.05), rgba(244,241,234,0) 100%);
+    border-radius:7px 7px 40% 40%; pointer-events:none;
+  }
+
+  .card .rank{
+    font-family:var(--serif); font-weight:400; line-height:1;
+    font-variant-numeric:lining-nums; letter-spacing:-0.02em;
+  }
+  .card .suit{ line-height:1; margin-top:3px; }
+
+  .card .index{
+    position:absolute; display:flex; flex-direction:column; align-items:center;
+    line-height:0.86;
+    font-family:var(--serif); font-weight:400; letter-spacing:0;
+    font-variant-numeric:lining-nums;
+  }
+  .card .index.tl{ top:8px; left:8px; }
+  .card .index.br{ bottom:8px; right:8px; transform:rotate(180deg); }
+  .card .index .isuit{ margin-top:1px; }
+
+  .card.red .rank, .card.red .suit, .card.red .index{ color:var(--suit-red); }
+  .card.black .rank, .card.black .suit, .card.black .index{ color:var(--bone); }
+
+  /* board card 72x100 */
+  .card.board{ width:72px; height:100px; }
+  .card.board .rank{ font-size:36px; }
+  .card.board .suit{ font-size:18px; }
+  .card.board .index{ font-size:12px; }
+  .card.board .index .isuit{ font-size:9px; }
+
+  /* hero 92x128 */
+  .card.hero{ width:92px; height:128px; }
+  .card.hero .rank{ font-size:48px; }
+  .card.hero .suit{ font-size:24px; }
+  .card.hero .index{ font-size:13px; }
+  .card.hero .index .isuit{ font-size:10px; }
+
+  /* villain face-down 44x62 */
+  .card.back{ width:44px; height:62px; }
+  .card.back::before{ inset:4px; border-radius:3px; }
+  .card.back .mark{
+    position:absolute; top:50%; left:50%;
+    width:8px; height:8px; transform:translate(-50%,-50%) rotate(45deg);
+    border:1px solid rgba(244,241,234,0.10);
+    background:rgba(244,241,234,0.02);
+  }
+
+  /* mini card 26x37 — the standings-row "hand" glyph, no corner indices */
+  .card.mini{ width:26px; height:37px; border-radius:4px; }
+  .card.mini::before{ inset:3px; border-radius:2px; }
+  .card.mini::after{ left:10%; right:10%; height:36%; border-radius:4px 4px 40% 40%; }
+  .card.mini .rank{ font-size:13px; }
+  .card.mini .suit{ font-size:8px; margin-top:1px; }
+  .card.mini.back::before{ inset:3px; }
+  .card.mini.back .mark{ width:6px; height:6px; }
+
+  /* ============================================================
+     MOTION  (only under body.motion-on; killed by reduced-motion)
+     ============================================================ */
+  @keyframes deal{
+    from{ opacity:0; transform:translateY(10px) scale(0.965); }
+    60% { opacity:1; }
+    to  { opacity:1; transform:translateY(0) scale(1); }
+  }
+  @keyframes mount{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes figin{ from{ opacity:0; transform:translateY(3px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes underline{ from{ transform:scaleX(0);} to{ transform:scaleX(1);} }
+
+  body.motion-on .deal-item{ opacity:0; }
+  body.motion-on .screen-anim{ opacity:0; }
+  body.motion-on .lg-row{ opacity:0; }
+
+  body.motion-on .screen-anim{
+    animation:mount 220ms var(--spring-settle) forwards;
+  }
+  body.motion-on .figure-anim{
+    animation:figin 180ms var(--spring-settle) both;
+  }
+
+  /* ledger rows settle top-to-bottom */
+  body.motion-on .lg-row{
+    animation:mount 260ms var(--spring-settle) forwards;
+  }
+  body.motion-on .lr1{ animation-delay:40ms; }
+  body.motion-on .lr2{ animation-delay:90ms; }
+  body.motion-on .lr3{ animation-delay:140ms; }
+  body.motion-on .lr4{ animation-delay:190ms; }
+
+  /* deal choreography: board stands up onto its rule, then the hero hand */
+  body.motion-on .deal-item{
+    animation:deal 340ms var(--spring-settle) forwards;
+  }
+  body.motion-on .bf1{ animation-delay:320ms; }
+  body.motion-on .bf2{ animation-delay:370ms; }
+  body.motion-on .bf3{ animation-delay:420ms; }
+  body.motion-on .hc1{ animation-delay:520ms; }
+  body.motion-on .hc2{ animation-delay:560ms; }
+
+  /* acting underline scales in after the ledger has settled */
+  body.motion-on .lg-row.acting .toact{
+    animation:underline 200ms var(--ease-standard) 640ms both;
+    transform:scaleX(0);
+  }
+
+  body.motion-on .ghost::before,
+  body.motion-on .list .row::before,
+  body.motion-on .controls .act::before{
+    transition:opacity 90ms var(--ease-standard);
+  }
+  body.motion-on .ghost::after,
+  body.motion-on .controls .act::after{
+    transition:opacity 90ms var(--ease-standard);
+  }
+  body.motion-on nav.top a{ transition:color 90ms var(--ease-standard); }
+
+  /* Reduced-motion / motion-off: everything instant, at rest */
+  body:not(.motion-on) .deal-item,
+  body:not(.motion-on) .screen-anim,
+  body:not(.motion-on) .lg-row,
+  body:not(.motion-on) .figure-anim{ opacity:1; transform:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    body.motion-on *{ animation:none !important; transition:none !important; }
+    body.motion-on .deal-item,
+    body.motion-on .screen-anim,
+    body.motion-on .lg-row,
+    body.motion-on .figure-anim{ opacity:1 !important; transform:none !important; }
+    body.motion-on .lg-row.acting .toact{ transform:scaleX(1) !important; }
+  }
+</style>
+</head>
+<body class="motion-on">
+
+  <div class="demobar">
+    <div class="name">Standings Ledger <em>— Monochrome Editorial</em></div>
+    <div class="controls">
+      <button class="ghost" id="replay">Replay</button>
+      <button class="ghost" id="motion">Motion: On</button>
+    </div>
+  </div>
+
+  <div class="stack" id="stack">
+
+    <!-- ===================== HOME ===================== -->
+    <section class="screen">
+      <span class="screen-tag">Home</span>
+
+      <nav class="top screen-anim">
+        <span class="brand">OFFSUIT</span>
+        <ul>
+          <li><a href="#" class="active">Play</a></li>
+          <li><a href="#">Learn</a></li>
+          <li><a href="#">Train</a></li>
+          <li><a href="#">Charts</a></li>
+          <li><a href="#">Progress</a></li>
+          <li><a href="#">Profile</a></li>
+          <li><a href="#">Settings</a></li>
+        </ul>
+      </nav>
+
+      <div class="masthead-figure screen-anim" style="margin-top:var(--s7);">
+        <span class="caption quiet">Bankroll</span>
+        <span class="figure figure-anim">10,000</span>
+        <div class="sub">Session ready · no hand in progress</div>
+      </div>
+
+      <div class="home-grid">
+        <div class="screen-anim">
+          <div class="display-m section-title">Start a hand</div>
+          <div class="list">
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">New session</span>
+                <span class="m">Cash · 100bb · single table</span>
+              </span>
+              <span class="val signal">Deal →</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">Play with friends</span>
+                <span class="m">Local relay · up to 6 seats</span>
+              </span>
+              <span class="val">Host</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">Daily puzzle</span>
+                <span class="m">Turn decision · river bluff-catch</span>
+              </span>
+              <span class="val">Open</span>
+            </a>
+          </div>
+
+          <div class="display-m section-title" style="margin-top:var(--s7);">Recent hands</div>
+          <div class="list">
+            <a class="row" href="#">
+              <span class="lead"><span class="t">AKs vs 3-bet</span><span class="m">Folded river · BTN</span></span>
+              <span class="val">−320</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Set over set</span><span class="m">Won at showdown · CO</span></span>
+              <span class="val signal">+1,140</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Missed flush draw</span><span class="m">Check-fold turn · BB</span></span>
+              <span class="val">−75</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="screen-anim">
+          <div class="display-m section-title">Session planner</div>
+          <div class="panel">
+            <span class="caption quiet">Today · 3 blocks</span>
+            <div class="list">
+              <div class="row" style="cursor:default;">
+                <span class="lead"><span class="t">Preflop RFI drill</span><span class="m">15 spots · mastery sampler</span></span>
+                <span class="val">10 min</span>
+              </div>
+              <div class="row" style="cursor:default;">
+                <span class="lead"><span class="t">Pot-odds math</span><span class="m">Break-even equity</span></span>
+                <span class="val">8 min</span>
+              </div>
+              <div class="row" style="cursor:default;">
+                <span class="lead"><span class="t">Live session</span><span class="m">Apply · 40 hands</span></span>
+                <span class="val signal">Next</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TABLE ===================== -->
+    <section class="screen table-screen">
+      <span class="screen-tag">Live table</span>
+
+      <nav class="top">
+        <span class="brand">OFFSUIT</span>
+        <ul>
+          <li><a href="#" class="active">Play</a></li>
+          <li><a href="#">Learn</a></li>
+          <li><a href="#">Train</a></li>
+          <li><a href="#">Charts</a></li>
+          <li><a href="#">Progress</a></li>
+          <li><a href="#">Profile</a></li>
+          <li><a href="#">Settings</a></li>
+        </ul>
+      </nav>
+
+      <div class="table-wrap">
+
+        <!-- running dateline / folio -->
+        <div class="dateline">
+          <span class="caption quiet">Cash game · 100bb · blinds 25 / 50</span>
+          <span class="caption quiet">Hand No. 42 · Flop</span>
+        </div>
+
+        <!-- STANDINGS LEDGER -->
+        <div class="ledger">
+          <div class="lg-head">
+            <span class="caption quiet">Seat</span>
+            <span class="caption quiet">Player</span>
+            <span class="caption quiet">Hand</span>
+            <span class="caption quiet r">Stack</span>
+            <span class="caption quiet r">Action</span>
+          </div>
+
+          <div class="lg-row lr1">
+            <span class="caption pos">SB</span>
+            <span class="pname">Ada</span>
+            <span class="hand-cell">
+              <span class="card mini back"><span class="mark"></span></span>
+              <span class="card mini back"><span class="mark"></span></span>
+            </span>
+            <span class="data stack r">4,975</span>
+            <span class="data action r">checks</span>
+          </div>
+
+          <div class="lg-row lr2">
+            <span class="caption pos">BB</span>
+            <span class="pname">Bo</span>
+            <span class="hand-cell">
+              <span class="card mini back"><span class="mark"></span></span>
+              <span class="card mini back"><span class="mark"></span></span>
+            </span>
+            <span class="data stack r">4,950</span>
+            <span class="data action r">calls 50</span>
+          </div>
+
+          <div class="lg-row lr3 acting">
+            <span class="caption pos">UTG</span>
+            <span class="pname">Cy<span class="toact"></span></span>
+            <span class="hand-cell">
+              <span class="card mini back"><span class="mark"></span></span>
+              <span class="card mini back"><span class="mark"></span></span>
+            </span>
+            <span class="data stack r">5,000</span>
+            <span class="data action r signal">to act</span>
+          </div>
+
+          <div class="lg-row lr4 hero">
+            <span class="caption pos">BTN</span>
+            <span class="pname">You</span>
+            <span class="hand-cell">
+              <span class="card mini red"><span class="rank">2</span><span class="suit">♦</span></span>
+              <span class="card mini red"><span class="rank">K</span><span class="suit">♥</span></span>
+            </span>
+            <span class="data stack r">5,000</span>
+            <span class="data action r">—</span>
+          </div>
+
+          <div class="lg-foot">
+            <span class="caption quiet">In play · 4 seats</span>
+            <span class="data">19,925</span>
+          </div>
+        </div>
+
+        <!-- BAND 2 — board of record -->
+        <div class="board-band">
+          <div class="pot">
+            <span class="caption">Pot</span>
+            <span class="figure figure-anim">75</span>
+          </div>
+          <div class="board">
+            <div class="card board black deal-item bf1">
+              <span class="index tl">Q<span class="isuit">♠</span></span>
+              <span class="rank">Q</span><span class="suit">♠</span>
+              <span class="index br">Q<span class="isuit">♠</span></span>
+            </div>
+            <div class="card board red deal-item bf2">
+              <span class="index tl">8<span class="isuit">♦</span></span>
+              <span class="rank">8</span><span class="suit">♦</span>
+              <span class="index br">8<span class="isuit">♦</span></span>
+            </div>
+            <div class="card board black deal-item bf3">
+              <span class="index tl">3<span class="isuit">♣</span></span>
+              <span class="rank">3</span><span class="suit">♣</span>
+              <span class="index br">3<span class="isuit">♣</span></span>
+            </div>
+          </div>
+          <span class="caption quiet board-caption">Flop · 3 of 5</span>
+        </div>
+
+        <!-- BAND 3 — hero hand + controls -->
+        <div class="hero-band">
+          <div class="hero-cards">
+            <div class="card hero red deal-item hc1">
+              <span class="index tl">2<span class="isuit">♦</span></span>
+              <span class="rank">2</span><span class="suit">♦</span>
+              <span class="index br">2<span class="isuit">♦</span></span>
+            </div>
+            <div class="card hero red deal-item hc2">
+              <span class="index tl">K<span class="isuit">♥</span></span>
+              <span class="rank">K</span><span class="suit">♥</span>
+              <span class="index br">K<span class="isuit">♥</span></span>
+            </div>
+          </div>
+
+          <div class="byline">
+            <div class="toggles">
+              <button type="button">Coach off</button>
+              <button type="button">Stats</button>
+            </div>
+            <div class="win">
+              <span class="caption">Win equity</span>
+              <span class="figure figure-anim">22%</span>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="act" type="button">Fold</button>
+            <button class="act suggested" type="button">Call 50</button>
+            <button class="act" type="button">Raise</button>
+          </div>
+
+          <div class="betsize">
+            <span class="caption">Raise to</span>
+            <div class="track">
+              <div class="line"></div>
+              <div class="fill"></div>
+              <div class="thumb"></div>
+            </div>
+            <span class="amt">150</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+<script>
+  // Inline JS permitted ONLY for the motion toggle and animation replay.
+  (function(){
+    var body = document.body;
+    var motionBtn = document.getElementById('motion');
+    var replayBtn = document.getElementById('replay');
+
+    motionBtn.addEventListener('click', function(){
+      var on = body.classList.toggle('motion-on');
+      motionBtn.textContent = 'Motion: ' + (on ? 'On' : 'Off');
+    });
+
+    function replay(){
+      if(!body.classList.contains('motion-on')) return;
+      var animated = document.querySelectorAll('.deal-item, .screen-anim, .figure-anim, .lg-row, .toact');
+      animated.forEach(function(el){
+        el.style.animation = 'none';
+        void el.offsetWidth; // reflow
+        el.style.animation = '';
+      });
+    }
+    replayBtn.addEventListener('click', replay);
+  })();
+</script>
+</body>
+</html>

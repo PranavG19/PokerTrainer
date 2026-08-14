@@ -1,0 +1,832 @@
+/Users/pranavgk/Documents/temp1/poke/kinetic-minimal.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OFFSUIT — Kinetic Minimal</title>
+<style>
+  /* ============================================================
+     KINETIC MINIMAL — design tokens
+     ============================================================ */
+  :root {
+    /* palette */
+    --bg-void: #08090A;
+    --surface-1: #131518;
+    --surface-2: #1C2025;
+    --line-hairline: hsla(210,10%,100%,0.06);
+    --line-strong: hsla(210,10%,100%,0.14);
+    --text-primary: #F2F4F5;
+    --text-secondary: #9BA1A8;
+    --text-tertiary: #828890;
+    --text-disabled: #3A3F45;
+    --accent-mint: #3DDC97;
+    --accent-mint-wash: hsla(154,68%,55%,0.10);
+    --kinetic-white: #FFFFFF;
+    --danger: #EF5F64;
+    --caution: #D9A441;
+    --card-face: #FAFAF7;
+    --card-back: #1C2024;
+    --suit-red: #CE2C3B;
+    --suit-ink: #16181C;
+    --chip-pot: #C9CDD2;
+
+    /* spacing scale (4px base) */
+    --space-0\.5: 2px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-24: 96px;
+    --pad: 20px;
+
+    /* motion tokens */
+    --ease-glide: cubic-bezier(0.22,1,0.36,1);
+    --ease-settle: linear(0,0.06 3%,0.24 9%,0.52 18%,0.77 28%,0.92 38%,0.99 50%,1);
+    --ease-exit: cubic-bezier(0.4,0,1,1);
+    --ease-press-release: cubic-bezier(0.34,1.4,0.64,1);
+
+    /* shadows */
+    --shadow-l1: 0 1px 2px hsla(0,0%,0%,0.4);
+    --shadow-l2: 0 4px 16px -6px hsla(0,0%,0%,0.5);
+    --shadow-popover: 0 12px 40px -10px hsla(0,0%,0%,0.6);
+    --shadow-card: 0 2px 4px hsla(0,0%,0%,0.4), 0 8px 24px -8px hsla(0,0%,0%,0.55);
+
+    --focus-ring: 0 0 0 2px var(--bg-void), 0 0 0 4px var(--kinetic-white);
+  }
+
+  @media (max-width: 999px) {
+    :root { --pad: 16px; }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+  body {
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: "Inter var", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-feature-settings: "cv05" 1, "ss01" 1;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+  }
+
+  :focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .focusable:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+  /* ============================================================
+     DEMO CHROME — direction bar + motion toggle
+     ============================================================ */
+  .demo-bar {
+    position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 clamp(20px,4vw,40px);
+    background: hsla(220,10%,4%,0.72);
+    backdrop-filter: blur(18px) saturate(1.2);
+    border-bottom: 1px solid var(--line-hairline);
+  }
+  .demo-bar .brand {
+    font-size: 12px; font-weight: 550; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .demo-bar .brand b { color: var(--text-primary); font-weight: 600; letter-spacing: 0.02em; }
+  .demo-controls { display: flex; gap: 8px; }
+  .demo-btn {
+    font: inherit; font-size: 12px; font-weight: 550; letter-spacing: 0.02em;
+    color: var(--text-secondary); background: var(--surface-1);
+    border: 1px solid var(--line-hairline); border-radius: 999px;
+    padding: 6px 14px; cursor: pointer; min-height: 30px;
+    transition: background-color 140ms var(--ease-glide), color 140ms var(--ease-glide);
+  }
+  .demo-btn:hover { background: var(--surface-2); color: var(--text-primary); }
+  .demo-btn .dot { color: var(--accent-mint); }
+  body.motion-off .demo-btn .dot { color: var(--text-tertiary); }
+
+  .stage { padding-top: 44px; }
+
+  .screen-label {
+    font-size: 12px; font-weight: 550; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 28px clamp(20px,4vw,40px) 0;
+  }
+
+  /* ============================================================
+     APP FRAME (each screen is a 1100-wide instrument window)
+     ============================================================ */
+  .window {
+    width: min(1100px, calc(100vw - 48px));
+    height: 700px;
+    margin: 14px auto 40px;
+    background: var(--bg-void);
+    border: 1px solid var(--line-hairline);
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 80px -30px hsla(0,0%,0%,0.7);
+  }
+
+  /* --- top nav (in-app) --- */
+  .nav {
+    height: 56px; display: flex; align-items: center; gap: clamp(18px,3vw,44px);
+    padding: 0 clamp(20px,4vw,40px);
+    border-bottom: 1px solid var(--line-hairline);
+    position: relative; z-index: 5;
+  }
+  .nav a {
+    font-size: 15px; color: var(--text-secondary); text-decoration: none;
+    letter-spacing: -0.005em;
+    transition: color 120ms var(--ease-glide);
+    border-radius: 6px;
+  }
+  .nav a:hover { color: var(--text-primary); }
+  .nav a.active { color: var(--text-primary); font-weight: 500; }
+
+  /* ============================================================
+     HOME SCREEN
+     ============================================================ */
+  .home {
+    display: grid; grid-template-columns: 1fr 344px; gap: clamp(24px,4vw,48px);
+    padding: 32px clamp(20px,4vw,40px);
+    height: calc(100% - 56px);
+    align-content: start;
+  }
+  .home-left { display: flex; flex-direction: column; }
+
+  .bankroll-block { margin-bottom: 40px; display: flex; align-items: flex-end; gap: 40px; }
+  .bankroll .value {
+    font-size: 56px; font-weight: 600; line-height: 1.0; letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+  .bankroll .label {
+    font-size: 12px; font-weight: 550; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-tertiary); margin-top: 4px;
+  }
+  .calibrating .h { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; color: var(--text-primary); }
+  .calibrating .sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+  .entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+  .entry-hero { grid-column: 1 / -1; }
+  .entry {
+    background: var(--surface-1); border: 1px solid var(--line-hairline);
+    border-radius: 14px; padding: var(--pad); cursor: pointer;
+    box-shadow: var(--shadow-l1);
+    transition: background-color 140ms var(--ease-glide), transform 140ms var(--ease-glide), box-shadow 140ms var(--ease-glide);
+    will-change: auto;
+  }
+  .entry:hover { background: var(--surface-2); transform: translateY(-1px); box-shadow: var(--shadow-l2); }
+  .entry:active { transform: scale(0.985); transition: transform 100ms var(--ease-glide); }
+  .entry .title { font-size: 19px; font-weight: 550; letter-spacing: -0.01em; color: var(--text-primary); }
+  .entry .desc { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+  .entry-hero .title { font-size: 24px; letter-spacing: -0.015em; font-weight: 600; }
+  .entry-hero .desc { font-size: 15px; margin-top: 8px; max-width: 46ch; }
+  .entry .meta-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+  .badge {
+    font-size: 12px; font-weight: 550; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .badge.mint { color: var(--accent-mint); }
+
+  .section-label {
+    font-size: 12px; font-weight: 550; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-tertiary); margin-bottom: 12px;
+  }
+  .recent {
+    background: var(--surface-1); border: 1px solid var(--line-hairline);
+    border-radius: 14px; padding: var(--pad); box-shadow: var(--shadow-l1);
+  }
+  .recent .h { font-size: 19px; font-weight: 550; letter-spacing: -0.01em; }
+  .recent .d { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+
+  /* --- session planner --- */
+  .planner {
+    background: var(--surface-1); border: 1px solid var(--line-hairline);
+    border-radius: 14px; padding: var(--pad); box-shadow: var(--shadow-l1);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .planner-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .planner-head .h { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; }
+  .pill-group { display: inline-flex; gap: 2px; background: transparent; }
+  .pill {
+    font: inherit; font-size: 13px; border: 0; cursor: pointer;
+    padding: 5px 12px; border-radius: 999px; background: transparent;
+    color: var(--text-secondary); min-height: 32px;
+    transition: background-color 140ms var(--ease-glide), color 140ms var(--ease-glide);
+  }
+  .pill:hover { color: var(--text-primary); }
+  .pill.sel { background: var(--surface-2); color: var(--text-primary); font-weight: 500; }
+
+  .duration-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .dur {
+    font: inherit; font-size: 13px; border: 1px solid var(--line-hairline); cursor: pointer;
+    padding: 6px 14px; border-radius: 10px; background: transparent; color: var(--text-secondary);
+    min-height: 32px;
+    transition: background-color 140ms var(--ease-glide), color 140ms var(--ease-glide), border-color 140ms var(--ease-glide);
+  }
+  .dur:hover { color: var(--text-primary); }
+  .dur.sel { background: var(--surface-2); color: var(--text-primary); border-color: var(--line-strong); font-weight: 500; }
+  .dur.ghost { color: var(--text-tertiary); font-style: italic; }
+
+  .plan-note { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5; }
+
+  .plan-list { display: flex; flex-direction: column; }
+  .plan-row {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline;
+    padding: 10px 0; border-bottom: 1px solid var(--line-hairline);
+  }
+  .plan-row:last-child { border-bottom: 0; }
+  .plan-row .name { font-size: 15px; color: var(--text-primary); }
+  .plan-row .pct { font-size: 11px; font-weight: 500; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+  .plan-row .val { font-size: 15px; font-weight: 550; color: var(--text-primary); font-variant-numeric: tabular-nums; text-align: right; min-width: 88px; }
+  .plan-row.cut .name { color: var(--caution); }
+  .plan-row.cut .val { color: var(--caution); }
+  .plan-row.zero .name, .plan-row.zero .val { color: var(--text-tertiary); }
+
+  .plan-cta {
+    margin-top: 16px; background: var(--surface-2); border: 1px solid var(--line-strong);
+    border-radius: 14px; padding: 16px 18px; cursor: pointer; text-align: left;
+    font: inherit; width: 100%; box-shadow: var(--shadow-l1);
+    transition: transform 140ms var(--ease-glide), box-shadow 140ms var(--ease-glide);
+  }
+  .plan-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow-l2); }
+  .plan-cta:active { transform: scale(0.99); transition: transform 100ms var(--ease-glide); }
+  .plan-cta .h { font-size: 19px; font-weight: 550; letter-spacing: -0.01em; color: var(--text-primary); }
+  .plan-cta .d { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ============================================================
+     PLAYING CARD (the one crafted object)
+     ============================================================ */
+  .card {
+    position: relative; border-radius: 12px;
+    aspect-ratio: 5 / 7;
+    flex: none;
+  }
+  @media (max-width: 999px) { .card { border-radius: 10px; } }
+
+  .card-face {
+    position: relative; width: 100%; height: 100%; border-radius: inherit;
+    background: var(--card-face);
+    box-shadow:
+      inset 0 1px 0 hsla(0,0%,100%,0.9),
+      inset 0 -1px 0 hsla(30,10%,0%,0.06),
+      var(--shadow-card);
+    overflow: hidden;
+  }
+  .card-index {
+    position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 0.92;
+    font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .card-index.tl { top: 7%; left: 8%; }
+  .card-index.br { bottom: 7%; right: 8%; transform: rotate(180deg); }
+  .card-index .rank { font-size: calc(var(--card-w, 52px) * 0.30); }
+  .card-index .suit { font-size: calc(var(--card-w, 52px) * 0.24); margin-top: 1px; }
+  .card-pip-center {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--card-w, 52px) * 0.48);
+    line-height: 1;
+  }
+  .red { color: var(--suit-red); }
+  .ink { color: var(--suit-ink); }
+
+  .card-back {
+    width: 100%; height: 100%; border-radius: inherit;
+    background: var(--card-back);
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+  .card-back::after {
+    content: ""; position: absolute; inset: 6px; border-radius: 8px;
+    border: 1px solid var(--line-hairline);
+    box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.05);
+  }
+  @media (max-width: 999px) { .card-back::after { inset: 5px; } }
+
+  /* contact pool — the animatable landing weight */
+  .contact-pool {
+    position: absolute; left: 50%; bottom: -8px; width: 88%; height: 12px;
+    transform: translateX(-50%) scale(1);
+    background: radial-gradient(ellipse at center, hsla(0,0%,0%,0.55), transparent 70%);
+    border-radius: 50%; opacity: 1; z-index: -1;
+    filter: blur(3px);
+  }
+
+  /* ============================================================
+     TABLE SCREEN
+     ============================================================ */
+  .table {
+    position: relative; height: calc(100% - 56px);
+    overflow: hidden;
+  }
+  /* implied table — far arc of a single faint ellipse */
+  .implied-arc {
+    position: absolute; top: 92px; left: 50%; transform: translateX(-50%);
+    width: 78%; height: 340px; border-radius: 50%;
+    border-top: 1px solid var(--line-hairline);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+    pointer-events: none;
+  }
+
+  /* seat arc */
+  .seat-arc {
+    position: absolute; top: 34px; left: 0; right: 0;
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: clamp(60px, 12vw, 150px);
+  }
+  .seat {
+    display: flex; flex-direction: column; align-items: center; position: relative;
+  }
+  .seat.drop { margin-top: 24px; }
+  @media (max-width: 999px) { .seat.drop { margin-top: 12px; } }
+  .monogram {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--surface-1); border: 1px solid var(--line-hairline);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 550; color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .seat .sname {
+    font-size: 19px; font-weight: 550; letter-spacing: -0.01em; color: var(--text-secondary);
+    margin-bottom: 8px;
+    transition: color 360ms var(--ease-glide);
+  }
+  .seat.acting .sname { color: var(--text-primary); }
+  .seat-cards { display: flex; gap: 2px; position: relative; }
+  .seat-cards .card { width: 34px; --card-w: 34px; }
+  .seat .stack {
+    font-size: 11px; font-weight: 500; color: var(--text-tertiary);
+    margin-top: 6px; font-variant-numeric: tabular-nums;
+  }
+  /* committed-bet numeral */
+  .seat .bet {
+    position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; font-weight: 550; color: var(--chip-pot); font-variant-numeric: tabular-nums;
+  }
+
+  /* whose-turn underline (single kinetic-white element) */
+  .turn-mark {
+    position: absolute; height: 2px; background: var(--kinetic-white);
+    border-radius: 2px; z-index: 4;
+  }
+
+  /* board — optical center */
+  .board-wrap {
+    position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .pot { font-size: 12px; font-weight: 550; letter-spacing: 0.04em; color: var(--chip-pot); font-variant-numeric: tabular-nums; margin-bottom: 16px; }
+  .board { display: flex; gap: 8px; }
+  .board .card { width: 46px; --card-w: 46px; }
+  @media (max-width: 999px) { .board .card { width: 40px; --card-w: 40px; } }
+
+  /* hero — bottom center, largest */
+  .hero-wrap {
+    position: absolute; left: 50%; bottom: 132px; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .hero-cards { display: flex; }
+  .hero-cards .card { width: 52px; --card-w: 52px; }
+  @media (max-width: 999px) { .hero-cards .card { width: 46px; --card-w: 46px; } }
+  .hero-cards .card:last-child { margin-left: -8px; }
+  .hero-meta { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+  .hero-meta .you { font-size: 19px; font-weight: 550; letter-spacing: -0.01em; color: var(--text-primary); }
+  .hero-meta .hstack { font-size: 11px; font-weight: 500; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+  .hero-meta .dealer {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1px solid var(--line-strong); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 550; color: var(--text-tertiary);
+  }
+
+  /* top-right quiet affordances */
+  .table-tools { position: absolute; top: 16px; right: clamp(20px,4vw,40px); display: flex; gap: 8px; z-index: 6; }
+  .tool {
+    font: inherit; font-size: 12px; font-weight: 550; letter-spacing: 0.02em;
+    color: var(--text-secondary); background: transparent; border: 1px solid var(--line-hairline);
+    border-radius: 10px; padding: 6px 12px; cursor: pointer; min-height: 32px;
+    transition: background-color 140ms var(--ease-glide), color 140ms var(--ease-glide);
+  }
+  .tool:hover { background: var(--surface-1); color: var(--text-primary); }
+  .tool .cdot { color: var(--text-tertiary); }
+  .tool.coach-on .cdot { color: var(--accent-mint); }
+
+  /* action row */
+  .action-row {
+    position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: center;
+  }
+  .act {
+    font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;
+    min-height: 44px; padding: 0 22px; border-radius: 10px;
+    background: var(--surface-1); border: 1px solid var(--line-hairline); color: var(--text-primary);
+    transition: background-color 140ms var(--ease-glide), color 140ms var(--ease-glide), transform 130ms var(--ease-press-release);
+  }
+  .act:hover { background: var(--surface-2); }
+  .act:active { transform: scale(0.98); transition: transform 100ms var(--ease-glide); }
+  .act.fold { color: var(--danger); }
+  .act.fold:hover { background: hsla(358,80%,64%,0.08); }
+  .act.callsize b { font-weight: 550; }
+  .act.raise { background: var(--surface-2); border-color: var(--line-strong); }
+
+  /* raise disclosure */
+  .raise-tray {
+    position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%) translateY(8px);
+    display: flex; gap: 10px; align-items: center; opacity: 0; pointer-events: none;
+    transition: transform 220ms var(--ease-glide), opacity 220ms var(--ease-glide);
+  }
+  .raise-tray.open { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+  .preset {
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+    min-height: 36px; padding: 0 14px; border-radius: 10px;
+    background: transparent; border: 1px solid var(--line-hairline); color: var(--text-secondary);
+    transition: background-color 140ms var(--ease-glide), color 140ms var(--ease-glide);
+  }
+  .preset:hover { background: var(--surface-1); color: var(--text-primary); }
+  .slider-well {
+    width: 180px; height: 4px; border-radius: 999px; background: var(--bg-void);
+    box-shadow: inset 0 1px 2px hsla(0,0%,0%,0.5); position: relative;
+  }
+  .slider-well .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: var(--line-strong); border-radius: 999px; }
+  .slider-well .knob {
+    position: absolute; left: 38%; top: 50%; transform: translate(-50%,-50%);
+    width: 14px; height: 14px; border-radius: 50%; background: var(--text-primary);
+    box-shadow: var(--shadow-l1);
+  }
+
+  /* equity — bottom-left gutter */
+  .equity {
+    position: absolute; left: clamp(20px,4vw,40px); bottom: 20px;
+    display: flex; flex-direction: column; align-items: flex-start;
+  }
+  .equity .elabel { font-size: 12px; font-weight: 550; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+  .equity .efig {
+    font-size: 44px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.0;
+    color: var(--accent-mint); font-variant-numeric: tabular-nums;
+  }
+  .equity .etrack {
+    margin-top: 8px; width: 132px; height: 4px; border-radius: 999px;
+    background: var(--accent-mint-wash); overflow: hidden;
+  }
+  .equity .etrack .ebar { height: 100%; width: 22%; background: var(--accent-mint); border-radius: 999px; }
+
+  /* ============================================================
+     MOTION — arrivals (transform/opacity only)
+     ============================================================ */
+  @keyframes deal {
+    from { transform: translate(var(--deal-x, 340px), var(--deal-y, -260px)) rotate(-3deg) scale(0.96); opacity: 0; }
+    to   { transform: translate(0,0) rotate(0) scale(1); opacity: 1; }
+  }
+  @keyframes poolIn { from { transform: translateX(-50%) scale(0.8); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+  @keyframes fadeUp { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes markIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  /* when animate class present, cards/marks play their arrival */
+  body:not(.motion-off) .animate .deal-card {
+    animation: deal 260ms var(--ease-settle) both;
+    animation-delay: var(--d, 0ms);
+  }
+  body:not(.motion-off) .animate .deal-card .contact-pool {
+    animation: poolIn 120ms var(--ease-settle) both;
+    animation-delay: calc(var(--d, 0ms) + 140ms);
+  }
+  body:not(.motion-off) .animate .turn-mark {
+    animation: markIn 360ms var(--ease-settle) both;
+    animation-delay: 620ms; transform-origin: center;
+  }
+  body:not(.motion-off) .animate .arrive {
+    animation: fadeUp 320ms var(--ease-glide) both;
+    animation-delay: var(--d, 0ms);
+  }
+  body:not(.motion-off) .animate.home-anim .arrive { animation: fadeUp 320ms var(--ease-glide) both; animation-delay: var(--d,0ms); }
+
+  /* screen enter for home blocks */
+  body:not(.motion-off) .home-anim .home-left > *,
+  body:not(.motion-off) .home-anim .planner {
+    animation: fadeUp 340ms var(--ease-glide) both;
+  }
+  body:not(.motion-off) .home-anim .bankroll-block { animation-delay: 20ms; }
+  body:not(.motion-off) .home-anim .entry-grid { animation-delay: 80ms; }
+  body:not(.motion-off) .home-anim .home-recent { animation-delay: 140ms; }
+  body:not(.motion-off) .home-anim .planner { animation-delay: 60ms; }
+
+  /* ============================================================
+     REDUCED MOTION / MOTION-OFF — strip travel, spring, rotate
+     ============================================================ */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.12s !important; animation-delay: 0s !important; transition-duration: 0.12s !important; }
+    .deal-card, .arrive, .home-left > *, .planner { animation: fadeIn 0.12s linear both !important; }
+    .turn-mark { animation: fadeIn 0.12s linear both !important; transform: scaleX(1) !important; }
+    .contact-pool { animation: fadeIn 0.12s linear both !important; transform: translateX(-50%) scale(1) !important; }
+  }
+  body.motion-off *,
+  body.motion-off *::before,
+  body.motion-off *::after {
+    animation: none !important; transition: none !important;
+  }
+</style>
+</head>
+<body class="motion-on">
+
+  <div class="demo-bar">
+    <div class="brand">OFFSUIT · <b>Kinetic Minimal</b></div>
+    <div class="demo-controls">
+      <button class="demo-btn" id="replay" type="button">Replay deal</button>
+      <button class="demo-btn" id="motionToggle" type="button">Motion: <span class="dot">on</span></button>
+    </div>
+  </div>
+
+  <div class="stage">
+
+    <!-- ================= HOME ================= -->
+    <div class="screen-label">1 · Home</div>
+    <section class="window">
+      <nav class="nav">
+        <a href="#" class="active">Play</a>
+        <a href="#">Learn</a>
+        <a href="#">Train</a>
+        <a href="#">Charts</a>
+        <a href="#">Progress</a>
+        <a href="#">Profile</a>
+        <a href="#">Settings</a>
+      </nav>
+
+      <div class="home home-anim" id="homeScreen">
+        <div class="home-left">
+          <div class="bankroll-block">
+            <div class="bankroll">
+              <div class="value">10,000</div>
+              <div class="label">Bankroll</div>
+            </div>
+            <div class="calibrating">
+              <div class="h">Calibrating</div>
+              <div class="sub">Run an assessment to set your standing.</div>
+            </div>
+          </div>
+
+          <div class="entry-grid">
+            <div class="entry entry-hero focusable" tabindex="0">
+              <div class="title">New session</div>
+              <div class="desc">Sit down and play a hand with the coach watching. Every surface is open from the start.</div>
+              <div class="meta-row"><span class="badge">Live table</span></div>
+            </div>
+            <div class="entry focusable" tabindex="0">
+              <div class="title">Play with friends</div>
+              <div class="desc">Host or join a table on your local network.</div>
+            </div>
+            <div class="entry focusable" tabindex="0">
+              <div class="title">Daily puzzle</div>
+              <div class="desc">One dealt spot. Read it, decide, learn.</div>
+              <div class="meta-row"><span class="badge mint">Ready</span></div>
+            </div>
+          </div>
+
+          <div class="home-recent">
+            <div class="section-label">Recent hands</div>
+            <div class="recent">
+              <div class="h">No hands yet</div>
+              <div class="d">Start a session and every hand you play shows up here.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- planner -->
+        <aside class="planner">
+          <div class="planner-head">
+            <div class="h">Plan a sitting</div>
+            <div class="pill-group">
+              <button class="pill sel" type="button">Plan</button>
+              <button class="pill" type="button">Free-roam</button>
+            </div>
+          </div>
+          <div class="duration-row">
+            <button class="dur ghost" type="button">15 min</button>
+            <button class="dur sel" type="button">30 min</button>
+            <button class="dur" type="button">50 min</button>
+          </div>
+          <div class="plan-note">27.25 min of blocks, 2.75 min unspent — a block is whole units, so the remainder buys nothing.</div>
+
+          <div class="plan-list">
+            <div class="plan-row"><span class="name">Fluency warm-up</span><span class="pct">8%</span><span class="val">4 min</span></div>
+            <div class="plan-row zero"><span class="name">Decay probes</span><span class="pct">6%</span><span class="val">0 min</span></div>
+            <div class="plan-row"><span class="name">Graded spots</span><span class="pct">48%</span><span class="val">16.25 min</span></div>
+            <div class="plan-row"><span class="name">Contrast remediation</span><span class="pct">20%</span><span class="val">5 min</span></div>
+            <div class="plan-row cut"><span class="name">Whole-task live hands</span><span class="pct">14%</span><span class="val">−4.25 min</span></div>
+            <div class="plan-row"><span class="name">Scoreboard</span><span class="pct">4%</span><span class="val">2 min</span></div>
+          </div>
+
+          <button class="plan-cta focusable" type="button">
+            <div class="h">Start 30-minute session</div>
+            <div class="d">13 graded spots · sit down at the table</div>
+          </button>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= TABLE ================= -->
+    <div class="screen-label">2 · Live table</div>
+    <section class="window">
+      <nav class="nav">
+        <a href="#" class="active">Play</a>
+        <a href="#">Learn</a>
+        <a href="#">Train</a>
+        <a href="#">Charts</a>
+        <a href="#">Progress</a>
+        <a href="#">Profile</a>
+        <a href="#">Settings</a>
+      </nav>
+
+      <div class="table animate" id="tableScreen">
+        <div class="implied-arc"></div>
+
+        <div class="table-tools">
+          <button class="tool coach-on focusable" type="button" id="coachBtn"><span class="cdot">●</span> Coach on</button>
+          <button class="tool focusable" type="button">Stats</button>
+        </div>
+
+        <!-- seats -->
+        <div class="seat-arc">
+          <!-- Ada (outer, dropped) -->
+          <div class="seat drop">
+            <div class="monogram">A</div>
+            <div class="sname">Ada</div>
+            <div class="seat-cards">
+              <div class="card deal-card" style="--d:0ms"><div class="card-back"></div></div>
+              <div class="card deal-card" style="--d:55ms"><div class="card-back"></div></div>
+            </div>
+            <div class="stack">4,975</div>
+            <div class="bet">25</div>
+          </div>
+
+          <!-- Bo (center) -->
+          <div class="seat">
+            <div class="monogram">B</div>
+            <div class="sname">Bo</div>
+            <div class="seat-cards">
+              <div class="card deal-card" style="--d:110ms"><div class="card-back"></div></div>
+              <div class="card deal-card" style="--d:165ms"><div class="card-back"></div></div>
+            </div>
+            <div class="stack">4,950</div>
+            <div class="bet">50</div>
+          </div>
+
+          <!-- Cy (outer, dropped, acting) -->
+          <div class="seat drop acting" id="cySeat">
+            <div class="monogram">C</div>
+            <div class="sname">Cy</div>
+            <div class="seat-cards" id="cyCards">
+              <div class="card deal-card" style="--d:220ms"><div class="card-back"></div></div>
+              <div class="card deal-card" style="--d:275ms"><div class="card-back"></div></div>
+              <div class="turn-mark" id="turnMark"></div>
+            </div>
+            <div class="stack">5,000</div>
+          </div>
+        </div>
+
+        <!-- board -->
+        <div class="board-wrap">
+          <div class="pot arrive" style="--d:520ms">Pot 75</div>
+          <div class="board">
+            <div class="card deal-card" style="--d:330ms">
+              <div class="card-face">
+                <div class="card-index tl ink"><span class="rank">Q</span><span class="suit">♠</span></div>
+                <div class="card-pip-center ink">♠</div>
+                <div class="card-index br ink"><span class="rank">Q</span><span class="suit">♠</span></div>
+              </div>
+              <div class="contact-pool"></div>
+            </div>
+            <div class="card deal-card" style="--d:385ms">
+              <div class="card-face">
+                <div class="card-index tl red"><span class="rank">8</span><span class="suit">♦</span></div>
+                <div class="card-pip-center red">♦</div>
+                <div class="card-index br red"><span class="rank">8</span><span class="suit">♦</span></div>
+              </div>
+              <div class="contact-pool"></div>
+            </div>
+            <div class="card deal-card" style="--d:440ms">
+              <div class="card-face">
+                <div class="card-index tl ink"><span class="rank">3</span><span class="suit">♣</span></div>
+                <div class="card-pip-center ink">♣</div>
+                <div class="card-index br ink"><span class="rank">3</span><span class="suit">♣</span></div>
+              </div>
+              <div class="contact-pool"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- hero -->
+        <div class="hero-wrap">
+          <div class="hero-cards">
+            <div class="card deal-card" style="--d:495ms">
+              <div class="card-face">
+                <div class="card-index tl red"><span class="rank">2</span><span class="suit">♦</span></div>
+                <div class="card-pip-center red">♦</div>
+                <div class="card-index br red"><span class="rank">2</span><span class="suit">♦</span></div>
+              </div>
+              <div class="contact-pool"></div>
+            </div>
+            <div class="card deal-card" style="--d:550ms">
+              <div class="card-face">
+                <div class="card-index tl red"><span class="rank">K</span><span class="suit">♥</span></div>
+                <div class="card-pip-center red">♥</div>
+                <div class="card-index br red"><span class="rank">K</span><span class="suit">♥</span></div>
+              </div>
+              <div class="contact-pool"></div>
+            </div>
+          </div>
+          <div class="hero-meta">
+            <span class="you">You</span>
+            <span class="hstack">5,000</span>
+            <span class="dealer">D</span>
+          </div>
+        </div>
+
+        <!-- action row -->
+        <div class="action-row">
+          <button class="act fold focusable" type="button">Fold</button>
+          <button class="act callsize focusable" type="button">Call <b>50</b></button>
+          <button class="act raise focusable" type="button" id="raiseBtn">Raise</button>
+        </div>
+
+        <!-- raise disclosure -->
+        <div class="raise-tray" id="raiseTray">
+          <div class="slider-well"><div class="fill"></div><div class="knob"></div></div>
+          <button class="preset" type="button">½</button>
+          <button class="preset" type="button">¾</button>
+          <button class="preset" type="button">Pot</button>
+          <button class="preset" type="button">All-in</button>
+        </div>
+
+        <!-- equity -->
+        <div class="equity">
+          <div class="elabel">Win</div>
+          <div class="efig">22%</div>
+          <div class="etrack"><div class="ebar"></div></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+<script>
+  // Motion toggle: flips a body class that disables all animation/transition.
+  const body = document.body;
+  const mBtn = document.getElementById('motionToggle');
+  const mDot = mBtn.querySelector('.dot');
+  mBtn.addEventListener('click', () => {
+    const off = body.classList.toggle('motion-off');
+    body.classList.toggle('motion-on', !off);
+    mDot.textContent = off ? 'off' : 'on';
+  });
+
+  // Position the whose-turn underline to span Cy's card-back pair, 8px below.
+  function placeTurnMark() {
+    const cards = document.getElementById('cyCards');
+    const mark = document.getElementById('turnMark');
+    if (!cards || !mark) return;
+    const backs = cards.querySelectorAll('.card');
+    if (backs.length < 2) return;
+    const first = backs[0], last = backs[backs.length - 1];
+    const left = first.offsetLeft;
+    const width = (last.offsetLeft + last.offsetWidth) - left;
+    mark.style.left = left + 'px';
+    mark.style.width = width + 'px';
+    mark.style.top = (first.offsetTop + first.offsetHeight + 8) + 'px';
+  }
+  placeTurnMark();
+  window.addEventListener('resize', placeTurnMark);
+
+  // Replay the deal: re-trigger arrival animations by toggling the animate class.
+  const replay = document.getElementById('replay');
+  const tableScreen = document.getElementById('tableScreen');
+  const homeScreen = document.getElementById('homeScreen');
+  replay.addEventListener('click', () => {
+    [tableScreen, homeScreen].forEach(el => {
+      const cls = el === tableScreen ? 'animate' : 'home-anim';
+      el.classList.remove(cls);
+      void el.offsetWidth; // force reflow so the animation restarts
+      el.classList.add(cls);
+    });
+    requestAnimationFrame(() => requestAnimationFrame(placeTurnMark));
+  });
+
+  // Raise progressive disclosure.
+  const raiseBtn = document.getElementById('raiseBtn');
+  const raiseTray = document.getElementById('raiseTray');
+  raiseBtn.addEventListener('click', () => raiseTray.classList.toggle('open'));
+
+  // Coach quiet toggle.
+  const coachBtn = document.getElementById('coachBtn');
+  coachBtn.addEventListener('click', () => {
+    const on = coachBtn.classList.toggle('coach-on');
+    coachBtn.childNodes[coachBtn.childNodes.length - 1].textContent = on ? ' Coach on' : ' Coach off';
+  });
+</script>
+</body>
+</html>
