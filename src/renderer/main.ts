@@ -21,6 +21,7 @@ import {
   recordPuzzleResult,
   serialize,
   setCoachedMode,
+  setSoundCues,
   setSpokenVerdicts,
 } from '../core/session.js';
 import type { GiftEntry } from '../core/giftLedger.js';
@@ -35,6 +36,7 @@ import {
   type Suggestion,
 } from '../core/recommend.js';
 import { computeStats } from '../core/session.js';
+import { createSoundPlayer } from './sound.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderProgressScreen } from './screens/progress.js';
@@ -182,6 +184,8 @@ async function boot(): Promise<void> {
   const io = bridge();
   const seed = (await io.getSeed()) ?? DEFAULT_SEED;
   let session: SessionState = deserialize(await io.loadState());
+  // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
+  const soundPlayer = createSoundPlayer();
 
   let tab: Tab = 'play';
   // Which mode the Train hub opens on. Set by a deep-link (the recommender's "drill" route) or a rail
@@ -506,6 +510,12 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  async function onSoundCuesChange(on: boolean): Promise<void> {
+    session = setSoundCues(session, on);
+    render();
+    await io.saveState(serialize(session));
+  }
+
   /**
    * The single gate on narration, and the reason the preference is checked HERE rather than inside
    * the table: with it off, no speak message is sent at all — not one that main declines to act on.
@@ -515,6 +525,10 @@ async function boot(): Promise<void> {
    * (no bridge, a main-process fault) is swallowed for the same reason — the verdict is on screen.
    */
   function narrate(message: string | null): void {
+    // A real verdict (non-null) is a costly mistake — the only moment onVerdict fires. Chime it if the
+    // learner asked for sound, gated HERE (not in the player) so with it off no AudioContext is ever
+    // built, mirroring the speak switch: an off toggle must not touch the audio hardware at all.
+    if (message !== null && session.soundCues) soundPlayer.play();
     if (!session.spokenVerdicts) return;
     // Cancel (null) only goes out if something might be talking, so it too stays behind the switch.
     void io.speak?.(message)?.catch(() => undefined);
@@ -794,10 +808,12 @@ async function boot(): Promise<void> {
       return renderSettings({
         status: settings,
         spokenVerdicts: session.spokenVerdicts,
+        soundCues: session.soundCues,
         handlers: {
           onSetTutorEnabled: (enabled) => void onSetTutorEnabled(enabled),
           onDeleteProfile: (confirmation) => void onDeleteProfile(confirmation),
           onSpokenVerdictsChange: (on) => void onSpokenVerdictsChange(on),
+          onSoundCuesChange: (on) => void onSoundCuesChange(on),
         },
       });
     }

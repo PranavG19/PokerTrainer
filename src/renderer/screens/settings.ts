@@ -41,6 +41,7 @@ export interface SettingsHandlers {
   onSetTutorEnabled: (enabled: boolean) => void;
   onDeleteProfile: (confirmation: string) => void;
   onSpokenVerdictsChange: (on: boolean) => void;
+  onSoundCuesChange: (on: boolean) => void;
 }
 
 /** T4's diagnostics show "the last few", not the whole history. */
@@ -71,6 +72,8 @@ export function renderSettings(opts: {
    * the one thing that report exists to state exactly.
    */
   spokenVerdicts: boolean;
+  /** Same rationale as spokenVerdicts: a learner preference with no egress, kept out of the tutor report. */
+  soundCues: boolean;
   handlers: SettingsHandlers;
 }): HTMLElement {
   const { status, handlers } = opts;
@@ -88,6 +91,7 @@ export function renderSettings(opts: {
   root.appendChild(section('What is never sent', renderNeverSent()));
   root.appendChild(renderDiagnostics(status));
   root.appendChild(renderNarration(opts.spokenVerdicts, handlers));
+  root.appendChild(renderSoundCues(opts.soundCues, handlers));
   root.appendChild(renderProfileSection(status, handlers));
 
   return root;
@@ -239,6 +243,43 @@ function renderNarration(spokenVerdicts: boolean, handlers: SettingsHandlers): H
 
   body.appendChild(wrap);
   return section('Reading verdicts aloud', body);
+}
+
+/**
+ * A sound cue on a costly verdict. Off on a fresh install and after any save that does not mention it,
+ * same as spoken verdicts and for the same reason: unrequested audio is a hostile default, and the
+ * verdict is fully on screen. It sits beside narration — both are opt-in local audio, neither is egress.
+ * The tone is synthesized in the renderer (Web Audio); nothing is played nor sent when it is off.
+ */
+function renderSoundCues(soundCues: boolean, handlers: SettingsHandlers): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'settings-block';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-switch';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'settings-toggle';
+  button.dataset.testid = 'sound-cues-toggle';
+  // Same `data-on` + bare On/Off contract as the narration switch (voice.spec's idiom), so an e2e can
+  // read the state the same way; the aria-label names what it controls without touching the label text.
+  button.dataset.on = String(soundCues);
+  button.textContent = soundCues ? 'On' : 'Off';
+  button.setAttribute('aria-label', `Play a sound on a mistake: ${soundCues ? 'on' : 'off'}`);
+  button.addEventListener('click', () => handlers.onSoundCuesChange(!soundCues));
+  wrap.appendChild(button);
+
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.dataset.testid = 'sound-cues-note';
+  note.textContent = soundCues
+    ? 'On. A short tone plays on this machine when a decision costs chips — nothing is sent anywhere. The verdict still shows on screen.'
+    : 'Off. Verdicts are shown, never chimed.';
+  wrap.appendChild(note);
+
+  body.appendChild(wrap);
+  return section('A sound on a mistake', body);
 }
 
 /** 1 of 6, second half — the exact allowlist, read from main, never restated. */
