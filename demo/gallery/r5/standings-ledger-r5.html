@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OFFSUIT — Standings Ledger · Table as Data Page</title>
+<style>
+  :root{
+    --page:#0B0A09;
+    --surface:#171512;
+    --raise:#201D19;
+    --bone:#F4F1EA;
+    --bone-2:#B9B4AA;
+    --bone-3:#9A9386;
+    --rule:rgba(244,241,234,0.10);
+    --rule-soft:rgba(244,241,234,0.06);
+    --edge:rgba(244,241,234,0.20);
+    --signal:#4FA986;
+    --suit-red:#C85E44;
+
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+    --s6:32px; --s7:48px; --s8:64px; --s9:96px; --s10:128px;
+
+    --radius:8px;
+
+    --serif:'Signifier','GT Sectra','Newsreader',Georgia,serif;
+    --grot:'Söhne','Neue Haas Grotesk Display','Inter',system-ui,-apple-system,sans-serif;
+
+    --spring-settle:linear(0, 0.05, 0.17, 0.34, 0.53, 0.69, 0.81, 0.89, 0.94, 0.97, 0.986, 0.995, 1);
+    --ease-standard:cubic-bezier(0.2,0,0,1);
+    --ease-in:cubic-bezier(0.4,0,1,1);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--page);
+    color:var(--bone-2);
+    font-family:var(--grot);
+    font-size:15px;
+    line-height:24px;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    font-feature-settings:'tnum' 1,'lnum' 1;
+  }
+
+  /* ===== Demo top bar ===== */
+  .demobar{
+    position:fixed; top:0; left:0; right:0; height:44px; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 var(--s6);
+    background:rgba(11,10,9,0.86);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--rule);
+  }
+  .demobar .name{
+    font-family:var(--serif); font-weight:400; font-size:16px; color:var(--bone);
+    letter-spacing:-0.01em;
+  }
+  .demobar .name em{font-style:normal; color:var(--bone-3);}
+  .demobar .controls{display:flex; gap:var(--s2); align-items:center;}
+
+  .ghost{
+    position:relative; overflow:hidden;
+    appearance:none; background:transparent; cursor:pointer;
+    border:1px solid var(--edge); border-radius:var(--radius);
+    color:var(--bone);
+    font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase;
+    min-height:32px; padding:0 var(--s3);
+    display:inline-flex; align-items:center; justify-content:center; gap:var(--s2);
+  }
+  .ghost::before{
+    content:""; position:absolute; inset:0; background:var(--surface);
+    opacity:0; z-index:-1;
+  }
+  .ghost:focus-visible{ outline:1px solid var(--signal); outline-offset:2px; }
+  body.motion-on .ghost::before{ transition:opacity 90ms var(--ease-standard); }
+  .ghost:hover::before{ opacity:1; }
+
+  /* ===== Page scaffold ===== */
+  .stack{ padding-top:44px; }
+  .screen{
+    position:relative;
+    max-width:1100px; margin:0 auto;
+    padding:var(--s7) var(--s6) var(--s9);
+    border-bottom:1px solid var(--rule);
+  }
+  .screen-tag{
+    position:absolute; top:var(--s4); right:var(--s6);
+    font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--bone-3);
+  }
+
+  /* ===== Product shell (nav) ===== */
+  header.shell{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    align-items:center;
+    column-gap:var(--s6);
+    padding-bottom:var(--s3);
+    border-bottom:1px solid var(--rule);
+  }
+  .shell-brand{ display:flex; flex-direction:column; gap:2px; }
+  .shell-brand .brand{
+    font-family:var(--serif); font-size:20px; line-height:20px; color:var(--bone);
+    letter-spacing:0.02em;
+  }
+  .shell-brand .edition{
+    font-size:10px; line-height:12px; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--bone-3);
+  }
+
+  nav.top{ display:flex; align-items:center; gap:var(--s4); justify-self:start; }
+  nav.top ul{ list-style:none; margin:0; padding:0; display:flex; gap:var(--s5); }
+  nav.top .nav-utility{ gap:var(--s4); }
+  .nav-sep{ width:1px; height:13px; background:var(--rule); }
+  nav.top a{
+    position:relative;
+    font-size:12px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--bone-3); text-decoration:none;
+  }
+  nav.top .nav-utility a{ font-size:11px; }
+  nav.top a:hover{ color:var(--bone-2); }
+  nav.top a.active{ color:var(--bone); }
+  nav.top a::after{
+    content:""; position:absolute; left:0; right:0; bottom:-6px; height:2px;
+    background:var(--bone); transform:scaleX(0); transform-origin:left;
+  }
+  nav.top a:hover::after{ transform:scaleX(1); background:var(--edge); }
+  nav.top a.active::after{ transform:scaleX(1); background:var(--bone); }
+
+  .account{ display:flex; align-items:center; gap:var(--s3); justify-self:end; }
+  .account .acct-label{ display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
+  .account .acct-label .who{ color:var(--bone); font-size:13px; line-height:14px; }
+  .avatar{
+    width:30px; height:30px; border-radius:50%;
+    border:1px solid var(--edge); color:var(--bone);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--grot); font-size:11px; font-weight:500; letter-spacing:0.04em;
+  }
+
+  .runhead{
+    display:flex; align-items:baseline; justify-content:space-between; gap:var(--s4);
+    padding-top:var(--s4);
+  }
+  .runhead .page{
+    font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--bone);
+  }
+  .runhead .context{ font-size:13px; line-height:18px; color:var(--bone-3); }
+
+  /* ===== Shared type roles ===== */
+  .caption{
+    font-family:var(--grot); font-size:12px; line-height:16px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--bone-2);
+  }
+  .caption.quiet{ color:var(--bone-3); }
+  .figure{
+    font-family:var(--serif); font-weight:300; font-size:52px; line-height:56px;
+    letter-spacing:-0.01em; color:var(--bone);
+    font-feature-settings:'tnum' 1,'lnum' 1;
+  }
+  .display-m{
+    font-family:var(--serif); font-weight:400; font-size:30px; line-height:36px;
+    letter-spacing:-0.01em; color:var(--bone);
+  }
+  .title{
+    font-family:var(--grot); font-weight:500; font-size:20px; line-height:28px;
+    color:var(--bone);
+  }
+  .body{ font-size:15px; line-height:24px; color:var(--bone-2); }
+  .data{
+    font-family:var(--grot); font-size:14px; line-height:20px; font-weight:500;
+    color:var(--bone-2); font-feature-settings:'tnum' 1,'lnum' 1;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ============================================================
+     HOME  (unchanged from the anchor)
+     ============================================================ */
+  .home-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:var(--s7);
+    margin-top:var(--s7);
+  }
+  @media (max-width:960px){ .home-grid{ grid-template-columns:1fr; gap:var(--s7);} }
+
+  .masthead-figure .caption{ margin-bottom:var(--s2); }
+  .masthead-figure .figure{ display:block; }
+  .masthead-figure .sub{ margin-top:var(--s2); color:var(--bone-3); font-size:13px; }
+
+  .section-title{ margin-bottom:var(--s4); }
+
+  .list .row{
+    position:relative; overflow:hidden;
+    display:flex; align-items:baseline; justify-content:space-between; gap:var(--s4);
+    padding:var(--s3) 0;
+    border-top:1px solid var(--rule);
+    cursor:pointer; text-decoration:none;
+  }
+  .list .row:last-child{ border-bottom:1px solid var(--rule); }
+  .list .row::before{
+    content:""; position:absolute; inset:0 calc(-1 * var(--s3));
+    background:var(--surface); opacity:0; z-index:-1;
+    border-radius:var(--radius);
+  }
+  .list .row:hover::before{ opacity:1; }
+  .list .row .lead{ display:flex; flex-direction:column; gap:2px; }
+  .list .row .lead .t{ color:var(--bone); font-size:15px; }
+  .list .row .lead .m{ color:var(--bone-3); font-size:13px; line-height:18px; }
+  .list .row .val{ color:var(--bone-2); }
+  .list .row .val.signal{ color:var(--signal); }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:var(--s5);
+  }
+  .panel .caption{ margin-bottom:var(--s4); }
+
+  /* ============================================================
+     TABLE — as a typeset standings ledger
+     ============================================================ */
+  .table-screen{ min-height:640px; }
+  .table-wrap{
+    display:flex; flex-direction:column;
+    min-height:560px;
+    margin-top:var(--s5);
+  }
+  .eyebrow{ display:block; margin-bottom:var(--s3); }
+
+  /* one shared column grid — field entries AND the hero "your line" ride the
+     same axis so the whole surface reads as one standings sheet, split only by
+     the board (the centre spread). */
+  .ledger{
+    display:grid;
+    grid-template-columns: 132px minmax(150px,1fr) 120px 96px 150px;
+    column-gap:var(--s5);
+    align-items:center;
+  }
+  .ledger .num{ justify-self:end; text-align:right; }
+  .ledger .who{ justify-self:start; }
+
+  /* header — small-caps column captions on a ruled foot */
+  .ledger-head{
+    padding-bottom:var(--s2);
+    border-bottom:1px solid var(--rule);
+  }
+  .ledger-head .col{
+    font-family:var(--grot); font-size:11px; font-weight:500;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--bone-3);
+  }
+
+  /* villain entries */
+  .field .lrow{
+    position:relative;
+    padding:var(--s3) 0;
+    border-bottom:1px solid var(--rule);
+  }
+  .lrow .seatcards{ display:flex; gap:var(--s1); }
+  .lrow .who{ display:flex; flex-direction:column; gap:1px; }
+  .lrow .who .nm{ color:var(--bone-2); font-size:15px; line-height:18px; }
+  .lrow .who .ps{ font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--bone-3); }
+  .lrow .stack{ color:var(--bone-2); }
+  .lrow .inpot{ color:var(--bone-3); }
+  .lrow .action{ font-size:13px; letter-spacing:0.02em; color:var(--bone-3); }
+  .lrow.acting .who .nm{ color:var(--bone); }
+  .lrow.acting .who .ps{ color:var(--bone-2); }
+  .lrow.acting .action{ color:var(--signal); }
+  /* jade tick at the left trim marks the seat to act */
+  .lrow .tick{
+    position:absolute; left:calc(-1 * var(--s4)); top:var(--s3); bottom:var(--s3);
+    width:2px; background:var(--signal); transform:scaleY(0); transform-origin:center;
+  }
+  .lrow.acting .tick{ transform:scaleY(1); }
+
+  /* BOARD — the centre spread */
+  .board-band{
+    flex:1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:var(--s8) 0;
+  }
+  .pot{ text-align:center; margin-bottom:var(--s6); }
+  .pot .caption{ display:block; margin-bottom:var(--s1); color:var(--bone-2); }
+  .board{
+    position:relative;
+    display:flex; gap:var(--s3); align-items:flex-end;
+    padding-bottom:var(--s4);
+  }
+  .board::after{
+    content:""; position:absolute; left:-24px; right:-24px; bottom:0;
+    height:1px; background:var(--rule);
+  }
+
+  /* YOUR LINE — the emphasized final entry of the ledger */
+  .your-block{ }
+  .your-line{
+    position:relative;
+    padding:var(--s4) 0;
+    border-top:1px solid var(--edge);
+    border-bottom:1px solid var(--edge);
+  }
+  .your-line::before{
+    content:""; position:absolute; inset:0 calc(-1 * var(--s4));
+    background:var(--surface); opacity:0.55; z-index:-1; border-radius:var(--radius);
+  }
+  .your-line .holecards{ display:flex; gap:var(--s2); }
+  .your-line .who .nm{ color:var(--bone); font-size:17px; line-height:20px; }
+  .your-line .hcell{
+    justify-self:end; display:flex; flex-direction:column; align-items:flex-end; gap:2px;
+  }
+  .your-line .hcell .mc{
+    font-family:var(--grot); font-size:10px; font-weight:500;
+    letter-spacing:0.12em; text-transform:uppercase; color:var(--bone-3);
+  }
+  .your-line .hcell .data{ color:var(--bone); font-size:16px; }
+  .your-line .win{ justify-self:end; text-align:right; display:flex; flex-direction:column; align-items:flex-end; }
+  .your-line .win .caption{ color:var(--bone-2); margin-bottom:2px; }
+  .your-line .win .figure{ font-size:44px; line-height:44px; }
+
+  /* controls */
+  .controls{
+    display:flex; align-items:stretch;
+    border:1px solid var(--edge); border-radius:var(--radius);
+    overflow:hidden; margin-top:var(--s5);
+  }
+  .controls .act{
+    position:relative; overflow:hidden;
+    flex:1; appearance:none; background:transparent; cursor:pointer;
+    border:none; border-right:1px solid var(--rule);
+    color:var(--bone); font-family:var(--grot); font-size:12px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase;
+    min-height:44px; padding:0 var(--s4);
+  }
+  .controls .act:last-child{ border-right:none; }
+  .controls .act::before{ content:""; position:absolute; inset:0; background:var(--surface); opacity:0; z-index:-1; }
+  .controls .act::after{ content:""; position:absolute; inset:0; background:var(--raise); opacity:0; z-index:-1; }
+  .controls .act:hover::before{ opacity:1; }
+  .controls .act:active::after{ opacity:1; }
+  .controls .act:focus-visible{ outline:1px solid var(--signal); outline-offset:2px; }
+  .controls .act.suggested{ box-shadow: inset 0 0 0 1px var(--signal); }
+
+  .betsize{
+    display:flex; align-items:center; gap:var(--s4);
+    margin-top:var(--s4);
+  }
+  .betsize .caption{ color:var(--bone-3); }
+  .track{ position:relative; flex:1; height:12px; display:flex; align-items:center; }
+  .track .line{ position:absolute; left:0; right:0; height:1px; background:var(--edge); }
+  .track .fill{ position:absolute; left:0; width:38%; height:1px; background:var(--signal); }
+  .track .thumb{
+    position:absolute; left:38%; width:12px; height:12px; border-radius:50%;
+    background:var(--bone); border:1px solid var(--rule); transform:translateX(-50%);
+  }
+  .betsize .amt{ font-family:var(--serif); font-weight:300; font-size:24px; color:var(--bone); }
+
+  /* ============================================================
+     THE CARD — fine-press object (verbatim from the anchor)
+     ============================================================ */
+  .card{
+    position:relative;
+    background:
+      repeating-linear-gradient(180deg, rgba(244,241,234,0.019) 0 1px, rgba(244,241,234,0) 1px 3px),
+      radial-gradient(118% 80% at 50% 27%, rgba(244,241,234,0.062), rgba(244,241,234,0) 60%),
+      linear-gradient(100deg, rgba(0,0,0,0.12), rgba(0,0,0,0) 20% 80%, rgba(0,0,0,0.14)),
+      linear-gradient(180deg, #211D18 0%, #17140F 58%, #0F0C06 100%);
+    border:1px solid rgba(244,241,234,0.17);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    box-shadow:
+      0 1px 0 0 rgba(244,241,234,0.085) inset,
+      0 -1px 0 0 rgba(0,0,0,0.55) inset,
+      0 14px 30px -18px rgba(0,0,0,0.85),
+      0 2px 6px -4px rgba(0,0,0,0.62);
+  }
+  .card::before{
+    content:""; position:absolute; inset:7%; border-radius:5px;
+    border:1px solid rgba(244,241,234,0.06);
+    box-shadow:
+      0 1px 0 0 rgba(0,0,0,0.4) inset,
+      0 -1px 0 0 rgba(244,241,234,0.03) inset;
+    pointer-events:none;
+  }
+  .card::after{
+    content:""; position:absolute; left:6%; right:6%; top:0; height:40%;
+    background:
+      radial-gradient(120% 140% at 16% 0%, rgba(244,241,234,0.08), rgba(244,241,234,0) 60%),
+      radial-gradient(120% 140% at 84% 0%, rgba(244,241,234,0.055), rgba(244,241,234,0) 60%);
+    border-radius:8px 8px 46% 46%; pointer-events:none;
+  }
+
+  .card .rank{
+    font-family:var(--serif); font-weight:400; line-height:1;
+    font-variant-numeric:lining-nums; letter-spacing:-0.025em;
+    background-clip:text; -webkit-background-clip:text;
+    color:transparent; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0.5px 0 rgba(0,0,0,0.28));
+  }
+  .card .suit{
+    line-height:1; margin-top:0.1em;
+    background-clip:text; -webkit-background-clip:text;
+    color:transparent; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0.5px 0 rgba(0,0,0,0.28));
+  }
+  .card.red .rank, .card.red .suit{
+    background-image:linear-gradient(180deg, #D46C51 0%, #C2543A 60%, #A8442E 100%);
+  }
+  .card.black .rank, .card.black .suit{
+    background-image:linear-gradient(180deg, #F7F4ED 0%, #E5E0D6 58%, #CBC5B8 100%);
+  }
+
+  .card .index{
+    position:absolute; display:flex; flex-direction:column; align-items:center;
+    line-height:0.76;
+    font-family:var(--serif); font-weight:400; letter-spacing:-0.015em;
+    font-variant-numeric:lining-nums tabular-nums;
+  }
+  .card .index .isuit{ margin-top:0.16em; opacity:0.95; }
+  .card .index.tl{ top:8%; left:9%; }
+  .card .index.br{ bottom:8%; right:9%; transform:rotate(180deg); }
+  .card.red .index{ color:#C2563C; }
+  .card.black .index{ color:var(--bone); }
+
+  /* board card 72x101 */
+  .card.board{ width:72px; height:101px; border-radius:6px; }
+  .card.board::before{ border-radius:4px; }
+  .card.board .rank{ font-size:37px; }
+  .card.board .suit{ font-size:17px; }
+  .card.board .index{ font-size:12px; }
+  .card.board .index .isuit{ font-size:9px; }
+
+  /* hero hole card 60x84 — sized to seat inside the ledger row */
+  .card.hole{ width:60px; height:84px; border-radius:5px; }
+  .card.hole::before{ border-radius:3px; }
+  .card.hole .rank{ font-size:33px; }
+  .card.hole .suit{ font-size:16px; }
+  .card.hole .index{ font-size:10px; }
+  .card.hole .index .isuit{ font-size:8px; }
+
+  /* villain face-down back, mini 26x36 — a glyph in the lead column */
+  .card.back{ }
+  .card.back .mark{
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%) rotate(45deg);
+    border:1px solid rgba(244,241,234,0.12);
+    background:rgba(244,241,234,0.028);
+  }
+  .card.mini{ width:26px; height:36px; border-radius:3px; }
+  .card.mini::before{ inset:8%; border-radius:2px; }
+  .card.mini::after{ display:none; }
+  .card.mini .mark{
+    width:6px; height:6px;
+    box-shadow:0 0 0 2px rgba(244,241,234,0.02), 0 1px 0 0 rgba(0,0,0,0.3) inset;
+  }
+
+  /* ============================================================
+     MOTION
+     ============================================================ */
+  @keyframes deal{
+    from{ opacity:0; transform:translateY(12px) scale(0.955) rotate(-1.2deg); }
+    55% { opacity:1; }
+    82% { transform:translateY(-1px) scale(1.004) rotate(0.15deg); }
+    to  { opacity:1; transform:translateY(0) scale(1) rotate(0deg); }
+  }
+  @keyframes mount{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes figin{ from{ opacity:0; transform:translateY(3px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes tickin{ from{ transform:scaleY(0);} to{ transform:scaleY(1);} }
+
+  body.motion-on .deal-item{ opacity:0; }
+  body.motion-on .screen-anim{ opacity:0; }
+
+  body.motion-on .screen-anim{ animation:mount 220ms var(--spring-settle) forwards; }
+  body.motion-on .figure-anim{ animation:figin 180ms var(--spring-settle) both; }
+
+  body.motion-on .deal-item{ animation:deal 340ms var(--spring-settle) forwards; }
+  /* villain backs first */
+  body.motion-on .db1{ animation-delay:20ms; }
+  body.motion-on .db2{ animation-delay:60ms; }
+  body.motion-on .db3{ animation-delay:100ms; }
+  body.motion-on .db4{ animation-delay:120ms; }
+  body.motion-on .db5{ animation-delay:160ms; }
+  body.motion-on .db6{ animation-delay:200ms; }
+  /* board flop */
+  body.motion-on .bf1{ animation-delay:300ms; }
+  body.motion-on .bf2{ animation-delay:350ms; }
+  body.motion-on .bf3{ animation-delay:400ms; }
+  /* hero last */
+  body.motion-on .hc1{ animation-delay:480ms; }
+  body.motion-on .hc2{ animation-delay:520ms; }
+
+  body.motion-on .lrow.acting .tick{
+    animation:tickin 220ms var(--ease-standard) 640ms both; transform:scaleY(0);
+  }
+
+  body.motion-on .list .row::before,
+  body.motion-on .controls .act::before{ transition:opacity 90ms var(--ease-standard); }
+  body.motion-on .controls .act::after{ transition:opacity 90ms var(--ease-standard); }
+  body.motion-on nav.top a{ transition:color 90ms var(--ease-standard); }
+  body.motion-on nav.top a::after{ transition:transform 160ms var(--ease-standard), background 90ms var(--ease-standard); }
+  body.motion-on .avatar{ transition:border-color 120ms var(--ease-standard); }
+
+  body:not(.motion-on) .deal-item,
+  body:not(.motion-on) .screen-anim,
+  body:not(.motion-on) .figure-anim{ opacity:1; transform:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    body.motion-on *{ animation:none !important; transition:none !important; }
+    body.motion-on .deal-item,
+    body.motion-on .screen-anim,
+    body.motion-on .figure-anim{ opacity:1 !important; transform:none !important; }
+    body.motion-on .lrow.acting .tick{ transform:scaleY(1) !important; }
+  }
+</style>
+</head>
+<body class="motion-on">
+
+  <div class="demobar">
+    <div class="name">Standings Ledger <em>— Table as Data Page</em></div>
+    <div class="controls">
+      <button class="ghost" id="replay">Replay</button>
+      <button class="ghost" id="motion">Motion: On</button>
+    </div>
+  </div>
+
+  <div class="stack" id="stack">
+
+    <!-- ===================== HOME ===================== -->
+    <section class="screen">
+      <span class="screen-tag">Home</span>
+
+      <header class="shell screen-anim">
+        <div class="shell-brand">
+          <span class="brand">OFFSUIT</span>
+          <span class="edition">Poker Trainer · No-Limit Hold'em</span>
+        </div>
+        <nav class="top">
+          <ul>
+            <li><a href="#" class="active">Play</a></li>
+            <li><a href="#">Learn</a></li>
+            <li><a href="#">Train</a></li>
+            <li><a href="#">Charts</a></li>
+            <li><a href="#">Progress</a></li>
+          </ul>
+          <span class="nav-sep"></span>
+          <ul class="nav-utility">
+            <li><a href="#">Profile</a></li>
+            <li><a href="#">Settings</a></li>
+          </ul>
+        </nav>
+        <div class="account">
+          <div class="acct-label">
+            <span class="who">You</span>
+            <span class="caption quiet" style="font-size:10px;letter-spacing:0.1em;">Bankroll 10,000</span>
+          </div>
+          <span class="avatar">YO</span>
+        </div>
+      </header>
+
+      <div class="runhead screen-anim">
+        <span class="page">Play</span>
+        <span class="context">Session ready · no hand in progress</span>
+      </div>
+
+      <div class="masthead-figure screen-anim" style="margin-top:var(--s6);">
+        <span class="caption quiet">Bankroll</span>
+        <span class="figure figure-anim">10,000</span>
+        <div class="sub">+1,140 today · 3 hands played · 62% decisions optimal</div>
+      </div>
+
+      <div class="home-grid">
+        <div class="screen-anim">
+          <div class="display-m section-title">Start a hand</div>
+          <div class="list">
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">New session</span>
+                <span class="m">Cash · 100bb · single table</span>
+              </span>
+              <span class="val signal">Deal →</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">Play with friends</span>
+                <span class="m">Local relay · up to 6 seats</span>
+              </span>
+              <span class="val">Host</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead">
+                <span class="t">Daily puzzle</span>
+                <span class="m">Turn decision · river bluff-catch</span>
+              </span>
+              <span class="val">Open</span>
+            </a>
+          </div>
+
+          <div class="display-m section-title" style="margin-top:var(--s7);">Recent hands</div>
+          <div class="list">
+            <a class="row" href="#">
+              <span class="lead"><span class="t">AKs vs 3-bet</span><span class="m">Folded river · BTN</span></span>
+              <span class="val">−320</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Set over set</span><span class="m">Won at showdown · CO</span></span>
+              <span class="val signal">+1,140</span>
+            </a>
+            <a class="row" href="#">
+              <span class="lead"><span class="t">Missed flush draw</span><span class="m">Check-fold turn · BB</span></span>
+              <span class="val">−75</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="screen-anim">
+          <div class="display-m section-title">Session planner</div>
+          <div class="panel">
+            <span class="caption quiet">Today · 3 blocks</span>
+            <div class="list">
+              <div class="row" style="cursor:default;">
+                <span class="lead"><span class="t">Preflop RFI drill</span><span class="m">15 spots · mastery sampler</span></span>
+                <span class="val">10 min</span>
+              </div>
+              <div class="row" style="cursor:default;">
+                <span class="lead"><span class="t">Pot-odds math</span><span class="m">Break-even equity</span></span>
+                <span class="val">8 min</span>
+              </div>
+              <div class="row" style="cursor:default;">
+                <span class="lead"><span class="t">Live session</span><span class="m">Apply · 40 hands</span></span>
+                <span class="val signal">Next</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TABLE ===================== -->
+    <section class="screen table-screen">
+      <span class="screen-tag">Live table</span>
+
+      <header class="shell">
+        <div class="shell-brand">
+          <span class="brand">OFFSUIT</span>
+          <span class="edition">Poker Trainer · No-Limit Hold'em</span>
+        </div>
+        <nav class="top">
+          <ul>
+            <li><a href="#" class="active">Play</a></li>
+            <li><a href="#">Learn</a></li>
+            <li><a href="#">Train</a></li>
+            <li><a href="#">Charts</a></li>
+            <li><a href="#">Progress</a></li>
+          </ul>
+          <span class="nav-sep"></span>
+          <ul class="nav-utility">
+            <li><a href="#">Profile</a></li>
+            <li><a href="#">Settings</a></li>
+          </ul>
+        </nav>
+        <div class="account">
+          <div class="acct-label">
+            <span class="who">You</span>
+            <span class="caption quiet" style="font-size:10px;letter-spacing:0.1em;">Stack 5,000</span>
+          </div>
+          <span class="avatar">YO</span>
+        </div>
+      </header>
+
+      <div class="runhead">
+        <span class="page">Play · Live table</span>
+        <span class="context">Cash · 100bb · Hand 4 · Flop · Cy to act</span>
+      </div>
+
+      <div class="table-wrap">
+
+        <!-- FIELD — the standings ledger -->
+        <div class="field-block">
+          <span class="caption quiet eyebrow">The field</span>
+
+          <div class="ledger ledger-head">
+            <span class="col"></span>
+            <span class="col">Seat</span>
+            <span class="col num">Stack</span>
+            <span class="col num">In pot</span>
+            <span class="col num">Last action</span>
+          </div>
+
+          <div class="field">
+            <div class="ledger lrow">
+              <span class="seatcards">
+                <span class="card back mini deal-item db1"><span class="mark"></span></span>
+                <span class="card back mini deal-item db2"><span class="mark"></span></span>
+              </span>
+              <span class="who"><span class="nm">Ada</span><span class="ps">SB</span></span>
+              <span class="data num stack">4,975</span>
+              <span class="data num inpot">—</span>
+              <span class="num action">Checks</span>
+            </div>
+
+            <div class="ledger lrow">
+              <span class="seatcards">
+                <span class="card back mini deal-item db3"><span class="mark"></span></span>
+                <span class="card back mini deal-item db4"><span class="mark"></span></span>
+              </span>
+              <span class="who"><span class="nm">Bo</span><span class="ps">BB</span></span>
+              <span class="data num stack">4,950</span>
+              <span class="data num inpot">50</span>
+              <span class="num action">Bets 50</span>
+            </div>
+
+            <div class="ledger lrow acting">
+              <span class="tick"></span>
+              <span class="seatcards">
+                <span class="card back mini deal-item db5"><span class="mark"></span></span>
+                <span class="card back mini deal-item db6"><span class="mark"></span></span>
+              </span>
+              <span class="who"><span class="nm">Cy</span><span class="ps">CO</span></span>
+              <span class="data num stack">5,000</span>
+              <span class="data num inpot">—</span>
+              <span class="num action">To act</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOARD — the centre spread -->
+        <div class="board-band">
+          <div class="pot">
+            <span class="caption">Pot</span>
+            <span class="figure figure-anim">75</span>
+          </div>
+          <div class="board">
+            <div class="card board black deal-item bf1">
+              <span class="index tl">Q<span class="isuit">♠</span></span>
+              <span class="rank">Q</span><span class="suit">♠</span>
+              <span class="index br">Q<span class="isuit">♠</span></span>
+            </div>
+            <div class="card board red deal-item bf2">
+              <span class="index tl">8<span class="isuit">♦</span></span>
+              <span class="rank">8</span><span class="suit">♦</span>
+              <span class="index br">8<span class="isuit">♦</span></span>
+            </div>
+            <div class="card board black deal-item bf3">
+              <span class="index tl">3<span class="isuit">♣</span></span>
+              <span class="rank">3</span><span class="suit">♣</span>
+              <span class="index br">3<span class="isuit">♣</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- YOUR LINE — the emphasized final entry -->
+        <div class="your-block">
+          <span class="caption quiet eyebrow">Your line</span>
+          <div class="ledger your-line">
+            <span class="holecards">
+              <span class="card hole red deal-item hc1">
+                <span class="index tl">2<span class="isuit">♦</span></span>
+                <span class="rank">2</span><span class="suit">♦</span>
+                <span class="index br">2<span class="isuit">♦</span></span>
+              </span>
+              <span class="card hole red deal-item hc2">
+                <span class="index tl">K<span class="isuit">♥</span></span>
+                <span class="rank">K</span><span class="suit">♥</span>
+                <span class="index br">K<span class="isuit">♥</span></span>
+              </span>
+            </span>
+            <span class="who"><span class="nm">You</span><span class="ps">BTN · Dealer</span></span>
+            <span class="hcell"><span class="mc">Stack</span><span class="data">5,000</span></span>
+            <span class="hcell"><span class="mc">To call</span><span class="data">50</span></span>
+            <span class="win"><span class="caption">Win</span><span class="figure figure-anim">22%</span></span>
+          </div>
+
+          <div class="controls">
+            <button class="act" type="button">Fold</button>
+            <button class="act suggested" type="button">Call 50</button>
+            <button class="act" type="button">Raise</button>
+          </div>
+
+          <div class="betsize">
+            <span class="caption">Raise to</span>
+            <div class="track">
+              <div class="line"></div>
+              <div class="fill"></div>
+              <div class="thumb"></div>
+            </div>
+            <span class="amt">150</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+<script>
+  (function(){
+    var body = document.body;
+    var motionBtn = document.getElementById('motion');
+    var replayBtn = document.getElementById('replay');
+
+    motionBtn.addEventListener('click', function(){
+      var on = body.classList.toggle('motion-on');
+      motionBtn.textContent = 'Motion: ' + (on ? 'On' : 'Off');
+    });
+
+    function replay(){
+      if(!body.classList.contains('motion-on')) return;
+      var animated = document.querySelectorAll('.deal-item, .screen-anim, .figure-anim, .tick');
+      animated.forEach(function(el){
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+      });
+    }
+    replayBtn.addEventListener('click', replay);
+  })();
+</script>
+</body>
+</html>
