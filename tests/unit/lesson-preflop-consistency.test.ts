@@ -40,6 +40,11 @@ const ANSWER_KEY: Record<string, Record<string, Check>> = {
     'kqo-defend': { rule: 'defence', spot: 'bb-vs-btn', expect: 'call' },
     '72o-fold': { rule: 'defence', spot: 'bb-vs-btn', expect: 'fold' },
   },
+  'blind-vs-blind-defence': {
+    'k2o-defend': { rule: 'defence', spot: 'bb-vs-sb', expect: 'call' },
+    'j7o-defend': { rule: 'defence', spot: 'bb-vs-sb', expect: 'call' },
+    '72o-fold': { rule: 'defence', spot: 'bb-vs-sb', expect: 'fold' },
+  },
   'opener-seat-sets-defence-width': {
     'kto-vs-utg-fold': { rule: 'defence', spot: 'bb-vs-utg', expect: 'fold' },
     'kto-vs-btn-call': { rule: 'defence', spot: 'bb-vs-btn', expect: 'call' },
@@ -98,7 +103,8 @@ describe('preflop lessons stay consistent with the RFI/defence rules', () => {
       (l) =>
         l.phase === 1 &&
         ['position-sets-your-range', 'small-blind-raise-or-fold', 'defend-the-big-blind',
-          'opener-seat-sets-defence-width', 'three-bet-or-flat-the-defence', 'facing-a-3bet'].includes(l.id),
+          'blind-vs-blind-defence', 'opener-seat-sets-defence-width', 'three-bet-or-flat-the-defence',
+          'facing-a-3bet'].includes(l.id),
     ).map((l) => l.id);
     for (const id of preflopRuleLessonIds) {
       expect(RULE_LESSONS.has(id), `${id} has a consistency answer key`).toBe(true);

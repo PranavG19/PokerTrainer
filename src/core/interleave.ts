@@ -147,6 +147,7 @@ export const MODULES: readonly ContentModule[] = [
     contentIds: [
       'sb-squeeze',
       'defend-the-big-blind',
+      'blind-vs-blind-defence',
       'opener-seat-sets-defence-width',
       'three-bet-or-flat-the-defence',
       'facing-a-3bet',
