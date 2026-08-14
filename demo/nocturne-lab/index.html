@@ -1,0 +1,2202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OFFSUIT — Nocturne Lab (configurable)</title>
+<style>
+  /* =========================================================================
+     NOCTURNE LAB — one fully-realized design, every part switchable.
+     The <html> element carries data-theme / data-card / data-anim / data-table
+     / data-font / data-accent. All styling keys off those, so the configurator
+     just flips attributes — mix any combination live. Anchor = the nocturne
+     spatial instrument the user loved (graphite + champagne, corner-deal cards).
+     ========================================================================= */
+
+  :root{
+    /* neutrals shared by every theme; themes override the accent + stage temp */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+    --radius:10px; --radius-lg:14px;
+
+    --spring:linear(0, 0.05, 0.17, 0.34, 0.53, 0.69, 0.81, 0.89, 0.94, 0.97, 0.986, 0.995, 1);
+    --ease:cubic-bezier(0.2,0,0,1);
+    --ease-out:cubic-bezier(0.16,1,0.3,1);
+
+    /* motion timings (a font/size axis can override the feel) */
+    --deal-dur:520ms;
+  }
+
+  /* ============================ THEMES ============================ */
+  /* graphite + champagne — THE ANCHOR */
+  html[data-theme="graphite"]{
+    --page:#0A0B0D; --surface:#111318; --surface-2:#161A20; --raise:#1C2128;
+    --ink:#EAEDF1; --ink-2:#9AA2AC; --ink-3:#636A74;
+    --rule:rgba(234,237,241,0.08); --rule-soft:rgba(234,237,241,0.045); --edge:rgba(234,237,241,0.16);
+    --suit-red:#E4635A; --glow:rgba(234,237,241,0.07);
+    --card-a:#20242B; --card-b:#171A20; --card-top:rgba(234,237,241,0.14);
+  }
+  /* obsidian — deeper, near-pure black, higher contrast */
+  html[data-theme="obsidian"]{
+    --page:#050506; --surface:#0C0D10; --surface-2:#121317; --raise:#181A1F;
+    --ink:#F2F4F7; --ink-2:#98A0AA; --ink-3:#565C66;
+    --rule:rgba(242,244,247,0.07); --rule-soft:rgba(242,244,247,0.04); --edge:rgba(242,244,247,0.15);
+    --suit-red:#EA6A60; --glow:rgba(242,244,247,0.06);
+    --card-a:#191B20; --card-b:#0D0E12; --card-top:rgba(242,244,247,0.12);
+  }
+  /* platinum — cool, slightly lifted greys, silvery */
+  html[data-theme="platinum"]{
+    --page:#0E1013; --surface:#161A1F; --surface-2:#1C2128; --raise:#232932;
+    --ink:#EEF2F6; --ink-2:#A6AEB8; --ink-3:#6B7480;
+    --rule:rgba(238,242,246,0.09); --rule-soft:rgba(238,242,246,0.05); --edge:rgba(238,242,246,0.18);
+    --suit-red:#E06B72; --glow:rgba(238,242,246,0.08);
+    --card-a:#242A32; --card-b:#191D23; --card-top:rgba(238,242,246,0.16);
+  }
+  /* umber — warm cousin: charcoal-brown stage, ivory ink */
+  html[data-theme="umber"]{
+    --page:#0C0A08; --surface:#14110D; --surface-2:#1A1611; --raise:#221C15;
+    --ink:#F3EEE6; --ink-2:#ADA598; --ink-3:#726A5C;
+    --rule:rgba(243,238,230,0.08); --rule-soft:rgba(243,238,230,0.045); --edge:rgba(243,238,230,0.16);
+    --suit-red:#D9695A; --glow:rgba(243,238,230,0.06);
+    --card-a:#221C15; --card-b:#17120C; --card-top:rgba(243,238,230,0.14);
+  }
+
+  
+  /* ---- wave 4 themes ---- */
+  html[data-theme="ink-blue-night"]{
+  --page:#090B14; --surface:#0F1320; --surface-2:#151A2A; --raise:#1C2338;
+  --ink:#EBEEF6; --ink-2:#98A2B8; --ink-3:#616B84;
+  --rule:rgba(235,238,246,0.08); --rule-soft:rgba(235,238,246,0.045); --edge:rgba(235,238,246,0.16);
+  --suit-red:#E76A63; --glow:rgba(150,178,235,0.07);
+  --card-a:#1F2638; --card-b:#141926; --card-top:rgba(235,238,246,0.15);
+}
+  html[data-theme="bordeaux-noir"]{
+  --page:#0C0709; --surface:#160B0F; --surface-2:#1D0F14; --raise:#25131A;
+  --ink:#F4EBE7; --ink-2:#B2A29E; --ink-3:#77655F;
+  --rule:rgba(244,235,231,0.08); --rule-soft:rgba(244,235,231,0.045); --edge:rgba(244,235,231,0.16);
+  --suit-red:#E36A5C; --glow:rgba(244,235,231,0.06);
+  --card-a:#26141B; --card-b:#190D12; --card-top:rgba(244,235,231,0.14);
+}
+  html[data-theme="forest-ink"]{
+    --page:#070A08; --surface:#0D120F; --surface-2:#121915; --raise:#19211C;
+    --ink:#E9EDE8; --ink-2:#98A39B; --ink-3:#5E6862;
+    --rule:rgba(233,237,232,0.08); --rule-soft:rgba(233,237,232,0.045); --edge:rgba(233,237,232,0.16);
+    --suit-red:#E0655C; --glow:rgba(210,232,214,0.06);
+    --card-a:#1D251F; --card-b:#141B17; --card-top:rgba(233,237,232,0.14);
+  }
+  html[data-theme="porcelain-dusk"]{
+    --page:#08070C; --surface:#0E0C15; --surface-2:#14111F; --raise:#1B1629;
+    --ink:#EEF0F6; --ink-2:#A3A7B6; --ink-3:#686D7E;
+    --rule:rgba(238,240,246,0.08); --rule-soft:rgba(238,240,246,0.045); --edge:rgba(238,240,246,0.16);
+    --suit-red:#E56A74; --glow:rgba(198,192,236,0.06);
+    --card-a:#1C1729; --card-b:#100D18; --card-top:rgba(238,240,246,0.14);
+  }
+
+  /* ============================ ACCENTS ============================ */
+  /* the single precious "signal" ink. Default per theme = champagne, switchable. */
+  html{ --signal:#D9B676; --signal-dim:rgba(217,182,118,0.16); --signal-strong:rgba(217,182,118,0.4); }
+  html[data-accent="champagne"]{ --signal:#D9B676; --signal-dim:rgba(217,182,118,0.16); --signal-strong:rgba(217,182,118,0.42); }
+  html[data-accent="jade"]{ --signal:#5BC79A; --signal-dim:rgba(91,199,154,0.16); --signal-strong:rgba(91,199,154,0.42); }
+  html[data-accent="ice"]{ --signal:#7FB6E6; --signal-dim:rgba(127,182,230,0.16); --signal-strong:rgba(127,182,230,0.42); }
+  html[data-accent="coral"]{ --signal:#E88A6B; --signal-dim:rgba(232,138,107,0.16); --signal-strong:rgba(232,138,107,0.42); }
+  html[data-accent="violet"]{ --signal:#B69BE6; --signal-dim:rgba(182,155,230,0.16); --signal-strong:rgba(182,155,230,0.42); }
+
+  /* ============================ FONTS ============================ */
+  html{
+    --sans:'Inter','SF Pro Display',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:'SF Mono','JetBrains Mono',ui-monospace,'Roboto Mono','Menlo',monospace;
+    --figure-family:var(--mono);
+    --base-size:15px;
+  }
+  html[data-font="grotesk"]{
+    --sans:'Space Grotesk','Inter',system-ui,sans-serif;
+    --figure-family:'Space Grotesk','Inter',sans-serif;
+  }
+  html[data-font="serif-fig"]{
+    /* keep the sans body, but figures become a display serif — an editorial hybrid */
+    --figure-family:'Newsreader','GT Sectra','Signifier',Georgia,serif;
+  }
+  html[data-font="mono-all"]{
+    --sans:var(--mono);
+    --figure-family:var(--mono);
+  }
+  html[data-size="cozy"]{ --base-size:14px; }
+  html[data-size="comfortable"]{ --base-size:15px; }
+  html[data-size="spacious"]{ --base-size:16px; }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--page);
+    color:var(--ink-2);
+    font-family:var(--sans);
+    font-size:var(--base-size);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    transition:background 300ms var(--ease), color 300ms var(--ease);
+  }
+
+  /* ============================ CONFIGURATOR PANEL ============================ */
+  .lab{
+    position:fixed; top:0; right:0; bottom:0; width:300px; z-index:200;
+    background:color-mix(in srgb, var(--page) 88%, transparent);
+    backdrop-filter:blur(14px);
+    border-left:1px solid var(--rule);
+    padding:var(--s5) var(--s5) var(--s8);
+    overflow-y:auto;
+    transition:transform 300ms var(--ease-out);
+  }
+  .lab.collapsed{ transform:translateX(calc(100% - 46px)); }
+  .lab-handle{
+    position:absolute; top:var(--s4); left:0; transform:translateX(-100%);
+    background:color-mix(in srgb, var(--page) 88%, transparent);
+    border:1px solid var(--rule); border-right:none;
+    border-radius:8px 0 0 8px; padding:var(--s3) var(--s2);
+    color:var(--ink); cursor:pointer; writing-mode:vertical-rl; text-orientation:mixed;
+    font-family:var(--mono); font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+  }
+  .lab h1{
+    font-family:var(--mono); font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--ink); font-weight:600; margin:0 0 var(--s2);
+  }
+  .lab .sub{ font-size:11px; color:var(--ink-3); margin:0 0 var(--s5); line-height:1.5; }
+  .lab .group{ margin-bottom:var(--s5); }
+  .lab .group > .label{
+    font-family:var(--mono); font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--ink-3); display:block; margin-bottom:var(--s2);
+  }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    appearance:none; cursor:pointer;
+    background:var(--surface); border:1px solid var(--rule); border-radius:7px;
+    color:var(--ink-2); font-family:var(--sans); font-size:11.5px; font-weight:500;
+    padding:6px 10px; transition:all 120ms var(--ease);
+  }
+  .chip:hover{ border-color:var(--edge); color:var(--ink); }
+  .chip[aria-pressed="true"]{
+    background:var(--signal-dim); border-color:var(--signal-strong); color:var(--signal);
+  }
+  .chip.swatch{ padding:6px; width:26px; height:26px; border-radius:50%; position:relative; }
+  .chip.swatch .dot{ position:absolute; inset:5px; border-radius:50%; }
+  .chip.swatch[aria-pressed="true"]{ box-shadow:0 0 0 2px var(--page), 0 0 0 3px var(--signal); }
+  .lab .row-actions{ display:flex; gap:var(--s2); margin-top:var(--s6); }
+  .lab .btn{
+    flex:1; appearance:none; cursor:pointer; text-align:center;
+    background:var(--surface); border:1px solid var(--edge); border-radius:8px;
+    color:var(--ink); font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    padding:9px; transition:all 120ms var(--ease);
+  }
+  .lab .btn:hover{ background:var(--surface-2); }
+  .lab .btn.primary{ background:var(--signal-dim); border-color:var(--signal-strong); color:var(--signal); }
+  .lab .current{
+    margin-top:var(--s5); padding-top:var(--s4); border-top:1px solid var(--rule);
+    font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:0.04em; line-height:1.7;
+    word-break:break-word;
+  }
+  @media (max-width:1100px){ .lab{ width:270px; } }
+
+  /* ============================ APP SHELL ============================ */
+  .app{ margin-right:300px; transition:margin 300ms var(--ease-out); }
+  .app.full{ margin-right:0; }
+  .stack{}
+  .screen{
+    position:relative;
+    max-width:1000px; margin:0 auto;
+    padding:var(--s7) var(--s6) var(--s9);
+    border-bottom:1px solid var(--rule);
+  }
+  .screen-tag{
+    position:absolute; top:var(--s4); right:var(--s6);
+    font-family:var(--mono); font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-3);
+  }
+
+  nav.top{
+    display:flex; align-items:center; justify-content:space-between;
+    padding-bottom:var(--s5); border-bottom:1px solid var(--rule);
+  }
+  nav.top .brand{
+    font-size:16px; color:var(--ink); font-weight:700; letter-spacing:0.18em;
+    display:flex; align-items:center; gap:var(--s2);
+  }
+  nav.top .brand .dot{ width:6px; height:6px; border-radius:50%; background:var(--signal); box-shadow:0 0 10px 1px var(--signal-dim); }
+  nav.top ul{ list-style:none; margin:0; padding:0; display:flex; gap:var(--s5); }
+  nav.top a{ font-size:12px; letter-spacing:0.04em; color:var(--ink-3); text-decoration:none; transition:color 120ms var(--ease); }
+  nav.top a.active{ color:var(--ink); }
+  nav.top a:hover{ color:var(--ink-2); }
+
+  .caption{ font-family:var(--mono); font-size:11px; line-height:1.4; font-weight:500; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); }
+  .figure{ font-family:var(--figure-family); font-weight:500; font-size:56px; line-height:1; letter-spacing:-0.03em; color:var(--ink); font-variant-numeric:tabular-nums; }
+
+  /* ---- HOME ---- */
+  .home-top{ display:flex; align-items:flex-end; justify-content:space-between; margin-top:var(--s7); gap:var(--s6); }
+  .bankroll .caption{ display:block; margin-bottom:var(--s3); }
+  .bankroll .figure{ display:block; }
+  .bankroll .delta{ font-family:var(--mono); font-size:12px; color:var(--signal); letter-spacing:0.02em; margin-top:var(--s3); display:inline-block; }
+  .bankroll .delta .muted{ color:var(--ink-3); }
+  .spark{ width:220px; height:64px; opacity:0.9; }
+  .spark path.line{ fill:none; stroke:var(--ink-3); stroke-width:1.5; }
+  .spark path.head{ fill:none; stroke:var(--signal); stroke-width:1.5; }
+  .spark circle{ fill:var(--signal); }
+
+  .cards-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s4); margin-top:var(--s7); }
+  .tile{
+    position:relative; overflow:hidden;
+    background:linear-gradient(180deg,var(--surface-2),var(--surface));
+    border:1px solid var(--rule); border-radius:var(--radius-lg);
+    padding:var(--s5); min-height:150px;
+    display:flex; flex-direction:column; justify-content:space-between;
+    cursor:pointer; text-decoration:none;
+    transition:border-color 160ms var(--ease), transform 160ms var(--spring);
+  }
+  .tile::after{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(120% 80% at 80% 0%, var(--signal-dim), transparent 60%); opacity:0; transition:opacity 200ms var(--ease); }
+  .tile:hover{ border-color:var(--edge); transform:translateY(-3px); }
+  .tile:hover::after{ opacity:1; }
+  .tile.primary{ border-color:var(--signal-strong); }
+  .tile .glyph{ font-size:20px; color:var(--ink-3); line-height:1; }
+  .tile.primary .glyph{ color:var(--signal); }
+  .tile .t{ color:var(--ink); font-size:16px; font-weight:600; }
+  .tile .m{ color:var(--ink-3); font-size:13px; margin-top:2px; }
+  .tile .go{ font-family:var(--mono); font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-3); }
+  .tile.primary .go{ color:var(--signal); }
+
+  /* Home lower: recent hands + session planner (restored from the nocturne anchor) */
+  .home-lower{ display:grid; grid-template-columns:1.1fr 1fr; gap:var(--s7); margin-top:var(--s8); }
+  @media (max-width:820px){ .home-lower{ grid-template-columns:1fr; gap:var(--s7);} }
+  .section-title{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:var(--s4); padding-bottom:var(--s3); border-bottom:1px solid var(--rule); }
+  .section-title .caption{ color:var(--ink-2); }
+  .section-title .sub{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.06em; }
+  .row{ position:relative; overflow:hidden; display:flex; align-items:center; justify-content:space-between; gap:var(--s4); padding:var(--s3); border-radius:8px; text-decoration:none; }
+  .row::before{ content:""; position:absolute; inset:0; background:var(--surface-2); opacity:0; z-index:-1; transition:opacity 120ms var(--ease); }
+  a.row:hover::before{ opacity:1; }
+  .row .lead{ display:flex; flex-direction:column; gap:1px; }
+  .row .lead .t{ color:var(--ink); font-size:14px; }
+  .row .lead .m{ color:var(--ink-3); font-size:12px; }
+  .row .val{ font-family:var(--mono); font-size:13px; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .row .val.up{ color:var(--signal); }
+  .row .val.down{ color:var(--ink-3); }
+  .timeline{ position:relative; margin-left:6px; }
+  .step{ position:relative; padding:var(--s3) 0 var(--s3) var(--s5); border-left:1px solid var(--rule); }
+  .step:last-child{ border-left-color:transparent; }
+  .step .node{ position:absolute; left:-5px; top:18px; width:9px; height:9px; border-radius:50%; background:var(--surface); border:1px solid var(--ink-3); }
+  .step.next .node{ background:var(--signal); border-color:var(--signal); box-shadow:0 0 10px 1px var(--signal-dim); }
+  .step .head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); }
+  .step .t{ color:var(--ink); font-size:14px; }
+  .step .dur{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.04em; }
+  .step .dur.next{ color:var(--signal); }
+  .step .m{ color:var(--ink-3); font-size:12px; margin-top:2px; }
+
+  /* ---- LEARN / lesson screen ---- */
+  .learn{ display:grid; grid-template-columns:260px 1fr; gap:var(--s7); margin-top:var(--s6); }
+  @media (max-width:820px){ .learn{ grid-template-columns:1fr; } }
+  .lesson-list .phase{ margin-bottom:var(--s5); }
+  .lesson-list .phase-label{ font-family:var(--mono); font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin-bottom:var(--s3); }
+  .lesson-list .li{
+    display:flex; align-items:center; gap:var(--s3); padding:var(--s3); border-radius:8px;
+    text-decoration:none; color:var(--ink-2); position:relative; transition:background 120ms var(--ease);
+  }
+  .lesson-list .li:hover{ background:var(--surface-2); }
+  .lesson-list .li.active{ background:var(--surface-2); color:var(--ink); }
+  .lesson-list .li.active::before{ content:""; position:absolute; left:0; top:8px; bottom:8px; width:2px; background:var(--signal); border-radius:2px; }
+  .lesson-list .li .n{ font-family:var(--mono); font-size:11px; color:var(--ink-3); width:18px; }
+  .lesson-list .li .t{ font-size:13px; }
+  .lesson-list .li.done .n{ color:var(--signal); }
+
+  .lesson-main .caption{ display:block; margin-bottom:var(--s3); }
+  .lesson-main .title{ font-size:26px; color:var(--ink); font-weight:600; letter-spacing:-0.02em; margin-bottom:var(--s4); }
+  .mechanism{
+    border-left:2px solid var(--signal); padding:var(--s3) var(--s4); background:var(--surface);
+    border-radius:0 8px 8px 0; color:var(--ink-2); font-size:14px; line-height:1.6; margin-bottom:var(--s6);
+  }
+  .example{ background:linear-gradient(180deg,var(--surface-2),var(--surface)); border:1px solid var(--rule); border-radius:var(--radius-lg); padding:var(--s6); }
+  .example .spot{ display:flex; align-items:center; gap:var(--s5); justify-content:center; margin-bottom:var(--s5); }
+  .example .seat-note{ text-align:center; }
+  .example .seat-note .caption{ display:block; margin-bottom:6px; }
+  .example .seat-note .tag{ font-family:var(--mono); font-size:11px; color:var(--ink); border:1px solid var(--edge); border-radius:6px; padding:3px 8px; letter-spacing:0.08em; }
+  .example .prompt{ text-align:center; color:var(--ink); font-size:16px; line-height:1.6; max-width:52ch; margin:0 auto var(--s5); }
+  .example .commit{ display:flex; gap:var(--s3); justify-content:center; }
+  .example .commit .act{ appearance:none; cursor:pointer; background:var(--surface); border:1px solid var(--edge); border-radius:8px; color:var(--ink); font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; min-height:40px; padding:0 var(--s5); transition:background 120ms var(--ease); }
+  .example .commit .act:hover{ background:var(--surface-2); }
+  .example .commit .act.suggested{ background:var(--signal-dim); color:var(--signal); box-shadow:inset 0 0 0 1px var(--signal-strong); }
+  .example .reveal{ margin-top:var(--s5); padding-top:var(--s5); border-top:1px solid var(--rule); color:var(--ink-2); font-size:14px; line-height:1.7; }
+  .example .reveal .caption{ display:block; margin-bottom:var(--s2); color:var(--signal); }
+
+  
+  /* ---- wave 3 seat treatments ---- */
+/* MONOGRAM-DISC — a small circular identity disc crowning each seat.
+   The disc is a pseudo-element (no DOM change); the initial is set per
+   identity class because CSS can't extract a name's first letter. */
+
+html[data-seatstyle="monogram-disc"] .seat::before {
+  order: -1;                 /* crown the pod, above the card backs + name */
+  content: "";               /* per-seat initials supplied below */
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--ink-2);
+  margin-bottom: 2px;
+  transition:
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+
+/* First initial of each seat's name, in --mono inside the disc. */
+html[data-seatstyle="monogram-disc"] .seat.s-ada::before { content: "A"; }
+html[data-seatstyle="monogram-disc"] .seat.s-bo::before  { content: "B"; }
+html[data-seatstyle="monogram-disc"] .seat.s-cy::before  { content: "C"; }
+
+/* Acting seat: the --signal ring lands on the disc itself, with a soft
+   halo and a brightened initial. */
+html[data-seatstyle="monogram-disc"] .seat.acting::before {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal-dim);
+  color: var(--signal-strong);
+}
+
+/* The disc is now the sole to-act indicator — retire the large default
+   ring so the accent stays a single clean mark. */
+html[data-seatstyle="monogram-disc"] .seat .ring,
+html[data-seatstyle="monogram-disc"] .seat.acting .ring {
+  opacity: 0;
+}
+/* FRAMED-PLATE — name/stack/action tiled into one subtle framed nameplate.
+   The three text lines are separate flex siblings, so the seat gap is zeroed
+   and they tile edge-to-edge into a single seam-free panel (no wrapper needed). */
+html[data-seatstyle="framed-plate"] .seat{ gap:0; }
+html[data-seatstyle="framed-plate"] .seat .backs{ margin-bottom:var(--s3); }
+
+/* shared plate body: continuous fill + side rules across all three lines */
+html[data-seatstyle="framed-plate"] .seat .name,
+html[data-seatstyle="framed-plate"] .seat .stk,
+html[data-seatstyle="framed-plate"] .seat .act{
+  box-sizing:border-box;
+  width:106px;
+  text-align:center;
+  background:var(--surface);
+  border-left:1px solid var(--rule);
+  border-right:1px solid var(--rule);
+  padding-left:var(--s3);
+  padding-right:var(--s3);
+  transition:background 220ms var(--ease), border-color 220ms var(--ease), box-shadow 220ms var(--ease);
+}
+
+/* top of plate: cap border, radius, soft inset highlight */
+html[data-seatstyle="framed-plate"] .seat .name{
+  border-top:1px solid var(--rule);
+  border-top-left-radius:8px;
+  border-top-right-radius:8px;
+  padding-top:var(--s3);
+  padding-bottom:var(--s1);
+  box-shadow:inset 0 1px 0 var(--edge);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--ink-2);
+}
+
+/* middle of plate: just the fill + side rules, tight rhythm */
+html[data-seatstyle="framed-plate"] .seat .stk{
+  padding-top:2px;
+  padding-bottom:2px;
+}
+
+/* base of plate: cap border, radius, grounded */
+html[data-seatstyle="framed-plate"] .seat .act{
+  border-bottom:1px solid var(--rule);
+  border-bottom-left-radius:8px;
+  border-bottom-right-radius:8px;
+  padding-top:var(--s1);
+  padding-bottom:var(--s2);
+  height:auto;          /* original fixed 12px would clip the padded plate base */
+  min-height:14px;
+}
+
+/* acting seat: faint signal wash across the whole plate + signal border */
+html[data-seatstyle="framed-plate"] .seat.acting .name,
+html[data-seatstyle="framed-plate"] .seat.acting .stk,
+html[data-seatstyle="framed-plate"] .seat.acting .act{
+  background:var(--signal-dim);
+  border-color:var(--signal-strong);
+}
+html[data-seatstyle="framed-plate"] .seat.acting .name{
+  box-shadow:inset 0 1px 0 var(--signal-strong);
+  color:var(--ink);
+}
+html[data-seatstyle="framed-plate"] .seat.acting .act{
+  color:var(--signal);
+}
+html[data-seatstyle="dealer-chip-bar"] .seat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--rule-soft);
+  border-radius: 14px;
+}
+
+/* To-act ring: hidden unless the seat is acting, then a hairline --signal outline. */
+html[data-seatstyle="dealer-chip-bar"] .seat .ring {
+  display: none;
+}
+html[data-seatstyle="dealer-chip-bar"] .seat.acting {
+  border-color: var(--signal-dim);
+}
+html[data-seatstyle="dealer-chip-bar"] .seat.acting .ring {
+  display: block;
+  position: absolute;
+  inset: -1px;
+  border-radius: 15px;
+  border: 1px solid var(--signal);
+  pointer-events: none;
+}
+
+/* Card backs: compact, framed. */
+html[data-seatstyle="dealer-chip-bar"] .seat .backs {
+  display: flex;
+  gap: 3px;
+}
+html[data-seatstyle="dealer-chip-bar"] .seat .card.back {
+  width: 20px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--edge);
+}
+
+/* Name. */
+html[data-seatstyle="dealer-chip-bar"] .seat .name {
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
+/* Stack-as-bar: mono figure over a thin track; fill length = --stack-fill, --signal cap. */
+html[data-seatstyle="dealer-chip-bar"] .seat .stk {
+  position: relative;
+  width: 74px;
+  padding-bottom: 9px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: left;
+  color: var(--ink-2);
+}
+html[data-seatstyle="dealer-chip-bar"] .seat .stk::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--rule-soft);
+}
+html[data-seatstyle="dealer-chip-bar"] .seat .stk::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--stack-fill, 62%);
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--ink-3) calc(100% - 3px), var(--signal) 0);
+}
+
+/* Action text: quiet caps; brightens to --signal only when this seat is acting. */
+html[data-seatstyle="dealer-chip-bar"] .seat .act {
+  font-family: var(--sans);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+html[data-seatstyle="dealer-chip-bar"] .seat.acting .act {
+  color: var(--signal);
+}
+
+/* Dealer button: a --signal-dim chip with a --signal "D" in --mono, floating at one seat. */
+html[data-seatstyle="dealer-chip-bar"] .seat.s-ada::after {
+  content: "D";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--signal-dim);
+  color: var(--signal);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid var(--page);
+}
+html[data-seatstyle="status-dot"] .seat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+/* Hairline rule separating the name (identity) from the stack (chips). */
+html[data-seatstyle="status-dot"] .seat .name {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+
+html[data-seatstyle="status-dot"] .seat .stk {
+  margin-top: 3px;
+  font-family: var(--figure-family, var(--mono));
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Action becomes an instrument readout: mono, uppercased, tracked out. */
+html[data-seatstyle="status-dot"] .seat .act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-2);
+}
+
+/* The status dot: prepended indicator light, idle = dim ink. */
+html[data-seatstyle="status-dot"] .seat .act::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition: background var(--motion-fast, 160ms) var(--ease-out);
+}
+
+/* Acting seat: dot goes live on the accent and pulses; readout brightens. */
+html[data-seatstyle="status-dot"] .seat.acting .act {
+  color: var(--ink);
+}
+
+html[data-seatstyle="status-dot"] .seat.acting .act::before {
+  background: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal-dim);
+  animation: status-dot-pulse 1.4s var(--ease, ease-in-out) infinite;
+}
+
+@keyframes status-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-seatstyle="status-dot"] .seat.acting .act::before {
+    animation: none;
+  }
+}
+
+
+  /* ---- wave 3 chip/pot visuals ---- */
+/* STACKED-DISCS — a side-on chip stack beside the pot amount. */
+html[data-chips="stacked-discs"] .center .pot {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Keep caption + amount tight so the disc stack reads as one grouped object. */
+html[data-chips="stacked-discs"] .center .pot .caption {
+  order: 2;
+}
+html[data-chips="stacked-discs"] .center .pot .amt {
+  order: 3;
+}
+
+/*
+ * The stack: one 15px-tall box painting four thin discs as separate no-repeat
+ * background layers. Layout reserves the full 15px so nothing overlaps the text.
+ * Bottom three discs = --ink-3 (structural); top disc = --signal (the single accent).
+ */
+html[data-chips="stacked-discs"] .center .pot::before {
+  content: "";
+  order: 1;
+  flex: none;
+  width: 16px;
+  height: 15px;
+  background-repeat: no-repeat;
+  background-size: 16px 3px;
+  background-image:
+    linear-gradient(var(--signal), var(--signal)),
+    linear-gradient(var(--ink-3), var(--ink-3)),
+    linear-gradient(var(--ink-3), var(--ink-3)),
+    linear-gradient(var(--ink-3), var(--ink-3));
+  background-position:
+    0 0,
+    0 4px,
+    0 8px,
+    0 12px;
+  border-radius: 2px;
+  transition: transform 220ms var(--spring);
+}
+
+/* Faint settle of the accent cap on pot change — no bounce, no glow. */
+html[data-chips="stacked-discs"] .center .pot:hover::before {
+  transform: translateY(-1px);
+}
+
+html[data-chips="bet-bar"] .center .pot{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+html[data-chips="bet-bar"] .center .pot .caption{
+  display:block;
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:0.16em;
+  text-transform:uppercase;
+  color:var(--ink-3);
+  margin-bottom:6px;
+}
+html[data-chips="bet-bar"] .center .pot .amt{
+  font-family:var(--figure-family);
+  font-size:34px;
+  font-weight:500;
+  line-height:1;
+  color:var(--ink);
+  letter-spacing:-0.02em;
+  font-variant-numeric:tabular-nums;
+}
+html[data-chips="bet-bar"] .center .pot::after{
+  content:"";
+  --pot-fill:42%;
+  display:block;
+  width:112px;
+  height:3px;
+  margin-top:12px;
+  border-radius:2px;
+  background:linear-gradient(
+    to right,
+    var(--signal) 0,
+    var(--signal) var(--pot-fill),
+    var(--rule) var(--pot-fill),
+    var(--rule) 100%
+  );
+}
+html[data-chips="bet-bar"] .center .pot::before{
+  content:"";
+  order:3;
+  display:block;
+  width:1px;
+  height:7px;
+  margin-top:10px;
+  margin-left:var(--pot-fill,42%);
+  transform:translateX(-0.5px);
+  background:var(--signal);
+  opacity:0.55;
+}
+html[data-chips="ring-pot"] .center .pot {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, var(--surface-2) 0 58%, var(--surface) 100%);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+/* Gauge arc: full track in --rule-soft, a thin --signal sweep reading like a dial.
+   A small open gap at the bottom is the equity-gauge signature. The ring is carved
+   from a full-bleed conic fill by masking out everything but a 3px rim. */
+html[data-chips="ring-pot"] .center .pot::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  padding: 3px;
+  background:
+    conic-gradient(from 205deg,
+      var(--signal-strong) 0deg,
+      var(--signal) 168deg,
+      var(--signal-dim) 250deg,
+      var(--rule-soft) 250deg 310deg,
+      transparent 310deg 360deg);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  z-index: -1;
+}
+
+html[data-chips="ring-pot"] .center .pot .caption {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  line-height: 1;
+}
+
+html[data-chips="ring-pot"] .center .pot .amt {
+  font-family: var(--figure-family);
+  font-size: 23px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  line-height: 1;
+}
+
+  
+  /* ---- wave 4 turn indicators ---- */
+/* SPOTLIGHT turn indicator — the acting seat is lit, not circled.
+   A radial --signal-dim halo breathes behind the pod; the ring is dropped. */
+
+html[data-toact="spotlight"] .seat.acting {
+  position: relative;
+}
+
+/* The light itself: a soft radial bloom behind the pod, bleeding past its
+   edges (inset negative) so it reads as a glow rather than a fill. z-index:-1
+   keeps it under the pod content; pointer-events:none so it never eats clicks. */
+html[data-toact="spotlight"] .seat.acting::before {
+  content: "";
+  position: absolute;
+  inset: -42%;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(closest-side, var(--signal-dim) 0%, transparent 72%);
+  opacity: 0.72;          /* steady intensity when motion is off */
+  transform: scale(1);    /* identity at rest — no layout shift */
+}
+
+/* No circle: lit, not ringed. */
+html[data-toact="spotlight"] .seat.acting .ring {
+  display: none;
+}
+
+/* The pod also reads brighter in text, so the spotlight carries the name/act
+   rather than relying on the halo alone. */
+html[data-toact="spotlight"] .seat.acting .name {
+  color: var(--signal-strong);
+}
+html[data-toact="spotlight"] .seat.acting .act {
+  color: var(--signal);
+}
+
+/* Gentle breathe — opacity + scale only, compositor-only, no reflow.
+   body.motion-on gates it; html[data-toact] is the ancestor of body, so the
+   selector stays prefixed while still requiring the motion class. */
+@keyframes toact-spotlight-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.97); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+html[data-toact="spotlight"] body.motion-on .seat.acting::before {
+  animation: toact-spotlight-breathe 2600ms var(--ease-out, ease-in-out) infinite;
+}
+/* UNDERLINE — editorial to-act cue. The ring is dropped; the acting seat is marked
+   by its name brightening plus a short --signal bar drawn beneath it. */
+
+/* Drop the ring: the underline is the sole to-act signal now. */
+html[data-toact="underline"] .seat.acting .ring {
+  display: none;
+}
+
+/* The name brightens and anchors the underline bar below it. */
+html[data-toact="underline"] .seat.acting .name {
+  color: var(--ink);
+  position: relative;
+}
+
+/* A short, precise --signal bar beneath the name. Fixed width + margin-centered so
+   transform is free for the draw-in alone (no compound translate). */
+html[data-toact="underline"] .seat.acting .name::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  margin-left: -11px;
+  bottom: -6px;
+  width: 22px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--signal);
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+/* Motion only: the bar draws in left-to-right. Compositor-only, no reflow; at rest
+   (motion off / reduced-motion) it simply holds at full width. */
+html[data-toact="underline"] body.motion-on .seat.acting .name::after {
+  animation: toact-underline-draw var(--motion-panel) var(--ease-out);
+}
+
+@keyframes toact-underline-draw {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+/* BRACKET turn indicator — two thin --signal corner brackets (top-left + bottom-right)
+   frame the acting pod like a camera focus reticle. Reuses the existing .ring span:
+   neutralize its default 64px circle, expand it to an invisible box inset around the
+   seat, and draw the two L-corners with its pseudo-elements. Accent stays rationed to
+   four hairline strokes; idle seats show nothing. */
+
+/* .ring becomes a borderless frame box just outside the pod's content, replacing the
+   default centered circle (width/height/top/left/transform/border/radius all reset). */
+html[data-toact="bracket"] .seat .ring{
+  position:absolute;
+  inset:-11px -16px;
+  top:-11px;
+  left:-16px;
+  width:auto;
+  height:auto;
+  transform:none;
+  border:0;
+  border-radius:0;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity var(--motion-fast,160ms) var(--ease-out);
+}
+
+/* The two L-shaped corners: each pseudo-element is a small square with only two
+   adjacent borders drawn, so ::before reads as the top-left corner and ::after as
+   the bottom-right corner of an implied rectangle around the seat. */
+html[data-toact="bracket"] .seat .ring::before,
+html[data-toact="bracket"] .seat .ring::after{
+  content:"";
+  position:absolute;
+  width:15px;
+  height:15px;
+  border:1.5px solid var(--signal);
+}
+html[data-toact="bracket"] .seat .ring::before{
+  top:0;
+  left:0;
+  border-right:0;
+  border-bottom:0;
+  border-top-left-radius:4px;
+}
+html[data-toact="bracket"] .seat .ring::after{
+  right:0;
+  bottom:0;
+  border-left:0;
+  border-top:0;
+  border-bottom-right-radius:4px;
+}
+
+/* Only the acting seat shows the reticle. */
+html[data-toact="bracket"] .seat.acting .ring{
+  opacity:1;
+}
+
+/* Motion (opt-in only): a slow "focus-pull" — the two corners ease a few px along
+   their diagonal and settle back, like a lens hunting then locking onto the seat.
+   Transform-only, so it composits cleanly and never reflows the pod. */
+html[data-toact="bracket"] body.motion-on .seat.acting .ring::before{
+  animation:bracket-focus-tl 2.6s var(--ease) infinite;
+}
+html[data-toact="bracket"] body.motion-on .seat.acting .ring::after{
+  animation:bracket-focus-br 2.6s var(--ease) infinite;
+}
+@keyframes bracket-focus-tl{
+  0%,100%{ transform:translate(0,0); }
+  45%{ transform:translate(-3px,-3px); }
+}
+@keyframes bracket-focus-br{
+  0%,100%{ transform:translate(0,0); }
+  45%{ transform:translate(3px,3px); }
+}
+
+/* Reduced motion: hold the framed reticle static — no hunt, no transform. */
+@media (prefers-reduced-motion:reduce){
+  html[data-toact="bracket"] body.motion-on .seat.acting .ring::before,
+  html[data-toact="bracket"] body.motion-on .seat.acting .ring::after{
+    animation:none;
+    transform:none;
+  }
+}
+
+  /* ---- TABLE stage ---- */
+  .table-wrap{ margin-top:var(--s6); }
+  .stage{ position:relative; height:360px; margin:0 auto; overflow:visible; }
+  .stage .glow{
+    position:absolute; left:50%; top:54%; transform:translate(-50%,-50%);
+    width:520px; height:300px; pointer-events:none;
+    background:radial-gradient(ellipse at center, var(--glow), transparent 68%); z-index:0;
+  }
+
+  /* --- TABLE SHAPE: orbit (anchor) --- */
+  html[data-table="orbit"] .orbit{
+    position:absolute; left:50%; top:52%; transform:translate(-50%,-50%);
+    width:min(760px,88%); height:300px; border:1px solid var(--rule); border-radius:50%; z-index:1;
+  }
+  html[data-table="orbit"] .orbit::after{ content:""; position:absolute; inset:14px; border:1px solid var(--rule-soft); border-radius:50%; }
+  html[data-table="orbit"] .seat.s-ada{ left:14%; top:34%; }
+  html[data-table="orbit"] .seat.s-bo{ left:50%; top:12%; }
+  html[data-table="orbit"] .seat.s-cy{ left:86%; top:34%; }
+  html[data-table="orbit"] .center{ left:50%; top:58%; }
+
+  /* --- TABLE SHAPE: arc-wide (flatter, wider ellipse) --- */
+  html[data-table="arc"] .orbit{
+    position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
+    width:min(880px,94%); height:210px; border:1px solid var(--rule); border-radius:50%; z-index:1;
+  }
+  html[data-table="arc"] .orbit::after{ content:""; position:absolute; inset:12px 40px; border:1px solid var(--rule-soft); border-radius:50%; }
+  html[data-table="arc"] .seat.s-ada{ left:10%; top:30%; }
+  html[data-table="arc"] .seat.s-bo{ left:50%; top:16%; }
+  html[data-table="arc"] .seat.s-cy{ left:90%; top:30%; }
+  html[data-table="arc"] .center{ left:50%; top:52%; }
+
+  /* --- TABLE SHAPE: rail (linear seats along a straight line) --- */
+  html[data-table="rail"] .orbit{
+    position:absolute; left:50%; top:26%; transform:translate(-50%,-50%);
+    width:min(820px,92%); height:0; border:0; border-top:1px solid var(--rule); border-radius:0; z-index:1;
+  }
+  html[data-table="rail"] .orbit::after{ display:none; }
+  html[data-table="rail"] .seat.s-ada{ left:18%; top:26%; }
+  html[data-table="rail"] .seat.s-bo{ left:50%; top:26%; }
+  html[data-table="rail"] .seat.s-cy{ left:82%; top:26%; }
+  html[data-table="rail"] .center{ left:50%; top:62%; }
+
+  /* --- TABLE SHAPE: baseline (no ring; seats float on a soft drawn baseline) --- */
+  html[data-table="baseline"] .orbit{
+    position:absolute; left:50%; top:40%; transform:translate(-50%,-50%);
+    width:min(680px,80%); height:150px; border:0; border-bottom:1px solid var(--rule); border-radius:0 0 50% 50%; z-index:1;
+  }
+  html[data-table="baseline"] .orbit::after{ display:none; }
+  html[data-table="baseline"] .seat.s-ada{ left:16%; top:30%; }
+  html[data-table="baseline"] .seat.s-bo{ left:50%; top:14%; }
+  html[data-table="baseline"] .seat.s-cy{ left:84%; top:30%; }
+  html[data-table="baseline"] .center{ left:50%; top:56%; }
+
+  .seat{
+    position:absolute; transform:translate(-50%,-50%);
+    display:flex; flex-direction:column; align-items:center; gap:var(--s2); z-index:3;
+  }
+  .seat .backs{ display:flex; gap:3px; }
+  .seat .name{ font-family:var(--mono); font-size:12px; letter-spacing:0.08em; color:var(--ink-2); text-transform:uppercase; }
+  .seat .stk{ font-family:var(--mono); font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+  .seat .act{ font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-3); height:12px; }
+  .seat.acting .name{ color:var(--ink); }
+  .seat.acting .act{ color:var(--signal); }
+  .seat .ring{ position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:64px; height:64px; border-radius:50%; border:1px solid var(--signal); opacity:0; }
+  .seat.acting .ring{ opacity:0.55; }
+
+  .center{ position:absolute; transform:translate(-50%,-50%); z-index:4; display:flex; flex-direction:column; align-items:center; gap:var(--s4); text-align:center; }
+  .center .pot .caption{ display:block; margin-bottom:var(--s2); color:var(--ink-3); }
+  .center .pot .amt{ font-family:var(--figure-family); font-size:34px; font-weight:500; color:var(--ink); letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+  .board{ display:flex; gap:var(--s2); }
+
+  .hero-band{ max-width:640px; margin:var(--s6) auto 0; }
+  .hero-cards{ display:flex; gap:var(--s3); justify-content:center; margin-bottom:var(--s4); }
+  .byline{ display:flex; align-items:center; justify-content:space-between; padding:var(--s4) 0; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+  .byline .who{ display:flex; align-items:center; gap:var(--s3); }
+  .byline .who .nm{ color:var(--ink); font-size:14px; font-weight:600; }
+  .byline .who .tag{ font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-3); border:1px solid var(--edge); border-radius:6px; padding:2px 6px; }
+  .byline .who .stk{ font-family:var(--mono); font-size:13px; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .win{ display:flex; align-items:center; gap:var(--s3); }
+  .win .label{ text-align:right; }
+  .win .label .caption{ display:block; color:var(--ink-3); }
+  .win .label .pct{ font-family:var(--figure-family); font-size:22px; color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+  .gauge{ width:52px; height:52px; transform:rotate(-90deg); }
+  .gauge .g-track{ fill:none; stroke:var(--rule); stroke-width:5; }
+  .gauge .g-fill{ fill:none; stroke:var(--signal); stroke-width:5; stroke-linecap:round; stroke-dasharray:169.6; stroke-dashoffset:132.3; }
+
+  .controls{ display:flex; align-items:stretch; margin-top:var(--s4); background:var(--surface); border:1px solid var(--edge); border-radius:12px; padding:4px; gap:4px; }
+  .controls .act{
+    position:relative; flex:1; appearance:none; background:transparent; cursor:pointer;
+    border:none; border-radius:8px; color:var(--ink); font-family:var(--sans); font-size:12px; font-weight:600;
+    letter-spacing:0.06em; text-transform:uppercase; min-height:42px; padding:0 var(--s3); transition:background 120ms var(--ease);
+  }
+  .controls .act:hover{ background:var(--surface-2); }
+  .controls .act.suggested{ background:var(--signal-dim); color:var(--signal); box-shadow: inset 0 0 0 1px var(--signal-strong); }
+  .betsize{ display:flex; align-items:center; gap:var(--s4); margin-top:var(--s4); }
+  .betsize .caption{ color:var(--ink-3); }
+  .track{ position:relative; flex:1; height:14px; display:flex; align-items:center; }
+  .track .line{ position:absolute; left:0; right:0; height:1px; background:var(--edge); }
+  .track .fill{ position:absolute; left:0; width:38%; height:1px; background:var(--signal); }
+  .track .thumb{ position:absolute; left:38%; width:14px; height:14px; border-radius:50%; background:var(--ink); transform:translateX(-50%); box-shadow:0 0 0 4px var(--page), 0 0 0 5px var(--edge); }
+  .betsize .amt{ font-family:var(--figure-family); font-size:20px; color:var(--ink); font-variant-numeric:tabular-nums; }
+
+  /* ============================ CARD FACES ============================ */
+  .card{ position:relative; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .card .rank{ font-weight:600; line-height:1; letter-spacing:-0.02em; }
+  .card .suit{ line-height:1; margin-top:3px; }
+  .card .index{ position:absolute; top:6px; left:7px; display:flex; flex-direction:column; align-items:center; line-height:1; font-weight:600; }
+  .card .corner-br{ position:absolute; bottom:6px; right:7px; display:none; flex-direction:column; align-items:center; line-height:1; font-weight:600; transform:rotate(180deg); }
+  .card .pips{ display:none; }
+  .card.board{ width:66px; height:92px; } .card.board .rank{ font-size:30px; } .card.board .suit{ font-size:16px; } .card.board .index{ font-size:10px; } .card.board .index .isuit{ font-size:8px; }
+  .card.hero{ width:86px; height:120px; } .card.hero .rank{ font-size:44px; } .card.hero .suit{ font-size:22px; } .card.hero .index{ font-size:12px; } .card.hero .index .isuit{ font-size:9px; }
+  .card.back{ width:38px; height:54px; }
+
+  /* face: light-catch (ANCHOR) — subtle gradient + lit top edge */
+  html[data-card="light-catch"] .card:not(.back){
+    background:linear-gradient(180deg,var(--card-a),var(--card-b));
+    border:1px solid var(--rule); border-top:1px solid var(--card-top);
+    box-shadow:0 6px 20px -12px rgba(0,0,0,0.8);
+    font-family:var(--sans);
+  }
+  html[data-card="light-catch"] .card.red .rank, html[data-card="light-catch"] .card.red .suit, html[data-card="light-catch"] .card.red .index{ color:var(--suit-red); }
+  html[data-card="light-catch"] .card.black .rank, html[data-card="light-catch"] .card.black .suit, html[data-card="light-catch"] .card.black .index{ color:var(--ink); }
+
+  /* face: flat — matte fill, hairline, no gradient */
+  html[data-card="flat"] .card:not(.back){ background:var(--surface-2); border:1px solid var(--edge); font-family:var(--sans); }
+  html[data-card="flat"] .card.red .rank, html[data-card="flat"] .card.red .suit, html[data-card="flat"] .card.red .index{ color:var(--suit-red); }
+  html[data-card="flat"] .card.black .rank, html[data-card="flat"] .card.black .suit, html[data-card="flat"] .card.black .index{ color:var(--ink); }
+
+  /* face: paper — light ivory card (ink-on-paper), the classic casino contrast */
+  html[data-card="paper"] .card:not(.back){ background:#F3F0E9; border:1px solid rgba(0,0,0,0.12); box-shadow:0 6px 20px -12px rgba(0,0,0,0.9); font-family:var(--sans); }
+  html[data-card="paper"] .card.red .rank, html[data-card="paper"] .card.red .suit, html[data-card="paper"] .card.red .index{ color:#C6362E; }
+  html[data-card="paper"] .card.black .rank, html[data-card="paper"] .card.black .suit, html[data-card="paper"] .card.black .index{ color:#171512; }
+
+  /* face: outline — ghost card, rank/suit only, transparent body */
+  html[data-card="outline"] .card:not(.back){ background:transparent; border:1px solid var(--edge); font-family:var(--sans); }
+  html[data-card="outline"] .card .suit{ opacity:0.75; }
+  html[data-card="outline"] .card.red .rank, html[data-card="outline"] .card.red .suit, html[data-card="outline"] .card.red .index{ color:var(--suit-red); }
+  html[data-card="outline"] .card.black .rank, html[data-card="outline"] .card.black .suit, html[data-card="outline"] .card.black .index{ color:var(--ink); }
+
+  /* face: corner-index — the classic playing-card layout: big center pip, small index both corners, no giant rank */
+  html[data-card="corner"] .card:not(.back){ background:linear-gradient(180deg,var(--card-a),var(--card-b)); border:1px solid var(--rule); border-top:1px solid var(--card-top); box-shadow:0 6px 20px -12px rgba(0,0,0,0.8); font-family:var(--sans); }
+  html[data-card="corner"] .card .rank{ display:none; }
+  html[data-card="corner"] .card .suit{ margin-top:0; }
+  html[data-card="corner"] .card.board .suit{ font-size:34px; } html[data-card="corner"] .card.hero .suit{ font-size:52px; }
+  html[data-card="corner"] .card .corner-br{ display:flex; }
+  html[data-card="corner"] .card.red .suit, html[data-card="corner"] .card.red .index, html[data-card="corner"] .card.red .corner-br{ color:var(--suit-red); }
+  html[data-card="corner"] .card.black .suit, html[data-card="corner"] .card.black .index, html[data-card="corner"] .card.black .corner-br{ color:var(--ink); }
+
+  
+  /* ---- generated card faces (nocturne-parts) ---- */
+/* face: letterpress — glyphs pressed/impressed into dark stock */
+html[data-card="letterpress"] .card:not(.back){
+  background:linear-gradient(180deg,var(--card-a),var(--card-b));
+  border:1px solid var(--rule); border-top:1px solid var(--card-top);
+  box-shadow:0 6px 20px -12px rgba(0,0,0,0.85), inset 0 1px 0 var(--card-top);
+  font-family:var(--figure-family);
+}
+/* the press itself: dark cut below the glyph, faint lit rim above → reads as impressed */
+html[data-card="letterpress"] .card:not(.back) .rank,
+html[data-card="letterpress"] .card:not(.back) .suit,
+html[data-card="letterpress"] .card:not(.back) .index{
+  text-shadow:0 1px 1px rgba(0,0,0,0.62), 0 -1px 0 var(--card-top);
+}
+html[data-card="letterpress"] .card .rank{ font-weight:600; }
+html[data-card="letterpress"] .card .suit{ opacity:0.94; }
+/* recessed ink so the glyph settles into the stock rather than printing on top */
+html[data-card="letterpress"] .card.red .rank,
+html[data-card="letterpress"] .card.red .suit,
+html[data-card="letterpress"] .card.red .index{ color:var(--suit-red); }
+html[data-card="letterpress"] .card.black .rank,
+html[data-card="letterpress"] .card.black .suit,
+html[data-card="letterpress"] .card.black .index{ color:var(--ink-2); }
+html[data-card="gilded-edge"] .card:not(.back){
+  background:linear-gradient(180deg,var(--card-a),var(--card-b));
+  border:1px solid var(--signal-strong);
+  box-shadow:
+    0 6px 20px -12px rgba(0,0,0,0.85),
+    inset 0 0 0 2px var(--card-a),
+    inset 0 0 0 3px var(--signal-dim);
+  font-family:var(--sans);
+}
+html[data-card="gilded-edge"] .card.red .rank,
+html[data-card="gilded-edge"] .card.red .suit,
+html[data-card="gilded-edge"] .card.red .index{ color:var(--suit-red); }
+html[data-card="gilded-edge"] .card.black .rank,
+html[data-card="gilded-edge"] .card.black .suit,
+html[data-card="gilded-edge"] .card.black .index{ color:var(--ink); }
+/* face: quiet-corner — minimal-corner layout: no center rank, only tiny corner indices + faint centered suit watermark, maximal negative space */
+html[data-card="quiet-corner"] .card:not(.back){
+  background:linear-gradient(180deg,var(--card-a),var(--card-b));
+  border:1px solid var(--rule); border-top:1px solid var(--card-top);
+  box-shadow:0 6px 20px -12px rgba(0,0,0,0.8);
+  font-family:var(--sans);
+}
+
+/* kill the big center rank entirely */
+html[data-card="quiet-corner"] .card .rank{ display:none; }
+
+/* the only center mark: an oversized, whisper-faint suit watermark */
+html[data-card="quiet-corner"] .card .suit{
+  margin-top:0;
+  opacity:0.10;
+  font-weight:400;
+  letter-spacing:0;
+}
+html[data-card="quiet-corner"] .card.board .suit{ font-size:40px; }
+html[data-card="quiet-corner"] .card.hero .suit{ font-size:60px; }
+
+/* both corner indices carry the actual reading — small, quiet, precise */
+html[data-card="quiet-corner"] .card .index{ top:8px; left:9px; font-weight:600; letter-spacing:0.01em; }
+html[data-card="quiet-corner"] .card .corner-br{ display:flex; bottom:8px; right:9px; font-weight:600; letter-spacing:0.01em; }
+
+/* red: index + corner sit in suit-red, watermark inherits the same ink */
+html[data-card="quiet-corner"] .card.red .index,
+html[data-card="quiet-corner"] .card.red .corner-br,
+html[data-card="quiet-corner"] .card.red .suit{ color:var(--suit-red); }
+
+/* black: index + corner in bright ink, watermark in the same ink (kept faint via opacity) */
+html[data-card="quiet-corner"] .card.black .index,
+html[data-card="quiet-corner"] .card.black .corner-br,
+html[data-card="quiet-corner"] .card.black .suit{ color:var(--ink); }
+html[data-card="duotone"] .card:not(.back){
+  background:linear-gradient(180deg,var(--surface-2),var(--raise));
+  border:1px solid var(--rule);
+  border-top:1px solid var(--card-top);
+  box-shadow:0 6px 20px -12px rgba(0,0,0,0.75);
+  font-family:var(--figure-family);
+  overflow:hidden;
+}
+
+/* huge low-contrast tonal rank, set in the dimmest ink */
+html[data-card="duotone"] .card:not(.back) .rank{
+  color:var(--ink-3);
+  font-weight:600;
+  letter-spacing:-0.04em;
+}
+html[data-card="duotone"] .card.board:not(.back) .rank{ font-size:46px; }
+html[data-card="duotone"] .card.hero:not(.back) .rank{ font-size:66px; }
+
+/* the suit is the ONLY saturated element — it pops */
+html[data-card="duotone"] .card:not(.back) .suit{
+  margin-top:4px;
+  font-weight:600;
+}
+html[data-card="duotone"] .card.board:not(.back) .suit{ font-size:20px; }
+html[data-card="duotone"] .card.hero:not(.back) .suit{ font-size:28px; }
+html[data-card="duotone"] .card.red:not(.back) .suit{ color:var(--suit-red); }
+html[data-card="duotone"] .card.black:not(.back) .suit{ color:var(--ink); }
+
+/* corner index stays tonal, matching the ghost-rank so the suit alone leads */
+html[data-card="duotone"] .card:not(.back) .index{
+  color:var(--ink-3);
+  font-weight:500;
+  opacity:0.7;
+}
+html[data-card="duotone"] .card:not(.back) .index .isuit{ opacity:0.85; }
+html[data-card="glass"] .card:not(.back){
+  position:relative;
+  overflow:hidden;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface-2) 52%, transparent),
+      color-mix(in srgb, var(--surface) 64%, transparent));
+  border:1px solid var(--edge);
+  border-top:1px solid var(--card-top);
+  border-radius:8px;
+  backdrop-filter: blur(14px) saturate(1.25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  box-shadow:
+    inset 0 1px 0 var(--card-top),
+    inset 0 0 20px -10px var(--card-top),
+    0 10px 26px -16px rgba(0,0,0,0.85);
+  font-family:var(--sans);
+}
+/* soft specular sheen sweeping the top-left, the "frost catching light" */
+html[data-card="glass"] .card:not(.back)::before{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    radial-gradient(120% 70% at 20% -10%, var(--card-top), transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--ink) 6%, transparent), transparent 40%);
+  pointer-events:none;
+}
+/* keep glyphs above the sheen and crisp */
+html[data-card="glass"] .card:not(.back) .index,
+html[data-card="glass"] .card:not(.back) .rank,
+html[data-card="glass"] .card:not(.back) .suit{
+  position:relative; z-index:1;
+}
+html[data-card="glass"] .card .rank{ font-weight:600; letter-spacing:-0.02em; }
+html[data-card="glass"] .card .suit{ opacity:0.92; }
+html[data-card="glass"] .card.red .rank,
+html[data-card="glass"] .card.red .suit,
+html[data-card="glass"] .card.red .index{ color:var(--suit-red); }
+html[data-card="glass"] .card.black .rank,
+html[data-card="glass"] .card.black .suit,
+html[data-card="glass"] .card.black .index{ color:var(--ink); }
+/* face: hairline-mono — monospace instrument readout, flat body, one hairline divider under the index */
+html[data-card="hairline-mono"] .card:not(.back){
+  background:var(--surface-2);
+  border:1px solid var(--rule);
+  box-shadow:none;
+  font-family:var(--mono);
+}
+
+/* center rank + suit: monospace, tabular, tightly set */
+html[data-card="hairline-mono"] .card .rank{
+  font-family:var(--mono);
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-0.03em;
+}
+html[data-card="hairline-mono"] .card .suit{
+  font-family:var(--mono);
+  margin-top:4px;
+  opacity:0.9;
+}
+
+/* index becomes an inline "Q♠" readout with a single thin --rule line under it */
+html[data-card="hairline-mono"] .card .index{
+  flex-direction:row;
+  align-items:baseline;
+  gap:1px;
+  font-family:var(--mono);
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0.01em;
+  padding-bottom:3px;
+  border-bottom:1px solid var(--rule);
+}
+
+/* red / black inks — divider stays neutral --rule */
+html[data-card="hairline-mono"] .card.red .rank,
+html[data-card="hairline-mono"] .card.red .suit,
+html[data-card="hairline-mono"] .card.red .index{ color:var(--suit-red); }
+html[data-card="hairline-mono"] .card.black .rank,
+html[data-card="hairline-mono"] .card.black .suit,
+html[data-card="hairline-mono"] .card.black .index{ color:var(--ink); }
+
+  
+  /* ---- wave 2 card faces ---- */
+/* face: debossed-foil — dark stock, RANK hot-stamped in a subtle --signal foil gradient
+   pressed into the card (debossed), one restrained metallic sweep, suit in ink */
+html[data-card="debossed-foil"] .card:not(.back){
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(180deg, var(--card-a), var(--card-b));
+  border:1px solid var(--rule);
+  border-top:1px solid var(--card-top);
+  box-shadow:
+    0 6px 20px -12px rgba(0,0,0,0.85),
+    inset 0 1px 0 var(--card-top);
+  font-family:var(--figure-family);
+}
+
+/* the one restrained highlight: a single metallic band raking across the stock */
+html[data-card="debossed-foil"] .card:not(.back)::before{
+  content:"";
+  position:absolute; inset:0;
+  background:linear-gradient(115deg,
+    transparent 32%,
+    var(--signal-dim) 47%,
+    color-mix(in srgb, var(--signal) 26%, transparent) 50%,
+    var(--signal-dim) 53%,
+    transparent 68%);
+  mix-blend-mode:screen;
+  pointer-events:none;
+}
+
+/* keep every glyph above the sweep */
+html[data-card="debossed-foil"] .card:not(.back) .rank,
+html[data-card="debossed-foil"] .card:not(.back) .suit,
+html[data-card="debossed-foil"] .card:not(.back) .index{
+  position:relative; z-index:1;
+}
+
+/* RANK: filled by a subtle --signal foil gradient (shaded → specular → shaded),
+   then debossed with a dark cut below + a lit --card-top rim above */
+html[data-card="debossed-foil"] .card:not(.back) .rank{
+  font-weight:700;
+  letter-spacing:-0.03em;
+  background:linear-gradient(125deg,
+    color-mix(in srgb, var(--signal) 55%, var(--ink-3)) 0%,
+    var(--signal) 33%,
+    color-mix(in srgb, var(--signal) 60%, var(--ink)) 50%,
+    var(--signal) 67%,
+    color-mix(in srgb, var(--signal) 50%, var(--ink-3)) 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  text-shadow:
+    0 1px 1px rgba(0,0,0,0.55),
+    0 -1px 0 var(--card-top);
+}
+
+/* suit: solid ink, sat below the foil rank */
+html[data-card="debossed-foil"] .card:not(.back) .suit{
+  margin-top:5px;
+  font-weight:600;
+  opacity:0.96;
+}
+
+/* corner index: small, quiet, in the same ink as the suit for a clean reading */
+html[data-card="debossed-foil"] .card:not(.back) .index{
+  font-weight:600;
+  letter-spacing:0.01em;
+}
+html[data-card="debossed-foil"] .card:not(.back) .index .isuit{ opacity:0.9; }
+
+/* red / black inks apply only to suit + index — the rank stays foil in both */
+html[data-card="debossed-foil"] .card.red .suit,
+html[data-card="debossed-foil"] .card.red .index{ color:var(--suit-red); }
+html[data-card="debossed-foil"] .card.black .suit,
+html[data-card="debossed-foil"] .card.black .index{ color:var(--ink); }
+/* face: grid-rule — engineering datum sheet: faint full graticule in --rule-soft, crisp --mono glyphs on top */
+html[data-card="grid-rule"] .card:not(.back){
+  background:
+    repeating-linear-gradient(0deg,  var(--rule-soft) 0 1px, transparent 1px 11px),
+    repeating-linear-gradient(90deg, var(--rule-soft) 0 1px, transparent 1px 11px),
+    var(--surface-2);
+  border:1px solid var(--rule);
+  box-shadow:none;
+  font-family:var(--mono);
+}
+
+/* center rank + suit: monospace, tabular, tightly set — the crisp readout above the grid */
+html[data-card="grid-rule"] .card .rank{
+  font-family:var(--mono);
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-0.03em;
+}
+html[data-card="grid-rule"] .card .suit{
+  font-family:var(--mono);
+  margin-top:4px;
+  opacity:0.92;
+}
+
+/* corner index: tiny stacked mono datum in the top-left cell */
+html[data-card="grid-rule"] .card .index{
+  font-family:var(--mono);
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0.01em;
+}
+
+/* inks — grid stays neutral, only glyphs carry suit color */
+html[data-card="grid-rule"] .card.red .rank,
+html[data-card="grid-rule"] .card.red .suit,
+html[data-card="grid-rule"] .card.red .index{ color:var(--suit-red); }
+html[data-card="grid-rule"] .card.black .rank,
+html[data-card="grid-rule"] .card.black .suit,
+html[data-card="grid-rule"] .card.black .index{ color:var(--ink); }
+/* face: spotlight — a soft radial pool of light blooms behind the center rank
+   and fades out, so the rank looks lit from within on the dark stock */
+html[data-card="spotlight"] .card:not(.back){
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(180deg,var(--card-a),var(--card-b));
+  border:1px solid var(--rule);
+  border-top:1px solid var(--card-top);
+  box-shadow:0 6px 20px -12px rgba(0,0,0,0.85);
+  font-family:var(--sans);
+}
+
+/* the spotlight: a --card-top glow centered on the rank, fading to nothing */
+html[data-card="spotlight"] .card:not(.back)::before{
+  content:"";
+  position:absolute; inset:0;
+  background:radial-gradient(58% 46% at 50% 46%,
+    var(--card-top), transparent 70%);
+  pointer-events:none;
+}
+
+/* keep every glyph crisp and above the glow */
+html[data-card="spotlight"] .card:not(.back) .index,
+html[data-card="spotlight"] .card:not(.back) .rank,
+html[data-card="spotlight"] .card:not(.back) .suit,
+html[data-card="spotlight"] .card:not(.back) .corner-br{
+  position:relative; z-index:1;
+}
+
+/* the lit center rank — heavy, tight, with a faint backlit halo */
+html[data-card="spotlight"] .card .rank{
+  font-weight:600;
+  letter-spacing:-0.03em;
+  text-shadow:0 0 14px var(--card-top);
+}
+html[data-card="spotlight"] .card .suit{
+  opacity:0.9;
+  text-shadow:0 0 10px var(--card-top);
+}
+
+/* corner index stays quiet, sitting just outside the pool of light */
+html[data-card="spotlight"] .card .index{
+  opacity:0.82;
+  font-weight:500;
+}
+
+/* red / black inks */
+html[data-card="spotlight"] .card.red .rank,
+html[data-card="spotlight"] .card.red .suit,
+html[data-card="spotlight"] .card.red .index{ color:var(--suit-red); }
+html[data-card="spotlight"] .card.black .rank,
+html[data-card="spotlight"] .card.black .suit,
+html[data-card="spotlight"] .card.black .index{ color:var(--ink); }
+html[data-card="split-seam"] .card:not(.back){
+  background:
+    linear-gradient(90deg, transparent calc(50% - 0.5px), var(--rule) calc(50% - 0.5px), var(--rule) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(90deg, var(--card-a) 0 50%, var(--raise) 50% 100%);
+  border:1px solid var(--edge);
+  border-top:1px solid var(--card-top);
+  box-shadow:0 6px 20px -12px rgba(0,0,0,0.85);
+  font-family:var(--sans);
+}
+html[data-card="split-seam"] .card .rank{ font-weight:600; }
+html[data-card="split-seam"] .card .suit{ opacity:0.92; }
+html[data-card="split-seam"] .card.red .rank,
+html[data-card="split-seam"] .card.red .suit,
+html[data-card="split-seam"] .card.red .index{ color:var(--suit-red); }
+html[data-card="split-seam"] .card.black .rank,
+html[data-card="split-seam"] .card.black .suit,
+html[data-card="split-seam"] .card.black .index{ color:var(--ink); }
+html[data-card="beveled"] .card:not(.back){
+  background:linear-gradient(180deg,var(--card-a),var(--card-b));
+  border:1px solid var(--edge);
+  border-top:1px solid var(--card-top);
+  border-radius:8px;
+  font-family:var(--sans);
+  box-shadow:
+    inset 0 0 0 1px var(--rule),
+    inset 0 2px 3px rgba(0,0,0,0.45),
+    inset 0 -1px 0 rgba(0,0,0,0.35),
+    inset 0 1px 0 var(--card-top),
+    0 7px 22px -13px rgba(0,0,0,0.85);
+}
+html[data-card="beveled"] .card .rank{ font-weight:600; }
+html[data-card="beveled"] .card.red .rank,
+html[data-card="beveled"] .card.red .suit,
+html[data-card="beveled"] .card.red .index{ color:var(--suit-red); }
+html[data-card="beveled"] .card.black .rank,
+html[data-card="beveled"] .card.black .suit,
+html[data-card="beveled"] .card.black .index{ color:var(--ink); }
+
+  /* card backs — shared frame; the pattern is switchable via data-back (default = hatch) */
+  .card.back{
+    background:linear-gradient(180deg,var(--card-a),var(--card-b));
+    border:1px solid var(--rule); border-top:1px solid var(--card-top);
+    position:relative; overflow:hidden;
+  }
+  .seat.acting .card.back{ border-top-color:var(--signal-strong); }
+  /* default hatch back (the original) */
+  html[data-back="hatch"] .card.back{
+    background:
+      repeating-linear-gradient(45deg, var(--card-top) 0 4px, transparent 4px 8px),
+      linear-gradient(180deg,var(--card-a),var(--card-b));
+  }
+  /* ---- generated card backs (nocturne-parts2) inserted below ---- */
+
+  /* ---- wave 2 card backs ---- */
+html[data-back="lattice"] .card.back {
+  background: linear-gradient(155deg, var(--card-a) 0%, var(--card-b) 100%);
+}
+html[data-back="lattice"] .card.back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent 0,
+      transparent 6px,
+      color-mix(in srgb, var(--card-top) 13%, transparent) 6px,
+      color-mix(in srgb, var(--card-top) 13%, transparent) 7px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0,
+      transparent 6px,
+      color-mix(in srgb, var(--card-top) 13%, transparent) 6px,
+      color-mix(in srgb, var(--card-top) 13%, transparent) 7px
+    );
+}
+html[data-back="monogram"] .card.back {
+  /* Dark vertical gradient with the lit top edge kept, so the back keeps the same
+     physical read as the face cards; no felt, no hatch. */
+  background:
+    linear-gradient(180deg, var(--card-top) 0%, transparent 14%),
+    linear-gradient(160deg, var(--card-a) 0%, var(--card-b) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* The centered OFFSUIT spade monogram: a faint --ink-3 emblem in a sea of quiet space.
+   Sized to the card, low opacity, so it's a watermark rather than a graphic. */
+html[data-back="monogram"] .card.back::before {
+  content: "\2660"; /* ♠ */
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-3);
+  opacity: 0.16;
+  /* A hairline lift so the mark reads engraved, not printed flat. */
+  text-shadow: 0 1px 0 var(--card-top);
+}
+html[data-back="concentric"] .card.back::before{
+  content:"";
+  position:absolute;
+  top:50%; left:50%;
+  width:3px; height:3px;
+  border-radius:3px;
+  transform:translate(-50%,-50%);
+  box-shadow:
+    0 0 0 1.5px var(--rule),
+    0 0 0 4px   var(--card-b),
+    0 0 0 5.5px var(--rule),
+    0 0 0 8px   var(--card-b),
+    0 0 0 9.5px var(--rule-soft),
+    0 0 0 12px  var(--card-b),
+    0 0 0 13.5px var(--rule-soft),
+    0 0 0 16px  var(--card-b),
+    0 0 0 17.5px var(--rule-soft);
+  pointer-events:none;
+}
+html[data-back="pinstripe"] .card.back {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 3px,
+      color-mix(in srgb, var(--card-top) 20%, transparent) 3px,
+      color-mix(in srgb, var(--card-top) 20%, transparent) 4px
+    ),
+    linear-gradient(158deg, var(--card-a), var(--card-b));
+}
+html[data-back="pinstripe"] .card.back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card-top) 26%, transparent),
+    transparent 42%
+  );
+  pointer-events: none;
+}
+
+
+  /* ============================ DEAL ANIMATIONS ============================ */
+  /* Each keys off data-anim. The dealt cards carry .deal-item and a stagger class (dN). */
+
+  /* corner-deal (ANCHOR, refined): pitched from the top-right "dealer" corner with
+     rotation + arc, settling flush — reads like a card thrown to a seat. */
+  @keyframes deal-corner{
+    0%{ opacity:0; transform:translate(340px,-220px) rotate(28deg) scale(0.86); }
+    55%{ opacity:1; }
+    80%{ transform:translate(-2px,3px) rotate(-2.5deg) scale(1.015); }
+    100%{ opacity:1; transform:translate(0,0) rotate(0) scale(1); }
+  }
+  /* settle: a quiet drop-in from just above, barely-there overshoot */
+  @keyframes deal-settle{
+    from{ opacity:0; transform:translateY(14px) scale(0.97); }
+    70%{ opacity:1; }
+    85%{ transform:translateY(-1.5px) scale(1.004); }
+    to{ opacity:1; transform:none; }
+  }
+  /* fan: swing in around the bottom-left corner, like a spread fan closing to place */
+  @keyframes deal-fan{
+    from{ opacity:0; transform:rotate(-16deg) translateX(-26px) scale(0.9); transform-origin:bottom left; }
+    to{ opacity:1; transform:none; transform-origin:bottom left; }
+  }
+  /* flip: reveal by rotating on Y as if turned face-up */
+  @keyframes deal-flip{
+    from{ opacity:0; transform:perspective(600px) rotateY(-82deg) scale(0.97); }
+    60%{ opacity:1; }
+    to{ opacity:1; transform:perspective(600px) rotateY(0) scale(1); }
+  }
+  /* rise: fade up from the felt, no rotation — most minimal */
+  @keyframes deal-rise{
+    from{ opacity:0; transform:translateY(20px); }
+    to{ opacity:1; transform:none; }
+  }
+
+  @keyframes mount{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+  @keyframes figin{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+  @keyframes ringpulse{ 0%{ transform:translateX(-50%) scale(0.9); opacity:0.55;} 70%{ opacity:0.12;} 100%{ transform:translateX(-50%) scale(1.28); opacity:0;} }
+  @keyframes breathe{ 0%,100%{ opacity:0.75; transform:translate(-50%,-50%) scale(1);} 50%{ opacity:1; transform:translate(-50%,-50%) scale(1.04);} }
+  @keyframes sweep{ from{ stroke-dashoffset:169.6; } to{ stroke-dashoffset:132.3; } }
+
+  body.motion-on .anim{ opacity:0; animation:mount 320ms var(--spring) forwards; }
+  body.motion-on .figure-anim{ animation:figin 240ms var(--spring) both; }
+
+  /* pick the deal keyframe by axis; every face uses the same stagger classes */
+  body.motion-on .deal-item{ opacity:0; animation-duration:var(--deal-dur); animation-timing-function:var(--spring); animation-fill-mode:forwards; }
+  html[data-anim="corner"] body.motion-on .deal-item{ animation-name:deal-corner; }
+  html[data-anim="settle"] body.motion-on .deal-item{ animation-name:deal-settle; }
+  html[data-anim="fan"]    body.motion-on .deal-item{ animation-name:deal-fan; }
+  html[data-anim="flip"]   body.motion-on .deal-item{ animation-name:deal-flip; }
+  html[data-anim="rise"]   body.motion-on .deal-item{ animation-name:deal-rise; }
+
+  /* stagger — the deal cadence (villains first, then board, then hero) */
+  body.motion-on .db1{ animation-delay:40ms; } body.motion-on .db2{ animation-delay:95ms; }
+  body.motion-on .db3{ animation-delay:150ms; } body.motion-on .db4{ animation-delay:205ms; }
+  body.motion-on .db5{ animation-delay:260ms; } body.motion-on .db6{ animation-delay:315ms; }
+  body.motion-on .bf1{ animation-delay:430ms; } body.motion-on .bf2{ animation-delay:500ms; } body.motion-on .bf3{ animation-delay:570ms; }
+  body.motion-on .hc1{ animation-delay:680ms; } body.motion-on .hc2{ animation-delay:740ms; }
+
+  body.motion-on .glow{ animation:breathe 7s ease-in-out infinite; }
+  body.motion-on .seat.acting .ring{ animation:ringpulse 2.4s var(--ease) 900ms infinite; }
+  body.motion-on .g-fill{ animation:sweep 900ms var(--spring) 820ms both; }
+
+  
+  /* ---- generated deal animations (nocturne-parts) ---- */
+@keyframes deal-pitch-spin{
+    0%{ opacity:0; transform:translate(480px,-52px) rotate(180deg) scale(0.8); }
+    30%{ opacity:1; }
+    68%{ opacity:1; transform:translate(34px,4px) rotate(-7deg) scale(1.015); }
+    86%{ transform:translate(-6px,1px) rotate(2.5deg) scale(1.004); }
+    100%{ opacity:1; transform:none; }
+  }
+  html[data-anim="pitch-spin"] body.motion-on .deal-item{ animation-name:deal-pitch-spin; }
+@keyframes deal-stack-drop{
+  0%{
+    opacity:0;
+    transform:translateY(-135%) scaleY(1.05);
+    animation-timing-function:cubic-bezier(.55,.06,.9,.45); /* gravity: accelerate downward */
+  }
+  30%{ opacity:1; }
+  58%{
+    opacity:1;
+    transform:translateY(0) scaleY(.9) scaleX(1.03); /* firm contact: heavy squash */
+    animation-timing-function:cubic-bezier(.34,1.56,.64,1); /* spring back up */
+  }
+  74%{
+    transform:translateY(-7%) scaleY(1.025) scaleX(.99); /* small negative-Y rebound */
+    animation-timing-function:var(--ease-out,ease-out);
+  }
+  88%{
+    transform:translateY(1.5%) scaleY(.996); /* settle past resting line */
+  }
+  100%{
+    opacity:1;
+    transform:none;
+  }
+}
+html[data-anim="stack-drop"] body.motion-on .deal-item{ animation-name:deal-stack-drop; }
+@keyframes deal-slide{
+  0%{ opacity:0; transform:translate3d(-140%,0,0) scale(0.98); }
+  60%{ opacity:1; }
+  100%{ opacity:1; transform:translate3d(0,0,0) scale(1); }
+}
+html[data-anim="slide"] body.motion-on .deal-item{
+  animation-name:deal-slide;
+  animation-duration:var(--deal-dur);
+  animation-timing-function:var(--ease-out);
+  animation-fill-mode:both;
+}
+@keyframes deal-bloom{
+  0%{ opacity:0; transform:scale(.7); }
+  55%{ opacity:1; transform:scale(1.02); }
+  75%{ transform:scale(.99); }
+  100%{ opacity:1; transform:scale(1); }
+}
+html[data-anim="bloom"] body.motion-on .deal-item{
+  animation-name:deal-bloom;
+  animation-duration:var(--deal-dur);
+  animation-timing-function:var(--spring);
+  animation-fill-mode:both;
+}
+
+  
+  /* ---- wave 2 deal animations ---- */
+@keyframes deal-sweep-in{
+  0%{ opacity:0; transform:translateX(-132px) translateY(5px) rotate(-6.5deg); }
+  45%{ opacity:1; }
+  72%{ opacity:1; transform:translateX(-9px) translateY(-3px) rotate(1.6deg); }
+  89%{ transform:translateX(3px) translateY(0.6px) rotate(-0.6deg); }
+  100%{ opacity:1; transform:none; }
+}
+html[data-anim="sweep-in"] body.motion-on .deal-item{
+  animation-name:deal-sweep-in;
+  animation-duration:var(--deal-dur);
+  animation-timing-function:var(--ease-out);
+  animation-fill-mode:both;
+}
+@keyframes deal-tumble {
+  0% {
+    opacity: 0;
+    transform: perspective(640px) translateY(-15px) rotateX(40deg) rotateZ(-12deg) scale(0.94);
+  }
+  40% {
+    opacity: 1;
+    transform: perspective(640px) translateY(3px) rotateX(-9deg) rotateZ(6deg) scale(1.01);
+  }
+  70% {
+    opacity: 1;
+    transform: perspective(640px) translateY(0) rotateX(3deg) rotateZ(-2deg) scale(1.004);
+  }
+  88% {
+    opacity: 1;
+    transform: perspective(640px) rotateX(-1deg) rotateZ(0.6deg) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+html[data-anim="tumble"] body.motion-on .deal-item{ animation-name:deal-tumble; }
+@keyframes deal-focus-pull{
+  0%{ opacity:0.1; transform:scale(1.08); }
+  45%{ opacity:0.32; transform:scale(1.05); }
+  72%{ opacity:0.62; transform:scale(1.02); }
+  100%{ opacity:1; transform:none; }
+}
+html[data-anim="focus-pull"] body.motion-on .deal-item{ animation-name:deal-focus-pull; }
+
+  body:not(.motion-on) .anim, body:not(.motion-on) .deal-item, body:not(.motion-on) .figure-anim{ opacity:1; transform:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    body.motion-on *{ animation:none !important; transition:none !important; }
+    body.motion-on .anim, body.motion-on .deal-item, body.motion-on .figure-anim{ opacity:1 !important; transform:none !important; }
+    body.motion-on .glow{ transform:translate(-50%,-50%) !important; opacity:0.85 !important; }
+    body.motion-on .g-fill{ stroke-dashoffset:132.3 !important; }
+  }
+</style>
+</head>
+<body class="motion-on">
+
+  <!-- ============================ CONFIGURATOR ============================ -->
+  <aside class="lab" id="lab">
+    <button class="lab-handle" id="labHandle">Configure</button>
+    <h1>Nocturne Lab</h1>
+    <p class="sub">One design, every part switchable. Mix any combination — the change is live. Replay re-deals so you can watch the animation.</p>
+
+    <div class="group">
+      <span class="label">Presets · a full curated look in one click</span>
+      <div class="chips" id="presets">
+        <button class="chip" data-preset="anchor">Nocturne (anchor)</button>
+        <button class="chip" data-preset="obsidian-foil">Obsidian Foil</button>
+        <button class="chip" data-preset="platinum-glass">Platinum Glass</button>
+        <button class="chip" data-preset="umber-press">Umber Press</button>
+        <button class="chip" data-preset="jade-instrument">Jade Instrument</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Color theme</span>
+      <div class="chips" data-axis="theme">
+        <button class="chip" data-val="graphite" aria-pressed="true">Graphite</button>
+        <button class="chip" data-val="obsidian">Obsidian</button>
+        <button class="chip" data-val="platinum">Platinum</button>
+        <button class="chip" data-val="umber">Umber</button>
+        <button class="chip" data-val="ink-blue-night">Ink Blue Night</button>
+        <button class="chip" data-val="bordeaux-noir">Bordeaux Noir</button>
+        <button class="chip" data-val="forest-ink">Forest Ink</button>
+        <button class="chip" data-val="porcelain-dusk">Porcelain Dusk</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Accent (the one signal ink)</span>
+      <div class="chips" data-axis="accent">
+        <button class="chip swatch" data-val="champagne" aria-pressed="true" title="Champagne"><span class="dot" style="background:#D9B676"></span></button>
+        <button class="chip swatch" data-val="jade" title="Jade"><span class="dot" style="background:#5BC79A"></span></button>
+        <button class="chip swatch" data-val="ice" title="Ice"><span class="dot" style="background:#7FB6E6"></span></button>
+        <button class="chip swatch" data-val="coral" title="Coral"><span class="dot" style="background:#E88A6B"></span></button>
+        <button class="chip swatch" data-val="violet" title="Violet"><span class="dot" style="background:#B69BE6"></span></button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Card design</span>
+      <div class="chips" data-axis="card">
+        <button class="chip" data-val="light-catch" aria-pressed="true">Light-catch</button>
+        <button class="chip" data-val="flat">Flat</button>
+        <button class="chip" data-val="paper">Paper</button>
+        <button class="chip" data-val="outline">Outline</button>
+        <button class="chip" data-val="corner">Corner-pip</button>
+        <button class="chip" data-val="letterpress">Letterpress</button>
+        <button class="chip" data-val="gilded-edge">Gilded Edge</button>
+        <button class="chip" data-val="quiet-corner">Quiet Corner</button>
+        <button class="chip" data-val="duotone">Duotone</button>
+        <button class="chip" data-val="glass">Glass</button>
+        <button class="chip" data-val="hairline-mono">Hairline</button>
+        <button class="chip" data-val="debossed-foil">Debossed Foil</button>
+        <button class="chip" data-val="grid-rule">Grid Rule</button>
+        <button class="chip" data-val="spotlight">Spotlight</button>
+        <button class="chip" data-val="split-seam">Two-tone split</button>
+        <button class="chip" data-val="beveled">Beveled</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Card back</span>
+      <div class="chips" data-axis="back">
+        <button class="chip" data-val="hatch" aria-pressed="true">Hatch</button>
+        <button class="chip" data-val="lattice">Lattice</button>
+        <button class="chip" data-val="monogram">Monogram</button>
+        <button class="chip" data-val="concentric">Concentric</button>
+        <button class="chip" data-val="pinstripe">Pinstripe</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Seat style</span>
+      <div class="chips" data-axis="seatstyle">
+        <button class="chip" data-val="plain" aria-pressed="true">Plain</button>
+        <button class="chip" data-val="monogram-disc">Monogram disc</button>
+        <button class="chip" data-val="framed-plate">Framed Plate</button>
+        <button class="chip" data-val="dealer-chip-bar">Dealer chip · bar stacks</button>
+        <button class="chip" data-val="status-dot">Status Dot</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Chips / pot</span>
+      <div class="chips" data-axis="chips">
+        <button class="chip" data-val="plain" aria-pressed="true">Plain</button>
+        <button class="chip" data-val="stacked-discs">Stacked Discs</button>
+        <button class="chip" data-val="bet-bar">Bet Bar</button>
+        <button class="chip" data-val="ring-pot">Ring-Pot Dial</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Turn indicator</span>
+      <div class="chips" data-axis="toact">
+        <button class="chip" data-val="ring" aria-pressed="true">Ring</button>
+        <button class="chip" data-val="spotlight">Spotlight</button>
+        <button class="chip" data-val="underline">Underline</button>
+        <button class="chip" data-val="bracket">Bracket</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Deal animation</span>
+      <div class="chips" data-axis="anim">
+        <button class="chip" data-val="corner" aria-pressed="true">Corner-deal</button>
+        <button class="chip" data-val="settle">Settle</button>
+        <button class="chip" data-val="fan">Fan</button>
+        <button class="chip" data-val="flip">Flip</button>
+        <button class="chip" data-val="rise">Rise</button>
+        <button class="chip" data-val="pitch-spin">Pitch-Spin</button>
+        <button class="chip" data-val="stack-drop">Drop</button>
+        <button class="chip" data-val="slide">Slide</button>
+        <button class="chip" data-val="bloom">Bloom</button>
+        <button class="chip" data-val="sweep-in">Sweep-in</button>
+        <button class="chip" data-val="tumble">Tumble</button>
+        <button class="chip" data-val="focus-pull">Focus Pull</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Table shape</span>
+      <div class="chips" data-axis="table">
+        <button class="chip" data-val="orbit" aria-pressed="true">Orbit</button>
+        <button class="chip" data-val="arc">Wide arc</button>
+        <button class="chip" data-val="rail">Rail</button>
+        <button class="chip" data-val="baseline">Baseline</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Figures / font</span>
+      <div class="chips" data-axis="font">
+        <button class="chip" data-val="mono" aria-pressed="true">Mono</button>
+        <button class="chip" data-val="grotesk">Grotesk</button>
+        <button class="chip" data-val="serif-fig">Serif figures</button>
+        <button class="chip" data-val="mono-all">All mono</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Density</span>
+      <div class="chips" data-axis="size">
+        <button class="chip" data-val="cozy">Cozy</button>
+        <button class="chip" data-val="comfortable" aria-pressed="true">Comfortable</button>
+        <button class="chip" data-val="spacious">Spacious</button>
+      </div>
+    </div>
+
+    <div class="row-actions">
+      <button class="btn primary" id="replay">Replay deal</button>
+      <button class="btn" id="motion">Motion: On</button>
+    </div>
+    <div class="row-actions">
+      <button class="btn" id="randomize">Surprise me</button>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+    <div class="current" id="current"></div>
+  </aside>
+
+  <!-- ============================ APP ============================ -->
+  <div class="app" id="app">
+    <div class="stack">
+
+      <!-- HOME -->
+      <section class="screen">
+        <span class="screen-tag">Home</span>
+        <nav class="top anim">
+          <span class="brand"><span class="dot"></span>OFFSUIT</span>
+          <ul><li><a href="#" class="active">Play</a></li><li><a href="#">Learn</a></li><li><a href="#">Train</a></li><li><a href="#">Charts</a></li><li><a href="#">Progress</a></li><li><a href="#">Profile</a></li><li><a href="#">Settings</a></li></ul>
+        </nav>
+        <div class="home-top anim">
+          <div class="bankroll">
+            <span class="caption">Bankroll</span>
+            <span class="figure figure-anim">10,000</span>
+            <span class="delta">&#9650; +1,140 <span class="muted">/ last session</span></span>
+          </div>
+          <svg class="spark" viewBox="0 0 220 64" preserveAspectRatio="none" aria-hidden="true">
+            <path class="line" d="M2,44 L26,40 L50,48 L74,34 L98,38 L122,26 L146,30 L170,18"/>
+            <path class="head" d="M170,18 L194,22 L218,10"/><circle cx="218" cy="10" r="3"/>
+          </svg>
+        </div>
+        <div class="cards-row">
+          <a class="tile primary anim" href="#"><span class="glyph">&spades;</span><div><div class="t">New session</div><div class="m">Cash · 100bb · single table</div></div><span class="go">Deal →</span></a>
+          <a class="tile anim" href="#"><span class="glyph">&clubs;</span><div><div class="t">Play with friends</div><div class="m">Local relay · up to 6 seats</div></div><span class="go">Host</span></a>
+          <a class="tile anim" href="#"><span class="glyph" style="color:var(--suit-red)">&diams;</span><div><div class="t">Daily puzzle</div><div class="m">River bluff-catch · turn decision</div></div><span class="go">Open</span></a>
+        </div>
+
+        <div class="home-lower">
+          <div class="anim">
+            <div class="section-title"><span class="caption">Recent hands</span><span class="sub">last 3</span></div>
+            <a class="row" href="#"><span class="lead"><span class="t">Set over set</span><span class="m">Won at showdown · CO</span></span><span class="val up">+1,140</span></a>
+            <a class="row" href="#"><span class="lead"><span class="t">AKs vs 3-bet</span><span class="m">Folded river · BTN</span></span><span class="val down">−320</span></a>
+            <a class="row" href="#"><span class="lead"><span class="t">Missed flush draw</span><span class="m">Check-fold turn · BB</span></span><span class="val down">−75</span></a>
+          </div>
+          <div class="anim">
+            <div class="section-title"><span class="caption">Session planner</span><span class="sub">today · 3 blocks</span></div>
+            <div class="timeline">
+              <div class="step"><span class="node"></span><div class="head"><span class="t">Preflop RFI drill</span><span class="dur">10 min</span></div><div class="m">15 spots · mastery sampler</div></div>
+              <div class="step"><span class="node"></span><div class="head"><span class="t">Pot-odds math</span><span class="dur">8 min</span></div><div class="m">Break-even equity</div></div>
+              <div class="step next"><span class="node"></span><div class="head"><span class="t">Live session</span><span class="dur next">Next</span></div><div class="m">Apply · 40 hands</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABLE -->
+      <section class="screen">
+        <span class="screen-tag">Live table</span>
+        <nav class="top">
+          <span class="brand"><span class="dot"></span>OFFSUIT</span>
+          <ul><li><a href="#" class="active">Play</a></li><li><a href="#">Learn</a></li><li><a href="#">Train</a></li><li><a href="#">Charts</a></li><li><a href="#">Progress</a></li><li><a href="#">Profile</a></li><li><a href="#">Settings</a></li></ul>
+        </nav>
+        <div class="table-wrap">
+          <div class="stage">
+            <div class="glow"></div>
+            <div class="orbit"></div>
+            <div class="seat s-ada">
+              <div class="backs"><div class="card back deal-item db1"></div><div class="card back deal-item db2"></div></div>
+              <span class="name">Ada</span><span class="stk">4,975</span><span class="act">checks</span>
+            </div>
+            <div class="seat s-bo">
+              <div class="backs"><div class="card back deal-item db3"></div><div class="card back deal-item db4"></div></div>
+              <span class="name">Bo</span><span class="stk">4,950</span><span class="act">calls 50</span>
+            </div>
+            <div class="seat s-cy acting">
+              <span class="ring"></span>
+              <div class="backs"><div class="card back deal-item db5"></div><div class="card back deal-item db6"></div></div>
+              <span class="name">Cy</span><span class="stk">5,000</span><span class="act">to act</span>
+            </div>
+            <div class="center">
+              <div class="pot"><span class="caption">Pot</span><span class="amt figure-anim">75</span></div>
+              <div class="board">
+                <div class="card board black deal-item bf1"><span class="index">Q<span class="isuit">&spades;</span></span><span class="rank">Q</span><span class="suit">&spades;</span><span class="corner-br">Q<span class="isuit">&spades;</span></span></div>
+                <div class="card board red deal-item bf2"><span class="index">8<span class="isuit">&diams;</span></span><span class="rank">8</span><span class="suit">&diams;</span><span class="corner-br">8<span class="isuit">&diams;</span></span></div>
+                <div class="card board black deal-item bf3"><span class="index">3<span class="isuit">&clubs;</span></span><span class="rank">3</span><span class="suit">&clubs;</span><span class="corner-br">3<span class="isuit">&clubs;</span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="hero-band">
+            <div class="hero-cards">
+              <div class="card hero red deal-item hc1"><span class="index">2<span class="isuit">&diams;</span></span><span class="rank">2</span><span class="suit">&diams;</span><span class="corner-br">2<span class="isuit">&diams;</span></span></div>
+              <div class="card hero red deal-item hc2"><span class="index">K<span class="isuit">&hearts;</span></span><span class="rank">K</span><span class="suit">&hearts;</span><span class="corner-br">K<span class="isuit">&hearts;</span></span></div>
+            </div>
+            <div class="byline">
+              <div class="who"><span class="nm">You</span><span class="tag">BTN</span><span class="stk">5,000</span></div>
+              <div class="win"><div class="label"><span class="caption">Win equity</span><span class="pct">22%</span></div>
+                <svg class="gauge" viewBox="0 0 60 60" aria-hidden="true"><circle class="g-track" cx="30" cy="30" r="27"/><circle class="g-fill" cx="30" cy="30" r="27"/></svg>
+              </div>
+            </div>
+            <div class="controls">
+              <button class="act" type="button">Fold</button><button class="act" type="button">Check</button><button class="act suggested" type="button">Call 50</button><button class="act" type="button">Raise</button>
+            </div>
+            <div class="betsize"><span class="caption">Raise to</span><div class="track"><div class="line"></div><div class="fill"></div><div class="thumb"></div></div><span class="amt">150</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LEARN -->
+      <section class="screen">
+        <span class="screen-tag">Learn</span>
+        <nav class="top">
+          <span class="brand"><span class="dot"></span>OFFSUIT</span>
+          <ul><li><a href="#">Play</a></li><li><a href="#" class="active">Learn</a></li><li><a href="#">Train</a></li><li><a href="#">Charts</a></li><li><a href="#">Progress</a></li><li><a href="#">Profile</a></li><li><a href="#">Settings</a></li></ul>
+        </nav>
+
+        <div class="learn">
+          <aside class="lesson-list anim">
+            <div class="phase">
+              <div class="phase-label">Phase 1 · Preflop</div>
+              <a class="li done" href="#"><span class="n">01</span><span class="t">Position sets your range</span></a>
+              <a class="li done" href="#"><span class="n">02</span><span class="t">Small blind: raise or fold</span></a>
+              <a class="li active" href="#"><span class="n">03</span><span class="t">Defend the big blind</span></a>
+              <a class="li" href="#"><span class="n">04</span><span class="t">Who opened sets defence width</span></a>
+              <a class="li" href="#"><span class="n">05</span><span class="t">Defending: 3-bet or flat</span></a>
+              <a class="li" href="#"><span class="n">06</span><span class="t">Facing a 3-bet</span></a>
+            </div>
+          </aside>
+
+          <div class="lesson-main anim">
+            <span class="caption">Phase 1 · Preflop · lesson 03</span>
+            <div class="title">Defend the big blind on the price</div>
+            <div class="mechanism">The big blind already has a blind in and acts last preflop, so against a button open it defends a very wide range and folds only the true trash.</div>
+
+            <div class="example">
+              <div class="spot">
+                <div class="hero-cards" style="margin:0">
+                  <div class="card hero black deal-item hc1"><span class="index">K<span class="isuit">&spades;</span></span><span class="rank">K</span><span class="suit">&spades;</span><span class="corner-br">K<span class="isuit">&spades;</span></span></div>
+                  <div class="card hero red deal-item hc2"><span class="index">Q<span class="isuit">&hearts;</span></span><span class="rank">Q</span><span class="suit">&hearts;</span><span class="corner-br">Q<span class="isuit">&hearts;</span></span></div>
+                </div>
+                <div class="seat-note">
+                  <span class="caption">Your seat</span>
+                  <span class="tag">BIG BLIND</span>
+                </div>
+              </div>
+              <p class="prompt">The button opens and folds to the big blind with KQ offsuit. What price do you get, and how wide should you defend?</p>
+              <div class="commit">
+                <button class="act" type="button">Fold</button>
+                <button class="act suggested" type="button">Call</button>
+                <button class="act" type="button">Raise</button>
+              </div>
+              <div class="reveal">
+                <span class="caption">Why</span>
+                Closing the action with a blind already in lays a low price, so the big blind defends very wide against a button open. KQ offsuit sits comfortably inside that range. Call and see a flop with a hand that can improve.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+<script>
+  (function(){
+    var root = document.documentElement;
+    var body = document.body;
+    var DEFAULTS = { theme:'graphite', accent:'champagne', card:'light-catch', back:'hatch', seatstyle:'plain', chips:'plain', toact:'ring', anim:'corner', table:'orbit', font:'mono', size:'comfortable' };
+    var OPTIONS = {
+      theme:['graphite','obsidian','platinum','umber','ink-blue-night','bordeaux-noir','forest-ink','porcelain-dusk'],
+      toact:['ring','spotlight','underline','bracket'],
+      accent:['champagne','jade','ice','coral','violet'],
+      card:['light-catch','flat','paper','outline','corner','letterpress','gilded-edge','quiet-corner','duotone','glass','hairline-mono','debossed-foil','grid-rule','spotlight','split-seam','beveled'],
+      back:['hatch','lattice','monogram','concentric','pinstripe'],
+      seatstyle:['plain','monogram-disc','framed-plate','dealer-chip-bar','status-dot'],
+      chips:['plain','stacked-discs','bet-bar','ring-pot'],
+      anim:['corner','settle','fan','flip','rise','pitch-spin','stack-drop','slide','bloom','sweep-in','tumble','focus-pull'],
+      table:['orbit','arc','rail','baseline'],
+      font:['mono','grotesk','serif-fig','mono-all'],
+      size:['cozy','comfortable','spacious']
+    };
+
+    // Curated full-look presets — each a complete, tasteful combination across every axis.
+    var PRESETS = {
+      'anchor':          { theme:'graphite', accent:'champagne', card:'light-catch',  back:'hatch',      seatstyle:'plain',          chips:'plain',         toact:'ring',      anim:'corner',     table:'orbit',    font:'mono',      size:'comfortable' },
+      'obsidian-foil':   { theme:'obsidian',  accent:'champagne', card:'debossed-foil',back:'monogram',   seatstyle:'monogram-disc',  chips:'stacked-discs', toact:'spotlight', anim:'pitch-spin', table:'orbit',    font:'grotesk',   size:'comfortable' },
+      'platinum-glass':  { theme:'platinum',  accent:'ice',       card:'glass',        back:'concentric', seatstyle:'framed-plate',   chips:'ring-pot',      toact:'bracket',   anim:'focus-pull', table:'arc',      font:'grotesk',   size:'spacious' },
+      'umber-press':     { theme:'umber',     accent:'coral',     card:'letterpress',  back:'pinstripe',  seatstyle:'status-dot',     chips:'bet-bar',       toact:'underline', anim:'settle',     table:'baseline', font:'serif-fig', size:'comfortable' },
+      'jade-instrument': { theme:'graphite',  accent:'jade',      card:'grid-rule',    back:'lattice',    seatstyle:'dealer-chip-bar',chips:'bet-bar',       toact:'bracket',   anim:'slide',      table:'rail',     font:'mono-all',  size:'cozy' }
+    };
+
+    function apply(axis, val){
+      root.setAttribute('data-'+axis, val);
+      // reflect pressed state
+      var group = document.querySelector('.chips[data-axis="'+axis+'"]');
+      if(group){ group.querySelectorAll('.chip').forEach(function(c){ c.setAttribute('aria-pressed', String(c.dataset.val===val)); }); }
+      updateCurrent();
+    }
+    function setAll(cfg){ Object.keys(cfg).forEach(function(a){ apply(a, cfg[a]); }); }
+
+    function updateCurrent(){
+      var parts = Object.keys(DEFAULTS).map(function(a){ return a+'='+(root.getAttribute('data-'+a)||DEFAULTS[a]); });
+      document.getElementById('current').textContent = parts.join('  ·  ');
+    }
+
+    // wire chips
+    document.querySelectorAll('.chips[data-axis]').forEach(function(group){
+      var axis = group.dataset.axis;
+      group.querySelectorAll('.chip').forEach(function(chip){
+        chip.addEventListener('click', function(){ apply(axis, chip.dataset.val); if(axis==='anim'||axis==='card'||axis==='back'||axis==='table'||axis==='seatstyle'||axis==='chips') replay(); });
+      });
+    });
+
+    // presets — apply a full curated config in one click
+    document.querySelectorAll('#presets .chip').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        var cfg = PRESETS[chip.dataset.preset];
+        if(cfg){ setAll(cfg); replay(); }
+        document.querySelectorAll('#presets .chip').forEach(function(c){ c.setAttribute('aria-pressed', String(c===chip)); });
+      });
+    });
+
+    // motion toggle
+    var motionBtn = document.getElementById('motion');
+    motionBtn.addEventListener('click', function(){
+      var on = body.classList.toggle('motion-on');
+      motionBtn.textContent = 'Motion: ' + (on ? 'On' : 'Off');
+    });
+
+    // replay deal — restart every dealt-card + intro animation
+    function replay(){
+      if(!body.classList.contains('motion-on')) return;
+      var animated = document.querySelectorAll('.anim, .deal-item, .figure-anim, .g-fill');
+      animated.forEach(function(el){ el.style.animation='none'; void el.offsetWidth; el.style.animation=''; });
+    }
+    document.getElementById('replay').addEventListener('click', replay);
+
+    // surprise me — random combination
+    document.getElementById('randomize').addEventListener('click', function(){
+      var cfg = {};
+      Object.keys(OPTIONS).forEach(function(a){ var o=OPTIONS[a]; cfg[a]=o[Math.floor(Math.random()*o.length)]; });
+      setAll(cfg); replay();
+    });
+    document.getElementById('reset').addEventListener('click', function(){ setAll(DEFAULTS); replay(); });
+
+    // collapse panel
+    var lab = document.getElementById('lab');
+    var app = document.getElementById('app');
+    document.getElementById('labHandle').addEventListener('click', function(){
+      var collapsed = lab.classList.toggle('collapsed');
+      app.classList.toggle('full', collapsed);
+    });
+
+    // init
+    setAll(DEFAULTS);
+  })();
+</script>
+</body>
+</html>
