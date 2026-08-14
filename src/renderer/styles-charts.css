@@ -501,6 +501,25 @@
   font-weight: 600;
 }
 
+/* The Sight (board-reading) drill shows more than the compact hand-reading row — two card groups plus
+   the nine category keys — so its prompt stacks vertically and the keys wrap, overriding .defense-prompt's
+   single centred row and .defense-keys' right-push/no-wrap. Layout-only; reuses the same card + key look. */
+.board-reading-drill .defense-prompt {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.board-reading-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.board-reading-keys {
+  flex-wrap: wrap;
+  margin-left: 0;
+}
+
 .defense-feedback[data-verdict='right'] .defense-verdict {
   color: var(--text-lo);
   font-weight: 400;

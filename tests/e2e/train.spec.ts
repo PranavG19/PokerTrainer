@@ -58,6 +58,7 @@ const RAIL_ORDER: { testid: string; label: string }[] = [
   { testid: 'tab-puzzle', label: 'Spots' },
   { testid: 'tab-drill', label: 'Math' },
   { testid: 'tab-reading', label: 'Reading' },
+  { testid: 'tab-board', label: 'Sight' },
   { testid: 'tab-anomaly', label: 'Speed' },
   { testid: 'tab-robustness', label: 'Stress' },
   { testid: 'tab-repair', label: 'Leaks' },
