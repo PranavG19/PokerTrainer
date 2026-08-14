@@ -1,21 +1,49 @@
 :root {
-  --bg: #000000;
-  --surface: #1C1C1E;
-  --surface-hi: #2A2A2C;
+  /* ── Tier-2 SEMANTIC tokens — the vocabulary screens should consume long-term. ──────────────────
+   * Two-tier theming (see nocturne-migration-plan). This block holds the semantic layer; the ten
+   * historical names below (--bg/--surface-hi/--text-hi/--mint/--card-face/--ink/--red/…) are frozen
+   * as ALIASES onto these semantics, so all 20 sibling sheets keep working untouched while a theme
+   * only ever needs to redefine the semantic values. Adding a theme = one html[data-theme=…] block.
+   *
+   * STEP 1 (this commit): values are IDENTICAL to the historical palette — the alias indirection is
+   * transparent, zero pixels change. STEP 2 flips these values to graphite+champagne.
+   *
+   * Pinned roles the e2e suite enforces (never break without deliberately updating the test):
+   *   --text-hi MUST stay pure #FFFFFF (interaction.spec: the pot).
+   *   --positive MUST stay mint #3DDC97 / its rgba (gameplay+interaction+anomaly: to-act/passed-gate).
+   *   --signal (champagne, added Step 2) must NEVER enter the anomaly-verdict subtree (reddish detector). */
+  --page:      #000000;   /* page background        (alias target of --bg) */
+  --surface:   #1C1C1E;   /* raised surface                                */
+  --surface-2: #2A2A2C;   /* higher surface          (alias target of --surface-hi, 72 refs) */
+  --raise:     #333336;   /* hover/lifted surface    (alias target of --surface-hover) */
+
+  --text-hi:   #FFFFFF;   /* PINNED pure white (pot). Not softened. */
+  --text-lo:   #8E8E93;   /* secondary text (197 refs) */
+  --text-lo-2: #636A74;   /* tertiary text — new, for future third-tier use */
+
+  --positive:  #3DDC97;   /* mint — PINNED by 3 e2e (to-act/positive/passed-gate). NEVER champagne. */
+  --signal:    #3DDC97;   /* accent — Step 1 keeps it mint so nothing changes; Step 2 → champagne. */
+  --suit-red:  #F0483C;   /* loss / suit red   (alias target of --red) */
+
+  /* Card faces: the white-face / dark-ink pair. Kept as the default card look. */
   --card-face: #FAFAFA;
-  --ink: #0A0A0A;
-  --red: #F0483C;
-  --text-hi: #FFFFFF;
-  --text-lo: #8E8E93;
-  --mint: #3DDC97;
-  --chip-blind: #E8E24A;
+  --card-ink:  #0A0A0A;   /* dark text ON the white card face (alias target of --ink, 20 refs) */
+
+  --chip-blind: #E8E24A;  /* no semantic equivalent; unchanged */
+
+  /* ── Legacy ALIASES — frozen; a theme never redefines these, only the semantics above. ── */
+  --bg:            var(--page);
+  --surface-hi:    var(--surface-2);
+  --surface-hover: var(--raise);
+  --mint:          var(--positive);
+  --red:           var(--suit-red);
+  --ink:           var(--card-ink);
 
   /* ── Visual-fidelity tokens (premium, restrained). Global so every sibling sheet reuses them. ──
    * One reconciled set: three audit passes each proposed --elev/--ease/--focus-ring; these are the
    * merged canonical values. Motion is transform/opacity only, 140-200ms, and disabled under
    * prefers-reduced-motion below. Shadows layer a faint top hairline over depth so surfaces read as
    * lifted off the black rather than outlined. */
-  --surface-hover: #333336;
   --elev-1: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 1px 3px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.36);
   --elev-2: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 4px rgba(0, 0, 0, 0.55), 0 14px 32px rgba(0, 0, 0, 0.42);
   --ring-active: 0 0 0 2px rgba(61, 220, 151, 0.4);
@@ -24,6 +52,10 @@
   --radius-md: 12px;
   --radius-sm: 8px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Dealer-pitch easing + duration for the corner-deal card animation (Step 4). Defined here so the
+   * value is theme-invariant; unused until the deal keyframe adopts it. */
+  --spring: linear(0, 0.05, 0.17, 0.34, 0.53, 0.69, 0.81, 0.89, 0.94, 0.97, 0.986, 0.995, 1);
+  --deal-dur: 520ms;
   --motion-fast: 140ms;
   --motion-panel: 200ms;
   /* The GATE (state 4) self-explanation budget. Mirrors GATE_BUDGET_MS in table.ts, which owns the
