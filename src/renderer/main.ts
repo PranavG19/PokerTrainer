@@ -78,6 +78,7 @@ interface OffsuitBridge {
   getSeed: () => Promise<number | null>;
   readSettings?: () => Promise<SettingsStatus>;
   setTutorEnabled?: (enabled: boolean) => Promise<boolean>;
+  setTheme?: (theme: string) => Promise<string>;
   deleteProfile?: (confirmation: string) => Promise<{ deleted: boolean }>;
   /** Narration. `null` stops the current utterance. Absent outside Electron. */
   speak?: (text: string | null) => Promise<SpeakResult>;
@@ -112,6 +113,18 @@ function bridge(): OffsuitBridge {
 }
 
 /**
+ * Set the document theme. Graphite is the :root default, so it needs no attribute — clearing the
+ * attribute for graphite keeps first paint (and the default case) attribute-free and FOUC-free; any
+ * other theme is a single documentElement attribute the bundled CSS keys off. Called once in boot()
+ * before the first render, and again on a live change from Settings.
+ */
+function applyTheme(theme: string): void {
+  const root = document.documentElement;
+  if (theme && theme !== 'graphite') root.setAttribute('data-theme', theme);
+  else root.removeAttribute('data-theme');
+}
+
+/**
  * In a plain browser there is no main process to resolve a tutor, and the honest report of that is
  * the fully-local one: no credentials, empty allowlist. Never fabricated as "live" — this screen's
  * whole job is not overstating egress.
@@ -124,6 +137,7 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
   guardFailures: [],
   profile: { path: '(in-memory)', backupCount: 0, lastRecovery: 'fresh' },
   deleteConfirmPhrase: 'DELETE PROFILE',
+  theme: 'graphite',
 };
 
 type Tab =
@@ -212,6 +226,10 @@ async function boot(): Promise<void> {
    */
   let varianceActive = false;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
+  // Apply the chosen theme before the first render. Graphite is the :root default (already painted with
+  // no JS, so no FOUC); only a non-default choice needs the attribute. This is a top-level document
+  // attribute, not a screen subscription, so it is safe to set here in boot() before anything mounts.
+  applyTheme(settings.theme);
   /**
    * Where the Profile tab is: the profile itself, the hand picker, or one hand's replay. The picker
    * is its own view rather than a section of the profile because the profile column has no spare
@@ -516,6 +534,17 @@ async function boot(): Promise<void> {
     await io.saveState(serialize(session));
   }
 
+  async function onThemeChange(theme: string): Promise<void> {
+    // Apply optimistically for an instant switch, then reconcile to what main actually stored: it
+    // clamps to a known theme, so if the request was unknown the DOM follows the stored value, never
+    // the rejected one. This keeps the attribute, the persisted file, and the selector all in sync.
+    applyTheme(theme);
+    const stored = (await io.setTheme?.(theme)) ?? theme;
+    if (stored !== theme) applyTheme(stored);
+    settings = { ...settings, theme: stored };
+    render();
+  }
+
   /**
    * The single gate on narration, and the reason the preference is checked HERE rather than inside
    * the table: with it off, no speak message is sent at all — not one that main declines to act on.
@@ -814,6 +843,7 @@ async function boot(): Promise<void> {
           onDeleteProfile: (confirmation) => void onDeleteProfile(confirmation),
           onSpokenVerdictsChange: (on) => void onSpokenVerdictsChange(on),
           onSoundCuesChange: (on) => void onSoundCuesChange(on),
+          onThemeChange: (theme) => void onThemeChange(theme),
         },
       });
     }

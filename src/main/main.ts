@@ -7,10 +7,12 @@ import {
   deleteProfile,
   load,
   loadMultiplayerEnabled,
+  loadTheme,
   loadTutorEnabled,
   profileStatus,
   save,
   saveMultiplayerEnabled,
+  saveTheme,
   saveTutorEnabled,
 } from './store.js';
 import { askTutor, resolveTutor, type AskInput, type ResolvedTutor } from './tutor/index.js';
@@ -250,6 +252,7 @@ app.whenReady().then(() => {
       guardFailures: active.guardFailures,
       profile: profileStatus(),
       deleteConfirmPhrase: DELETE_CONFIRM_PHRASE,
+      theme: loadTheme(),
     };
   });
 
@@ -257,6 +260,11 @@ app.whenReady().then(() => {
     tutorEnabled = enabled === true;
     saveTutorEnabled(tutorEnabled);
     return tutorEnabled;
+  });
+
+  ipcMain.handle('settings:setTheme', (_event, theme: string) => {
+    saveTheme(theme);
+    return loadTheme();
   });
 
   // ── Multiplayer (local relay) ──────────────────────────────────────────────
