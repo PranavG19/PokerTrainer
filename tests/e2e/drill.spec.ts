@@ -50,7 +50,7 @@ const work = '[data-testid="drill-work"]';
 const announcer = '[data-testid="drill-announcer"]';
 
 /** DRILL_KINDS in core/arithmetic.ts, mirrored so a silent edit to either side shows up here. */
-const KINDS = ['pot-odds', 'alpha', 'mdf', 'spr'] as const;
+const KINDS = ['pot-odds', 'alpha', 'mdf', 'spr', 'combos'] as const;
 
 /** SPEC.md's documented window: "1100x760, non-resizable-min 900x640". */
 const DEFAULT_WIDTH = 1100;
@@ -418,6 +418,7 @@ test.describe('the Drill tab: the arithmetic trainer', () => {
         alpha: 'Alpha',
         mdf: 'MDF',
         spr: 'SPR',
+        combos: 'Combos',
       };
 
       for (const kind of KINDS) {
@@ -440,8 +441,10 @@ test.describe('the Drill tab: the arithmetic trainer', () => {
         const text = (await page.locator(prompt).textContent()) ?? '';
         expect(text.length, `${kind}: empty prompt`).toBeGreaterThan(10);
         await expect(page.locator(answerBox)).toBeVisible();
-        // SPR is a ratio, the other three are shares: the unit beside the box has to say which.
-        await expect(page.locator(unit)).toHaveText(kind === 'spr' ? ': 1' : '%');
+        // SPR is a ratio, combos is a bare count, the other three are shares: the unit beside the box says which.
+        await expect(page.locator(unit)).toHaveText(
+          kind === 'spr' ? ': 1' : kind === 'combos' ? 'combos' : '%',
+        );
       }
     });
   });
@@ -474,10 +477,11 @@ test.describe('the Drill tab: the arithmetic trainer', () => {
         expect(tallies[kind], `${kind} tally`).toBe('1/1');
       }
 
-      // Per-kind, not one lump: three kinds tried once each, pot-odds still untouched.
+      // Per-kind, not one lump: three kinds tried once each, pot-odds and combos still untouched.
       const tallies = await readTallies(page);
       expect(tallies['pot-odds']).toBe('0/0');
-      await expect(page.locator(tally).filter({ hasText: 'not tried' })).toHaveCount(1);
+      expect(tallies['combos']).toBe('0/0');
+      await expect(page.locator(tally).filter({ hasText: 'not tried' })).toHaveCount(2);
       await expect(page.locator(tallyTotal)).toHaveAttribute('data-attempted', '3');
       await expect(page.locator(tallyTotal)).toHaveAttribute('data-correct', '3');
     });
@@ -965,6 +969,46 @@ test.describe('the Drill tab: the verdict reaches screen readers', () => {
       await expect(page.locator(announcer)).not.toHaveText('');
       await advanceWithEnter(page);
       await expect(page.locator(announcer)).toHaveText('');
+    });
+  });
+});
+
+test.describe('the Combos drill completes the arithmetic spine (phase 2)', () => {
+  test('serves a combinatorics problem graded as an EXACT count, in exact language not "the band"', async () => {
+    await withDrill(async ({ page }) => {
+      await selectKind(page, 'combos');
+      await expect(page.locator(prompt)).toContainText('combinations remain');
+      await expect(page.locator('[data-testid="drill-unit"]')).toHaveText('combos');
+
+      // A count above the 16-combo maximum is impossible, so it must grade wrong — and in exact
+      // language ("Not quite." / "The exact count is N"), never the tolerance-band wording.
+      await answerWithEnter(page, '99');
+      await expect(page.locator(verdict)).toHaveAttribute('data-verdict', 'wrong');
+      await expect(page.locator(verdictLine)).toHaveText('Not quite.');
+      await expect(page.locator(gapLine)).toContainText('exact count is');
+      await expect(page.locator(gapLine)).not.toContainText('within');
+      // The answer figure is a bare integer, and the worked method reads the count back from core.
+      await expect(page.locator(right)).toHaveText(/^\d+$/);
+      await expect(page.locator(method)).toBeVisible();
+      await expect(page.locator(step).first()).toContainText('combinations');
+    });
+  });
+
+  test('a real grader: a fixed count is right on some boards and wrong on others', async () => {
+    await withDrill(async ({ page }) => {
+      await selectKind(page, 'combos');
+      const seen = new Map<string, string>(); // verdict -> the verdict-line wording at that moment
+      for (let i = 0; i < 40 && seen.size < 2; i++) {
+        await answerWithEnter(page, '12');
+        const v = (await page.locator(verdict).getAttribute('data-verdict')) ?? '';
+        const line = ((await page.locator(verdictLine).textContent()) ?? '').trim();
+        if (!seen.has(v)) seen.set(v, line);
+        await advanceWithEnter(page);
+      }
+      // Both outcomes must occur — never a rubber stamp, never an inverted key — and each in exact wording.
+      expect([...seen.keys()].sort()).toEqual(['right', 'wrong']);
+      expect(seen.get('right')).toBe('Correct.');
+      expect(seen.get('wrong')).toBe('Not quite.');
     });
   });
 });

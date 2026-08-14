@@ -524,17 +524,24 @@ describe('problem generator and grading', () => {
     for (let seed = 1; seed <= 500; seed++) {
       const problem = generateProblem(seed);
       kinds.add(problem.kind);
-      expect(problem.potBeforeBet).toBeGreaterThan(0);
-      expect(problem.bet).toBeGreaterThan(0);
-      // Half-bb granularity keeps the arithmetic about poker, not long division.
-      expect(problem.bet * 2).toBe(Math.round(problem.bet * 2));
-      expect(problem.potBeforeBet * 2).toBe(Math.round(problem.potBeforeBet * 2));
-      // Bets stay inside sane sizing bounds and never exceed the stack behind. The +0.25 is the
-      // half-bb rounding: on a 3 bb pot a 1.25x bet rounds to 4, which is still a real sizing.
-      expect(problem.bet).toBeLessThanOrEqual(problem.potBeforeBet * 1.25 + 0.25);
-      expect(problem.effectiveStack).toBeGreaterThanOrEqual(problem.bet);
+      if (problem.kind === 'combos') {
+        // Combos does not use the bet-sizing figures; it is an exact integer count with a 0 band.
+        expect(problem.tolerance).toBe(0);
+        expect(problem.holding, 'combos carries its holding').toBeDefined();
+        expect(problem.dead, 'combos carries the seen cards').toBeDefined();
+      } else {
+        expect(problem.potBeforeBet).toBeGreaterThan(0);
+        expect(problem.bet).toBeGreaterThan(0);
+        // Half-bb granularity keeps the arithmetic about poker, not long division.
+        expect(problem.bet * 2).toBe(Math.round(problem.bet * 2));
+        expect(problem.potBeforeBet * 2).toBe(Math.round(problem.potBeforeBet * 2));
+        // Bets stay inside sane sizing bounds and never exceed the stack behind. The +0.25 is the
+        // half-bb rounding: on a 3 bb pot a 1.25x bet rounds to 4, which is still a real sizing.
+        expect(problem.bet).toBeLessThanOrEqual(problem.potBeforeBet * 1.25 + 0.25);
+        expect(problem.effectiveStack).toBeGreaterThanOrEqual(problem.bet);
+        expect(problem.tolerance).toBeGreaterThan(0);
+      }
       expect(problem.prompt.length).toBeGreaterThan(10);
-      expect(problem.tolerance).toBeGreaterThan(0);
       expect(Number.isFinite(problem.answer)).toBe(true);
     }
     // Every drill kind is reachable from the default (unspecified) path.
@@ -553,6 +560,9 @@ describe('problem generator and grading', () => {
           expect(problem.answer).toBe(defence(potBeforeBet, bet).alpha);
         } else if (kind === 'mdf') {
           expect(problem.answer).toBe(defence(potBeforeBet, bet).mdf);
+        } else if (kind === 'combos') {
+          expect(problem.answer).toBe(comboCount(problem.holding!, problem.dead!));
+          expect(problem.tolerance).toBe(0);
         } else {
           expect(problem.answer).toBe(
             spr(effectiveStack - bet, potBeforeBet + 2 * bet).spr,
@@ -572,6 +582,33 @@ describe('problem generator and grading', () => {
     expect(sprTolerance(1)).toBe(0.25);
     expect(sprTolerance(5)).toBe(0.25);
     expect(sprTolerance(20)).toBeCloseTo(1, 12);
+  });
+
+  it('combos drills grade an EXACT integer count via comboCount, over both clean and blocker boards', () => {
+    let sawFull = false;
+    let sawBlocker = false;
+    for (let seed = 1; seed <= 300; seed++) {
+      const problem = generateProblem(seed, 'combos');
+      expect(problem.kind).toBe('combos');
+      expect(problem.tolerance).toBe(0);
+      expect(problem.holding).toBeDefined();
+      expect(problem.dead).toBeDefined();
+      // The answer is exactly the count over the seen cards — the drill fabricates nothing, it reads
+      // comboCount, and grading is exact-integer equality (a band of 0).
+      expect(problem.answer).toBe(comboCount(problem.holding!, problem.dead!));
+      expect(Number.isInteger(problem.answer)).toBe(true);
+      expect(problem.answer).toBeGreaterThanOrEqual(0);
+      const full = comboCount(problem.holding!, []);
+      if (problem.answer === full) sawFull = true;
+      if (problem.answer < full) sawBlocker = true;
+      // An exact grade: the true count is right, everything else is wrong.
+      expect(gradeAnswer(problem, problem.answer).correct).toBe(true);
+      if (problem.answer > 0) expect(gradeAnswer(problem, problem.answer - 1).correct).toBe(false);
+      expect(gradeAnswer(problem, problem.answer + 1).correct).toBe(false);
+    }
+    // A real drill presents BOTH the clean baseline and blocker-reduced boards over a run.
+    expect(sawFull, 'a clean board (full combos) should occur').toBe(true);
+    expect(sawBlocker, 'a blocker board (reduced combos) should occur').toBe(true);
   });
 
   it('grades inside, exactly on, and outside the band', () => {
@@ -636,7 +673,9 @@ describe('every generated problem is answerable', () => {
         const where = `${kind} seed ${seed}`;
         expect(Number.isFinite(problem.answer), where).toBe(true);
         expect(problem.answer, where).toBeGreaterThanOrEqual(0);
-        expect(problem.tolerance, where).toBeGreaterThan(0);
+        // Real-valued kinds need a positive band; combos is an exact count and grades at 0.
+        if (kind === 'combos') expect(problem.tolerance, where).toBe(0);
+        else expect(problem.tolerance, where).toBeGreaterThan(0);
         expect(gradeAnswer(problem, problem.answer).correct, where).toBe(true);
       }
     }

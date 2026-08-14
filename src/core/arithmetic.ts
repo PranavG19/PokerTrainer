@@ -20,7 +20,7 @@
  */
 
 import type { Card, Rank } from './cards.js';
-import { RANKS, SUITS } from './cards.js';
+import { RANKS, SUITS, shuffledDeck } from './cards.js';
 import { mulberry32 } from './rng.js';
 
 // ---------------------------------------------------------------------------
@@ -310,9 +310,9 @@ export function riskOfLosing(query: VarianceQuery): VarianceRisk {
 // 6. PROBLEM GENERATOR AND GRADING
 // ---------------------------------------------------------------------------
 
-export type DrillKind = 'pot-odds' | 'alpha' | 'mdf' | 'spr';
+export type DrillKind = 'pot-odds' | 'alpha' | 'mdf' | 'spr' | 'combos';
 
-export const DRILL_KINDS: readonly DrillKind[] = ['pot-odds', 'alpha', 'mdf', 'spr'];
+export const DRILL_KINDS: readonly DrillKind[] = ['pot-odds', 'alpha', 'mdf', 'spr', 'combos'];
 
 export interface ArithmeticProblem {
   readonly kind: DrillKind;
@@ -321,7 +321,34 @@ export interface ArithmeticProblem {
   readonly effectiveStack: number;
   readonly prompt: string;
   readonly answer: number;
+  /**
+   * The accepted band around `answer`. Real-valued kinds (pot-odds/alpha/mdf/spr) carry a nonzero band
+   * because they are answered by a small-denominator frequency or a mental division; `combos` is an
+   * EXACT integer count, so its tolerance is 0 — a band there would accept a wrong count.
+   */
   readonly tolerance: number;
+  /** Set only for `combos`: the holding whose combinations are counted, and the seen cards removing some. */
+  readonly holding?: Holding;
+  readonly dead?: readonly Card[];
+}
+
+/**
+ * The combos drill's holdings — pairs (6 combos), suited (4), offsuit (12) and any (16) — so the learner
+ * drills all four baselines. A uniform random board (below) then removes blockers, exactly as at a real
+ * table; no bias toward blocker boards, since the honest distribution is the real one.
+ */
+const COMBO_HOLDINGS = [
+  'AA', 'KK', 'QQ', 'JJ', 'TT', '99',
+  'AKs', 'AQs', 'KQs', 'JTs',
+  'AKo', 'AQo', 'KQo',
+  'AK', 'AQ', 'KQ',
+] as const;
+
+/** The prompt's holding phrase, spelling out "any two" so the count the learner owes is unambiguous. */
+function holdingLabel(text: string, holding: Holding): string {
+  if (holding.ranks[0] === holding.ranks[1]) return text; // "AA" — a pair reads for itself
+  if (holding.suitedness === 'any') return `${text} (either suited or offsuit)`;
+  return text; // "AKs" / "AKo" carry the suitedness in the notation
 }
 
 /** Bet sizes a real table produces, as a fraction of pot. */
@@ -377,6 +404,27 @@ export function generateProblem(seed: number, kind?: DrillKind): ArithmeticProbl
       prompt: `Pot ${pot} bb after the call, ${toHalf(effectiveStack - bet)} bb behind. SPR?`,
       answer,
       tolerance: sprTolerance(answer),
+    };
+  }
+
+  if (chosen === 'combos') {
+    const text = pick(COMBO_HOLDINGS, rng());
+    const holding = parseHolding(text);
+    // A uniform 3–5 card board off the same seeded shuffle. Some boards blank the holding's ranks
+    // (full combos), ~a third hit one (a blocker) — the real distribution, so no case is manufactured.
+    const boardSize = pick([3, 4, 5] as const, rng());
+    const dead = shuffledDeck(rng).slice(0, boardSize);
+    const answer = comboCount(holding, dead);
+    return {
+      kind: chosen,
+      potBeforeBet,
+      bet,
+      effectiveStack,
+      prompt: `A villain can hold ${holdingLabel(text, holding)}. Board: ${dead.join(' ')}. How many combinations remain?`,
+      answer,
+      tolerance: 0, // an exact integer count — a band would accept a wrong number
+      holding,
+      dead,
     };
   }
 
