@@ -4,6 +4,8 @@ import {
   COMMITTED_SPR,
   DEEP_SPR,
   DRILL_KINDS,
+  comboCards,
+  comboCount,
   defence,
   generateProblem,
   gradeAnswer,
@@ -80,11 +82,12 @@ const seedFor = (index: number): number => BASE_SEED + index;
  * Display names and answer units, keyed by DrillKind so this fails to compile the day core adds a
  * kind — an unlabelled kind silently rendering as "spr" would be worse than a build error.
  */
-const KINDS: Record<DrillKind, { label: string; asks: string; unit: '%' | '' }> = {
+const KINDS: Record<DrillKind, { label: string; asks: string; unit: '%' | '' | 'count' }> = {
   'pot-odds': { label: 'Pot odds', asks: 'the equity a call needs', unit: '%' },
   alpha: { label: 'Alpha', asks: 'how often a bluff needs a fold', unit: '%' },
   mdf: { label: 'MDF', asks: 'the share you must defend', unit: '%' },
   spr: { label: 'SPR', asks: 'stack-to-pot ratio', unit: '' },
+  combos: { label: 'Combos', asks: 'how many combinations remain', unit: 'count' },
 };
 
 interface Tally {
@@ -421,6 +424,7 @@ const PRINCIPLES: Record<DrillKind, string> = {
   alpha: 'Alpha: the bet over the pot it creates — how often a bluff needs a fold.',
   mdf: 'MDF: everything alpha is not — defend enough that folding more would print a bluff.',
   spr: 'SPR: stack behind over the pot — how many bets stand between here and all-in.',
+  combos: 'Combos: six per pair, four suited, twelve offsuit, sixteen either — then subtract the cards you can see.',
 };
 
 /**
@@ -483,18 +487,23 @@ function renderAnswerRow(
   input.dataset.testid = 'drill-answer';
   input.inputMode = 'decimal';
   input.autocomplete = 'off';
-  input.placeholder = KINDS[problem.kind].unit === '%' ? 'e.g. 25' : 'e.g. 2.5';
+  const unitKind = KINDS[problem.kind].unit;
+  input.placeholder = unitKind === '%' ? 'e.g. 25' : unitKind === 'count' ? 'e.g. 6' : 'e.g. 2.5';
   // A placeholder is not an accessible name; name the box after what it asks and the expected unit so a
   // screen reader announces the task, not just "edit text".
   input.setAttribute(
     'aria-label',
-    `${KINDS[problem.kind].label} — ${KINDS[problem.kind].asks}, in ${KINDS[problem.kind].unit === '%' ? 'percent' : 'ratio to 1'}`,
+    `${KINDS[problem.kind].label} — ${KINDS[problem.kind].asks}, in ${unitKind === '%' ? 'percent' : unitKind === 'count' ? 'a whole-number count of combinations' : 'ratio to 1'}`,
   );
   field.appendChild(input);
 
   // The unit is beside the box, not implied: "25" and "0.25" are both plausible answers to a
   // question about a share, and only one of them is what this box wants.
-  const unit = text('span', 'drill-unit', KINDS[problem.kind].unit === '%' ? '%' : ': 1');
+  const unit = text(
+    'span',
+    'drill-unit',
+    unitKind === '%' ? '%' : unitKind === 'count' ? 'combos' : ': 1',
+  );
   unit.dataset.testid = 'drill-unit';
   field.appendChild(unit);
   wrap.appendChild(field);
@@ -512,9 +521,11 @@ function renderAnswerRow(
     'drill-hint',
     unreadable
       ? 'That was not a number, so nothing was committed. Type digits — a decimal point is fine.'
-      : KINDS[problem.kind].unit === '%'
+      : unitKind === '%'
         ? 'Answer in percentage points. Enter commits; the method appears whether you are right or not.'
-        : 'Answer as a ratio of the pot. Enter commits; the method appears whether you are right or not.',
+        : unitKind === 'count'
+          ? 'Answer as a whole number of combinations. Enter commits; the method appears whether you are right or not.'
+          : 'Answer as a ratio of the pot. Enter commits; the method appears whether you are right or not.',
   );
   hint.dataset.testid = 'drill-hint';
   hint.dataset.unreadable = String(unreadable);
@@ -539,10 +550,12 @@ function renderVerdict(committed: Committed, rung: Rung): HTMLElement {
   wrap.dataset.verdict = committed.grading.correct ? 'right' : 'wrong';
   wrap.dataset.rung = String(rung);
 
+  // Combos is an exact integer count, so "inside/outside the band" would misdescribe a 0-tolerance grade.
+  const exact = KINDS[committed.problem.kind].unit === 'count';
   const line = text(
     'div',
     'drill-verdict-line',
-    committed.grading.correct ? 'Inside the band.' : 'Outside the band.',
+    committed.grading.correct ? (exact ? 'Correct.' : 'Inside the band.') : (exact ? 'Not quite.' : 'Outside the band.'),
   );
   line.dataset.testid = 'drill-verdict-line';
   wrap.appendChild(line);
@@ -583,7 +596,8 @@ function renderVerdict(committed: Committed, rung: Rung): HTMLElement {
  * Rung 2: verdict + principle. Rung 0-1: verdict + the two numbers + the gap sentence.
  */
 function verdictAnnouncement(committed: Committed, rung: Rung): string {
-  const line = committed.grading.correct ? 'Inside the band.' : 'Outside the band.';
+  const exact = KINDS[committed.problem.kind].unit === 'count';
+  const line = committed.grading.correct ? (exact ? 'Correct.' : 'Inside the band.') : (exact ? 'Not quite.' : 'Outside the band.');
   if (rung >= 3) return line;
   if (rung === 2) return `${line} ${PRINCIPLES[committed.problem.kind]}`;
   const yours = inUnit(committed.problem.kind, committed.given);
@@ -607,6 +621,10 @@ function verdictAnnouncement(committed: Committed, rung: Rung): string {
  */
 function gapSentence(committed: Committed): string {
   const { problem, grading } = committed;
+  // Combos is exact: there is no band to be "within", so state the true count rather than a tolerance.
+  if (KINDS[problem.kind].unit === 'count') {
+    return grading.correct ? 'Exactly right — that is the count.' : `The exact count is ${trim(problem.answer)}.`;
+  }
   const tail = `Anything within ${band(problem)} counts.`;
   if (grading.error === 0) return `Exactly on it. ${tail}`;
 
@@ -686,6 +704,29 @@ function methodSteps(problem: ArithmeticProblem): readonly string[] {
       `SPR is the stack over the pot: ${trim(behind)} / ${trim(pot)} = ${trim(ratio.spr)}.`,
       bandLine(ratio.band, ratio.committedWithOnePair),
       `That is ${trim(ratio.potSizedBetsToAllIn)} pot-sized bet-and-calls before the stack is in.`,
+    ];
+  }
+
+  if (problem.kind === 'combos') {
+    const holding = problem.holding!;
+    const dead = problem.dead ?? [];
+    const full = comboCount(holding, []);
+    const remaining = comboCount(holding, dead);
+    const cards = comboCards(holding, dead);
+    const shape =
+      holding.ranks[0] === holding.ranks[1]
+        ? 'a pair'
+        : holding.suitedness === 'suited'
+          ? 'a suited hand'
+          : holding.suitedness === 'offsuit'
+            ? 'an offsuit hand'
+            : 'either suited or offsuit';
+    return [
+      `Before any cards are seen, ${shape} is ${full} combinations.`,
+      `The board shows ${dead.join(', ')} — count how many of those combinations still have both cards live.`,
+      cards.length > 0
+        ? `${remaining} remain: ${cards.map((c) => c.join('')).join(', ')}.`
+        : `None remain — every combination is blocked by a card on the board.`,
     ];
   }
 
