@@ -87,7 +87,7 @@
 .trigger-row[data-fired='true'] .trigger-watch,
 .trigger-row[data-fired='true'] .trigger-score,
 .trigger-row[data-fired='true']::before {
-  color: #4a4a4c;
+  color: var(--text-lo-2);
 }
 
 .trigger-label {
