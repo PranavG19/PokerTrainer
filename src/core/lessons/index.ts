@@ -19,6 +19,7 @@ import { whoHoldsTheNuts } from './content/who-holds-the-nuts.js';
 import { positionSetsYourRange } from './content/position-sets-your-range.js';
 import { smallBlindRaiseOrFold } from './content/small-blind-raise-or-fold.js';
 import { defendTheBigBlind } from './content/defend-the-big-blind.js';
+import { blindVsBlindDefence } from './content/blind-vs-blind-defence.js';
 import { openerSeatSetsDefenceWidth } from './content/opener-seat-sets-defence-width.js';
 import { threeBetOrFlatTheDefence } from './content/three-bet-or-flat-the-defence.js';
 import { facingA3Bet } from './content/facing-a-3bet.js';
@@ -52,6 +53,7 @@ export const LESSONS: readonly Lesson[] = [
   positionSetsYourRange,
   smallBlindRaiseOrFold,
   defendTheBigBlind,
+  blindVsBlindDefence,
   openerSeatSetsDefenceWidth,
   threeBetOrFlatTheDefence,
   facingA3Bet,
