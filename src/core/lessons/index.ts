@@ -17,6 +17,7 @@ import { bestFiveFromSeven } from './content/best-five-from-seven.js';
 import { boardTextureDimensions } from './content/board-texture-dimensions.js';
 import { whoHoldsTheNuts } from './content/who-holds-the-nuts.js';
 import { positionSetsYourRange } from './content/position-sets-your-range.js';
+import { smallBlindRaiseOrFold } from './content/small-blind-raise-or-fold.js';
 import { defendTheBigBlind } from './content/defend-the-big-blind.js';
 import { openerSeatSetsDefenceWidth } from './content/opener-seat-sets-defence-width.js';
 import { threeBetOrFlatTheDefence } from './content/three-bet-or-flat-the-defence.js';
@@ -49,6 +50,7 @@ export const LESSONS: readonly Lesson[] = [
   boardTextureDimensions,
   whoHoldsTheNuts,
   positionSetsYourRange,
+  smallBlindRaiseOrFold,
   defendTheBigBlind,
   openerSeatSetsDefenceWidth,
   threeBetOrFlatTheDefence,
