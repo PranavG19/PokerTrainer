@@ -14,6 +14,7 @@ const GRAPH_PAD = 6;
 export function renderProfile(opts: {
   session: SessionState;
   onOpenReview?: () => void;
+  onOpenCareer?: () => void;
 }): HTMLElement {
   const summary = computeStats(opts.session);
 
@@ -24,7 +25,12 @@ export function renderProfile(opts: {
   root.appendChild(
     section(
       'Session',
-      renderGraph(bankrollSeries(opts.session), summary.handsPlayed, opts.onOpenReview),
+      renderGraph(
+        bankrollSeries(opts.session),
+        summary.handsPlayed,
+        opts.onOpenReview,
+        opts.onOpenCareer,
+      ),
     ),
   );
   root.appendChild(section('Rebuys', renderRebuys(opts.session.rebuys)));
@@ -81,6 +87,17 @@ function renderReviewEntry(onOpenReview: () => void): HTMLElement {
   return button;
 }
 
+/** The way into the Career record (a full-column sub-view; the record is too tall to inline here). */
+function renderCareerEntry(onOpenCareer: () => void): HTMLElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'profile-review-entry';
+  button.dataset.testid = 'open-career';
+  button.textContent = 'View career record →';
+  button.addEventListener('click', onOpenCareer);
+  return button;
+}
+
 function section(label: string, body: HTMLElement): HTMLElement {
   const el = document.createElement('section');
   el.className = 'profile-section';
@@ -111,6 +128,7 @@ function renderGraph(
   series: number[],
   handsPlayed: number,
   onOpenReview?: () => void,
+  onOpenCareer?: () => void,
 ): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'graph-wrap';
@@ -142,6 +160,9 @@ function renderGraph(
   footer.appendChild(caption);
 
   if (onOpenReview) footer.appendChild(renderReviewEntry(onOpenReview));
+  // The career entry shares this footer row (never its own row): the Profile column has no spare
+  // vertical space at 900x640 — a standalone row steals the pixels the leak list needs (review.spec 10).
+  if (onOpenCareer) footer.appendChild(renderCareerEntry(onOpenCareer));
   wrap.appendChild(footer);
 
   return wrap;

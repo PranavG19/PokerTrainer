@@ -1,15 +1,3 @@
 {
-  "tasks": [
-    {
-      "id": "812aa2b2",
-      "cron": "7,22,37,52 * * * *",
-      "prompt": "You are the ORCHESTRATOR of the Offsuit poker trainer. Never idle — the only failure is doing no work. Keep launching parallel ultracode workflows to design, build, test, and improve features across the whole roadmap; token usage is not a concern. Every feature must be fully e2e-tested with agents across multiple scenarios, and merged into main (hand-apply worktree output by file, verify vs HEAD). Cloud is now ALLOWED where it genuinely helps (e.g. multiplayer relay) — build and test locally against a mocked/local server first, deploy later. Keep pursuing UI improvements too: run a panel of designers for more minimal/cinematic looks and better animation. Prefer honest, tested, mergeable increments; do not fabricate data a module exists to distinguish (e.g. no fake solver provenance). If you finish a batch, immediately plan and launch the next.",
-      "createdAt": 1786255268897,
-      "lastFiredAt": 1786501870326,
-      "recurring": true,
-      "createdBySessionId": "1dbafd96-9e9a-4001-ba80-f1dc7d5dbf8f",
-      "createdByPid": 21379,
-      "createdByProcStart": "Sun Aug  9 04:36:39 2026"
-    }
-  ]
+  "tasks": []
 }

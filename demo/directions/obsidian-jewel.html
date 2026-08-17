@@ -1,0 +1,1029 @@
+The task's explicit output contract is "Output ONLY the complete HTML document, nothing else." Returning it verbatim.
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Obsidian Jewel — OFFSUIT</title>
+<style>
+  /* ============================================================
+     OBSIDIAN JEWEL — design tokens (Wave 5, build-ready)
+     ============================================================ */
+  :root {
+    /* palette */
+    --bg-void:        #000000;
+    --surface-1:      #16161A;
+    --surface-2:      #24242A;
+    --hairline:       rgba(244,243,239,0.10);
+    --edge:           rgba(244,243,239,0.40);
+    --text-primary:   #F4F3EF;
+    --text-secondary: rgba(244,243,239,0.62);
+    --text-muted:     rgba(244,243,239,0.52);
+    --jewel:          #D6B57A;
+    --jewel-bright:   #EAD3A0;
+    --jewel-glow:     rgba(214,181,122,0.14);
+    --jewel-on:       #17130A;
+    --positive:       #7FB093;
+    --negative:       #C58A78;
+    --card-face:      #FAF8F3;
+    --card-ink:       #16130C;
+    --card-ruby:      #B23A3A;
+    --card-back:      #121218;
+    --overlay-glass:  rgba(13,13,16,0.72);
+    --shadow-card:    0 1px 2px rgba(0,0,0,0.6), 0 10px 28px rgba(0,0,0,0.5);
+
+    /* spacing ramp (4px base) */
+    --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+    --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+
+    /* radii */
+    --radius: 12px;
+    --radius-pill: 999px;
+    --radius-card: 10px;
+
+    /* motion durations */
+    --dur-instant: 90ms;
+    --dur-base:    200ms;
+    --dur-slow:    320ms;
+    --dur-deal:    460ms;
+    --dur-flip:    420ms;
+
+    /* easings (spring approximations, no overshoot) */
+    --ease-settle:   cubic-bezier(0.22,1,0.36,1);
+    --ease-standard: cubic-bezier(0.4,0,0.2,1);
+    --ease-in:       cubic-bezier(0.4,0,1,1);
+    --ease-flip:     cubic-bezier(0.45,0,0.15,1);
+
+    --font: Inter, -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection { background: rgba(214,181,122,0.28); }
+
+  /* ---------- shared type roles ---------- */
+  .t-display {
+    font-size: 56px; font-weight: 300; line-height: 1.0;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .t-h1 { font-size: 32px; font-weight: 400; line-height: 1.1; letter-spacing: -0.01em; }
+  .t-h2 { font-size: 20px; font-weight: 500; line-height: 1.25; }
+  .t-body { font-size: 15px; font-weight: 400; line-height: 1.5; }
+  .t-small { font-size: 13px; font-weight: 400; line-height: 1.45; }
+  .t-overline {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--text-secondary);
+  }
+  .num { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .muted { color: var(--text-muted); }
+  .secondary { color: var(--text-secondary); }
+
+  /* ============================================================
+     TOP CHROME (demo bar) — fixed, does not move on transitions
+     ============================================================ */
+  .demobar {
+    position: fixed; top: 0; left: 0; right: 0; height: 46px; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 var(--space-6);
+    background: var(--overlay-glass);
+    backdrop-filter: blur(24px) saturate(1.05);
+    -webkit-backdrop-filter: blur(24px) saturate(1.05);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .demobar .brand {
+    display: flex; align-items: baseline; gap: var(--space-3);
+  }
+  .demobar .brand .name {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--jewel);
+  }
+  .demobar .brand .sub {
+    font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .demobar .actions { display: flex; align-items: center; gap: var(--space-3); }
+
+  .ctrl-btn {
+    position: relative; font-family: var(--font);
+    font-size: 12px; font-weight: 500; letter-spacing: 0.02em;
+    color: var(--text-primary);
+    background: var(--surface-1);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-pill);
+    padding: var(--space-2) var(--space-4);
+    cursor: pointer;
+    transition: transform var(--dur-instant) var(--ease-standard);
+    overflow: hidden;
+  }
+  .ctrl-btn::before {
+    content: ''; position: absolute; inset: 0; background: var(--surface-2);
+    opacity: 0; transition: opacity var(--dur-base) var(--ease-standard);
+  }
+  .ctrl-btn > * { position: relative; }
+  .ctrl-btn:hover::before { opacity: 1; }
+  .ctrl-btn:active { transform: scale(0.98); }
+  .ctrl-btn .dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--positive); margin-right: 6px; vertical-align: middle;
+  }
+  body.reduced .ctrl-btn .dot { background: var(--text-muted); }
+
+  /* ============================================================
+     PAGE SCAFFOLD
+     ============================================================ */
+  .screens { padding-top: 46px; }
+
+  .screen-wrap { border-bottom: 1px solid var(--hairline); }
+  .screen-label {
+    padding: var(--space-5) var(--space-7) 0;
+    display: flex; align-items: center; gap: var(--space-3);
+  }
+  .screen-label .idx {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1px solid var(--edge); display: grid; place-items: center;
+    font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- top nav (segmented pill) ---------- */
+  .nav {
+    display: flex; align-items: center; justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-5) var(--space-7) var(--space-6);
+    position: relative;
+  }
+  .nav .rail {
+    position: relative; display: flex; align-items: center;
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-pill);
+    padding: var(--space-1);
+  }
+  .nav .pill {
+    position: absolute; top: var(--space-1); bottom: var(--space-1);
+    background: var(--surface-2);
+    border-radius: var(--radius-pill);
+    transition: transform var(--dur-base) var(--ease-settle),
+                width var(--dur-base) var(--ease-settle);
+    z-index: 0;
+  }
+  .nav button.tab {
+    position: relative; z-index: 1;
+    font-family: var(--font); font-size: 13px; font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--text-secondary);
+    background: transparent; border: none; cursor: pointer;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-pill);
+    transition: color var(--dur-base) var(--ease-standard);
+    white-space: nowrap;
+  }
+  .nav button.tab.active { color: var(--text-primary); }
+  .nav button.tab:hover:not(.active) { color: var(--text-primary); }
+
+  /* ============================================================
+     HOME SCREEN
+     ============================================================ */
+  .home {
+    max-width: 1004px; margin: 0 auto;
+    padding: 0 var(--space-7) var(--space-8);
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: var(--space-7);
+    align-items: start;
+  }
+
+  .home-left { display: flex; flex-direction: column; gap: var(--space-6); }
+
+  .bankroll-block { display: flex; align-items: flex-start; justify-content: space-between; }
+  .bankroll-fig { display: flex; flex-direction: column; gap: var(--space-2); }
+  .bankroll-fig .t-display { color: var(--text-primary); }
+  .calibrating { text-align: right; display: flex; flex-direction: column; gap: var(--space-1); align-items: flex-end; }
+  .calibrating .lead { font-size: 20px; font-weight: 400; color: var(--text-primary); }
+  .calibrating a {
+    color: var(--jewel); text-decoration: none; font-size: 13px;
+    border-bottom: 1px solid rgba(214,181,122,0.35); padding-bottom: 1px;
+    transition: color var(--dur-base) var(--ease-standard);
+  }
+  .calibrating a:hover { color: var(--jewel-bright); }
+
+  /* raised panel (surface-1 + hairline edge) */
+  .panel {
+    position: relative;
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: var(--space-5);
+  }
+
+  /* entry card = interactive panel, honest hover overlay */
+  .entry {
+    position: relative; overflow: hidden; cursor: pointer;
+    background: var(--surface-1);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    padding: var(--space-5);
+    transition: transform var(--dur-instant) var(--ease-standard);
+    display: flex; flex-direction: column; gap: var(--space-2);
+    min-height: 132px;
+  }
+  .entry::before {
+    content: ''; position: absolute; inset: 0; background: var(--surface-2);
+    opacity: 0; transition: opacity var(--dur-base) var(--ease-standard);
+  }
+  .entry > * { position: relative; }
+  .entry:hover::before { opacity: 1; }
+  .entry:active { transform: scale(0.99); }
+  .entry .t-h2 { color: var(--text-primary); }
+  .entry .desc { color: var(--text-secondary); }
+  .entry .tick { color: var(--jewel); font-size: 18px; font-weight: 400; }
+
+  .entry-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  .entry.hero-entry { min-height: 128px; }
+
+  .recent-block { display: flex; flex-direction: column; gap: var(--space-3); }
+
+  .empty-note {
+    display: flex; flex-direction: column; gap: var(--space-2);
+  }
+  .empty-note .t-h2 { color: var(--text-primary); }
+  .empty-note .desc { color: var(--text-secondary); }
+
+  /* planner panel (right) */
+  .planner { display: flex; flex-direction: column; gap: var(--space-5); }
+  .planner-head { display: flex; align-items: center; justify-content: space-between; }
+
+  .seg {
+    position: relative; display: inline-flex; align-items: center;
+    background: var(--bg-void);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-pill);
+    padding: 3px;
+  }
+  .seg .segpill {
+    position: absolute; top: 3px; bottom: 3px;
+    background: var(--surface-2); border-radius: var(--radius-pill);
+    transition: transform var(--dur-base) var(--ease-settle),
+                width var(--dur-base) var(--ease-settle);
+  }
+  .seg button {
+    position: relative; z-index: 1; font-family: var(--font);
+    font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    background: transparent; border: none; cursor: pointer;
+    padding: 5px var(--space-3); border-radius: var(--radius-pill);
+    transition: color var(--dur-base) var(--ease-standard);
+    white-space: nowrap;
+  }
+  .seg button.on { color: var(--text-primary); }
+
+  /* the jewel duration chips */
+  .duration-row { display: flex; gap: var(--space-2); }
+  .chip {
+    position: relative; overflow: hidden; flex: 1; text-align: center;
+    font-family: var(--font); font-size: 13px; font-weight: 500;
+    background: var(--surface-1); color: var(--text-secondary);
+    border: 1px solid var(--edge); border-radius: var(--radius-pill);
+    padding: var(--space-2) var(--space-3); cursor: pointer;
+    transition: transform var(--dur-instant) var(--ease-standard),
+                color var(--dur-base) var(--ease-standard);
+  }
+  .chip::before {
+    content:''; position:absolute; inset:0; background: var(--surface-2);
+    opacity:0; transition: opacity var(--dur-base) var(--ease-standard);
+  }
+  .chip span { position: relative; }
+  .chip:hover::before { opacity: 1; }
+  .chip:active { transform: scale(0.98); }
+  .chip.selected {
+    background: var(--jewel); color: var(--jewel-on); border-color: var(--jewel);
+  }
+  .chip.selected::before { display: none; }
+
+  .planner-note { color: var(--text-secondary); }
+
+  .block-list { display: flex; flex-direction: column; }
+  .block-row {
+    display: grid; grid-template-columns: 1fr auto auto auto;
+    gap: var(--space-4); align-items: baseline;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .block-row:last-child { border-bottom: none; }
+  .block-row .bname { color: var(--text-primary); }
+  .block-row .bpct { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 40px; }
+  .block-row .bmin { color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; min-width: 62px; }
+  .block-row .bunits { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 84px; }
+  .block-sub { grid-column: 1 / -1; color: var(--text-muted); font-size: 12px; padding-top: 2px; }
+
+  /* primary CTA (flat jewel, unringed) */
+  .cta {
+    position: relative; overflow: hidden; width: 100%; text-align: left;
+    font-family: var(--font); cursor: pointer;
+    background: var(--jewel); color: var(--jewel-on);
+    border: none; border-radius: var(--radius);
+    padding: var(--space-4) var(--space-5);
+    display: flex; flex-direction: column; gap: 2px;
+    transition: transform var(--dur-instant) var(--ease-standard);
+  }
+  .cta::before {
+    content:''; position:absolute; inset:0; background: var(--jewel-bright);
+    opacity:0; transition: opacity var(--dur-base) var(--ease-standard);
+  }
+  .cta > * { position: relative; }
+  .cta:hover::before { opacity: 1; }
+  .cta:active { transform: scale(0.98); }
+  .cta .lead { font-size: 17px; font-weight: 500; }
+  .cta .sub { font-size: 12px; opacity: 0.78; font-variant-numeric: tabular-nums; }
+
+  /* ============================================================
+     LIVE TABLE
+     ============================================================ */
+  .table-screen {
+    position: relative;
+    padding: 0 var(--space-7) var(--space-6);
+  }
+  .felt {
+    position: relative;
+    background: var(--bg-void);
+    height: 560px;
+    max-width: 1004px; margin: 0 auto;
+  }
+
+  /* seat cluster */
+  .seat {
+    position: absolute;
+    display: flex; flex-direction: column; align-items: center;
+    gap: var(--space-2);
+  }
+  .seat .cards { display: flex; gap: var(--space-1); }
+  .seat .sname {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--text-secondary);
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .seat .sname .pos { color: var(--text-muted); font-weight: 600; }
+  .seat .sstack {
+    font-variant-numeric: tabular-nums; font-weight: 500; font-size: 14px;
+    color: var(--text-primary); margin-top: 2px;
+  }
+
+  /* to-act cue: name promoted + baseline tick + ambient glow */
+  .seat.to-act .sname { color: var(--text-primary); }
+  .seat.to-act .tick {
+    width: 26px; height: 2px; background: var(--jewel); border-radius: 2px;
+    opacity: 0; transition: opacity var(--dur-base) var(--ease-standard);
+  }
+  .seat .tick { width: 26px; height: 2px; background: transparent; }
+  .seat.to-act .tick { opacity: 1; }
+  .seat.to-act .glow {
+    position: absolute; inset: -28px -22px; z-index: -1;
+    background: radial-gradient(ellipse at center, var(--jewel-glow), transparent 70%);
+    border-radius: 50%;
+    opacity: 0; transition: opacity var(--dur-base) var(--ease-standard);
+  }
+  .seat.to-act .glow.shown { opacity: 1; }
+
+  /* committed bet figure on seat->pot line (warm white) */
+  .seat .bet {
+    position: absolute; font-variant-numeric: tabular-nums; font-weight: 500;
+    font-size: 13px; color: var(--text-primary);
+  }
+
+  /* ---------- playing cards ---------- */
+  .card {
+    position: relative; border-radius: var(--radius-card);
+    transform-style: preserve-3d;
+  }
+  .card .face, .card .back {
+    position: absolute; inset: 0; border-radius: var(--radius-card);
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  }
+  .card .face {
+    background: var(--card-face);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    display: flex; padding: 8%;
+  }
+  .card .corner {
+    display: flex; flex-direction: column; align-items: center;
+    line-height: 0.92;
+  }
+  .card .rank { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .card .suit { font-weight: 400; }
+  .card.ink  .rank, .card.ink  .suit { color: var(--card-ink); }
+  .card.ruby .rank, .card.ruby .suit { color: var(--card-ruby); }
+
+  .card .back {
+    background: var(--card-back);
+    border: 1px solid var(--edge);
+    transform: rotateY(180deg);
+  }
+  .card .back::after {
+    content: ''; position: absolute; inset: 4px;
+    border: 1px solid var(--edge); border-radius: 6px;
+  }
+  /* face-down at rest shows back */
+  .card.down { transform: rotateY(180deg); }
+  .card .shadow-host { position: absolute; inset: 0; border-radius: var(--radius-card); }
+
+  /* card sizes */
+  .card.hero { width: 72px; height: 102px; }
+  .card.hero .rank { font-size: 24px; } .card.hero .suit { font-size: 20px; }
+  .card.comm { width: 64px; height: 92px; }
+  .card.comm .rank { font-size: 21px; } .card.comm .suit { font-size: 18px; }
+  .card.villain { width: 44px; height: 62px; }
+
+  /* shadow carried on a wrapper so it stays planted during flip */
+  .cardwrap { position: relative; box-shadow: var(--shadow-card); border-radius: var(--radius-card); }
+  .cardwrap.hero { width: 72px; height: 102px; }
+  .cardwrap.comm { width: 64px; height: 92px; }
+  .cardwrap.villain { width: 44px; height: 62px; }
+  .cardwrap .card { position: absolute; inset: 0; }
+
+  /* board + pot centre column */
+  .centre {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%,-50%);
+    display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
+    z-index: 2;
+  }
+  .pot { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+  .pot .t-display { font-size: 52px; color: var(--text-primary); }
+  .board { display: flex; gap: var(--space-2); }
+
+  /* hero cluster bottom-center */
+  .hero-seat {
+    position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
+    display: flex; align-items: flex-end; gap: var(--space-5);
+  }
+  .hero-cards-group { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+  .hero-cards { display: flex; gap: var(--space-2); }
+  .hero-id { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .hero-id .sname { color: var(--text-primary); }
+  .hero-winline { display: flex; gap: var(--space-5); align-items: flex-start; padding-bottom: var(--space-2); }
+  .stat-fig { display: flex; flex-direction: column; gap: var(--space-1); }
+  .stat-fig .val { font-size: 30px; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .stat-fig.win .val { color: var(--positive); }
+  .stat-fig.tie .val { color: var(--text-muted); font-size: 20px; font-weight: 400; }
+
+  /* ---------- controls bar ---------- */
+  .controls-wrap {
+    max-width: 1004px; margin: var(--space-4) auto 0;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .action-bar {
+    display: inline-flex; align-items: stretch;
+    background: var(--surface-1);
+    border-radius: var(--radius-pill);
+    padding: var(--space-1);
+    gap: var(--space-1);
+  }
+  .action-bar .seg-btn {
+    position: relative; overflow: hidden; font-family: var(--font);
+    font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
+    color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--edge);
+    border-radius: var(--radius-pill);
+    padding: var(--space-3) var(--space-6); cursor: pointer;
+    transition: transform var(--dur-instant) var(--ease-standard);
+    font-variant-numeric: tabular-nums;
+  }
+  .action-bar .seg-btn::before {
+    content:''; position:absolute; inset:0; background: var(--surface-2);
+    opacity:0; transition: opacity var(--dur-base) var(--ease-standard);
+  }
+  .action-bar .seg-btn > * { position: relative; }
+  .action-bar .seg-btn:hover::before { opacity: 1; }
+  .action-bar .seg-btn:active { transform: scale(0.98); }
+  /* the ONE flat jewel segment = to-call action */
+  .action-bar .seg-btn.jewel {
+    background: var(--jewel); color: var(--jewel-on); border-color: var(--jewel);
+  }
+  .action-bar .seg-btn.jewel::before { background: var(--jewel-bright); }
+
+  .corner-afford { display: flex; gap: var(--space-3); }
+  .quiet-btn {
+    position: relative; overflow: hidden; font-family: var(--font);
+    font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    background: transparent; border: 1px solid var(--hairline);
+    border-radius: var(--radius-pill);
+    padding: var(--space-2) var(--space-4); cursor: pointer;
+    transition: color var(--dur-base) var(--ease-standard), transform var(--dur-instant) var(--ease-standard);
+  }
+  .quiet-btn:hover { color: var(--text-primary); }
+  .quiet-btn:active { transform: scale(0.98); }
+
+  /* ============================================================
+     FOCUS RING — solid jewel, drawn outside box, instant
+     ============================================================ */
+  a:focus-visible, button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--bg-void), 0 0 0 3px var(--jewel);
+  }
+
+  /* screen-reader only live region */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* ============================================================
+     MOTION — entrance signatures (transform/opacity only)
+     ============================================================ */
+  .anim .deal {
+    animation: deal var(--dur-deal) var(--ease-settle) both;
+    animation-delay: var(--d, 0ms);
+  }
+  @keyframes deal {
+    from { opacity: 0; transform: translateY(8px) scale(0.965); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .anim .rise {
+    animation: rise var(--dur-slow) var(--ease-settle) both;
+    animation-delay: var(--d, 0ms);
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .anim .settle-in {
+    animation: fadein var(--dur-base) var(--ease-standard) both;
+    animation-delay: var(--d, 0ms);
+  }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+  /* flip container (villain reveal demo) */
+  .card.flip {
+    animation: flip var(--dur-flip) var(--ease-flip) forwards;
+    animation-delay: var(--d, 0ms);
+  }
+  @keyframes flip {
+    from { transform: rotateY(180deg); }
+    to   { transform: rotateY(0deg); }
+  }
+
+  /* non-animating fallbacks: elements start visible */
+  .deal, .rise, .settle-in { opacity: 1; }
+
+  /* ============================================================
+     TOGGLE OFF + prefers-reduced-motion: kill ALL motion
+     ============================================================ */
+  body.reduced *,
+  body.reduced *::before,
+  body.reduced *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  body.reduced .card.down { transform: rotateY(180deg); }
+  body.reduced .card.flip { transform: rotateY(0deg); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============================================================
+     900w breakpoint — flatten arc, tighten gutters, shrink cards
+     ============================================================ */
+  @media (max-width: 980px) {
+    .home { grid-template-columns: 1fr; padding: 0 var(--space-6) var(--space-8); }
+    .nav { padding: var(--space-5) var(--space-6) var(--space-6); flex-wrap: wrap; }
+    .table-screen { padding: 0 var(--space-6) var(--space-6); }
+    .t-display { font-size: 44px; }
+    .cardwrap.hero, .card.hero { width: 62px; height: 88px; }
+    .cardwrap.comm, .card.comm { width: 55px; height: 79px; }
+    .cardwrap.villain, .card.villain { width: 38px; height: 53px; }
+  }
+</style>
+</head>
+<body class="anim">
+
+  <!-- ============ DEMO CHROME ============ -->
+  <div class="demobar">
+    <div class="brand">
+      <span class="name">Obsidian Jewel</span>
+      <span class="sub">OFFSUIT · direction demo</span>
+    </div>
+    <div class="actions">
+      <button class="ctrl-btn" id="replayBtn"><span>Replay deal</span></button>
+      <button class="ctrl-btn" id="motionBtn" aria-pressed="true">
+        <span><span class="dot" id="motionDot"></span>Motion: <span id="motionState">on</span></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="sr-only" role="status" aria-live="polite" id="live">Cy to act</div>
+
+  <div class="screens">
+
+    <!-- ==================== SCREEN 1 — HOME ==================== -->
+    <section class="screen-wrap">
+      <div class="screen-label">
+        <span class="idx">1</span>
+        <span class="t-overline">Home</span>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <div class="rail" id="rail1">
+          <div class="pill" id="pill1"></div>
+          <button class="tab active">Play</button>
+          <button class="tab">Learn</button>
+          <button class="tab">Train</button>
+          <button class="tab">Charts</button>
+          <button class="tab">Progress</button>
+          <button class="tab">Profile</button>
+          <button class="tab">Settings</button>
+        </div>
+      </nav>
+
+      <div class="home">
+        <!-- LEFT -->
+        <div class="home-left">
+          <div class="bankroll-block">
+            <div class="bankroll-fig rise" style="--d:40ms">
+              <div class="t-display">10000</div>
+              <div class="t-overline">Bankroll</div>
+            </div>
+            <div class="calibrating rise" style="--d:100ms">
+              <div class="lead">Calibrating</div>
+              <a href="#">Run an assessment →</a>
+            </div>
+          </div>
+
+          <div class="panel rise" style="--d:120ms">
+            <div class="empty-note">
+              <div class="t-h2">Nothing is owed yet</div>
+              <div class="desc t-body">Play a hand or open any drill — every surface is available from the start.</div>
+            </div>
+          </div>
+
+          <div class="entry-row">
+            <button class="entry rise" style="--d:180ms">
+              <span class="tick">↗</span>
+              <span class="t-h2">New session</span>
+              <span class="desc t-small">Sit down and play a hand with the coach watching.</span>
+            </button>
+            <button class="entry rise" style="--d:240ms">
+              <span class="tick">↗</span>
+              <span class="t-h2">Play with friends</span>
+              <span class="desc t-small">Host or join a table on your local network.</span>
+            </button>
+          </div>
+
+          <div class="recent-block rise" style="--d:300ms">
+            <div class="t-overline">Recent hands</div>
+            <div class="panel">
+              <div class="empty-note">
+                <div class="t-h2">No hands yet</div>
+                <div class="desc t-small">Start a session and every hand you play shows up here.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT — planner -->
+        <div class="panel planner rise" style="--d:160ms">
+          <div class="planner-head">
+            <div class="t-h2">Plan a sitting</div>
+            <div class="seg" id="seg1">
+              <div class="segpill" id="segpill1"></div>
+              <button class="on">Plan</button>
+              <button>Interleaving</button>
+            </div>
+          </div>
+
+          <div class="duration-row">
+            <button class="chip"><span>15 min</span></button>
+            <button class="chip selected"><span>30 min</span></button>
+            <button class="chip"><span>50 min</span></button>
+          </div>
+
+          <div class="planner-note t-small">27.25 min of blocks, 2.75 min unspent — a block is whole units, so the remainder buys nothing.</div>
+
+          <div class="block-list">
+            <div class="block-row">
+              <span class="bname t-body">Fluency warm-up</span>
+              <span class="bpct t-small">8%</span>
+              <span class="bmin num">4 min</span>
+              <span class="bunits t-small">1 block</span>
+            </div>
+            <div class="block-row">
+              <span class="bname t-body">Graded spots</span>
+              <span class="bpct t-small">48%</span>
+              <span class="bmin num">16.25 min</span>
+              <span class="bunits t-small">13 spots</span>
+            </div>
+            <div class="block-row">
+              <span class="bname t-body">Contrast remediation</span>
+              <span class="bpct t-small">20%</span>
+              <span class="bmin num">5 min</span>
+              <span class="bunits t-small">1 set</span>
+            </div>
+            <div class="block-row">
+              <span class="bname t-body">Live hands</span>
+              <span class="bpct t-small">14%</span>
+              <span class="bmin num">0 min</span>
+              <span class="bunits t-small">cut</span>
+            </div>
+            <div class="block-row">
+              <span class="bname t-body">Scoreboard</span>
+              <span class="bpct t-small">4%</span>
+              <span class="bmin num">2 min</span>
+              <span class="bunits t-small">1 board</span>
+            </div>
+          </div>
+
+          <button class="cta">
+            <span class="lead">Start 30-minute session</span>
+            <span class="sub">13 graded spots, sit down at the table</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SCREEN 2 — LIVE TABLE ==================== -->
+    <section class="screen-wrap">
+      <div class="screen-label">
+        <span class="idx">2</span>
+        <span class="t-overline">Live table</span>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <div class="rail" id="rail2">
+          <div class="pill" id="pill2"></div>
+          <button class="tab active">Play</button>
+          <button class="tab">Learn</button>
+          <button class="tab">Train</button>
+          <button class="tab">Charts</button>
+          <button class="tab">Progress</button>
+          <button class="tab">Profile</button>
+          <button class="tab">Settings</button>
+        </div>
+      </nav>
+
+      <div class="table-screen">
+        <div class="felt" id="felt">
+
+          <!-- villains arced across top third -->
+          <!-- Ada upper-left -->
+          <div class="seat" style="left:9%; top:2%;">
+            <div class="cards">
+              <div class="cardwrap villain"><div class="card villain down deal" style="--d:0ms"><div class="back"></div><div class="face"></div></div></div>
+              <div class="cardwrap villain"><div class="card villain down deal" style="--d:70ms"><div class="back"></div><div class="face"></div></div></div>
+            </div>
+            <div class="tick"></div>
+            <div class="sname">Ada <span class="pos">CO</span></div>
+            <div class="sstack num">4975</div>
+            <div class="bet" style="left:50%; bottom:-26px; transform:translateX(-50%);">25</div>
+          </div>
+
+          <!-- Bo top-center (arc's highest) -->
+          <div class="seat" id="seatBo" style="left:50%; top:-2%; transform:translateX(-50%);">
+            <div class="cards">
+              <div class="cardwrap villain"><div class="card villain down deal" style="--d:140ms"><div class="back"></div><div class="face"></div></div></div>
+              <div class="cardwrap villain"><div class="card villain down deal" style="--d:210ms"><div class="back"></div><div class="face"></div></div></div>
+            </div>
+            <div class="tick"></div>
+            <div class="sname">Bo <span class="pos">HJ</span></div>
+            <div class="sstack num">4950</div>
+            <div class="bet" style="left:50%; bottom:-26px; transform:translateX(-50%);">50</div>
+          </div>
+
+          <!-- Cy upper-right — TO ACT -->
+          <div class="seat to-act" id="seatCy" style="right:9%; top:2%;">
+            <div class="glow" id="cyGlow"></div>
+            <div class="cards">
+              <div class="cardwrap villain"><div class="card villain down deal" style="--d:280ms"><div class="back"></div><div class="face"></div></div></div>
+              <div class="cardwrap villain"><div class="card villain down deal" style="--d:350ms"><div class="back"></div><div class="face"></div></div></div>
+            </div>
+            <div class="tick" id="cyTick"></div>
+            <div class="sname">Cy <span class="pos">SB</span></div>
+            <div class="sstack num">5000</div>
+          </div>
+
+          <!-- centre: pot + board -->
+          <div class="centre">
+            <div class="pot">
+              <div class="t-overline">Pot</div>
+              <div class="t-display" id="potFig">75</div>
+            </div>
+            <div class="board">
+              <!-- Q♠ -->
+              <div class="cardwrap comm"><div class="card comm ink deal" style="--d:520ms">
+                <div class="face"><div class="corner"><span class="rank">Q</span><span class="suit">♠</span></div></div>
+                <div class="back"></div>
+              </div></div>
+              <!-- 8♦ -->
+              <div class="cardwrap comm"><div class="card comm ruby deal" style="--d:590ms">
+                <div class="face"><div class="corner"><span class="rank">8</span><span class="suit">♦</span></div></div>
+                <div class="back"></div>
+              </div></div>
+              <!-- 3♣ -->
+              <div class="cardwrap comm"><div class="card comm ink deal" style="--d:660ms">
+                <div class="face"><div class="corner"><span class="rank">3</span><span class="suit">♣</span></div></div>
+                <div class="back"></div>
+              </div></div>
+            </div>
+          </div>
+
+          <!-- hero bottom-center -->
+          <div class="hero-seat">
+            <div class="hero-cards-group">
+              <div class="hero-cards">
+                <!-- 2♦ -->
+                <div class="cardwrap hero"><div class="card hero ruby deal" style="--d:760ms">
+                  <div class="face"><div class="corner"><span class="rank">2</span><span class="suit">♦</span></div></div>
+                  <div class="back"></div>
+                </div></div>
+                <!-- K♥ -->
+                <div class="cardwrap hero"><div class="card hero ruby deal" style="--d:830ms">
+                  <div class="face"><div class="corner"><span class="rank">K</span><span class="suit">♥</span></div></div>
+                  <div class="back"></div>
+                </div></div>
+              </div>
+              <div class="hero-id">
+                <div class="tick"></div>
+                <div class="sname">You <span class="pos">BTN</span></div>
+                <div class="sstack num">5000</div>
+              </div>
+            </div>
+
+            <div class="hero-winline settle-in" style="--d:960ms">
+              <div class="stat-fig win">
+                <div class="t-overline">Win</div>
+                <div class="val" id="winFig">22%</div>
+              </div>
+              <div class="stat-fig tie">
+                <div class="t-overline">Tie</div>
+                <div class="val" id="tieFig">3%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- controls -->
+        <div class="controls-wrap settle-in" style="--d:1020ms">
+          <div class="corner-afford">
+            <button class="quiet-btn">Stats</button>
+            <button class="quiet-btn">Coach</button>
+          </div>
+          <div class="action-bar" role="group" aria-label="Actions">
+            <button class="seg-btn"><span>Fold</span></button>
+            <button class="seg-btn jewel"><span>Call 50</span></button>
+            <button class="seg-btn"><span>Raise</span></button>
+          </div>
+          <div style="width:120px"></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+<script>
+  /* ---- position the segmented pills to their active/selected item ---- */
+  function placePill(railId, pillId, matchClass) {
+    const rail = document.getElementById(railId);
+    const pill = document.getElementById(pillId);
+    if (!rail || !pill) return;
+    const active = rail.querySelector('.' + matchClass);
+    if (!active) return;
+    const railBox = rail.getBoundingClientRect();
+    const box = active.getBoundingClientRect();
+    pill.style.width = box.width + 'px';
+    pill.style.transform = 'translateX(' + (box.left - railBox.left - (parseFloat(getComputedStyle(rail).paddingLeft))) + 'px)';
+  }
+  function layoutPills() {
+    placePill('rail1','pill1','active');
+    placePill('rail2','pill2','active');
+    placePill('seg1','segpill1','on');
+  }
+
+  /* ---- nav tab click: glide pill ---- */
+  document.querySelectorAll('.nav .rail').forEach(rail => {
+    rail.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        rail.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const pill = rail.querySelector('.pill');
+        placePill(rail.id, pill.id, 'active');
+      });
+    });
+  });
+  const seg1 = document.getElementById('seg1');
+  seg1.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      seg1.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      placePill('seg1','segpill1','on');
+    });
+  });
+
+  /* ---- turn-cue glow: settle in once ---- */
+  function settleGlow() {
+    const g = document.getElementById('cyGlow');
+    if (g) g.classList.add('shown');
+  }
+
+  /* ---- pot / win count-ups via rAF stepping textContent ---- */
+  function countUp(el, target, dur, suffix) {
+    if (!el) return;
+    const reduced = document.body.classList.contains('reduced')
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { el.textContent = target + (suffix||''); return; }
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(target * eased) + (suffix||'');
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = target + (suffix||'');
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ---- replay all table motion ---- */
+  function replay() {
+    const reduced = document.body.classList.contains('reduced');
+    // re-trigger CSS entrance animations by reflowing the animated nodes
+    document.querySelectorAll('.deal, .rise, .settle-in').forEach(el => {
+      el.style.animation = 'none';
+      void el.offsetWidth; // reflow
+      el.style.animation = '';
+    });
+    document.getElementById('potFig').textContent = '75';
+    document.getElementById('winFig').textContent = '22%';
+    document.getElementById('tieFig').textContent = '3%';
+    document.getElementById('cyGlow').classList.remove('shown');
+
+    if (reduced) {
+      settleGlow();
+      return;
+    }
+    // choreograph count-ups to land after the deal timeline
+    setTimeout(() => {
+      countUp(document.getElementById('potFig'), 75, 320);
+      countUp(document.getElementById('winFig'), 22, 320, '%');
+      countUp(document.getElementById('tieFig'), 3, 320, '%');
+    }, 900);
+    setTimeout(settleGlow, 1000);
+  }
+
+  /* ---- motion toggle ---- */
+  const body = document.body;
+  const motionBtn = document.getElementById('motionBtn');
+  const motionState = document.getElementById('motionState');
+  motionBtn.addEventListener('click', () => {
+    const nowReduced = !body.classList.contains('reduced');
+    body.classList.toggle('reduced', nowReduced);
+    body.classList.toggle('anim', !nowReduced);
+    motionState.textContent = nowReduced ? 'off' : 'on';
+    motionBtn.setAttribute('aria-pressed', String(!nowReduced));
+    layoutPills();
+    if (nowReduced) {
+      // snap to final values
+      document.getElementById('potFig').textContent = '75';
+      document.getElementById('winFig').textContent = '22%';
+      document.getElementById('tieFig').textContent = '3%';
+      settleGlow();
+    } else {
+      replay();
+    }
+  });
+
+  document.getElementById('replayBtn').addEventListener('click', replay);
+
+  window.addEventListener('resize', layoutPills);
+  window.addEventListener('load', () => {
+    layoutPills();
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      body.classList.remove('anim'); body.classList.add('reduced');
+      motionState.textContent = 'off';
+      motionBtn.setAttribute('aria-pressed','false');
+      settleGlow();
+    } else {
+      setTimeout(() => {
+        countUp(document.getElementById('potFig'), 75, 320);
+        countUp(document.getElementById('winFig'), 22, 320, '%');
+        countUp(document.getElementById('tieFig'), 3, 320, '%');
+      }, 900);
+      setTimeout(settleGlow, 1000);
+    }
+  });
+  // place pills immediately too (before load, in case images/fonts slow it)
+  layoutPills();
+</script>
+</body>
+</html>
