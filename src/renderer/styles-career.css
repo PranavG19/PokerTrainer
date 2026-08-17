@@ -1,0 +1,164 @@
+/*
+ * The Career screen (a Profile sub-view). Reuses the app's token layer entirely — no colour literals.
+ * Layout only; the shared .stat-label / .stat-value / .counter / .counter-grid classes carry the look.
+ */
+
+.career-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 720px;
+}
+
+.career-back {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--text-lo);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+.career-back:hover {
+  color: var(--text-hi);
+}
+
+.career-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Standing headline ── */
+.career-standing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.career-standing-value {
+  font-size: 40px;
+  font-weight: 300;
+  color: var(--text-hi);
+  line-height: 1.1;
+}
+.career-form {
+  font-size: 13px;
+  color: var(--text-lo);
+}
+/* A rough run reads a touch brighter, a settling one stays quiet — never red, never a demotion. */
+.career-form[data-form='sharp'] {
+  color: var(--mint);
+}
+
+/* Career's own counter grid is five-wide (the shared one is four); auto-fit keeps it tidy at 900px. */
+.career-screen .counter-grid {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+
+/* ── Prediction accuracy rows ── */
+.career-accuracy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px 16px;
+}
+.career-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.career-row-label {
+  font-size: 14px;
+  color: var(--text-lo);
+}
+.career-row-value {
+  font-size: 16px;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Biggest leak ── */
+.career-leak {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px 16px;
+}
+.career-leak[data-empty='true'] {
+  color: var(--text-lo);
+  font-size: 14px;
+}
+.career-leak-principle {
+  font-size: 14px;
+  color: var(--text-hi);
+}
+.career-leak-cost {
+  font-size: 15px;
+  color: var(--text-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Cadence dot grid ── */
+.career-cadence {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.career-dot-grid {
+  display: grid;
+  grid-template-columns: repeat(30, 1fr);
+  gap: 4px;
+  max-width: 420px;
+}
+.career-dot {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--surface-hi);
+}
+.career-dot[data-active='true'] {
+  background: var(--mint);
+}
+/* Today is outlined so the grid reads left-to-right toward now, without implying a broken chain. */
+.career-dot[data-today='true'] {
+  box-shadow: inset 0 0 0 1px var(--text-lo);
+}
+.career-cadence-summary {
+  font-size: 13px;
+  color: var(--text-lo);
+}
+
+/* ── Milestone ladder ── */
+.career-milestones {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.career-milestone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 10px;
+  font-size: 14px;
+}
+.career-milestone-mark {
+  width: 18px;
+  text-align: center;
+  color: var(--text-lo);
+}
+.career-milestone-label {
+  color: var(--text-lo);
+}
+.career-milestone[data-achieved='true'] .career-milestone-mark {
+  color: var(--mint);
+}
+.career-milestone[data-achieved='true'] .career-milestone-label {
+  color: var(--text-hi);
+}

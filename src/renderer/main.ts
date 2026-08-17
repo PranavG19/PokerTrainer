@@ -39,6 +39,8 @@ import { computeStats } from '../core/session.js';
 import { createSoundPlayer } from './sound.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
+import { renderCareer } from './screens/career.js';
+import { careerRecord, type CareerInput } from '../core/career.js';
 import { renderProgressScreen } from './screens/progress.js';
 import { decisionRecordsFromHands, type KcEvidence } from '../core/progress.js';
 import { standing, currentForm, puzzleCoverage, depthLabel, depthToStack, affordableStack, type Depth, type FormState } from '../core/standing.js';
@@ -235,7 +237,11 @@ async function boot(): Promise<void> {
    * is its own view rather than a section of the profile because the profile column has no spare
    * height at 900x640 — see screens/profile.ts.
    */
-  let profileView: { at: 'profile' } | { at: 'picker' } | { at: 'replay'; index: number } = {
+  let profileView:
+    | { at: 'profile' }
+    | { at: 'picker' }
+    | { at: 'replay'; index: number }
+    | { at: 'career' } = {
     at: 'profile',
   };
   let review: ReviewHandle | null = null;
@@ -430,6 +436,33 @@ async function boot(): Promise<void> {
     // run shows up here, not as a demotion. Same honest evLossBb over the same eligibility filter.
     const form = currentForm(session.assessments, now).state;
     return { depth: result.depth, label: depthLabel(result.depth), form };
+  }
+
+  /**
+   * Assemble the Career record's inputs from the SAME already-derived, honest sources the standing and
+   * Progress screen use — nothing here is fabricated or computed anew. Activity timestamps are the hand
+   * playedAt (absent on legacy hands, filtered out) plus each assessment's `at`, used only to count
+   * distinct days practised (career.ts never builds a shame counter from them).
+   */
+  function buildCareerInput(now: number): CareerInput {
+    const masteredKcCount = deriveConcepts().filter((state) => gate(state, now).status === 'mastered').length;
+    const handTimestamps = session.hands
+      .map((hand) => hand.playedAt)
+      .filter((ts): ts is number => typeof ts === 'number');
+    const assessmentTimestamps = session.assessments.map((decision) => decision.at);
+    return {
+      decisions: session.assessments,
+      masteredKcCount,
+      puzzleCoverage: puzzleCoverage(session.puzzleProgress, puzzleStepCounts),
+      depthFloor: session.depthFloor,
+      // The RAW stats (vpipHands/pfrHands/leakCostBb) career.ts needs, not the display SessionSummary
+      // computeStats derives — biggestLeakOf reads stats.leakCostBb directly.
+      stats: session.stats,
+      calibration: session.calibration,
+      rebuys: session.rebuys,
+      assessmentsTaken: session.assessments.length,
+      activityTimestamps: [...handTimestamps, ...assessmentTimestamps],
+    };
   }
 
   /**
@@ -881,7 +914,18 @@ async function boot(): Promise<void> {
       });
     }
 
-    return renderProfile({ session, onOpenReview: () => goto({ at: 'picker' }) });
+    if (profileView.at === 'career') {
+      return renderCareer({
+        record: careerRecord(buildCareerInput(Date.now()), Date.now()),
+        onBack: () => goto({ at: 'profile' }),
+      });
+    }
+
+    return renderProfile({
+      session,
+      onOpenReview: () => goto({ at: 'picker' }),
+      onOpenCareer: () => goto({ at: 'career' }),
+    });
   }
 
   function renderPlaceholder(which: string): HTMLElement {
