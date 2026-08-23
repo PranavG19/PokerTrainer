@@ -22,6 +22,7 @@
  */
 
 import { dueNow, gate, posterior, type ConceptState, type DueRep } from './schedule.js';
+import type { RwReport } from './rw.js';
 
 /** The four input families N2 names, in the order they win ties. */
 export const SOURCES = ['spacing-debt', 'fluency-gate', 'mastery', 'error-tag'] as const;
@@ -77,6 +78,15 @@ export interface RecommendInput {
   readonly leaks: readonly { principle: string; count: number; costBb: number }[];
   readonly recommender: RecommenderState;
   readonly now: number;
+  /**
+   * G2/G8, BACKLOG #2: reach-weighted study priority, one row per (street × action class) ranked by
+   * `mean(ΔEV) × reach × 100` against a frozen reference population (rw.ts). When present with at least
+   * one loss-bearing class, it REPLACES the raw-cost leak tally as the error-tag family, so study
+   * selection favours the leaks that actually come up rather than treating every spot as equally
+   * reached. Absent (or empty) on a fresh profile with no graded decisions, and the raw-cost `leaks`
+   * remain the error-tag source — so the recommender is unchanged wherever no reach data exists.
+   */
+  readonly rw?: RwReport;
 }
 
 interface Candidate extends Omit<Suggestion, 'otherCandidates'> {
@@ -161,10 +171,31 @@ function masteryCandidates(input: RecommendInput): Candidate[] {
 }
 
 /**
- * RANKED BY COST, NEVER BY COUNT, and session.ts already learned this lesson the hard way: ranking by
- * frequency buries one 20 bb blunder under five 0.6 bb ones. The expensive leak is the one to fix.
+ * The error-tag family. When a reach-weighted report is supplied (BACKLOG #2, G2/G8), study priority is
+ * the reach-weighted loss per (street × action class), so a leak in a spot you reach OFTEN outranks an
+ * equally-costly one you rarely see — the raw-cost ranking is reach-blind and treats every spot as
+ * equally frequent. Falls back to the raw-cost tally when no reference population is loaded.
+ *
+ * COST STILL NEVER MEANS COUNT, on either path. session.ts learned this the hard way: ranking by
+ * frequency buries one 20 bb blunder under five 0.6 bb ones, so the fallback ranks by total cost, and
+ * the RW path ranks by mean-ΔEV × reach — never by how many times a tag fired.
  */
 function leakCandidates(input: RecommendInput): Candidate[] {
+  if (input.rw && input.rw.classes.length > 0) {
+    return input.rw.classes
+      .filter((klass) => klass.rw > 0)
+      .map((klass) => ({
+        source: 'error-tag' as const,
+        subject: klass.actionClass,
+        action: `Review ${klass.actionClass}`,
+        reason: `${klass.actionClass} on the ${klass.street} costs ${klass.meanDeltaEvBb.toFixed(1)} bb a time across ${klass.decisions} hand${klass.decisions === 1 ? '' : 's'} and comes up often — reach-weighted ${klass.rw.toFixed(1)} bb/100, your highest-reach leak`,
+        // Stay the lowest band (the family ordering is 100 / 60 / 50 / 30 / 20), but let reach
+        // discriminate WITHIN it: a strictly-increasing squash of rw into [20, 29) so a higher-reach
+        // leak always outranks a lower one, and no leak — however costly — ever leaps a spacing,
+        // gate or mastery candidate. min(9, rw) would saturate and let the alphabet decide big leaks.
+        weight: 20 + (klass.rw / (klass.rw + 10)) * 9,
+      }));
+  }
   return input.leaks
     .filter((leak) => leak.costBb > 0)
     .map((leak) => ({
