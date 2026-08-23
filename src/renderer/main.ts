@@ -66,6 +66,7 @@ import { renderMultiplayerScreen } from './screens/multiplayer.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
 import type { AssessmentGrade } from '../core/assessmentBlock.js';
 import { renderVarianceScreen } from './screens/variance.js';
+import { beginFocusRestore } from './focusRestore.js';
 
 const DEFAULT_SEED = 42;
 
@@ -632,6 +633,19 @@ async function boot(): Promise<void> {
   }
 
   function render(): void {
+    // Screens without their own repaint hook (settings toggles, the theme picker, …) rebuild by a
+    // full screen swap here, which drops keyboard focus to <body>. Capture the focused control inside
+    // `screen` and restore it after the swap. Scoped to `screen`, not `app`, so a real tab switch
+    // (focus on a nav button) is left alone — the browser keeps focus on the clicked tab.
+    const restoreScreenFocus = beginFocusRestore(screen);
+    try {
+      renderInner();
+    } finally {
+      restoreScreenFocus();
+    }
+  }
+
+  function renderInner(): void {
     nav.replaceChildren(
       ...TABS.map((t) => {
         const button = tabButton(t.label, t.id, t.testid);

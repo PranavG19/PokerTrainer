@@ -22,6 +22,7 @@ import {
   type SpotTypeVerdict,
 } from '../../core/spotType.js';
 import { renderCardRow } from '../components/card.js';
+import { withRestoredFocus } from '../focusRestore.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
 /**
@@ -299,7 +300,11 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
           : classifyVerdict !== null
             ? classifyVerdictAnnouncement(classifyVerdict)
             : '';
-    root.replaceChildren(verdictAnnouncer, header(s), table(s), body, railSeam());
+    // Preserve keyboard focus across the rebuild so a learner working the puzzle by keyboard is not
+    // thrown back to <body> on every graded step.
+    withRestoredFocus(root, () =>
+      root.replaceChildren(verdictAnnouncer, header(s), table(s), body, railSeam()),
+    );
   }
 
   // ── rendering ──────────────────────────────────────────────────────────────

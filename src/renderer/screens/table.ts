@@ -31,6 +31,7 @@ import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { routeFor } from '../../core/confidence.js';
 import { applyG4Override, gateAttemptIsHit, gradeReason } from '../../core/reasonGrade.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { beginFocusRestore } from '../focusRestore.js';
 import {
   clearGate,
   clearCoach,
@@ -729,6 +730,18 @@ export function renderTable(opts: {
   }
 
   function renderControls(): void {
+    // A keyboard user acting via the control pills would otherwise be dropped to <body> on every
+    // state tick that rebuilds these controls. Capture the focused control up front and restore it
+    // after the rebuild, through every early return.
+    const restoreControlFocus = beginFocusRestore(controls);
+    try {
+      renderControlsInner();
+    } finally {
+      restoreControlFocus();
+    }
+  }
+
+  function renderControlsInner(): void {
     controls.replaceChildren();
 
     // Before the showdown branch so the toggle is reachable at every point in a hand.
