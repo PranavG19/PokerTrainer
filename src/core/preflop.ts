@@ -278,6 +278,52 @@ export function rfiWidth(position: Position): number {
 }
 
 // ---------------------------------------------------------------------------
+// Villain betting/raising range — the grader's opponent model
+// ---------------------------------------------------------------------------
+
+/**
+ * The range the live coach grades hero's decision AGAINST when hero faces a bet or raise (CONSOLIDATED
+ * audit #1). The coach used to score every call/fold/raise on equity-vs-RANDOM (a 100% range), which
+ * systematically overstates hero equity in exactly the bet-facing spots being graded: a villain who
+ * voluntarily puts chips in holds a range strictly STRONGER than two random cards, so vs-random flagged
+ * loose calls as fine ("call too wide", the commonest losing leak) and charged correct folds as leaks.
+ * `equity.equityVsRange` fixes that by drawing the villain's cards from THIS range instead of the deck.
+ *
+ * MODEL, not a solve — read the verdict as a FLOOR, not a point estimate. Both the live table and the
+ * assessment block are 4-handed, so there is no clean 6-max seat to map the aggressor onto and read a
+ * position-specific range; and the app models ranges only preflop, never a street-by-street continuation
+ * range. So this is deliberately a single, position-independent, value-weighted range built from the SAME
+ * monotonic-threshold machinery (`RfiSpec` + `inThresholds`) and combo-weighting the RFI ranges use. It is
+ * calibrated to a documented midpoint: strictly stronger than random (that is the bug it removes) but not
+ * nit-tight (a too-narrow model would merely flip the error — over-charging good calls and excusing bad
+ * folds). Its width sits between the cutoff RFI (27%) and button RFI (44%) — a "has-a-hand" continuing
+ * range, wider than a pure value range because a real bettor also bets draws and thin value, and its exact
+ * width is pinned by a test so a careless edit that makes it random-wide or nit-narrow is caught.
+ *
+ * All pairs; suited aces/kings down to any kicker plus most suited broadways/connectors; and only the
+ * stronger offsuit broadways — the coarse shape of "a hand good enough to keep firing chips at you".
+ */
+const VILLAIN_BETTING_SPEC: RfiSpec = {
+  pairsDownTo: '2',
+  suited: { A: '2', K: '2', Q: '6', J: '6', T: '6', '9': '6', '8': '6', '7': '5', '6': '5', '5': '4' },
+  offsuit: { A: '8', K: 'T', Q: 'T', J: 'T', T: '9' },
+};
+
+/**
+ * The concrete combos a betting/raising villain is modelled to hold. Computed once — it is a fixed model,
+ * with no position or board input — and consumed by the coach via `equity.equityVsRange`.
+ */
+export const VILLAIN_BETTING_RANGE: readonly Combo[] = ALL_COMBOS.filter((combo) =>
+  inThresholds(combo, VILLAIN_BETTING_SPEC),
+);
+
+/** Combo-weighted share of the villain betting range, exported so a test can pin the model's width. */
+export function villainBettingWidth(): number {
+  const weighted = VILLAIN_BETTING_RANGE.reduce((sum, combo) => sum + comboWeight(combo), 0);
+  return weighted / TOTAL_COMBINATIONS;
+}
+
+// ---------------------------------------------------------------------------
 // Facing-a-raise defense ranges (BB defend + blind-vs-blind)
 // ---------------------------------------------------------------------------
 

@@ -39,6 +39,8 @@
  * the payload the rail actually sends, so a drift between these declarations and main's types
  * fails a test rather than passing silently.
  */
+import { text } from './dom.js';
+
 export type RailContext =
   | 'plm-drill'
   | 'spot-pre-commit'
@@ -510,9 +512,3 @@ function asStatus(raw: unknown): TutorStatus | null {
   };
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}

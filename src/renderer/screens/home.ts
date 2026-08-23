@@ -1,5 +1,6 @@
 import type { HandRecord, SessionState } from '../../core/session.js';
 import { DEFAULT_BANKROLL } from '../../core/session.js';
+import type { SessionPlan } from '../../core/sessionPlan.js';
 import type { Source, Suggestion } from '../../core/recommend.js';
 import { renderCard } from '../components/card.js';
 import { renderRecommendation, type RecommendationHandlers } from '../components/recommendation.js';
@@ -18,6 +19,13 @@ export function renderHome(opts: {
    */
   standing?: { depth: number; label: string; form?: string };
   onNewSession: () => void;
+  /**
+   * The session PLANNER's Start: the learner committed to a specific sitting, so the ASSEMBLED plan
+   * (its whole-task live-hand count, mode and mix) is handed to the caller to parameterise the
+   * launched session. Absent → the planner's Start falls back to the plain onNewSession, i.e. the
+   * default table, so a caller that has not wired the planner yet is unchanged.
+   */
+  onStartPlanned?: (plan: SessionPlan) => void;
   /** Open the multiplayer (local relay) panel. Absent when the caller has not wired multiplayer. */
   onPlayWithFriends?: () => void;
   onOpenHand?: (handNumber: number) => void;
@@ -71,7 +79,13 @@ export function renderHome(opts: {
    */
   root.appendChild(
     renderSessionPlanner({
-      onStart: () => opts.onNewSession(),
+      // Thread the assembled plan into session start. Before this, Start discarded the plan and
+      // opened the ordinary default table (the planner "lied"). When no planned-start handler is
+      // wired the plain New session path is the honest fallback, so nothing regresses.
+      onStart: (plan) => {
+        if (opts.onStartPlanned) opts.onStartPlanned(plan);
+        else opts.onNewSession();
+      },
       interleavingSpots: opts.session.interleavingSpots,
     }),
   );

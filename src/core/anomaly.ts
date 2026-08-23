@@ -18,7 +18,7 @@
  * measured response times as data, because a drill you cannot replay is a drill you cannot test.
  */
 
-import { mulberry32, type Rng } from './rng';
+import { mulberry32, type Rng } from './rng.js';
 
 // ---------------------------------------------------------------------------
 // 1. THE TRIGGER LIST AND THE TRAINED RANGES

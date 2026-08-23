@@ -3,13 +3,11 @@ import { rankOf, suitOf, isRed, SUIT_PIP } from '../../core/cards.js';
 
 export interface CardRenderOpts {
   faceDown?: boolean;
-  tilt?: number;
   small?: boolean;
 }
 
 export function renderCard(card: Card | null, opts?: CardRenderOpts): HTMLElement {
   const faceDown = opts?.faceDown ?? false;
-  const tilt = opts?.tilt ?? 0;
   const small = opts?.small ?? false;
 
   if (card === null || faceDown) {
@@ -17,7 +15,6 @@ export function renderCard(card: Card | null, opts?: CardRenderOpts): HTMLElemen
     back.className = 'card-back' + (small ? ' small' : '');
     back.dataset.testid = 'card';
     back.dataset.card = 'back';
-    if (tilt) back.style.transform = `rotate(${tilt}deg)`;
     return back;
   }
 
@@ -26,7 +23,6 @@ export function renderCard(card: Card | null, opts?: CardRenderOpts): HTMLElemen
   el.className = 'card' + (red ? ' red' : '') + (small ? ' small' : '');
   el.dataset.testid = 'card';
   el.dataset.card = card;
-  if (tilt) el.style.transform = `rotate(${tilt}deg)`;
 
   const rank = document.createElement('span');
   rank.className = 'card-rank';

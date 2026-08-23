@@ -1,5 +1,6 @@
 import type { Card } from './cards.js';
-import { DISPLAY_ITERATIONS, equityVsRandom } from './equity.js';
+import { DISPLAY_ITERATIONS, equityVsRandom, equityVsRange, scalarEquity } from './equity.js';
+import type { Combo } from './preflop.js';
 
 export type Severity = 'free' | 'notable' | 'serious';
 
@@ -29,11 +30,26 @@ export function gradeDecision(input: {
   betSize?: number;
   opponents: number;
   seed?: number;
+  /**
+   * The combos the AGGRESSOR is modelled to hold when hero faces a bet or raise (toCall > 0). When
+   * supplied, hero equity is measured vs THIS range (equityVsRange) instead of vs two random cards — the
+   * CONSOLIDATED audit #1 fix: a betting villain's range is strictly stronger than random, so vs-random
+   * overstated hero equity in precisely the graded spots. Omit it (or pass it on a no-price spot) and the
+   * grader falls back to equityVsRandom, so unpriced checks/leads are unchanged and callers that have no
+   * villain model keep their old behaviour. The live table and assessment block always pass it facing a bet.
+   */
+  villainRange?: readonly Combo[];
 }): Grade {
-  const { hole, board, pot, toCall, bb, chosen, opponents, seed } = input;
+  const { hole, board, pot, toCall, bb, chosen, opponents, seed, villainRange } = input;
 
-  const eq = equityVsRandom(hole, board, opponents, DISPLAY_ITERATIONS, seed ?? 1);
-  const equity = eq.win + eq.tie * 0.5;
+  // Facing a bet/raise, grade hero against what the aggressor can actually HAVE, not two random cards.
+  // With no price faced (toCall === 0) there is no aggressor range to speak of, so the honest opponent
+  // model is still a random field — this scopes the range fix to exactly the bet-facing branches.
+  const eq =
+    toCall > 0 && villainRange && villainRange.length > 0
+      ? equityVsRange(hole, board, villainRange, DISPLAY_ITERATIONS, seed ?? 1)
+      : equityVsRandom(hole, board, opponents, DISPLAY_ITERATIONS, seed ?? 1);
+  const equity = scalarEquity(eq);
 
   const required = potOddsRequired(pot, toCall);
 

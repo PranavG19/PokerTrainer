@@ -4,6 +4,7 @@ import './styles-screens.css';
 import './styles-settings.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
+import type { SavedRange } from '../core/rangeEditor.js';
 import type { LexiconAttempt } from '../core/lexicon.js';
 import type { FadingEvent } from '../core/fading.js';
 import {
@@ -19,6 +20,8 @@ import {
   recordLexiconAttempt,
   recordPrediction,
   recordPuzzleResult,
+  saveRange,
+  deleteRange,
   serialize,
   setCoachedMode,
   setSoundCues,
@@ -36,6 +39,8 @@ import {
   type Suggestion,
 } from '../core/recommend.js';
 import { computeStats } from '../core/session.js';
+import { reachWeightedLoss } from '../core/rw.js';
+import { REFERENCE_REACH, classDecisionsFor, type GradedDecision } from '../core/reachRef.js';
 import { createSoundPlayer } from './sound.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
@@ -49,6 +54,9 @@ import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
+import { renderChartBank } from './screens/chartBank.js';
+import { renderEquityCalculator } from './screens/equityCalculator.js';
+import { renderRangeEditor } from './screens/rangeEditor.js';
 import { renderDrillScreen } from './screens/drill.js';
 import { renderHandReadingDrill } from './screens/handReadingDrill.js';
 import { renderBoardReadingDrill } from './screens/boardReadingDrill.js';
@@ -66,6 +74,8 @@ import { renderMultiplayerScreen } from './screens/multiplayer.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
 import type { AssessmentGrade } from '../core/assessmentBlock.js';
 import { renderVarianceScreen } from './screens/variance.js';
+import type { SessionPlan } from '../core/sessionPlan.js';
+import { beginFocusRestore } from './focusRestore.js';
 
 const DEFAULT_SEED = 42;
 
@@ -147,6 +157,9 @@ type Tab =
   | 'learn'
   | 'train'
   | 'charts'
+  | 'chart-bank'
+  | 'equity'
+  | 'ranges'
   | 'dossier'
   | 'progress'
   | 'profile'
@@ -190,6 +203,9 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
   { id: 'train', label: 'Train', testid: 'tab-train' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
+  { id: 'chart-bank', label: 'Bank', testid: 'tab-chart-bank' },
+  { id: 'equity', label: 'Equity', testid: 'tab-equity' },
+  { id: 'ranges', label: 'Ranges', testid: 'tab-ranges' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
   { id: 'progress', label: 'Progress', testid: 'tab-progress' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
@@ -309,6 +325,18 @@ async function boot(): Promise<void> {
   /** Persist one preflop chart-drill answer so its class mastery survives a restart. */
   async function onChartAnswer(handClass: string, correct: boolean): Promise<void> {
     session = recordChartAnswer(session, handClass, correct);
+    await io.saveState(serialize(session));
+  }
+
+  /** Persist one saved preflop range (upsert by name) so the learner's library survives a restart. */
+  async function onSaveRange(range: SavedRange): Promise<void> {
+    session = saveRange(session, range);
+    await io.saveState(serialize(session));
+  }
+
+  /** Persist the deletion of a saved range so the library stays in sync across a restart. */
+  async function onDeleteRange(name: string): Promise<void> {
+    session = deleteRange(session, name);
     await io.saveState(serialize(session));
   }
 
@@ -481,10 +509,34 @@ async function boot(): Promise<void> {
     const suggestion = recommend({
       concepts: deriveConcepts(),
       leaks: computeStats(session).leaks,
+      // BACKLOG #2 / G2: reach-weight the error-tag family so study priority is `mean(ΔEV) × reach`,
+      // not raw session cost — a leak in a spot you reach often outranks an equally costly rare one.
+      // Built from the SAME graded hero decisions the leak tally aggregates; empty on a fresh profile,
+      // where recommend falls back to the raw-cost leaks unchanged.
+      rw: deriveRwReport(),
       recommender: session.recommender,
       now: Date.now(),
     });
     return { suggestion, askPreference: shouldAskPreference(session.recommender) };
+  }
+
+  /**
+   * The reach-weighted study-priority report (rw.ts) the recommender ranks the error-tag family by.
+   * Only graded decisions with a coach principle are leaks (free spots carry a null principle and are
+   * skipped, mirroring the raw-cost leak tally); `classDecisionsFor` drops any class the frozen
+   * reference table does not cover, so an unexpected principle or street never throws on Home.
+   */
+  function deriveRwReport(): ReturnType<typeof reachWeightedLoss> {
+    const graded: GradedDecision[] = [];
+    for (const hand of session.hands) {
+      for (const decision of hand.decisions ?? []) {
+        const verdict = decision.verdict;
+        if (verdict && verdict.principle) {
+          graded.push({ street: decision.street, principle: verdict.principle, deltaEvBb: verdict.evLossBb });
+        }
+      }
+    }
+    return reachWeightedLoss(classDecisionsFor(graded), REFERENCE_REACH);
   }
 
   /**
@@ -596,8 +648,12 @@ async function boot(): Promise<void> {
     void io.speak?.(message)?.catch(() => undefined);
   }
 
-  function startTable(): void {
+  function startTable(plan?: SessionPlan): void {
     teardownTable();
+    // The session planner (when the learner started from it) models a whole-task live-hand count; a
+    // planned session is bounded by it so it honours the plan rather than running forever. The plain
+    // New session path passes no plan → undefined → the classic unbounded table.
+    const handLimit = plan?.blocks.find((b) => b.kind === 'whole-task')?.units;
     // The table's depth tracks the learner's earned STANDING: a 200bb table is a genuinely different
     // game than a 40bb one (the climb payoff). Calibrating (depth 0) → null → the classic 100bb table.
     // The villains' commitTax (ai.ts) makes them play a deep stack honestly, so this is a real reward,
@@ -615,6 +671,7 @@ async function boot(): Promise<void> {
       bankroll: session.bankroll,
       handNumber: session.stats.handsPlayed + 1,
       startStack: buyIn ?? undefined,
+      handLimit,
       coachedMode: session.coachedMode,
       onHandComplete: (r) => void onHandComplete(r),
       onRebuy: () => void onRebuy(),
@@ -632,6 +689,19 @@ async function boot(): Promise<void> {
   }
 
   function render(): void {
+    // Screens without their own repaint hook (settings toggles, the theme picker, …) rebuild by a
+    // full screen swap here, which drops keyboard focus to <body>. Capture the focused control inside
+    // `screen` and restore it after the swap. Scoped to `screen`, not `app`, so a real tab switch
+    // (focus on a nav button) is left alone — the browser keeps focus on the clicked tab.
+    const restoreScreenFocus = beginFocusRestore(screen);
+    try {
+      renderInner();
+    } finally {
+      restoreScreenFocus();
+    }
+  }
+
+  function renderInner(): void {
     nav.replaceChildren(
       ...TABS.map((t) => {
         const button = tabButton(t.label, t.id, t.testid);
@@ -701,6 +771,7 @@ async function boot(): Promise<void> {
         session,
         standing: currentStanding(Date.now()),
         onNewSession: () => startTable(),
+        onStartPlanned: (plan) => startTable(plan),
         onPlayWithFriends: () => {
           multiplayerActive = true;
           render();
@@ -810,6 +881,15 @@ async function boot(): Promise<void> {
         mastery: session.chartMastery,
         onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
         onSpot: (spotClass, module, correct) => void onInterleaveSpot(spotClass, module, correct),
+      });
+    }
+    if (which === 'chart-bank') return renderChartBank();
+    if (which === 'equity') return renderEquityCalculator();
+    if (which === 'ranges') {
+      return renderRangeEditor({
+        ranges: session.savedRanges,
+        onSave: (range) => void onSaveRange(range),
+        onDelete: (name) => void onDeleteRange(name),
       });
     }
     if (which === 'dossier') return renderDossier();

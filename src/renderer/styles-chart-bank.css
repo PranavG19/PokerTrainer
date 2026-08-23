@@ -1,0 +1,243 @@
+/*
+ * PREFLOP CHART BANK — screen styles. Reuses the shared .chart-grid / .chart-cell base (defined in
+ * styles-charts.css and global across the bundled sheets) for the 13x13 grid; this file adds only the
+ * two-pane layout, the catalog list, and the per-action cell shading.
+ *
+ * Action shading stays HUE-INDEPENDENT (surface lightness + type weight + border), consistent with the
+ * app's V2 no-colour rule: fold recedes, call sits at mid surface, open/3-bet come forward with weight
+ * and a solid edge — so the three actions read apart for a learner who cannot distinguish the palette.
+ */
+
+.chart-bank-screen {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* ─── Catalog (left) ─── */
+.chart-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px 16px 20px;
+  max-height: calc(100vh - 113px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.catalog-title {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-hi);
+}
+
+.catalog-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.catalog-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-lo);
+  margin-top: 6px;
+}
+
+.catalog-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--surface-hi);
+  color: var(--text-hi);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.catalog-item:hover {
+  border-color: var(--text-lo);
+}
+
+.catalog-item[data-active='true'] {
+  background: var(--card-face);
+  color: var(--ink);
+  font-weight: 600;
+  border-color: var(--ink);
+}
+
+.catalog-item-width {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-lo);
+  font-size: 12px;
+}
+
+.catalog-item[data-active='true'] .catalog-item-width {
+  color: var(--ink);
+}
+
+.catalog-item-score {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+/* ─── Detail (right) ─── */
+.chart-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chart-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-hi);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-hi);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--text-lo);
+  background: var(--surface);
+}
+
+.legend-swatch[data-action='fold'] {
+  background: var(--surface);
+}
+
+.legend-swatch[data-action='call'] {
+  background: var(--surface-hi);
+}
+
+.legend-swatch[data-action='open'],
+.legend-swatch[data-action='threebet'] {
+  background: var(--card-face);
+  border-color: var(--ink);
+}
+
+.legend-swatch[data-action='threebet'] {
+  border-width: 2px;
+}
+
+.chart-source {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-lo);
+  max-width: 60ch;
+}
+
+/* ─── Per-action cell shading (reuses .chart-grid / .chart-cell base) ─── */
+.chart-bank-screen .chart-cell[data-action='fold'] {
+  background: var(--surface);
+  color: var(--text-lo);
+}
+
+.chart-bank-screen .chart-cell[data-action='call'] {
+  background: var(--surface-hi);
+  color: var(--text-hi);
+  font-weight: 500;
+}
+
+.chart-bank-screen .chart-cell[data-action='open'] {
+  background: var(--card-face);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chart-bank-screen .chart-cell[data-action='threebet'] {
+  background: var(--card-face);
+  color: var(--ink);
+  font-weight: 700;
+  border-color: var(--ink);
+}
+
+/* ─── Drill ─── */
+.chart-drill {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chart-drill .drill-prompt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.chart-drill .drill-hand {
+  display: flex;
+  gap: 4px;
+}
+
+.chart-drill .drill-situation {
+  font-size: 14px;
+  color: var(--text-hi);
+}
+
+.chart-drill .drill-keys {
+  display: flex;
+  gap: 8px;
+}
+
+.chart-drill .drill-feedback {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 20px;
+  font-size: 13px;
+  color: var(--text-hi);
+}
+
+.chart-drill .drill-when {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-lo);
+}
+
+.chart-drill .drill-feedback[data-verdict='wrong'] .drill-verdict {
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .chart-bank-screen {
+    grid-template-columns: 1fr;
+  }
+  .chart-catalog {
+    max-height: none;
+  }
+}

@@ -196,13 +196,11 @@ function renderFeedback(feedback: Feedback | null): HTMLElement {
 }
 
 /**
- * Two concrete cards for a combo. Suits fixed so the same combo always looks the same. A PAIR ("QQ")
- * must use two DIFFERENT suits — the defense drill's cardsFor would render "QsQs", an impossible card;
- * this drill handles it since a pair is a common in/out boundary hand.
+ * Two concrete cards for a combo. Suits fixed so the same combo always looks the same. A pair ("QQ")
+ * never ends in 's', so the offsuit branch already gives it two different suits ("QsQh") — no special
+ * case needed.
  */
 function cardsFor(combo: Combo): Card[] {
-  const isPair = combo.length === 2 && combo[0] === combo[1];
-  if (isPair) return [`${combo[0]}s`, `${combo[1]}h`];
   const suited = combo.endsWith('s');
   return [`${combo[0]}s`, `${combo[1]}${suited ? 's' : 'h'}`];
 }

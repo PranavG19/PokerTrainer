@@ -3,6 +3,8 @@ import * as net from 'node:net';
 import {
   createRelayHost,
   encodeLine,
+  frameChunk,
+  MAX_MESSAGE_BYTES,
   parseClientMessage,
   splitLines,
   type RelayHost,
@@ -59,6 +61,35 @@ describe('framing helpers (pure)', () => {
 
   it('encodeLine appends exactly one newline', () => {
     expect(encodeLine({ type: 'error', reason: 'x' })).toBe('{"type":"error","reason":"x"}\n');
+  });
+});
+
+describe('frameChunk — the receive-buffer size guard', () => {
+  it('passes normal newline-delimited traffic through with no overflow', () => {
+    expect(frameChunk('a\nb\nc')).toEqual({ lines: ['a', 'b'], rest: 'c', overflow: false });
+  });
+
+  it('flags an oversized partial tail — a peer that streams bytes but never sends a newline', () => {
+    // Without the guard this string would just accumulate in `buffer` forever (unbounded main-process
+    // memory). No '\n', so it is all a still-arriving remainder — and it is over the cap.
+    const huge = 'x'.repeat(MAX_MESSAGE_BYTES + 1);
+    expect(frameChunk(huge)).toEqual({ lines: [], rest: huge, overflow: true });
+  });
+
+  it('flags an oversized complete line', () => {
+    const huge = `${'x'.repeat(MAX_MESSAGE_BYTES + 1)}\n`;
+    expect(frameChunk(huge).overflow).toBe(true);
+  });
+
+  it('does not flag a frame exactly at the cap', () => {
+    const atCap = 'x'.repeat(MAX_MESSAGE_BYTES);
+    expect(frameChunk(atCap).overflow).toBe(false);
+  });
+
+  it('honors a custom cap on both the tail and complete lines', () => {
+    expect(frameChunk('abcdef', 3).overflow).toBe(true); // 6-char tail over a 3 cap
+    expect(frameChunk('abcd\n', 3).overflow).toBe(true); // 4-char complete line over a 3 cap
+    expect(frameChunk('ab\nc', 3).overflow).toBe(false); // both within the cap
   });
 });
 
@@ -130,6 +161,29 @@ describe('real socket round-trip', () => {
     await waitFor(() => offClient.messages.some((m) => m.type === 'error'));
     const err = offClient.messages.find((m) => m.type === 'error');
     expect(err && err.type === 'error' ? err.reason : '').toBe('not your turn');
+  });
+
+  it('drops a client that sends an oversized frame instead of buffering it without bound', async () => {
+    const server = new RelayServer(OPTS);
+    host = await createRelayHost({ server });
+
+    const a = connectClient(host.port);
+    let closed = false;
+    a.socket.on('close', () => {
+      closed = true;
+    });
+    await waitFor(() => a.messages.length >= 1); // seated (initial connect broadcast)
+
+    // A frame far over the cap with NO trailing newline: pre-fix the server's `buffer` would keep
+    // growing on every chunk forever. The guard must reject it, tell the peer, and close the socket.
+    a.socket.write('x'.repeat(MAX_MESSAGE_BYTES + 10));
+
+    await waitFor(() => a.messages.some((m) => m.type === 'error') || closed);
+    const err = a.messages.find((m) => m.type === 'error');
+    expect(err && err.type === 'error' ? err.reason : '').toBe('message too large');
+    // The host dropped the connection: the client's socket sees the FIN.
+    await waitFor(() => closed);
+    expect(closed).toBe(true);
   });
 });
 

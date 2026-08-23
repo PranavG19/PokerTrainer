@@ -24,6 +24,7 @@ import {
   type MechanismFrame,
 } from '../../core/lexicon.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { text } from '../components/dom.js';
 
 /**
  * THE REPAIR TAB — contrast-set remediation. PRODUCT-SPEC B6, S2, and G1's T2 row.
@@ -668,12 +669,6 @@ function group(label: string, cards: HTMLElement): HTMLElement {
   return wrap;
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}
 
 function emptyState(title: string, body: string): HTMLElement {
   const empty = document.createElement('div');

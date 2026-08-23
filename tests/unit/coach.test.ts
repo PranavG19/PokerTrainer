@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DISPLAY_ITERATIONS, equityVsRandom } from '../../src/core/equity.js';
 import { gradeDecision, potOddsRequired } from '../../src/core/coach.js';
+import { VILLAIN_BETTING_RANGE, villainBettingWidth } from '../../src/core/preflop.js';
 
 describe('potOddsRequired', () => {
   it('potOddsRequired(30, 10) === 0.25', () => {
@@ -268,6 +269,107 @@ describe('gradeDecision', () => {
     expect(g).toHaveProperty('evLossBb');
     expect(g).toHaveProperty('message');
     expect(g).toHaveProperty('principle');
+  });
+});
+
+/**
+ * GRADING VS THE VILLAIN'S RANGE, not vs random — CONSOLIDATED audit #1, the flagship teaching-correctness
+ * fix. The coach used to score every bet-facing call/fold/raise on equity-vs-RANDOM (a 100% range), which
+ * systematically OVERSTATES hero equity in exactly those spots: a villain who bet holds a range strictly
+ * stronger than two random cards. The consequence the audit measured was the two worst teaching errors a
+ * trainer can make — excusing loose calls ("call too wide", the commonest losing leak) and charging correct
+ * folds as leaks. Passing `villainRange` moves the grade onto equity-vs-range. Each test grades the SAME
+ * spot BOTH ways so the vs-random column is the oracle that shows the bug, and the vs-range column the fix.
+ */
+describe('grading against the villain range (CONSOLIDATED #1)', () => {
+  it('the villain betting-range model is stronger than random but not nit-tight (~32%)', () => {
+    // The whole fix rests on this range being STRONGER than random (< 100%, so it lowers hero equity in
+    // the graded spots) yet not so narrow it merely flips the error and over-charges good calls. Pinned so
+    // a careless edit toward random-wide or nit-narrow — either of which resurrects a teaching bug — fails.
+    const width = villainBettingWidth();
+    expect(width).toBeGreaterThan(0.27); // wider than a pure value range (cutoff RFI ≈ 27%)
+    expect(width).toBeLessThan(0.44); //    tighter than a button open (≈ 44%); still far below random 100%
+  });
+
+  it('(a) a correct fold vs a strong betting range is no longer penalized', () => {
+    // Pocket nines on A-K-7 facing a pot-sized bet. Vs two random cards 99 is ~66% and "ahead", so the old
+    // grader CHARGED the fold as a pot-odds leak — teaching a learner that a correct laydown was a mistake.
+    // Vs a real betting range (packed with aces and kings) 99 is behind the ~50% price, so folding is right.
+    const spot = {
+      hole: ['9c', '9d'],
+      board: ['Ah', 'Kd', '7s'],
+      street: 'flop',
+      pot: 100,
+      toCall: 100, // required = 100/200 = 50%
+      stack: 500,
+      bb: 2,
+      chosen: 'fold' as const,
+      opponents: 1,
+      seed: 1,
+    };
+
+    // Oracle — the bug: graded vs random, the correct fold is charged as a serious pot-odds leak.
+    const vsRandom = gradeDecision(spot);
+    expect(vsRandom.severity).not.toBe('free');
+    expect(vsRandom.principle).toBe('pot odds');
+    expect(vsRandom.evLossBb).toBeGreaterThan(0.5);
+
+    // The fix: graded vs the villain's range, the fold is free — no leak, no message.
+    const vsRange = gradeDecision({ ...spot, villainRange: VILLAIN_BETTING_RANGE });
+    expect(vsRange.severity).toBe('free');
+    expect(vsRange.evLossBb).toBe(0);
+    expect(vsRange.message).toBeNull();
+  });
+
+  it('(b) a loose call vs a range is now correctly flagged', () => {
+    // Ace-high with a gutshot (A5 on K-Q-9) calling 60 into a 140 pot (required = 30%). Vs random A-high is
+    // ~44% and clears the price, so the old grader said nothing — excusing a call that is crushed by every
+    // value hand the villain bets. Vs the betting range A5 is ~21%, well short of 30%, so the call is a leak.
+    const spot = {
+      hole: ['Ac', '5d'],
+      board: ['Kd', 'Qs', '9h'],
+      street: 'flop',
+      pot: 140,
+      toCall: 60, // required = 60/200 = 30%
+      stack: 500,
+      bb: 2,
+      chosen: 'call' as const,
+      opponents: 1,
+      seed: 1,
+    };
+
+    // Oracle — the bug: graded vs random, the loose call is waved through as free.
+    const vsRandom = gradeDecision(spot);
+    expect(vsRandom.severity).toBe('free');
+    expect(vsRandom.evLossBb).toBe(0);
+
+    // The fix: graded vs the villain's range, the call is charged a pot-odds leak with a real message.
+    const vsRange = gradeDecision({ ...spot, villainRange: VILLAIN_BETTING_RANGE });
+    expect(vsRange.severity).not.toBe('free');
+    expect(vsRange.principle).toBe('pot odds');
+    expect(vsRange.evLossBb).toBeGreaterThan(0.5);
+    expect(vsRange.message).not.toBeNull();
+  });
+
+  it('leaves unpriced spots (toCall 0) on the random model — the range fix is scoped to facing a bet', () => {
+    // No bet faced means no aggressor range; passing one must not change the grade. This keeps the fix from
+    // leaking into the check/lead heuristics (audit #2), which are out of scope here.
+    const spot = {
+      hole: ['9h', '8h'],
+      board: ['2c', '5d', 'Ks'],
+      street: 'flop',
+      pot: 10,
+      toCall: 0,
+      stack: 100,
+      bb: 2,
+      chosen: 'check' as const,
+      opponents: 1,
+      seed: 3,
+    };
+    const withRange = gradeDecision({ ...spot, villainRange: VILLAIN_BETTING_RANGE });
+    const without = gradeDecision(spot);
+    expect(withRange.evLossBb).toBe(without.evLossBb);
+    expect(withRange.severity).toBe(without.severity);
   });
 });
 

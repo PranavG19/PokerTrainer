@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import * as net from 'node:net';
 import { hostSession, joinSession, lanAddresses, type RelaySession } from '../../src/main/relaySession.js';
+import { MAX_MESSAGE_BYTES } from '../../src/main/relayHost.js';
 import type { RoomView } from '../../src/core/multiplayer.js';
 import type * as os from 'node:os';
 
@@ -208,5 +210,33 @@ describe('host + join end to end', () => {
     await waitFor(() => (guestSide.latest()?.handNumber ?? 0) > firstHand);
     expect(guestSide.latest()!.winners).toBeNull();
     expect(hostSide.latest()!.handNumber).toBe(guestSide.latest()!.handNumber);
+  });
+
+  it('a joined client drops a host that floods an oversized frame instead of buffering it forever', async () => {
+    // A rogue/buggy host that writes a colossal line with no newline would otherwise grow the join
+    // socket's receive buffer without bound in the main process. Stand one up and assert the guard fires.
+    const rogueSockets: net.Socket[] = [];
+    const rogue = net.createServer((socket) => {
+      rogueSockets.push(socket);
+      // Ignore the reset the client raises when it destroys the socket on overflow — an unhandled
+      // 'error' on this side would otherwise throw out of the test.
+      socket.on('error', () => undefined);
+      socket.write('y'.repeat(MAX_MESSAGE_BYTES + 10));
+    });
+    await new Promise<void>((resolve) => rogue.listen(0, '127.0.0.1', resolve));
+    const port = (rogue.address() as net.AddressInfo).port;
+
+    try {
+      const side = collector();
+      const session = joinSession({ host: '127.0.0.1', port }, 'Guest', side.callbacks);
+      sessions.push(session);
+      await waitFor(() => side.errors.includes('message too large'));
+      expect(side.errors).toContain('message too large');
+    } finally {
+      // The client reset the connection mid-write, so the server-side socket lingers; destroy it
+      // explicitly or server.close()'s callback never fires.
+      for (const s of rogueSockets) s.destroy();
+      await new Promise<void>((resolve) => rogue.close(() => resolve()));
+    }
   });
 });

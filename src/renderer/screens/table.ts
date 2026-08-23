@@ -12,6 +12,7 @@ import {
 } from '../../core/table.js';
 import type { Grade, Severity } from '../../core/coach.js';
 import { gradeDecision } from '../../core/coach.js';
+import { VILLAIN_BETTING_RANGE } from '../../core/preflop.js';
 import {
   ARCHETYPE_EXPLOITS,
   ARCHETYPE_NAMES,
@@ -31,6 +32,7 @@ import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { routeFor } from '../../core/confidence.js';
 import { applyG4Override, gateAttemptIsHit, gradeReason } from '../../core/reasonGrade.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { beginFocusRestore } from '../focusRestore.js';
 import {
   clearGate,
   clearCoach,
@@ -96,6 +98,14 @@ export function renderTable(opts: {
    * profile gets, so nothing changes unless a depth is explicitly wired in.
    */
   startStack?: number;
+  /**
+   * The number of live hands the SESSION PLANNER allocated to this sitting (the plan's whole-task
+   * block). When set, the session is bounded: after this many hands complete the table stops offering
+   * "Next hand" and shows a planned-complete end-state instead, so the launched session honours the
+   * plan rather than running forever. Absent → the classic unbounded table (every existing caller and
+   * the plain New session path), so nothing changes unless a plan is threaded in.
+   */
+  handLimit?: number;
   coachedMode?: boolean;
   onHandComplete: (record: HandRecord) => void;
   onSessionOver?: () => void;
@@ -123,6 +133,11 @@ export function renderTable(opts: {
   const root = document.createElement('div');
   root.className = 'table-screen';
   root.dataset.testid = 'table-screen';
+  // Sync oracle for the planned session bound: present only when the planner allocated a live-hand
+  // count, so a default (unbounded) table can be told apart from a planned one. A positive limit
+  // is required — a plan whose whole-task block was cut allocates no live hands, and a 0-hand bound
+  // would end the session before it began, so those fall back to the unbounded table.
+  if (opts.handLimit !== undefined && opts.handLimit > 0) root.dataset.handLimit = String(opts.handLimit);
   // GATE (state 4) sync oracle: 'open' while a self-explanation is pending, 'closed' otherwise. Waited
   // on by e2e because data-awaiting stays 'hero' while the gated action's application is deferred.
   root.dataset.gate = 'closed';
@@ -355,6 +370,9 @@ export function renderTable(opts: {
       betSize,
       opponents: Math.max(1, opponents),
       seed: opts.seed + state.handNumber,
+      // Facing a bet/raise, grade hero vs the aggressor's modelled range (CONSOLIDATED #1) rather than
+      // vs two random cards. On an unpriced spot the coach ignores this and stays on the random field.
+      villainRange: toCall > 0 ? VILLAIN_BETTING_RANGE : undefined,
     });
   }
 
@@ -729,6 +747,18 @@ export function renderTable(opts: {
   }
 
   function renderControls(): void {
+    // A keyboard user acting via the control pills would otherwise be dropped to <body> on every
+    // state tick that rebuilds these controls. Capture the focused control up front and restore it
+    // after the rebuild, through every early return.
+    const restoreControlFocus = beginFocusRestore(controls);
+    try {
+      renderControlsInner();
+    } finally {
+      restoreControlFocus();
+    }
+  }
+
+  function renderControlsInner(): void {
     controls.replaceChildren();
 
     // Before the showdown branch so the toggle is reachable at every point in a hand.
@@ -771,6 +801,24 @@ export function renderTable(opts: {
         swept.dataset.testid = 'table-swept';
         swept.textContent = 'You have every chip at this table — nobody is left to play. Start a new session.';
         controls.appendChild(swept);
+        controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
+        return;
+      }
+
+      // The planned session is bounded: once the planner's allocated live hands have all been played,
+      // stop offering "Next hand" and end the sitting the plan modelled. handNumber continues the
+      // session's numbering (see the `table.handNumber` setup), so the count played THIS sitting is
+      // measured from the hand this table opened on.
+      if (
+        opts.handLimit !== undefined &&
+        opts.handLimit > 0 &&
+        state.handNumber - opts.handNumber + 1 >= opts.handLimit
+      ) {
+        const done = document.createElement('div');
+        done.className = 'winner-summary';
+        done.dataset.testid = 'session-planned-complete';
+        done.textContent = `That is your planned ${opts.handLimit}-hand sitting. Start a new session when you are ready.`;
+        controls.appendChild(done);
         controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
         return;
       }
@@ -825,17 +873,19 @@ export function renderTable(opts: {
     amountLabel.className = 'raise-amount';
     amountLabel.dataset.testid = 'raise-amount';
     amountLabel.textContent = String(min);
-    slider.addEventListener('input', () => {
-      amountLabel.textContent = slider.value;
-      slider.setAttribute('aria-valuetext', slider.value);
-    });
+    // Keep the slider value, the visible chip count and the screen-reader announcement in lock-step:
+    // set all three through one place so they can never drift.
+    const setAmount = (value: string): void => {
+      slider.value = value;
+      amountLabel.textContent = value;
+      slider.setAttribute('aria-valuetext', value);
+    };
+    slider.addEventListener('input', () => setAmount(slider.value));
     controls.appendChild(amountLabel);
 
     const setPreset = (fraction: number): void => {
       const target = fraction === Infinity ? max : clamp(Math.round(state.pot * fraction), min, max);
-      slider.value = String(target);
-      amountLabel.textContent = slider.value;
-      slider.setAttribute('aria-valuetext', slider.value);
+      setAmount(String(target));
     };
 
     // The ½/¾ glyphs are their own accessible name, which reads as a meaningless fraction; spell each

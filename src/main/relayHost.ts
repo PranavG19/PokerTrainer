@@ -29,6 +29,22 @@ import type { ActionKind } from '../core/table.js';
 const ACTION_KINDS: readonly ActionKind[] = ['fold', 'check', 'call', 'bet', 'raise', 'allin'];
 
 /**
+ * The largest a single newline-delimited frame is ever allowed to be. Every message on this wire is a
+ * small JSON object (a client action, or a redacted room view for at most six seats) — well under a
+ * kilobyte in practice — so 64 KB is a generous ceiling. WHY THIS EXISTS: the receive loop accumulates
+ * bytes into `buffer` until a '\n' arrives. A peer (the host binds 0.0.0.0, so any LAN machine) that
+ * never sends a newline, or sends a colossal line, would otherwise grow that buffer without bound and
+ * exhaust main-process memory / crash the app. Past this cap the frame is rejected and the socket
+ * destroyed. The count is in UTF-16 code units, a safe over-approximation of byte length for JSON.
+ */
+export const MAX_MESSAGE_BYTES: number = 64 * 1024;
+
+/** The largest number of simultaneous sockets a single relay host will hold open. A hostile LAN peer
+ *  could otherwise open connections without bound; each accepted socket carries its own receive buffer,
+ *  so capping the count bounds that memory too. Generous relative to the 2–6 seats a real table uses. */
+export const MAX_CONNECTIONS: number = 32;
+
+/**
  * Split a growing receive buffer into complete newline-delimited lines, returning the finished lines
  * and the trailing remainder (an incomplete line still arriving). Pure: no socket, so a test can drive
  * partial/joined chunks directly. A line is complete when a '\n' terminates it; '\r' is trimmed so a
@@ -39,6 +55,22 @@ export function splitLines(buffer: string): { lines: string[]; rest: string } {
   const rest = parts.pop() ?? '';
   const lines = parts.map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line)).filter((l) => l.length > 0);
   return { lines, rest };
+}
+
+/**
+ * Frame a growing receive buffer while enforcing a maximum frame size. Returns the complete lines, the
+ * still-arriving remainder, and `overflow` — true when a single frame (a complete line, or the partial
+ * tail that has not yet seen its '\n') exceeds `maxBytes`. Pure, so a test drives oversized input
+ * directly. The caller MUST check `overflow` first and drop the connection: an overflowing buffer is a
+ * buggy or hostile peer, and continuing to accumulate it is the unbounded-memory bug this guards.
+ */
+export function frameChunk(
+  buffer: string,
+  maxBytes: number = MAX_MESSAGE_BYTES,
+): { lines: string[]; rest: string; overflow: boolean } {
+  const { lines, rest } = splitLines(buffer);
+  const overflow = rest.length > maxBytes || lines.some((line) => line.length > maxBytes);
+  return { lines, rest, overflow };
 }
 
 /**
@@ -135,6 +167,13 @@ export function createRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   };
 
   const tcp = net.createServer((socket) => {
+    // Refuse a connection past the cap before seating it: a hostile peer must not be able to open
+    // sockets (each with its own receive buffer) without bound. Destroyed immediately, so no player id
+    // is spent and no buffer is retained.
+    if (sockets.size >= MAX_CONNECTIONS) {
+      socket.destroy();
+      return;
+    }
     const playerId: PlayerId = `p${nextId++}`;
     sockets.set(playerId, socket);
     socket.setEncoding('utf8');
@@ -146,7 +185,14 @@ export function createRelayHost(options: RelayHostOptions): Promise<RelayHost> {
 
     socket.on('data', (chunk: string) => {
       buffer += chunk;
-      const { lines, rest } = splitLines(buffer);
+      const { lines, rest, overflow } = frameChunk(buffer);
+      if (overflow) {
+        // Oversized frame: tell the peer, then drop it. Leaving the socket up would let it keep feeding
+        // an unbounded buffer — the exact main-process memory-exhaustion this cap exists to stop.
+        deliver([{ to: playerId, message: { type: 'error', reason: 'message too large' } }]);
+        socket.destroy();
+        return;
+      }
       buffer = rest;
       for (const line of lines) {
         const message = parseClientMessage(line);

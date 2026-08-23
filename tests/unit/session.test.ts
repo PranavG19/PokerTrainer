@@ -20,6 +20,8 @@ import {
 import { createLexicon } from '../../src/core/lexicon.js';
 import { deriveState, type FadingEvent } from '../../src/core/fading.js';
 import { recordAnomalyResponse, recordFadingEvents, recordInterleaveSpot } from '../../src/core/session.js';
+import { deleteRange, saveRange } from '../../src/core/session.js';
+import { emptyRange, paintCombo, type SavedRange } from '../../src/core/rangeEditor.js';
 
 function gift(overrides: Partial<GiftEntry> = {}): GiftEntry {
   return {
@@ -762,5 +764,46 @@ describe('deserialize tolerates corrupt input', () => {
     const s = recordHand(recovered, hand({ net: 100, vpip: true }));
     expect(s.bankroll).toBe(600);
     expect(computeStats(s)).toMatchObject({ handsPlayed: 1, vpip: 100, pfr: 0 });
+  });
+});
+
+describe('saved ranges', () => {
+  const range = (name: string, ...combos: string[]): SavedRange =>
+    combos.reduce((r, c) => paintCombo(r, c), emptyRange(name));
+
+  it('saveRange appends and survives a round trip', () => {
+    const s = saveRange(emptySession(), range('UTG open', 'AA', 'AKs'));
+    expect(s.savedRanges).toHaveLength(1);
+    expect(deserialize(serialize(s)).savedRanges).toEqual(s.savedRanges);
+  });
+
+  it('saveRange upserts by name rather than appending a twin', () => {
+    let s = saveRange(emptySession(), range('BTN', 'AA'));
+    s = saveRange(s, range('BTN', 'AA', 'KK', 'QQ'));
+    expect(s.savedRanges).toHaveLength(1);
+    expect(s.savedRanges[0].combos).toEqual(['AA', 'KK', 'QQ']);
+  });
+
+  it('deleteRange removes by name and is a no-op for an unknown name', () => {
+    const s = saveRange(saveRange(emptySession(), range('a', 'AA')), range('b', 'KK'));
+    expect(deleteRange(s, 'a').savedRanges.map((r) => r.name)).toEqual(['b']);
+    expect(deleteRange(s, 'missing')).toBe(s);
+  });
+
+  it('a missing savedRanges field deserializes to an empty library (legacy save)', () => {
+    expect(deserialize({}).savedRanges).toEqual([]);
+  });
+
+  it('drops nameless entries and dedupes names on load', () => {
+    const raw = {
+      savedRanges: [
+        { name: 'x', combos: ['AA'] },
+        { name: '', combos: ['KK'] },
+        { name: 'x', combos: ['QQ'] },
+      ],
+    };
+    const s = deserialize(raw);
+    expect(s.savedRanges.map((r) => r.name)).toEqual(['x']);
+    expect(s.savedRanges[0].combos).toEqual(['AA']); // first occurrence kept
   });
 });

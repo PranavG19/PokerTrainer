@@ -13,6 +13,7 @@ import {
   type Suggestion,
 } from '../../src/core/recommend.js';
 import { MS_PER_DAY, type ConceptState } from '../../src/core/schedule.js';
+import { reachTable, reachWeightedLoss, type ClassDecision } from '../../src/core/rw.js';
 
 /**
  * THE RECOMMENDER — PRODUCT-SPEC N2 ("one recommended next action", never a queue) and N4 (the override
@@ -326,6 +327,120 @@ describe('N4 — every override is logged, and five in a row asks once', () => {
     const once = prefer(emptyRecommender(), 'mastery');
     const twice = prefer(once, 'mastery');
     expect(twice.preferred).toEqual(['mastery']);
+  });
+});
+
+describe('G2/G8 — reach-weighted study selection', () => {
+  /*
+   * BACKLOG #2 / rw.ts G2, G8: study priority is the reach-weighted loss per (street × action class),
+   * `mean(ΔEV) × reach × 100`, NOT the raw session cost. When the composition root supplies an
+   * `RwReport` (built by reachWeightedLoss against a frozen reference population), the error-tag family
+   * is that report's classes ranked by RW, so selection shifts toward the leaks that actually come up.
+   * The oracle is reachWeightedLoss itself: the recommender must agree with the report's #1 class, and
+   * reach — not raw cost — must decide ties and near-ties. Without an RwReport the recommender behaves
+   * exactly as before (cost ranking), which the last test in this block pins.
+   */
+  const reach = reachTable('refpop-test', [
+    { street: 'flop', actionClass: 'faces flop c-bet', reach: 0.5 },
+    { street: 'river', actionClass: 'river bluff-catch', reach: 0.1 },
+  ]);
+
+  it('shifts selection toward the higher-reach spot when two leaks cost the same', () => {
+    // Identical mean ΔEV in both classes: raw-cost ranking would tie and fall to alphabetical
+    // ('faces…' < 'river…' would win by accident). Reach is what SHOULD break the tie, and toward the
+    // spot that comes up 5× as often — so the win here must be earned by reach, not by the alphabet.
+    const decisions: ClassDecision[] = [
+      { street: 'river', actionClass: 'river bluff-catch', deltaEvBb: 2 }, // reach 0.1 → rw 20
+      { street: 'flop', actionClass: 'faces flop c-bet', deltaEvBb: 2 }, // reach 0.5 → rw 100
+    ];
+    const report = reachWeightedLoss(decisions, reach);
+    const suggestion = must(recommend(input({ rw: report })), 'reach-weighted tie-break');
+    expect(suggestion.source).toBe('error-tag');
+    expect(suggestion.subject).toBe('faces flop c-bet');
+  });
+
+  it('picks a high-reach spot over a raw-cost-larger low-reach spot — the whole feature', () => {
+    // river costs 4 bb mean but reach 0.1 → rw 40; flop costs 1 bb mean but reach 0.5 → rw 50.
+    // Ranking by raw cost picks river; reach-weighting picks flop. If this inverts, RW is not wired.
+    const decisions: ClassDecision[] = [
+      { street: 'river', actionClass: 'river bluff-catch', deltaEvBb: 4 }, // rw 40
+      { street: 'flop', actionClass: 'faces flop c-bet', deltaEvBb: 1 }, // rw 50
+    ];
+    const report = reachWeightedLoss(decisions, reach);
+    const suggestion = must(recommend(input({ rw: report })), 'reach over raw cost');
+    expect(suggestion.subject).toBe('faces flop c-bet');
+  });
+
+  it('agrees with reachWeightedLoss on the top study priority, inventing no order of its own', () => {
+    const decisions: ClassDecision[] = [
+      { street: 'flop', actionClass: 'faces flop c-bet', deltaEvBb: 1 }, // rw 50
+      { street: 'river', actionClass: 'river bluff-catch', deltaEvBb: 30 }, // rw 300
+    ];
+    const report = reachWeightedLoss(decisions, reach);
+    const suggestion = must(recommend(input({ rw: report })), 'top priority');
+    expect(suggestion.subject).toBe(report.classes[0].actionClass);
+    expect(report.classes[0].actionClass).toBe('river bluff-catch');
+  });
+
+  it('ignores a zero-loss class, and its reason carries numbers without gating language', () => {
+    const decisions: ClassDecision[] = [
+      { street: 'flop', actionClass: 'faces flop c-bet', deltaEvBb: 0 }, // rw 0 → not a leak
+      { street: 'river', actionClass: 'river bluff-catch', deltaEvBb: 2 }, // rw 20
+    ];
+    const report = reachWeightedLoss(decisions, reach);
+    const suggestion = must(recommend(input({ rw: report })), 'nonzero only');
+    expect(suggestion.subject).toBe('river bluff-catch');
+    expect(suggestion.reason, `no numbers in "${suggestion.reason}"`).toMatch(/\d/);
+    const text = `${suggestion.action} ${suggestion.reason}`.toLowerCase();
+    for (const banned of ['lock', 'you must', 'required before', 'not allowed']) {
+      expect(text, `"${banned}" appears in "${text}"`).not.toContain(banned);
+    }
+  });
+
+  it('still returns ONE suggestion and a count, never the reach-weighted queue (N2)', () => {
+    const decisions: ClassDecision[] = [
+      { street: 'flop', actionClass: 'faces flop c-bet', deltaEvBb: 2 },
+      { street: 'river', actionClass: 'river bluff-catch', deltaEvBb: 2 },
+    ];
+    const report = reachWeightedLoss(decisions, reach);
+    const suggestion = must(recommend(input({ rw: report })), 'one suggestion');
+    expect(Array.isArray(suggestion)).toBe(false);
+    // Two classes with loss → one suggested, exactly one counted; no list anywhere on the object.
+    expect(suggestion.otherCandidates).toBe(1);
+    for (const value of Object.values(suggestion)) {
+      expect(Array.isArray(value), 'a reach-weighted queue leaked into the suggestion').toBe(false);
+    }
+  });
+
+  it('falls back to raw-cost leak ranking when no reference population is supplied', () => {
+    // No `rw` on the input: the recommender must behave exactly as it did before RW existed.
+    const leaks = [
+      { principle: 'frequent-cheap', count: 20, costBb: 2 },
+      { principle: 'rare-expensive', count: 1, costBb: 25 },
+    ];
+    const suggestion = must(recommend(input({ leaks })), 'cost fallback');
+    expect(suggestion.source).toBe('error-tag');
+    expect(suggestion.subject).toBe('rare-expensive');
+  });
+
+  it('an empty reach-weighted report falls through to the raw-cost leaks', () => {
+    // A fresh profile with no graded hand decisions yields an empty report; the cost leaks still win.
+    const empty = reachWeightedLoss([], reach);
+    const leaks = [{ principle: 'overfold', count: 3, costBb: 7 }];
+    const suggestion = must(recommend(input({ rw: empty, leaks })), 'empty report');
+    expect(suggestion.source).toBe('error-tag');
+    expect(suggestion.subject).toBe('overfold');
+  });
+
+  it('reach-weighted study never outranks spacing debt — the only retention mechanism', () => {
+    // Even a very high-RW leak must not switch off the spacing schedule (mirrors the N4 preference bound).
+    const decisions: ClassDecision[] = [
+      { street: 'flop', actionClass: 'faces flop c-bet', deltaEvBb: 30 }, // rw 1500
+    ];
+    const report = reachWeightedLoss(decisions, reach);
+    const overdue = concept('spaced', { firstSeenDaysAgo: 40, reps: 1, hits: 1, recordedDaysAgo: 40 });
+    const suggestion = must(recommend(input({ concepts: [overdue], rw: report })), 'debt vs RW');
+    expect(suggestion.source).toBe('spacing-debt');
   });
 });
 

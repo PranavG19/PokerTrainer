@@ -33,7 +33,7 @@ import type { Card } from './cards.js';
 import type { Rng } from './rng.js';
 import type { Action, ActionKind, TableState } from './table.js';
 import { legalActions, minRaiseTo, maxRaiseTo } from './table.js';
-import { equityVsRandom } from './equity.js';
+import { equityVsRandom, scalarEquity } from './equity.js';
 import { jitterParameters } from './jitter.js';
 
 /** O1's six, in the order the spec lists them. The id doubles as jitter.ts's `archetypeId`. */
@@ -194,7 +194,7 @@ export function decideArchetypeAction(
  */
 function handStrength(hole: Card[], board: Card[], seed: number): number {
   const eq = equityVsRandom(hole, board, 1, 300, seed);
-  return eq.win + eq.tie * 0.5;
+  return scalarEquity(eq);
 }
 
 function aggressiveAction(state: TableState, legal: ActionKind[], potFraction: number): Action {
