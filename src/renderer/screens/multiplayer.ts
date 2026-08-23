@@ -84,14 +84,28 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     void bridge.mpStop?.();
   }
 
-  /** Poll the opt-in status once at mount so the panel shows whether MP is enabled. */
-  void bridge.mpStatus?.().then((status) => {
-    enabled = status.enabled;
-    paint();
-  });
+  /** Poll the opt-in status once at mount so the panel shows whether MP is enabled. A rejected status
+   *  call (a real IPC failure, not the modeled resolve) must not become an unhandled rejection — leave
+   *  the panel in its default disabled state so the Enable button is still offered. */
+  void bridge.mpStatus?.().then(
+    (status) => {
+      enabled = status.enabled;
+      paint();
+    },
+    () => {
+      enabled = false;
+      paint();
+    },
+  );
 
   async function enable(): Promise<void> {
-    enabled = (await bridge.mpSetEnabled?.(true)) ?? false;
+    try {
+      enabled = (await bridge.mpSetEnabled?.(true)) ?? false;
+    } catch {
+      // The opt-in toggle rejected in main; keep multiplayer off and say so rather than silently no-op.
+      enabled = false;
+      notice = 'Could not enable multiplayer';
+    }
     paint();
   }
 
@@ -100,14 +114,22 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     phase = 'connecting';
     notice = '';
     paint();
-    const result = await bridge.mpHost?.({ seatCount });
-    if (result?.error) {
-      notice = result.error;
+    try {
+      const result = await bridge.mpHost?.({ seatCount });
+      if (result?.error) {
+        notice = result.error;
+        phase = 'setup';
+        role = '';
+      } else {
+        hostPort = result?.port ?? null;
+        hostAddresses = result?.addresses ?? [];
+      }
+    } catch {
+      // A rejected mpHost (vs the modeled { error } resolve) would otherwise strand the screen on
+      // "Starting a table…" forever. Fall back to setup with a notice so the user can retry.
+      notice = 'Could not start the table';
       phase = 'setup';
       role = '';
-    } else {
-      hostPort = result?.port ?? null;
-      hostAddresses = result?.addresses ?? [];
     }
     paint();
   }
@@ -117,9 +139,17 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     phase = 'connecting';
     notice = '';
     paint();
-    const result = await bridge.mpJoin?.({ host: hostAddr, port, name: 'Guest' });
-    if (result?.error) {
-      notice = result.error;
+    try {
+      const result = await bridge.mpJoin?.({ host: hostAddr, port, name: 'Guest' });
+      if (result?.error) {
+        notice = result.error;
+        phase = 'setup';
+        role = '';
+      }
+    } catch {
+      // A rejected mpJoin (vs the modeled { error } resolve) would otherwise strand the screen on
+      // "Connecting…" forever. Fall back to setup with a notice so the user can retry.
+      notice = 'Could not connect';
       phase = 'setup';
       role = '';
     }

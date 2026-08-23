@@ -20,7 +20,7 @@
 import * as net from 'node:net';
 import * as os from 'node:os';
 import { RelayServer } from '../core/relayServer.js';
-import { createRelayHost, encodeLine, splitLines, type RelayHost } from './relayHost.js';
+import { createRelayHost, encodeLine, frameChunk, type RelayHost } from './relayHost.js';
 import type { Action } from '../core/table.js';
 import type { CreateRoomOpts, RoomView, ServerMessage } from '../core/multiplayer.js';
 
@@ -148,7 +148,14 @@ export function joinSession(
   });
   socket.on('data', (chunk: string) => {
     buffer += chunk;
-    const { lines, rest } = splitLines(buffer);
+    const { lines, rest, overflow } = frameChunk(buffer);
+    if (overflow) {
+      // A remote host that floods us with an oversized frame (buggy or hostile) would otherwise grow
+      // this buffer without bound in the main process. Surface it and drop the connection.
+      if (!stopped) callbacks.onError('message too large');
+      socket.destroy();
+      return;
+    }
     buffer = rest;
     for (const line of lines) {
       const message = safeServerMessage(line);
