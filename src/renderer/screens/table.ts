@@ -98,6 +98,14 @@ export function renderTable(opts: {
    * profile gets, so nothing changes unless a depth is explicitly wired in.
    */
   startStack?: number;
+  /**
+   * The number of live hands the SESSION PLANNER allocated to this sitting (the plan's whole-task
+   * block). When set, the session is bounded: after this many hands complete the table stops offering
+   * "Next hand" and shows a planned-complete end-state instead, so the launched session honours the
+   * plan rather than running forever. Absent → the classic unbounded table (every existing caller and
+   * the plain New session path), so nothing changes unless a plan is threaded in.
+   */
+  handLimit?: number;
   coachedMode?: boolean;
   onHandComplete: (record: HandRecord) => void;
   onSessionOver?: () => void;
@@ -125,6 +133,11 @@ export function renderTable(opts: {
   const root = document.createElement('div');
   root.className = 'table-screen';
   root.dataset.testid = 'table-screen';
+  // Sync oracle for the planned session bound: present only when the planner allocated a live-hand
+  // count, so a default (unbounded) table can be told apart from a planned one. A positive limit
+  // is required — a plan whose whole-task block was cut allocates no live hands, and a 0-hand bound
+  // would end the session before it began, so those fall back to the unbounded table.
+  if (opts.handLimit !== undefined && opts.handLimit > 0) root.dataset.handLimit = String(opts.handLimit);
   // GATE (state 4) sync oracle: 'open' while a self-explanation is pending, 'closed' otherwise. Waited
   // on by e2e because data-awaiting stays 'hero' while the gated action's application is deferred.
   root.dataset.gate = 'closed';
@@ -788,6 +801,24 @@ export function renderTable(opts: {
         swept.dataset.testid = 'table-swept';
         swept.textContent = 'You have every chip at this table — nobody is left to play. Start a new session.';
         controls.appendChild(swept);
+        controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
+        return;
+      }
+
+      // The planned session is bounded: once the planner's allocated live hands have all been played,
+      // stop offering "Next hand" and end the sitting the plan modelled. handNumber continues the
+      // session's numbering (see the `table.handNumber` setup), so the count played THIS sitting is
+      // measured from the hand this table opened on.
+      if (
+        opts.handLimit !== undefined &&
+        opts.handLimit > 0 &&
+        state.handNumber - opts.handNumber + 1 >= opts.handLimit
+      ) {
+        const done = document.createElement('div');
+        done.className = 'winner-summary';
+        done.dataset.testid = 'session-planned-complete';
+        done.textContent = `That is your planned ${opts.handLimit}-hand sitting. Start a new session when you are ready.`;
+        controls.appendChild(done);
         controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
         return;
       }

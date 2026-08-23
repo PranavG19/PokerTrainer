@@ -92,8 +92,13 @@ const MODE_LABELS: Record<SessionMode, string> = {
 };
 
 export interface SessionPlannerOpts {
-  /** Sitting the learner committed to. Home hands its own launcher in. */
-  onStart?: (minutes: number, mode: SessionMode) => void;
+  /**
+   * The learner committed to a sitting: the ASSEMBLED plan is handed back, not just the requested
+   * minutes and mode, so the launcher can parameterise the started session by what core actually
+   * modelled (the whole-task live-hand count, the mix, the cuts) rather than re-deriving it. Home
+   * threads this into session start; before this the Start button discarded the plan entirely.
+   */
+  onStart?: (plan: SessionPlan) => void;
   /**
    * The spacing queue the probe count is read from: `dueProbes` is `dueNow(states, now).length`,
    * which is the module's own documented contract. Empty is the honest default on a fresh profile —
@@ -181,7 +186,7 @@ export function renderSessionPlanner(opts: SessionPlannerOpts = {}): HTMLElement
             renderLengthRow(minutes, selectMinutes),
             renderModeRow(mode, selectMode),
             result.ok
-              ? renderPlan(result.plan, () => opts.onStart?.(minutes, mode))
+              ? renderPlan(result.plan, () => opts.onStart?.(result.plan))
               : renderRefusal(minutes, result.reason, () => selectMode('free-roam')),
           ];
 
