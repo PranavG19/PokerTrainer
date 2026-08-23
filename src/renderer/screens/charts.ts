@@ -136,6 +136,11 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
   }
 
   function commit(chose: Action): void {
+    // Only RFI mode renders (and grades) the open-first-in grid. In 'defense'/'3bet-response' the RFI
+    // grid is off screen and those panels own their own grading, so grading here would persist a spot
+    // the learner never saw — corrupting chart mastery and the interleave log. Guard the mode too, not
+    // just the seat.
+    if (mode !== 'rfi') return;
     if (position === 'BB') return;
     const combo = spot;
     const handClass = classOf(combo);
@@ -170,6 +175,9 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
       document.removeEventListener('keydown', onKey);
       return;
     }
+    // A modifier-held press (Cmd+O, Ctrl+F, browser/OS shortcuts) is not an RFI answer; grading it
+    // would persist a spot the learner never chose. Mirrors the drill screens' keydown guards.
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     const key = event.key.toLowerCase();
     if (key === 'o') commit('open');
     else if (key === 'f') commit('fold');
