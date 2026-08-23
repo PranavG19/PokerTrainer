@@ -1,5 +1,7 @@
 import '../styles-dossier.css';
 
+import { text } from '../components/dom.js';
+
 import {
   CALIBRATION_RELEASE_FORECASTS,
   COUNTER_ACTIONS_TO_BASELINE,
@@ -1041,12 +1043,6 @@ function labelOf(tendencyId: string): string {
   return TENDENCIES.find((t) => t.id === tendencyId)?.label ?? tendencyId;
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}
 
 function figure(testid: string, value: string, label: string): HTMLElement {
   const row = document.createElement('div');

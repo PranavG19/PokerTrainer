@@ -1,5 +1,7 @@
 import '../styles-anomaly.css';
 
+import { text } from '../components/dom.js';
+
 import {
   ANOMALY_RATE,
   MIN_ANOMALY_TRIALS,
@@ -650,9 +652,3 @@ function percent(fraction: number): string {
   return `${Math.round(fraction * 100)}%`;
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}
