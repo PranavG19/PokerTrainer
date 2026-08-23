@@ -12,6 +12,7 @@ import {
 } from '../../core/table.js';
 import type { Grade, Severity } from '../../core/coach.js';
 import { gradeDecision } from '../../core/coach.js';
+import { VILLAIN_BETTING_RANGE } from '../../core/preflop.js';
 import {
   ARCHETYPE_EXPLOITS,
   ARCHETYPE_NAMES,
@@ -355,6 +356,9 @@ export function renderTable(opts: {
       betSize,
       opponents: Math.max(1, opponents),
       seed: opts.seed + state.handNumber,
+      // Facing a bet/raise, grade hero vs the aggressor's modelled range (CONSOLIDATED #1) rather than
+      // vs two random cards. On an unpriced spot the coach ignores this and stays on the random field.
+      villainRange: toCall > 0 ? VILLAIN_BETTING_RANGE : undefined,
     });
   }
 

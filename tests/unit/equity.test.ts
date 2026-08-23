@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { equityVsRandom, exactEquityHeadsUp } from '../../src/core/equity.js';
+import { equityVsRandom, equityVsRange, exactEquityHeadsUp, DISPLAY_ITERATIONS } from '../../src/core/equity.js';
+import { VILLAIN_BETTING_RANGE } from '../../src/core/preflop.js';
 
 describe('equityVsRandom', () => {
   it('AA vs 1 random opponent preflop ~85%', () => {
@@ -82,6 +83,55 @@ describe('equityVsRandom', () => {
     equityVsRandom(['Td', '9d'], [], 3, 2000, 1);
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(300);
+  });
+});
+
+describe('equityVsRange', () => {
+  /**
+   * The honest grader's equity source (CONSOLIDATED #1). Its defining property against equityVsRandom:
+   * a real range is stronger than two random cards, so hero equity vs a range must be LOWER than vs
+   * random for the same spot — which is exactly why grading on random overstated hero equity in the
+   * bet-facing spots the coach scores. These pin the primitive with KNOWN oracles, not self-comparison.
+   */
+  it('collapses to exact heads-up equity when the range is a single combo (KK vs [AA] ≈ 0.18)', () => {
+    // A one-combo range IS a known hand, so equityVsRange must reproduce exactEquityHeadsUp against it.
+    // AA beats KK ~81%, so KK holds ~19% — the enumeration oracle equityVsRandom cannot supply.
+    const eq = equityVsRange(['Ks', 'Kd'], [], ['AA'], 6000, 3);
+    const share = eq.win + eq.tie * 0.5;
+    expect(share).toBeGreaterThan(0.15);
+    expect(share).toBeLessThan(0.23);
+  });
+
+  it('a marginal made hand has strictly LESS equity vs a strong range than vs random', () => {
+    // Pocket nines on A-K-7 beat two random cards comfortably, but a value-weighted betting range is
+    // full of aces and kings that crush them — the whole reason random overstated hero equity.
+    const hole = ['9c', '9d'];
+    const board = ['Ah', 'Kd', '7s'];
+    const rand = equityVsRandom(hole, board, 1, DISPLAY_ITERATIONS, 1);
+    const range = equityVsRange(hole, board, VILLAIN_BETTING_RANGE, DISPLAY_ITERATIONS, 1);
+    expect(range.win + range.tie * 0.5).toBeLessThan(rand.win + rand.tie * 0.5 - 0.1);
+  });
+
+  it('is deterministic given the seed', () => {
+    const a = equityVsRange(['As', 'Ks'], ['Qs', '9s', '3s'], VILLAIN_BETTING_RANGE, 1500, 123);
+    const b = equityVsRange(['As', 'Ks'], ['Qs', '9s', '3s'], VILLAIN_BETTING_RANGE, 1500, 123);
+    expect(a.win).toBe(b.win);
+    expect(a.tie).toBe(b.tie);
+    expect(a.lose).toBe(b.lose);
+  });
+
+  it('win + tie + lose sums to ~1', () => {
+    const r = equityVsRange(['Jd', 'Ts'], ['9h', '8c', '2d'], VILLAIN_BETTING_RANGE, 2000, 5);
+    expect(r.win + r.tie + r.lose).toBeCloseTo(1.0, 5);
+  });
+
+  it('an empty range falls back to random rather than dividing by zero', () => {
+    const seed = 77;
+    const fallback = equityVsRange(['Ac', 'Kd'], ['2c', '7d', 'Ts'], [], DISPLAY_ITERATIONS, seed);
+    const random = equityVsRandom(['Ac', 'Kd'], ['2c', '7d', 'Ts'], 1, DISPLAY_ITERATIONS, seed);
+    expect(fallback.win).toBe(random.win);
+    expect(fallback.tie).toBe(random.tie);
+    expect(fallback.lose).toBe(random.lose);
   });
 });
 

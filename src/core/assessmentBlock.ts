@@ -10,6 +10,7 @@ import {
   type TableState,
 } from './table.js';
 import { gradeDecision, type Grade } from './coach.js';
+import { VILLAIN_BETTING_RANGE } from './preflop.js';
 import {
   ARCHETYPE_NAMES,
   decideArchetypeAction,
@@ -26,11 +27,11 @@ import { mulberry32, shuffle, type Rng } from './rng.js';
  * graded by coach.gradeDecision — the SAME grader the live table uses (table.ts computeHeroGrade) — so
  * the recorded evLossBb is the real one.
  *
- * WHY random deals, not the puzzle library: the coach reasons about a single hand's equity versus a
- * random-hand villain, so it is only honest on the spot distribution it was calibrated for — the live
- * table's. Grading a puzzle scenario instead measured coach-vs-curriculum disagreement (a taught fold
- * for reverse-implied-odds reasons graded as an 8–14bb "blunder"), which is not the learner's skill.
- * See offsuit-coach-grading-scope.
+ * WHY random deals, not the puzzle library: the coach reasons about a single hand's equity — vs the
+ * aggressor's modelled range facing a bet (CONSOLIDATED #1), vs a random field on unpriced spots — so it
+ * is only honest on the spot distribution it was calibrated for: the live table's. Grading a puzzle
+ * scenario instead measured coach-vs-curriculum disagreement (a taught fold for reverse-implied-odds
+ * reasons graded as an 8–14bb "blunder"), which is not the learner's skill. See offsuit-coach-grading-scope.
  *
  * This host drives the same core primitives the table screen does — createTable/startHand/applyAction
  * for the engine, decideArchetypeAction for the villains, gradeDecision for the hero — so it reuses the
@@ -192,12 +193,13 @@ export class AssessmentBlock {
     const hero = this.state.seats[HERO];
     const opponents = this.state.seats.filter((s) => !s.folded && s.id !== HERO).length;
     const betSize = chosen === 'bet' || chosen === 'raise' ? minRaiseTo(this.state) : undefined;
+    const toCall = this.heroToCall();
     return gradeDecision({
       hole: hero.hole,
       board: this.state.board,
       street: this.state.street,
       pot: this.state.pot,
-      toCall: this.heroToCall(),
+      toCall,
       stack: hero.stack,
       bb: this.state.bb,
       chosen,
@@ -205,6 +207,9 @@ export class AssessmentBlock {
       opponents: Math.max(1, opponents),
       // Same seed shape the live table uses, so the block's grading is deterministic.
       seed: this.seed + this.state.handNumber,
+      // Grade vs the aggressor's modelled range facing a bet/raise — the SAME range fix as the live
+      // table (CONSOLIDATED #1), so the assessment score reflects range equity, not equity-vs-random.
+      villainRange: toCall > 0 ? VILLAIN_BETTING_RANGE : undefined,
     });
   }
 
