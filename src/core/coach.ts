@@ -1,5 +1,5 @@
 import type { Card } from './cards.js';
-import { DISPLAY_ITERATIONS, equityVsRandom, equityVsRange } from './equity.js';
+import { DISPLAY_ITERATIONS, equityVsRandom, equityVsRange, scalarEquity } from './equity.js';
 import type { Combo } from './preflop.js';
 
 export type Severity = 'free' | 'notable' | 'serious';
@@ -49,7 +49,7 @@ export function gradeDecision(input: {
     toCall > 0 && villainRange && villainRange.length > 0
       ? equityVsRange(hole, board, villainRange, DISPLAY_ITERATIONS, seed ?? 1)
       : equityVsRandom(hole, board, opponents, DISPLAY_ITERATIONS, seed ?? 1);
-  const equity = eq.win + eq.tie * 0.5;
+  const equity = scalarEquity(eq);
 
   const required = potOddsRequired(pot, toCall);
 
