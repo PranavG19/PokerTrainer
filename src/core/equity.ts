@@ -3,6 +3,7 @@ import type { Rng } from './rng.js';
 import { freshDeck } from './cards.js';
 import { mulberry32, shuffle } from './rng.js';
 import { evaluate, CATEGORY_NAMES, HandCategory } from './evaluate.js';
+import { comboOf, type Combo } from './preflop.js';
 
 export interface EquityResult {
   win: number;
@@ -79,6 +80,98 @@ export function equityVsRandom(
     } else {
       losses++;
     }
+  }
+
+  const categoryChances: Record<string, number> = {};
+  for (let c = 0; c <= 8; c++) {
+    categoryChances[CATEGORY_NAMES[c as HandCategory]] = catCounts[c] / iterations;
+  }
+
+  return {
+    win: wins / iterations,
+    tie: ties / iterations,
+    lose: losses / iterations,
+    categoryChances,
+    iterations,
+  };
+}
+
+/**
+ * Monte Carlo equity vs a WEIGHTED RANGE of opponent hands, heads-up.
+ *
+ * This is the honest grader's equity source. `equityVsRandom` deals the villain two uniform cards
+ * from the deck — a 100% range — which systematically OVERSTATES hero equity in exactly the spots the
+ * coach grades, because a villain who bet or raised holds a range strictly stronger than random (see
+ * coach.ts and CONSOLIDATED audit #1). Here the villain's two cards are instead drawn from `range`, the
+ * canonical combos (e.g. "AKs", "TT", "QJo") the villain is modelled to hold, so hero equity is measured
+ * against what the villain can actually have.
+ *
+ * The draw is combo-frequency-correct WITHOUT weighting bookkeeping: we enumerate every concrete two-card
+ * combination consistent with the range and the dead cards, then sample those uniformly. Because a pair
+ * expands to 6 concrete combinations, a suited combo to (up to) 4 and an offsuit combo to (up to) 12,
+ * uniform sampling over the concrete list already reproduces the 6/4/12 comboWeight weighting that
+ * preflop.comboWeight documents — and card removal (a blocked combo simply contributes fewer concrete
+ * pairs) falls out for free.
+ *
+ * Heads-up by construction: the coach grades the price the AGGRESSOR laid, so the relevant range is that
+ * one villain's, not a multiway field. Deterministic given seed (mulberry32, never Math.random), same as
+ * equityVsRandom, so a grade is reproducible. If the range is empty or fully blocked by the dead cards
+ * (no concrete villain hand remains), it falls back to equityVsRandom heads-up — the honest "no better
+ * information than random" answer rather than a divide-by-zero.
+ */
+export function equityVsRange(
+  hole: Card[],
+  board: Card[],
+  range: readonly Combo[],
+  iterations = 2000,
+  seed = 1,
+): EquityResult {
+  const rangeSet = new Set<Combo>(range);
+  const dead = new Set<string>(hole.concat(board));
+  const deck = freshDeck().filter((c) => !dead.has(c));
+
+  // Every concrete two-card villain hand consistent with the range and the dead cards. Uniform sampling
+  // over this list is exactly comboWeight-weighted (pairs 6, suited 4, offsuit 12) with card removal baked in.
+  const villainHands: [Card, Card][] = [];
+  for (let i = 0; i < deck.length - 1; i++) {
+    for (let j = i + 1; j < deck.length; j++) {
+      if (rangeSet.has(comboOf(deck[i], deck[j]))) villainHands.push([deck[i], deck[j]]);
+    }
+  }
+
+  // No villain hand survives the dead cards (empty or fully blocked range): random is the honest floor.
+  if (villainHands.length === 0) {
+    return equityVsRandom(hole, board, 1, iterations, seed);
+  }
+
+  const rng: Rng = mulberry32(seed);
+  const need = 5 - board.length;
+
+  let wins = 0;
+  let ties = 0;
+  let losses = 0;
+  const catCounts: number[] = new Array(9).fill(0);
+
+  for (let i = 0; i < iterations; i++) {
+    const opp = villainHands[Math.floor(rng() * villainHands.length)];
+    // Board runout is drawn from the deck minus the villain's two cards; a partial Fisher-Yates over the
+    // portion we need, mirroring equityVsRandom.
+    const pool = deck.filter((c) => c !== opp[0] && c !== opp[1]);
+    for (let k = 0; k < need && k < pool.length; k++) {
+      const jj = k + Math.floor(rng() * (pool.length - k));
+      const tmp = pool[k];
+      pool[k] = pool[jj];
+      pool[jj] = tmp;
+    }
+
+    const runout = board.concat(pool.slice(0, need));
+    const heroVal = evaluate(hole.concat(runout));
+    catCounts[heroVal.category]++;
+    const oppVal = evaluate([opp[0], opp[1]].concat(runout));
+
+    if (heroVal.score > oppVal.score) wins++;
+    else if (heroVal.score === oppVal.score) ties++;
+    else losses++;
   }
 
   const categoryChances: Record<string, number> = {};

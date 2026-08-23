@@ -10,8 +10,10 @@ import type { Street } from './table.js';
  * so a losing session can never demote it (a separate "current form" reading, not built here, is where a
  * bad night shows up).
  *
- * HONEST CEILING: the score is only as good as coach.gradeDecision, which is a Monte-Carlo-vs-random
- * heuristic (not a solver). Depth is a skill ESTIMATE against the game, never solver-grade — present it so.
+ * HONEST CEILING: the score is only as good as coach.gradeDecision. Facing a bet it now grades hero vs the
+ * aggressor's modelled RANGE (equity.equityVsRange over a coarse value-weighted range), not vs two random
+ * cards — the CONSOLIDATED #1 fix — but that range is still a documented model, not a solver solve. Depth
+ * is a skill ESTIMATE against the game, never solver-grade — present it so.
  */
 
 /** One graded decision, reduced to exactly what the standing score reads. Both AssessmentDecision and a
