@@ -4,6 +4,7 @@ import './styles-screens.css';
 import './styles-settings.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
+import type { SavedRange } from '../core/rangeEditor.js';
 import type { LexiconAttempt } from '../core/lexicon.js';
 import type { FadingEvent } from '../core/fading.js';
 import {
@@ -19,6 +20,8 @@ import {
   recordLexiconAttempt,
   recordPrediction,
   recordPuzzleResult,
+  saveRange,
+  deleteRange,
   serialize,
   setCoachedMode,
   setSoundCues,
@@ -52,6 +55,7 @@ import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
 import { renderEquityCalculator } from './screens/equityCalculator.js';
+import { renderRangeEditor } from './screens/rangeEditor.js';
 import { renderDrillScreen } from './screens/drill.js';
 import { renderHandReadingDrill } from './screens/handReadingDrill.js';
 import { renderBoardReadingDrill } from './screens/boardReadingDrill.js';
@@ -153,6 +157,7 @@ type Tab =
   | 'train'
   | 'charts'
   | 'equity'
+  | 'ranges'
   | 'dossier'
   | 'progress'
   | 'profile'
@@ -197,6 +202,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'train', label: 'Train', testid: 'tab-train' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
   { id: 'equity', label: 'Equity', testid: 'tab-equity' },
+  { id: 'ranges', label: 'Ranges', testid: 'tab-ranges' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
   { id: 'progress', label: 'Progress', testid: 'tab-progress' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
@@ -316,6 +322,18 @@ async function boot(): Promise<void> {
   /** Persist one preflop chart-drill answer so its class mastery survives a restart. */
   async function onChartAnswer(handClass: string, correct: boolean): Promise<void> {
     session = recordChartAnswer(session, handClass, correct);
+    await io.saveState(serialize(session));
+  }
+
+  /** Persist one saved preflop range (upsert by name) so the learner's library survives a restart. */
+  async function onSaveRange(range: SavedRange): Promise<void> {
+    session = saveRange(session, range);
+    await io.saveState(serialize(session));
+  }
+
+  /** Persist the deletion of a saved range so the library stays in sync across a restart. */
+  async function onDeleteRange(name: string): Promise<void> {
+    session = deleteRange(session, name);
     await io.saveState(serialize(session));
   }
 
@@ -863,6 +881,13 @@ async function boot(): Promise<void> {
       });
     }
     if (which === 'equity') return renderEquityCalculator();
+    if (which === 'ranges') {
+      return renderRangeEditor({
+        ranges: session.savedRanges,
+        onSave: (range) => void onSaveRange(range),
+        onDelete: (name) => void onDeleteRange(name),
+      });
+    }
     if (which === 'dossier') return renderDossier();
     if (which === 'progress') {
       /*

@@ -8,6 +8,7 @@ import type { GiftEntry } from './giftLedger.js';
 import { MECHANISM_FRAMES, REJECTION_TEXT, type Decider, type LexiconAttempt, type RejectionReason } from './lexicon.js';
 import type { ContrastAxis } from './contrast.js';
 import type { FadingEvent, Rung } from './fading.js';
+import { MAX_SAVED_RANGES, deserializeRange, serializeRange, type SavedRange } from './rangeEditor.js';
 
 /** Bound the persisted gift log the same way the hand log is bounded, so the JSON cannot grow forever. */
 export const MAX_GIFT_LOG = 200;
@@ -236,6 +237,14 @@ export interface SessionState {
    * by MAX_ASSESSMENT_LOG the same way the hand log is. Append-only (the only writer is recordAssessment).
    */
   assessments: AssessmentDecision[];
+  /**
+   * BACKLOG #6: the learner's own named preflop ranges, painted in the range editor and drilled against.
+   * Persisted because a range the learner built is durable authored content — a session-scoped one would
+   * be lost every launch, so the editor could never be a place to keep a chart. Bounded by
+   * MAX_SAVED_RANGES the same way the hand log is. Upserted by name (saving a range under an existing
+   * name replaces it); combos are validated on load, so an unknown one simply never renders on the grid.
+   */
+  savedRanges: SavedRange[];
 }
 
 export interface SessionSummary {
@@ -267,7 +276,30 @@ export function emptySession(): SessionState {
     interleavingSpots: {},
     anomalyTally: { attempts: 0, correct: 0, fast: 0, missedAnomaly: 0, falseAlarm: 0, slow: 0 },
     assessments: [],
+    savedRanges: [],
   };
+}
+
+/**
+ * Save one named range, UPSERTING by name: saving under a name already in the library replaces that
+ * entry in place (so re-saving an edited range does not leave a stale twin), otherwise it appends.
+ * Pure and cumulative like the other reducers, and bounded by MAX_SAVED_RANGES. The range is normalised
+ * by the caller (rangeEditor's paint/serialise keep it canonical), so this only decides where it lands.
+ */
+export function saveRange(state: SessionState, range: SavedRange): SessionState {
+  const clone: SavedRange = { name: range.name, combos: [...range.combos] };
+  const existing = state.savedRanges.findIndex((r) => r.name === range.name);
+  const next =
+    existing >= 0
+      ? state.savedRanges.map((r, i) => (i === existing ? clone : r))
+      : [...state.savedRanges, clone].slice(-MAX_SAVED_RANGES);
+  return { ...state, savedRanges: next };
+}
+
+/** Delete the named range, if present. Pure; a name not in the library leaves the library unchanged. */
+export function deleteRange(state: SessionState, name: string): SessionState {
+  const next = state.savedRanges.filter((r) => r.name !== name);
+  return next.length === state.savedRanges.length ? state : { ...state, savedRanges: next };
 }
 
 /**
@@ -526,6 +558,7 @@ export function serialize(state: SessionState): Record<string, unknown> {
     interleavingSpots: structuredClone(state.interleavingSpots),
     anomalyTally: { ...state.anomalyTally },
     assessments: state.assessments.map((a) => ({ ...a })),
+    savedRanges: state.savedRanges.map(serializeRange),
   };
 }
 
@@ -586,7 +619,28 @@ export function deserialize(raw: unknown): SessionState {
       .map(parseAssessment)
       .filter((a): a is AssessmentDecision => a !== null)
       .slice(-MAX_ASSESSMENT_LOG),
+    // Legacy saves predate the range editor; an empty library is the honest reading of a missing field.
+    savedRanges: parseSavedRanges(obj.savedRanges),
   };
+}
+
+/**
+ * Tolerant like every parser here. Each entry is normalised by rangeEditor's deserializeRange (name
+ * trimmed, combos validated to the canonical 169, deduped and re-sorted). A nameless entry is dropped —
+ * a range the editor cannot label or reselect is not worth carrying — and names are deduped, keeping the
+ * FIRST occurrence so a corrupt double-write cannot resurrect an older twin over the current one. Bounded
+ * by MAX_SAVED_RANGES, matching the hand log.
+ */
+function parseSavedRanges(raw: unknown): SavedRange[] {
+  const out: SavedRange[] = [];
+  const seen = new Set<string>();
+  for (const value of asArray(raw)) {
+    const range = deserializeRange(value);
+    if (range.name === '' || seen.has(range.name)) continue;
+    seen.add(range.name);
+    out.push(range);
+  }
+  return out.slice(-MAX_SAVED_RANGES);
 }
 
 /**
