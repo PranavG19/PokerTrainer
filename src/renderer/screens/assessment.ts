@@ -2,6 +2,7 @@ import '../styles-assessment.css';
 import { AssessmentBlock, type AssessmentGrade } from '../../core/assessmentBlock.js';
 import type { ActionKind, TableState } from '../../core/table.js';
 import { renderCardRow } from '../components/card.js';
+import { text } from '../components/dom.js';
 
 /**
  * ASSESSMENT screen — the weekly assessment block (P4/G2). The learner plays a fixed run of real hands
@@ -270,9 +271,3 @@ function renderLeaks(grades: readonly AssessmentGrade[]): HTMLElement {
   return wrap;
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}

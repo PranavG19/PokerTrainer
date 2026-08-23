@@ -13,6 +13,11 @@ export interface EquityResult {
   iterations: number;
 }
 
+/** Collapse an equity split to a single number: win share plus half the tie share. */
+export function scalarEquity(eq: EquityResult): number {
+  return eq.win + eq.tie * 0.5;
+}
+
 /**
  * The iteration count for anything the player SEES. Monte Carlo at two different counts returns two
  * different numbers for the same spot, so the coach line and the stats sheet must share this or they
@@ -64,7 +69,6 @@ export function equityVsRandom(
     catCounts[heroVal.category]++;
 
     let bestOpp = -1;
-    let tiedWithHero = false;
     for (let o = 0; o < opponents; o++) {
       const oppHole = [pool[idx], pool[idx + 1]];
       idx += 2;
@@ -76,7 +80,6 @@ export function equityVsRandom(
       wins++;
     } else if (heroVal.score === bestOpp) {
       ties++;
-      tiedWithHero = true;
     } else {
       losses++;
     }

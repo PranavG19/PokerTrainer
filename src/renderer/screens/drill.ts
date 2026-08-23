@@ -1,5 +1,7 @@
 import '../styles-drill.css';
 
+import { text } from '../components/dom.js';
+
 import {
   COMMITTED_SPR,
   DEEP_SPR,
@@ -805,9 +807,3 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}

@@ -22,6 +22,7 @@ import {
   type SpotTypeVerdict,
 } from '../../core/spotType.js';
 import { renderCardRow } from '../components/card.js';
+import { text } from '../components/dom.js';
 import { withRestoredFocus } from '../focusRestore.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
@@ -733,9 +734,3 @@ function completionAnnouncement(s: Scenario, correct: number): string {
   return `You played ${correct} of ${s.target.length} decisions the GTO way.`;
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}

@@ -27,7 +27,7 @@
 import type { Card } from './cards.js';
 import type { Archetype } from './ai.js';
 import { PROFILES } from './ai.js';
-import { DISPLAY_ITERATIONS, equityVsRandom } from './equity.js';
+import { DISPLAY_ITERATIONS, equityVsRandom, scalarEquity } from './equity.js';
 
 export type ContinuationId = 'equilibrium' | 'foldBiased' | 'callBiased' | 'raiseBiased';
 
@@ -344,7 +344,7 @@ function equityWhenContested(ctx: EvContext): number {
  */
 function heroEquity(input: RobustnessInput): number {
   const eq = equityVsRandom(input.hole, input.board, input.opponents ?? 1, DISPLAY_ITERATIONS, input.seed);
-  return eq.win + eq.tie * 0.5;
+  return scalarEquity(eq);
 }
 
 function clamp01(x: number): number {

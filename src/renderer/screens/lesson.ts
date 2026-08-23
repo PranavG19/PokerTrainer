@@ -3,6 +3,7 @@ import '../styles-lesson.css';
 import type { Lesson, LessonExample, LessonPhase } from '../../core/lessons/index.js';
 import { LESSONS, lessonById } from '../../core/lessons/index.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { text } from '../components/dom.js';
 import { beginFocusRestore } from '../focusRestore.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
@@ -710,12 +711,6 @@ function clamp(value: number, low: number, high: number): number {
   return Math.min(high, Math.max(low, value));
 }
 
-function text(tag: string, className: string, content: string): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  el.textContent = content;
-  return el;
-}
 
 function pill(label: string, testid: string, onClick: () => void): HTMLButtonElement {
   const button = document.createElement('button');
