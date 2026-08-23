@@ -26,6 +26,7 @@ import {
   type Forecast,
   type Read,
 } from '../../core/reads.js';
+import { withRestoredFocus } from '../focusRestore.js';
 
 /**
  * THE DOSSIER — PRODUCT-SPEC N5's fifth surface, over src/core/reads.ts. R1, R2, R3, R4, R6 and O4.
@@ -339,30 +340,34 @@ export function renderDossier(): HTMLElement {
     root.dataset.forecasts = String(forecasts.length);
     root.dataset.sessionsEnded = String(sessionsEnded);
 
-    root.replaceChildren(
-      renderRegistration({
-        registered,
-        refusal,
-        selected,
-        tracks,
-        onPreRegister: preRegister,
-        onNotebook: sendToNotebook,
-        onSelect: select,
-      }),
-      renderStream({
-        tendency,
-        read,
-        gates: g,
-        revert,
-        active,
-        dropReason,
-        lastObservation,
-        onForecast: forecastAndObserve,
-        onCounterAction: countCounterAction,
-        onContrary: countContrary,
-        onEndSession: endSession,
-      }),
-      renderPlan({ plan, accuracy, registered }),
+    // Keyboard focus is preserved across the wholesale rebuild: a learner clicking through ~20
+    // forecasts by keyboard would otherwise be dropped to <body> after every one.
+    withRestoredFocus(root, () =>
+      root.replaceChildren(
+        renderRegistration({
+          registered,
+          refusal,
+          selected,
+          tracks,
+          onPreRegister: preRegister,
+          onNotebook: sendToNotebook,
+          onSelect: select,
+        }),
+        renderStream({
+          tendency,
+          read,
+          gates: g,
+          revert,
+          active,
+          dropReason,
+          lastObservation,
+          onForecast: forecastAndObserve,
+          onCounterAction: countCounterAction,
+          onContrary: countContrary,
+          onEndSession: endSession,
+        }),
+        renderPlan({ plan, accuracy, registered }),
+      ),
     );
   }
 
