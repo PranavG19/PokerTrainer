@@ -1,55 +1,67 @@
-# DONE — net-robustness fixes (branch fix/net-robustness)
+# DONE — Standalone Equity Calculator (BACKLOG #5)
 
-Two network-robustness fixes from CONSOLIDATED.md (#5 and #6).
+Branch: `feat/equity-calculator`
 
 ## What changed
 
-### 1. Relay receive-buffer / message-size cap (CONSOLIDATED #5) — `src/main/relayHost.ts`, `src/main/relaySession.ts`
-- Added `MAX_MESSAGE_BYTES` (64 KB) and a pure `frameChunk(buffer, maxBytes)` helper that wraps
-  `splitLines` and reports `overflow` when a single frame (a complete line, or the still-arriving
-  partial tail) exceeds the cap.
-- Wired the guard into both socket data handlers:
-  - host accept path (`relayHost.ts`): on overflow, sends `{type:'error', reason:'message too large'}`
-    to the peer and `socket.destroy()`s it.
-  - join client path (`relaySession.ts`): on overflow, `callbacks.onError('message too large')` and
-    `socket.destroy()`.
-- Added `MAX_CONNECTIONS` (32): a new socket past the cap is destroyed before a player id/buffer is
-  spent, bounding memory from a peer opening connections without bound.
-- **The 0.0.0.0 bind was left as-is on purpose.** It is already documented at `relaySession.ts:94-96`
-  and load-bearing: `relaySession.test.ts` has a test ("a guest can connect over the LAN address the
-  host advertises") that fails if it reverts to the loopback default. So I capped the input rather than
-  changing the bind, exactly as the task's fallback instructs.
+- **`src/renderer/screens/equityCalculator.ts`** (new) — a standalone equity-calculator
+  screen. It is a pure surface over the existing VERIFIED equity engine and adds no poker
+  maths of its own:
+  - `parseCards(text)` — reads `"As Kh"` / `"as,kh"` / `"Th 9d 8c"`, normalises case, and
+    validates each token against the real 52-card deck.
+  - `validateInput(input)` — the first reason a spot is unplayable (hero not two cards, an
+    illegal board size, a villain hand that isn't two cards, or any card used twice), or null.
+  - `computeEquity(input)` — routes the spot to the right existing primitive:
+    - specific villain hand → `exactEquityHeadsUp` (exact, full enumeration)
+    - a range of combos → `equityVsRange` (Monte Carlo, combo-weighted with card removal)
+    - "any two cards" → `equityVsRandom` (Monte Carlo vs one uniform opponent)
+  - `renderEquityCalculator()` — keyboard-accessible DOM: native `<input type=text>` fields
+    for hero / board / villain hand, native radio buttons for the villain mode, a 13×13 grid
+    of `<button>` cells for range selection (mirroring the Charts grid layout and using
+    `ALL_COMBOS`), a Calculate `<button>`, an `role="alert"` error line, and an
+    `aria-live="polite"` result panel. Cards are drawn with the shared `renderCard`.
+- **`src/renderer/styles-equity.css`** (new) — screen styles, imported by the screen module
+  (mirrors the per-screen `styles-*.css` convention).
+- **`src/renderer/main.ts`** — registered the screen in the router exactly like the other
+  top-level surfaces: added `'equity'` to the `Tab` union, a `{ id: 'equity', label:
+  'Equity', testid: 'tab-equity' }` entry in the `TABS` registry (placed after Charts), the
+  import, and an `if (which === 'equity') return renderEquityCalculator();` arm in
+  `renderTab`.
+- **`tests/unit/equityCalculator.test.ts`** (new) — red-first tests with real oracles:
+  - `AA vs KK` preflop ≈ 0.82 and `AKs vs 22` preflop ≈ 0.50 (the coinflip), both computed
+    by the engine through `computeEquity` and asserted against their known values.
+  - a dominating overpair on a blank river is exactly 1.0 (exact path).
+  - vs-range routes through `equityVsRange` (win+tie+lose sums to 1, not exact) and vs-random
+    reproduces `equityVsRandom` byte-for-byte at the same seed.
+  - `parseCards` / `validateInput` unit coverage.
+  - jsdom UI wiring: the screen renders native focusable controls, computing a filled spot
+    paints the headline equity, and bad input surfaces an error instead of throwing.
 
-### 2. Multiplayer screen error handling (CONSOLIDATED #6) — `src/renderer/screens/multiplayer.ts`
-- `host()` / `join()` / `enable()` awaited bridge IPC calls with no try/catch. A real IPC *rejection*
-  (vs the modeled `{error}` resolve) stranded the screen in `connecting` forever. Each is now wrapped:
-  on rejection it falls back to the `setup` phase, clears `role`, and shows a notice
-  ("Could not start the table" / "Could not connect" / "Could not enable multiplayer").
-- The `mpStatus()` poll had no `.catch`, so a rejection became an unhandled rejection. Added a rejection
-  handler that leaves the panel in its default disabled state (Enable button still offered).
+## Verification (real counts)
 
-## Tests (real oracles, red-first verified)
-- `tests/unit/relayHost.test.ts`: 5 pure `frameChunk` cases (normal pass-through, oversized tail,
-  oversized complete line, exactly-at-cap, custom cap) + a real-socket test that an oversized frame is
-  errored and the socket dropped. Confirmed RED with the host guard removed.
-- `tests/unit/relaySession.test.ts`: a real-socket test standing up a rogue host that floods an
-  oversized frame; asserts the join client surfaces `message too large`.
-- The multiplayer *screen* fix has no unit test: this codebase has no jsdom/happy-dom test environment
-  (vitest runs in node) and forbids adding npm deps; screens are covered by Playwright e2e, not unit
-  tests. The fix is verified by typecheck and by mirroring the existing `{error}`-handling structure.
-
-## Verification (real results)
-- `npm run typecheck` — PASS (exit 0, no errors)
-- `npm test` — PASS, 76 files, **1677 tests passed, 0 failed** (baseline was 1670; +7 new)
+- `npm run typecheck` — exit 0.
+- `npm test` (vitest) — **79 files, 1714 tests, all passing** (baseline was 78 / 1698; +1
+  file, +16 tests, no regressions).
+- `npm run build:renderer` — succeeds (126 modules, screen + CSS bundle cleanly).
+- e2e (`npm run e2e`) not run here; the dynamic navigation spec reads the tab bar and requires
+  every tab to render a real (non-placeholder) surface — this screen satisfies that (real DOM,
+  no `pageerror`).
 
 ## What I left alone
-- The `0.0.0.0` bind (see above — deliberate, documented, test-pinned).
-- CONSOLIDATED #8/#9 (auth/room-code, RFC1918 restriction) — separate hardening findings, out of scope.
-- All existing tests unchanged; none weakened or deleted.
+
+- Did not touch the equity engine, evaluator, or range modules — reused them as-is.
+- Did not reuse `renderStatsSheet`: it computes `equityVsRandom` internally and cannot accept
+  a pre-computed range/exact result, so the calculator paints its own breakdown from the
+  engine's `EquityResult` instead. Card rendering is still single-sourced via `renderCard`.
+- Did not wire the calculator into the grader or any persisted state — it is a read-only tool.
 
 ## Concerns
-- The join-side overflow test destroys the rogue server's accepted socket in `finally` before
-  `server.close()`, because the client resets mid-write and the lingering server socket otherwise keeps
-  `close()`'s callback from firing. This is test-harness bookkeeping, not production behavior.
-- 64 KB is generous for the current tiny JSON messages; if a future feature sends larger frames (bulk
-  state, chat), revisit the constant.
+
+- A specific-hand calc PREFLOP (`need = 5`) runs the full `exactEquityHeadsUp` enumeration
+  (~1.7M boards, ~3–4s) synchronously on the renderer thread — a deliberate, user-initiated
+  Calculate press, but it will briefly freeze the UI. Flop/turn/river specific-hand calcs and
+  all Monte Carlo paths are fast (tens of ms). If the freeze proves annoying, options are a
+  worker or a "sampling" fallback for the preflop specific-hand case; left out to keep the
+  change focused and the numbers exact.
+- The range grid has no preset buttons (e.g. "top 20%"); combos are selected cell by cell.
+  Presets would be a natural, cheap follow-up.
