@@ -36,6 +36,8 @@ import {
   type Suggestion,
 } from '../core/recommend.js';
 import { computeStats } from '../core/session.js';
+import { reachWeightedLoss } from '../core/rw.js';
+import { REFERENCE_REACH, classDecisionsFor, type GradedDecision } from '../core/reachRef.js';
 import { createSoundPlayer } from './sound.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
@@ -482,10 +484,34 @@ async function boot(): Promise<void> {
     const suggestion = recommend({
       concepts: deriveConcepts(),
       leaks: computeStats(session).leaks,
+      // BACKLOG #2 / G2: reach-weight the error-tag family so study priority is `mean(ΔEV) × reach`,
+      // not raw session cost — a leak in a spot you reach often outranks an equally costly rare one.
+      // Built from the SAME graded hero decisions the leak tally aggregates; empty on a fresh profile,
+      // where recommend falls back to the raw-cost leaks unchanged.
+      rw: deriveRwReport(),
       recommender: session.recommender,
       now: Date.now(),
     });
     return { suggestion, askPreference: shouldAskPreference(session.recommender) };
+  }
+
+  /**
+   * The reach-weighted study-priority report (rw.ts) the recommender ranks the error-tag family by.
+   * Only graded decisions with a coach principle are leaks (free spots carry a null principle and are
+   * skipped, mirroring the raw-cost leak tally); `classDecisionsFor` drops any class the frozen
+   * reference table does not cover, so an unexpected principle or street never throws on Home.
+   */
+  function deriveRwReport(): ReturnType<typeof reachWeightedLoss> {
+    const graded: GradedDecision[] = [];
+    for (const hand of session.hands) {
+      for (const decision of hand.decisions ?? []) {
+        const verdict = decision.verdict;
+        if (verdict && verdict.principle) {
+          graded.push({ street: decision.street, principle: verdict.principle, deltaEvBb: verdict.evLossBb });
+        }
+      }
+    }
+    return reachWeightedLoss(classDecisionsFor(graded), REFERENCE_REACH);
   }
 
   /**
