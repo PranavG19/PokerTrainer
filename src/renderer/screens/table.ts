@@ -842,17 +842,19 @@ export function renderTable(opts: {
     amountLabel.className = 'raise-amount';
     amountLabel.dataset.testid = 'raise-amount';
     amountLabel.textContent = String(min);
-    slider.addEventListener('input', () => {
-      amountLabel.textContent = slider.value;
-      slider.setAttribute('aria-valuetext', slider.value);
-    });
+    // Keep the slider value, the visible chip count and the screen-reader announcement in lock-step:
+    // set all three through one place so they can never drift.
+    const setAmount = (value: string): void => {
+      slider.value = value;
+      amountLabel.textContent = value;
+      slider.setAttribute('aria-valuetext', value);
+    };
+    slider.addEventListener('input', () => setAmount(slider.value));
     controls.appendChild(amountLabel);
 
     const setPreset = (fraction: number): void => {
       const target = fraction === Infinity ? max : clamp(Math.round(state.pot * fraction), min, max);
-      slider.value = String(target);
-      amountLabel.textContent = slider.value;
-      slider.setAttribute('aria-valuetext', slider.value);
+      setAmount(String(target));
     };
 
     // The ½/¾ glyphs are their own accessible name, which reads as a meaningless fraction; spell each
