@@ -54,6 +54,7 @@ import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
 import { renderContrastScreen } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
+import { renderChartBank } from './screens/chartBank.js';
 import { renderEquityCalculator } from './screens/equityCalculator.js';
 import { renderRangeEditor } from './screens/rangeEditor.js';
 import { renderDrillScreen } from './screens/drill.js';
@@ -156,6 +157,7 @@ type Tab =
   | 'learn'
   | 'train'
   | 'charts'
+  | 'chart-bank'
   | 'equity'
   | 'ranges'
   | 'dossier'
@@ -201,6 +203,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
   { id: 'train', label: 'Train', testid: 'tab-train' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
+  { id: 'chart-bank', label: 'Bank', testid: 'tab-chart-bank' },
   { id: 'equity', label: 'Equity', testid: 'tab-equity' },
   { id: 'ranges', label: 'Ranges', testid: 'tab-ranges' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
@@ -880,6 +883,7 @@ async function boot(): Promise<void> {
         onSpot: (spotClass, module, correct) => void onInterleaveSpot(spotClass, module, correct),
       });
     }
+    if (which === 'chart-bank') return renderChartBank();
     if (which === 'equity') return renderEquityCalculator();
     if (which === 'ranges') {
       return renderRangeEditor({
