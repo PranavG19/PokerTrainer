@@ -66,6 +66,7 @@ import { renderMultiplayerScreen } from './screens/multiplayer.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
 import type { AssessmentGrade } from '../core/assessmentBlock.js';
 import { renderVarianceScreen } from './screens/variance.js';
+import type { SessionPlan } from '../core/sessionPlan.js';
 import { beginFocusRestore } from './focusRestore.js';
 
 const DEFAULT_SEED = 42;
@@ -597,8 +598,12 @@ async function boot(): Promise<void> {
     void io.speak?.(message)?.catch(() => undefined);
   }
 
-  function startTable(): void {
+  function startTable(plan?: SessionPlan): void {
     teardownTable();
+    // The session planner (when the learner started from it) models a whole-task live-hand count; a
+    // planned session is bounded by it so it honours the plan rather than running forever. The plain
+    // New session path passes no plan → undefined → the classic unbounded table.
+    const handLimit = plan?.blocks.find((b) => b.kind === 'whole-task')?.units;
     // The table's depth tracks the learner's earned STANDING: a 200bb table is a genuinely different
     // game than a 40bb one (the climb payoff). Calibrating (depth 0) → null → the classic 100bb table.
     // The villains' commitTax (ai.ts) makes them play a deep stack honestly, so this is a real reward,
@@ -616,6 +621,7 @@ async function boot(): Promise<void> {
       bankroll: session.bankroll,
       handNumber: session.stats.handsPlayed + 1,
       startStack: buyIn ?? undefined,
+      handLimit,
       coachedMode: session.coachedMode,
       onHandComplete: (r) => void onHandComplete(r),
       onRebuy: () => void onRebuy(),
@@ -715,6 +721,7 @@ async function boot(): Promise<void> {
         session,
         standing: currentStanding(Date.now()),
         onNewSession: () => startTable(),
+        onStartPlanned: (plan) => startTable(plan),
         onPlayWithFriends: () => {
           multiplayerActive = true;
           render();
