@@ -9,3 +9,5 @@ tests/tmp/
 # Generated codebase overview, not source.
 CODEBASE-OVERVIEW.html
 demo/gallery/.anchor-ref/
+DONE.md
+HANDOFF.md
