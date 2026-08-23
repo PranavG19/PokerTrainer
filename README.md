@@ -10,7 +10,7 @@ poker math all run locally with no credentials. Only two features touch the
 network, and both are opt-in: an optional AWS Bedrock tutor and a
 host-authoritative LAN relay for multiplayer.
 
-![Offsuit table and coaching](research/offsuit/lp-hero.png)
+![Offsuit table with a coaching verdict](screenshots/gameplay-showdown.png)
 
 ## Features
 
@@ -90,18 +90,18 @@ host-authoritative LAN relay for multiplayer.
 
 ## Screenshots
 
-The images below are product/landing captures of the built application. Live
-visual-regression and audit artifacts live in [`screenshots/`](screenshots/).
+Captured from the running app. More visual-regression and audit artifacts live
+in [`screenshots/`](screenshots/).
 
-![Home and launcher](research/offsuit/shot1.jpg)
+![Home and launcher](screenshots/home.png)
 
-![Coached table with a graded verdict](research/offsuit/shot2.jpg)
+![Coached table with a graded verdict](screenshots/coached-graded-handover-900x640.png)
 
-![Training and drills](research/offsuit/shot3.jpg)
+![Drills with instant grading](screenshots/drill-900x640-graded.png)
 
-![Progress and stats](research/offsuit/lp-stats.png)
+![Preflop charts](screenshots/charts-900x640.png)
 
-![Tutor rail](research/offsuit/lp-ai.png)
+![Progress and review](screenshots/design-progress.png)
 
 ## Architecture
 
