@@ -1,55 +1,71 @@
-# DONE — net-robustness fixes (branch fix/net-robustness)
+# DONE — safe simplifications (branch chore/simplify)
 
-Two network-robustness fixes from CONSOLIDATED.md (#5 and #6).
+Applied the behavior-preserving "safe-now" group from `/tmp/poker-audit/SIMPLIFY.md`.
+Every change is a refactor or dead-code removal; none alters observable behavior.
 
-## What changed
+## What changed (commit per group)
 
-### 1. Relay receive-buffer / message-size cap (CONSOLIDATED #5) — `src/main/relayHost.ts`, `src/main/relaySession.ts`
-- Added `MAX_MESSAGE_BYTES` (64 KB) and a pure `frameChunk(buffer, maxBytes)` helper that wraps
-  `splitLines` and reports `overflow` when a single frame (a complete line, or the still-arriving
-  partial tail) exceeds the cap.
-- Wired the guard into both socket data handlers:
-  - host accept path (`relayHost.ts`): on overflow, sends `{type:'error', reason:'message too large'}`
-    to the peer and `socket.destroy()`s it.
-  - join client path (`relaySession.ts`): on overflow, `callbacks.onError('message too large')` and
-    `socket.destroy()`.
-- Added `MAX_CONNECTIONS` (32): a new socket past the cap is destroyed before a player id/buffer is
-  spent, bounding memory from a peer opening connections without bound.
-- **The 0.0.0.0 bind was left as-is on purpose.** It is already documented at `relaySession.ts:94-96`
-  and load-bearing: `relaySession.test.ts` has a test ("a guest can connect over the LAN address the
-  host advertises") that fails if it reverts to the loopback default. So I capped the input rather than
-  changing the bind, exactly as the task's fallback instructs.
+### S1 — shared DOM `text()` helper — `src/renderer/components/dom.ts` (new) + 10 files
+Ten byte-identical copies of `text(tag, className, content)` (contrast, drill, anomaly,
+robustness, dossier, variance, lesson, puzzle, assessment screens + `tutorRail`
+component) replaced by one exported helper. Variants left alone on purpose (they
+differ behaviorally): `progress.el()` wraps text in `guarded()`, `review.line()`,
+and `spacing.cell/label/note` set `dataset.testid`.
 
-### 2. Multiplayer screen error handling (CONSOLIDATED #6) — `src/renderer/screens/multiplayer.ts`
-- `host()` / `join()` / `enable()` awaited bridge IPC calls with no try/catch. A real IPC *rejection*
-  (vs the modeled `{error}` resolve) stranded the screen in `connecting` forever. Each is now wrapped:
-  on rejection it falls back to the `setup` phase, clears `role`, and shows a notice
-  ("Could not start the table" / "Could not connect" / "Could not enable multiplayer").
-- The `mpStatus()` poll had no `.catch`, so a rejection became an unhandled rejection. Added a rejection
-  handler that leaves the panel in its default disabled state (Enable button still offered).
+### S2 — dead `isPair` branch — `src/renderer/screens/handReadingDrill.ts`
+For a pair like "QQ", `endsWith('s')` is false, so the offsuit branch already returns
+`["Qs","Qh"]` — identical to the special case. Removed the branch and rewrote the
+stale comment that justified it.
 
-## Tests (real oracles, red-first verified)
-- `tests/unit/relayHost.test.ts`: 5 pure `frameChunk` cases (normal pass-through, oversized tail,
-  oversized complete line, exactly-at-cap, custom cap) + a real-socket test that an oversized frame is
-  errored and the socket dropped. Confirmed RED with the host guard removed.
-- `tests/unit/relaySession.test.ts`: a real-socket test standing up a rogue host that floods an
-  oversized frame; asserts the join client surfaces `message too large`.
-- The multiplayer *screen* fix has no unit test: this codebase has no jsdom/happy-dom test environment
-  (vitest runs in node) and forbids adding npm deps; screens are covered by Playwright e2e, not unit
-  tests. The fix is verified by typecheck and by mirroring the existing `{error}`-handling structure.
+### S3 — ESM import extension — `src/core/anomaly.ts`
+`import ... from './rng'` -> `'./rng.js'` to match every sibling (NodeNext consistency).
+
+### S6/S7 — scalar dedup + dead code — `equity.ts`, `robustness.ts`, `ai.ts`, `archetypes.ts`, `coach.ts`, `card.ts`
+- Added `equity.scalarEquity(eq) = eq.win + eq.tie*0.5` and routed the four identical
+  copies through it.
+- Removed the write-only `tiedWithHero` local in `equityVsRandom` (assigned, never read).
+- Dropped `CardRenderOpts.tilt`: no caller ever passed it, so both `rotate()` branches
+  were dead (always 0).
+
+### S8 — raise-slider mirror — `src/renderer/screens/table.ts`
+Collapsed the repeated "set `slider.value` + `amountLabel.textContent` +
+`aria-valuetext`" writes in the input handler and `setPreset` into one `setAmount()`
+helper. Same DOM, same aria strings.
+
+## What I left alone (deliberately)
+
+- **S4 (main.ts placeholder + stale JSDoc):** skipped — `main.ts` router additions are
+  owned by a concurrent slice; editing it risks a conflict for a pure-cosmetic gain.
+- **S5 (un-export test-only core symbols):** skipped — the plan flags it as a per-symbol
+  *candidate* list, and every symbol I checked (`PRODUCIBLE_AXES`, `duplicateCards`,
+  `continuationWeights`, `supportRank`, `moduleOfContent`, `compareHands`) is imported by
+  a unit test. Un-exporting would break those tests, which this task forbids touching.
+- **`ai.ts` (L1 / deletion candidate):** NOT deleted. A repo-wide search shows
+  `src/core/robustness.ts` imports `PROFILES` and the `Archetype` type from it, and
+  `ai.test.ts` / `archetype-wiring.test.ts` / `jitter.test.ts` reference it — so it is
+  not genuinely unreferenced. The L1 extraction is marked medium-risk / "Later"; skipped.
+- **`rw.ts` / `bank.ts`:** untouched (feature targets, per instructions).
+- **S6 partials that were NOT behavior-identical:** `clamp01` (the second copy lives in
+  the deliberately import-free `progress.ts`; deduping would force its first-ever import
+  for a one-liner — net coupling, not simplification); `pct()` (drill uses `trim()` for
+  up-to-2-decimals, robustness uses `Math.round` integer — different output); `inBb()`
+  (contrast returns a string, lesson/puzzle return rounded numbers over different bb
+  sources). Leaving these avoids a behavior change disguised as a dedup.
+- **All "Later" items (L1–L7):** out of scope for the safe-now pass.
 
 ## Verification (real results)
-- `npm run typecheck` — PASS (exit 0, no errors)
-- `npm test` — PASS, 76 files, **1677 tests passed, 0 failed** (baseline was 1670; +7 new)
 
-## What I left alone
-- The `0.0.0.0` bind (see above — deliberate, documented, test-pinned).
-- CONSOLIDATED #8/#9 (auth/room-code, RFC1918 restriction) — separate hardening findings, out of scope.
-- All existing tests unchanged; none weakened or deleted.
+- `npm run typecheck` — PASS (exit 0).
+- `npm test` (vitest run) — PASS: **78 files, 1698 tests passed, 0 failed** — identical
+  to the pre-change baseline (1698). No tests weakened, deleted, or added.
+- Playwright e2e not run: it needs a full electron build (`npm run e2e`), not part of
+  `npm test`. The screen changes are DOM-identical (same testids, same wording, same aria
+  strings), so the e2e specs are unaffected.
 
 ## Concerns
-- The join-side overflow test destroys the rogue server's accepted socket in `finally` before
-  `server.close()`, because the client resets mid-write and the lingering server socket otherwise keeps
-  `close()`'s callback from firing. This is test-harness bookkeeping, not production behavior.
-- 64 KB is generous for the current tiny JSON messages; if a future feature sends larger frames (bulk
-  state, chat), revisit the constant.
+
+- None material. The one judgment call worth flagging: I diverged from the plan on three
+  S6 sub-items (`clamp01`/`pct`/`inBb`) because they are not actually behavior-identical
+  or would add coupling — see above. If a maintainer wants them unified, `pct` and `inBb`
+  need a decision on which rounding/return-type wins, and `clamp01` needs sign-off on
+  giving `progress.ts` its first import.
