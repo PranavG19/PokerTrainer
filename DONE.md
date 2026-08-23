@@ -1,55 +1,59 @@
-# DONE — net-robustness fixes (branch fix/net-robustness)
-
-Two network-robustness fixes from CONSOLIDATED.md (#5 and #6).
+# DONE — Session planner wired into session start (BACKLOG #1)
 
 ## What changed
+The session planner was built and displayed, but Start discarded it: `home.ts` wired the planner's
+Start straight to `onNewSession()`, throwing away the assembled `SessionPlan` and opening the
+ordinary default table. The plan is now threaded into session start so the launched session honours
+the planned live-hand count.
 
-### 1. Relay receive-buffer / message-size cap (CONSOLIDATED #5) — `src/main/relayHost.ts`, `src/main/relaySession.ts`
-- Added `MAX_MESSAGE_BYTES` (64 KB) and a pure `frameChunk(buffer, maxBytes)` helper that wraps
-  `splitLines` and reports `overflow` when a single frame (a complete line, or the still-arriving
-  partial tail) exceeds the cap.
-- Wired the guard into both socket data handlers:
-  - host accept path (`relayHost.ts`): on overflow, sends `{type:'error', reason:'message too large'}`
-    to the peer and `socket.destroy()`s it.
-  - join client path (`relaySession.ts`): on overflow, `callbacks.onError('message too large')` and
-    `socket.destroy()`.
-- Added `MAX_CONNECTIONS` (32): a new socket past the cap is destroyed before a player id/buffer is
-  spent, bounding memory from a peer opening connections without bound.
-- **The 0.0.0.0 bind was left as-is on purpose.** It is already documented at `relaySession.ts:94-96`
-  and load-bearing: `relaySession.test.ts` has a test ("a guest can connect over the LAN address the
-  host advertises") that fails if it reverts to the loopback default. So I capped the input rather than
-  changing the bind, exactly as the task's fallback instructs.
+- **`src/renderer/screens/sessionPlan.ts`** — `onStart` now hands back the ASSEMBLED `SessionPlan`
+  (`opts.onStart?.(result.plan)`) instead of just `(minutes, mode)`, so the launcher can parameterise
+  the session by what core actually modelled.
+- **`src/renderer/screens/home.ts`** — new optional `onStartPlanned?: (plan) => void`, threaded from
+  the planner's Start. Falls back to the plain `onNewSession()` when a caller has not wired it, so
+  nothing regresses.
+- **`src/renderer/main.ts`** — `startTable(plan?)` derives a live-hand limit from the plan's
+  `whole-task` block units and passes it to the table; wires `onStartPlanned: (plan) => startTable(plan)`.
+- **`src/renderer/screens/table.ts`** — new optional `handLimit`. When set (>0) the table publishes
+  `data-hand-limit` and, once that many hands have been played this sitting, shows a planned-complete
+  end-state (`session-planned-complete`) instead of offering "Next hand" forever. Absent → the classic
+  unbounded table, so every existing caller and the plain New session path are unchanged.
 
-### 2. Multiplayer screen error handling (CONSOLIDATED #6) — `src/renderer/screens/multiplayer.ts`
-- `host()` / `join()` / `enable()` awaited bridge IPC calls with no try/catch. A real IPC *rejection*
-  (vs the modeled `{error}` resolve) stranded the screen in `connecting` forever. Each is now wrapped:
-  on rejection it falls back to the `setup` phase, clears `role`, and shows a notice
-  ("Could not start the table" / "Could not connect" / "Could not enable multiplayer").
-- The `mpStatus()` poll had no `.catch`, so a rejection became an unhandled rejection. Added a rejection
-  handler that leaves the panel in its default disabled state (Enable button still offered).
+The threading mirrors how session config already flows into `startTable` (bankroll, depth-derived
+`startStack`, `coachedMode`, `handNumber`).
 
-## Tests (real oracles, red-first verified)
-- `tests/unit/relayHost.test.ts`: 5 pure `frameChunk` cases (normal pass-through, oversized tail,
-  oversized complete line, exactly-at-cap, custom cap) + a real-socket test that an oversized frame is
-  errored and the socket dropped. Confirmed RED with the host guard removed.
-- `tests/unit/relaySession.test.ts`: a real-socket test standing up a rogue host that floods an
-  oversized frame; asserts the join client surfaces `message too large`.
-- The multiplayer *screen* fix has no unit test: this codebase has no jsdom/happy-dom test environment
-  (vitest runs in node) and forbids adding npm deps; screens are covered by Playwright e2e, not unit
-  tests. The fix is verified by typecheck and by mirroring the existing `{error}`-handling structure.
+## Tests (red-first, real oracles)
+- **`tests/unit/session-planner-wiring.test.ts`** (vitest / jsdom) — the required red-first proof.
+  Renders `renderHome`, drives the on-screen planner to a 50-minute session, clicks Start, and asserts
+  the ASSEMBLED plan (with the 3 whole-task live hands core models) reaches the planned-start handler,
+  NOT the plain-default `onNewSession`. Confirmed RED against the pre-fix home (plan discarded), GREEN
+  after the wiring.
+- **`tests/e2e/session-plan-start.spec.ts`** — behavioural proof at the table: a planned 50-minute
+  session carries `data-hand-limit="3"` and ends with `session-planned-complete` after 3 fold-out
+  hands (no "Next hand"), whereas the plain New session path is the default unbounded table with no
+  hand limit.
 
-## Verification (real results)
-- `npm run typecheck` — PASS (exit 0, no errors)
-- `npm test` — PASS, 76 files, **1677 tests passed, 0 failed** (baseline was 1670; +7 new)
+## Verification (REAL counts)
+- `npm run typecheck` — PASS (clean).
+- `npm test` (vitest) — PASS, 79 files / 1700 tests (includes the 2 new wiring tests).
+- `npm run e2e` — NOT RUN HERE. The Electron binary cannot download in this sandbox (only a ~256K
+  stub arrives), so `electron.launch` fails with "Electron failed to install correctly". The new e2e
+  spec compiles and lists (`playwright test --list` shows both tests) and is ready to run where the
+  Electron binary is available.
 
 ## What I left alone
-- The `0.0.0.0` bind (see above — deliberate, documented, test-pinned).
-- CONSOLIDATED #8/#9 (auth/room-code, RFC1918 restriction) — separate hardening findings, out of scope.
-- All existing tests unchanged; none weakened or deleted.
+- The full session-plan ORCHESTRATOR (BACKLOG #1's "first slice": walk `SessionPlan.blocks` and mount
+  each block's screen — warm-up, decay-probes, graded-spots, contrast-remediation, whole-task,
+  scoreboard — in sequence). That is the L-effort net-new surface; this focused slice threads the
+  plan's live-hand count into the existing table, which is the whole-task block the table already hosts.
+- Short plans that cut the whole-task block (e.g. a 30-minute session models 0 live hands): those
+  allocate no bounded live-hand budget, so `handLimit` is not applied (>0 guard) and the table opens
+  unbounded, exactly as today.
+- SIMPLIFY.md's L7 (`interleave.ts` framework) — explicitly gated on the planner being wired first;
+  left for a follow-up now that intent is clearer.
 
 ## Concerns
-- The join-side overflow test destroys the rogue server's accepted socket in `finally` before
-  `server.close()`, because the client resets mid-write and the lingering server socket otherwise keeps
-  `close()`'s callback from firing. This is test-harness bookkeeping, not production behavior.
-- 64 KB is generous for the current tiny JSON messages; if a future feature sends larger frames (bulk
-  state, chat), revisit the constant.
+- The e2e behavioural test is unverified in this environment (Electron download blocked). Run it in CI.
+- "Honours the plan" here means the plan's whole-task live-hand count bounds the table. The other
+  planned blocks (warm-up, probes, graded spots, contrast, scoreboard) are still not mounted — that is
+  the deferred orchestrator, not this slice.
