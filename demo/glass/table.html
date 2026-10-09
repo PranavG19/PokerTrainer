@@ -39,23 +39,23 @@
 
       <div class="seat pos-left" role="group" aria-label="Ada, small blind">
         <div class="cards tight"><div class="card back" style="--i:1;--fx:240px;--fy:40px"></div><div class="card back" style="--i:5;--fx:240px;--fy:40px"></div></div>
-        <div class="who"><div class="name">Ada <span class="pos">Unknown</span></div><div class="stackval num">4950</div><div class="status">Checked</div></div>
+        <div class="who"><div class="name">Ada <span class="arch">Unknown</span></div><div class="stackval num">4950</div><div class="quip">Check.</div></div>
       </div>
 
       <div class="seat pos-top" role="group" aria-label="Bo, big blind">
         <div class="cards tight"><div class="card back" style="--i:2;--fy:200px"></div><div class="card back" style="--i:6;--fy:200px"></div></div>
-        <div class="who"><div class="name">Bo <span class="pos">Unknown</span></div><div class="stackval num">4875</div><div class="quip">Let’s put some in.</div></div>
+        <div class="who"><div class="name">Bo <span class="arch">Unknown</span></div><div class="stackval num">4875</div><div class="quip">Let’s put some in.</div></div>
       </div>
 
       <div class="seat pos-right folded" role="group" aria-label="Cy, under the gun, folded">
         <div class="cards tight"><div class="card back" style="--i:3;--fx:-240px;--fy:40px"></div><div class="card back" style="--i:7;--fx:-240px;--fy:40px"></div></div>
-        <div class="who"><div class="name">Cy <span class="pos">Unknown</span></div><div class="stackval num">5000</div><div class="status">Folded</div></div>
+        <div class="who"><div class="name">Cy <span class="arch">Unknown</span></div><div class="stackval num">5000</div><div class="quip">I’m out.</div></div>
       </div>
 
-      <div class="bet bet-bo num" aria-label="Bo bets 75"><span class="chips" aria-hidden="true"><svg class="c3"><use href="#chip"/></svg><svg class="c2"><use href="#chip"/></svg><svg class="c1"><use href="#chip"/></svg></span>75</div>
+      <div class="bet bet-bo num" aria-label="Bo bets 75"><span class="chips" aria-hidden="true"><svg class="c2"><use href="#chip"/></svg><svg class="c1"><use href="#chip"/></svg><svg class="c1"><use href="#chip"/></svg></span>75</div>
 
       <div class="center">
-        <div class="pot"><span class="chips pot-chips" aria-hidden="true"><svg class="c3"><use href="#chip"/></svg><svg class="c2"><use href="#chip"/></svg><svg class="c1"><use href="#chip"/></svg><svg class="c2"><use href="#chip"/></svg></span><span class="lbl">Pot</span><span class="val num">225</span></div>
+        <div class="pot"><span class="lbl">Pot</span><span class="val num">225</span></div>
         <div class="board">
           <div class="card" style="--i:9;--fy:-30px"><span class="rk">4</span><span class="st">♠</span><span class="pip">♠</span></div>
           <div class="card red" style="--i:10;--fy:-30px"><span class="rk">4</span><span class="st">♦</span><span class="pip">♦</span></div>
@@ -72,7 +72,7 @@
           <div class="card red" style="--i:8;--fy:-160px"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div>
         </div>
         <div class="who">
-          <div class="name">You <span class="dealer" style="display:inline-grid;margin-left:6px;vertical-align:-3px" aria-label="dealer">D</span></div>
+          <div class="name">You <span class="dealer" style="display:inline-grid;margin-left:6px;vertical-align:-3px" role="img" aria-label="dealer">D</span></div>
           <div class="stackval num">4950</div>
           <div class="status" id="heroStatus"><span class="dot"></span>Your turn</div>
         </div>
@@ -109,7 +109,7 @@
       <!-- Gate (table.ts GATE: one prompt, two attempts, one 8 s budget). -->
       <div id="gate" hidden>
         <div class="scrim"></div>
-        <section class="sheet float" role="dialog" aria-modal="true" aria-labelledby="gprompt">
+        <section class="sheet float short" role="dialog" aria-modal="true" aria-labelledby="gprompt">
           <div class="sheet-head"><span class="label">Coach</span><span class="ctx">Attempt 1 of 2</span></div>
           <p class="verdict" id="gprompt">In one line: what range or price drives this?</p>
           <div class="budget" aria-hidden="true"><i></i></div>
@@ -155,9 +155,14 @@
     const sheet = $(state);
     sheet.hidden = false;
     $('dock').hidden = true;
-    $('hero').classList.remove('act');
-    $('hero').classList.add('folded');
-    $('heroStatus').textContent = 'Folded';
+    $('stage').classList.add('sheet-open');
+    // At the gate the fold is committed but not yet applied (table.ts holds state until the gate resolves),
+    // so the hero is unchanged; the fold lands only once the verdict shows.
+    if (state === 'verdict') {
+      $('hero').classList.remove('act');
+      $('hero').classList.add('folded');
+      $('heroStatus').textContent = 'Folded';
+    }
     // A modal: the table and the nav behind the sheet are inert and out of the a11y tree.
     const behind = [...$('stage').children].filter((el) => el.id !== state).concat(document.querySelector('[data-nav]'));
     for (const el of behind) { el.inert = true; el.setAttribute('aria-hidden', 'true'); }

@@ -21,6 +21,8 @@ Not covered by the script: `::before` counters, hover and focus states, and plac
 `--ink-3` or lighter, and `--ink-3` measured at least 4.5:1 here.
 
 ## Fixes the check forced in round 2
+- After the wallpaper became more visible, off-range chart cells fell to 4.1–4.5:1 at 1100x760. Cells now use
+  `--ink-2`. The felt's lamp pool was dimmed from 10% to 7.5%, and the "Pot" label moved to `--ink-1`.
 - `--ink-3` went from `#8C939C` to `#989FA8`. "Unknown" over the felt's lamp pool measured 4.48:1, and
   off-range chart cells measured 4.47:1.
 - Keyboard hints (`.key`) moved from `--ink-3` to `--ink-2`. "O" and "F" on the quiz buttons were 3.9–4.1:1.
@@ -30,19 +32,19 @@ Not covered by the script: `::before` counters, hover and focus states, and plac
 ┌─────────┬────────────────────┬──────┬────────┬────────────────────────────────────────────┬───────┬─────────────┐
 │ (index) │ shot               │ runs │ min    │ minText                                    │ fails │ disabledMin │
 ├─────────┼────────────────────┼──────┼────────┼────────────────────────────────────────────┼───────┼─────────────┤
-│ 0       │ 'home-900x640'     │ 72   │ '4.94' │ 'Interleaving'                             │ 0     │ '99.00'     │
-│ 1       │ 'home-1100x760'    │ 75   │ '5.73' │ 'Interleaving'                             │ 0     │ '99.00'     │
-│ 2       │ 'table-900x640'    │ 49   │ '4.87' │ 'Pot'                                      │ 0     │ '7.02'      │
-│ 3       │ 'table-1100x760'   │ 49   │ '4.73' │ 'Pot'                                      │ 0     │ '6.98'      │
-│ 4       │ 'predict-900x640'  │ 43   │ '4.87' │ 'Pot'                                      │ 0     │ '99.00'     │
-│ 5       │ 'predict-1100x760' │ 43   │ '4.73' │ 'Pot'                                      │ 0     │ '99.00'     │
-│ 6       │ 'gate-900x640'     │ 5    │ '6.59' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
-│ 7       │ 'gate-1100x760'    │ 5    │ '6.59' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
-│ 8       │ 'verdict-900x640'  │ 16   │ '6.13' │ 'Ada and Bo play the hand out behind this' │ 0     │ '99.00'     │
-│ 9       │ 'verdict-1100x760' │ 16   │ '6.52' │ 'Ada and Bo play the hand out behind this' │ 0     │ '99.00'     │
-│ 10      │ 'charts-900x640'   │ 226  │ '5.11' │ 'K2s'                                      │ 0     │ '99.00'     │
-│ 11      │ 'charts-1100x760'  │ 240  │ '5.11' │ 'K2s'                                      │ 0     │ '99.00'     │
-│ 12      │ 'drill-900x640'    │ 59   │ '6.18' │ 'Settings'                                 │ 0     │ '99.00'     │
-│ 13      │ 'drill-1100x760'   │ 59   │ '6.53' │ 'Every problem is built from its seed, so' │ 0     │ '99.00'     │
+│ 0       │ 'home-900x640'     │ 74   │ '5.80' │ 'warming up'                               │ 0     │ '99.00'     │
+│ 1       │ 'home-1100x760'    │ 74   │ '5.24' │ 'Free-roam'                                │ 0     │ '99.00'     │
+│ 2       │ 'table-900x640'    │ 49   │ '4.96' │ 'Unknown'                                  │ 0     │ '6.92'      │
+│ 3       │ 'table-1100x760'   │ 49   │ '5.09' │ 'Unknown'                                  │ 0     │ '6.92'      │
+│ 4       │ 'predict-900x640'  │ 43   │ '4.96' │ 'Unknown'                                  │ 0     │ '99.00'     │
+│ 5       │ 'predict-1100x760' │ 43   │ '5.09' │ 'Unknown'                                  │ 0     │ '99.00'     │
+│ 6       │ 'gate-900x640'     │ 5    │ '6.87' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
+│ 7       │ 'gate-1100x760'    │ 5    │ '6.87' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
+│ 8       │ 'verdict-900x640'  │ 16   │ '6.83' │ 'On the flop, you folded to 75'            │ 0     │ '99.00'     │
+│ 9       │ 'verdict-1100x760' │ 16   │ '6.83' │ 'On the flop, you folded to 75'            │ 0     │ '99.00'     │
+│ 10      │ 'charts-900x640'   │ 231  │ '5.05' │ 'A8o'                                      │ 0     │ '99.00'     │
+│ 11      │ 'charts-1100x760'  │ 245  │ '5.78' │ '—'                                        │ 0     │ '99.00'     │
+│ 12      │ 'drill-900x640'    │ 58   │ '5.55' │ 'Bank'                                     │ 0     │ '99.00'     │
+│ 13      │ 'drill-1100x760'   │ 58   │ '5.55' │ 'Learn'                                    │ 0     │ '99.00'     │
 └─────────┴────────────────────┴──────┴────────┴────────────────────────────────────────────┴───────┴─────────────┘
 ```

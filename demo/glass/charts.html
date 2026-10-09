@@ -17,11 +17,9 @@
   .side > * { flex: none; }
   .width { display: flex; align-items: baseline; gap: 8px; }
   .width .big { font-size: var(--t-xl); font-weight: 500; letter-spacing: -0.02em; }
-  .cls { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: baseline; padding: 5px 0; font-size: var(--t-sm); }
-  .cls i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); align-self: center; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.2); }
+  .cls { display: grid; grid-template-columns: 1fr auto 22px; gap: 8px; align-items: baseline; padding: 5px 0; font-size: var(--t-sm); }
   .cls b { font-weight: 500; color: var(--ink-1); } .cls span { color: var(--ink-2); } .cls .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  /* Monochrome class ramp (Synara's oklch greys), strongest = lightest */
-  .c1 { --c: oklch(0.95 0 0); } .c2 { --c: oklch(0.82 0 0); } .c3 { --c: oklch(0.68 0 0); } .c4 { --c: oklch(0.55 0 0); } .c5 { --c: oklch(0.42 0 0); } .c6 { --c: oklch(0.28 0 0); }
+  .cls .sc { color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }   /* class-accuracy: correct/attempts, — before any */
   .rules { counter-reset: r; display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sm); line-height: 1.45; }
   .rules li { list-style: none; display: grid; grid-template-columns: 16px 1fr; }
   .rules li::before { counter-increment: r; content: counter(r); color: var(--ink-3); font-variant-numeric: tabular-nums; }
@@ -31,15 +29,14 @@
   .grid-head { display: flex; justify-content: space-between; align-items: center; }
   .legend { display: flex; gap: 14px; font-size: var(--t-sm); color: var(--ink-2); align-items: center; }
   .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
-  .sw-open { background: var(--bone); } .sw-edge { outline: 1px dashed oklch(1 0 0 / 0.55); outline-offset: -1px; }
+  .sw-open { background: oklch(1 0 0 / 0.16); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.2); } .sw-edge { outline: 1px dashed oklch(1 0 0 / 0.55); outline-offset: -1px; }
   .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(13, 1fr); gap: 2px; }
-  .cell { border-radius: 4px; display: grid; place-items: center; font-size: clamp(9.5px, 0.95vw, 11px); font-weight: 500; color: var(--ink-3); background: var(--fill-1);
+  .cell { border-radius: 4px; display: grid; place-items: center; font-size: clamp(9.5px, 0.95vw, 11px); font-weight: 500; color: var(--ink-2); background: var(--fill-1);
     transition: background-color var(--dur-1), color var(--dur-1); }
   .cell:hover { background: var(--fill-3); color: var(--ink-1); }
-  .cell.in { background: var(--bone); color: var(--ink-on-bone); }
-  .cell.in:hover { background: #FFFFFF; }
+  .cell.in { background: oklch(1 0 0 / 0.16); color: var(--ink-1); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.14); }
+  .cell.in:hover { background: oklch(1 0 0 / 0.24); }
   .cell.edge { outline: 1px dashed oklch(1 0 0 / 0.55); outline-offset: -1px; font-weight: 700; }
-  .cell.edge.in { outline-color: oklch(0 0 0 / 0.45); }
   .quiz { display: flex; align-items: center; gap: 14px; padding: 10px 12px; }
   .quiz .card { --w: 34px; }
   .quiz .actions { margin-left: auto; display: flex; gap: 6px; }
@@ -58,12 +55,12 @@
           <div>
             <div class="label" style="margin-bottom:2px">Six classes, strongest first</div>
             <div class="list">
-              <div class="cls c1"><i></i><div><b>premium</b> <span>— QQ+ and AK</span></div><span class="n">5 cells</span></div>
-              <div class="cls c2"><i></i><div><b>strong</b> <span>— JJ-88, AQ, AJs, KQs</span></div><span class="n">8 cells</span></div>
-              <div class="cls c3"><i></i><div><b>broadway</b> <span>— two cards ten or better</span></div><span class="n">14 cells</span></div>
-              <div class="cls c4"><i></i><div><b>suited ace</b> <span>— nut blocker, thin kicker</span></div><span class="n">8 cells</span></div>
-              <div class="cls c5"><i></i><div><b>speculative</b> <span>— small pairs, suited connectors</span></div><span class="n">22 cells</span></div>
-              <div class="cls c6"><i></i><div><b>trash</b> <span>— no pair, no suit, no connection</span></div><span class="n">112 cells</span></div>
+              <div class="cls"><div><b>premium</b> <span>— QQ+ and AK</span></div><span class="n">5 cells</span><span class="sc">—</span></div>
+              <div class="cls"><div><b>strong</b> <span>— JJ-88, AQ, AJs, KQs</span></div><span class="n">8 cells</span><span class="sc">—</span></div>
+              <div class="cls"><div><b>broadway</b> <span>— two cards ten or better</span></div><span class="n">14 cells</span><span class="sc">—</span></div>
+              <div class="cls"><div><b>suited ace</b> <span>— nut blocker, thin kicker</span></div><span class="n">8 cells</span><span class="sc">—</span></div>
+              <div class="cls"><div><b>speculative</b> <span>— small pairs, suited connectors</span></div><span class="n">22 cells</span><span class="sc">—</span></div>
+              <div class="cls"><div><b>trash</b> <span>— no pair, no suit, no connection</span></div><span class="n">112 cells</span><span class="sc">—</span></div>
             </div>
           </div>
           <div>

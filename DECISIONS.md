@@ -63,31 +63,82 @@ rejected by the user as tacky and "not modern glassmorphism". Its captures are k
   - a serif index on the cards as the one typographic flourish.
 
 ## Decisions to evaluate
-- Seats move from the real top row to an oval, and are set as type on the rail instead of boxed panes. If
-  overruled, keep the row: the cards and felt still carry the look.
+- Seats move from the real top row to an oval, set as type on the rail rather than boxed. If overruled, keep the
+  row: the cards and felt still carry the look.
 - Coach and Stats leave the action dock for the table's top-right corner. If overruled, the dock carries 11
   controls and is tight at 900px.
 - In coached mode the commit tray **replaces** the dock until the player commits (the real app stacks the
   tray above a disabled bar). If overruled, stack them, and shrink the hero seat at 900x640.
-- The gate and verdict are modal sheets over a dimmed table, and the verdict carries a pot-share-vs-price
-  meter and a Close button. If overruled, both become inline strips above the dock, with no dismiss.
-- Cards switch to bone faces with serif indices (the app ships dark faces). If overruled, use dark faces,
-  and the felt and rail still carry the table.
-- Positions (BTN/SB/BB/UTG) are shown beside names; the app shows none. If overruled, drop them.
+- The gate and verdict are **bottom sheets** that rise over the dock slot and fully cover the hero row. The
+  verdict adds a pot-share-vs-price meter and a Close (Esc) button. If overruled, both become inline strips
+  above the dock, with no dismiss.
+- Cards get bone faces with serif indices (the app ships dark faces). If overruled, use dark faces; the felt
+  and rail still carry the table.
+- Charts open cells are graphite, not white. Bone is reserved for real cards, so the grid no longer outshouts
+  the table. If overruled, use bone cells, and expect a white wall at 1100x760.
 
 ## Open questions
-- Can Electron get the real look? The mock fakes vibrancy with a CSS "desktop". In the app this needs
-  Foundry's `vibrancy: 'under-window'` plus a transparent window. Default taken: the mock simulates it, and
-  porting needs that main-process change.
+- Can Electron get the real look? The mock fakes vibrancy with a CSS "desktop" (dune bands with contour
+  lines). In the app this needs Foundry's `vibrancy: 'under-window'` plus a transparent window. Default taken:
+  the mock simulates it, and porting needs that main-process change.
 - Theme-block rule: styles.css forbids changing `--text-hi`/`--positive` in a theme block. Default taken:
-  round 2 keeps both at their pinned values, so the paint port is clean (dark only).
+  both keep their pinned values. The coat itself cannot come from a paint-only block (see port work).
 
 ## Contrast (WCAG AA)
 - Measured on rendered pixels with the text hidden (`tests/tmp/glass-contrast.mjs`). Results are in
   `demo/glass/contrast.md`.
 
 ## Mock-only vs port work
-- (Filled in as the build settles.)
+- **Mock-only:**
+  - static markup with a hard-coded hand (blinds 25/50, hero on the button, flop 4♠ 4♦ K♦, hero K♥ 2♦, Bo
+    bets 75)
+  - no engine; the deal animation plays once on load
+  - `?state=live|predict|gate|verdict`
+  - dark only
+- **Real copy kept:**
+  - `predictPanel.ts` and `predict.ts`
+  - `coach.ts`, `coachPanel.ts`, `confidence.ts` and the `table.ts` GATE
+  - `tableTalk.ts` in-hand quips: Ada "Check.", Bo "Let's put some in.", Cy "I'm out.". These replace round 1's
+    invented status lines.
+  - `jitter.ts` hidden archetype "Unknown"
+  - `recommend.ts`, `home.ts` (the bankroll is plain digits, coloured net-up), `sessionPlan.ts` and
+    `standing.ts`
+  - `charts.ts`, including the class-accuracy "—" column
+  - `drill.ts` ("Next problem — Enter")
+  - `preflop.ts` `RFI_SPECS.CO` and `BOUNDARY_COMBOS.CO`
+- **The gate follows `table.ts`:** the fold is committed but not applied while the gate is open, so the hero
+  stays unchanged. The fold lands when the verdict shows.
+- **Invented for the mock** (not app copy):
+  - the table corner text "Blinds 25/50"
+  - "75 to call, a 25% price"
+  - the hero's "Your turn" / "Folded" line
+  - the empty turn/river card wells
+  - the sheets' "Coach" and "Serious" labels and the "On the flop, you folded to 75" context
+  - "You committed to Fold, SURE"
+  - the meter
+  - "Ada and Bo play the hand out behind this sheet" and the Close/Esc footer
+  - the gate note "The verdict appears when you answer, use both attempts, or the bar runs out."
+  - the key hints on dock buttons (F, C, R and A are the real hotkeys)
+- **Port work:**
+  1. Main process: Foundry's `vibrancy: 'under-window'`, `visualEffectState: 'active'` and a transparent
+     background, so the coat frosts the real desktop. A paint-only theme block cannot produce the coat.
+  2. Paint: one `html[data-theme='glass']` block with the tier-2 names (`--text-lo`/`--text-lo-2` = the
+     measured `--ink-2`/`--ink-3`, `--suit-red` = coral, `--rule`/`--edge` = hairlines). `--surface*` stays
+     near-opaque for the roughly 60 renderer rules that use it without a backdrop.
+  3. Component rules:
+     - the coat on the shell, plus `.float` for the action bar, the predict panel and the coach sheets
+     - the oval table, rail and felt in `screens/table.ts`
+     - seats as type
+     - bone card faces in `components/card.ts`
+     - the tray/dock swap
+     - bottom sheets with focus handling
+  4. e2e pins this breaks or must update:
+     - the pot (14px/500 pinned; the mock uses 20px/600)
+     - Fold `box-shadow: none` (the mock has an inset hairline)
+     - the to-act mint ring with `rgba(61, 220, 151, 0.4)` and scale 1.02 (the mock replaces it with a dot
+       and mint text)
+     - the winner ring's mint `border-top-color` (not mocked)
+  5. A GPU check: the coat plus at most two floats in Electron.
 
 ## Tests and environment
 - No failing-first test applies: no defect is repaired and nothing under `src/` changes.

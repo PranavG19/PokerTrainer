@@ -36,12 +36,12 @@
   const id = new URLSearchParams(location.search).get('screen') || 'table';
   const [t, before, size] = MAP[id];
   document.getElementById('title').textContent = t;
-  document.getElementById('s0').textContent = before || '';
+  document.getElementById('s0').textContent = before ? before + ' (older build)' : '';
   document.getElementById('f0').innerHTML = before
     ? `<img alt="Current app" src="../../screenshots/${before}">`
     : '<div class="none">No current-app capture of this state</div>';
   document.getElementById('i1').src = `round1/${id}-${size}.png`;
-  document.getElementById('i2').src = `screenshots/${id}-${size}.png`;
+  document.getElementById('i2').src = `screenshots/${id}-${size}.jpg`;
   document.getElementById('links').innerHTML = Object.keys(MAP).map((k) => `<a href="?screen=${k}"${k === id ? ' aria-current="page"' : ''}>${k}</a>`).join('');
 </script>
 </body>
