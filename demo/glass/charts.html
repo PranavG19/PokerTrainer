@@ -13,7 +13,11 @@
 <style>
   .charts { display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: var(--s-4); height: 100%; }
   .side .seg .btn { padding: 0 9px; }
-  .side { padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; overflow: hidden; }
+  .side { padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .side > * { flex: none; }
+  .bchips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .bchip { font-size: var(--t-cap2); font-weight: 600; padding: 3px 7px; border-radius: 6px; background: rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10); }
+  html[data-theme='light'] .bchip { background: rgba(255,255,255,0.6); }
   .width { display: flex; align-items: baseline; gap: 10px; }
   .width .big { font-size: var(--t-large); font-weight: 700; letter-spacing: -0.03em; }
   .classes { display: flex; flex-direction: column; }
@@ -45,15 +49,16 @@
   .cell:hover { transform: scale(1.12); z-index: 2; background: var(--glass-hover); }
   .cell.in { color: #06150F; background: linear-gradient(180deg, #F4FFFA, #CFF5E3); box-shadow: inset 0 1px 0 #fff, 0 2px 6px -2px rgba(61,220,151,0.45); }
   html[data-theme='light'] .cell.in { color: #fff; background: linear-gradient(180deg, #0E7F50, #0A6B43); box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
-  .cell.edge { outline: 1.5px dashed rgba(61,220,151,0.75); outline-offset: -2px; }
-  html[data-theme='light'] .cell.edge { outline-color: rgba(15,143,90,0.8); }
+  .cell.edge { outline: 1.5px dashed rgba(255,255,255,0.55); outline-offset: -2px; font-weight: 800; }
+  html[data-theme='light'] .cell.edge { outline-color: rgba(10,30,30,0.5); }
   .cell.edge.in { outline-color: rgba(6,40,25,0.55); }
-  .cell.quiz { box-shadow: 0 0 0 2px var(--text-hi), 0 0 18px rgba(255,255,255,0.4); z-index: 1; }
+  .sw-edge { outline: 1.5px dashed rgba(255,255,255,0.6); outline-offset: -2px; }
+  html[data-theme='light'] .sw-edge { outline-color: rgba(10,30,30,0.5); }
   .quizbar { padding: 10px 12px 10px 12px; display: flex; align-items: center; gap: 14px; }
   .quizbar .cards .card { --w: 34px; }
   .quizbar .t { font-size: var(--t-head); font-weight: 700; }
   .quizbar .actions { margin-left: auto; display: flex; gap: 8px; }
-  @media (max-height: 700px) { .rules li:nth-child(n+3) { display: none; } .side { gap: 10px; } }
+  /* Nothing is hidden at 900x640: the panel scrolls inside its glass, as the real compressed form does. */
 </style>
 </head>
 <body data-tab="Charts">
@@ -85,15 +90,21 @@
               <li>Offsuit A9o, KTo, QTo and JTo; fold below those.</li>
             </ol>
           </div>
+          <div>
+            <div class="caps" style="margin-bottom:6px">Boundary combos — the cells that flip</div>
+            <div class="bchips"><span class="bchip">K8s</span><span class="bchip">K7s</span><span class="bchip">Q8s</span><span class="bchip">J8s</span><span class="bchip">T7s</span><span class="bchip">96s</span><span class="bchip">75s</span><span class="bchip">54s</span><span class="bchip">A9o</span><span class="bchip">A8o</span><span class="bchip">KTo</span><span class="bchip">K9o</span></div>
+          </div>
+          <p class="cap">The grid beside this is those three rules expanded to all 169 cells. Nothing is in it that is not stated above.</p>
+          <p class="cap">No frequencies anywhere here. Every cell is whole in or whole out: the solver’s mixed frequencies were discarded on purpose, because a "62% open" is the most abstraction-overfit fact it produces.</p>
         </aside>
 
         <section class="right">
           <div class="grid-wrap glass">
             <div class="grid-head">
               <span class="cap">Reference expansion — all 169 cells</span>
-              <span class="legend"><span><i class="sw-open"></i>open</span><span><i style="outline:1.5px dashed rgba(61,220,151,.8);outline-offset:-2px"></i>boundary</span></span>
+              <span class="legend"><span><i class="sw-open"></i>open</span><span><i class="sw-edge"></i>boundary</span></span>
             </div>
-            <div class="grid" id="grid" role="grid" aria-label="CO open range"></div>
+            <div class="grid" id="grid" aria-label="CO open range, 169 cells"></div>
           </div>
           <div class="quizbar glass thick">
             <div class="cards"><div class="card"><span class="rk">A</span><span class="st">♠</span></div><div class="card red"><span class="rk">9</span><span class="st">♥</span></div></div>
@@ -127,9 +138,8 @@
     const kind = r === c ? 'p' : c > r ? 's' : 'o';
     const label = kind === 'p' ? a + a : a + b + kind;
     const el = document.createElement('div');
-    el.className = 'cell' + (inRange(a, b, kind) ? ' in' : '') + (isEdge(label) ? ' edge' : '') + (label === 'A9o' ? ' quiz' : '');
+    el.className = 'cell' + (inRange(a, b, kind) ? ' in' : '') + (isEdge(label) ? ' edge' : '');
     el.textContent = label;
-    el.setAttribute('role', 'gridcell');
     grid.appendChild(el);
   }
 </script>

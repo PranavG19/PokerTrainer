@@ -39,7 +39,6 @@
   .steps li { animation: fade 360ms var(--ease-out) both; }
   .steps li:nth-child(2) { animation-delay: 60ms; } .steps li:nth-child(3) { animation-delay: 120ms; } .steps li:nth-child(4) { animation-delay: 180ms; } .steps li:nth-child(5) { animation-delay: 240ms; }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } }
-  @media (max-width: 1000px) { .notes { display: none; } }
 </style>
 </head>
 <body data-tab="Train">
@@ -68,7 +67,8 @@
               <div class="all"><span>All kinds</span><span class="num">0 of 1</span></div>
             </div>
           </div>
-          <p class="cap notes">The tally is this visit only — nothing here is written to disk, and leaving the tab clears it.</p>
+          <p class="cap">The tally is this visit only — nothing here is written to disk, and leaving the tab clears it.</p>
+          <p class="cap">Every problem is built from its seed, so the same seed is always the same problem.</p>
         </aside>
 
         <section class="work glass thick">

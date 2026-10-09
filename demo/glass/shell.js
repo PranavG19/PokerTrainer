@@ -3,7 +3,7 @@
 (() => {
   const params = new URLSearchParams(location.search);
   if (params.get('theme') === 'light') document.documentElement.dataset.theme = 'light';
-  if (params.get('still') === '1') document.documentElement.classList.add('still');
+  if (params.get('still') === '1') document.documentElement.classList.add('still'); // freezes the gate's budget drain for captures
 
   const TABS = ['Play', 'Learn', 'Train', 'Charts', 'Bank', 'Equity', 'Ranges', 'Dossier', 'Progress', 'Profile', 'Settings'];
   const active = document.body.dataset.tab;
@@ -12,8 +12,8 @@
     nav.className = 'nav glass';
     nav.setAttribute('role', 'navigation');
     nav.innerHTML =
-      '<div class="brand" aria-hidden="true">♠</div><div class="tabs" role="tablist">' +
-      TABS.map((t) => `<button class="tab" role="tab"${t === active ? ' aria-current="page" aria-selected="true"' : ''}>${t}</button>`).join('') +
+      '<div class="brand" aria-hidden="true">♠</div><div class="tabs">' +
+      TABS.map((t) => `<button class="tab"${t === active ? ' aria-current="page"' : ''}>${t}</button>`).join('') +
       '</div>';
   }
   const field = document.createElement('div');

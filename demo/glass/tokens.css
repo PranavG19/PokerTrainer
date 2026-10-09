@@ -1,12 +1,20 @@
 /* ─────────────────────────────────────────────────────────────────────────────────────────────────
  * Offsuit · Liquid Glass — DESIGN TOKENS (the single source for the direction).
  *
- * Port path: the names in the "Renderer semantics" block are the tier-2 semantic names already used
- * by src/renderer/styles.css (--page, --surface, --surface-2, --raise, --text-hi, --text-lo,
- * --text-lo-2, --positive, --suit-red, --rule, --edge). Porting = paste this file's values into one
- * html[data-theme='glass'] block there; the glass-only tokens below are new names.
+ * Port path is THREE parts, not one block (see DECISIONS.md):
+ *  1. Paint: the "Renderer semantics" names below are the tier-2 names already in src/renderer/styles.css
+ *     (--page, --surface, --surface-2, --raise, --text-hi, --text-lo, --text-lo-2, --positive, --suit-red,
+ *     --rule, --edge). Their dark values can go into one html[data-theme='glass'] block.
+ *  2. Everything else here (glass material, blur, radii, spacing, type, motion, the oval layout) is NOT
+ *     theme-block material: styles.css allows a theme to change paint only, never layout. Those land as
+ *     new :root tokens plus component rules.
+ *  3. e2e pins the port must keep or deliberately update (tests/e2e/interaction.spec.ts, gameplay.spec.ts):
+ *     --text-hi #FFFFFF and --positive #3DDC97 never in a theme block; pot 14px/500; Fold box-shadow none;
+ *     to-act shadow contains rgba(61, 220, 151, 0.4) with scale 1.02 (kept here); winner ring mint
+ *     border-top-color.
  *
- * Pinned roles kept as the e2e suite expects: --text-hi #FFFFFF (dark), --positive #3DDC97.
+ * The LIGHT block overrides --text-hi and --positive, which the renderer's theme rule forbids. It stays
+ * in the mock as a preview only; porting it is an open question (DECISIONS.md).
  * Contrast figures for every text token live in demo/glass/contrast.md.
  * ───────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -39,11 +47,14 @@
   --blur-lg: 44px;
   --saturate: 180%;
 
-  /* ── Renderer semantics (same names as src/renderer/styles.css) ── */
+  /* ── Renderer semantics (same names as src/renderer/styles.css) ──
+   * --surface/--surface-2/--raise stay NEAR-OPAQUE: ~60 renderer rules consume them with no
+   * backdrop-filter, so making them translucent would turn every one of those surfaces see-through.
+   * Glass is opt-in through the --glass* tokens on the components that get glass rules. */
   --page:      var(--field-base);
-  --surface:   var(--glass);
-  --surface-2: var(--glass-thick);
-  --raise:     var(--glass-hover);
+  --surface:   #0F171C;
+  --surface-2: #131D23;
+  --raise:     #1A262D;
   --text-hi:   #FFFFFF;                         /* PINNED                                     */
   --text-lo:   #B9C6CC;                         /* secondary                                  */
   --text-lo-2: #A6B4BA;                         /* tertiary                                   */
@@ -51,12 +62,13 @@
   --positive-ink: #04140D;                      /* text ON a mint fill                        */
   --notable:   #FFC861;                         /* severity: notable                          */
   --serious:   #FF7A6B;                         /* severity: serious (coral, not alarm red)   */
-  --suit-red:  #C42F25;                         /* red suit ON the ivory card face (4.9:1)    */
+  --suit-red:  #FF7A6B;                         /* renderer --red: TEXT on dark surfaces (serious, net-down) */
   --suit-black:#12161A;
   --rule:      rgba(255, 255, 255, 0.08);
   --edge:      var(--glass-edge);
 
-  /* ── Cards ── */
+  /* ── Cards (the mock uses an IVORY face; the app's face is dark, --play-card-*: a decision) ── */
+  --card-red:     #C42F25;                      /* red suit on the ivory face (4.88:1)        */
   --card-face-a:  #FFFFFF;
   --card-face-b:  #EEF1EF;
   --card-edge:    rgba(0, 0, 0, 0.10);
@@ -88,7 +100,7 @@
   --shadow-2: 0 2px 4px rgba(0,0,0,0.20), 0 14px 34px -10px rgba(0,0,0,0.55);
   --shadow-3: 0 4px 10px rgba(0,0,0,0.22), 0 32px 80px -20px rgba(0,0,0,0.70);
   --inner-hi: inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 0 1px rgba(255,255,255,0.03);
-  --glow-act: 0 0 0 1.5px rgba(61,220,151,0.85), 0 0 28px -2px rgba(61,220,151,0.45);
+  --glow-act: 0 0 0 1.5px var(--positive), 0 0 28px -2px rgba(61, 220, 151, 0.4);   /* alpha is the e2e to-act pin */
 
   /* ── Type ── */
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
