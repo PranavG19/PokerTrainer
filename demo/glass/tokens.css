@@ -27,36 +27,52 @@
   --desk-4: #2A2F3F;           /* dusk band    */
   --desk-5: #16191F;           /* floor        */
 
-  /* ── Coat: the window's single translucent layer (Foundry dark background ~50%) ── */
+  /* ── Coat: the window's single translucent layer. Round 3: the blur now actually renders (see glass.css
+   *    .shell — the grain moved off ::after, which silently disabled backdrop-filter at DPR 2). 14px keeps
+   *    the dunes' character (contours still faintly read) while frosting them behind text. ── */
   --coat: oklch(0.15 0.012 262 / 0.50);
-  --coat-blur: blur(26px) saturate(135%);
-  --grain: 0.08;               /* film grain over the coat so the blur never reads plastic */
+  --coat-blur: blur(18px) saturate(135%);   /* iteration 3: 14 → 18px, so text never sits on a crisp contour; the dunes still read */
+  --grain: 0.08;
+  --chrome-tint: transparent;   /* iteration 2: the coat runs under the toolbar (unified title bar); a hairline separates */
 
-  /* ── Float: dock, tray, sheets (Foundry float 85% + Synara popover glass) ── */
-  --float: oklch(0.19 0.01 262 / 0.84);
-  --float-blur: blur(28px) saturate(160%);
-  --float-edge: oklch(1 0 0 / 0.10);
-  --float-highlight: inset 0 1px 0 oklch(1 0 0 / 0.07);
-  --float-shadow: 0 18px 44px -12px oklch(0 0 0 / 0.60), 0 2px 8px oklch(0 0 0 / 0.30);
-  --scrim: oklch(0.09 0.01 262 / 0.55);
+  /* ── Float: the ONLY glass. Thinner than round 2 (84%) so it refracts what it covers; the light edge
+   *    (gradient rim + top highlight) carries the shape instead of opacity. ── */
+  --float: oklch(0.32 0.008 262 / 0.34);         /* iteration 2: a lighter grey glass reads as glass even over the dark rail */
+  --float-sheet: oklch(0.27 0.008 262 / 0.62);   /* reading surfaces: a touch denser, visibly lighter than the scrim */
+  --float-blur: blur(26px) saturate(175%);
+  --float-rim: linear-gradient(180deg, oklch(1 0 0 / 0.22), oklch(1 0 0 / 0.06) 40%, oklch(1 0 0 / 0.04) 100%);
+  --float-highlight: inset 0 1px 0 oklch(1 0 0 / 0.20);
+  --float-shadow: 0 22px 50px -14px oklch(0 0 0 / 0.65), 0 2px 8px oklch(0 0 0 / 0.30);
+  --scrim: oklch(0.09 0.01 262 / 0.45);
 
-  /* ── Hairlines and quiet fills (Synara: white 4–5%) ── */
-  --hair: oklch(1 0 0 / 0.07);
-  --hair-strong: oklch(1 0 0 / 0.12);
-  --fill-1: oklch(1 0 0 / 0.035);    /* soft fill: inputs, segmented track */
-  --fill-2: oklch(1 0 0 / 0.07);     /* hover / selected */
-  --fill-3: oklch(1 0 0 / 0.11);     /* pressed / active tab */
+  /* ── Neutral fills: ONE state ramp for every control (rest → hover → press), plus the selected thumb ── */
+  --hair: oklch(1 0 0 / 0.08);
+  --hair-strong: oklch(1 0 0 / 0.14);
+  --fill-0: oklch(1 0 0 / 0.03);     /* group / track / field rest */
+  --fill-1: oklch(1 0 0 / 0.08);     /* secondary button rest, tertiary hover */
+  --fill-2: oklch(1 0 0 / 0.13);     /* secondary hover, tertiary press */
+  --fill-3: oklch(1 0 0 / 0.20);     /* secondary press, selected thumb */
+  --thumb-shadow: inset 0 1px 0 oklch(1 0 0 / 0.16), 0 0 0 0.5px oklch(1 0 0 / 0.10), 0 1px 3px oklch(0 0 0 / 0.35);
+  --top-light: inset 0 1px 0 oklch(1 0 0 / 0.07);
+  --focus-ring: 0 0 0 2px oklch(0.16 0.01 262), 0 0 0 4px oklch(1 0 0 / 0.55);   /* a 2px ring at a 2px offset */
 
   /* ── Ink (text). Measured on the rendered coat in contrast.md ── */
-  --ink-1: #F3F4F6;
-  --ink-2: #AEB4BC;            /* secondary */
-  --ink-3: #989FA8;            /* tertiary (AA on coat and felt, measured) */
+  --ink-1: #F3F4F6;            /* primary: values, titles, controls */
+  --ink-2: #C0C6CD;            /* secondary: labels, body, quiet controls */
+  --ink-3: #A3AAB2;            /* tertiary: captions, helper text, disabled */
   --ink-on-bone: #15171A;
 
-  /* ── Signals (rationed) ── */
-  --mint: var(--positive);     /* pinned #3DDC97: your turn, positive numbers. Nothing else. */
-  --coral: #F08A7A;            /* serious, as text only */
-  --amber: #E6B866;            /* notable / gate budget, as text or a 2px bar */
+  /* ── COLOUR ROLE MAP — each hue has one meaning; anything else is neutral. ──
+   *  neutrals (ink, fill, hair) … structure, every control, every label
+   *  bone                     … physical objects (cards, dealer button, chip faces) and the ONE primary action
+   *  mint (pinned --positive) … "your turn", positive deltas and an ON switch. Never a balance or decoration.
+   *  coral                    … serious severity, a wrong value, negative deltas
+   *  amber                    … notable severity and the gate budget timer
+   *  spruce felt              … the table surface only
+   *  desk bands               … the background only                                                     */
+  --mint: var(--positive);
+  --coral: #F08A7A;
+  --amber: #E6B866;
 
   /* ── Renderer semantics (tier-2 names in src/renderer/styles.css) ── */
   --page: var(--desk-0);
@@ -72,48 +88,61 @@
   --edge: var(--hair-strong);
 
   /* ── Table: felt, rail, lamp ── */
-  --felt-a: #17302B;           /* lit centre — desaturated spruce wool */
+  --felt-a: #17302B;
   --felt-b: #0F211E;
-  --felt-c: #0A1614;           /* edge falloff */
-  --lamp: oklch(0.92 0.03 85 / 0.075);   /* warm pendant pool, very low */
-  --rail-a: #1B1D20;           /* matte black leather */
-  --rail-b: #0C0D0F;
-  --inlay: oklch(1 0 0 / 0.06);
+  --felt-c: #0A1614;
+  --lamp: oklch(0.92 0.03 85 / 0.09);
+  --rail-a: #1E2023;
+  --rail-b: #0B0C0E;
+  --rail-sheen: oklch(1 0 0 / 0.07);
+  --inlay: oklch(1 0 0 / 0.10);
 
   /* ── Cards ── */
   --bone: #F4F2EC;
+  --bone-soft: #E9E6DE;        /* mini cards: one step down so they don't outshout their row */
+  --bone-hover: #FAF8F3;
+  --bone-press: #E2DFD6;
   --bone-edge: oklch(0 0 0 / 0.16);
   --card-red: #B8322A;         /* 5.3:1 on bone */
   --card-black: #16181B;
   --back-a: #1C2026;
-  --back-line: oklch(1 0 0 / 0.13);
+  --back-line: oklch(1 0 0 / 0.09);
   --card-shadow: 0 0.5px 0 oklch(0 0 0 / 0.35), 0 1px 2px oklch(0 0 0 / 0.45), 0 8px 18px -6px oklch(0 0 0 / 0.55);
+  --card-shadow-sm: 0 0.5px 0 oklch(0 0 0 / 0.35), 0 1px 1.5px oklch(0 0 0 / 0.35);
 
   /* ── Chips (matte ceramic, two tones) ── */
-  --chip-a: #D9D4C8;           /* bone */
-  --chip-b: #6E7A86;           /* slate */
+  --chip-a: #D9D4C8;
+  --chip-b: #6F767E;           /* slate, desaturated */
 
-  /* ── Radii (hierarchy, not one radius everywhere) ── */
-  --r-hair: 5px;     /* chips, kbd, cells */
-  --r-ctl: 8px;      /* buttons, inputs, segmented */
-  --r-panel: 12px;   /* in-coat sections */
-  --r-float: 18px;   /* dock, tray, sheets */
+  /* ── Radii: a concentric system. inner = outer − padding. ── */
+  --r-xs: 4px;       /* chart cells, keycaps, tags */
+  --r-ctl: 8px;      /* buttons, fields, segmented track */
+  --r-thumb: 6px;    /* selected thumb inside an 8px track with 2px padding */
+  --r-group: 12px;   /* inset groups and lists in the coat */
+  --r-dock: 14px;    /* dock/tray: 8px controls + 6px padding */
+  --r-sheet: 20px;   /* sheets: 8px controls + 12px... rounded up for the larger surface */
   --r-card: 6px;
 
   /* ── Spacing (4pt) ── */
-  --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
 
-  /* ── Type ── */
+  /* ── Control heights: two sizes only ── */
+  --h-sm: 28px;      /* segmented, presets, small/tertiary buttons, chips */
+  --h-md: 32px;      /* buttons, fields, primary */
+
+  /* ── Type: one scale (Apple text styles) ──
+   *  caption 11 · footnote 12 · body 13 · headline 15 · title3 17 · title2 22 · stat 28 · hero 34 */
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-  --font-index: ui-serif, "New York", "Iowan Old Style", Georgia, serif;   /* card indices only */
-  --t-xs: 11px; --t-sm: 12px; --t-ui: 13px; --t-md: 15px; --t-lg: 20px; --t-xl: 28px;
+  --font-index: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+  --t-cap: 11px; --t-foot: 12px; --t-body: 13px; --t-head: 15px; --t-t3: 17px; --t-t2: 22px; --t-stat: 28px; --t-hero: 34px;
 
   /* ── Motion ── */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.3, 1.25, 0.5, 1);
   --ease-deal: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-1: 120ms; --dur-deal: 640ms;
+  --dur-1: 120ms; --dur-2: 220ms; --dur-3: 320ms; --dur-deal: 420ms;   /* deal 640 → 420ms: snappier for a UI */
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  :root { --coat: oklch(0.15 0.012 262 / 0.97); --float: oklch(0.19 0.01 262 / 0.98); --coat-blur: none; --float-blur: none; }
+  :root { --coat: oklch(0.15 0.012 262 / 0.97); --float: oklch(0.20 0.01 262 / 0.98); --float-sheet: oklch(0.22 0.01 262 / 0.98); --coat-blur: none; --float-blur: none; }
 }

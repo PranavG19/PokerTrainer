@@ -1,8 +1,130 @@
-# DECISIONS — Glass mockup, round 2 (`demo/glass/`)
+# DECISIONS — Glass mockup (`demo/glass/`)
 
-Living record. Each line is the current end state. Round 1 ("Liquid Glass over a lit felt field") was
-rejected by the user as tacky and "not modern glassmorphism". Its captures are kept for comparison in
-`demo/glass/round1/`.
+Living record. Each line is the current end state.
+- Round 1 ("liquid glass" everywhere) was rejected as tacky; its captures are in `demo/glass/round1/`.
+- Round 2 (one coat, few floats) was liked for its background; its captures are in `demo/glass/round2/`.
+- Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
+  `demo/glass/scorecard.html`.
+
+## Round 3 — system decisions
+- **The coat's blur never rendered in round 2.** An independent rater found the desktop's contour lines showing
+  crisp through the "frosted" coat. A probe confirmed it: with and without `backdrop-filter`, the round-2
+  pixels were identical (mean diff 0.00). The cause was the desktop at `z-index:-2` plus the grain as
+  `.shell::after` with `mix-blend-mode`; together they make Chromium drop the coat's backdrop at DPR 2. The fix
+  is explicit stacking (desk 0 · coat 1 · grain 2) with the grain on its own element.
+  - The blur is set to **18px**: the dunes still read and contours stay faint, so no text sits on a crisp
+    line. 14px left contours under body text; 26px erased them.
+  - The background artwork, colours and grain are unchanged.
+- **Glass is perceptible where it floats.** Floats went from an 84% dark slab to a lighter grey glass at
+  `oklch(.32 / .42)` (dock, tray) and `oklch(.27 / .62)` (sheets), `blur(26px) saturate(175%)`; the first
+  iteration (58% dark) still read as a slab to the blind raters. A 0.5px gradient rim (22% → 4%) and a 12% top highlight carry the shape
+  instead of opacity. The felt and rail now show through the dock. Glow, thick rims and saturation stay out.
+- **Type scale:** caption 11 · footnote 12 · body 13 · headline 15 · title3 17 · title2 22 · stat 28 · hero 34.
+  - The 40, 20, 10 and 9px orphans are gone.
+  - Labels are 12/500 ink-2 and captions are 12/400 ink-3, so there are two roles, not four.
+- **Radii are concentric:**
+  - 4: cells, keycaps, tags
+  - 6: thumb inside an 8px track
+  - 8: controls
+  - 12: inset groups
+  - 14: dock and tray (8 + 6 padding)
+  - 20: sheets
+- **Control heights:** 28 (small: segmented, presets, tertiary) and 32 (regular); 36 only for the Home CTA.
+- **Button ranks:**
+  - **primary:** bone, with a hover → press ramp `#FAF8F3` → `#E2DFD6`
+  - **secondary:** fill 8 → 13 → 18% with a top light and a 0.5px edge
+  - **tertiary:** plain, then 8 → 13% fills
+  - **disabled:** no fill and no edge, ink-3
+  - **focus:** one 2px ring everywhere, including the slider thumb and rows
+- **One selection material**, a sliding thumb shared by tabs and segments. Secondary lists (the Train
+  sub-nav, drill kinds) use a quieter fill-1 with no shadow.
+- **Colour role map** (in tokens.css):
+  - neutrals carry the structure
+  - bone = physical objects and the one primary action
+  - mint = your turn, positive deltas and an ON switch (never a balance)
+  - coral = serious severity, a wrong value, negative deltas
+  - amber = notable severity and the gate timer
+  - felt green = the table only
+  - desk bands = the background only
+- **Containers:** inside the coat, only actionable lists (New session / Play with friends, Recent hands, the
+  tally) are inset groups. Informational sections (Suggested next, the plan table, chart classes) are flat
+  hairline lists. The blind raters flagged translucent cards that don't float.
+- **To-act:** a soft pool of light on the felt plus the mint status, with no coloured outline on the seat.
+  This changes the e2e pin for the to-act mint shadow and scale; see port work.
+- **Chart boundary:** a corner notch, because a ring reads as keyboard focus.
+- **Motion:**
+  - the deal
+  - sliding selection thumbs
+  - quip fade, bet slide, dock rise and sheet rise
+  - a meter grow and a gap reveal
+  - staggered chart cells and the drill reveal
+  - a breathing your-turn dot
+  - reduced motion stops all of it except the gate's functional 8s timer, which round 2 broke
+- **Shortcut hints** are trailing keycaps, and only on real hotkeys.
+- **Deal** is 420ms on a soft spring with a 45ms stagger. The raters found 640ms sluggish for a UI.
+- **Focus** is a 2px ring at a 2px offset everywhere (1.5px on fields).
+
+## Round 3 — element change log (problem → change → rationale)
+| Element | Problem (from the before-rater) | Change | Rationale |
+|---|---|---|---|
+| `nav-bar` | 11 equal tabs, flat strip, no window inset | Traffic-light inset; the coat runs under the toolbar (unified title bar) with one hairline; tabs grouped play/study/you with short 12px dividers; one sliding selected thumb | Hierarchy without hiding any of the 11 real tabs; macOS window grammar |
+| `wordmark` | 13/600 text plus a soft Unicode ♠ | 14px SVG spade mark at cap height plus a 15/600 wordmark; mark only below 1040px | A brand anchor and a crisp glyph |
+| `tab-active` | Flat pill with no edge; a different selection style from segments | Shared sliding selected thumb (fill 20% + 16% top light + 0.5px edge + shadow); press darkens | One selection material everywhere |
+| `tab-inactive` | Hover 3.5% was invisible; no press state | Hover fill-1 (8%), press fill-2 (13%); labels raised to ink-2 #C0C6CD | One state ramp |
+| `bankroll` | 40px orphan size; mint spent on a balance | 34/600 ink-1 figure with a baseline-aligned mint +840 delta (mint = positive delta) | Colour role map; type scale |
+| `depth` | Read as a second headline; mixed label styles | 15/500 value + the shared 12/500 label on the same stat component and baseline | One stat component |
+| `suggest` | The primary action looked like a heading; Skip looked like the button | A plain hairline section: action row (title, body, chevron) whose hover rect bleeds into the gutter so text sits on the section edge; Skip as a small secondary button | A clear primary → tertiary order |
+| `skip` | More button-like than the primary; faint states | Tertiary (plain) button on the shared ramp | Button ranks |
+| `tiles` | No affordance, asymmetric padding, a blue UA focus ring | One inset group (3% fill) of two rows: icon tile, title, one-line caption, chevron, row hover/press, inset focus ring | Apple grouped-list grammar |
+| `recent` | ~300px dead zone; static-looking rows | Rows in a 3% inset group that hugs its content: hover, chevron, 13/500 amounts, #index in ink-2 | Rows read as openable; no void |
+| `mini-cards` | 9px suit; sticker shadow; outshouted the row | A dedicated 24px mini card (rank 12 over suit 11, centred), toned bone, small contact shadow | Optical small size and quieter emphasis |
+| `results` | 13/400, lighter than the cards | 13/500 tabular amounts with the U+2212 minus; mint/coral by the role map | The outcome leads the row |
+| `plan` | Seven tiers; segments unlabeled and run together | Title row; Length/Mode beside their labels; flat hairline table and footer; CTA with a vertically centred caption; coat blur 18px so no crisp contour sits under text | Form-style grouping |
+| `segmented` | 12px labels; invisible track; jumping thumb; no hover/press | 13px labels in ink-2 #C0C6CD, a 3% track with an edge, the shared sliding thumb (220ms), hover/press fills | NSSegmentedControl fidelity |
+| `plan-rows` | Four type styles per row; crowded fixed columns; zeros read active | Flat list: label · pct · min · count; zero rows in ink-2; notes indented 16px | Fewer styles; clear zero state |
+| `gave-up` | Read as a footnote; values misaligned with the table | Section label + a flat two-column row (label, value) and a caption footer | Aligned values, honest grouping |
+| `start` | A two-line marketing-card pill; radius 10 off-scale; hover = press | Single-line large primary (36px, r8), a stronger top highlight and a soft drop; caption vertically centred beside it | One primary-button spec |
+| `felt` | The ±45° crosshatch read as a screen door | A single-direction 0.5px weave at 3.5% plus finer noise; the lamp 7.5% → 9% | Wool, not mesh |
+| `rail` | Flat black band; invisible inlay | Top-arc sheen 13%, a bottom shade, a 1.5px top light at 16%; the rail casts onto the felt | One plausible light source |
+| `villain` | Cards centred against a 3-line block; four sizes | Cards top-aligned to the name; 13/600 name, 11/500 archetype and 12px quip in ink-2 (AA on felt), 13/500 stack; deal 420ms spring | A tighter type ramp |
+| `villain-name` | Placeholder-looking 'Unknown'; three sizes | The archetype is an inline 11/500 ink-2 suffix (real hidden label kept) | A quieter suffix, one line |
+| `quip` | Synthetic italic as bright as data; static | Regular 12px ink-2 in curly quotes; fades in after the deal | Flavour text recedes |
+| `card-backs` | The lattice read as a mesh; double ring mushed | Fine ±60° lattice + 16% spade monogram, soft sheen, single frame; deal 420ms with a soft spring | Calmer pattern |
+| `bet` | Floated alone; no motion | On the seat→pot line, 13/600 amount, slides in; crisp chips (no CSS filter blur; the contact shadow is drawn in the SVG) | Physical logic |
+| `pot` | 'Pot' label as bright as the value | Label 12/500 ink-2, value 17/600 | Label/value hierarchy |
+| `board` | (scored 8+) | Unchanged artwork; deal 640 → 420ms with a soft spring, 45ms stagger | — |
+| `slot` | Flat dark rectangles crossed by the twill | Deeper inset well (24% black, inset shadow, bottom lip highlight), above the weave; aria-label 'turn/river, to come' | Reads as a recess |
+| `price` | The key figure was the quietest text | 13px with the two figures in ink-1/500 | Decision-relevant numbers lead |
+| `hero-cards` | (scored 8+) | Unchanged artwork; deal 420ms spring | — |
+| `hero` | No seat treatment for 'it's you, now'; 10px dealer inline | Type on the felt; your turn = a soft light pool + the mint status; dealer puck tucked on the left card's corner | One clear to-act treatment |
+| `dealer` | 10px under the floor; flat disc inline in text | 22px disc, 11px/700, inner rim + top light, on the hero's card corner; arrives with a 420ms spring | Type floor; real button shape |
+| `your-turn` | A 12px line with no cue | 13/500 mint with a slow 2.4s breathing dot (off under reduced motion) | The most important state reads first |
+| `blinds` | Different baseline from the right-hand controls | 12px ink-3 metadata on the same 28px row as the controls | Alignment |
+| `coach-stats` | Mode toggle read as plain text; no pressed state | 'Coach' is a real switch whose track fills mint when on (role map: mint = an ON switch); Stats a tertiary text button 16px away | macOS toggle grammar |
+| `dock` | 84% slab with no refraction; non-concentric radii; three button styles | Lighter, thinner glass (L .32 at 34%, blur 26 / saturate 175%), a 20% top highlight and a gradient rim; r14 = 8 + 6 | Visible glass and one control system |
+| `fcc` | Disabled Check looked enabled; faint states | Secondary ramp (8/13/18%); disabled Check keeps a quiet hairline container and ink-3 text | Distinct states |
+| `hints` | 'Call 75 C' read as an amount | Trailing keycaps (18px, r4, edge + bottom shade, ink-1 glyph); only real hotkeys get one | Unambiguous shortcuts |
+| `slider` | No focus; value detached; flat thumb | Track fills to the thumb centre; thumb rim + top light, hover/press scale, focus ring; value in a fixed 40px tabular slot with 8px trailing space | System-grade slider |
+| `presets` | Loose ghost text, tiny fractions, no states | Small segmented group (½ ¾ at 15px, Pot, All-in) with aria-labels; the All-in shortcut in its tooltip; a 2px focus ring at a 2px offset | Grouped presets |
+| `raise` | Hover = press (pure white) | Bone ramp: hover #FAF8F3, press #E2DFD6, 0.5px dark edge | Press feedback |
+| `tray` | Slab; 13px question; mixed heights | The same thin float glass; 15/600 question; 28px controls; Sure/Guess in title case (the app uppercases in code) | Glass plus aligned controls |
+| `gate` | Slab; dead space; field ≠ button height; the timer broke under reduced motion | Sheet glass over a strongly dimmed, blurred table (no bloom); 32px field + button; a 1.5px focus ring at a 2px offset; budget as a progressbar; the timer exempt from reduced motion | Material, a11y and a functional timer |
+| `verdict` | About 10 tiers; coral three times; no primary; ring at rest | Two groups and one primary Close; coral only on severity + tick; table dimmed to 30% behind (no bloom); support at 56ch | One headline, one visual, one action |
+| `severity` | Text only | A 13px warning glyph + 'Serious' in coral; no light behind the header | Not colour alone |
+| `meter` | 1px tick; no scale; the gap was not shown | 4px bar: dim fill to the price, bright band for the surplus over it, 2px coral price tick, 0/100% endpoints | The insight is the gap |
+| `committed` | Small grey line | 12px lead-in 'You committed to Fold, Sure' above the neutral result (the result keeps the app's 'SURE') | Calm hierarchy |
+| `support` | Dense, repetitive engine copy | 12px ink-2 at 1.55, measure capped at 56ch; copy verbatim | Readable support tier |
+| `grid` | Dashed outlines shouted; 9.5px floor; three boundary channels | Three states: open 26% flat, fold 3.5%, boundary = a 10px corner notch; 11px; row-staggered fade-in | One channel per meaning |
+| `cells` | Keycap-like edge on open cells; dashed corners | Flat cells with a ≥1.6:1 open/fold luminance step; boundary corner notch; hover lift | Crisper data |
+| `legend` | Dashed checkbox swatch; mismatched radii | Three swatches matching the cells (with a hairline), boundary shown with the same notch | Legend = data |
+| `charts-side` | Everything 12px; ragged wraps; button-like chips | Wider 288px column; classes as a flat list (name, cells, score; description below); rules 13px; tags; scrolls with an edge fade | Hierarchy and honest non-interactive tags |
+| `quiz` | Key before the label; hairline crossing the text | Horizontal group (no separators); trailing keycaps 'open O' | Consistent shortcuts |
+| `drill-subnav` | Selection identical to the top tab; jump | Source-list selection (fill-1, no shadow) distinct from the toolbar thumb | Secondary nav reads secondary |
+| `drill-kind` | Chips wrapped to two rows; a third selection style | One level-2 picker with a checkmark and the session tally trailing each kind, plus an 'All kinds' total (no duplicate list) | Lists, not wrapping chips |
+| `drill-q` | (material only: wallpaper crisp behind text) | 22/600 title on the now-frosted coat | — |
+| `drill-result` | Coral twice; stat styling differed | Band sentence 15/600 ink-1, coral only on the wrong value, the shared stat component, a 320ms reveal | Colour role map; one stat |
+| `drill-method` | Small numbered circles fine; spacing tight | Tertiary tabular numerals inside the content edge, 13px at 1.5 | Rhythm |
+| `drill-next` | Hover = press | Bone ramp, trailing keycap ↩ | Button spec |
 
 ## Why round 1 read as tacky (diagnosis)
 - **Every element was its own pane.** Nav, four seats, toolbar chips, quip, bet chip, pot, dock, tray and
@@ -104,10 +226,10 @@ rejected by the user as tacky and "not modern glassmorphism". Its captures are k
     on the flop: Ada "I’ll wait.", Bo "Let’s make it interesting.", Cy "I’ll let this one go." These replace
     round 1's invented status lines.
   - `jitter.ts` hidden archetype "Unknown"
-  - `recommend.ts`, `home.ts` (the bankroll is plain digits, coloured net-up), `sessionPlan.ts` and
-    `standing.ts`
+  - `recommend.ts`, `home.ts` (the bankroll is plain digits; round 3 shows it in neutral ink with a mint
+    "+840" delta, where the app colours the whole figure — see port work), `sessionPlan.ts` and `standing.ts`
   - `charts.ts`, including the class-accuracy "—" column
-  - `drill.ts` ("Next problem — Enter")
+  - `drill.ts` ("Next problem — Enter" is shown as "Next problem" plus an ↩ keycap)
   - `preflop.ts` `RFI_SPECS.CO` and `BOUNDARY_COMBOS.CO`
 - **The gate follows `table.ts`:** the fold is committed but not applied while the gate is open, so the hero
   stays unchanged. The fold lands when the verdict shows.
@@ -117,14 +239,21 @@ rejected by the user as tacky and "not modern glassmorphism". Its captures are k
   - the hero's "Your turn" / "Folded" line
   - the empty turn/river card wells
   - the sheets' "Coach" and "Serious" labels and the "On the flop, you folded to 75" context
-  - "You committed to Fold, SURE"
+  - "You committed to Fold, Sure"
   - the meter
   - "Ada and Bo play the hand out behind this sheet" and the Close/Esc footer
   - the gate note "The verdict appears when you answer, use both attempts, or the bar runs out."
-  - the key hints on dock buttons (F, C, R and A are the real hotkeys)
+  - the key hints (F, C, R and A are real hotkeys; A moves to the All-in tooltip). The charts quiz shows
+    "open O" / "fold F" where the app writes "O open" / "F fold".
+  - the window chrome: traffic lights, the spade mark and the grouped tab dividers
+  - the "+840" bankroll delta, the plan's "Length"/"Mode" labels and the charts "cells · score" header
+  - "Sure"/"Guess" in title case (the app calls `toUpperCase()` in `predictPanel.ts`)
+  - the merged drill kind list with trailing tallies (the app shows kind chips and a separate tally)
 - **Port work:**
   1. Main process: Foundry's `vibrancy: 'under-window'`, `visualEffectState: 'active'` and a transparent
-     background, so the coat frosts the real desktop. A paint-only theme block cannot produce the coat.
+     background, so the coat frosts the real desktop, plus `titleBarStyle: 'hiddenInset'` for the inline
+     traffic lights. A paint-only theme block cannot produce the coat. Layer order matters: the round-2 bug
+     (a blended `::after` on the coat silently disabling `backdrop-filter`) applies to the renderer too.
   2. Paint: one `html[data-theme='glass']` block with the tier-2 names (`--text-lo`/`--text-lo-2` = the
      measured `--ink-2`/`--ink-3`, `--suit-red` = coral, `--rule`/`--edge` = hairlines). `--surface*` stays
      near-opaque for the roughly 60 renderer rules that use it without a backdrop.
@@ -136,10 +265,12 @@ rejected by the user as tacky and "not modern glassmorphism". Its captures are k
      - the tray/dock swap
      - bottom sheets with focus handling
   4. e2e pins this breaks or must update:
-     - the pot (14px/500 pinned; the mock uses 20px/600)
+     - the pot (14px/500 pinned; the mock uses 17px/600)
      - Fold `box-shadow: none` (the mock has an inset hairline)
-     - the to-act mint ring with `rgba(61, 220, 151, 0.4)` and scale 1.02 (the mock replaces it with a dot
-       and mint text)
+     - the to-act mint ring with `rgba(61, 220, 151, 0.4)` and scale 1.02 (the mock replaces it with a felt
+       light pool, a breathing dot and mint text)
+     - the bankroll's whole-figure net colour (`data-direction` is kept; the colour moves to the delta)
+     - the predict confidence labels' casing, if any spec matches "SURE"/"GUESS"
      - the winner ring's mint `border-top-color` (not mocked)
   5. A GPU check: the coat plus at most two floats in Electron.
 

@@ -1,4 +1,4 @@
-# Contrast — glass mockup, round 2
+# Contrast — glass mockup, round 3
 
 **0 WCAG AA failures across 14 renders**: 7 screens (home, table, predict, gate, verdict, charts, drill) ×
 900x640 and 1100x760, dark only. Measured at DPR 2, the same pixels as the evidence captures.
@@ -21,31 +21,30 @@ Card glyphs sit on the opaque bone face, so they were computed directly: red `#B
 Not covered by the script: `::before` counters, hover and focus states, and placeholders. Each of these uses
 `--ink-3` or lighter, and `--ink-3` measured at least 4.5:1 here.
 
-## Fixes the check forced in round 2
-- After the wallpaper became more visible, off-range chart cells fell to 4.1–4.5:1 at 1100x760. Cells now use
-  `--ink-2`. The felt's lamp pool was dimmed from 10% to 7.5%, and the "Pot" label moved to `--ink-1`.
-- `--ink-3` went from `#8C939C` to `#989FA8`. "Unknown" over the felt's lamp pool measured 4.48:1, and
-  off-range chart cells measured 4.47:1.
-- Keyboard hints (`.key`) moved from `--ink-3` to `--ink-2`. "O" and "F" on the quiz buttons were 3.9–4.1:1.
+## Round 3 notes
+- The coat now actually frosts (the round-2 blur never rendered at DPR 2), and floats are thinner (a 34% grey
+  glass). AA held: 0 failures.
+- In response to the raters' legibility notes over the felt and the dunes, `--ink-2` moved from `#AEB4BC` to
+  `#C0C6CD` and `--ink-3` from `#989FA8` to `#A3AAB2`, and the coat blur went from 14 to 18px.
 
 ## Final per-render minimum
 ```
-┌─────────┬────────────────────┬──────┬────────┬─────────────────────────────────┬───────┬─────────────┐
-│ (index) │ shot               │ runs │ min    │ minText                         │ fails │ disabledMin │
-├─────────┼────────────────────┼──────┼────────┼─────────────────────────────────┼───────┼─────────────┤
-│ 0       │ 'home-900x640'     │ 74   │ '5.79' │ 'warming up'                    │ 0     │ '99.00'     │
-│ 1       │ 'home-1100x760'    │ 74   │ '5.78' │ 'warming up'                    │ 0     │ '99.00'     │
-│ 2       │ 'table-900x640'    │ 49   │ '4.95' │ 'Unknown'                       │ 0     │ '6.87'      │
-│ 3       │ 'table-1100x760'   │ 49   │ '5.12' │ 'Unknown'                       │ 0     │ '6.87'      │
-│ 4       │ 'predict-900x640'  │ 43   │ '4.95' │ 'Unknown'                       │ 0     │ '99.00'     │
-│ 5       │ 'predict-1100x760' │ 43   │ '5.12' │ 'Unknown'                       │ 0     │ '99.00'     │
-│ 6       │ 'gate-900x640'     │ 5    │ '6.93' │ 'Attempt 1 of 2'                │ 0     │ '99.00'     │
-│ 7       │ 'gate-1100x760'    │ 5    │ '6.93' │ 'Attempt 1 of 2'                │ 0     │ '99.00'     │
-│ 8       │ 'verdict-900x640'  │ 16   │ '6.93' │ 'On the flop, you folded to 75' │ 0     │ '99.00'     │
-│ 9       │ 'verdict-1100x760' │ 16   │ '6.93' │ 'On the flop, you folded to 75' │ 0     │ '99.00'     │
-│ 10      │ 'charts-900x640'   │ 231  │ '5.81' │ '5 cells'                       │ 0     │ '99.00'     │
-│ 11      │ 'charts-1100x760'  │ 245  │ '5.78' │ '8 cells'                       │ 0     │ '99.00'     │
-│ 12      │ 'drill-900x640'    │ 58   │ '5.79' │ 'You said'                      │ 0     │ '99.00'     │
-│ 13      │ 'drill-1100x760'   │ 58   │ '5.80' │ 'not tried'                     │ 0     │ '99.00'     │
-└─────────┴────────────────────┴──────┴────────┴─────────────────────────────────┴───────┴─────────────┘
+┌─────────┬────────────────────┬──────┬────────┬────────────────────────────────────────────┬───────┬─────────────┐
+│ (index) │ shot               │ runs │ min    │ minText                                    │ fails │ disabledMin │
+├─────────┼────────────────────┼──────┼────────┼────────────────────────────────────────────┼───────┼─────────────┤
+│ 0       │ 'home-900x640'     │ 72   │ '6.44' │ 'Sit down and play a hand with the coach ' │ 0     │ '99.00'     │
+│ 1       │ 'home-1100x760'    │ 76   │ '6.44' │ 'Sit down and play a hand with the coach ' │ 0     │ '99.00'     │
+│ 2       │ 'table-900x640'    │ 49   │ '5.81' │ 'Pot'                                      │ 0     │ '7.27'      │
+│ 3       │ 'table-1100x760'   │ 50   │ '5.60' │ 'Pot'                                      │ 0     │ '7.27'      │
+│ 4       │ 'predict-900x640'  │ 44   │ '5.81' │ 'Pot'                                      │ 0     │ '99.00'     │
+│ 5       │ 'predict-1100x760' │ 45   │ '5.60' │ 'Pot'                                      │ 0     │ '99.00'     │
+│ 6       │ 'gate-900x640'     │ 6    │ '7.28' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
+│ 7       │ 'gate-1100x760'    │ 6    │ '7.28' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
+│ 8       │ 'verdict-900x640'  │ 18   │ '7.03' │ 'Serious'                                  │ 0     │ '99.00'     │
+│ 9       │ 'verdict-1100x760' │ 18   │ '6.88' │ 'Serious'                                  │ 0     │ '99.00'     │
+│ 10      │ 'charts-900x640'   │ 229  │ '6.63' │ 'AA'                                       │ 0     │ '99.00'     │
+│ 11      │ 'charts-1100x760'  │ 232  │ '6.58' │ 'Open'                                     │ 0     │ '99.00'     │
+│ 12      │ 'drill-900x640'    │ 53   │ '6.69' │ '20%'                                      │ 0     │ '99.00'     │
+│ 13      │ 'drill-1100x760'   │ 54   │ '6.68' │ '20%'                                      │ 0     │ '99.00'     │
+└─────────┴────────────────────┴──────┴────────┴────────────────────────────────────────────┴───────┴─────────────┘
 ```

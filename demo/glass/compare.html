@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Offsuit — current app, round 1, round 2</title>
-<!-- ?screen=home|table|predict|gate|verdict|charts|drill. Current app = committed /screenshots; round 1 = demo/glass/round1. -->
+<title>Offsuit — current app, round 2, round 3</title>
+<!-- ?screen=home|table|predict|gate|verdict|charts|drill. Current app = committed /screenshots; round 2 = demo/glass/round2; round 3 = demo/glass/screenshots. Round 1 stays in demo/glass/round1. -->
 <style>
   body { margin: 0; background: #0B0C0E; color: #E9EBEE; font: 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   header { display: flex; align-items: baseline; gap: 16px; padding: 18px 24px 0; }
@@ -20,8 +20,8 @@
 <header><h1 id="title"></h1><nav id="links"></nav></header>
 <div class="wrap">
   <figure style="margin:0"><figcaption>Current app <span id="s0"></span></figcaption><div id="f0"></div></figure>
-  <figure style="margin:0"><figcaption>Round 1 (rejected) <span>liquid glass</span></figcaption><img id="i1" alt="Round 1 mockup" /></figure>
-  <figure style="margin:0"><figcaption>Round 2 <span>one coat, few floats</span></figcaption><img id="i2" alt="Round 2 mockup" /></figure>
+  <figure style="margin:0"><figcaption>Round 2 <span>one coat, few floats</span></figcaption><img id="i1" alt="Round 2 mockup" /></figure>
+  <figure style="margin:0"><figcaption>Round 3 <span>scored refinement</span></figcaption><img id="i2" alt="Round 3 mockup" /></figure>
 </div>
 <script>
   const MAP = {
@@ -40,7 +40,7 @@
   document.getElementById('f0').innerHTML = before
     ? `<img alt="Current app" src="../../screenshots/${before}">`
     : '<div class="none">No current-app capture of this state</div>';
-  document.getElementById('i1').src = `round1/${id}-${size}.png`;
+  document.getElementById('i1').src = `round2/${id}-${size}.jpg`;
   document.getElementById('i2').src = `screenshots/${id}-${size}.jpg`;
   document.getElementById('links').innerHTML = Object.keys(MAP).map((k) => `<a href="?screen=${k}"${k === id ? ' aria-current="page"' : ''}>${k}</a>`).join('');
 </script>

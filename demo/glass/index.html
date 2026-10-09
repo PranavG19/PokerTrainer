@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="glass.css" />
 <style>
   body { overflow: auto; }
-  .hub { position: relative; max-width: 760px; margin: 0 auto; padding: 48px 24px; display: flex; flex-direction: column; gap: 24px; }
+  .hub { position: relative; z-index: 3; max-width: 760px; margin: 0 auto; padding: 48px 24px; display: flex; flex-direction: column; gap: 24px; }
   .screens a { display: grid; grid-template-columns: 180px 1fr; gap: 16px; padding: 12px 4px; text-decoration: none; color: inherit; border-radius: var(--r-ctl); transition: background-color var(--dur-1); }
   .screens a:hover { background: var(--fill-1); }
   .links a { color: var(--ink-1); margin-right: 12px; }
@@ -16,18 +16,18 @@
 <body>
 <div class="shell" style="position:fixed"></div>
 <div class="hub">
-  <div><h1 class="t-xl">Offsuit, in glass</h1>
-    <p class="sub" style="max-width:60ch;margin-top:8px">A static mockup, round 2. Real Offsuit screens and copy. The window is one translucent coat; only the action dock, the commit tray and the coach sheets are glass. Size the window to 900×640 or 1100×760, the app's minimums.</p></div>
+  <div><h1 class="t-t2">Offsuit, in glass</h1>
+    <p class="sub" style="max-width:60ch;margin-top:8px">A static mockup, round 3. Real Offsuit screens and copy, refined element by element against a blind-scored rubric (see the scorecard). The window is one translucent coat; only the action dock, the commit tray and the coach sheets are glass. Size the window to 900×640 or 1100×760, the app's minimums.</p></div>
   <div class="screens list">
-    <a href="home.html"><span class="t-md">Home</span><span class="sub">Bankroll, suggested next, plan a sitting</span></a>
-    <a href="table.html?state=live"><span class="t-md">Table</span><span class="sub">Flop, your turn, the action dock</span></a>
-    <a href="table.html?state=predict"><span class="t-md">Commit first</span><span class="sub">The predict tray takes the dock's place</span></a>
-    <a href="table.html?state=gate"><span class="t-md">Gate</span><span class="sub">The verdict waits for a one-line reason</span></a>
-    <a href="table.html?state=verdict"><span class="t-md">Verdict</span><span class="sub">Coach verdict and the prediction result</span></a>
-    <a href="charts.html"><span class="t-md">Charts</span><span class="sub">CO open range, classes, rules, quiz</span></a>
-    <a href="drill.html"><span class="t-md">Math drill</span><span class="sub">Pot odds, graded, with the method</span></a>
+    <a href="home.html"><span class="t-head">Home</span><span class="sub">Bankroll, suggested next, plan a sitting</span></a>
+    <a href="table.html?state=live"><span class="t-head">Table</span><span class="sub">Flop, your turn, the action dock</span></a>
+    <a href="table.html?state=predict"><span class="t-head">Commit first</span><span class="sub">The predict tray takes the dock's place</span></a>
+    <a href="table.html?state=gate"><span class="t-head">Gate</span><span class="sub">The verdict waits for a one-line reason</span></a>
+    <a href="table.html?state=verdict"><span class="t-head">Verdict</span><span class="sub">Coach verdict and the prediction result</span></a>
+    <a href="charts.html"><span class="t-head">Charts</span><span class="sub">CO open range, classes, rules, quiz</span></a>
+    <a href="drill.html"><span class="t-head">Math drill</span><span class="sub">Pot odds, graded, with the method</span></a>
   </div>
-  <div><div class="label" style="margin-bottom:6px">Current app, round 1 and round 2 side by side</div>
+  <div><div class="label" style="margin-bottom:6px"><a href="scorecard.html" style="color:var(--ink-1)">Element scorecard</a> · current app, round 2 and round 3 side by side</div>
     <div class="links"><a href="compare.html?screen=home">home</a><a href="compare.html?screen=table">table</a><a href="compare.html?screen=predict">predict</a><a href="compare.html?screen=gate">gate</a><a href="compare.html?screen=verdict">verdict</a><a href="compare.html?screen=charts">charts</a><a href="compare.html?screen=drill">drill</a><a href="contrast.md">contrast</a></div></div>
 </div>
 <script src="shell.js"></script>

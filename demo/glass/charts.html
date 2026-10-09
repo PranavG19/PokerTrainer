@@ -12,35 +12,45 @@
   are BOUNDARY_COMBOS.CO from src/core/preflop.ts. No float on this screen: only the window coat.
 -->
 <style>
-  .charts { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--s-5); height: 100%; }
-  .side { display: flex; flex-direction: column; gap: var(--s-4); min-height: 0; padding-right: var(--s-4); border-right: 1px solid var(--hair); }
+  .charts { display: grid; grid-template-columns: 288px minmax(0, 1fr); gap: 24px; height: 100%; }
+  .side { display: flex; flex-direction: column; gap: 16px; min-height: 0; padding-right: 20px; border-right: 1px solid var(--hair); }
   .side > * { flex: none; }
-  .width { display: flex; align-items: baseline; gap: 8px; }
-  .width .big { font-size: var(--t-xl); font-weight: 500; letter-spacing: -0.02em; }
-  .cls { display: grid; grid-template-columns: 1fr auto 22px; gap: 8px; align-items: baseline; padding: 5px 0; font-size: var(--t-sm); }
-  .cls b { font-weight: 500; color: var(--ink-1); } .cls span { color: var(--ink-2); } .cls .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  .cls .sc { color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }   /* class-accuracy: correct/attempts, — before any */
-  .rules { counter-reset: r; display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sm); line-height: 1.45; }
-  .rules li { list-style: none; display: grid; grid-template-columns: 16px 1fr; }
-  .rules li::before { counter-increment: r; content: counter(r); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  .bchips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .bchip { font-size: var(--t-xs); font-weight: 500; padding: 2px 6px; border-radius: var(--r-hair); background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong); color: var(--ink-1); }
-  .right { display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
+  .ctrls { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .sec-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .sec-title .caption { font-size: var(--t-cap); }
+  .cls { display: grid; grid-template-columns: 1fr auto 26px; column-gap: 10px; align-items: baseline; padding: 6px 0; }
+  .flat > * + * { border-top: 1px solid var(--hair); }
+  .cls .nm { font-size: var(--t-body); font-weight: 500; color: var(--ink-1); }
+  .cls .ds { grid-column: 1; font-size: var(--t-foot); color: var(--ink-2); line-height: 1.45; }
+  .cls .n { font-size: var(--t-foot); color: var(--ink-3); text-align: right; }
+  .cls .sc { font-size: var(--t-foot); color: var(--ink-3); text-align: right; }   /* class-accuracy: correct/attempts, — before any */
+  .rules { counter-reset: r; display: flex; flex-direction: column; gap: 8px; font-size: var(--t-body); line-height: 1.45; color: var(--ink-1); }
+  .rules li { list-style: none; display: grid; grid-template-columns: 18px 1fr; }
+  .rules li::before { counter-increment: r; content: counter(r); color: var(--ink-3); font-size: var(--t-foot); font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { font-size: var(--t-foot); font-weight: 500; padding: 3px 7px; border-radius: var(--r-xs); background: var(--fill-0); color: var(--ink-1); font-variant-numeric: tabular-nums; }
+  .right { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
   .grid-head { display: flex; justify-content: space-between; align-items: center; }
-  .legend { display: flex; gap: 14px; font-size: var(--t-sm); color: var(--ink-2); align-items: center; }
-  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
-  .sw-open { background: oklch(1 0 0 / 0.16); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.2); } .sw-edge { outline: 1px dashed oklch(1 0 0 / 0.55); outline-offset: -1px; }
+  .legend { display: flex; gap: 16px; font-size: var(--t-foot); color: var(--ink-2); align-items: center; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: var(--r-xs); vertical-align: -2px; margin-right: 6px; }
+  /* Cells: three states only — open (16% flat), fold (4%), boundary (a 1.5px inset ring). No dashes, no bold, no keycap edge. */
+  .legend i { box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.14); position: relative; }
+  .sw-open { background: oklch(1 0 0 / 0.26); } .sw-fold { background: oklch(1 0 0 / 0.035); } .sw-edge { background: oklch(1 0 0 / 0.26); }
+  .sw-edge::after { content: ""; position: absolute; top: 0; right: 0; border-top: 5px solid var(--ink-1); border-left: 5px solid transparent; border-top-right-radius: var(--r-xs); }
   /* An opaque base under the grid: the coat's wallpaper must not tint data cells into a fake heatmap. */
-  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(13, 1fr); gap: 2px; padding: 3px; border-radius: 8px; background: var(--surface); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
-  .cell { border-radius: 4px; display: grid; place-items: center; font-size: clamp(9.5px, 0.95vw, 11px); font-weight: 500; color: var(--ink-2); background: var(--fill-1);
-    transition: background-color var(--dur-1), color var(--dur-1); }
-  .cell:hover { background: var(--fill-3); color: var(--ink-1); }
-  .cell.in { background: oklch(1 0 0 / 0.16); color: var(--ink-1); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.14); }
-  .cell.in:hover { background: oklch(1 0 0 / 0.24); }
-  .cell.edge { outline: 1px dashed oklch(1 0 0 / 0.55); outline-offset: -1px; font-weight: 700; }
+  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(13, 1fr); gap: 2px; padding: 3px; border-radius: var(--r-ctl); background: var(--surface); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .cell { position: relative; border-radius: var(--r-xs); display: grid; place-items: center; font-size: var(--t-cap); font-weight: 500; color: var(--ink-2); background: oklch(1 0 0 / 0.035); font-variant-numeric: tabular-nums;
+    transition: background-color var(--dur-1), color var(--dur-1), box-shadow var(--dur-1); animation: cell-in var(--dur-3) var(--ease) both; animation-delay: calc(var(--r, 0) * 18ms); }
+  @keyframes cell-in { from { opacity: 0; } }
+  .cell:hover { background: oklch(1 0 0 / 0.12); color: var(--ink-1); }
+  .cell.in { background: oklch(1 0 0 / 0.26); color: var(--ink-1); }
+  .cell.in:hover { background: oklch(1 0 0 / 0.32); }
+  /* boundary: a corner notch (an annotation), never a ring — rings mean focus */
+  .cell.edge::after { content: ""; position: absolute; top: 0; right: 0; border-top: 10px solid oklch(1 0 0 / 0.85); border-left: 10px solid transparent; border-top-right-radius: var(--r-xs); }
+  .cell.edge:not(.in)::after { border-top-color: oklch(1 0 0 / 0.6); }
   .quiz { display: flex; align-items: center; gap: 14px; padding: 10px 12px; }
   .quiz .card { --w: 34px; }
-  .quiz .actions { margin-left: auto; display: flex; gap: 6px; }
+  .quiz .actions { margin-left: auto; display: flex; gap: 8px; }
 </style>
 </head>
 <body data-tab="Charts">
@@ -50,46 +60,41 @@
     <div class="page">
       <div class="charts">
         <aside class="side scroll">
-          <div class="seg" role="radiogroup" aria-label="Spot" style="align-self:flex-start"><button role="radio" aria-checked="true">Open</button><button role="radio" aria-checked="false">vs Raise</button><button role="radio" aria-checked="false">vs 3-bet</button></div>
-          <div class="seg" role="radiogroup" aria-label="Seat" style="align-self:flex-start"><button role="radio" aria-checked="false">UTG</button><button role="radio" aria-checked="false">HJ</button><button role="radio" aria-checked="true">CO</button><button role="radio" aria-checked="false">BTN</button><button role="radio" aria-checked="false">SB</button><button role="radio" aria-checked="false">BB</button></div>
-          <div><div class="width"><span class="big num">27%</span><span class="sub">of all hands</span></div><div class="sub">open first in from here</div></div>
-          <div>
-            <div class="label" style="margin-bottom:2px">Six classes, strongest first</div>
-            <div class="list">
-              <div class="cls"><div><b>premium</b> <span>— QQ+ and AK</span></div><span class="n">5 cells</span><span class="sc">—</span></div>
-              <div class="cls"><div><b>strong</b> <span>— JJ-88, AQ, AJs, KQs</span></div><span class="n">8 cells</span><span class="sc">—</span></div>
-              <div class="cls"><div><b>broadway</b> <span>— two cards ten or better</span></div><span class="n">14 cells</span><span class="sc">—</span></div>
-              <div class="cls"><div><b>suited ace</b> <span>— nut blocker, thin kicker</span></div><span class="n">8 cells</span><span class="sc">—</span></div>
-              <div class="cls"><div><b>speculative</b> <span>— small pairs, suited connectors</span></div><span class="n">22 cells</span><span class="sc">—</span></div>
-              <div class="cls"><div><b>trash</b> <span>— no pair, no suit, no connection</span></div><span class="n">112 cells</span><span class="sc">—</span></div>
-            </div>
+          <div class="ctrls">
+            <div class="seg" role="radiogroup" aria-label="Spot"><button role="radio" aria-checked="true">Open</button><button role="radio" aria-checked="false">vs Raise</button><button role="radio" aria-checked="false">vs 3-bet</button></div>
+            <div class="seg" role="radiogroup" aria-label="Seat"><button role="radio" aria-checked="false">UTG</button><button role="radio" aria-checked="false">HJ</button><button role="radio" aria-checked="true">CO</button><button role="radio" aria-checked="false">BTN</button><button role="radio" aria-checked="false">SB</button><button role="radio" aria-checked="false">BB</button></div>
           </div>
-          <div>
-            <div class="label" style="margin-bottom:6px">Three rules for this seat</div>
+          <div class="stat"><div class="t-stat num">27%</div><div class="label" style="margin-top:6px">of all hands open first in from here</div></div>
+          <section>
+            <div class="sec-title"><span class="label">Six classes, strongest first</span><span class="caption">cells · score</span></div>
+            <div class="flat"><div class="cls"><span class="nm">premium</span><span class="n num">5 cells</span><span class="sc">—</span><span class="ds">QQ+ and AK</span></div><div class="cls"><span class="nm">strong</span><span class="n num">8 cells</span><span class="sc">—</span><span class="ds">JJ-88, AQ, AJs, KQs</span></div><div class="cls"><span class="nm">broadway</span><span class="n num">14 cells</span><span class="sc">—</span><span class="ds">two cards ten or better</span></div><div class="cls"><span class="nm">suited ace</span><span class="n num">8 cells</span><span class="sc">—</span><span class="ds">nut blocker, thin kicker</span></div><div class="cls"><span class="nm">speculative</span><span class="n num">22 cells</span><span class="sc">—</span><span class="ds">small pairs, suited connectors</span></div><div class="cls"><span class="nm">trash</span><span class="n num">112 cells</span><span class="sc">—</span><span class="ds">no pair, no suit, no connection</span></div></div>
+          </section>
+          <section>
+            <div class="sec-title"><span class="label">Three rules for this seat</span></div>
             <ol class="rules">
               <li>All pairs and all suited aces still open, as always.</li>
               <li>Suited broadways down to eight; suited connectors down to 54s.</li>
               <li>Offsuit A9o, KTo, QTo and JTo; fold below those.</li>
             </ol>
-          </div>
-          <div>
-            <div class="label" style="margin-bottom:6px">Boundary combos — the cells that flip</div>
-            <div class="bchips"><span class="bchip">K8s</span><span class="bchip">K7s</span><span class="bchip">Q8s</span><span class="bchip">J8s</span><span class="bchip">T7s</span><span class="bchip">96s</span><span class="bchip">75s</span><span class="bchip">54s</span><span class="bchip">A9o</span><span class="bchip">A8o</span><span class="bchip">KTo</span><span class="bchip">K9o</span></div>
-          </div>
-          <p class="meta">The grid beside this is those three rules expanded to all 169 cells. Nothing is in it that is not stated above.</p>
-          <p class="meta">No frequencies anywhere here. Every cell is whole in or whole out: the solver’s mixed frequencies were discarded on purpose, because a "62% open" is the most abstraction-overfit fact it produces.</p>
+          </section>
+          <section>
+            <div class="sec-title"><span class="label">Boundary combos — the cells that flip</span></div>
+            <div class="tags"><span class="tag">K8s</span><span class="tag">K7s</span><span class="tag">Q8s</span><span class="tag">J8s</span><span class="tag">T7s</span><span class="tag">96s</span><span class="tag">75s</span><span class="tag">54s</span><span class="tag">A9o</span><span class="tag">A8o</span><span class="tag">KTo</span><span class="tag">K9o</span></div>
+          </section>
+          <p class="caption">The grid beside this is those three rules expanded to all 169 cells. Nothing is in it that is not stated above.</p>
+          <p class="caption">No frequencies anywhere here. Every cell is whole in or whole out: the solver’s mixed frequencies were discarded on purpose, because a "62% open" is the most abstraction-overfit fact it produces.</p>
         </aside>
 
         <section class="right">
           <div class="grid-head">
             <span class="label">Reference expansion — all 169 cells</span>
-            <span class="legend"><span><i class="sw-open"></i>open</span><span><i class="sw-edge"></i>boundary</span></span>
+            <span class="legend"><span><i class="sw-open"></i>open</span><span><i class="sw-fold"></i>fold</span><span><i class="sw-edge"></i>boundary</span></span>
           </div>
           <div class="grid" id="grid" role="group" aria-label="CO open range, 169 cells"></div>
-          <div class="quiz panel">
+          <div class="quiz group h">
             <div class="cards tight"><div class="card"><span class="rk">A</span><span class="st">♠</span><span class="pip">♠</span></div><div class="card red"><span class="rk">9</span><span class="st">♥</span><span class="pip">♥</span></div></div>
-            <div><div class="t-md">CO, first in</div><div class="meta">Commit with O or F. The answer is not on screen until you do.</div></div>
-            <div class="actions"><button class="btn"><span class="key">O</span> open</button><button class="btn"><span class="key">F</span> fold</button></div>
+            <div><div class="t-head">CO, first in</div><div class="caption">Commit with O or F. The answer is not on screen until you do.</div></div>
+            <div class="actions"><button class="btn">open <span class="kbd">O</span></button><button class="btn">fold <span class="kbd">F</span></button></div>
           </div>
         </section>
       </div>
@@ -120,6 +125,7 @@
     const el = document.createElement('div');
     el.className = 'cell' + (inRange(a, b, kind) ? ' in' : '') + (isEdge(label) ? ' edge' : '');
     el.textContent = label;
+    el.style.setProperty('--r', r);
     grid.appendChild(el);
   }
 </script>
