@@ -1,59 +1,63 @@
-# demo: Liquid Glass design mockup
+# demo: glass design mockup (round 2)
 
 ## Summary
-This is a static HTML/CSS mockup of an Apple-style "liquid glass" direction for Offsuit. Every screen is
-built from real app content: the copy, numbers and controls come from `src/renderer` and `src/core`.
-Every surface becomes a translucent pane with a specular rim and layered shadows. The panes sit over a deep
-felt backdrop with light pools, built only from CSS. Mint is kept for to-act, positive results and the one
-primary action per screen. Type is the system SF stack on a 7-step scale.
+This is a static HTML/CSS mockup of a modern glass direction for Offsuit. Round 1 ("liquid glass"
+everywhere) was rejected as tacky, and this round is a full visual rebuild. Every screen is built from real
+app content: the copy, numbers and controls come from `src/renderer` and `src/core`.
 
-- **Nothing under `src/` changes, and no dependencies change.** The mockup lives entirely in `demo/glass/`,
-  and the decision record is in `DECISIONS.md`.
-- **The design tokens are in one file**, `demo/glass/tokens.css`, named after the renderer's tier-2
-  semantics. Its header describes the three-part port (a paint block, component rules, and the e2e pins).
-- **The direction differs from the earlier `demo/` explorations**, all of which banned felt and used opaque
-  depth. Here translucency is the identity. See `DECISIONS.md`.
+- **Material, taken from Synara and Foundry:**
+  - the whole window is one translucent coat over a muted, contoured desktop with film grain
+  - only the action dock, the commit tray and the coach sheets are glass, so each screen has at most two
+    floats
+  - divisions are hairlines, not cards
+- **The table is the hero:** woven spruce felt in a matte black rail, bone cards with serif indices,
+  ceramic chips, and seats set as type.
+- **Colour:** near-monochrome. Mint, the pinned `--positive`, appears only for "your turn" and positive
+  numbers. The primary button is bone on ink.
+- **Scope:** nothing under `src/` changes, and no dependencies change. The mockup is all in `demo/glass/`,
+  and the decision record is `DECISIONS.md`. It includes the round-1 diagnosis and what was taken from each
+  reference.
 
 ## Screens
-Each screen is captured at 900x640 and 1100x760, in dark and light, in `demo/glass/screenshots/`.
+Each screen is captured at 900x640 and 1100x760 (DPR 2), dark only, in `demo/glass/screenshots/`.
 
-| Screen | File | Before / after |
+| Screen | File | 3-way compare |
 |---|---|---|
-| Home | `home.html` | `compare-home.png` |
-| Table, live (flop, hero to act, dock and bet slider) | `table.html?state=live` | `compare-table.png` |
-| Commit first (the predict panel replaces the dock) | `table.html?state=predict` | `compare-predict.png` |
-| Gate (verdict withheld behind the one-line prompt) | `table.html?state=gate` | — (no current "before" capture exists) |
-| Coach verdict and prediction result | `table.html?state=verdict` | `compare-verdict.png` |
-| Preflop charts (CO open) | `charts.html` | `compare-charts.png` |
-| Train → Math drill (graded) | `drill.html` | `compare-drill.png` |
+| Home | `home.html` | `compare-home.jpg` |
+| Table, live | `table.html?state=live` | `compare-table.jpg` |
+| Commit first | `table.html?state=predict` | `compare-predict.jpg` |
+| Gate | `table.html?state=gate` | `compare-gate.jpg` |
+| Verdict | `table.html?state=verdict` | `compare-verdict.jpg` |
+| Charts (CO open) | `charts.html` | `compare-charts.jpg` |
+| Math drill (graded) | `drill.html` | `compare-drill.jpg` |
 
 ## How to open
-1. Open `demo/glass/index.html` in a browser. Chrome or Safari is recommended, because they support
-   `backdrop-filter`.
+1. Open `demo/glass/index.html` in Chrome or Safari, since both support `backdrop-filter`.
 2. Resize the window to 900x640 or 1100x760.
-3. Optionally, add `?theme=light` to any page for the light variant.
-4. Optionally, open `demo/glass/compare.html?screen=<id>` for the side-by-side before/after view.
+3. For the side-by-side view, open `demo/glass/compare.html?screen=<id>`. It shows the current app, round 1
+   and round 2.
 
 ## Verification
-- **Contrast:** WCAG AA was measured on rendered pixels, and all 28 renders pass. See
+- **Contrast:** WCAG AA was measured on rendered pixels, and all 14 renders pass. See
   `demo/glass/contrast.md`.
-- **Layout guard:** the capture run found no viewport or clip overflow, no overlapping table panes, and the
-  commit prompt stays on one line.
+- **Layout guard:** clean. It found no overflow, no overlapping table panes and no half-covered hero seat,
+  and the commit prompt stays on one line.
 - **Tests:**
   - `npm run typecheck` passes.
   - `npm test` passes (1796 tests).
-  - `npm run e2e` fails: 540 out of 540 tests stop at `electron.launch`, because `node_modules/electron` is
-    only half-installed in this checkout. This is an environment problem, not caused by this branch.
+  - `npm run e2e` fails at `electron.launch` (540/540), because `node_modules/electron` is half-installed in
+    this checkout. This is environmental, not caused by this branch.
 - **Test coverage:** no failing-first test applies, since no defect is repaired. No automated test covers
   the visual design.
-- **Review:** there was an adversarial review; see `code-review.md`.
+- **Review:** there was an adversarial review with a "does it still look tacky?" lens against Synara and
+  Foundry; see `code-review.md`.
 
 ## Decisions for the reviewer
-These are listed in `DECISIONS.md` under "Decisions to evaluate" and "Open questions":
-- the oval seat layout
-- moving Coach and Stats into a toolbar
+These are in `DECISIONS.md` under "Decisions to evaluate" and "Open questions":
+- oval seats set as type
+- Coach and Stats in the table corner
 - the tray replacing the dock
-- modal gate and verdict sheets
-- the ivory card face
-- position badges
-- whether a light theme can be ported at all, given the e2e colour pins
+- bottom sheets
+- bone cards
+- graphite chart cells
+- real vibrancy in Electron (a main-process change)

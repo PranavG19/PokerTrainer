@@ -14,7 +14,7 @@
   Hand: blinds 25/50, hero on the button. Cy (UTG) folds, hero limps 50, Ada (SB) completes, Bo (BB) checks.
   Flop 4♠ 4♦ K♦: Ada checks, Bo bets 75. Pot 225, 75 to call (25% price). Hero K♥ 2♦ = two pair.
   Real copy: predictPanel.ts, predict.ts predictResultText, coach.ts buildMessage, confidence.ts, table.ts GATE,
-  coachPanel.ts, tableTalk.ts (in-hand bet line), jitter.ts (archetype hidden as "Unknown" until the hand ends).
+  coachPanel.ts, tableTalk.ts (the engine's pick: IN_HAND_LINES[action][(seat.id + board.length) % 6]), jitter.ts (archetype hidden as "Unknown" until the hand ends).
   Material: the window is one coat; only the dock/tray and one sheet are glass.
 -->
 </head>
@@ -39,17 +39,17 @@
 
       <div class="seat pos-left" role="group" aria-label="Ada, small blind">
         <div class="cards tight"><div class="card back" style="--i:1;--fx:240px;--fy:40px"></div><div class="card back" style="--i:5;--fx:240px;--fy:40px"></div></div>
-        <div class="who"><div class="name">Ada <span class="arch">Unknown</span></div><div class="stackval num">4950</div><div class="quip">Check.</div></div>
+        <div class="who"><div class="name">Ada <span class="arch">Unknown</span></div><div class="stackval num">4950</div><div class="quip">I’ll wait.</div></div>
       </div>
 
       <div class="seat pos-top" role="group" aria-label="Bo, big blind">
         <div class="cards tight"><div class="card back" style="--i:2;--fy:200px"></div><div class="card back" style="--i:6;--fy:200px"></div></div>
-        <div class="who"><div class="name">Bo <span class="arch">Unknown</span></div><div class="stackval num">4875</div><div class="quip">Let’s put some in.</div></div>
+        <div class="who"><div class="name">Bo <span class="arch">Unknown</span></div><div class="stackval num">4875</div><div class="quip">Let’s make it interesting.</div></div>
       </div>
 
       <div class="seat pos-right folded" role="group" aria-label="Cy, under the gun, folded">
         <div class="cards tight"><div class="card back" style="--i:3;--fx:-240px;--fy:40px"></div><div class="card back" style="--i:7;--fx:-240px;--fy:40px"></div></div>
-        <div class="who"><div class="name">Cy <span class="arch">Unknown</span></div><div class="stackval num">5000</div><div class="quip">I’m out.</div></div>
+        <div class="who"><div class="name">Cy <span class="arch">Unknown</span></div><div class="stackval num">5000</div><div class="quip">I’ll let this one go.</div></div>
       </div>
 
       <div class="bet bet-bo num" aria-label="Bo bets 75"><span class="chips" aria-hidden="true"><svg class="c2"><use href="#chip"/></svg><svg class="c1"><use href="#chip"/></svg><svg class="c1"><use href="#chip"/></svg></span>75</div>

@@ -69,13 +69,15 @@ rejected by the user as tacky and "not modern glassmorphism". Its captures are k
   controls and is tight at 900px.
 - In coached mode the commit tray **replaces** the dock until the player commits (the real app stacks the
   tray above a disabled bar). If overruled, stack them, and shrink the hero seat at 900x640.
-- The gate and verdict are **bottom sheets** that rise over the dock slot and fully cover the hero row. The
-  verdict adds a pot-share-vs-price meter and a Close (Esc) button. If overruled, both become inline strips
-  above the dock, with no dismiss.
+- The gate and verdict are **bottom sheets** that rise over the dock slot and fully cover the hero row. The table
+  behind them recedes (blur 5px, 62% brightness), so a sheet edge never cuts crisp content. The verdict adds a
+  pot-share-vs-price meter and a Close (Esc) button. If overruled, both become inline strips above the dock,
+  with no dismiss.
 - Cards get bone faces with serif indices (the app ships dark faces). If overruled, use dark faces; the felt
   and rail still carry the table.
-- Charts open cells are graphite, not white. Bone is reserved for real cards, so the grid no longer outshouts
-  the table. If overruled, use bone cells, and expect a white wall at 1100x760.
+- Charts open cells are graphite on an opaque base. Bone is reserved for real cards, and the base stops the
+  wallpaper from tinting data cells into a fake heatmap. If overruled, use bone cells, and expect a white wall
+  at 1100x760.
 
 ## Open questions
 - Can Electron get the real look? The mock fakes vibrancy with a CSS "desktop" (dune bands with contour
@@ -98,8 +100,9 @@ rejected by the user as tacky and "not modern glassmorphism". Its captures are k
 - **Real copy kept:**
   - `predictPanel.ts` and `predict.ts`
   - `coach.ts`, `coachPanel.ts`, `confidence.ts` and the `table.ts` GATE
-  - `tableTalk.ts` in-hand quips: Ada "Check.", Bo "Let's put some in.", Cy "I'm out.". These replace round 1's
-    invented status lines.
+  - `tableTalk.ts` in-hand quips, using the engine's own pick `IN_HAND_LINES[action][(seat.id + board.length) % 6]`
+    on the flop: Ada "I’ll wait.", Bo "Let’s make it interesting.", Cy "I’ll let this one go." These replace
+    round 1's invented status lines.
   - `jitter.ts` hidden archetype "Unknown"
   - `recommend.ts`, `home.ts` (the bankroll is plain digits, coloured net-up), `sessionPlan.ts` and
     `standing.ts`
@@ -142,8 +145,9 @@ rejected by the user as tacky and "not modern glassmorphism". Its captures are k
 
 ## Tests and environment
 - No failing-first test applies: no defect is repaired and nothing under `src/` changes.
-- No automated test covers the visual design. The evidence is the PNGs, the capture guard and the contrast
-  measurement.
+- No automated test covers the visual design. The evidence is the DPR-2 JPEG captures, the capture guard and
+  the contrast measurement (also DPR 2). The guard's sheet rule was negative-tested
+  (`tests/tmp/probe-guard.mjs`): with the recede filter removed it flags Ada, Cy and the bet.
 - `npm run typecheck` passes. `npm test` passes (85 files, 1796 tests).
 - `npm run e2e` fails, all 540 tests, at `electron.launch`, because `node_modules/electron` is half-installed
   in this checkout. This is environmental, not caused by the branch. Reinstalling was out of scope.

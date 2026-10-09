@@ -1,7 +1,8 @@
 # Contrast — glass mockup, round 2
 
 **0 WCAG AA failures across 14 renders**: 7 screens (home, table, predict, gate, verdict, charts, drill) ×
-900x640 and 1100x760, dark only.
+900x640 and 1100x760, dark only. Measured at DPR 2, the same pixels as the evidence captures.
+The minimum moves about ±0.3 between runs because of grain sampling.
 
 ## Method (rendered pixels, not token math)
 `tests/tmp/glass-contrast.mjs` (a throwaway in gitignored `tests/tmp/`) runs these steps for every render:
@@ -29,22 +30,22 @@ Not covered by the script: `::before` counters, hover and focus states, and plac
 
 ## Final per-render minimum
 ```
-┌─────────┬────────────────────┬──────┬────────┬────────────────────────────────────────────┬───────┬─────────────┐
-│ (index) │ shot               │ runs │ min    │ minText                                    │ fails │ disabledMin │
-├─────────┼────────────────────┼──────┼────────┼────────────────────────────────────────────┼───────┼─────────────┤
-│ 0       │ 'home-900x640'     │ 74   │ '5.80' │ 'warming up'                               │ 0     │ '99.00'     │
-│ 1       │ 'home-1100x760'    │ 74   │ '5.24' │ 'Free-roam'                                │ 0     │ '99.00'     │
-│ 2       │ 'table-900x640'    │ 49   │ '4.96' │ 'Unknown'                                  │ 0     │ '6.92'      │
-│ 3       │ 'table-1100x760'   │ 49   │ '5.09' │ 'Unknown'                                  │ 0     │ '6.92'      │
-│ 4       │ 'predict-900x640'  │ 43   │ '4.96' │ 'Unknown'                                  │ 0     │ '99.00'     │
-│ 5       │ 'predict-1100x760' │ 43   │ '5.09' │ 'Unknown'                                  │ 0     │ '99.00'     │
-│ 6       │ 'gate-900x640'     │ 5    │ '6.87' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
-│ 7       │ 'gate-1100x760'    │ 5    │ '6.87' │ 'The verdict appears when you answer, use' │ 0     │ '99.00'     │
-│ 8       │ 'verdict-900x640'  │ 16   │ '6.83' │ 'On the flop, you folded to 75'            │ 0     │ '99.00'     │
-│ 9       │ 'verdict-1100x760' │ 16   │ '6.83' │ 'On the flop, you folded to 75'            │ 0     │ '99.00'     │
-│ 10      │ 'charts-900x640'   │ 231  │ '5.05' │ 'A8o'                                      │ 0     │ '99.00'     │
-│ 11      │ 'charts-1100x760'  │ 245  │ '5.78' │ '—'                                        │ 0     │ '99.00'     │
-│ 12      │ 'drill-900x640'    │ 58   │ '5.55' │ 'Bank'                                     │ 0     │ '99.00'     │
-│ 13      │ 'drill-1100x760'   │ 58   │ '5.55' │ 'Learn'                                    │ 0     │ '99.00'     │
-└─────────┴────────────────────┴──────┴────────┴────────────────────────────────────────────┴───────┴─────────────┘
+┌─────────┬────────────────────┬──────┬────────┬─────────────────────────────────┬───────┬─────────────┐
+│ (index) │ shot               │ runs │ min    │ minText                         │ fails │ disabledMin │
+├─────────┼────────────────────┼──────┼────────┼─────────────────────────────────┼───────┼─────────────┤
+│ 0       │ 'home-900x640'     │ 74   │ '5.79' │ 'warming up'                    │ 0     │ '99.00'     │
+│ 1       │ 'home-1100x760'    │ 74   │ '5.78' │ 'warming up'                    │ 0     │ '99.00'     │
+│ 2       │ 'table-900x640'    │ 49   │ '4.95' │ 'Unknown'                       │ 0     │ '6.87'      │
+│ 3       │ 'table-1100x760'   │ 49   │ '5.12' │ 'Unknown'                       │ 0     │ '6.87'      │
+│ 4       │ 'predict-900x640'  │ 43   │ '4.95' │ 'Unknown'                       │ 0     │ '99.00'     │
+│ 5       │ 'predict-1100x760' │ 43   │ '5.12' │ 'Unknown'                       │ 0     │ '99.00'     │
+│ 6       │ 'gate-900x640'     │ 5    │ '6.93' │ 'Attempt 1 of 2'                │ 0     │ '99.00'     │
+│ 7       │ 'gate-1100x760'    │ 5    │ '6.93' │ 'Attempt 1 of 2'                │ 0     │ '99.00'     │
+│ 8       │ 'verdict-900x640'  │ 16   │ '6.93' │ 'On the flop, you folded to 75' │ 0     │ '99.00'     │
+│ 9       │ 'verdict-1100x760' │ 16   │ '6.93' │ 'On the flop, you folded to 75' │ 0     │ '99.00'     │
+│ 10      │ 'charts-900x640'   │ 231  │ '5.81' │ '5 cells'                       │ 0     │ '99.00'     │
+│ 11      │ 'charts-1100x760'  │ 245  │ '5.78' │ '8 cells'                       │ 0     │ '99.00'     │
+│ 12      │ 'drill-900x640'    │ 58   │ '5.79' │ 'You said'                      │ 0     │ '99.00'     │
+│ 13      │ 'drill-1100x760'   │ 58   │ '5.80' │ 'not tried'                     │ 0     │ '99.00'     │
+└─────────┴────────────────────┴──────┴────────┴─────────────────────────────────┴───────┴─────────────┘
 ```

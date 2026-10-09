@@ -1,89 +1,68 @@
-# DESIGN — Liquid Glass (implementer detail)
+# DESIGN — glass mockup, round 2 (implementer detail)
 
 The decisions and the reasons for them are in `DECISIONS.md`. This file is the build sheet.
 
 ## Files (`demo/glass/`)
-- `tokens.css` is the only source of values. Its header explains the three-part port (paint block,
-  component rules, e2e pins).
-- `glass.css` holds the components:
-  - the glass material
-  - the nav
-  - buttons
-  - cards
-  - chips
-  - the table and seats
-  - the dock and slider
-  - the commit tray
-  - the gate and verdict sheets
-  - the reduced-motion block
-- `shell.js` sets the theme from `?theme=light`, renders the 11 real nav tabs and adds the backdrop
-  layer. It also drives the slider fill. `?still=1` freezes the gate budget for captures.
+- `tokens.css` is the only source of values. Its header explains the three-part port.
+- `glass.css` holds the coat, nav, controls, floats, cards, chips, table, dock, tray, sheets and page
+  helpers.
+- `shell.js` renders the 11 real tabs and injects the "desktop" SVG (dune bands plus contour lines) behind the
+  coat. It also drives the slider fill. `?still=1` freezes the gate budget for captures.
 - Pages:
   - `home.html`
   - `table.html`, with `?state=live|predict|gate|verdict`
   - `charts.html`, whose grid is generated from `RFI_SPECS.CO` and `BOUNDARY_COMBOS.CO`
   - `drill.html`
   - `index.html`
-  - `compare.html`
+  - `compare.html`, a 3-way compare
+- `round1/` holds the rejected round's captures, kept only for the comparison.
 
-## Material recipe
-Every pane is `.glass`, plus `.thin` or `.thick` where needed. Each pane gets five things:
-1. **Fill:** `var(--glass-sheen), var(--glass)`, where the sheen is a top-lit linear gradient.
-2. **Backdrop:** `blur(var(--blur-sm|md|lg)) saturate(180%)`.
-3. **Specular rim:** a `::before` with 1px padding and a vertical gradient (bright top, faint bottom),
-   masked to a ring with `mask-composite: exclude`.
-4. **Depth:** `--inner-hi` (inset top highlight plus a 1px inner edge) plus `--shadow-1|2|3` (contact plus
-   ambient).
-5. **Isolation:** `isolation: isolate`, so the rim never bleeds out of the pane.
+## Material model
+| Layer | Recipe | Where |
+|---|---|---|
+| Desktop | SVG dune bands `--desk-1..5` + 22 contour lines at white 7% | `.desk` (simulates vibrancy) |
+| Coat | `oklch(0.15 0.012 262 / 0.50)`, `blur(26px) saturate(135%)`, film grain 8% overlay | `.shell` (the whole window) |
+| Hairline | white 7% (12% strong), 0.5–1px | dividers, control edges |
+| Float | `oklch(0.19 0.01 262 / 0.84)`, `blur(28px) saturate(160%)`, edge white 10%, inset highlight 7%, shadow `0 18px 44px -12px /60%` + `0 2px 8px /30%` | `.float`: dock, tray, sheets only |
+| Scrim | `oklch(0.09 0.01 262 / 0.55)`, flat, with the lamp off underneath | behind sheets |
 
-## Backdrop
-`.field` is a fixed layer built in four steps:
-1. A felt radial gradient.
-2. Three blurred light pools (mint at the table centre, indigo top-right, faint amber bottom-left), drawn on
-   `::before`.
-3. SVG `feTurbulence` grain on `::after`, at 7% opacity with `overlay` blend. It stops the gradient banding.
-4. The felt oval itself sits on top: a radial bed, inset rings, and a blurred glass rail on `.felt::before`.
+**Rule:** nothing inside the coat blurs, and floats never nest. A float over a float samples the first
+float's coat and turns into a slab; Synara measured a 30% coat rendering at 59%.
 
-## Table layout
-Everything is absolute inside `.table-stage`.
-- **Seats:**
-  - hero at the bottom centre, 96px above the stage bottom (120px while the tray is open)
-  - villains at left/top/right
-  - villain seat: a 204px grid with avatar, name, hidden-archetype tag, cards, and a stack/status row
-  - hero seat: one row with cards, then name/status, then the stack
-- **Bet chip:** beside the quip under Bo.
-- **Board and pot:** centred at 44% height.
-- **Dock:** a bottom pill: Fold, Check, Call, a separator, the slider, ½ ¾ Pot All-in, a separator, Raise.
-  The slider default is the minimum raise (150).
-- **Predict state:** the tray takes the dock's slot. Row 1 is the prompt (one line). Row 2 is the action
-  radios, the confidence radios and the Why field.
-- **Gate and verdict states:** a scrim plus a sheet. Siblings and the nav are set `inert` and `aria-hidden`,
-  and focus goes to the input or the first button.
+## Table
+- **Rail:** an oval at `left/right 6%`, `top 40px`, `bottom 44px`. The dock overlaps its bottom edge, so
+  its blur refracts the rail and the felt.
+- **Felt:** a radial spruce vignette plus a 7.5% warm lamp pool, with a twill weave (±45° 1px lines) and
+  noise in soft-light, and a 0.5px inlay ring.
+- **Seats:** cards plus a `who` column of name and archetype, the stack, and the quip or status. Hero cards
+  are 56px wide.
+- **Cards:** bone `#F4F2EC` with a 0.5px edge and a three-layer contact shadow. Indices use `ui-serif`
+  (New York). Red is `#B8322A` (5.3:1). Backs are ink with a ±60° line lattice and an inner frame.
+- **Chips:** an SVG `<symbol>` with a side band, edge inserts and a face ellipse, in two tones (bone and
+  slate).
+
+## Type and colour
+- **Type:** SF Pro at native tracking, on a 11 / 12 / 13 / 15 / 20 / 28 scale, with tabular figures and
+  sentence case.
+- **Ink:** `#F3F4F6` / `#AEB4BC` / `#989FA8`.
+- **Signals:**
+  - mint `#3DDC97` (the pinned `--positive`) only for your turn and positive numbers
+  - coral `#F08A7A` (serious) and amber `#E6B866` (the gate budget), as text or a 2px bar
+  - the primary button is bone on ink
 
 ## Motion
-- **Deal:** `@keyframes deal`, translating from `--from-x/--from-y` with a -14deg rotation and 0.7 scale. It
-  runs for `--dur-deal` (560ms) on `--ease-spring`, staggered by `--i` × 70ms.
-- **Board:** a `flip` keyframe, starting after 400ms with a 90ms stagger.
-- **Hover:** −1px for buttons, −2px for seats, −3px for tiles.
-- **Press:** scale 0.965 over 60ms.
-- **Sheets:** `rise` (420ms spring).
-- **Meter:** `grow` (700ms).
-- **Gate:** `drain` (8000ms linear, which matches `GATE_BUDGET_MS`).
-- All of it is disabled by `prefers-reduced-motion`.
-
-## Rules learned while building
-- Dim text on glass by colour, never by `opacity`. The contrast check failed folded seats at 2.4–3.7:1
-  until this changed.
-- Light-theme mint must be dark (`#086640` for text; `#0E7F50 → #0A6B43` for a fill under white).
-- Keep `--surface*` near-opaque, because about 60 renderer rules consume it without a backdrop. Glass is
-  opt-in through `--glass*`.
-- `--suit-red` in the renderer is dark-surface text. The ivory-card red is a separate token, `--card-red`.
+- **The deal:** one moment on load, 640ms `cubic-bezier(.16,1,.3,1)` with a 60ms stagger, from each seat's
+  direction.
+- **Response motion:** hover colour transitions, a 0.97 press, sheets that rise over 320ms, the meter that
+  grows, and the gate budget that drains over 8s.
+- `prefers-reduced-motion` turns all of it off. `prefers-reduced-transparency` makes the coat and floats
+  97–98% opaque.
 
 ## Verification tools (throwaway, `tests/tmp/`)
-- `glass-capture.mjs` captures every screen, theme and size, plus the comparisons, at 1×. Its guard fails on
-  three things:
-  - viewport or clip overflow (content inside a scroll container is reported as "scrolls")
+- **`glass-capture.mjs`** captures at DPR 2 as JPEG. The guard fails on:
+  - viewport or clip overflow (scroll containers report "scrolls inside")
   - pairwise overlap of table panes
+  - a sheet that half-covers the hero seat
   - a wrapped commit prompt
-- `glass-contrast.mjs` records text runs, hides the text, screenshots, clips each run to its visible rect,
-  and takes the 5th-percentile-worst contrast per run.
+- **`glass-contrast.mjs`** works at DPR 1. It hides the text, screenshots, clips each run to its visible
+  rect, and takes the 5th-percentile-worst ratio. It exits non-zero on any failure.
