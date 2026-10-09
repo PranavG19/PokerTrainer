@@ -3,77 +3,61 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Offsuit · Liquid Glass — Charts</title>
+<title>Offsuit — Charts</title>
 <link rel="stylesheet" href="glass.css" />
 <!--
-  Real Charts screen (src/renderer/screens/charts.ts): Open / vs Raise / vs 3-bet, the six seats,
-  the 27% CO width, six hand classes with cell counts, the seat's three rules, the 13×13 grid and the
-  "commit before the answer" quiz. The CO range below is RFI_SPECS.CO from src/core/preflop.ts.
+  Real Charts screen (src/renderer/screens/charts.ts): Open / vs Raise / vs 3-bet, the six seats, the 27% CO
+  width, six hand classes with cell counts, the seat's three rules, the boundary combos, the expansion and purity
+  notes, the 13×13 grid and the commit-before-the-answer quiz. The range is RFI_SPECS.CO and the dashed cells
+  are BOUNDARY_COMBOS.CO from src/core/preflop.ts. No float on this screen: only the window coat.
 -->
 <style>
-  .charts { display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: var(--s-4); height: 100%; }
-  .side .seg .btn { padding: 0 9px; }
-  .side { padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .charts { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--s-5); height: 100%; }
+  .side { display: flex; flex-direction: column; gap: var(--s-4); min-height: 0; padding-right: var(--s-4); border-right: 1px solid var(--hair); }
   .side > * { flex: none; }
+  .width { display: flex; align-items: baseline; gap: 8px; }
+  .width .big { font-size: var(--t-xl); font-weight: 500; letter-spacing: -0.02em; }
+  .cls { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: baseline; padding: 5px 0; font-size: var(--t-sm); }
+  .cls i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); align-self: center; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.2); }
+  .cls b { font-weight: 500; color: var(--ink-1); } .cls span { color: var(--ink-2); } .cls .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  /* Monochrome class ramp (Synara's oklch greys), strongest = lightest */
+  .c1 { --c: oklch(0.95 0 0); } .c2 { --c: oklch(0.82 0 0); } .c3 { --c: oklch(0.68 0 0); } .c4 { --c: oklch(0.55 0 0); } .c5 { --c: oklch(0.42 0 0); } .c6 { --c: oklch(0.28 0 0); }
+  .rules { counter-reset: r; display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sm); line-height: 1.45; }
+  .rules li { list-style: none; display: grid; grid-template-columns: 16px 1fr; }
+  .rules li::before { counter-increment: r; content: counter(r); color: var(--ink-3); font-variant-numeric: tabular-nums; }
   .bchips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .bchip { font-size: var(--t-cap2); font-weight: 600; padding: 3px 7px; border-radius: 6px; background: rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10); }
-  html[data-theme='light'] .bchip { background: rgba(255,255,255,0.6); }
-  .width { display: flex; align-items: baseline; gap: 10px; }
-  .width .big { font-size: var(--t-large); font-weight: 700; letter-spacing: -0.03em; }
-  .classes { display: flex; flex-direction: column; }
-  .cls { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--rule); font-size: var(--t-cap); }
-  .cls:first-child { border-top: 0; }
-  .c1 { --c: #F4FFFA; } .c2 { --c: #BDF3DA; } .c3 { --c: #86E3BC; } .c4 { --c: #5FC8A0; } .c5 { --c: #3F9C82; } .c6 { --c: #3A4A50; }
-  html[data-theme='light'] .c1 { --c: #0B5E3C; } html[data-theme='light'] .c2 { --c: #0F8F5A; } html[data-theme='light'] .c3 { --c: #2DB37A; }
-  html[data-theme='light'] .c4 { --c: #66CFA2; } html[data-theme='light'] .c5 { --c: #A5E3C8; } html[data-theme='light'] .c6 { --c: #C9D3D0; }
-  .sw-open { background: linear-gradient(180deg,#F4FFFA,#CFF5E3); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
-  html[data-theme='light'] .sw-open { background: linear-gradient(180deg,#0E7F50,#0A6B43); }
-  html[data-theme='light'] .cell.edge.in { outline-color: rgba(255,255,255,0.9); }
-  .cls i { width: 8px; height: 8px; border-radius: 3px; background: var(--c); align-self: center; }
-  .cls b { font-weight: 600; color: var(--text-hi); }
-  .cls span { color: var(--text-lo); }
-  .cls .n { color: var(--text-lo); font-variant-numeric: tabular-nums; }
-  .rules { counter-reset: r; display: flex; flex-direction: column; gap: 6px; font-size: var(--t-cap); line-height: 1.4; }
-  .rules li { list-style: none; display: grid; grid-template-columns: 18px 1fr; }
-  .rules li::before { counter-increment: r; content: counter(r); font-weight: 700; color: var(--text-lo); }
+  .bchip { font-size: var(--t-xs); font-weight: 500; padding: 2px 6px; border-radius: var(--r-hair); background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong); color: var(--ink-1); }
   .right { display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
-  .grid-wrap { flex: 1; min-height: 0; padding: var(--s-3); display: flex; flex-direction: column; gap: 8px; }
   .grid-head { display: flex; justify-content: space-between; align-items: center; }
-  .legend { display: flex; gap: 12px; font-size: var(--t-cap2); color: var(--text-lo); align-items: center; }
-  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -2px; margin-right: 5px; }
-  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(13, 1fr); gap: 3px; }
-  .cell { border-radius: 6px; display: grid; place-items: center; font-size: clamp(9px, 0.95vw, 11px); font-weight: 600; letter-spacing: -0.02em; color: var(--text-lo-2);
-    background: rgba(255,255,255,0.035); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
-    transition: transform var(--dur-fast) var(--ease-spring), background var(--dur-fast); }
-  html[data-theme='light'] .cell { background: rgba(255,255,255,0.35); box-shadow: inset 0 0 0 1px rgba(10,40,40,0.05); }
-  .cell:hover { transform: scale(1.12); z-index: 2; background: var(--glass-hover); }
-  .cell.in { color: #06150F; background: linear-gradient(180deg, #F4FFFA, #CFF5E3); box-shadow: inset 0 1px 0 #fff, 0 2px 6px -2px rgba(61,220,151,0.45); }
-  html[data-theme='light'] .cell.in { color: #fff; background: linear-gradient(180deg, #0E7F50, #0A6B43); box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
-  .cell.edge { outline: 1.5px dashed rgba(255,255,255,0.55); outline-offset: -2px; font-weight: 800; }
-  html[data-theme='light'] .cell.edge { outline-color: rgba(10,30,30,0.5); }
-  .cell.edge.in { outline-color: rgba(6,40,25,0.55); }
-  .sw-edge { outline: 1.5px dashed rgba(255,255,255,0.6); outline-offset: -2px; }
-  html[data-theme='light'] .sw-edge { outline-color: rgba(10,30,30,0.5); }
-  .quizbar { padding: 10px 12px 10px 12px; display: flex; align-items: center; gap: 14px; }
-  .quizbar .cards .card { --w: 34px; }
-  .quizbar .t { font-size: var(--t-head); font-weight: 700; }
-  .quizbar .actions { margin-left: auto; display: flex; gap: 8px; }
-  /* Nothing is hidden at 900x640: the panel scrolls inside its glass, as the real compressed form does. */
+  .legend { display: flex; gap: 14px; font-size: var(--t-sm); color: var(--ink-2); align-items: center; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+  .sw-open { background: var(--bone); } .sw-edge { outline: 1px dashed oklch(1 0 0 / 0.55); outline-offset: -1px; }
+  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(13, 1fr); gap: 2px; }
+  .cell { border-radius: 4px; display: grid; place-items: center; font-size: clamp(9.5px, 0.95vw, 11px); font-weight: 500; color: var(--ink-3); background: var(--fill-1);
+    transition: background-color var(--dur-1), color var(--dur-1); }
+  .cell:hover { background: var(--fill-3); color: var(--ink-1); }
+  .cell.in { background: var(--bone); color: var(--ink-on-bone); }
+  .cell.in:hover { background: #FFFFFF; }
+  .cell.edge { outline: 1px dashed oklch(1 0 0 / 0.55); outline-offset: -1px; font-weight: 700; }
+  .cell.edge.in { outline-color: oklch(0 0 0 / 0.45); }
+  .quiz { display: flex; align-items: center; gap: 14px; padding: 10px 12px; }
+  .quiz .card { --w: 34px; }
+  .quiz .actions { margin-left: auto; display: flex; gap: 6px; }
 </style>
 </head>
 <body data-tab="Charts">
 <div class="shell">
   <nav data-nav></nav>
   <main class="main">
-    <div class="page" style="padding-top:var(--s-3)">
+    <div class="page">
       <div class="charts">
-        <aside class="side glass">
-          <div class="seg" style="align-self:flex-start"><button class="btn on">Open</button><button class="btn">vs Raise</button><button class="btn">vs 3-bet</button></div>
-          <div class="seg" style="align-self:flex-start"><button class="btn">UTG</button><button class="btn">HJ</button><button class="btn on">CO</button><button class="btn">BTN</button><button class="btn">SB</button><button class="btn">BB</button></div>
-          <div><div class="width"><span class="big num">27%</span><span class="cap">of all hands</span></div><div class="sub">open first in from here</div></div>
+        <aside class="side scroll">
+          <div class="seg" role="radiogroup" aria-label="Spot" style="align-self:flex-start"><button role="radio" aria-checked="true">Open</button><button role="radio" aria-checked="false">vs Raise</button><button role="radio" aria-checked="false">vs 3-bet</button></div>
+          <div class="seg" role="radiogroup" aria-label="Seat" style="align-self:flex-start"><button role="radio" aria-checked="false">UTG</button><button role="radio" aria-checked="false">HJ</button><button role="radio" aria-checked="true">CO</button><button role="radio" aria-checked="false">BTN</button><button role="radio" aria-checked="false">SB</button><button role="radio" aria-checked="false">BB</button></div>
+          <div><div class="width"><span class="big num">27%</span><span class="sub">of all hands</span></div><div class="sub">open first in from here</div></div>
           <div>
-            <div class="caps" style="margin-bottom:4px">Six classes, strongest first</div>
-            <div class="classes">
+            <div class="label" style="margin-bottom:2px">Six classes, strongest first</div>
+            <div class="list">
               <div class="cls c1"><i></i><div><b>premium</b> <span>— QQ+ and AK</span></div><span class="n">5 cells</span></div>
               <div class="cls c2"><i></i><div><b>strong</b> <span>— JJ-88, AQ, AJs, KQs</span></div><span class="n">8 cells</span></div>
               <div class="cls c3"><i></i><div><b>broadway</b> <span>— two cards ten or better</span></div><span class="n">14 cells</span></div>
@@ -83,7 +67,7 @@
             </div>
           </div>
           <div>
-            <div class="caps" style="margin-bottom:6px">Three rules for this seat</div>
+            <div class="label" style="margin-bottom:6px">Three rules for this seat</div>
             <ol class="rules">
               <li>All pairs and all suited aces still open, as always.</li>
               <li>Suited broadways down to eight; suited connectors down to 54s.</li>
@@ -91,25 +75,23 @@
             </ol>
           </div>
           <div>
-            <div class="caps" style="margin-bottom:6px">Boundary combos — the cells that flip</div>
+            <div class="label" style="margin-bottom:6px">Boundary combos — the cells that flip</div>
             <div class="bchips"><span class="bchip">K8s</span><span class="bchip">K7s</span><span class="bchip">Q8s</span><span class="bchip">J8s</span><span class="bchip">T7s</span><span class="bchip">96s</span><span class="bchip">75s</span><span class="bchip">54s</span><span class="bchip">A9o</span><span class="bchip">A8o</span><span class="bchip">KTo</span><span class="bchip">K9o</span></div>
           </div>
-          <p class="cap">The grid beside this is those three rules expanded to all 169 cells. Nothing is in it that is not stated above.</p>
-          <p class="cap">No frequencies anywhere here. Every cell is whole in or whole out: the solver’s mixed frequencies were discarded on purpose, because a "62% open" is the most abstraction-overfit fact it produces.</p>
+          <p class="meta">The grid beside this is those three rules expanded to all 169 cells. Nothing is in it that is not stated above.</p>
+          <p class="meta">No frequencies anywhere here. Every cell is whole in or whole out: the solver’s mixed frequencies were discarded on purpose, because a "62% open" is the most abstraction-overfit fact it produces.</p>
         </aside>
 
         <section class="right">
-          <div class="grid-wrap glass">
-            <div class="grid-head">
-              <span class="cap">Reference expansion — all 169 cells</span>
-              <span class="legend"><span><i class="sw-open"></i>open</span><span><i class="sw-edge"></i>boundary</span></span>
-            </div>
-            <div class="grid" id="grid" role="group" aria-label="CO open range, 169 cells"></div>
+          <div class="grid-head">
+            <span class="label">Reference expansion — all 169 cells</span>
+            <span class="legend"><span><i class="sw-open"></i>open</span><span><i class="sw-edge"></i>boundary</span></span>
           </div>
-          <div class="quizbar glass thick">
-            <div class="cards"><div class="card"><span class="rk">A</span><span class="st">♠</span></div><div class="card red"><span class="rk">9</span><span class="st">♥</span></div></div>
-            <div><div class="t">CO, first in</div><div class="cap">Commit with O or F. The answer is not on screen until you do.</div></div>
-            <div class="actions"><button class="btn"><span class="kbd">O</span> open</button><button class="btn"><span class="kbd">F</span> fold</button></div>
+          <div class="grid" id="grid" role="group" aria-label="CO open range, 169 cells"></div>
+          <div class="quiz panel">
+            <div class="cards tight"><div class="card"><span class="rk">A</span><span class="st">♠</span><span class="pip">♠</span></div><div class="card red"><span class="rk">9</span><span class="st">♥</span><span class="pip">♥</span></div></div>
+            <div><div class="t-md">CO, first in</div><div class="meta">Commit with O or F. The answer is not on screen until you do.</div></div>
+            <div class="actions"><button class="btn"><span class="key">O</span> open</button><button class="btn"><span class="key">F</span> fold</button></div>
           </div>
         </section>
       </div>

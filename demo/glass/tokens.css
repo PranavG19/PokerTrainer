@@ -1,170 +1,119 @@
 /* ─────────────────────────────────────────────────────────────────────────────────────────────────
- * Offsuit · Liquid Glass — DESIGN TOKENS (the single source for the direction).
+ * Offsuit · Glass, round 2 — DESIGN TOKENS (the single source for the direction). Dark only.
  *
- * Port path is THREE parts, not one block (see DECISIONS.md):
- *  1. Paint: the "Renderer semantics" names below are the tier-2 names already in src/renderer/styles.css
- *     (--page, --surface, --surface-2, --raise, --text-hi, --text-lo, --text-lo-2, --positive, --suit-red,
- *     --rule, --edge). Their dark values can go into one html[data-theme='glass'] block.
- *  2. Everything else here (glass material, blur, radii, spacing, type, motion, the oval layout) is NOT
- *     theme-block material: styles.css allows a theme to change paint only, never layout. Those land as
- *     new :root tokens plus component rules.
- *  3. e2e pins the port must keep or deliberately update (tests/e2e/interaction.spec.ts, gameplay.spec.ts):
- *     --text-hi #FFFFFF and --positive #3DDC97 never in a theme block; pot 14px/500; Fold box-shadow none;
- *     to-act shadow contains rgba(61, 220, 151, 0.4) (kept here); to-act transform matrix(1.02…) (must be
- *     updated: the oval's translateX composes into it); winner ring mint
- *     border-top-color.
+ * Material model (from Synara + Foundry, see DECISIONS.md):
+ *   desktop  — what the window's vibrancy would show (simulated here; the app needs vibrancy:'under-window')
+ *   coat     — ONE translucent coat for the whole window. Nested surfaces are clear + hairlines.
+ *   float    — the only blurred layers: dock, commit tray, sheets. Never nested inside each other.
  *
- * The LIGHT block overrides --text-hi and --positive, which the renderer's theme rule forbids. It stays
- * in the mock as a preview only; porting it is an open question (DECISIONS.md).
- * Contrast figures for every text token live in demo/glass/contrast.md.
+ * Port path, three parts:
+ *  1. Paint → one html[data-theme='glass'] block with the tier-2 semantic names below
+ *     (--page --surface --surface-2 --raise --text-lo --text-lo-2 --suit-red --rule --edge).
+ *     --text-hi #FFFFFF and --positive #3DDC97 are untouched (pinned by e2e; never in a theme block).
+ *  2. Material, felt, card, type and motion tokens → new :root tokens + component rules (a theme block
+ *     may change paint only, never layout).
+ *  3. e2e pins to keep or update: pot 14px/500; Fold box-shadow none; to-act shadow contains
+ *     rgba(61, 220, 151, 0.4) and transform matrix(1.02…); winner ring mint border-top-color.
  * ───────────────────────────────────────────────────────────────────────────────────────────────── */
 
 :root {
   color-scheme: dark;
 
-  /* ── Backdrop field (what the glass refracts) ── */
-  --field-base:   #04090C;                      /* deepest midnight                          */
-  --field-felt:   #0A2E2B;                      /* felt bed, deep teal                        */
-  --field-felt-2: #06201F;
-  --pool-mint:    rgba(52, 199, 158, 0.34);     /* main light pool over the table             */
-  --pool-indigo:  rgba(94, 92, 230, 0.26);      /* cool counter-light, top-right              */
-  --pool-amber:   rgba(255, 176, 92, 0.10);     /* warm rim, bottom-left (kept faint)         */
-  --grain-opacity: 0.07;
+  /* ── Desktop (simulated vibrancy source): low-chroma, dark, soft ── */
+  --desk-0: #07080A;
+  --desk-1: #2A3852;           /* cool slate field   */
+  --desk-2: #3B2D20;           /* warm umber field   */
+  --desk-3: #18302C;           /* spruce shadow      */
 
-  /* ── Glass material ── */
-  --glass-thin:    rgba(20, 28, 34, 0.34);      /* chips, pills on panes                      */
-  --glass:         rgba(18, 26, 32, 0.50);      /* default pane (seats, nav, cards panel)     */
-  --glass-thick:   rgba(14, 20, 26, 0.68);      /* reading panes (verdict sheet, plan panel)  */
-  --glass-hover:   rgba(36, 48, 56, 0.56);
-  --glass-press:   rgba(10, 16, 20, 0.70);
-  --glass-edge:    rgba(255, 255, 255, 0.12);   /* 1px inner border                           */
-  --glass-spec-hi: rgba(255, 255, 255, 0.38);   /* specular top edge                          */
-  --glass-spec-lo: rgba(255, 255, 255, 0.04);
-  --glass-sheen:   linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0) 42%);
-  --scrim:         rgba(2, 6, 8, 0.46);         /* dims the table under a modal sheet         */
+  /* ── Coat: the window's single translucent layer (Foundry dark background ~50%) ── */
+  --coat: oklch(0.15 0.012 262 / 0.50);
+  --coat-blur: blur(60px) saturate(140%);
+  --grain: 0.055;              /* film grain over the coat so the blur never reads plastic */
 
-  --blur-sm: 12px;
-  --blur-md: 24px;
-  --blur-lg: 44px;
-  --saturate: 180%;
+  /* ── Float: dock, tray, sheets (Foundry float 85% + Synara popover glass) ── */
+  --float: oklch(0.19 0.01 262 / 0.72);
+  --float-blur: blur(28px) saturate(160%);
+  --float-edge: oklch(1 0 0 / 0.10);
+  --float-highlight: inset 0 1px 0 oklch(1 0 0 / 0.07);
+  --float-shadow: 0 18px 44px -12px oklch(0 0 0 / 0.60), 0 2px 8px oklch(0 0 0 / 0.30);
+  --scrim: oklch(0.08 0.01 262 / 0.42);
 
-  /* ── Renderer semantics (same names as src/renderer/styles.css) ──
-   * --surface/--surface-2/--raise stay NEAR-OPAQUE: ~60 renderer rules consume them with no
-   * backdrop-filter, so making them translucent would turn every one of those surfaces see-through.
-   * Glass is opt-in through the --glass* tokens on the components that get glass rules. */
-  --page:      var(--field-base);
-  --surface:   #0F171C;
-  --surface-2: #131D23;
-  --raise:     #1A262D;
-  --text-hi:   #FFFFFF;                         /* PINNED                                     */
-  --text-lo:   #B9C6CC;                         /* secondary                                  */
-  --text-lo-2: #A6B4BA;                         /* tertiary                                   */
-  --positive:  #3DDC97;                         /* PINNED mint: to-act, win, primary action   */
-  --positive-ink: #04140D;                      /* text ON a mint fill                        */
-  --notable:   #FFC861;                         /* severity: notable                          */
-  --serious:   #FF7A6B;                         /* severity: serious (coral, not alarm red)   */
-  --suit-red:  #FF7A6B;                         /* renderer --red: TEXT on dark surfaces (serious, net-down) */
-  --suit-black:#12161A;
-  --rule:      rgba(255, 255, 255, 0.08);
-  --edge:      var(--glass-edge);
+  /* ── Hairlines and quiet fills (Synara: white 4–5%) ── */
+  --hair: oklch(1 0 0 / 0.07);
+  --hair-strong: oklch(1 0 0 / 0.12);
+  --fill-1: oklch(1 0 0 / 0.035);    /* soft fill: inputs, segmented track */
+  --fill-2: oklch(1 0 0 / 0.07);     /* hover / selected */
+  --fill-3: oklch(1 0 0 / 0.11);     /* pressed / active tab */
 
-  /* ── Cards (the mock uses an IVORY face; the app's face is dark, --play-card-*: a decision) ── */
-  --card-red:     #C42F25;                      /* red suit on the ivory face (4.88:1)        */
-  --card-face-a:  #FFFFFF;
-  --card-face-b:  #EEF1EF;
-  --card-edge:    rgba(0, 0, 0, 0.10);
-  --card-back-a:  #1C3A55;
-  --card-back-b:  #0E1E2E;
-  --card-back-line: rgba(140, 220, 255, 0.16);
+  /* ── Ink (text). Measured on the rendered coat in contrast.md ── */
+  --ink-1: #F3F4F6;
+  --ink-2: #AEB4BC;            /* secondary */
+  --ink-3: #989FA8;            /* tertiary (AA on coat and felt, measured) */
+  --ink-on-bone: #15171A;
 
-  /* ── Chips ── */
-  --chip-25:   #3DDC97;   /* blinds / small units — matches mint family */
-  --chip-100:  #5E8BFF;
-  --chip-500:  #E5E7EB;
-  --chip-stripe: rgba(255, 255, 255, 0.85);
+  /* ── Signals (rationed) ── */
+  --mint: #3DDC97;             /* pinned --positive: your turn, positive numbers. Nothing else. */
+  --coral: #F08A7A;            /* serious, as text only */
+  --amber: #E6B866;            /* notable / gate budget, as text or a 2px bar */
 
-  /* ── Radii ── */
-  --r-xs: 6px;
-  --r-sm: 10px;
-  --r-md: 14px;
-  --r-lg: 20px;
-  --r-xl: 28px;
-  --r-pill: 999px;
-  --r-card: 9px;
+  /* ── Renderer semantics (tier-2 names in src/renderer/styles.css) ── */
+  --page: var(--desk-0);
+  --surface: #12151A;          /* near-opaque on purpose: ~60 renderer rules use it without a backdrop */
+  --surface-2: #171B21;
+  --raise: #1E232A;
+  --text-hi: #FFFFFF;          /* PINNED, unchanged */
+  --text-lo: var(--ink-2);
+  --text-lo-2: var(--ink-3);
+  --positive: #3DDC97;         /* PINNED, unchanged */
+  --suit-red: var(--coral);    /* renderer --red is TEXT on dark surfaces */
+  --rule: var(--hair);
+  --edge: var(--hair-strong);
+
+  /* ── Table: felt, rail, lamp ── */
+  --felt-a: #17302B;           /* lit centre — desaturated spruce wool */
+  --felt-b: #0F211E;
+  --felt-c: #0A1614;           /* edge falloff */
+  --lamp: oklch(0.92 0.03 85 / 0.10);   /* warm pendant pool, very low */
+  --rail-a: #1B1D20;           /* matte black leather */
+  --rail-b: #0C0D0F;
+  --inlay: oklch(1 0 0 / 0.06);
+
+  /* ── Cards ── */
+  --bone: #F4F2EC;
+  --bone-edge: oklch(0 0 0 / 0.16);
+  --card-red: #B8322A;         /* 5.3:1 on bone */
+  --card-black: #16181B;
+  --back-a: #1C2026;
+  --back-line: oklch(1 0 0 / 0.07);
+  --card-shadow: 0 0.5px 0 oklch(0 0 0 / 0.35), 0 1px 2px oklch(0 0 0 / 0.45), 0 8px 18px -6px oklch(0 0 0 / 0.55);
+
+  /* ── Chips (matte ceramic, low chroma) ── */
+  --chip-a: #D9D4C8;           /* bone */
+  --chip-b: #6E7A86;           /* slate */
+  --chip-c: #8B4A44;           /* oxblood */
+
+  /* ── Radii (hierarchy, not one radius everywhere) ── */
+  --r-hair: 5px;     /* chips, kbd, cells */
+  --r-ctl: 8px;      /* buttons, inputs, segmented */
+  --r-panel: 12px;   /* in-coat sections */
+  --r-float: 18px;   /* dock, tray, sheets */
+  --r-window: 14px;
+  --r-card: 6px;
 
   /* ── Spacing (4pt) ── */
-  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
-  --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px;
-
-  /* ── Shadows (layered: contact + ambient) ── */
-  --shadow-1: 0 1px 1px rgba(0,0,0,0.22), 0 6px 16px -6px rgba(0,0,0,0.40);
-  --shadow-2: 0 2px 4px rgba(0,0,0,0.20), 0 14px 34px -10px rgba(0,0,0,0.55);
-  --shadow-3: 0 4px 10px rgba(0,0,0,0.22), 0 32px 80px -20px rgba(0,0,0,0.70);
-  --inner-hi: inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 0 1px rgba(255,255,255,0.03);
-  --glow-act: 0 0 0 1.5px var(--positive), 0 0 28px -2px rgba(61, 220, 151, 0.4);   /* alpha is the e2e to-act pin */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
 
   /* ── Type ── */
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
-          system-ui, "Segoe UI", Roboto, sans-serif;
-  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --t-cap2: 11px;     /* caption 2 — tags, small caps (weight ≥ 600) */
-  --t-cap:  12px;     /* caption                                       */
-  --t-foot: 13px;     /* footnote / secondary body                     */
-  --t-body: 15px;     /* body                                          */
-  --t-head: 17px;     /* headline                                      */
-  --t-title:22px;     /* title 2                                       */
-  --t-large:34px;     /* large title / hero figures                    */
-  --track-tight: -0.022em;
-  --track-caps:  0.06em;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --font-index: ui-serif, "New York", "Iowan Old Style", Georgia, serif;   /* card indices only */
+  --t-xs: 11px; --t-sm: 12px; --t-ui: 13px; --t-md: 15px; --t-lg: 20px; --t-xl: 28px;
 
   /* ── Motion ── */
-  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
-  --dur-fast: 140ms;
-  --dur:      240ms;
-  --dur-deal: 560ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-deal: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-1: 120ms; --dur-2: 220ms; --dur-deal: 640ms;
 }
 
-/* ── Daylight glass (light variant): only the tokens change. ── */
-html[data-theme='light'] {
-  color-scheme: light;
-  --field-base:   #DCE7E4;
-  --field-felt:   #BFD9D2;
-  --field-felt-2: #CFE2DD;
-  --pool-mint:    rgba(61, 220, 151, 0.38);
-  --pool-indigo:  rgba(120, 118, 255, 0.26);
-  --pool-amber:   rgba(255, 190, 120, 0.22);
-  --grain-opacity: 0.05;
-
-  --glass-thin:  rgba(255, 255, 255, 0.40);
-  --glass:       rgba(255, 255, 255, 0.55);
-  --glass-thick: rgba(255, 255, 255, 0.72);
-  --glass-hover: rgba(255, 255, 255, 0.70);
-  --glass-press: rgba(235, 242, 240, 0.85);
-  --glass-edge:  rgba(255, 255, 255, 0.70);
-  --glass-spec-hi: rgba(255, 255, 255, 0.95);
-  --glass-spec-lo: rgba(255, 255, 255, 0.20);
-  --glass-sheen: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 50%);
-  --scrim:       rgba(200, 214, 210, 0.40);
-
-  --text-hi:   #0B1215;   /* light theme is a variant: the #FFF pin applies to the shipped dark theme */
-  --text-lo:   #36454C;
-  --text-lo-2: #4C5C63;
-  --positive:  #086640;   /* darker mint so text-on-glass passes AA on a light field */
-  --positive-ink: #FFFFFF;
-  --notable:   #8A5A00;
-  --serious:   #B42318;
-  --rule:      rgba(10, 30, 30, 0.10);
-
-  --shadow-1: 0 1px 1px rgba(20,40,40,0.06), 0 6px 16px -6px rgba(20,40,40,0.18);
-  --shadow-2: 0 2px 4px rgba(20,40,40,0.06), 0 14px 34px -10px rgba(20,40,40,0.24);
-  --shadow-3: 0 4px 10px rgba(20,40,40,0.08), 0 32px 80px -20px rgba(20,40,40,0.32);
-  --inner-hi: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.25);
-  --glow-act: 0 0 0 1.5px rgba(15,143,90,0.9), 0 0 26px -4px rgba(15,143,90,0.45);
-}
-
-/* Accessibility fallbacks a port must keep. */
 @media (prefers-reduced-transparency: reduce) {
-  :root { --glass-thin: rgba(20,28,34,0.92); --glass: rgba(18,26,32,0.95); --glass-thick: #0E141A; }
-  html[data-theme='light'] { --glass-thin: #F4F7F6; --glass: #F7FAF9; --glass-thick: #FFFFFF; }
+  :root { --coat: oklch(0.15 0.012 262 / 0.97); --float: oklch(0.19 0.01 262 / 0.98); --coat-blur: none; --float-blur: none; }
 }

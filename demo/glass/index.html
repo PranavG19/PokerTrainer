@@ -3,34 +3,32 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Offsuit · Liquid Glass</title>
+<title>Offsuit — glass mockup</title>
 <link rel="stylesheet" href="glass.css" />
 <style>
   body { overflow: auto; }
-  .hub { max-width: 880px; margin: 0 auto; padding: 40px 24px; display: flex; flex-direction: column; gap: 16px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-  a.tile { display: block; padding: 16px 18px; text-decoration: none; color: inherit; }
-  a.tile .h-head { margin-bottom: 4px; }
-  .links { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .links a { color: var(--positive); font-size: var(--t-cap); }
+  .hub { position: relative; max-width: 760px; margin: 0 auto; padding: 48px 24px; display: flex; flex-direction: column; gap: 24px; }
+  .screens a { display: grid; grid-template-columns: 180px 1fr; gap: 16px; padding: 12px 4px; text-decoration: none; color: inherit; border-radius: var(--r-ctl); transition: background-color var(--dur-1); }
+  .screens a:hover { background: var(--fill-1); }
+  .links a { color: var(--ink-1); margin-right: 12px; }
 </style>
 </head>
 <body>
+<div class="shell" style="position:fixed"></div>
 <div class="hub">
-  <div><div class="caps">Design mockup · not the app</div><h1 class="h-title" style="font-size:var(--t-large)">Offsuit — Liquid Glass</h1>
-    <p class="sub" style="max-width:62ch;margin-top:6px">Static HTML/CSS. Real Offsuit content and controls, re-materialised as translucent glass over a lit felt field. Size the window to 900×640 or 1100×760 (the app's minimums). Add <code>?theme=light</code> to any screen for the daylight variant. Tokens live in <code>tokens.css</code>.</p></div>
-  <div class="grid">
-    <a class="tile glass lift" href="home.html"><div class="h-head">Home</div><div class="sub">Bankroll, suggested next, plan a sitting</div></a>
-    <a class="tile glass lift" href="table.html?state=live"><div class="h-head">Table · live</div><div class="sub">Flop, hero to act, action dock and bet slider</div></a>
-    <a class="tile glass lift" href="table.html?state=predict"><div class="h-head">Table · commit first</div><div class="sub">Predict panel takes the dock's place until you commit</div></a>
-    <a class="tile glass lift" href="table.html?state=gate"><div class="h-head">Table · gate</div><div class="sub">Verdict withheld: name the range or price first</div></a>
-    <a class="tile glass lift" href="table.html?state=verdict"><div class="h-head">Table · verdict</div><div class="sub">Coach verdict and prediction result over the table</div></a>
-    <a class="tile glass lift" href="charts.html"><div class="h-head">Charts</div><div class="sub">CO open range, classes, rules, quiz</div></a>
-    <a class="tile glass lift" href="drill.html"><div class="h-head">Train · Math</div><div class="sub">Pot-odds drill, graded, with the method</div></a>
+  <div><h1 class="t-xl">Offsuit, in glass</h1>
+    <p class="sub" style="max-width:60ch;margin-top:8px">A static mockup, round 2. Real Offsuit screens and copy. The window is one translucent coat; only the action dock, the commit tray and the coach sheets are glass. Size the window to 900×640 or 1100×760, the app's minimums.</p></div>
+  <div class="screens list">
+    <a href="home.html"><span class="t-md">Home</span><span class="sub">Bankroll, suggested next, plan a sitting</span></a>
+    <a href="table.html?state=live"><span class="t-md">Table</span><span class="sub">Flop, your turn, the action dock</span></a>
+    <a href="table.html?state=predict"><span class="t-md">Commit first</span><span class="sub">The predict tray takes the dock's place</span></a>
+    <a href="table.html?state=gate"><span class="t-md">Gate</span><span class="sub">The verdict waits for a one-line reason</span></a>
+    <a href="table.html?state=verdict"><span class="t-md">Verdict</span><span class="sub">Coach verdict and the prediction result</span></a>
+    <a href="charts.html"><span class="t-md">Charts</span><span class="sub">CO open range, classes, rules, quiz</span></a>
+    <a href="drill.html"><span class="t-md">Math drill</span><span class="sub">Pot odds, graded, with the method</span></a>
   </div>
-  <div class="glass panel"><div class="h-head">Before / after</div>
-    <div class="links"><a href="compare.html?screen=home">home</a><a href="compare.html?screen=table">table</a><a href="compare.html?screen=predict">predict</a><a href="compare.html?screen=verdict">verdict</a><a href="compare.html?screen=charts">charts</a><a href="compare.html?screen=drill">drill</a>
-    · <a href="contrast.md">contrast.md</a></div></div>
+  <div><div class="label" style="margin-bottom:6px">Current app, round 1 and round 2 side by side</div>
+    <div class="links"><a href="compare.html?screen=home">home</a><a href="compare.html?screen=table">table</a><a href="compare.html?screen=predict">predict</a><a href="compare.html?screen=gate">gate</a><a href="compare.html?screen=verdict">verdict</a><a href="compare.html?screen=charts">charts</a><a href="compare.html?screen=drill">drill</a><a href="contrast.md">contrast</a></div></div>
 </div>
 <script src="shell.js"></script>
 </body>

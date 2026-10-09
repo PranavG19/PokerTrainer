@@ -2,43 +2,47 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Offsuit · Liquid Glass — before / after</title>
-<!-- ?screen=home|table|predict|verdict|charts|drill. "Before" is the committed app screenshot in /screenshots. -->
+<title>Offsuit — current app, round 1, round 2</title>
+<!-- ?screen=home|table|predict|gate|verdict|charts|drill. Current app = committed /screenshots; round 1 = demo/glass/round1. -->
 <style>
-  body { margin: 0; background: #0B0D10; color: #E8EDF0; font: 14px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
-  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; }
-  figure { margin: 0; }
-  figcaption { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 600; }
-  figcaption span { color: #9AA6AD; font-weight: 400; }
-  img { width: 100%; display: block; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 20px 50px -20px #000; }
-  h1 { margin: 24px 24px 0; font-size: 18px; }
-  nav { margin: 6px 24px 0; color: #9AA6AD; } nav a { color: #3DDC97; margin-right: 12px; }
+  body { margin: 0; background: #0B0C0E; color: #E9EBEE; font: 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 18px 24px 0; }
+  h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  nav a { color: #9AA2AC; margin-right: 10px; text-decoration: none; } nav a[aria-current] { color: #fff; }
+  .wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 14px 24px 24px; align-items: start; }
+  figcaption { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; }
+  figcaption span { color: #8C939C; font-weight: 400; }
+  img { width: 100%; display: block; border-radius: 8px; box-shadow: 0 0 0 0.5px rgba(255,255,255,0.12); }
+  .none { aspect-ratio: 1100 / 760; border-radius: 8px; display: grid; place-items: center; color: #8C939C; box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.12); }
 </style>
 </head>
 <body>
-<h1 id="title"></h1>
-<nav id="links"></nav>
+<header><h1 id="title"></h1><nav id="links"></nav></header>
 <div class="wrap">
-  <figure><figcaption>Before <span id="bsrc"></span></figcaption><img id="before" alt="Current app" /></figure>
-  <figure><figcaption>After — Liquid Glass <span id="asrc"></span></figcaption><img id="after" alt="Glass mockup" /></figure>
+  <figure style="margin:0"><figcaption>Current app <span id="s0"></span></figcaption><div id="f0"></div></figure>
+  <figure style="margin:0"><figcaption>Round 1 (rejected) <span>liquid glass</span></figcaption><img id="i1" alt="Round 1 mockup" /></figure>
+  <figure style="margin:0"><figcaption>Round 2 <span>one coat, few floats</span></figcaption><img id="i2" alt="Round 2 mockup" /></figure>
 </div>
 <script>
   const MAP = {
-    home:    ['Home', 'design-00-home.png', 'home-1100x760.png'],
-    table:   ['Table mid-hand', 'layout-900x640.png', 'table-900x640.png'],
-    predict: ['Commit-before-feedback (predict panel)', 'audit-w6-E-1-pending-1100x760.png', 'predict-1100x760.png'],
-    verdict: ['Coach verdict + prediction result', 'coach-serious.png', 'verdict-1100x760.png'],
-    charts:  ['Preflop charts', 'charts-900x640.png', 'charts-900x640.png'],
-    drill:   ['Math drill (graded)', 'drill-900x640-graded.png', 'drill-900x640.png'],
+    home:    ['Home', 'design-00-home.png', '1100x760'],
+    table:   ['Table mid-hand', 'layout-900x640.png', '900x640'],
+    predict: ['Commit first (predict panel)', 'audit-w6-E-1-pending-1100x760.png', '1100x760'],
+    gate:    ['Gate (verdict withheld)', null, '1100x760'],
+    verdict: ['Coach verdict and prediction result', 'coach-serious.png', '1100x760'],
+    charts:  ['Preflop charts', 'charts-900x640.png', '900x640'],
+    drill:   ['Math drill (graded)', 'drill-900x640-graded.png', '900x640'],
   };
   const id = new URLSearchParams(location.search).get('screen') || 'table';
-  const [t, b, a] = MAP[id];
+  const [t, before, size] = MAP[id];
   document.getElementById('title').textContent = t;
-  document.getElementById('before').src = '../../screenshots/' + b;
-  document.getElementById('after').src = 'screenshots/' + a;
-  document.getElementById('bsrc').textContent = 'screenshots/' + b;
-  document.getElementById('asrc').textContent = 'demo/glass/screenshots/' + a;
-  document.getElementById('links').innerHTML = Object.keys(MAP).map((k) => `<a href="?screen=${k}">${k}</a>`).join('');
+  document.getElementById('s0').textContent = before || '';
+  document.getElementById('f0').innerHTML = before
+    ? `<img alt="Current app" src="../../screenshots/${before}">`
+    : '<div class="none">No current-app capture of this state</div>';
+  document.getElementById('i1').src = `round1/${id}-${size}.png`;
+  document.getElementById('i2').src = `screenshots/${id}-${size}.png`;
+  document.getElementById('links').innerHTML = Object.keys(MAP).map((k) => `<a href="?screen=${k}"${k === id ? ' aria-current="page"' : ''}>${k}</a>`).join('');
 </script>
 </body>
 </html>
