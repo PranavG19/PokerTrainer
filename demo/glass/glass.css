@@ -216,7 +216,7 @@ html[data-theme='light'] .avatar { background: #fff; }
 .seat.folded .name, .seat.folded .stackval, .seat.folded .hstack .stackval { color: var(--text-lo); }  /* dim by colour, never opacity: opacity breaks AA on glass */
 .seat.folded .status { color: var(--text-lo); }
 .status { font-size: var(--t-cap2); font-weight: 600; color: var(--text-lo); }
-.seat.act { box-shadow: var(--glow-act), var(--inner-hi), var(--shadow-2); scale: 1.02; }  /* glow alpha + scale match the e2e to-act pin */
+.seat.act { box-shadow: var(--glow-act), var(--inner-hi), var(--shadow-2); scale: 1.02; }  /* glow alpha matches the e2e pin; the pin reads scale from `transform`, see DECISIONS */
 .seat.act .status { color: var(--positive); }
 .quip { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 210px;
   padding: 5px 10px; border-radius: 12px; font-size: var(--t-cap); font-style: italic; color: var(--text-lo); }
@@ -351,4 +351,4 @@ html[data-theme='light'] .budget { background: rgba(10,40,40,0.10); }
   background: rgba(0,0,0,0.20); box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 2px rgba(0,0,0,0.3); }
 html[data-theme='light'] .gate-row .gate-input { background: rgba(255,255,255,0.6); }
 .gate-input::placeholder { color: var(--text-lo-2); }
-.gate-input:focus { box-shadow: inset 0 0 0 1px var(--glass-edge), 0 0 0 3px rgba(255, 200, 97, 0.35); }
+.gate-input:focus { box-shadow: inset 0 0 0 1px var(--glass-edge), 0 0 0 2px var(--notable); }

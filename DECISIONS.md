@@ -85,7 +85,10 @@ Living record. Each line is the current end state.
      - `--text-hi` `#FFFFFF` and `--positive` `#3DDC97` stay out of theme blocks.
      - the pot is 14px/500 (the mock uses 17px/700).
      - Fold has `box-shadow: none` (the mock has glass shadows).
-     - the to-act shadow contains `rgba(61, 220, 151, 0.4)` with scale 1.02 (the mock keeps this).
+     - the to-act shadow contains `rgba(61, 220, 151, 0.4)` (the mock keeps this). The pin also reads
+       `transform` = `matrix(1.02, 0, 0, 1.02, 0, 0)`. The mock uses the `scale` property, which leaves
+       `transform` untouched, and the oval's `translateX(-50%)` would compose into that matrix, so this pin
+       needs updating in the port.
      - the winner ring has a mint `border-top-color` (not mocked).
   - Also needed: the tray/dock swap in the predict flow, modal focus handling for the gate and verdict
     sheets, and a check of the GPU cost.

@@ -10,7 +10,8 @@
  *     new :root tokens plus component rules.
  *  3. e2e pins the port must keep or deliberately update (tests/e2e/interaction.spec.ts, gameplay.spec.ts):
  *     --text-hi #FFFFFF and --positive #3DDC97 never in a theme block; pot 14px/500; Fold box-shadow none;
- *     to-act shadow contains rgba(61, 220, 151, 0.4) with scale 1.02 (kept here); winner ring mint
+ *     to-act shadow contains rgba(61, 220, 151, 0.4) (kept here); to-act transform matrix(1.02…) (must be
+ *     updated: the oval's translateX composes into it); winner ring mint
  *     border-top-color.
  *
  * The LIGHT block overrides --text-hi and --positive, which the renderer's theme rule forbids. It stays

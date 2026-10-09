@@ -161,7 +161,7 @@
   // Mock-only state switch.
   const state = new URLSearchParams(location.search).get('state') || 'live';
   const $ = (id) => document.getElementById(id);
-  if (state === 'predict' || state === 'verdict') $('coachBtn').textContent = 'Coach on';
+  if (state !== 'live') $('coachBtn').textContent = 'Coach on'; // predict, gate and verdict only exist in coached mode
   if (state === 'predict') { $('tray').hidden = false; $('dock').hidden = true; $('stage').classList.add('predicting'); } // the dock is locked until commit; the tray occupies its slot
   if (state === 'gate' || state === 'verdict') {
     const sheet = $(state);
