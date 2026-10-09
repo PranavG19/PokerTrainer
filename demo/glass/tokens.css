@@ -1,0 +1,157 @@
+/* ─────────────────────────────────────────────────────────────────────────────────────────────────
+ * Offsuit · Liquid Glass — DESIGN TOKENS (the single source for the direction).
+ *
+ * Port path: the names in the "Renderer semantics" block are the tier-2 semantic names already used
+ * by src/renderer/styles.css (--page, --surface, --surface-2, --raise, --text-hi, --text-lo,
+ * --text-lo-2, --positive, --suit-red, --rule, --edge). Porting = paste this file's values into one
+ * html[data-theme='glass'] block there; the glass-only tokens below are new names.
+ *
+ * Pinned roles kept as the e2e suite expects: --text-hi #FFFFFF (dark), --positive #3DDC97.
+ * Contrast figures for every text token live in demo/glass/contrast.md.
+ * ───────────────────────────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Backdrop field (what the glass refracts) ── */
+  --field-base:   #04090C;                      /* deepest midnight                          */
+  --field-felt:   #0A2E2B;                      /* felt bed, deep teal                        */
+  --field-felt-2: #06201F;
+  --pool-mint:    rgba(52, 199, 158, 0.34);     /* main light pool over the table             */
+  --pool-indigo:  rgba(94, 92, 230, 0.26);      /* cool counter-light, top-right              */
+  --pool-amber:   rgba(255, 176, 92, 0.10);     /* warm rim, bottom-left (kept faint)         */
+  --grain-opacity: 0.07;
+
+  /* ── Glass material ── */
+  --glass-thin:    rgba(20, 28, 34, 0.34);      /* chips, pills on panes                      */
+  --glass:         rgba(18, 26, 32, 0.50);      /* default pane (seats, nav, cards panel)     */
+  --glass-thick:   rgba(14, 20, 26, 0.68);      /* reading panes (verdict sheet, plan panel)  */
+  --glass-hover:   rgba(36, 48, 56, 0.56);
+  --glass-press:   rgba(10, 16, 20, 0.70);
+  --glass-edge:    rgba(255, 255, 255, 0.12);   /* 1px inner border                           */
+  --glass-spec-hi: rgba(255, 255, 255, 0.38);   /* specular top edge                          */
+  --glass-spec-lo: rgba(255, 255, 255, 0.04);
+  --glass-sheen:   linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0) 42%);
+  --scrim:         rgba(2, 6, 8, 0.46);         /* dims the table under a modal sheet         */
+
+  --blur-sm: 12px;
+  --blur-md: 24px;
+  --blur-lg: 44px;
+  --saturate: 180%;
+
+  /* ── Renderer semantics (same names as src/renderer/styles.css) ── */
+  --page:      var(--field-base);
+  --surface:   var(--glass);
+  --surface-2: var(--glass-thick);
+  --raise:     var(--glass-hover);
+  --text-hi:   #FFFFFF;                         /* PINNED                                     */
+  --text-lo:   #B9C6CC;                         /* secondary                                  */
+  --text-lo-2: #A6B4BA;                         /* tertiary                                   */
+  --positive:  #3DDC97;                         /* PINNED mint: to-act, win, primary action   */
+  --positive-ink: #04140D;                      /* text ON a mint fill                        */
+  --notable:   #FFC861;                         /* severity: notable                          */
+  --serious:   #FF7A6B;                         /* severity: serious (coral, not alarm red)   */
+  --suit-red:  #C42F25;                         /* red suit ON the ivory card face (4.9:1)    */
+  --suit-black:#12161A;
+  --rule:      rgba(255, 255, 255, 0.08);
+  --edge:      var(--glass-edge);
+
+  /* ── Cards ── */
+  --card-face-a:  #FFFFFF;
+  --card-face-b:  #EEF1EF;
+  --card-edge:    rgba(0, 0, 0, 0.10);
+  --card-back-a:  #1C3A55;
+  --card-back-b:  #0E1E2E;
+  --card-back-line: rgba(140, 220, 255, 0.16);
+
+  /* ── Chips ── */
+  --chip-25:   #3DDC97;   /* blinds / small units — matches mint family */
+  --chip-100:  #5E8BFF;
+  --chip-500:  #E5E7EB;
+  --chip-stripe: rgba(255, 255, 255, 0.85);
+
+  /* ── Radii ── */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+  --r-card: 9px;
+
+  /* ── Spacing (4pt) ── */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px;
+
+  /* ── Shadows (layered: contact + ambient) ── */
+  --shadow-1: 0 1px 1px rgba(0,0,0,0.22), 0 6px 16px -6px rgba(0,0,0,0.40);
+  --shadow-2: 0 2px 4px rgba(0,0,0,0.20), 0 14px 34px -10px rgba(0,0,0,0.55);
+  --shadow-3: 0 4px 10px rgba(0,0,0,0.22), 0 32px 80px -20px rgba(0,0,0,0.70);
+  --inner-hi: inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 0 1px rgba(255,255,255,0.03);
+  --glow-act: 0 0 0 1.5px rgba(61,220,151,0.85), 0 0 28px -2px rgba(61,220,151,0.45);
+
+  /* ── Type ── */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
+          system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --t-cap2: 11px;     /* caption 2 — tags, small caps (weight ≥ 600) */
+  --t-cap:  12px;     /* caption                                       */
+  --t-foot: 13px;     /* footnote / secondary body                     */
+  --t-body: 15px;     /* body                                          */
+  --t-head: 17px;     /* headline                                      */
+  --t-title:22px;     /* title 2                                       */
+  --t-large:34px;     /* large title / hero figures                    */
+  --track-tight: -0.022em;
+  --track-caps:  0.06em;
+
+  /* ── Motion ── */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur:      240ms;
+  --dur-deal: 560ms;
+}
+
+/* ── Daylight glass (light variant): only the tokens change. ── */
+html[data-theme='light'] {
+  color-scheme: light;
+  --field-base:   #DCE7E4;
+  --field-felt:   #BFD9D2;
+  --field-felt-2: #CFE2DD;
+  --pool-mint:    rgba(61, 220, 151, 0.38);
+  --pool-indigo:  rgba(120, 118, 255, 0.26);
+  --pool-amber:   rgba(255, 190, 120, 0.22);
+  --grain-opacity: 0.05;
+
+  --glass-thin:  rgba(255, 255, 255, 0.40);
+  --glass:       rgba(255, 255, 255, 0.55);
+  --glass-thick: rgba(255, 255, 255, 0.72);
+  --glass-hover: rgba(255, 255, 255, 0.70);
+  --glass-press: rgba(235, 242, 240, 0.85);
+  --glass-edge:  rgba(255, 255, 255, 0.70);
+  --glass-spec-hi: rgba(255, 255, 255, 0.95);
+  --glass-spec-lo: rgba(255, 255, 255, 0.20);
+  --glass-sheen: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 50%);
+  --scrim:       rgba(200, 214, 210, 0.40);
+
+  --text-hi:   #0B1215;   /* light theme is a variant: the #FFF pin applies to the shipped dark theme */
+  --text-lo:   #36454C;
+  --text-lo-2: #4C5C63;
+  --positive:  #086640;   /* darker mint so text-on-glass passes AA on a light field */
+  --positive-ink: #FFFFFF;
+  --notable:   #8A5A00;
+  --serious:   #B42318;
+  --rule:      rgba(10, 30, 30, 0.10);
+
+  --shadow-1: 0 1px 1px rgba(20,40,40,0.06), 0 6px 16px -6px rgba(20,40,40,0.18);
+  --shadow-2: 0 2px 4px rgba(20,40,40,0.06), 0 14px 34px -10px rgba(20,40,40,0.24);
+  --shadow-3: 0 4px 10px rgba(20,40,40,0.08), 0 32px 80px -20px rgba(20,40,40,0.32);
+  --inner-hi: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.25);
+  --glow-act: 0 0 0 1.5px rgba(15,143,90,0.9), 0 0 26px -4px rgba(15,143,90,0.45);
+}
+
+/* Accessibility fallbacks a port must keep. */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-thin: rgba(20,28,34,0.92); --glass: rgba(18,26,32,0.95); --glass-thick: #0E141A; }
+  html[data-theme='light'] { --glass-thin: #F4F7F6; --glass: #F7FAF9; --glass-thick: #FFFFFF; }
+}

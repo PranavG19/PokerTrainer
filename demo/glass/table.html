@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit · Liquid Glass — Table</title>
+<link rel="stylesheet" href="glass.css" />
+<!--
+  One hand, three states (mock-only; pick with ?state=):
+    live     — flop, hero to act, coach off, action dock live (default)
+    predict  — coach on: the commit tray is open and the dock is locked until hero commits
+    verdict  — hero folded after a SURE fold; the coach verdict + prediction result sheet floats over the table
+  Hand: blinds 25/50, hero on the button. Cy (UTG) folds, hero limps 50, Ada (SB) completes, Bo (BB) checks.
+  Flop 4♠ 4♦ K♦: Ada checks, Bo bets 75. Pot 225, 75 to call (25% price). Hero K♥ 2♦ = two pair.
+  Copy is from the real app: predictPanel.ts, predict.ts predictResultText, coach.ts buildMessage, confidence.ts.
+-->
+</head>
+<body data-tab="Play">
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <section class="table-stage deal" id="stage">
+      <div class="felt" aria-hidden="true"></div>
+
+      <div class="toolbar l"><span class="meta glass thin num">Hand 42 · Flop · Blinds 25/50</span></div>
+      <div class="toolbar r">
+        <button class="btn sm keep" id="coachBtn">Coach off</button>
+        <button class="btn sm keep">Stats <span class="kbd">S</span></button>
+      </div>
+
+      <!-- Villains -->
+      <div class="seat glass pos-left" aria-label="Ada, small blind">
+        <div class="avatar">A</div>
+        <div class="who"><div class="name">Ada <span class="posb">SB</span></div><div class="tag">TAG</div></div>
+        <div class="stackline"><span class="stackval num">4950</span><span class="status">Checked</span></div>
+        <div class="cards"><div class="card back" style="--i:1;--from-x:200px;--from-y:120px"></div><div class="card back" style="--i:5;--from-x:200px;--from-y:120px"></div></div>
+      </div>
+
+      <div class="seat glass pos-top" aria-label="Bo, big blind">
+        <div class="quip glass thin">I had to see it — I always do.</div>
+        <div class="avatar">B</div>
+        <div class="who"><div class="name">Bo <span class="posb">BB</span></div><div class="tag">Station</div></div>
+        <div class="stackline"><span class="stackval num">4875</span><span class="status">Bet 75</span></div>
+        <div class="cards"><div class="card back" style="--i:2;--from-y:260px"></div><div class="card back" style="--i:6;--from-y:260px"></div></div>
+      </div>
+
+      <div class="seat glass pos-right folded" aria-label="Cy, under the gun, folded">
+        <div class="avatar">C</div>
+        <div class="who"><div class="name">Cy <span class="posb">UTG</span></div><div class="tag">Nit</div></div>
+        <div class="stackline"><span class="stackval num">5000</span><span class="status">Folded</span></div>
+        <div class="cards"><div class="card back folded" style="--i:3;--from-x:-200px;--from-y:120px"></div><div class="card back folded" style="--i:7;--from-x:-200px;--from-y:120px"></div></div>
+      </div>
+
+      <!-- Bets in front of seats -->
+      <div class="bet-bo bet glass thin num"><span class="stack"><i class="chip g"></i><i class="chip"></i><i class="chip"></i></span>75</div>
+
+      <!-- Pot + board -->
+      <div class="center">
+        <div class="pot glass thin"><span class="stack"><i class="chip"></i><i class="chip g"></i><i class="chip w"></i></span><span class="lbl">Pot</span><span class="val num">225</span></div>
+        <div class="board">
+          <div class="card" style="--i:0"><span class="rk">4</span><span class="st">♠</span><span class="pip">♠</span></div>
+          <div class="card red" style="--i:1"><span class="rk">4</span><span class="st">♦</span><span class="pip">♦</span></div>
+          <div class="card red" style="--i:2"><span class="rk">K</span><span class="st">♦</span><span class="pip">♦</span></div>
+          <div class="card slot"></div>
+          <div class="card slot"></div>
+        </div>
+        <div class="street">75 to call · price 25%</div>
+      </div>
+
+      <!-- Hero -->
+      <div class="seat glass hero pos-hero act" id="hero" aria-label="You, button, to act">
+        <div class="cards">
+          <div class="card red" style="--i:4;--from-y:-200px"><span class="rk">2</span><span class="st">♦</span><span class="pip">♦</span></div>
+          <div class="card red" style="--i:8;--from-y:-200px"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div>
+        </div>
+        <div class="who">
+          <div class="name">You <span class="posb">BTN</span></div>
+          <div class="status" id="heroStatus"><span class="dot"></span>Your turn</div>
+        </div>
+        <div class="hstack"><div class="stackval num">4950</div><div class="cap">stack</div></div>
+        <div class="dealer" style="right:-9px;top:-9px">D</div>
+      </div>
+
+      <!-- Commit tray (predict state) -->
+      <div class="tray glass thick" id="tray" hidden>
+        <div class="q">Commit first: which action, and how sure are you?</div>
+        <div class="row">
+          <div class="seg" role="radiogroup" aria-label="Predicted action">
+            <button class="btn on">Fold</button><button class="btn" disabled>Check</button><button class="btn">Call</button><button class="btn">Raise</button>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Confidence">
+            <button class="btn">SURE</button><button class="btn">GUESS</button>
+          </div>
+        </div>
+        <div class="why">Why? (optional — graded separately)<span class="cap" style="margin-left:auto">The table unlocks once both are picked</span></div>
+      </div>
+
+      <!-- Action dock -->
+      <div class="dock glass thick" id="dock" role="toolbar" aria-label="Your action">
+        <button class="btn">Fold <span class="kbd">F</span></button>
+        <button class="btn" disabled>Check</button>
+        <button class="btn">Call <span class="num">75</span> <span class="kbd">C</span></button>
+        <span class="sep"></span>
+        <label class="slider"><input class="range" type="range" min="150" max="4950" step="25" value="300" data-out="#amt" aria-label="Raise amount" /><span class="amount num" id="amt">300</span></label>
+        <button class="btn sm sq">½</button>
+        <button class="btn sm sq">¾</button>
+        <button class="btn sm">Pot</button>
+        <button class="btn sm">All-in</button>
+        <span class="sep"></span>
+        <button class="btn primary">Raise <span class="kbd" style="background:rgba(0,0,0,0.12);color:inherit">R</span></button>
+      </div>
+
+      <!-- Verdict sheet (verdict state) -->
+      <div id="verdict" hidden>
+        <div class="scrim"></div>
+        <section class="sheet glass thick" role="dialog" aria-labelledby="vmsg">
+          <div class="sheet-head">
+            <span class="sev serious">Serious</span>
+            <span class="eyebrow">Coach</span>
+            <span class="ctx num">Flop · you folded to 75</span>
+          </div>
+          <p class="verdict" id="vmsg" data-testid="coach-message">Folding with 74% pot share when only 25% was needed costs ~2.9&nbsp;bb.</p>
+          <div class="meter" style="--had:74%;--need:25%" aria-hidden="true">
+            <div class="bar"></div><div class="fill"></div><div class="need"></div>
+            <span class="lab" style="left:25%">needed 25%</span><span class="lab" style="left:74%">you had 74%</span>
+          </div>
+          <div class="principle"><b>pot odds</b> · 2.9 bb</div>
+          <div class="divider"></div>
+          <div class="commit"><span class="lbl">You committed</span><span class="pill">Fold</span><span class="pill">SURE</span></div>
+          <p class="result sure-wrong" data-testid="predict-result">You were SURE about fold and it was a mistake — study this one.</p>
+          <p class="support">Support: the full causal chain. This spot returns now, then on day 2 and day 7. This is the highest-value miss in the system. A confident error is a rule that is wrong and trusted, so the whole causal chain is owed and the spot returns on day 2 and day 7.</p>
+          <div class="sheet-foot">
+            <span class="hint">Hand continues without you</span>
+            <button class="btn">Review hand</button>
+            <button class="btn primary">Next hand <span class="kbd" style="background:rgba(0,0,0,0.12);color:inherit">N</span></button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script>
+  // Mock-only state switch.
+  const state = new URLSearchParams(location.search).get('state') || 'live';
+  const $ = (id) => document.getElementById(id);
+  if (state === 'predict' || state === 'verdict') $('coachBtn').textContent = 'Coach on';
+  if (state === 'predict') { $('tray').hidden = false; $('dock').hidden = true; $('stage').classList.add('predicting'); } // the dock is locked until commit; the tray occupies its slot
+  if (state === 'verdict') {
+    $('verdict').hidden = false;
+    // A modal: everything behind the sheet is inert and out of the a11y tree.
+    for (const el of $('stage').children) if (el.id !== 'verdict') { el.inert = true; el.setAttribute('aria-hidden', 'true'); }
+    $('dock').hidden = true;
+    $('hero').classList.remove('act');
+    $('hero').classList.add('folded');
+    $('heroStatus').textContent = 'Folded';
+    document.querySelectorAll('#hero .card').forEach((c) => c.classList.add('folded'));
+  }
+</script>
+</body>
+</html>

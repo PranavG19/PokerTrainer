@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Offsuit · Liquid Glass — before / after</title>
+<!-- ?screen=home|table|predict|verdict|charts|drill. "Before" is the committed app screenshot in /screenshots. -->
+<style>
+  body { margin: 0; background: #0B0D10; color: #E8EDF0; font: 14px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; }
+  figure { margin: 0; }
+  figcaption { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 600; }
+  figcaption span { color: #9AA6AD; font-weight: 400; }
+  img { width: 100%; display: block; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 20px 50px -20px #000; }
+  h1 { margin: 24px 24px 0; font-size: 18px; }
+  nav { margin: 6px 24px 0; color: #9AA6AD; } nav a { color: #3DDC97; margin-right: 12px; }
+</style>
+</head>
+<body>
+<h1 id="title"></h1>
+<nav id="links"></nav>
+<div class="wrap">
+  <figure><figcaption>Before <span id="bsrc"></span></figcaption><img id="before" alt="Current app" /></figure>
+  <figure><figcaption>After — Liquid Glass <span id="asrc"></span></figcaption><img id="after" alt="Glass mockup" /></figure>
+</div>
+<script>
+  const MAP = {
+    home:    ['Home', 'design-00-home.png', 'home-1100x760.png'],
+    table:   ['Table mid-hand', 'layout-900x640.png', 'table-900x640.png'],
+    predict: ['Commit-before-feedback (predict panel)', 'audit-w6-E-1-pending-1100x760.png', 'predict-1100x760.png'],
+    verdict: ['Coach verdict + prediction result', 'gameplay-showdown.png', 'verdict-1100x760.png'],
+    charts:  ['Preflop charts', 'charts-900x640.png', 'charts-900x640.png'],
+    drill:   ['Math drill (graded)', 'drill-900x640-graded.png', 'drill-900x640.png'],
+  };
+  const id = new URLSearchParams(location.search).get('screen') || 'table';
+  const [t, b, a] = MAP[id];
+  document.getElementById('title').textContent = t;
+  document.getElementById('before').src = '../../screenshots/' + b;
+  document.getElementById('after').src = 'screenshots/' + a;
+  document.getElementById('bsrc').textContent = 'screenshots/' + b;
+  document.getElementById('asrc').textContent = 'demo/glass/screenshots/' + a;
+  document.getElementById('links').innerHTML = Object.keys(MAP).map((k) => `<a href="?screen=${k}">${k}</a>`).join('');
+</script>
+</body>
+</html>

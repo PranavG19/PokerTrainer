@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit · Liquid Glass — Home</title>
+<link rel="stylesheet" href="glass.css" />
+<!--
+  Real Home content (src/renderer/screens/home.ts, components/recommendation.ts, core/recommend.ts,
+  core/standing.ts, screens/sessionPlan.ts): bankroll + standing, "Suggested next" (the reach-weighted
+  leak string), New session / Play with friends, Recent hands, and the "Plan a sitting" panel.
+  Numbers are a plausible returning-player profile, mock-only.
+-->
+<style>
+  .home { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--s-4); height: 100%;
+    max-width: 1040px; margin: 0 auto; }
+  .col { display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
+  .headline { display: flex; align-items: flex-end; gap: var(--s-6); padding: var(--s-2) var(--s-1) 0; }
+  .bankroll { font-size: clamp(40px, 5.2vw, 56px); font-weight: 700; letter-spacing: -0.035em; line-height: 1; }
+  .bankroll + .cap { margin-top: 6px; }
+  .standing .v { font-size: var(--t-head); font-weight: 600; }
+  .delta { color: var(--positive); font-weight: 600; }
+  .suggest { padding: var(--s-4) var(--s-5); display: flex; flex-direction: column; gap: 6px; }
+  .suggest .act { font-size: var(--t-title); font-weight: 700; letter-spacing: var(--track-tight); display: flex; align-items: center; gap: 10px; }
+  .suggest .act .arrow { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: var(--positive-ink);
+    background: linear-gradient(180deg, #7AF2C1, var(--positive)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 16px -6px rgba(61,220,151,0.8); }
+  .suggest .controls { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+  .tile { padding: var(--s-4); display: flex; flex-direction: column; gap: 4px; }
+  .tile .ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; margin-bottom: 6px; font-size: 15px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16); }
+  html[data-theme='light'] .tile .ic { background: #fff; }
+  .recent { padding: var(--s-3) var(--s-4); flex: 1; min-height: 0; overflow: hidden; }
+  .hand { display: grid; grid-template-columns: 44px auto 1fr auto; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); font-size: var(--t-foot); }
+  .hand:first-of-type { border-top: 0; }
+  .hand .mini { display: flex; gap: 3px; }
+  .hand .mini .card { --w: 20px; box-shadow: inset 0 0 0 1px var(--card-edge), 0 2px 4px rgba(0,0,0,0.4); }
+  .hand .mini .card .pip, .hand .mini .card .st { display: none; }
+  .hand .mini .card .rk { font-size: 11px; top: 3px; left: 4px; }
+  .hand .mini .card::after { content: attr(data-s); position: absolute; left: 4px; bottom: 3px; font-size: 9px; }
+  .neg { color: var(--serious); font-weight: 600; } .pos { color: var(--positive); font-weight: 600; }
+  .plan { padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
+  .plan-head { display: flex; align-items: center; justify-content: space-between; }
+  .rows { display: flex; flex-direction: column; }
+  .prow { display: grid; grid-template-columns: 1fr 44px 70px 84px; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--rule); font-size: var(--t-foot); }
+  .prow:first-child { border-top: 0; }
+  .prow .pct { color: var(--text-lo); text-align: right; font-size: var(--t-cap); }
+  .prow .min { text-align: right; font-weight: 600; }
+  .prow .cnt { text-align: right; color: var(--text-lo); font-size: var(--t-cap); }
+  .prow.zero { color: var(--text-lo); }
+  .prow .note { grid-column: 1 / -1; font-size: var(--t-cap); color: var(--text-lo); margin-top: -2px; }
+  .start { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4); border-radius: var(--r-lg);
+    background: linear-gradient(180deg, rgba(61,220,151,0.20), rgba(61,220,151,0.08)); box-shadow: inset 0 0 0 1px rgba(61,220,151,0.35), inset 0 1px 0 rgba(255,255,255,0.12); }
+  html[data-theme='light'] .start { background: linear-gradient(180deg, rgba(15,143,90,0.12), rgba(15,143,90,0.05)); box-shadow: inset 0 0 0 1px rgba(15,143,90,0.35); }
+  .start .t { font-size: var(--t-head); font-weight: 700; }
+  @media (max-height: 700px) {
+    .hand.extra, .prow .note.opt, .opt-note { display: none; }
+    .prow { padding: 5px 0; }
+  }
+</style>
+</head>
+<body data-tab="Play">
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="page deal">
+      <div class="home">
+        <div class="col">
+          <div class="headline">
+            <div><div class="bankroll num">10,840</div><div class="cap">Bankroll · <span class="delta num">+840</span> since start</div></div>
+            <div class="standing"><div class="v">50bb table</div><div class="cap">warming up</div></div>
+          </div>
+
+          <section class="suggest glass lift" data-testid="recommendation">
+            <div class="caps">Suggested next</div>
+            <div class="act">Review call<span class="arrow" aria-hidden="true">→</span></div>
+            <div class="sub">call on the river costs 1.8 bb a time across 14 hands and comes up often — reach-weighted 6.2 bb/100, your highest-reach leak</div>
+            <div class="controls"><button class="btn sm">Skip this</button><span class="cap">2 other options if you would rather</span></div>
+          </section>
+
+          <div class="tiles">
+            <section class="tile glass lift"><div class="ic">♠</div><div class="h-head">New session</div><div class="sub">Sit down and play a hand with the coach watching</div></section>
+            <section class="tile glass lift"><div class="ic">⇄</div><div class="h-head">Play with friends</div><div class="sub">Host or join a table on your local network</div></section>
+          </div>
+
+          <section class="recent glass">
+            <div class="caps" style="margin-bottom:4px">Recent hands</div>
+            <div class="hand"><span class="cap num">#41</span><span class="mini"><span class="card red" data-s="♥"><span class="rk">K</span></span><span class="card red" data-s="♦"><span class="rk">2</span></span></span><span></span><span class="pos num">+350</span></div>
+            <div class="hand"><span class="cap num">#40</span><span class="mini"><span class="card" data-s="♠"><span class="rk">A</span></span><span class="card" data-s="♣"><span class="rk">J</span></span></span><span></span><span class="neg num">−150</span></div>
+            <div class="hand extra"><span class="cap num">#39</span><span class="mini"><span class="card red" data-s="♦"><span class="rk">9</span></span><span class="card red" data-s="♦"><span class="rk">8</span></span></span><span></span><span class="pos num">+75</span></div>
+          </section>
+        </div>
+
+        <section class="plan glass thick">
+          <div class="plan-head"><div class="h-head">Plan a sitting</div>
+            <div class="seg"><button class="btn on">Plan</button><button class="btn">Interleaving</button></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div class="seg"><button class="btn">15 min</button><button class="btn on">30 min</button><button class="btn">50 min</button></div>
+            <div class="seg"><button class="btn on">Session</button><button class="btn">Free-roam</button></div>
+          </div>
+          <div class="sub">27.25 min of blocks, 2.75 min unspent — a block is whole units, so the remainder buys nothing</div>
+          <div class="rows">
+            <div class="prow"><span>fluency warm-up (PLM)</span><span class="pct num">8%</span><span class="min num">4 min</span><span class="cnt">1 block</span></div>
+            <div class="prow zero"><span>decay probes</span><span class="pct num">6%</span><span class="min num">0 min</span><span class="cnt">0 probes</span><span class="note opt">nothing is due — the freed time went to graded spots</span></div>
+            <div class="prow"><span>graded spots</span><span class="pct num">48%</span><span class="min num">16.25 min</span><span class="cnt">13 spots</span></div>
+            <div class="prow"><span>contrast remediation</span><span class="pct num">20%</span><span class="min num">5 min</span><span class="cnt">1 contrast set</span></div>
+            <div class="prow zero"><span>whole-task live hands</span><span class="pct num">14%</span><span class="min num">0 min</span><span class="cnt">0 live hands</span><span class="note">cut 4.25 min — step 1 of 3 in the cut order</span></div>
+            <div class="prow"><span>scoreboard</span><span class="pct num">4%</span><span class="min num">2 min</span><span class="cnt">1 scoreboard</span></div>
+          </div>
+          <div class="gave">
+            <div class="cap">What a shorter sitting gave up</div>
+            <div class="prow" style="border-top:0;grid-template-columns:1fr auto"><span>whole-task live hands</span><span class="min num">−4.25 min</span></div>
+            <div class="cap opt-note">Cut order: whole-task live hands → warm-up length → graded spot count. Never cut: decay probes, the last contrast set, the first warm-up block.</div>
+          </div>
+          <div class="start">
+            <div><div class="t">Start 30-minute session</div><div class="cap">13 graded spots, sit down at the table</div></div>
+            <button class="btn primary">Start <span class="kbd" style="background:rgba(0,0,0,0.12);color:inherit">↵</span></button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+</body>
+</html>
