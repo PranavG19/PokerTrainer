@@ -1,4 +1,63 @@
-# SCORECARD-TABLE — round 4 table-surface variants
+# SCORECARD-TABLE — table surfaces
+
+## Rating 3: refined `glass`, `glass-r4` and `sports`, at 4, 6 and 9 seats
+A fresh blind rater (a subagent that built none of this) scored five randomly labelled variants
+(`tests/tmp/vblind5-key.json`, scores in `tests/tmp/scores-r5.json`). The rubric is the round-3 one plus **fit** and a new
+**scales** category, judged only from the 6- and 9-seat renders. The rater also judged the faint green glow under the board as an A/B on
+both `glass` and `sports` (4 seats only, so no scales score). Motion was scored n/a (stills).
+
+| Variant | Label | Overall (1–10) | Element mean | Fit mean | Scales mean |
+|---|---|---|---|---|---|
+| `sports` | V3 | 8 | 7.76 | 8.17 | 7.83 |
+| `glass` | V2 | 7 | 7.64 | 7.17 | 7.33 |
+| `sports+glow` | V5 | 7 | 7.68 | 8.00 | — |
+| `glass+glow` | V1 | 6 | 7.58 | 7.17 | — |
+| `glass-r4` | V4 | 5 | 7.31 | 7.33 | 6.33 |
+
+**Ship pick: `sports`.** "The only variant that both keeps the target hierarchy (big pot, board, plated hero, raised active villain
+at 6/9) and looks like the same product as home/charts/drill … It also scales cleanly to 9 seats at 900x640 with no collisions."
+
+**Glow:** rejected on both. The rater found the two pairs unprompted and preferred the version without the glow each time: "decoration with
+no state meaning [that] dilutes 'Your turn' green" and tints the empty turn/river wells.
+
+**What the rater said about each one**
+- **`sports` (8):** the best fit, since the seats are glass on the shared coat with no oval. At 9 seats it switches to a perimeter
+  (four seats across the top, two per side) that never collides. Faults:
+  - The condensed numerals appear on no other screen.
+  - A dead band about 170pt tall sits between the price line and the hero at 1100x760.
+  - The hero's green is doubled (the wash plus the "Your turn" text).
+  - The dealer button sits on the hero's card.
+  - Seat order around the table reads less clearly than on an ellipse.
+- **`glass` (7):** clear pot → board → hero hierarchy and tidy glass plates, and "better for" not having the glow. Faults:
+  - The oval is still a game skin no other screen uses.
+  - The same orphan condensed numerals.
+  - At 4 seats the active villain is not distinguished; at 6 and 9 it only wins by size.
+  - **At 9 seats the oval's hairline runs through the folded compact seats.** Legible at 900x640, with nothing overlapping, but
+    with uneven mid-side spacing and Bo's quip truncated.
+- **`glass-r4` (5):** the pot is smaller than the hero's stack, which inverts the hierarchy. The double rail is the loudest shape, the
+  3D chip is skeuomorphic, and the plateless seats lose the active and folded states. At 6 and 9 seats the seat labels sit on the rail
+  stroke: "900x640 at 9 seats is technically legible but not acceptable." This matches the AA check, where those renders fail at
+  3.2–3.65:1.
+
+| Variant | hier | type | color | material | space | consist | states | a11y | craft | apple | fit | scales |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `sports` | 8.17 | 6.80 | 8.17 | 7.83 | 7.67 | 8.00 | 7.83 | 7.67 | 7.50 | 7.83 | 8.17 | 7.83 |
+| `glass` | 7.67 | 6.80 | 7.83 | 7.67 | 8.00 | 8.00 | 7.83 | 7.67 | 7.17 | 7.67 | 7.17 | 7.33 |
+| `sports+glow` | 8.17 | 6.80 | 7.33 | 7.83 | 7.67 | 8.00 | 7.83 | 7.67 | 7.50 | 7.83 | 8.00 | — |
+| `glass+glow` | 7.67 | 6.80 | 7.17 | 7.67 | 8.00 | 8.00 | 7.67 | 7.67 | 7.33 | 7.67 | 7.17 | — |
+| `glass-r4` | 6.50 | 8.00 | 7.83 | 6.83 | 7.50 | 7.17 | 7.50 | 7.67 | 7.00 | 7.17 | 7.33 | 6.33 |
+
+**Limits**
+- There was one rater, and ±0.3 is within rater noise.
+- This rating is not comparable with ratings 1–2 below (a different rater and a different set). Even so, `glass` moved from 6 to 7 and
+  `glass-r4` scored 5 here, which is consistent with its earlier 6s.
+- `type` is 6.8 on all three variants that use the condensed numerals. The rater wants SF Pro tabular instead. This is the open
+  condensed-figures decision.
+- The `sports` 4-seat render now comes from the layout rule, not round 4's hand placement. The positions are the same.
+
+---
+
+## Ratings 1–2 (round 4): seven table surfaces
 
 Two fresh blind raters (subagents that did not design this) scored the variants. Labels V1…Vn were randomised and the keys were kept from them (`tests/tmp/vblind-key.json`, `tests/tmp/vblind2-key.json`). The rubric is the round-3 one (`tests/tmp/sc/rubric.md`, 11 categories) plus **fit**: how well the table fits the rest of the app, judged against Home, Charts and Drill.
 Six table elements were rated per variant (surface, seat, pot + board, hero, bet, card backs), from DPR-2 crops plus the full live and verdict screens.

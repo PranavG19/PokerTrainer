@@ -1,4 +1,4 @@
-/* Offsuit · round 4 — table-surface variants. Pick with table.html?felt=green|midnight|glass|ink|scoreboard|classic.
+/* Offsuit · round 4 — table-surface variants. Pick with table.html?felt=green|midnight|glass|glass-r4|ink|scoreboard|classic|sports, and &seats=4|6|9 (table-seats.js).
  * Only the table surface and what sits on it change; chrome, dock, sheets and every other screen are round 3.
  * green (the default, no attribute rules) is the round-3 spruce felt and serves as the baseline. */
 
@@ -23,25 +23,25 @@ html[data-felt='midnight'] .felt::after { inset: 12px; box-shadow: inset 0 0 0 0
 html[data-felt='midnight'] .sheet-open .felt { background: radial-gradient(80% 85% at 50% 45%, oklch(0.165 0.005 262), oklch(0.115 0.004 262) 70%, oklch(0.085 0.004 262)); }
 html[data-felt='midnight'] .hero-plate::before { background: radial-gradient(closest-side, oklch(1 0 0 / 0.08), transparent); }
 
-/* ───────────── 2. Tinted glass table: a frosted slab that picks up the desktop ───────────── */
-html[data-felt='glass'] .rail {
+/* ───────────── 2. glass-r4: the round-4 tinted glass table, kept for comparison (refined `glass` is at the end) ───────────── */
+html[data-felt='glass-r4'] .rail {
   background: oklch(0.40 0.012 262 / 0.10);
   -webkit-backdrop-filter: blur(28px) saturate(175%); backdrop-filter: blur(28px) saturate(175%);
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.20), inset 0 -1px 0 oklch(0 0 0 / 0.25), 0 30px 70px -30px oklch(0 0 0 / 0.75);
 }
-html[data-felt='glass'] .rail::before { /* specular rim, the same 0.5px gradient ring the floats use */
+html[data-felt='glass-r4'] .rail::before { /* specular rim, the same 0.5px gradient ring the floats use */
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 0.5px; pointer-events: none;
   background: linear-gradient(180deg, oklch(1 0 0 / 0.34), oklch(1 0 0 / 0.06) 45%, oklch(1 0 0 / 0.12));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
 }
-html[data-felt='glass'] .felt { /* the playing area: a darker inset pane of the same slab (no second blur) */
+html[data-felt='glass-r4'] .felt { /* the playing area: a darker inset pane of the same slab (no second blur) */
   inset: 14px;
   background: radial-gradient(48% 52% at 50% 38%, oklch(1 0 0 / 0.07), transparent 72%), oklch(0.16 0.01 262 / 0.22);
   box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12), inset 0 10px 24px -10px oklch(0 0 0 / 0.55);
 }
-html[data-felt='glass'] .felt::before { display: none; }
-html[data-felt='glass'] .felt::after { inset: 10px; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.07); }
-html[data-felt='glass'] .sheet-open .felt { background: oklch(0.16 0.01 262 / 0.22); }
+html[data-felt='glass-r4'] .felt::before { display: none; }
+html[data-felt='glass-r4'] .felt::after { inset: 10px; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.07); }
+html[data-felt='glass-r4'] .sheet-open .felt { background: oklch(0.16 0.01 262 / 0.22); }
 
 /* ───────────── 3. Deep ink felt: real cloth, in the background's own slate ───────────── */
 html[data-felt='ink'] { --felt-a: #1D2A45; --felt-b: #131D33; --felt-c: #0B1222; --lamp: oklch(0.95 0.01 250 / 0.085); }
@@ -112,3 +112,102 @@ html[data-felt='sports'] .hero-plate::before { display: none; }
 html[data-felt='sports'] .hero-plate.folded { background: oklch(1 0 0 / 0.035); }
 html[data-felt='sports'] .hero-plate .stackval { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 34px; line-height: 1; letter-spacing: 0; }
 html[data-felt='sports'] .predicting .hero-plate { bottom: 112px; }
+
+/* ───────────── 7. glass: the tinted slab, refined (glass-r4's blind-rating problems → fixes in DECISIONS.md) ─────────────
+ * Borrowed from `sports`: the coat is the ground, glass only where something floats, colour only for meaning.
+ * The oval is the one structural idea: a smaller, real frosted slab that holds the pot and board, with every
+ * seat sitting on its rim in the same row-card treatment. Positions come from table-seats.js (ring layout). */
+html[data-felt='glass'] .rail {
+  left: 16%; right: 16%; top: 13%; bottom: 27%; border-radius: 50%;
+  background: linear-gradient(180deg, oklch(1 0 0 / 0.075), oklch(1 0 0 / 0.035) 38%, oklch(0.10 0.01 262 / 0.20));
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.22),                      /* specular top edge */
+    inset 0 -22px 40px -22px oklch(0 0 0 / 0.45),           /* soft inner shadow: the slab has thickness */
+    inset 0 0 0 0.5px oklch(1 0 0 / 0.10),
+    0 30px 60px -30px oklch(0 0 0 / 0.75);
+}
+html[data-felt='glass'] .rail::before { /* sheen: light catching the top of the glass, not a second rim */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(56% 34% at 50% 0%, oklch(1 0 0 / 0.08), transparent 72%);
+}
+html[data-felt='glass'] .felt { /* the lit zone under the board: the focal point */
+  inset: 0; border-radius: inherit; box-shadow: none;
+  background: radial-gradient(38% 40% at 50% 55%, oklch(1 0 0 / 0.05), transparent 72%);
+}
+html[data-felt='glass'] .felt::before, html[data-felt='glass'] .felt::after { display: none; }
+html[data-felt='glass'] .sheet-open .felt { background: none; }
+html[data-felt='glass'] .center { gap: 10px; }
+html[data-felt='glass'] .pot { flex-direction: column; align-items: center; gap: 0; }
+html[data-felt='glass'] .pot .lbl { font-size: var(--t-foot); color: var(--ink-2); }
+html[data-felt='glass'] .pot .val { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 54px; line-height: 0.95; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+html[data-felt='glass'] .board .card { --w: 50px; }
+html[data-felt='glass'] .card.well { background: oklch(1 0 0 / 0.02); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.14); }
+html[data-felt='glass'] .hero-plate { padding: 12px 18px 12px 12px; border-radius: 18px;
+  background: linear-gradient(105deg, rgba(61, 220, 151, 0.22), rgba(61, 220, 151, 0.06) 55%, oklch(0.20 0.012 262 / 0.55));
+  -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.14), inset 0 1px 0 oklch(1 0 0 / 0.10), 0 12px 28px -14px oklch(0 0 0 / 0.7); }
+html[data-felt='glass'] .hero-plate::before { display: none; }
+html[data-felt='glass'] .hero-plate.folded { background: oklch(0.20 0.012 262 / 0.55); }
+html[data-felt='glass'] .hero-plate .stackval { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 34px; line-height: 1; letter-spacing: 0; }
+/* Seats on the rim float over the slab edge, so they are the one other glass: a small frosted row card. */
+html[data-felt='glass'] [data-layout] .seat { -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%);
+  background: oklch(0.20 0.012 262 / 0.55); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12), inset 0 1px 0 oklch(1 0 0 / 0.07), 0 10px 24px -14px oklch(0 0 0 / 0.7); }
+html[data-felt='glass'] [data-layout] .seat.folded { background: oklch(0.18 0.01 262 / 0.30); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.07); -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ───────────── Seat layout (table-seats.js): one seat-card system for glass and sports at any count ───────────── */
+html [data-layout] .seat { padding: 10px 14px 10px 10px; border-radius: 16px; align-items: center; background: oklch(1 0 0 / 0.04); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.10); }
+html [data-layout] .seat.r { flex-direction: row-reverse; text-align: right; padding: 10px 10px 10px 14px; }
+html [data-layout] .seat.r .who { align-items: flex-end; }
+html [data-layout] .seat .name { font-size: var(--t-foot); }
+html [data-layout] .seat .stackval { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 24px; line-height: 1; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+html [data-layout] .seat .quip { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+/* Hierarchy below the hero: the seat with the live bet leads the villains; folded seats drop their plate. */
+html [data-layout] .seat.live { box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.24), inset 0 1px 0 oklch(1 0 0 / 0.12), 0 10px 24px -14px oklch(0 0 0 / 0.7); }
+html [data-layout] .seat.live .stackval { font-size: 28px; }
+html [data-layout] .seat.folded { background: transparent; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.07); }
+html [data-layout] .seat.folded .cards { opacity: 0.35; }
+html [data-layout] .seat.folded .stackval { font-size: 20px; }
+/* Busted: an empty chair, outlined, no cards. */
+html [data-layout] .seat.out { background: transparent; box-shadow: none; outline: 1px dashed oklch(1 0 0 / 0.16); outline-offset: -1px; padding: 9px 14px; }
+html [data-layout] .seat.out .name { color: var(--ink-2); }
+html [data-layout] .seat .dealer { position: absolute; top: 50%; margin-top: -11px; right: -15px; }   /* on the seat's inner edge, clear of the stack */
+html [data-layout] .seat.r .dealer { right: auto; left: -15px; }
+/* The bet is a flat pill (sports), wherever the seat is. */
+html [data-layout] .bet { padding: 4px 12px; border-radius: 999px; background: oklch(0.20 0.012 262 / 0.6); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.14); font-weight: 600; white-space: nowrap; }
+html [data-layout] .bet .chips { display: none; }
+html [data-layout] .bet::before { content: "Bet"; color: var(--ink-2); font-weight: 500; margin-right: 6px; }
+/* Compaction. mid (5–6 seats): smaller cards, no archetype tag, a shorter quip. */
+html [data-density='mid'] .seat { gap: 8px; padding: 8px 12px 8px 8px; }
+html [data-density='mid'] .seat.r { padding: 8px 8px 8px 12px; }
+html [data-density='mid'] .seat .card { --w: 26px; }
+html [data-density='mid'] .seat .arch { display: none; }
+html [data-density='mid'] .seat .quip { max-width: 112px; }
+/* compact (7–9 seats): the stack is what survives. Quips only on the live seat; folded seats show no cards. */
+html [data-density='compact'] .seat { gap: 7px; padding: 6px 10px 6px 6px; border-radius: 14px; }
+html [data-density='compact'] .seat.r { padding: 6px 6px 6px 10px; }
+html [data-density='compact'] .seat .card { --w: 21px; }
+html [data-density='compact'] .seat .arch { display: none; }
+html [data-density='compact'] .seat .quip { display: none; }
+html [data-density='compact'] .seat.live .quip { display: block; max-width: 92px; }
+html [data-density='compact'] .seat .stackval { font-size: 20px; }
+html [data-density='compact'] .seat.live .stackval { font-size: 22px; }
+html [data-density='compact'] .seat.folded .cards { display: none; }
+html [data-density='compact'] .seat.folded { padding: 6px 10px; }
+html [data-density='compact'] .seat.folded .stackval { font-size: 18px; }
+html [data-density='compact'] .seat.out { padding: 6px 10px; }
+/* sports at 9: the hero card sits a little lower so the side columns get room */
+html[data-felt='sports'] [data-density='compact'] .hero-plate { bottom: 90px; }
+
+/* ───────────── &glow=1: a very faint green under the board (the raters' "sense of place" suggestion) ───────────── */
+html[data-glow][data-felt='glass'] .felt { background: radial-gradient(34% 36% at 50% 56%, rgba(61, 220, 151, 0.085), transparent 72%), radial-gradient(38% 40% at 50% 55%, oklch(1 0 0 / 0.05), transparent 72%); }
+html[data-glow][data-felt='sports'] .rail { background: radial-gradient(24% 26% at 50% 50%, rgba(61, 220, 151, 0.085), transparent 72%), radial-gradient(62% 58% at 50% 47%, oklch(0.06 0.01 262 / 0.42), transparent 72%); }
+/* Folded seats keep their quip only at full density; past 4 seats it is the first thing to go. */
+html [data-density='mid'] .seat.folded .quip { display: none; }
+/* glass-r4 at 6/9 seats (comparison only): the same placement rule and compaction, round 4's bare-type seats and chip bets. */
+html[data-felt='glass-r4'] [data-layout] .seat, html[data-felt='glass-r4'] [data-layout] .seat.live, html[data-felt='glass-r4'] [data-layout] .seat.folded { background: none; box-shadow: none; padding: 0; }
+html[data-felt='glass-r4'] [data-layout] .seat .stackval, html[data-felt='glass-r4'] [data-layout] .seat.live .stackval, html[data-felt='glass-r4'] [data-layout] .seat.folded .stackval { font-family: var(--font); font-stretch: 100%; font-weight: 500; font-size: var(--t-body); }
+html[data-felt='glass-r4'] [data-layout] .seat .name { font-size: var(--t-body); }
+html[data-felt='glass-r4'] [data-layout] .bet { padding: 0; background: none; box-shadow: none; }
+html[data-felt='glass-r4'] [data-layout] .bet .chips { display: inline-flex; }
+html[data-felt='glass-r4'] [data-layout] .bet::before { content: none; }

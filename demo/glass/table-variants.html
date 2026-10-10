@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Offsuit — table surface variants (round 4)</title>
-<!-- Gallery of the round-4 table surfaces. Each tile links to the live mock: table.html?felt=<id>&state=live|verdict.
+<title>Offsuit — table surface variants</title>
+<!-- Gallery of the round-4 table surfaces. Each tile links to the live mock: table.html?felt=<id>&state=live|verdict&seats=4|6|9.
      Only the table surface and what sits on it differ; chrome, dock, sheets and other screens are round 3. -->
 <style>
   body { margin: 0; background: #0B0C0F; color: #E9EBEE; font: 13px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
@@ -19,28 +19,46 @@
   dt { color: #AEB4BC; } dd { margin: 0; }
   a { color: #E9EBEE; } .links { font-size: 12px; color: #AEB4BC; }
   .base { opacity: 0.92; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: rgba(255,255,255,0.06); margin: 0 0 22px; }
+  .seg button { font: inherit; color: #C0C6CD; background: none; border: 0; padding: 5px 14px; border-radius: 7px; cursor: pointer; }
+  .seg button[aria-pressed='true'] { background: rgba(255,255,255,0.14); color: #F3F4F6; }
+  .fixed { opacity: 0.45; } .note { font-size: 12px; color: #AEB4BC; }
 </style>
 </head>
 <body><main>
 <h1>Table surface variants</h1>
-<p class="sub">Round 4 changes only the table: the surface, the rail, the seats, the pot, the chips and the empty slots. Each tile shows the live table at 1100×760 and the verdict sheet over it, which is unchanged from round 3. All variants pass WCAG AA (<code>variants-contrast.log</code>). Scores from two blind raters are in <code>SCORECARD-TABLE.md</code>.</p>
+<p class="sub">Only the table changes: the surface, the rail, the seats, the pot, the chips and the empty slots. Each tile shows the live table at 1100×760 and the verdict sheet over it, which is unchanged from round 3. Every variant passes WCAG AA at 4 seats (<code>variants-contrast.log</code>), and <code>glass</code> and <code>sports</code> pass at 6 and 9 too; <code>glass-r4</code> fails there, where its seat text lands on the rail (<code>r5-contrast.log</code>). Blind scores are in <code>SCORECARD-TABLE.md</code>. The seat toggle shows <code>glass</code>, <code>glass-r4</code> and <code>sports</code> at 4, 6 and 9 seats; the full grid is <code>variants/scaling/compare-scaling.jpg</code>.</p>
+<div class="seg" role="group" aria-label="Seats at the table"><button aria-pressed="true" data-n="4">4 seats (solo)</button><button aria-pressed="false" data-n="6">6-max (LAN maximum)</button><button aria-pressed="false" data-n="9">9-max (beyond the app)</button></div>
 <div class="grid" id="grid"></div>
 </main>
 <script>
   const V = [
     ['green', 'Round 3 green (baseline)', 'A desaturated spruce wool felt in a matte leather rail, lit by a warm lamp.', 'Little. A real cloth table; the green is the classic poker cue.', 'The most "poker". Its hue is the one colour in the app that is not in the background palette.'],
     ['midnight', 'Midnight / graphite', 'A near-black graphite surface with no hue. The table is defined by light: a soft top lamp, a hairline rail and a hairline inlay. Cards and chips are the only colour.', 'The dark canvas that is never flat (depth from light, not texture); colour reserved for identity.', 'The calmest and most "Apple". It risks reading as an empty dark oval and loses the felt\'s warmth.'],
-    ['glass', 'Tinted glass table', 'The table is a frosted slab over the round-3 background. It picks up the desktop\'s colour, with a specular rim and a darker inset playing area.', 'The frosted Upcoming list on a blurred field, with a lifted pane.', 'The most on-theme with the coat. The table and the coat are both glass, so the hierarchy between them is thin, and it costs one more backdrop blur.'],
+    ['glass', 'Tinted glass, refined', 'A smaller, real frosted slab that holds only the pot and board, with a specular top edge and a soft inner shadow. Every seat is a small frosted row card on its rim; the live bettor gets a brighter rim, folded seats lose the plate. The pot and stacks borrow the sports scoreboard numerals; the hero gets the one mint wash.', 'The frosted Upcoming list (glass only where something floats), score typography and the team-colour wash.', 'Blind rating 3: 7 overall, fit 7.17, scales 7.33, up from 5 for glass-r4. The best oval, and it holds at 9 seats with no overlaps, but the rater still reads the oval as a game skin, and at 9 seats its hairline crosses the folded seats.'],
+    ['glass-r4', 'Tinted glass (round 4)', 'The round-4 slab, kept for comparison: a large frosted oval with a darker inset pane and bare-type seats.', 'The frosted Upcoming list on a blurred field, with a lifted pane.', 'Both raters: the oval framed an empty field, the pot did not lead, and the seats had no container or states.'],
     ['ink', 'Deep ink felt', 'Real cloth, re-dyed into the background\'s own slate navy, with the same weave, lamp and rail as round 3.', 'A tinted canvas that matches its surroundings instead of fighting them.', 'The smallest change from green, and it keeps the warmth of a felt. Navy reads less "casino".'],
     ['scoreboard', 'Scoreboard', 'Less literal oval: a tinted near-black panel. The pot is the score in heavy condensed tabular numerals, seats are team-row cards with condensed stacks, and one mint wash marks your turn.', 'The most: score typography, row cards, and a team-colour wash for whose turn it is.', 'The strongest information hierarchy. Least like a physical table, and the condensed face needs SF Pro\'s width axis in Electron.'],
-    ['sports', 'Sports (recommended)', 'The scoreboard idea refined after the first blind rating. There is no table plate: the coat is the canvas and a dark lit zone holds the play. Quiet glass row cards for the seats, a flat "Bet 75" pill, outlined turn and river wells, the pot as a heavy condensed SF score, and one mint wash for your turn.', 'Score typography, restrained row cards, the canvas as the whole window, team-colour-as-accent.', 'The top pick and best fit in blind rating 2 (it postdates rating 1). It has the least literal poker-table cue, and the condensed figures appear only on this screen until the rest of the app adopts them.'],
+    ['sports', 'Sports (recommended)', 'The scoreboard idea refined after the first blind rating. There is no table plate: the coat is the canvas and a dark lit zone holds the play. Quiet glass row cards for the seats, a flat "Bet 75" pill, outlined turn and river wells, the pot as a heavy condensed SF score, and one mint wash for your turn.', 'Score typography, restrained row cards, the canvas as the whole window, team-colour-as-accent.', 'Recommended. Blind rating 3: 8 overall, fit 8.17, scales 7.83, the top pick. At 9 seats it becomes a scoreboard U (four across the top, two per side). Less literal as a table, and the condensed figures appear only on this screen until the rest of the app adopts them.'],
     ['classic', 'Muted classic (control)', 'A darker, desaturated green felt with a neutral lamp: the green question answered as refined green.', 'Restraint only.', 'Shows whether a refined green would have been enough.'],
   ];
-  document.getElementById('grid').innerHTML = V.map(([id, t, idea, borrow, trade]) => `<article${id === 'green' ? ' class="base"' : ''}>
-    <h2>${t} <code>?felt=${id}</code></h2>
-    <div class="shots"><a href="table.html?felt=${id}"><img src="variants/${id}-live-1100x760.jpg" alt="${t}, live table"></a><a href="table.html?felt=${id}&state=verdict"><img src="variants/${id}-verdict-1100x760.jpg" alt="${t}, verdict sheet"></a></div>
+  const SCALES = ['sports', 'glass', 'glass-r4'];   // laid out by table-seats.js at 4, 6 and 9 seats
+  const shot = (id, n, st) => SCALES.includes(id) ? `variants/scaling/${id}-${n}-${st}-1100x760.jpg` : `variants/${id}-${st}-1100x760.jpg`;
+  function render(n) {
+    document.getElementById('grid').innerHTML = [...V].sort((a, b) => (SCALES.indexOf(b[0]) > -1) - (SCALES.indexOf(a[0]) > -1) || (SCALES.indexOf(a[0]) - SCALES.indexOf(b[0]))).map(([id, t, idea, borrow, trade]) => {
+      const scales = SCALES.includes(id), m = scales ? n : 4, q = `felt=${id}${scales ? '&seats=' + m : ''}`;
+      return `<article class="${id === 'green' ? 'base' : ''} ${!scales && n !== 4 ? 'fixed' : ''}">
+    <h2>${t} <code>?${q}</code></h2>
+    <div class="shots"><a href="table.html?${q}"><img src="${shot(id, m, 'live')}" alt="${t}, live table, ${m} seats"></a><a href="table.html?${q}&state=verdict"><img src="${shot(id, m, 'verdict')}" alt="${t}, verdict sheet"></a></div>
+    ${!scales && n !== 4 ? '<div class="note">Shown at 4 seats: only glass, glass-r4 and sports were laid out for more seats.</div>' : ''}
     <dl><dt>Idea</dt><dd>${idea}</dd><dt>From Apple Sports</dt><dd>${borrow}</dd><dt>Trade-offs</dt><dd>${trade}</dd></dl>
-    <div class="links">Open: <a href="table.html?felt=${id}">live</a> · <a href="table.html?felt=${id}&state=predict">commit first</a> · <a href="table.html?felt=${id}&state=verdict">verdict</a> · 900×640 shots in <code>variants/${id}-*-900x640.jpg</code></div>
-  </article>`).join('');
+    <div class="links">Open: <a href="table.html?${q}">live</a> · <a href="table.html?${q}&state=predict">commit first</a> · <a href="table.html?${q}&state=verdict">verdict</a> · 900×640 shots in <code>${scales ? `variants/scaling/${id}-${m}-*-900x640.jpg` : `variants/${id}-*-900x640.jpg`}</code></div>
+  </article>`; }).join('');
+  }
+  document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    render(Number(b.dataset.n));
+  }));
+  render(4);
 </script>
 </body></html>

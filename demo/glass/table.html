@@ -159,6 +159,10 @@
   // Round 4: table-surface variant (green = round 3 baseline).
   const felt = new URLSearchParams(location.search).get('felt') || 'green';
   document.documentElement.dataset.felt = felt;
+  if (new URLSearchParams(location.search).get('glow')) document.documentElement.dataset.glow = '';
+</script>
+<script src="table-seats.js"></script>
+<script>
   const $ = (id) => document.getElementById(id);
   if (state !== 'live') $('coachBtn').setAttribute('aria-checked', 'true'); // predict, gate and verdict only exist in coached mode
   if (state === 'predict') { $('tray').hidden = false; $('dock').hidden = true; $('stage').classList.add('predicting'); }

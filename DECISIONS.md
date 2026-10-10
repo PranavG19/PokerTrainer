@@ -6,6 +6,113 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Table: refined tinted glass, and more seats
+The user is leaning to `sports` and the tinted `glass` table. `?felt=glass` is now the refined slab; the
+round-4 version stays as `?felt=glass-r4`. The seat count is switchable: `table.html?felt=glass&seats=6`
+(4, 6 or 9).
+
+### What was wrong with `glass-r4` (both blind raters) → the fix
+- **The oval framed an empty field.** The rail filled about 80% of the window with nothing in it but a
+  dead zone between the board and the hero (rating 2 surface hier/space; rating 1 space). → The slab is
+  smaller and holds only the pot and board; the seats sit on its rim.
+- **The rail was neither glass nor coat.** It had two concentric hairlines of different opacities that
+  read as an embossed tabletop or a "CSS donut" (rating 1 material/craft; rating 2 material). → One real
+  frosted slab: one 0.5px rim, a specular top edge, a soft inner shadow, and no inner pane.
+- **The pot did not lead.** "Pot 225" was about 20px, lower than the hero's 34px stack (both raters, pot
+  and hero hier). → The pot uses the `sports` scoreboard numeral and is the largest figure on the table.
+- **Seats were loose type on the surface.** Name, stack and quip sat at one level with no container, unlike
+  the app's row cards (rating 2 seat consist/hier). → Seats use the `sports` row card, the same radius,
+  fill and condensed stack for every seat.
+- **No seat states.** Nothing marked the active villain or the folded seats (both raters, seat states). →
+  The seat with the live bet gets a brighter rim and full-ink text, folded seats lose the plate, and busted
+  seats show as an outlined empty chair.
+- **Empty turn and river slots vanished** (1.15:1). → 1px outlined wells, as in `sports`.
+- **The bet was a 3D chip** (rating 2 bet apple 4). → The flat "Bet 75" pill from `sports`.
+- **The hero was not distinguished** except by the green dot. → The `sports` mint wash on the hero card:
+  colour reserved for whose turn it is.
+- **No identity or sense of place** (rating 2 colour). → A very faint green glow under the board was tried on
+  both `glass` and `sports` (`&glow=1`) and **not adopted**. The blind rater preferred the version without it
+  in both pairs (`glass` 7 vs 6 overall, `sports` 8 vs 7), saying it is decoration that dilutes the "Your
+  turn" green. The `&glow=1` switch stays in the mock for reference only.
+
+### Result and recommendation (blind rating 3, `SCORECARD-TABLE.md`)
+- **Scores:** `sports` 8 overall (fit 8.17, scales 7.83). Refined `glass` 7 (fit 7.17, scales 7.33).
+  `glass-r4` 5 (fit 7.33, scales 6.33). The refinement lifted `glass` by 2 over its round-4 self in the same
+  rating, but `sports` still beats it on every summary score.
+- **Recommendation: ship `sports`**, with its 6- and 9-seat rows layout. `glass` is the alternative if you
+  want a literal table shape.
+  - It is the better oval, and it scales to 9 seats at 900x640 with no overlaps.
+  - The rater still reads the oval as a game skin no other screen uses.
+  - At 9 seats the oval's hairline runs through the folded seats.
+- **Rater fixes not yet applied (unrated):**
+  - `sports`:
+    - Close the about-170pt gap between the price line and the hero at 1100x760.
+    - Drop one of the hero's two greens (the wash or the green "Your turn" text).
+    - Move the dealer button off the hero's card.
+  - `glass`:
+    - Give folded rim seats the frosted fill, so the rim hairline stops cutting through them.
+    - Mark the active villain at 4 seats too.
+  - Both: the condensed numerals (`type` 6.8) are the open decision below.
+
+### Seat counts the real app supports
+- **Solo play: hero plus 3**, fixed. The table screen seats `['You', 'Ada', 'Bo', 'Cy']`
+  ([table.ts:83](/Users/pranavgk/Documents/scratch/temp/Poker/src/renderer/screens/table.ts:83)).
+- **LAN multiplayer: 2 to 6 seats.**
+  - The room rejects anything outside 2..6
+    ([multiplayer.ts:131](/Users/pranavgk/Documents/scratch/temp/Poker/src/core/multiplayer.ts:131)).
+  - The main process clamps the host request to 2..6, default 3
+    ([main.ts:292](/Users/pranavgk/Documents/scratch/temp/Poker/src/main/main.ts:292)).
+  - The host picker offers 2 to 6 ([multiplayer.ts:352](/Users/pranavgk/Documents/scratch/temp/Poker/src/renderer/screens/multiplayer.ts:352)).
+  - The relay comments that "2–6 seats a real table uses"
+    ([relayHost.ts:44](/Users/pranavgk/Documents/scratch/temp/Poker/src/main/relayHost.ts:44)).
+  - The multiplayer screen draws seats as a list of rows, not an oval
+    ([multiplayer.ts:444](/Users/pranavgk/Documents/scratch/temp/Poker/src/renderer/screens/multiplayer.ts:444)).
+- **The engine has no cap.** `createTable` takes any seat array
+  ([table.ts:120](/Users/pranavgk/Documents/scratch/temp/Poker/src/core/table.ts:120)). The six
+  archetypes are villain styles, not seats
+  ([archetypes.ts:2](/Users/pranavgk/Documents/scratch/temp/Poker/src/core/archetypes.ts:2)).
+- **9-max exceeds today's maximum of 6.** It is mocked as a stress case only.
+
+### Seat layout algorithm (`demo/glass/table-seats.js`)
+- **Order:** villains go clockwise from the hero, who is on the button. Seat 1 is always the small blind,
+  on the hero's left.
+- **Ring layout (`glass`, and `glass-r4` for comparison).**
+  - Villains sit on the slab's rim ellipse, spaced evenly by arc length (not by angle, which bunches the
+    end seats).
+  - The arc's half-width from 12 o'clock is 90° for up to 3 villains, 112° for 5 and 124° for 8. Extra
+    seats wrap down the sides toward the hero.
+  - A seat is clamped 12px inside the window.
+  - The hero holds the bottom of the rim. The pot and board sit 4% below the slab's centre.
+- **Rows layout (`sports`): a scoreboard U.**
+  - Each side column holds `max(1, round(k/4))` seats, where k is the number of villains. The rest form one
+    top row across 27–73% of the width.
+  - Columns fill the band between the top row and the hero.
+- **Bets.**
+  - A bet sits 8px inside its seat, on the line to the pot.
+  - If that spot hits the board, the price line, a seat, the hero or another bet, it tries straight across,
+    then straight up or down, stepping outward 4px at a time.
+  - In the rows layout, a top-row seat bets straight down and a column seat straight across, so ownership
+    reads by alignment.
+- **Dealer button:** on the seat's inner edge, vertically centred, clear of the stack figure.
+- **Compaction.**
+  - Full (4 seats): the round-4 seat card.
+  - Mid (5–6): cards 30 → 26px, no "Unknown" tag, the quip cut to 112px, folded seats drop the quip.
+  - Compact (7–9): cards 21px, no quips except on the live seat, folded seats show no cards, and stacks
+    shrink to 20px (22px live) but stay condensed and legible.
+- **States:**
+  - The live bettor gets a brighter rim and a larger stack.
+  - Folded seats lose the plate and are dimmed.
+  - A busted seat is a dashed empty chair reading "Sitting out".
+- **Verified by:** [r5-capture.log](/Users/pranavgk/Documents/scratch/temp/Poker/tests/tmp/r5-capture.log),
+  48 renders, all passing the layout guard. The guard checks for no clipping, no truncated names or
+  stacks, and no overlap between seats, hero, bets, pot, board, price, corners, dock and dealer, and that
+  the glass slab clears the dock.
+  - It includes probes with every villain betting and the button on a villain, at 6 and 9 seats.
+  - AA was checked on all 48: [r5-contrast.log](/Users/pranavgk/Documents/scratch/temp/Poker/tests/tmp/r5-contrast.log).
+    All 36 `glass` and `sports` renders pass (minimum 4.93:1 against the 4.5 bar).
+  - The only failures are `glass-r4` at 6 and 9 seats, at 3.2–3.65:1. There the bare-type seats land on
+    its rail hairline, which is a reason the round-4 surface does not scale.
+
 ## Round 4 — the table surface (green under review)
 The user likes the direction but questions the green felt. Round 4 changes only the table surface and what
 sits on it, offering switchable variants (`table.html?felt=…`). Everything else stays as in round 3.
@@ -92,7 +199,7 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
   - If the condensed figures ship, adopt them for the Home bankroll and the Charts/Drill stats too, so they
     belong to the system, not one screen. This is a fork for the user.
   - The e2e pot pin (14px/500) and the to-act pin must be updated.
-  - The table loses its oval, so `screens/table.ts` positions seats as row cards.
+  - The table loses its oval, so `screens/table.ts` positions seats as row cards. The rows rule, the bet placement and the compaction tiers in `demo/glass/table-seats.js` port as a pure function of the seat count and the stage size. It belongs beside `seatPositions.ts`, and it would also let the multiplayer screen's list become a table.
 
 ## Round 3 — system decisions
 - **The coat's blur never rendered in round 2.** An independent rater found the desktop's contour lines showing
@@ -288,7 +395,8 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
 - Charts open cells are graphite on an opaque base. Bone is reserved for real cards, and the base stops the
   wallpaper from tinting data cells into a fake heatmap. If overruled, use bone cells, and expect a white wall
   at 1100x760.
-- **Table surface (round 4):** `sports` is recommended over round-3 green. If overruled, choose `glass` (the best-fitting oval) or keep green, accepting the fit cost both raters measured.
+- **Table surface:** `sports`, with a scoreboard rows layout up to 9 seats, is recommended over the refined `glass` oval (8 vs 7 overall, scales 7.83 vs 7.33) and over round-3 green. If overruled, ship `glass` with its ring layout and accept the lower fit score; or keep green, accepting the fit cost two earlier raters measured.
+- **Green glow under the board:** not adopted (it lost in both A/B pairs). If overruled, `&glow=1` is ready on either surface.
 
 ## Open questions
 - Can Electron get the real look? The mock fakes vibrancy with a CSS "desktop" (dune bands with contour
