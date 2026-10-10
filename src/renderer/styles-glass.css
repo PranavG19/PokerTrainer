@@ -471,7 +471,7 @@ select {
 .table-screen .seat-talk::after { content: '\201D'; }
 .table-screen .seat-out {
   font-size: 11px;
-  color: var(--ink-2);
+  color: var(--ink-1);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -554,12 +554,15 @@ select {
   left: -14px;
 }
 
-/* States. Opacity stays the folded/out channel (busted-seats.spec). */
+/* States. Opacity stays the folded/out channel (busted-seats.spec: live 1 > folded > out > 0), at values
+ * that keep the dimmed text AA on the coat (measured in app-contrast.log): 0.4 / 0.22 did not. */
 .table-screen .seat[data-folded='true'] {
+  opacity: 0.72;
   background: transparent;
   border-color: rgba(255, 255, 255, 0.07);
 }
 .table-screen .seat[data-out='true'] {
+  opacity: 0.56;
   background: transparent;
   border-style: dashed;
   border-color: rgba(255, 255, 255, 0.3);
@@ -648,7 +651,6 @@ select {
   width: 54px;
   height: 76px;
 }
-.table-screen .hero-wrap .seat > .board,
 .table-screen .hero-wrap .seat-avatar {
   display: none;
 }

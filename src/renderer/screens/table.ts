@@ -1059,9 +1059,10 @@ function renderSeat(
     el.appendChild(out);
   }
 
-  // Villain cards stay face-down until showdown; the hero always sees their own.
-  if (seat.hole.length > 0) {
-    const faceDown = !seat.isHero && !(showdown && !seat.folded);
+  // Villain cards stay face-down until showdown. The hero's seat is the hero plate, which already holds
+  // their hole cards full-size (render() moves the hero-cards row in), so it gets no second, small copy.
+  if (seat.hole.length > 0 && !seat.isHero) {
+    const faceDown = !(showdown && !seat.folded);
     el.appendChild(renderCardRow(seat.hole, { faceDown, small: true }));
   }
 

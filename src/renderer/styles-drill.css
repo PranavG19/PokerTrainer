@@ -71,7 +71,7 @@
 }
 
 .drill-support[data-rung='0'] {
-  color: var(--surface-hi);
+  color: var(--text-lo-2);
 }
 
 .drill-support:not([data-rung='0']) {

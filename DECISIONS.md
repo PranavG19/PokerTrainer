@@ -6,6 +6,81 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## The app restyle (shipped look: glass, with the `sports` table)
+The user chose `sports`. The real app (`src/renderer/`) now uses the glass system and the `sports` table.
+The mock in `demo/glass/` stays as the reference.
+
+### What changed, and where
+- **`styles-glass.css`** (new, loaded after the global sheets) holds the whole look.
+  - Tokens, a pre-blurred backdrop, one coat, a titlebar nav and one button system.
+  - Selected states, fields, floats, bone cards, grid-cell faces, and the table.
+  - Per-screen sheets are untouched. The few selected states they define are overridden with an `html`
+    prefix.
+- **`seatLayout.ts`** (new, pure, unit-tested in `tests/unit/seatLayout.test.ts`) is the scoreboard "U" rule
+  from the mock. It gives one or two seats per side column and the rest in the top row, clockwise from the
+  hero.
+- **`screens/table.ts`** has three small DOM changes:
+  - a `.table-stage` wrapper
+  - the pot as "Pot" plus a value span, with the text still "Pot N"
+  - the hero's seat moves onto the hero plate, together with the big hole cards
+  - Seat order in the document is unchanged (0, 1, 2, 3).
+- **`screens/settings.ts`:** the default theme's label reads "Glass". Its id stays `graphite`, so saved
+  settings still resolve.
+
+### Decisions
+- **The backdrop is drawn in the app and pre-blurred,** not real macOS vibrancy. A static `filter: blur` layer
+  is rasterised once, while a full-window `backdrop-filter` re-blurs on every repaint (`deal-perf.spec`
+  measures the flop). Contrast was measured on this exact backdrop. Real vibrancy needs a transparent window,
+  and contrast then depends on the user's wallpaper.
+- **Numerals are regular-width SF, heavy and tabular,** not the mock's condensed SF. Supersedes: condensed
+  figures across the app. The latest blind rater scored the condensed face 6.8 on type and asked for SF Pro
+  tabular, and it needs a system-font file hack that Electron's CSP would not load.
+- **The coach verdict, the gate and the commit row stay inline panels** under the table, now as glass
+  floats. They are not the mock's bottom sheets. Sheets would change focus and dismissal behaviour that a
+  dozen specs cover, so they are a separate change.
+- **Selected means the glass thumb** (a light fill with light ink) everywhere. It replaces the old white chip
+  and the white outlines. The committed prediction is a selection, so it is no longer mint.
+- **Grid cells get opaque graphite faces:** in range is `#474C55`, out is `#1C1F25`, a 3-bet is stronger. Bone
+  is reserved for real cards. The range editor and equity grids lose their decorative green. The opaque face
+  is also what lets the revealed-cell ring read (`charts.spec` 6b).
+- **Obsidian stays a paint-only alternative.** It is opaque near-black with the backdrop hidden, and switching
+  to it still causes no layout (`theme.spec`).
+- **Kept pins:**
+  - `--text-hi` stays white and `--positive` stays mint.
+  - The to-act ring (mint at 0.4 alpha with a 1.02 scale), and a resting seat's transform of `none`. Seats are
+    placed with `translate`, never `transform`.
+  - Fold has no shadow, and the enabled Raise is lifted. The secondary hairline is a border.
+  - A busted seat has a dashed edge.
+  - The seat opacity order holds: live is 1, then folded, then busted, all above 0.
+- **Folded and busted opacity moved from 0.4 / 0.22 to 0.72 / 0.56.** At the old values the dimmed seat
+  text failed AA on the coat (2.7–3.6:1 in `app-contrast.log`). The order is what `busted-seats.spec`
+  pins, not the values. "Out of chips" is now full ink, so it stays legible at 0.56.
+- **Three "quiet" captions were coloured with a surface token (`--surface-hi`),** which made them invisible
+  (1.2:1, before and after the restyle). They are now `--text-lo-2`:
+  - the charts class score with no attempts
+  - the drill's "when" tag
+  - the drill's "Full worked method" line
+  - The tab bar stays at or under 52px; it is 44px.
+- **Changed pin:** `interaction.spec`'s pot check asserted the old 14px/500 `.pot`. It now asserts what the
+  design intends: the pot figure is white, at least 700 weight, larger than every seat stack, and the text
+  still reads "Pot N".
+- **A pre-existing failure was fixed in the test,** in its own commit. `voice.spec` test 2 failed on `main`
+  before any restyle. Its second verdict is hand 2, because re-opening the table continues the hand
+  numbering, and that hand grades notable rather than the pinned hand-1 serious.
+
+### Tests: why no failing-first test, and what no test covers
+- **No failing-first test applies.** A restyle repairs no defect. The new behaviour with logic is the seat
+  rule, and `seatLayout.test.ts` covers it. The pot pin was rewritten to the new intent; it was not loosened.
+- **No test covers:**
+  - How the screens look, beyond the e2e colour, geometry and fit pins.
+  - The 6–9 seat compaction in the real app, which has 4 seats solo; the rule is unit-tested but only the
+    mock renders more seats.
+  - The obsidian theme's appearance.
+  - Hover and press states.
+  - The backdrop under `prefers-reduced-transparency`.
+  - The evidence for these is the Playwright screenshots of the running app (`tests/tmp/app/`) and the
+    contrast measurement on them (`app-contrast.log`).
+
 ## Table: refined tinted glass, and more seats
 The user is leaning to `sports` and the tinted `glass` table. `?felt=glass` is now the refined slab; the
 round-4 version stays as `?felt=glass-r4`. Links to `?felt=glass` in the round-4 records now open the refined slab; the version those ratings scored is `glass-r4`. The seat count is switchable: `table.html?felt=glass&seats=6`
