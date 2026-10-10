@@ -739,7 +739,7 @@ export function renderTable(opts: {
       el.style.setProperty('--n', String(slot.count));
     });
     seatsWrap.replaceChildren(...villainEls);
-    heroWrap.replaceChildren(...(heroEl ? [heroEl] : [heroCards]));
+    if (heroEl) heroWrap.replaceChildren(heroEl);
 
     // The commit row tracks whether a decision is pending, so it must be re-synced every render,
     // not only when the toggle is clicked.

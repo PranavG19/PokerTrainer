@@ -176,3 +176,58 @@ fixed. The scope, scores, contrast and reference-image checks were all clean.
 - `tests/tmp/r5-contrast.log`: 48 renders, re-run. All 36 `glass` and `sports` renders pass (minimum 4.93). The 5 failures are
   all `glass-r4` at 6 and 9 seats (3.21–3.65), as reported.
 - `git diff --stat 2c49d05..HEAD -- src package.json package-lock.json` is empty.
+
+## App restyle review (glass + sports table)
+- **Reviewer:** a separate subagent with no authoring context, following the pr-review skill.
+- **Verdict:** BLOCK at 2d96e45, with 3 Act on items. All are fixed in the follow-up commit; dispositions
+  below.
+- **Base:** bff2dd7. **Head:** 2d96e45.
+
+### Act on
+- **Fixed: at 900x640 on a river showdown, the board overlapped the right seat by 7px.** Side seats had no
+  width cap, and the revealed quip grew them to about 265px.
+  - Fix: side seats are capped at `calc(47% - 160px)`, and name, tag and quip ellipsise.
+  - A failing-first assertion was added: `layout.spec` 4, no seat overlaps the board or another seat at
+    showdown. It failed with "seat 3 x board" before the fix and passes after.
+- **Fixed: a busted seat's archetype tag failed AA** (3.95:1 at the 0.56 out-opacity). Every text on a
+  busted seat is now full ink. The AA run now includes a busted showdown and the next hand in both themes,
+  and the busted seats measure at least 5.7:1.
+- **Fixed: keyboard focus was invisible on the active Train rung.** The thumb's box-shadow beat
+  `:focus-visible`. Added `html .train-rail-btn:focus-visible { box-shadow: var(--focus-ring) }`.
+
+### Consider
+- **Fixed: Obsidian kept the failing `--text-lo-2` (#565C66)** on the quiet captions. Glass's obsidian block
+  now sets it to `--ink-3`, which is paint-only. The Obsidian AA run passes, including those captions.
+- **Fixed: stale "0.4 / 0.22" comments** in styles-glass.css and styles.css.
+- **Fixed: the hard-coded `100vh - 45px - 16px`.** It now derives from `--nav-h` and `--screen-pad-y`.
+- **Fixed: Home scrolled 13px at 900x640.** The planner-column padding is trimmed, and Home is 640px.
+- **Fixed: the showdown quip no longer brightened.** `.table-screen .seat-talk[data-revealed='true']` is now
+  ink-1.
+- **Kept: `seatLayout.ts` generality** (one caller with 3 villains). The user asked whether the table scales.
+  The rule is small, unit-tested, and the multiplayer screen could adopt it.
+
+### Noted
+- **The coached + gate + stats-open state at 900x640 still overflows the screen box by about 61px.** Base
+  overflowed by about 221px. The dock stays visible, and the e2e fit specs pass.
+- **Fixed: the dead `[heroCards]` fallback** in table.ts.
+- **Fixed: the stale rebuy.spec comment.**
+- **A folded hero dims their own hole cards.** DECISIONS now says so.
+- **The hero's border shorthand would reset a dashed edge.** Latent only: the hero is never `data-out`.
+
+### Dismissed (by the reviewer, with proof)
+- **Seat document order:** 0, 1, 2, 3 in every state.
+- **Pot text:** still "Pot N".
+- **The pot pin was weakened:** it was not. It fails if the pot shrinks.
+- **Theme geometry:** the obsidian block is paint only.
+- **To-act and winner pins:** they hold for the right reasons; seats use `translate`.
+- **The drag region:** it covers only tabs, which are `no-drag`.
+- **The voice.spec reasoning:** it holds, and the check is still non-vacuous.
+- **Scope:** nothing outside src/renderer and the tests changed.
+
+### Verification after the fixes
+- `npm run typecheck` is clean.
+- Targeted e2e runs pass:
+  - layout, session-plan, train, busted-seats, theme and rebuy: 53/53
+  - earlier, charts, drill, interaction and gameplay
+- AA: 96 renders, 0 failures (`tests/tmp/app-contrast.log`).
+- The full e2e run on the final commit is in `tests/tmp/e2e-final.log`.

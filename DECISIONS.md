@@ -54,7 +54,8 @@ The mock in `demo/glass/` stays as the reference.
   - The seat opacity order holds: live is 1, then folded, then busted, all above 0.
 - **Folded and busted opacity moved from 0.4 / 0.22 to 0.72 / 0.56.** At the old values the dimmed seat
   text failed AA on the coat (2.7–3.6:1 in `app-contrast.log`). The order is what `busted-seats.spec`
-  pins, not the values. "Out of chips" is now full ink, so it stays legible at 0.56.
+  pins, not the values. All text on a busted seat is full ink, so it stays legible at 0.56. A folded
+  hero now also dims their own hole cards on the hero plate.
 - **Three "quiet" captions were coloured with a surface token (`--surface-hi`),** which made them invisible
   (1.2:1, before and after the restyle). They are now `--text-lo-2`:
   - the charts class score with no attempts
@@ -80,6 +81,17 @@ The mock in `demo/glass/` stays as the reference.
   - The backdrop under `prefers-reduced-transparency`.
   - The evidence for these is the Playwright screenshots of the running app (`tests/tmp/app/`) and the
     contrast measurement on them (`app-contrast.log`).
+- **AA on the running app:** 96 renders at both sizes, and all pass. The minimum is 4.75:1, the dealer
+  button's "D" on bone in Obsidian.
+  - The renders are every screen state in the default theme, the same in Obsidian, and a busted-villain
+    showdown and next hand in both themes.
+  - The method is `app-contrast.mjs` plus `aa-measure.py`: rendered pixels with the text hidden, the
+    5th-percentile-worst pixel per text run.
+  - It does not see pseudo-element text, such as the "Bet" label and the quote marks. Those were checked
+    by hand: "Bet" is `--ink-2` on the pill, about 9:1.
+- **A layout test was added after the review found a defect:** no seat may overlap the board or another seat
+  at showdown at 900x640 (`layout.spec` 4). It failed first ("seat 3 x board": the river crossed Cy's seat),
+  and it passes after the side seats were capped at `47% - 160px`.
 
 ## Table: refined tinted glass, and more seats
 The user is leaning to `sports` and the tinted `glass` table. `?felt=glass` is now the refined slab; the

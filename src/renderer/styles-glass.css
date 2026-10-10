@@ -10,8 +10,8 @@
  * Paint-only rule (theme.spec): an html[data-theme] block may change colours, never geometry.
  * Pinned values this file must keep: --text-hi #FFFFFF (pot), --positive #3DDC97 and --ring-active
  * (to-act / winner seat), the 1.02 to-act scale with a `transform: none` resting seat, Fold with no
- * box-shadow while the enabled Raise has one, seat opacity 1 / 0.4 / 0.22 and a dashed busted seat,
- * and a tab bar no taller than 52px.
+ * box-shadow while the enabled Raise has one, the seat opacity ORDER live 1 > folded > busted > 0 with a
+ * dashed busted seat (values 0.72 / 0.56 here, for AA), and a tab bar no taller than 52px.
  * ───────────────────────────────────────────────────────────────────────────────────────────────── */
 
 :root {
@@ -84,6 +84,8 @@
   --r-dock: 14px;
   --r-card: 6px;
   --h-ctl: 32px;
+  --nav-h: 44px;       /* the titlebar nav; the table screen's fixed height is derived from it */
+  --screen-pad-y: 8px;
 
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -95,6 +97,7 @@
 
 /* Obsidian stays a paint-only alternative: an opaque, near-black window with the backdrop hidden. */
 html[data-theme='obsidian'] {
+  --text-lo-2: var(--ink-3);   /* styles.css's obsidian #565C66 fails AA for captions; still paint-only */
   --desk-opacity: 0;
   --coat: #08090B;
   --float: rgba(24, 26, 31, 0.96);
@@ -131,12 +134,12 @@ body::before {
   min-height: 100vh;
 }
 .screen {
-  padding: 8px 20px;
+  padding: var(--screen-pad-y) 20px;
 }
 
 /* ─── Title bar: the macOS traffic lights sit inset over its left end (titleBarStyle: 'hiddenInset') ─── */
 .tabs {
-  height: 44px;
+  height: var(--nav-h);
   align-items: center;
   justify-content: center;
   gap: 2px;
@@ -354,7 +357,7 @@ select {
  * `transform`, so a resting seat's computed transform stays `none` and the to-act lift stays exactly
  * scale(1.02) (interaction.spec). */
 .table-screen {
-  height: calc(100vh - 45px - 16px);
+  height: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y));   /* 1px: the nav's hairline */
   min-height: 0;
   gap: 8px;
 }
@@ -467,8 +470,16 @@ select {
   max-width: 170px;
   text-align: left;
 }
+.table-screen .seat-talk[data-revealed='true'] {
+  color: var(--ink-1);
+}
 .table-screen .seat-talk::before { content: '\201C'; }
 .table-screen .seat-talk::after { content: '\201D'; }
+/* Everything on a busted seat is full ink, so it stays AA at the 0.56 out-opacity. */
+.table-screen .seat[data-out='true'] .seat-archetype,
+.table-screen .seat[data-out='true'] .seat-talk {
+  color: var(--ink-1);
+}
 .table-screen .seat-out {
   font-size: 11px;
   color: var(--ink-1);
@@ -491,6 +502,21 @@ select {
 
 /* Slots (seatLayout.ts): --i / --n within the area. Side columns share the band between the top row
  * and the hero plate; the top row spreads across 27–73% of the stage. */
+/* A side seat never reaches the board: at most half the stage minus half the widest board (5 × 52px cards
+ * + gaps ≈ 292px) and a gutter. The quip ellipsises inside it. layout.spec 4 measures this at showdown. */
+.table-screen .seats .seat[data-slot='left'],
+.table-screen .seats .seat[data-slot='right'] {
+  max-width: calc(47% - 160px);
+}
+.table-screen .seats .seat > * {
+  min-width: 0;
+}
+.table-screen .seats .seat-archetype,
+.table-screen .seats .seat-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .table-screen .seat[data-slot='left'] {
   left: 3%;
   top: calc(30% + (var(--i, 0) + 0.5) * 40% / var(--n, 1));
@@ -795,6 +821,10 @@ html .train-rail-btn[data-active='true'] {
   border-left-color: transparent;
   box-shadow: var(--thumb-shadow);
 }
+/* Keyboard focus must still show on the active rung (the thumb's box-shadow above would hide the ring). */
+html .train-rail-btn:focus-visible {
+  box-shadow: var(--focus-ring);
+}
 /* The committed prediction is a selection, not "your turn": the thumb, not mint. */
 html .predict-choice[data-selected='true'] {
   background: var(--fill-3);
@@ -837,3 +867,10 @@ html .chart-bank-screen .chart-cell[data-action='threebet'] {
 }
 html .legend-swatch[data-action='open'] { background: var(--cell-in); }
 html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong); }
+
+/* Home with the planner: the titlebar nav is a few px taller than the old tab strip, so the column's
+ * top/bottom padding gives that back and Home keeps fitting 900x640 without scrolling. */
+html .home-screen:has(> .session-planner) {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}

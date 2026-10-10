@@ -148,7 +148,7 @@ async function dealerSeatId(page: Page): Promise<number> {
   });
 }
 
-/** Cards rendered inside a seat pod (the hero's own pod, not the big hero-cards row). */
+/** Cards rendered inside the hero's seat — the hero plate, which holds the hole cards once. */
 async function heroSeatCardCount(page: Page): Promise<number> {
   return page.locator(`${heroSeat} [data-testid="card"]`).count();
 }

@@ -403,6 +403,26 @@ test.describe('layout', () => {
         expect(card.bottom, `card ${card.card} below the fold`).toBeLessThanOrEqual(MIN_HEIGHT);
         expect(card.right, `card ${card.card} past the right edge`).toBeLessThanOrEqual(MIN_WIDTH);
       }
+
+      // The table is laid out by position, not flow, so nothing stops a seat growing into the board: at
+      // showdown the quips are revealed (the widest a seat gets) and the river makes the board widest.
+      // No seat may cover the board, and no two seats may overlap.
+      const overlaps = await page.evaluate(() => {
+        const box = (el: Element) => el.getBoundingClientRect();
+        const hit = (a: DOMRect, b: DOMRect) =>
+          a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+        const seats = [...document.querySelectorAll<HTMLElement>('[data-testid="seat"]')];
+        const board = document.querySelector('[data-testid="board"]');
+        const out: string[] = [];
+        for (const s of seats) {
+          if (board !== null && !s.contains(board) && hit(box(s), box(board))) out.push(`seat ${s.dataset.seatId} x board`);
+        }
+        for (let i = 0; i < seats.length; i++)
+          for (let j = i + 1; j < seats.length; j++)
+            if (hit(box(seats[i]), box(seats[j]))) out.push(`seat ${seats[i].dataset.seatId} x seat ${seats[j].dataset.seatId}`);
+        return out;
+      });
+      expect(overlaps, `showdown ${MIN_WIDTH}x${MIN_HEIGHT}: seats collide`).toEqual([]);
     });
   });
 

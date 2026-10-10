@@ -793,7 +793,7 @@ body {
  * A resting seat gets a single soft shadow, NOT the heavy layered --elev-1 the panels use: eight pods
  * each casting an 18px blur made the whole table read as loud. Emphasis is now differential — only the
  * pod in the action lifts (below) — which is the point of a shadow at all. Box-shadow only, no reflow;
- * the opacity state channel (folded 0.4 / out 0.22 / live 1) is untouched.
+ * the opacity state channel (live 1 > folded > out; values in styles-glass.css) is untouched.
  */
 .seat {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -817,7 +817,7 @@ body {
  * The pod that won the pot wears the same mint ring the to-act pod wore in-hand. Never on two pods at
  * once — table.ts guards data-to-act off once winners land — so the ring reads as "the action
  * resolved here", and mint matches the winner-summary text. The ring is a border + shadow only, NOT an
- * opacity fade: seats already carry opacity as a state channel (folded 0.4, out 0.22, live 1) that the
+ * opacity fade: seats already carry opacity as a state channel (live 1 > folded > out; values in styles-glass.css) that the
  * busted/folded specs measure, so animating a pod's opacity would collide with that channel.
  */
 .seat[data-winner='true'] {

@@ -1,6 +1,27 @@
-# demo: glass design mockup (scored refinement, table-surface study, seat scaling)
+# Glass redesign: the app restyle, plus the design study behind it
 
 ## Summary
+**The app (`src/renderer/`) now ships the glass look with the `sports` table.** See DECISIONS.md, "The app
+restyle", for the details.
+- One coat over a pre-blurred backdrop, with glass only on what floats (the dock, the coach and predict
+  panels, the stats strip).
+- A titlebar nav that clears the inset traffic lights.
+- One button and selected-state system, bone cards, and opaque graphite grid cells.
+- The table: villains in scoreboard rows, placed by a unit-tested rule (`seatLayout.ts`). The pot is the
+  score, bets are pills, and the hero's seat is the hero plate with the turn wash. Compact tiers keep it
+  inside 900x640 in coached mode.
+- **Unchanged:** no dependency changes, and nothing outside `src/renderer/` changes apart from tests. The
+  state schema and the LAN protocol are untouched.
+- **Tests:**
+  - typecheck and unit tests (1802) pass, and the full e2e result is in the evidence.
+  - Two e2e changes:
+    - `interaction.spec`'s pot pin now asserts the pot figure is the largest on the table, instead of the
+      old 14px.
+    - `voice.spec` test 2 failed on `main` before this work. Its second verdict is hand 2, so it now accepts
+      any graded verdict.
+  - AA passes on 44 renders of the running app.
+
+The rest of this description covers the static mock under `demo/glass/` that led here.
 This is a static HTML/CSS mockup of a modern glass direction for Offsuit, built from real app screens and copy.
 
 - **Round 2's background** (the contoured desktop, the coat and the grain) is kept. Its coat blur never
