@@ -290,10 +290,11 @@ function renderSoundCues(soundCues: boolean, handlers: SettingsHandlers): HTMLEl
  * The visual theme. A device/display preference with no egress — the choice is stored in the settings
  * file (not the profile) and applied as a documentElement attribute the bundled CSS keys off. Graphite
  * is the default and the value :root paints before any JS. Each option is a pressed/unpressed button so
- * an e2e can read the active theme off aria-pressed without depending on colour.
+ * an e2e can read the active theme off aria-pressed without depending on colour. The default's id stays
+ * 'graphite' so saved settings keep resolving; what it paints is now the glass look (styles-glass.css).
  */
 const THEME_OPTIONS: readonly { id: string; label: string }[] = [
-  { id: 'graphite', label: 'Graphite' },
+  { id: 'graphite', label: 'Glass' },
   { id: 'obsidian', label: 'Obsidian' },
 ];
 

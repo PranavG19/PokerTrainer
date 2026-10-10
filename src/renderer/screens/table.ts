@@ -32,6 +32,7 @@ import { predictOutcome, predictResultText } from '../../core/predict.js';
 import { routeFor } from '../../core/confidence.js';
 import { applyG4Override, gateAttemptIsHit, gradeReason } from '../../core/reasonGrade.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { seatSlots } from '../seatLayout.js';
 import { beginFocusRestore } from '../focusRestore.js';
 import {
   clearGate,
@@ -178,27 +179,43 @@ export function renderTable(opts: {
   potAnnouncer.setAttribute('aria-live', 'polite');
   root.appendChild(potAnnouncer);
 
+  // The stage holds the table itself — villains in scoreboard rows around the pot and board, the hero
+  // plate at the bottom — so the dock and the teaching panels below it stay in flow (styles-glass.css).
+  const stage = document.createElement('div');
+  stage.className = 'table-stage';
+  root.appendChild(stage);
+
+  // The hero plate comes first in the document, as the hero's seat always did, so reading order (and
+  // every seat query in document order) still runs seat 0, 1, 2, 3. Position is CSS, not DOM order.
+  const heroWrap = document.createElement('div');
+  heroWrap.className = 'hero-wrap';
+  stage.appendChild(heroWrap);
+
   const seatsWrap = document.createElement('div');
   seatsWrap.className = 'seats';
-  root.appendChild(seatsWrap);
+  stage.appendChild(seatsWrap);
 
   const centre = document.createElement('div');
   centre.className = 'table-centre';
-  root.appendChild(centre);
+  stage.appendChild(centre);
 
+  // The pot is the score: a small label over a large figure. Two spans with a space between keep the
+  // element's text "Pot N" for readers and tests.
   const potEl = document.createElement('div');
   potEl.className = 'pot';
   potEl.dataset.testid = 'pot';
+  const potLabel = document.createElement('span');
+  potLabel.className = 'pot-label';
+  potLabel.textContent = 'Pot';
+  const potValue = document.createElement('span');
+  potValue.className = 'pot-value';
+  potEl.append(potLabel, ' ', potValue);
   centre.appendChild(potEl);
 
   const boardWrap = document.createElement('div');
   boardWrap.dataset.testid = 'board';
   boardWrap.className = 'board-wrap';
   centre.appendChild(boardWrap);
-
-  const heroWrap = document.createElement('div');
-  heroWrap.className = 'hero-wrap';
-  root.appendChild(heroWrap);
 
   const heroCards = document.createElement('div');
   heroCards.className = 'hero-cards';
@@ -678,7 +695,7 @@ export function renderTable(opts: {
 
   // ── rendering ──────────────────────────────────────────────────────
   function render(): void {
-    potEl.textContent = `Pot ${state.pot}`;
+    potValue.textContent = String(state.pot);
 
     // Board diff: rebuild the row (cheap), but tag only the cards dealt SINCE the last render as
     // data-deal-in so the CSS deal animation fires once per card as it arrives, not on every re-render
@@ -706,11 +723,23 @@ export function renderTable(opts: {
     );
 
     const showdown = state.winners !== null;
-    seatsWrap.replaceChildren(
-      ...state.seats.map((seat) =>
-        renderSeat(seat, state, showdown, seatArchetype, lastActionBySeat.get(seat.id)),
-      ),
+    const seatEls = state.seats.map((seat) =>
+      renderSeat(seat, state, showdown, seatArchetype, lastActionBySeat.get(seat.id)),
     );
+    // The hero's seat IS the hero plate: it takes the big hole cards in, so the to-act ring and the
+    // turn wash land on one object. Villains take the scoreboard slots, clockwise from the hero
+    // (seatLayout.ts).
+    const heroEl = seatEls.find((_el, i) => state.seats[i].isHero);
+    heroEl?.prepend(heroCards);
+    const villainEls = seatEls.filter((_el, i) => !state.seats[i].isHero);
+    seatSlots(villainEls.length).forEach((slot, i) => {
+      const el = villainEls[i];
+      el.dataset.slot = slot.area;
+      el.style.setProperty('--i', String(slot.index));
+      el.style.setProperty('--n', String(slot.count));
+    });
+    seatsWrap.replaceChildren(...villainEls);
+    heroWrap.replaceChildren(...(heroEl ? [heroEl] : [heroCards]));
 
     // The commit row tracks whether a decision is pending, so it must be re-synced every render,
     // not only when the toggle is clicked.

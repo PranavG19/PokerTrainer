@@ -1,0 +1,837 @@
+/* ─────────────────────────────────────────────────────────────────────────────────────────────────
+ * GLASS — the shipped look (ported from demo/glass/, the `sports` table direction).
+ *
+ * Material model: a dark backdrop with soft colour bands (drawn here, pre-blurred, so nothing has to
+ * backdrop-blur the whole window every frame), ONE translucent coat over it, and glass only on what
+ * floats: the action dock, the coach/predict panels and the stats sheet. Everything else sits in the
+ * coat as hairline groups. Colour has one meaning each: mint = your turn / positive (pinned by e2e),
+ * coral = loss / serious, bone = physical objects (cards, dealer button) and the one primary action.
+ *
+ * Paint-only rule (theme.spec): an html[data-theme] block may change colours, never geometry.
+ * Pinned values this file must keep: --text-hi #FFFFFF (pot), --positive #3DDC97 and --ring-active
+ * (to-act / winner seat), the 1.02 to-act scale with a `transform: none` resting seat, Fold with no
+ * box-shadow while the enabled Raise has one, seat opacity 1 / 0.4 / 0.22 and a dashed busted seat,
+ * and a tab bar no taller than 52px.
+ * ───────────────────────────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: dark;
+
+  /* Backdrop: low-chroma bands, the stand-in for macOS vibrancy (see DECISIONS.md). */
+  --desk-0: #0B0C0F;
+  --desk-1: #2B3650;
+  --desk-2: #3B2F24;
+  --desk-3: #1E3431;
+  --desk-4: #2A2F3F;
+  --desk-opacity: 1;
+  --coat: rgba(20, 23, 30, 0.56);
+
+  /* Floats: the only glass. */
+  --float: rgba(64, 68, 76, 0.42);
+  --float-blur: blur(26px) saturate(175%);
+  --float-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --float-shadow: 0 22px 50px -14px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --float-rim: rgba(255, 255, 255, 0.12);
+
+  /* One neutral state ramp for every control: rest → hover → press → selected. */
+  --hair: rgba(255, 255, 255, 0.08);
+  --hair-strong: rgba(255, 255, 255, 0.14);
+  --fill-0: rgba(255, 255, 255, 0.03);
+  --fill-1: rgba(255, 255, 255, 0.08);
+  --fill-2: rgba(255, 255, 255, 0.13);
+  --fill-3: rgba(255, 255, 255, 0.2);
+  --thumb-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 3px rgba(0, 0, 0, 0.35);
+
+  /* Ink (measured AA on the coat). */
+  --ink-1: #F3F4F6;
+  --ink-2: #C0C6CD;
+  --ink-3: #A3AAB2;
+  --coral: #F08A7A;
+  --amber: #E6B866;
+
+  /* Cards and physical objects. */
+  --bone: #F4F2EC;
+  --bone-hover: #FAF8F3;
+  --bone-press: #E2DFD6;
+  --ink-on-bone: #15171A;
+  --card-red: #B8322A;
+  --card-black: #16181B;
+  --back-a: #1C2026;
+
+  /* Tier-2 semantics, repainted. --text-hi and --positive stay pinned in styles.css. */
+  --page: var(--desk-0);
+  --surface: rgba(255, 255, 255, 0.035);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --raise: rgba(255, 255, 255, 0.11);
+  --text-lo: var(--ink-2);
+  --text-lo-2: var(--ink-3);
+  --suit-red: var(--coral);
+  --rule: var(--hair);
+  --rule-soft: rgba(255, 255, 255, 0.045);
+  --edge: var(--hair-strong);
+  --glow: rgba(255, 255, 255, 0.06);
+  /* The "selected chip" idiom becomes the glass selected thumb: a light fill with light ink. */
+  --card-face: var(--fill-3);
+  --card-ink: var(--ink-1);
+  --chip-blind: var(--ink-1);
+
+  --elev-1: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.3);
+  --elev-2: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 4px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.38);
+  --focus-ring: 0 0 0 2px rgba(20, 23, 30, 1), 0 0 0 4px rgba(255, 255, 255, 0.6);
+
+  --r-ctl: 8px;
+  --r-group: 12px;
+  --r-dock: 14px;
+  --r-card: 6px;
+  --h-ctl: 32px;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root { --coat: rgba(20, 23, 30, 0.97); --float: rgba(38, 42, 49, 0.98); --float-blur: none; }
+}
+
+/* Obsidian stays a paint-only alternative: an opaque, near-black window with the backdrop hidden. */
+html[data-theme='obsidian'] {
+  --desk-opacity: 0;
+  --coat: #08090B;
+  --float: rgba(24, 26, 31, 0.96);
+}
+
+/* ─── Backdrop + coat ─── */
+/* The canvas takes the page colour (styles.css sets it on :root); body must stay transparent or its
+ * own background would paint over the backdrop layer below. */
+body {
+  background: transparent;
+}
+/* Pre-blurred colour bands. `filter` on a fixed, static layer is rasterised once, unlike a full-window
+ * backdrop-filter, which re-blurs on every repaint (deal-perf.spec measures the flop). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -60px;
+  z-index: -2;
+  pointer-events: none;
+  opacity: var(--desk-opacity);
+  background:
+    radial-gradient(60% 34% at 18% 6%, var(--desk-1), transparent 70%),
+    radial-gradient(50% 30% at 86% 14%, var(--desk-1), transparent 70%),
+    radial-gradient(70% 30% at 70% 34%, var(--desk-2), transparent 72%),
+    radial-gradient(60% 28% at 10% 42%, var(--desk-2), transparent 72%),
+    radial-gradient(80% 30% at 40% 58%, var(--desk-3), transparent 72%),
+    radial-gradient(70% 34% at 84% 74%, var(--desk-4), transparent 72%),
+    radial-gradient(90% 40% at 20% 96%, var(--desk-4), transparent 70%),
+    var(--desk-0);
+  filter: blur(18px) saturate(135%);
+}
+#app {
+  background: var(--coat);
+  min-height: 100vh;
+}
+.screen {
+  padding: 8px 20px;
+}
+
+/* ─── Title bar: the macOS traffic lights sit inset over its left end (titleBarStyle: 'hiddenInset') ─── */
+.tabs {
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 16px 0 84px;
+  flex-wrap: nowrap;
+  border-bottom: 1px solid var(--hair);
+  -webkit-app-region: drag;
+}
+.tab {
+  flex: none;
+  height: 28px;
+  padding: 0 clamp(7px, 0.9vw, 11px);
+  border-radius: var(--r-ctl);
+  font-size: 13px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+  transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+}
+.tab:hover {
+  color: var(--ink-1);
+  background: var(--fill-1);
+}
+.tab[data-active='true'] {
+  color: var(--ink-1);
+  font-weight: 500;
+  background: var(--fill-3);
+  box-shadow: var(--thumb-shadow);
+}
+
+/* ─── Buttons: one spec, three ranks (secondary · primary · quiet) ─── */
+.pill {
+  height: var(--h-ctl);
+  padding: 0 14px;
+  border-radius: var(--r-ctl);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ink-1);
+  background: var(--fill-1);
+  /* The hairline is a border, not a shadow: a resting secondary button carries no box-shadow
+   * (interaction.spec pins Fold at `none`), so depth stays the primary action's signal. */
+  border: 1px solid var(--hair-strong);
+  box-shadow: none;
+}
+.pill:not(:disabled):hover {
+  background: var(--fill-2);
+  box-shadow: none;
+}
+.pill:not(:disabled):active {
+  background: var(--fill-3);
+  transform: scale(0.98);
+}
+.pill:disabled {
+  opacity: 1;
+  color: var(--ink-3);
+  background: transparent;
+  border-color: var(--hair);
+}
+/* Selected item in a row of pills (segmented choices across screens). */
+.pill[data-active='true'],
+.pill[data-selected='true'],
+.pill[aria-pressed='true'] {
+  background: var(--fill-3);
+  color: var(--ink-1);
+  border-color: transparent;
+  box-shadow: var(--thumb-shadow);
+}
+/* Primary: bone, the one committing action on a screen. */
+.controls .pill[data-testid='btn-raise']:not(:disabled),
+.pill.primary:not(:disabled) {
+  background: var(--bone);
+  color: var(--ink-on-bone);
+  font-weight: 600;
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 14px -6px rgba(0, 0, 0, 0.5);
+}
+.controls .pill[data-testid='btn-raise']:not(:disabled):hover,
+.pill.primary:not(:disabled):hover {
+  background: var(--bone-hover);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 14px -6px rgba(0, 0, 0, 0.5);
+}
+.pill:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* ─── Fields ─── */
+.lesson-input,
+.mp-input,
+.equity-field input,
+select {
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  border: 1px solid var(--hair-strong);
+  color: var(--ink-1);
+}
+.lesson-input::placeholder,
+.mp-input::placeholder,
+.equity-field input::placeholder {
+  color: var(--ink-3);
+}
+.lesson-input:focus,
+.mp-input:focus,
+.equity-field input:focus {
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+/* ─── Range slider: a hairline track and a bone thumb ─── */
+.raise-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  outline: none;
+}
+.raise-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, #FFFFFF, var(--bone) 70%);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.55);
+  cursor: grab;
+}
+.raise-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px rgba(20, 23, 30, 1), 0 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+/* ─── Floats: the dock, the teaching panels, the stats sheet ─── */
+.table-screen .controls,
+.coach,
+.predict,
+.stats-sheet {
+  background: var(--float);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  border-radius: var(--r-dock);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+}
+.coach[data-severity='notable'],
+.coach[data-severity='serious'] {
+  box-shadow: var(--float-highlight), var(--float-shadow);
+}
+
+/* ─── Typography: figures ─── */
+.stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.stat-value,
+.bankroll,
+.seat-stack,
+.pot,
+.raise-amount {
+  font-variant-numeric: tabular-nums;
+}
+.stat-value {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.bankroll {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Playing cards: bone faces, serif indices ─── */
+.card {
+  background: var(--bone);
+  border: none;
+  border-radius: var(--r-card);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 0.5px 0 rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 18px -6px rgba(0, 0, 0, 0.55);
+}
+.card .card-rank {
+  font-family: ui-serif, 'New York', 'Iowan Old Style', Georgia, serif;
+  color: var(--card-black);
+}
+.card .card-pip {
+  color: var(--card-black);
+}
+.card.red .card-rank,
+.card.red .card-pip {
+  color: var(--card-red);
+}
+.card-back {
+  border: none;
+  border-radius: var(--r-card);
+  background:
+    repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.05) 0 0.5px, transparent 0.5px 3.5px),
+    repeating-linear-gradient(-60deg, rgba(255, 255, 255, 0.05) 0 0.5px, transparent 0.5px 3.5px),
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
+    var(--back-a);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16), inset 0 0 0 3px var(--back-a), inset 0 0 0 3.5px rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.dealer-button {
+  color: var(--ink-on-bone);
+  background: radial-gradient(circle at 50% 35%, #FFFFFF, var(--bone) 70%);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* ─────────────────────────── The table: `sports` rows ───────────────────────────
+ * The stage holds the villains as scoreboard rows around the pot and board, and the hero plate at the
+ * bottom; the dock and the teaching panels follow in flow. Slots come from seatLayout.ts (a pure rule:
+ * one or two seats per side column, the rest in one top row). Seats are placed with `translate`, never
+ * `transform`, so a resting seat's computed transform stays `none` and the to-act lift stays exactly
+ * scale(1.02) (interaction.spec). */
+.table-screen {
+  height: calc(100vh - 45px - 16px);
+  min-height: 0;
+  gap: 8px;
+}
+.table-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 236px;
+  /* Its height is whatever the dock and the teaching panels leave; the compact tiers at the end of this
+   * file key off it. */
+  container-type: size;
+  container-name: stage;
+}
+/* A dark lit zone, no edge: the coat is the canvas. */
+.table-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0 2%;
+  border-radius: 40px;
+  background: radial-gradient(62% 58% at 50% 47%, rgba(5, 8, 14, 0.42), transparent 72%);
+  pointer-events: none;
+}
+.table-screen .seats {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.table-screen .seats .seat {
+  pointer-events: auto;
+}
+
+/* Seat card: one treatment for every villain. */
+.table-screen .seat {
+  position: absolute;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  translate: -50% -50%;
+  text-align: left;
+}
+.table-screen .seat-avatar {
+  display: none;
+}
+.table-screen .seat > .board {
+  order: -1;
+  gap: 3px;
+}
+.table-screen .seat .card.small,
+.table-screen .seat .card-back.small {
+  width: 30px;
+  height: 42px;
+  padding: 3px 4px;
+}
+.table-screen .seat .card.small .card-rank {
+  font-size: 14px;
+}
+.table-screen .seat .card.small .card-pip {
+  font-size: 10px;
+}
+/* name · tag on one line, the stack under it, the quip under that — a grid so the order is fixed. */
+.table-screen .seats .seat {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  grid-template-areas:
+    'cards name tag'
+    'cards stack stack'
+    'cards talk talk'
+    'cards out out';
+  column-gap: 10px;
+  row-gap: 1px;
+  align-items: center;
+}
+.table-screen .seats .seat > .board { grid-area: cards; }
+.table-screen .seats .seat-name { grid-area: name; }
+.table-screen .seats .seat-archetype { grid-area: tag; }
+.table-screen .seats .seat-stack { grid-area: stack; }
+.table-screen .seats .seat-talk { grid-area: talk; }
+.table-screen .seats .seat-out { grid-area: out; }
+.table-screen .seat-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.table-screen .seat-archetype {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.table-screen .seat-stack {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  color: var(--ink-1);
+}
+/* The quip: in flow under the stack, one line, ellipsised. */
+.table-screen .seat-talk {
+  position: static;
+  font-size: 11px;
+  font-style: normal;
+  color: var(--ink-2);
+  line-height: 1.25;
+  max-width: 170px;
+  text-align: left;
+}
+.table-screen .seat-talk::before { content: '\201C'; }
+.table-screen .seat-talk::after { content: '\201D'; }
+.table-screen .seat-out {
+  font-size: 11px;
+  color: var(--ink-2);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* Right column: cards on the outer edge. */
+.table-screen .seats .seat[data-slot='right'] {
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    'tag name cards'
+    'stack stack cards'
+    'talk talk cards'
+    'out out cards';
+  padding: 8px 8px 8px 12px;
+  text-align: right;
+}
+.table-screen .seats .seat[data-slot='right'] .seat-archetype { justify-self: end; }
+.table-screen .seats .seat[data-slot='right'] .seat-talk { justify-self: end; text-align: right; }
+
+/* Slots (seatLayout.ts): --i / --n within the area. Side columns share the band between the top row
+ * and the hero plate; the top row spreads across 27–73% of the stage. */
+.table-screen .seat[data-slot='left'] {
+  left: 3%;
+  top: calc(30% + (var(--i, 0) + 0.5) * 40% / var(--n, 1));
+  translate: 0 -50%;
+}
+.table-screen .seat[data-slot='right'] {
+  left: auto;
+  right: 3%;
+  top: calc(30% + (var(--i, 0) + 0.5) * 40% / var(--n, 1));
+  translate: 0 -50%;
+}
+.table-screen .seat[data-slot='top'] {
+  top: 38px;
+  left: calc(50% + (var(--i, 0) - (var(--n, 1) - 1) / 2) * 46% / max(var(--n, 1) - 1, 1));
+}
+
+/* The bet: a flat "Bet 75" pill toward the pot. The number is the element's text (tests read it); the
+ * word is decoration. */
+.table-screen .seat-committed {
+  position: absolute;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+  background: rgba(36, 40, 48, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  white-space: nowrap;
+}
+.table-screen .seat-committed::before {
+  content: 'Bet';
+  color: var(--ink-2);
+  font-weight: 500;
+  margin-right: 6px;
+}
+.table-screen .seats .seat[data-slot='top'] .seat-committed {
+  top: calc(100% + 10px);
+  left: 50%;
+  translate: -50% 0;
+}
+.table-screen .seats .seat[data-slot='left'] .seat-committed {
+  left: calc(100% + 12px);
+  top: 50%;
+  translate: 0 -50%;
+}
+.table-screen .seats .seat[data-slot='right'] .seat-committed {
+  right: calc(100% + 12px);
+  top: 50%;
+  translate: 0 -50%;
+}
+/* The dealer button: on the seat's inner edge, clear of the stack. */
+.table-screen .seat .dealer-button {
+  position: absolute;
+  top: 50%;
+  margin-top: -10px;
+  right: -14px;
+}
+.table-screen .seats .seat[data-slot='right'] .dealer-button {
+  right: auto;
+  left: -14px;
+}
+
+/* States. Opacity stays the folded/out channel (busted-seats.spec). */
+.table-screen .seat[data-folded='true'] {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.table-screen .seat[data-out='true'] {
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.table-screen .seat[data-to-act='true'] {
+  border-color: var(--mint);
+  box-shadow: var(--ring-active), var(--elev-2);
+}
+.table-screen .seat[data-winner='true'] {
+  border-color: var(--mint);
+  box-shadow: var(--ring-active), var(--elev-1);
+}
+
+/* Pot and board: the pot is the score. */
+.table-screen .table-centre {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  translate: -50% -50%;
+  background: none;
+  gap: 10px;
+}
+.table-screen .pot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1;
+}
+.pot-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.pot-value {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+.table-screen .board-wrap {
+  min-height: 72px;
+}
+
+/* The hero plate: the hero's seat holds the big cards, name and stack. Your turn is the to-act ring
+ * plus one faint mint wash; there is no mint text, so green appears once. */
+.table-screen .hero-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  translate: -50% 0;
+}
+.table-screen .hero-wrap .seat {
+  position: relative;
+  translate: none;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    'cards name'
+    'cards stack'
+    'cards committed'
+    'cards out';
+  align-items: center;
+  align-content: center;
+  column-gap: 14px;
+  row-gap: 2px;
+  padding: 10px 18px 10px 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.table-screen .hero-wrap .seat[data-winner='true'] {
+  border-color: var(--mint);
+  box-shadow: var(--ring-active), var(--elev-1);
+}
+.table-screen .hero-wrap .seat[data-to-act='true'] {
+  border-color: var(--mint);
+  background: linear-gradient(105deg, rgba(61, 220, 151, 0.16), rgba(61, 220, 151, 0.04) 55%, rgba(255, 255, 255, 0.035));
+  box-shadow: var(--ring-active), var(--elev-2);
+}
+.table-screen .hero-wrap .hero-cards { grid-area: cards; }
+.table-screen .hero-cards .card {
+  width: 54px;
+  height: 76px;
+}
+.table-screen .hero-wrap .seat > .board,
+.table-screen .hero-wrap .seat-avatar {
+  display: none;
+}
+.table-screen .hero-wrap .seat-name { grid-area: name; font-size: 13px; }
+.table-screen .hero-wrap .seat-stack { grid-area: stack; font-size: 30px; }
+.table-screen .hero-wrap .seat-out { grid-area: out; }
+.table-screen .hero-wrap .seat-committed {
+  position: static;
+  grid-area: committed;
+  justify-self: start;
+  translate: none;
+  margin-top: 2px;
+}
+/* On the plate's left edge, off the cards. */
+.table-screen .hero-wrap .dealer-button {
+  top: auto;
+  bottom: 8px;
+  right: auto;
+  left: -11px;
+  margin-top: 0;
+}
+
+/* The dock. */
+.table-screen .controls {
+  flex: none;
+  align-self: center;
+  padding: 6px;
+  gap: 6px;
+}
+.table-screen .controls .pill {
+  padding: 0 12px;
+}
+.table-screen .raise-amount {
+  color: var(--ink-1);
+  font-weight: 600;
+}
+.winner-summary {
+  font-weight: 600;
+}
+
+/* ─── Compact tiers: the stage shrinks when coached mode, the stats sheet or the coach verdict take
+ * height at 900x640. Smaller cards and figures, and the top seat's bet moves beside it. ─── */
+@container stage (max-height: 400px) {
+  .table-screen .seat[data-slot='top'] { top: 30px; }
+  .table-screen .seats .seat[data-slot='top'] .seat-committed {
+    top: 50%;
+    left: calc(100% + 12px);
+    translate: 0 -50%;
+  }
+  .table-screen .table-centre { top: 44%; gap: 6px; }
+  .pot-value { font-size: 34px; }
+  .table-screen .hero-cards .card { width: 46px; height: 64px; }
+  .table-screen .hero-wrap .seat { padding: 7px 14px 7px 7px; }
+  .table-screen .hero-wrap .seat-stack { font-size: 24px; }
+}
+@container stage (max-height: 320px) {
+  .table-screen .seats .seat { padding: 5px 10px 5px 5px; column-gap: 8px; }
+  .table-screen .seats .seat[data-slot='right'] { padding: 5px 5px 5px 10px; }
+  .table-screen .seat[data-slot='top'] { top: 26px; }
+  .table-screen .seat .card.small,
+  .table-screen .seat .card-back.small { width: 24px; height: 34px; }
+  .table-screen .seat-stack { font-size: 18px; }
+  .table-screen .seat-talk { display: none; }
+  .table-screen .pot { flex-direction: row; align-items: baseline; gap: 6px; }
+  .pot-value { font-size: 26px; }
+  .table-screen .table-centre { top: 42%; }
+  .table-screen .table-centre .card { width: 44px; height: 62px; }
+  .table-screen .board-wrap { min-height: 62px; }
+  .table-screen .hero-cards .card { width: 40px; height: 56px; }
+  .table-screen .hero-wrap .seat-stack { font-size: 22px; }
+}
+
+/* ─── The stats sheet on the table: a compact strip. The win% is the one figure; mint stays its colour
+ * (it is a positive readout), at a size that no longer outranks the pot. ─── */
+.table-screen .stats-sheet {
+  padding: 8px 16px;
+  gap: 6px;
+}
+.table-screen .stats-header {
+  align-items: center;
+  gap: 24px;
+}
+.table-screen .stats-win,
+.table-screen .stats-tie {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.table-screen .stats-win-value {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.table-screen .stats-tie .stat-value {
+  font-size: 17px;
+  font-weight: 600;
+}
+.stats-cat-pct {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── The gate: one line to answer, inside the coach float ─── */
+.table-screen .coach {
+  padding: 10px 14px;
+}
+.table-screen .coach-gate {
+  gap: 4px;
+}
+.table-screen .coach-gate-input {
+  height: 32px;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.3;
+  resize: none;
+}
+
+/* ─── Selected states across screens: the glass thumb (a light fill, light ink, no outline). These
+ * sit in per-screen sheets that load after this one, hence the `html` prefix. ─── */
+html .catalog-item[data-active='true'],
+html .planner-row .pill[data-active='true'],
+html .settings-toggle[aria-pressed='true'] {
+  background: var(--fill-3);
+  color: var(--ink-1);
+  border-color: transparent;
+  box-shadow: var(--thumb-shadow);
+}
+html .catalog-item[data-active='true'] .catalog-item-width {
+  color: var(--ink-1);
+}
+html .dossier-tendency-row[data-selected='true'],
+html .dossier-node-row[data-selected='true'] {
+  outline: none;
+  background: var(--fill-2);
+  box-shadow: inset 0 0 0 1px var(--hair-strong);
+}
+html .train-rail-btn[data-active='true'] {
+  background: var(--fill-3);
+  color: var(--ink-1);
+  border-left-color: transparent;
+  box-shadow: var(--thumb-shadow);
+}
+/* The committed prediction is a selection, not "your turn": the thumb, not mint. */
+html .predict-choice[data-selected='true'] {
+  background: var(--fill-3);
+  color: var(--ink-1);
+  border-color: transparent;
+  box-shadow: var(--thumb-shadow);
+}
+html .settings-toggle {
+  border-radius: var(--r-ctl);
+  background: var(--fill-1);
+  border: 1px solid var(--hair-strong);
+  color: var(--ink-1);
+}
+html .settings-toggle:hover {
+  background: var(--fill-2);
+  color: var(--ink-1);
+}
+
+/* ─── Grid cells (charts, chart bank, range editor, equity): an OPAQUE graphite face for "in range", so
+ * a ring or a boundary edge has a real colour to read against (charts.spec measures the luminance gap)
+ * and the backdrop never tints data cells into a fake heatmap. Bone stays reserved for real cards. ─── */
+:root { --cell-out: #1C1F25; --cell-mid: #2C3038; --cell-in: #474C55; --cell-in-strong: #5A606A; }
+html .chart-cell,
+html .chart-bank-screen .chart-cell[data-action='fold'] {
+  background: var(--cell-out);
+}
+html .chart-bank-screen .chart-cell[data-action='call'] {
+  background: var(--cell-mid);
+}
+html .chart-cell[data-open='true'],
+html .chart-bank-screen .chart-cell[data-action='open'],
+html .range-editor-cell[data-selected='true'],
+html .equity-range-cell[data-selected='true'] {
+  background: var(--cell-in);
+  color: var(--ink-1);
+}
+html .chart-bank-screen .chart-cell[data-action='threebet'] {
+  background: var(--cell-in-strong);
+  color: var(--ink-1);
+}
+html .legend-swatch[data-action='open'] { background: var(--cell-in); }
+html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong); }

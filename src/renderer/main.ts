@@ -2,6 +2,7 @@ import './styles.css';
 import './styles-panels.css';
 import './styles-screens.css';
 import './styles-settings.css';
+import './styles-glass.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
 import type { SavedRange } from '../core/rangeEditor.js';

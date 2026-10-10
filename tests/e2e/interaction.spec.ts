@@ -158,17 +158,23 @@ test.describe('controls at the hero decision point', () => {
   });
 
   test('the pot is the dominant number and the Raise pill is the lifted CTA (UI)', async () => {
-    // Hierarchy: the pot governs every price, so it renders in full ink and medium weight — brighter
-    // and heavier than a seat stack, which is the inverted state this fixes. No colour, no size change.
-    const potStyle = await page()
-      .locator('[data-testid="pot"]')
-      .evaluate((el) => {
-        const s = getComputedStyle(el);
-        return { color: s.color, weight: s.fontWeight, size: s.fontSize };
-      });
-    expect(potStyle.color, 'the pot is full-ink white').toBe('rgb(255, 255, 255)');
-    expect(potStyle.weight).toBe('500');
-    expect(potStyle.size, 'the pot size is unchanged, so no rect moved').toBe('14px');
+    // Hierarchy: the pot governs every price, so its figure is the score of the table — full-ink white,
+    // heavy, and larger than any seat stack (including the hero's). The label "Pot" is a caption over it.
+    const potStyle = await page().evaluate(() => {
+      const value = document.querySelector('[data-testid="pot"] .pot-value');
+      if (value === null) return null;
+      const s = getComputedStyle(value);
+      const stacks = [...document.querySelectorAll('[data-testid="seat-stack"]')].map((el) =>
+        parseFloat(getComputedStyle(el).fontSize),
+      );
+      return { color: s.color, weight: Number(s.fontWeight), size: parseFloat(s.fontSize), largestStack: Math.max(...stacks) };
+    });
+    expect(potStyle, 'the pot renders its figure in .pot-value').not.toBeNull();
+    if (potStyle === null) return;
+    expect(potStyle.color, 'the pot figure is full-ink white').toBe('rgb(255, 255, 255)');
+    expect(potStyle.weight, 'the pot figure is heavy').toBeGreaterThanOrEqual(700);
+    expect(potStyle.size, 'the pot figure outranks every seat stack').toBeGreaterThan(potStyle.largestStack);
+    await expect(page().locator('[data-testid="pot"]'), 'the pot still reads as one phrase').toHaveText(/^Pot \d+$/);
 
     // CTA: with a raise legal the enabled Raise pill carries an elevation the flat actions do not.
     const shadows = await page().evaluate(() => {
