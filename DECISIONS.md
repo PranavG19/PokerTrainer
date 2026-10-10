@@ -16,9 +16,9 @@ Living record. Each line is the current end state.
     line. 14px left contours under body text; 26px erased them.
   - The background artwork, colours and grain are unchanged.
 - **Glass is perceptible where it floats.** Floats went from an 84% dark slab to a lighter grey glass at
-  `oklch(.32 / .42)` (dock, tray) and `oklch(.27 / .62)` (sheets), `blur(26px) saturate(175%)`; the first
-  iteration (58% dark) still read as a slab to the blind raters. A 0.5px gradient rim (22% → 4%) and a 12% top highlight carry the shape
-  instead of opacity. The felt and rail now show through the dock. Glow, thick rims and saturation stay out.
+  `oklch(.32 / .34)` (dock, tray) and `oklch(.27 / .62)` (sheets), `blur(26px) saturate(175%)`. The first
+  iteration (58% dark) still read as a slab to the blind raters. A 0.5px gradient rim (22% → 4%) and a 20% top
+  highlight carry the shape instead of opacity. The felt and rail now show through the dock. Glow, thick rims and saturation stay out.
 - **Type scale:** caption 11 · footnote 12 · body 13 · headline 15 · title3 17 · title2 22 · stat 28 · hero 34.
   - The 40, 20, 10 and 9px orphans are gone.
   - Labels are 12/500 ink-2 and captions are 12/400 ink-3, so there are two roles, not four.

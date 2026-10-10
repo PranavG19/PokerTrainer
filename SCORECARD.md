@@ -30,7 +30,13 @@ to ~60–68% and add a top-edge highlight".
 1. **Inventory.** 58 elements across the 7 screens. Each was cropped at 1100x760 and DPR 2, and the 12 interactive controls also got a rest/hover/focus/press strip. Inventory: `tests/tmp/sc/inventory.mjs`.
 2. **Before-rater.** An independent subagent that did not design this scored round 2 only (`scores-before.json`), with a reason for every score under 8. Those reasons drove the redesign.
 3. **Redesign.** Every element with a category under 8 was redesigned as a system: tokens, controls, materials and type. The change log is in `DECISIONS.md`.
-4. **Blind re-score.** Fresh raters scored both versions of each element, labelled A and B in random order, using the same rubric. They had a neutral sheet of motion and state facts taken from the CSS, and full-screen context labelled X and Y, also randomised. The key was kept from them. These blind scores are the before/after numbers below.
+4. **Blind re-score.** Fresh raters scored both versions of each element, labelled A and B in random order, using the same rubric, with full-screen context labelled X and Y, also randomised. The key was kept from them. These blind scores are the before/after numbers below.
+
+### Limits of the method (read before trusting small gains)
+- **The motion/state fact sheet was written by the designer and can reveal the version.** It is not neutral. For motion and states, raters read a per-variant sheet that I wrote from the CSS (`tests/tmp/sc/make-blind.py`). Its round-3 lines describe a richer state ramp and named motion, so the text can identify the newer side. **Without the Motion category**, the result is 7.5 → 7.8, against 7.5 → 7.9 with it.
+- **One correction was applied to both sides.** The first sheet gave non-interactive elements a generic hover/press line. In iteration 3, rater 5 re-scored only Motion and States for six static elements (plan, villain, villain-name, slot, price, wordmark) against a corrected sheet, for both A and B. The other static elements were already n/a. Depth was not re-scored: its after-States 7 still cites the wrong "press ramp" fact, so treat it as artefact.
+- **Rater noise is about ±0.15.** The same unchanged round-2 crops averaged 7.6 / 7.5 / 7.5 across the 3 iterations. Element gains of ±0.2 or less are within noise; this card reports iteration 3 without pooling.
+- **Some rater reasons misread the DPR-2 crops** (for example "16px Your turn"; the CSS is 13px/500). Reasons are quoted verbatim.
 
 ## Summary — mean of 58 elements
 

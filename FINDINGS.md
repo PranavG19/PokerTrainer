@@ -1,59 +1,62 @@
-# FINDINGS — Offsuit glass mockup, round 2
+# FINDINGS — Offsuit glass mockup, round 3
 
 ## Outcome
-Round 1 was rejected as tacky, so this is a full visual rebuild on the material model Synara and Foundry use.
-The whole window is one translucent coat over a muted, contoured desktop, with film grain. Only the action
-dock, the commit tray and the coach sheets are glass, so a screen has at most two floats.
+Each of the 58 UI elements across the seven screens was rated on an 11-category rubric and redesigned as a
+system:
+- one type scale
+- concentric radii
+- one state ramp for every control
+- primary, secondary and tertiary buttons
+- a colour role map
+- sliding selection
+- a real switch
+- lighter float glass
 
-The table is the one bold thing: woven spruce felt in a matte black rail, bone cards with serif indices, and
-ceramic chips. Everything else is near-monochrome, with mint only for "your turn" and positive numbers.
+The round-2 background is kept. Round 2's coat blur had never actually rendered (a stacking and blend bug);
+it now frosts at 18px.
 
-It covers seven real screens at 900x640 and 1100x760. Every text run passes WCAG AA, measured on rendered
-pixels. Nothing under `src/` changed.
+Blind raters scored round 2 at **7.5** and round 3 at **7.9** (7.8 without Motion). **36 of 58 elements
+still miss the target** of an average ≥ 8 with no category < 7. Scores plateaued over three iterations.
 
-Open `demo/glass/index.html`.
+Open `demo/glass/scorecard.html`.
 
 ## Decisions to evaluate
-- **Oval seating, with seats set as type** instead of the real top row of boxes. If overruled: keep the row,
-  and the cards and felt still carry the look.
-- **Coach and Stats move to the table's top-right corner**, off the dock. If overruled: the dock carries 11
-  controls and is tight at 900px.
-- **The commit tray replaces the dock** until you commit (the app stacks both). If overruled: stack them,
-  and shrink the hero seat at 900x640.
-- **The gate and verdict are bottom sheets that cover the hero row**, and the verdict adds a meter and a
-  Close button. If overruled: inline strips above the dock, with no dismiss.
-- **Bone card faces with serif indices** (the app uses dark faces). If overruled: dark faces; the felt still
-  carries the table.
-- **Graphite chart cells**, with bone reserved for real cards. If overruled: bone cells, which turn into a
-  white wall at 1100x760.
+- **The coat really frosts now (18px blur).** You liked a background that, in practice, was never blurred.
+  If overruled: set `--coat-blur` back to 0–8px and the crisp contours return.
+- **Seats are type on the felt, with no hero plate.** Your turn is a soft light pool plus mint text. If
+  overruled: a neutral plate per seat.
+- **Gate and verdict sheets dim the table to 30%.** If overruled: about 50%, at the risk of the bloom
+  raters flagged.
+- **Informational sections are flat hairline lists; only actionable lists are inset groups.** If overruled:
+  cards everywhere, which raters scored lower.
+- **Charts boundaries are a corner notch, not a ring or dashes.** If overruled: dashed outlines (scored 6
+  on craft).
+- **Title-case Sure/Guess, a neutral bankroll with a mint delta, and a merged drill kind/tally.** If
+  overruled: the app's current presentation.
 
 ## Open questions
-- **Real vibrancy.** The mock fakes the desktop behind the window. In the app this needs Foundry's
-  `vibrancy: 'under-window'` and a transparent window. Default taken: simulate it in the mock and list it as
-  port work.
-- **The light theme was dropped this round** (it was optional). Default taken: dark only; round 1's light
-  work is in git history.
-- **The e2e suite could not run** (540/540 fail at `electron.launch`) because Electron is half-installed in
-  this checkout. Default taken: left as is. Typecheck and the 1796 unit tests pass.
+- **Real vibrancy in Electron.** Porting needs `vibrancy: 'under-window'` plus `titleBarStyle:
+  'hiddenInset'`. Default taken: the mock simulates both.
+- **Push for 8+ on every element?** Another iteration would mostly chase rater noise (about ±0.15). Default
+  taken: stop and report.
+- **The e2e suite is blocked** because Electron is half-installed. Default taken: left as is. Typecheck and
+  the unit tests pass.
 
 ## Alternatives rejected
-- **Round 1's pane-per-element liquid glass** (about 12 blurs, glow rings, a saturated teal felt): the user
-  called it tacky.
-- **A flat gradient "desktop"** behind the coat: it read as a gradient wash, not glass.
+- **Round 1's pane-per-element liquid glass:** rejected as tacky.
+- **A 58% dark float:** it still read as a slab to the blind raters.
+- **Dashed chart boundaries, or a ring:** the ring reads as keyboard focus.
 
 ## Evidence
-- Mockups: `index.html`, `home.html`, `table.html`, `charts.html`, `drill.html`, `compare.html`,
-  `tokens.css`, `glass.css`, `shell.js`.
-- Screenshots: `<screen>-<900x640|1100x760>.jpg` for home, table, predict, gate, verdict, charts and drill
-  (DPR 2), plus `compare-<screen>.jpg` with the 3-way comparison: current app | round 1 | round 2.
-- Contrast: `contrast.md` and `glass-contrast.log`.
-- Layout guard: `glass-capture.log`.
-- Tests: `tests-typecheck.log`, `tests-unit.log` and `tests-e2e.log`.
-- References:
-  - `foundry-glass.txt`: Foundry's glass CSS, as read.
-  - the Synara notes are in `DECISIONS.md` under "References → what I took from each".
-- Records:
-  - `DECISIONS.md`: the full decision record.
-  - `DESIGN.md`: implementer detail.
-  - `code-review.md`: the adversarial review and its resolution.
+- **Scorecard:**
+  - `scorecard.html`, `SCORECARD.md`
+  - `scorecard-00-summary.png` and `scorecard-01..07-*.png`
+  - the before/after crops in `demo/glass/scorecard/`
+- **Screens:**
+  - `<screen>-<900x640|1100x760>.jpg`
+  - `compare-<screen>.jpg` (current app | round 2 | round 3)
+- **Checks:** `contrast.md`, `glass-contrast.log`, `glass-capture.log`, and `tests-*.log` from the earlier run.
+- **Records:**
+  - `DECISIONS.md`: the round-3 system decisions and the element change log.
+  - `code-review.md`: the final adversarial review.
   - `PR-DRAFT.md`: the draft PR description.

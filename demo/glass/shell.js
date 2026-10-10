@@ -28,8 +28,8 @@
   // Grain sits on its own top layer (on .shell::after it disabled the coat's backdrop-filter).
   const grain = document.createElement('div'); grain.className = 'grain'; grain.setAttribute('aria-hidden', 'true'); document.body.append(grain);
 
-  // Segmented controls and single-select lists: one sliding thumb, real radio behaviour.
-  for (const seg of document.querySelectorAll('.seg')) {
+  // Segmented radio groups and single-select lists: one sliding thumb, real radio behaviour.
+  for (const seg of document.querySelectorAll('.seg[role="radiogroup"]')) {   // presets (role=group) are one-shot actions, not selections
     const thumb = document.createElement('span'); thumb.className = 'thumb'; thumb.setAttribute('aria-hidden', 'true'); seg.prepend(thumb);
     const place = () => { const on = seg.querySelector('[aria-checked="true"]'); thumb.style.display = on ? '' : 'none'; if (on) { thumb.style.left = on.offsetLeft + 'px'; thumb.style.width = on.offsetWidth + 'px'; } };
     place(); requestAnimationFrame(place); document.fonts?.ready.then(place);
