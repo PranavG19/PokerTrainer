@@ -1,0 +1,114 @@
+/* Offsuit · round 4 — table-surface variants. Pick with table.html?felt=green|midnight|glass|ink|scoreboard|classic.
+ * Only the table surface and what sits on it change; chrome, dock, sheets and every other screen are round 3.
+ * green (the default, no attribute rules) is the round-3 spruce felt and serves as the baseline. */
+
+/* Scoreboard numerals: SF Pro's width axis (Apple Sports' scores are a heavy, condensed, tabular SF). In Electron
+   this would use the system font's width axis; the mock loads the macOS system file and falls back cleanly. */
+@font-face { font-family: "SF Score"; src: local(".SF NS"), url("file:///System/Library/Fonts/SFNS.ttf"); font-weight: 1 1000; font-stretch: 30% 150%; }
+
+/* Shared: under a sheet the lamp goes out (round 3 rule), per variant below. */
+
+/* ───────────── 1. Midnight / graphite: the table is light, not cloth ───────────── */
+html[data-felt='midnight'] .rail {
+  background: radial-gradient(70% 30% at 50% 0%, oklch(1 0 0 / 0.07), transparent 70%), linear-gradient(180deg, oklch(0.17 0.004 262), oklch(0.10 0.004 262));
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.16), inset 0 1px 0 oklch(1 0 0 / 0.10), 0 30px 70px -30px oklch(0 0 0 / 0.9);
+}
+html[data-felt='midnight'] .felt {
+  inset: 9px;
+  background: radial-gradient(44% 50% at 50% 36%, oklch(1 0 0 / 0.11), transparent 72%), radial-gradient(80% 85% at 50% 45%, oklch(0.18 0.005 262), oklch(0.12 0.004 262) 70%, oklch(0.09 0.004 262));
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.06), inset 0 14px 30px -12px oklch(0 0 0 / 0.75), inset 0 0 70px oklch(0 0 0 / 0.5);
+}
+html[data-felt='midnight'] .felt::before { opacity: 0.35; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='1.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23f)' opacity='.6'/></svg>"); }
+html[data-felt='midnight'] .felt::after { inset: 12px; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.10); }
+html[data-felt='midnight'] .sheet-open .felt { background: radial-gradient(80% 85% at 50% 45%, oklch(0.165 0.005 262), oklch(0.115 0.004 262) 70%, oklch(0.085 0.004 262)); }
+html[data-felt='midnight'] .hero-plate::before { background: radial-gradient(closest-side, oklch(1 0 0 / 0.08), transparent); }
+
+/* ───────────── 2. Tinted glass table: a frosted slab that picks up the desktop ───────────── */
+html[data-felt='glass'] .rail {
+  background: oklch(0.40 0.012 262 / 0.10);
+  -webkit-backdrop-filter: blur(28px) saturate(175%); backdrop-filter: blur(28px) saturate(175%);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.20), inset 0 -1px 0 oklch(0 0 0 / 0.25), 0 30px 70px -30px oklch(0 0 0 / 0.75);
+}
+html[data-felt='glass'] .rail::before { /* specular rim, the same 0.5px gradient ring the floats use */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 0.5px; pointer-events: none;
+  background: linear-gradient(180deg, oklch(1 0 0 / 0.34), oklch(1 0 0 / 0.06) 45%, oklch(1 0 0 / 0.12));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+html[data-felt='glass'] .felt { /* the playing area: a darker inset pane of the same slab (no second blur) */
+  inset: 14px;
+  background: radial-gradient(48% 52% at 50% 38%, oklch(1 0 0 / 0.07), transparent 72%), oklch(0.16 0.01 262 / 0.22);
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12), inset 0 10px 24px -10px oklch(0 0 0 / 0.55);
+}
+html[data-felt='glass'] .felt::before { display: none; }
+html[data-felt='glass'] .felt::after { inset: 10px; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.07); }
+html[data-felt='glass'] .sheet-open .felt { background: oklch(0.16 0.01 262 / 0.22); }
+
+/* ───────────── 3. Deep ink felt: real cloth, in the background's own slate ───────────── */
+html[data-felt='ink'] { --felt-a: #1D2A45; --felt-b: #131D33; --felt-c: #0B1222; --lamp: oklch(0.95 0.01 250 / 0.085); }
+html[data-felt='ink'] .felt::before { opacity: 0.55; }
+
+/* ───────────── 5. Muted classic: the green question, answered as a control ───────────── */
+html[data-felt='classic'] { --felt-a: #172622; --felt-b: #101B18; --felt-c: #0A1210; --lamp: oklch(0.95 0.01 120 / 0.06); }
+html[data-felt='classic'] .felt::before { opacity: 0.45; }
+
+/* ───────────── 4. Scoreboard: the pot is the score, seats are team rows ───────────── */
+html[data-felt='scoreboard'] .rail {
+  left: 5%; right: 5%; border-radius: 30px;
+  background: radial-gradient(70% 45% at 50% 0%, oklch(1 0 0 / 0.06), transparent 70%), linear-gradient(180deg, oklch(0.19 0.022 262), oklch(0.12 0.014 262));   /* a tinted near-black, like Apple Sports' canvas */
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.14), inset 0 1px 0 oklch(1 0 0 / 0.10), 0 30px 70px -30px oklch(0 0 0 / 0.9);
+}
+html[data-felt='scoreboard'] .felt { inset: 0; border-radius: inherit; background: none; box-shadow: none; }
+html[data-felt='scoreboard'] .felt::before, html[data-felt='scoreboard'] .felt::after { display: none; }
+html[data-felt='scoreboard'] .center { top: 47%; gap: 12px; }
+html[data-felt='scoreboard'] .pot { flex-direction: column; align-items: center; gap: 0; }
+html[data-felt='scoreboard'] .pot .lbl { font-size: var(--t-foot); color: var(--ink-2); order: 0; }
+html[data-felt='scoreboard'] .pot .val { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 60px; line-height: 0.95; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+html[data-felt='scoreboard'] .board .card { --w: 50px; }
+/* seats: compact rows like team rows; condensed tabular stacks */
+html[data-felt='scoreboard'] .seat { padding: 10px 14px 10px 10px; border-radius: 16px; background: oklch(1 0 0 / 0.035); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.09); align-items: center; }
+html[data-felt='scoreboard'] .seat .stackval { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 26px; line-height: 1; letter-spacing: 0; }
+html[data-felt='scoreboard'] .seat .name { font-size: var(--t-foot); }
+html[data-felt='scoreboard'] .pos-left { left: 8%; }
+html[data-felt='scoreboard'] .pos-right { right: 8%; }
+html[data-felt='scoreboard'] .pos-top { top: 58px; }
+html[data-felt='scoreboard'] .bet-bo { top: 168px; }
+/* the acting seat gets the one accent wash, like a team colour behind a live card */
+html[data-felt='scoreboard'] .hero-plate { padding: 12px 18px 12px 12px; border-radius: 18px; bottom: 96px;
+  background: linear-gradient(105deg, rgba(61, 220, 151, 0.20), rgba(61, 220, 151, 0.05) 55%, oklch(1 0 0 / 0.035));
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12), inset 0 1px 0 oklch(1 0 0 / 0.08); }
+html[data-felt='scoreboard'] .hero-plate::before { display: none; }
+html[data-felt='scoreboard'] .hero-plate.folded { background: oklch(1 0 0 / 0.035); }
+html[data-felt='scoreboard'] .hero-plate .stackval { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 34px; line-height: 1; letter-spacing: 0; }
+html[data-felt='scoreboard'] .predicting .hero-plate { bottom: 112px; }
+
+/* ───────────── 6. Sports: the scoreboard idea refined after the blind rating (round 4) ─────────────
+ * Same as `scoreboard`, with the rater's fixes: no boxed panel (the coat is the canvas; a dark lit zone
+ * replaces the edge), quieter seat rows, outlined turn/river wells, and the bet as a flat pill.
+ * The condensed figures stay: they ARE SF Pro (its width axis), the face Apple Sports uses. */
+html[data-felt='sports'] .rail {
+  left: 4%; right: 4%; border-radius: 40px;
+  background: radial-gradient(62% 58% at 50% 47%, oklch(0.06 0.01 262 / 0.42), transparent 72%);
+  box-shadow: none;
+}
+html[data-felt='sports'] .felt { inset: 0; border-radius: inherit; background: none; box-shadow: none; }
+html[data-felt='sports'] .felt::before, html[data-felt='sports'] .felt::after { display: none; }
+html[data-felt='sports'] .center { top: 47%; gap: 12px; }
+html[data-felt='sports'] .pot { flex-direction: column; align-items: center; gap: 0; }
+html[data-felt='sports'] .pot .lbl { font-size: var(--t-foot); color: var(--ink-2); }
+html[data-felt='sports'] .pot .val { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 60px; line-height: 0.95; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+html[data-felt='sports'] .board .card { --w: 50px; }
+html[data-felt='sports'] .card.well { background: oklch(1 0 0 / 0.02); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.13); }
+html[data-felt='sports'] .seat { padding: 10px 14px 10px 10px; border-radius: 16px; background: oklch(1 0 0 / 0.04); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.10); align-items: center; }
+html[data-felt='sports'] .seat .stackval { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 26px; line-height: 1; letter-spacing: 0; }
+html[data-felt='sports'] .seat .name { font-size: var(--t-foot); }
+html[data-felt='sports'] .pos-left { left: 8%; } html[data-felt='sports'] .pos-right { right: 8%; } html[data-felt='sports'] .pos-top { top: 58px; }
+html[data-felt='sports'] .bet-bo { top: 160px; padding: 4px 12px; border-radius: 999px; background: oklch(1 0 0 / 0.06); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12); font-weight: 600; }
+html[data-felt='sports'] .bet-bo .chips { display: none; }
+html[data-felt='sports'] .bet-bo::before { content: "Bet"; color: var(--ink-2); font-weight: 500; margin-right: 6px; }
+html[data-felt='sports'] .hero-plate { padding: 12px 18px 12px 12px; border-radius: 18px; bottom: 96px;
+  background: linear-gradient(105deg, rgba(61, 220, 151, 0.20), rgba(61, 220, 151, 0.05) 55%, oklch(1 0 0 / 0.035));
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12), inset 0 1px 0 oklch(1 0 0 / 0.08); }
+html[data-felt='sports'] .hero-plate::before { display: none; }
+html[data-felt='sports'] .hero-plate.folded { background: oklch(1 0 0 / 0.035); }
+html[data-felt='sports'] .hero-plate .stackval { font-family: "SF Score", var(--font); font-stretch: 50%; font-weight: 800; font-size: 34px; line-height: 1; letter-spacing: 0; }
+html[data-felt='sports'] .predicting .hero-plate { bottom: 112px; }

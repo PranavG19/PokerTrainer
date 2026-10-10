@@ -6,6 +6,92 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Round 4 — the table surface (green under review)
+The user likes the direction but questions the green felt. Round 4 changes only the table surface and what
+sits on it, offering switchable variants (`table.html?felt=…`). Everything else stays as in round 3.
+
+### Apple Sports: what makes it premium (from the App Store listing, iOS 26 assets; see references.md)
+- **A near-black canvas that is never flat.** The Today list sits on a deep tinted field (the brand green
+  at about L .18), with a gentle top-down gradient and one lighter grouped card, not pure #000. The game
+  sheet's canvas is the two team colours blended across the width, with soft vertical light streaks.
+  Depth comes from tint and light, not texture.
+- **Team colour is identity, not surface.**
+  - A colour appears as a wash: a diagonal or left/right gradient behind a live card, or a soft glow
+    behind a crest.
+  - It appears as an accent: the possession bar or a tick.
+  - Rows in the list stay neutral, and the colour is only in the logos.
+  - Even the full-colour sheet keeps every number white.
+- **Scoreboard typography.** Scores are a heavy, condensed, tabular face (SF Pro Compressed/Condensed
+  Bold) at roughly 3× the size of everything around them. The clock is a medium-weight middle figure.
+  Labels are small and grey. The scale contrast does the hierarchy, with almost no boxes.
+- **Card and row materials.**
+  - The Lock Screen cards are opaque colour washes with 0.5px light edges.
+  - The Upcoming list is frosted glass over a blurred teal-to-navy field, with the focused row lifted as
+    its own slightly lighter glass slab.
+  - Lists use full-bleed hairline dividers and generous row heights.
+- **Live state.** "3rd 11:55" plus a small symbol and a progress bar; no flashing. What is live is shown
+  by which numbers are present, plus one accent bar.
+- **Density and restraint.** There are many rows, but each row is three things: a crest, a number and a
+  name. There is nothing decorative, and the motion is functional.
+
+### Translated to a poker table
+- The table should be a **canvas defined by light and tint**, not a textured material. The oval can stay,
+  but as a lit zone rather than a cloth.
+- **"Team colour" maps to the player whose turn it is.** It is one accent wash behind the acting seat,
+  never the whole surface.
+- **The pot is the score:** a heavy, condensed, tabular figure. The board is the "clock" row; seats are
+  team rows with a name, a stack (a condensed tabular figure) and a quip in grey.
+- **Glass is used only where something is lifted:** the focused hero seat, like the focused row in the
+  Upcoming list.
+
+### Variants built (`demo/glass/table-variants.css`, `table.html?felt=…`, gallery `table-variants.html`)
+Every variant keeps the oval or panel positions: seats left/top/right, the pot and board in the centre, the
+hero at the bottom. They differ in material and emphasis, not in layout logic. All pass AA
+(`variants-contrast.log`) and the layout guard.
+- **`midnight`: graphite, defined by light.** A near-black, hue-free surface; a soft top lamp (11% white);
+  a hairline rail and a 0.5px inlay. The weave is replaced by fine grain only. Cards and chips are the only
+  colour. Taken from Apple Sports: the dark canvas that avoids flatness through light.
+- **`glass`: a tinted frosted slab.** A rail at 10% fill with `blur(28px) saturate(175%)` picks up the
+  desktop, plus the floats' 0.5px gradient rim. The playing area is a darker inset pane of the same slab,
+  with no second blur. Taken from the frosted Upcoming list. Trade-off: it costs one more backdrop blur, and
+  the table and coat are both glass.
+- **`ink`: deep ink felt.** The round-3 cloth, re-dyed to the background's slate navy
+  (`#1D2A45 → #131D33 → #0B1222`) with a neutral lamp. This tests whether green is the problem, rather than
+  felt itself.
+- **`scoreboard`: the Apple Sports layout.**
+  - A tinted near-black rounded panel replaces the oval.
+  - The pot is the score: 60px heavy condensed tabular SF (`SFNS.ttf` at `font-stretch: 50%`, falling back
+    to the system font).
+  - Seats are team-row cards with condensed 26px stacks.
+  - The hero gets the single accent wash (a mint diagonal gradient, the "team colour" of whose turn it is).
+- **`classic`: the control.** A darker, desaturated green with a neutral lamp, to show whether a refined green
+  would have been enough.
+- **Unchanged in every variant:** cards, chips, dealer, dock, sheets and chrome. The dock needed no tuning;
+  its 34% glass reads over all six surfaces.
+
+- **`sports`: added after blind rating 1**, applying that rater's fixes to `scoreboard`:
+  - no boxed panel: the coat is the canvas, and a dark lit zone with no edge holds the play
+  - quieter seat rows (4% fill, 0.5px edge)
+  - outlined turn/river wells (the rater measured them at 1.1:1)
+  - the bet as a flat "Bet 75" pill instead of a 3D chip
+  - The rater's "web face, not SF" note is wrong: the figures are SF Pro on its width axis. That is recorded
+    rather than changed.
+
+### Recommendation (round 4)
+- **Ship `sports`.** It scored highest in both blind ratings on fit (7.67) and overall (7), and it is the
+  most direct translation of Apple Sports. Both raters ranked round-3 green last or near-last on fit: it
+  spends the app's semantic green on the largest surface and is the one casino-textured screen.
+- **What green does better:** both raters credit it with an instant sense of place. `sports` keeps green only
+  as the "you" accent wash. A faint green glow under the board is a cheap option if the user misses it.
+- **Port notes for `sports`:**
+  - The condensed figures need SF Pro's width axis in Electron. Chromium's `-apple-system` doesn't expose
+    it; the mock loads `SFNS.ttf` via `@font-face`. Alternatively bundle SF Pro Condensed under Apple's
+    licence, or fall back to the regular width.
+  - If the condensed figures ship, adopt them for the Home bankroll and the Charts/Drill stats too, so they
+    belong to the system, not one screen. This is a fork for the user.
+  - The e2e pot pin (14px/500) and the to-act pin must be updated.
+  - The table loses its oval, so `screens/table.ts` positions seats as row cards.
+
 ## Round 3 — system decisions
 - **The coat's blur never rendered in round 2.** An independent rater found the desktop's contour lines showing
   crisp through the "frosted" coat. A probe confirmed it: with and without `backdrop-filter`, the round-2
@@ -186,6 +272,7 @@ Living record. Each line is the current end state.
 
 ## Decisions to evaluate
 - Seats move from the real top row to an oval, set as type on the rail rather than boxed. If overruled, keep the
+- **Table surface (round 4):** `sports` is recommended over round-3 green. If overruled, choose `glass` (the best-fitting oval) or keep green, accepting the fit cost both raters measured.
   row: the cards and felt still carry the look.
 - Coach and Stats leave the action dock for the table's top-right corner. If overruled, the dock carries 11
   controls and is tight at 900px.

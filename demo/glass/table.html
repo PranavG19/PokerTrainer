@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Offsuit — Table</title>
 <link rel="stylesheet" href="glass.css" />
+<link rel="stylesheet" href="table-variants.css" />
 <!--
   One hand, four states (mock-only; pick with ?state=):
     live     — flop, hero to act, coach off, action dock live (default)
@@ -155,6 +156,9 @@
 <script>
   // Mock-only state switch.
   const state = new URLSearchParams(location.search).get('state') || 'live';
+  // Round 4: table-surface variant (green = round 3 baseline).
+  const felt = new URLSearchParams(location.search).get('felt') || 'green';
+  document.documentElement.dataset.felt = felt;
   const $ = (id) => document.getElementById(id);
   if (state !== 'live') $('coachBtn').setAttribute('aria-checked', 'true'); // predict, gate and verdict only exist in coached mode
   if (state === 'predict') { $('tray').hidden = false; $('dock').hidden = true; $('stage').classList.add('predicting'); }

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Offsuit — table surface variants (round 4)</title>
+<!-- Gallery of the round-4 table surfaces. Each tile links to the live mock: table.html?felt=<id>&state=live|verdict.
+     Only the table surface and what sits on it differ; chrome, dock, sheets and other screens are round 3. -->
+<style>
+  body { margin: 0; background: #0B0C0F; color: #E9EBEE; font: 13px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 28px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; } .sub { color: #AEB4BC; max-width: 78ch; margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; }
+  article { display: flex; flex-direction: column; gap: 10px; }
+  .shots { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+  .shots img { width: 100%; display: block; border-radius: 8px; box-shadow: 0 0 0 0.5px rgba(255,255,255,0.12); }
+  h2 { font-size: 15px; font-weight: 600; margin: 0; display: flex; gap: 10px; align-items: baseline; }
+  h2 code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: #AEB4BC; font-weight: 400; }
+  dl { margin: 0; display: grid; grid-template-columns: 92px 1fr; gap: 4px 12px; font-size: 12.5px; }
+  dt { color: #AEB4BC; } dd { margin: 0; }
+  a { color: #E9EBEE; } .links { font-size: 12px; color: #AEB4BC; }
+  .base { opacity: 0.92; }
+</style>
+</head>
+<body><main>
+<h1>Table surface variants</h1>
+<p class="sub">Round 4 changes only the table: the surface, the rail, the seats, the pot, the chips and the empty slots. Each tile shows the live table at 1100×760 and the verdict sheet over it, which is unchanged from round 3. All variants pass WCAG AA (<code>variants-contrast.log</code>). Scores from two blind raters are in <code>SCORECARD-TABLE.md</code>.</p>
+<div class="grid" id="grid"></div>
+</main>
+<script>
+  const V = [
+    ['green', 'Round 3 green (baseline)', 'A desaturated spruce wool felt in a matte leather rail, lit by a warm lamp.', 'Little. A real cloth table; the green is the classic poker cue.', 'The most "poker". Its hue is the one colour in the app that is not in the background palette.'],
+    ['midnight', 'Midnight / graphite', 'A near-black graphite surface with no hue. The table is defined by light: a soft top lamp, a hairline rail and a hairline inlay. Cards and chips are the only colour.', 'The dark canvas that is never flat (depth from light, not texture); colour reserved for identity.', 'The calmest and most "Apple". It risks reading as an empty dark oval and loses the felt\'s warmth.'],
+    ['glass', 'Tinted glass table', 'The table is a frosted slab over the round-3 background. It picks up the desktop\'s colour, with a specular rim and a darker inset playing area.', 'The frosted Upcoming list on a blurred field, with a lifted pane.', 'The most on-theme with the coat. The table and the coat are both glass, so the hierarchy between them is thin, and it costs one more backdrop blur.'],
+    ['ink', 'Deep ink felt', 'Real cloth, re-dyed into the background\'s own slate navy, with the same weave, lamp and rail as round 3.', 'A tinted canvas that matches its surroundings instead of fighting them.', 'The smallest change from green, and it keeps the warmth of a felt. Navy reads less "casino".'],
+    ['scoreboard', 'Scoreboard', 'Less literal oval: a tinted near-black panel. The pot is the score in heavy condensed tabular numerals, seats are team-row cards with condensed stacks, and one mint wash marks your turn.', 'The most: score typography, row cards, and a team-colour wash for whose turn it is.', 'The strongest information hierarchy. Least like a physical table, and the condensed face needs SF Pro\'s width axis in Electron.'],
+    ['sports', 'Sports (recommended)', 'The scoreboard idea refined after the first blind rating. There is no table plate: the coat is the canvas and a dark lit zone holds the play. Quiet glass row cards for the seats, a flat "Bet 75" pill, outlined turn and river wells, the pot as a heavy condensed SF score, and one mint wash for your turn.', 'Score typography, restrained row cards, the canvas as the whole window, team-colour-as-accent.', 'The best blind score and fit. It has the least literal poker-table cue, and the condensed figures appear only on this screen until the rest of the app adopts them.'],
+    ['classic', 'Muted classic (control)', 'A darker, desaturated green felt with a neutral lamp: the green question answered as refined green.', 'Restraint only.', 'Shows whether a refined green would have been enough.'],
+  ];
+  document.getElementById('grid').innerHTML = V.map(([id, t, idea, borrow, trade]) => `<article${id === 'green' ? ' class="base"' : ''}>
+    <h2>${t} <code>?felt=${id}</code></h2>
+    <div class="shots"><a href="table.html?felt=${id}"><img src="variants/${id}-live-1100x760.jpg" alt="${t}, live table"></a><a href="table.html?felt=${id}&state=verdict"><img src="variants/${id}-verdict-1100x760.jpg" alt="${t}, verdict sheet"></a></div>
+    <dl><dt>Idea</dt><dd>${idea}</dd><dt>From Apple Sports</dt><dd>${borrow}</dd><dt>Trade-offs</dt><dd>${trade}</dd></dl>
+    <div class="links">Open: <a href="table.html?felt=${id}">live</a> · <a href="table.html?felt=${id}&state=predict">commit first</a> · <a href="table.html?felt=${id}&state=verdict">verdict</a> · 900×640 shots in <code>variants/${id}-*-900x640.jpg</code></div>
+  </article>`).join('');
+</script>
+</body></html>
