@@ -80,3 +80,50 @@ None open. All four were resolved at head:
 - `npm run typecheck` and `npm test` passed earlier in this task with `src` unchanged since.
 - `npm run e2e` is environmentally blocked: `node_modules/electron` is half-installed.
 - **Not tested:** hover, focus and placeholder contrast; real Electron vibrancy; GPU cost.
+
+---
+
+# Review: design-glass-mockup (round 4: table-surface variants)
+Verdict: PASS WITH NOTES
+Base: 74ae4b1  Head: see `git log -1` (round-4 fix commit after c96aa1e)
+
+A short adversarial review followed `~/.foundry/skills/pr-review/SKILL.md`. It found two Act-on items, both
+fixed. The scope, scores, contrast and reference-image checks were all clean.
+
+## Act on (resolved)
+- **DECISIONS overstated the recommendation.** It said "`sports` highest in both blind ratings", but
+  `sports` exists only in rating 2. Now: "top pick in rating 2 (fit 7.67, element mean 7.29); rating 1 predates
+  it, and its parent `scoreboard` led there."
+- **The new "Table surface" decision was inserted mid-sentence** in the round-3 seats bullet. It is moved to
+  the end of "Decisions to evaluate".
+
+## Consider (applied where cheap)
+- **Blind labels.** SCORECARD-TABLE.md's quoted ship picks now name the blind labels, e.g. V6 [glass].
+- **Gallery copy.** It now qualifies `sports` as "in blind rating 2".
+- **Layout guard evidence.** It is saved as `variants-capture.log` (28/28 ok), and the script's default list
+  includes `sports`.
+- **Apple Sports' canvas is itself green.** DECISIONS now says so, and frames the case against green as
+  semantic (mint already means your turn and gain) rather than "green isn't premium".
+- **`scoreboard` layout problems, not fixed** (it is not the pick; `sports` fixes both):
+  - its panel runs under the dock at 900x640
+  - the bet chip sits on the "Pot" label
+  - The guard doesn't test `.rail` against `.dock`.
+
+## Noted
+- **Condensed figures are macOS + `file://` only.** They depend on `local(".SF NS")` or
+  `file:///System/Library/Fonts/SFNS.ttf`. Elsewhere, or over http(s), they fall back to regular-width SF
+  at the same size: legible, with wider seat rows. Electron porting is in the DECISIONS port notes.
+- **Rating 1's "web face, not SF" note is incorrect.** The figures are SF Pro on its width axis.
+
+## Dismissed
+- **Leaks into the dock or sheets.** Every rule is scoped to `html[data-felt=…]` and stage-only elements.
+- **The default differs from round 3.** With no `?felt`, `data-felt="green"` is set and no rule matches it.
+  glass.css, tokens.css, shell.js and the other pages have a 0-line diff since 74ae4b1.
+- **The scores don't match.** All ten rows were recomputed from the JSON files and keys, and they match.
+
+## Verification
+- **Contrast:** `variants-contrast.log` covers 28 renders (7 variants × live/verdict × 2 sizes), with 0 AA
+  failures. The lowest is 5.60.
+- **Layout guard:** `variants-capture.log` is 28/28 ok.
+- **Reference images:** `git ls-files | grep -i apple-sports` is empty.
+- **src:** `git diff --stat 4c4a305..HEAD -- src package.json package-lock.json` is empty.

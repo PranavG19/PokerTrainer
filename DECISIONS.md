@@ -11,8 +11,7 @@ The user likes the direction but questions the green felt. Round 4 changes only 
 sits on it, offering switchable variants (`table.html?felt=…`). Everything else stays as in round 3.
 
 ### Apple Sports: what makes it premium (from the App Store listing, iOS 26 assets; see references.md)
-- **A near-black canvas that is never flat.** The Today list sits on a deep tinted field (the brand green
-  at about L .18), with a gentle top-down gradient and one lighter grouped card, not pure #000. The game
+- **A dark canvas that is never flat.** The Today list sits on a deep, clearly saturated brand-green field, with a gentle top-down gradient and one lighter grouped card, not pure #000. The game
   sheet's canvas is the two team colours blended across the width, with soft vertical light streaks.
   Depth comes from tint and light, not texture.
 - **Team colour is identity, not surface.**
@@ -66,8 +65,8 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
   - The hero gets the single accent wash (a mint diagonal gradient, the "team colour" of whose turn it is).
 - **`classic`: the control.** A darker, desaturated green with a neutral lamp, to show whether a refined green
   would have been enough.
-- **Unchanged in every variant:** cards, chips, dealer, dock, sheets and chrome. The dock needed no tuning;
-  its 34% glass reads over all six surfaces.
+- **Unchanged in every variant:** cards, dealer, dock, sheets and chrome. The dock needed no tuning; its 34%
+  glass reads over all seven surfaces. `sports` replaces the bet chips with a pill.
 
 - **`sports`: added after blind rating 1**, applying that rater's fixes to `scoreboard`:
   - no boxed panel: the coat is the canvas, and a dark lit zone with no edge holds the play
@@ -78,9 +77,12 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
     rather than changed.
 
 ### Recommendation (round 4)
-- **Ship `sports`.** It scored highest in both blind ratings on fit (7.67) and overall (7), and it is the
-  most direct translation of Apple Sports. Both raters ranked round-3 green last or near-last on fit: it
-  spends the app's semantic green on the largest surface and is the one casino-textured screen.
+- **Ship `sports`.** It was the top pick in rating 2, with the highest fit (7.67) and element mean (7.29).
+  Rating 1 predates it; there, its parent `scoreboard` was the top pick (overall 7, fit 7.00). It is the most
+  direct translation of Apple Sports. Both raters ranked round-3 green last or near-last on fit: it
+  spends the app's semantic green on the largest surface and is the one casino-textured screen. Note that Apple
+  Sports' own Today canvas *is* a saturated green, so the case against green is semantic (in Offsuit, mint
+  already means "your turn" and "gain"), not that green is un-premium.
 - **What green does better:** both raters credit it with an instant sense of place. `sports` keeps green only
   as the "you" accent wash. A faint green glow under the board is a cheap option if the user misses it.
 - **Port notes for `sports`:**
@@ -272,7 +274,6 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
 
 ## Decisions to evaluate
 - Seats move from the real top row to an oval, set as type on the rail rather than boxed. If overruled, keep the
-- **Table surface (round 4):** `sports` is recommended over round-3 green. If overruled, choose `glass` (the best-fitting oval) or keep green, accepting the fit cost both raters measured.
   row: the cards and felt still carry the look.
 - Coach and Stats leave the action dock for the table's top-right corner. If overruled, the dock carries 11
   controls and is tight at 900px.
@@ -287,6 +288,7 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
 - Charts open cells are graphite on an opaque base. Bone is reserved for real cards, and the base stops the
   wallpaper from tinting data cells into a fake heatmap. If overruled, use bone cells, and expect a white wall
   at 1100x760.
+- **Table surface (round 4):** `sports` is recommended over round-3 green. If overruled, choose `glass` (the best-fitting oval) or keep green, accepting the fit cost both raters measured.
 
 ## Open questions
 - Can Electron get the real look? The mock fakes vibrancy with a CSS "desktop" (dune bands with contour

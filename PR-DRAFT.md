@@ -1,4 +1,4 @@
-# demo: glass design mockup (round 3: scored refinement)
+# demo: glass design mockup (rounds 3–4: scored refinement + table-surface study)
 
 ## Summary
 This is a static HTML/CSS mockup of a modern glass direction for Offsuit, built from real app screens and copy.
@@ -18,6 +18,11 @@ This is a static HTML/CSS mockup of a modern glass direction for Offsuit, built 
 - **Blind A/B re-scoring** by fresh raters ran for three iterations. The result is **7.5 → 7.9** (7.8
   without Motion), and 36 of 58 elements still miss the target. SCORECARD.md lists the method's limits.
 - **Nothing under `src/` changes**, and no dependencies change.
+
+## Round 4: table surface
+- **What changed:** seven variants of the table surface only, switchable with `table.html?felt=green|midnight|glass|ink|scoreboard|sports|classic`. The gallery is `demo/glass/table-variants.html` and the side-by-side is `demo/glass/variants/compare-variants.jpg`. The default stays round-3 green.
+- **Reference:** a study of Apple Sports (official App Store screenshots, not committed).
+- **Result:** two blind ratings (SCORECARD-TABLE.md). `sports` leads (overall 7, fit 7.67); green trails on fit but reads as poker fastest. AA holds on every variant.
 
 ## Screens
 Each screen is captured at 900x640 and 1100x760 (DPR 2) in `demo/glass/screenshots/`:
