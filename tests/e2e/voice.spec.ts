@@ -241,12 +241,12 @@ async function openTable(page: Page): Promise<void> {
  * out of two decisions, which is what makes "one speak per verdict" a real count rather than a
  * coincidence.
  */
-async function playToOneVerdict(page: Page): Promise<string> {
+async function playToOneVerdict(page: Page, severity: string | RegExp = 'serious'): Promise<string> {
   expect(await waitForIdle(page)).toBe('hero');
   await page.locator(sel.btnCall).click();
   expect(await waitForIdle(page)).toBe('hero');
   await page.locator(sel.btnFold).click();
-  await expect(page.locator(coachPanel)).toHaveAttribute('data-severity', 'serious');
+  await expect(page.locator(coachPanel)).toHaveAttribute('data-severity', severity);
   const verdict = (await page.locator(sel.coach).textContent()) ?? '';
   expect(verdict.length, 'the pinned seed must produce a real verdict').toBeGreaterThan(20);
   return verdict;
@@ -291,8 +291,10 @@ test.describe('the off switch', () => {
       await setNarration(page, false);
       const afterOff = (await speakCalls(app)).length;
 
+      // Re-opening the table continues the session's hand numbering (table.ts), so this is hand 2 with
+      // different cards: any graded verdict proves the point, not the pinned hand-1 SERIOUS.
       await openTable(page);
-      await playToOneVerdict(page);
+      await playToOneVerdict(page, /^(notable|serious)$/);
       expect(
         (await speakCalls(app)).length - afterOff,
         'switched off, yet a later verdict still crossed the channel',
