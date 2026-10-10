@@ -127,3 +127,52 @@ fixed. The scope, scores, contrast and reference-image checks were all clean.
 - **Layout guard:** `variants-capture.log` is 28/28 ok.
 - **Reference images:** `git ls-files | grep -i apple-sports` is empty.
 - **src:** `git diff --stat 4c4a305..HEAD -- src package.json package-lock.json` is empty.
+
+## Round 5 review (refined glass + seat scaling)
+- **Verdict:** BLOCK at 05856f5, on one Act on item. It is fixed in the follow-up commit; dispositions below.
+- **Base:** 2c49d05. **Head:** 05856f5.
+
+### Act on
+- **Fixed: the commit tray covered the hero in `sports` at 7–9 seats in the predict state.**
+  - Cause: `[data-density='compact'] .hero-plate { bottom: 90px }` tied in specificity with `.predicting .hero-plate` and won by
+    order.
+  - Fix: a compact + predicting rule (`bottom: 112px`).
+  - `glass` had the same latent risk, since the hero is pinned to the slab rim. It now also clamps above whichever float is
+    showing. `table.html` re-runs the layout after the state switch.
+
+### Consider
+- **Fixed: the guard's blind spots.** `r5-capture.mjs` now also renders:
+  - predict and gate at 4–9 seats
+  - 5, 7 and 8 seats
+  - the button on seat 1 as well as seat 4
+  
+  It now also checks the seat count, unplaced bets, the commit tray and every dealer button, including the hero's. The result is
+  116/116 ok. DECISIONS lists what it still does not check: overlaps under a sheet, the rail hairline crossing seats, and resize.
+- **Fixed: the D button overlapped a bet with the button on seat 1.** Bets now avoid dealer buttons, using the button's resting
+  box, because it is mid-animation when the bets are placed.
+- **Fixed: 7 and 8 seats came out one short.** The cast is filtered before slicing.
+- **Fixed: the "Lifted by 2" wording.** DECISIONS now says that refined `glass` is +2 overall and on hierarchy, but slightly lower
+  on fit (7.17 vs 7.33) and on type (6.8 vs 8.0).
+- **Fixed: FINDINGS' "up from 5".** It now reads "against 5 for the round-4 version scored in the same rating".
+
+### Noted
+- **The `sports` 4-seat render is now rule-driven.** Cy gets the folded style, the bet sits about 10px higher, and the quip is the
+  engine's pick. Positions are as in round 4.
+- **Fixed: the evidence file-name pattern** in FINDINGS.
+- **Fixed: `?glow=0` turned the glow on.** Only `glow=1` enables it now.
+- **Old `?felt=glass` links now open the refined slab.** DECISIONS says so, and points to `glass-r4` for the version rated in
+  round 4.
+
+### Dismissed (by the reviewer, with proof)
+- **Other felts or the default changed:** pixel-identical to 2c49d05.
+- **`glass-r4` differs from round-4 glass:** pixel-identical.
+- **CSS leaks into the dock or sheets:** `[data-layout]` is set only on `#stage`.
+- **Seat-limit citations are wrong:** all 8 file:line citations verified.
+- **Scores are misreported:** recomputed from the JSON and the key.
+- **`src` or package files changed:** the diff is empty.
+
+### Verification after the fixes
+- `tests/tmp/r5-capture.log`: 116/116 ok.
+- `tests/tmp/r5-contrast.log`: 48 renders, re-run. All 36 `glass` and `sports` renders pass (minimum 4.93). The 5 failures are
+  all `glass-r4` at 6 and 9 seats (3.21–3.65), as reported.
+- `git diff --stat 2c49d05..HEAD -- src package.json package-lock.json` is empty.

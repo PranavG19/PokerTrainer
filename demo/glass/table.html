@@ -159,7 +159,7 @@
   // Round 4: table-surface variant (green = round 3 baseline).
   const felt = new URLSearchParams(location.search).get('felt') || 'green';
   document.documentElement.dataset.felt = felt;
-  if (new URLSearchParams(location.search).get('glow')) document.documentElement.dataset.glow = '';
+  if (new URLSearchParams(location.search).get('glow') === '1') document.documentElement.dataset.glow = '';
 </script>
 <script src="table-seats.js"></script>
 <script>
@@ -184,6 +184,7 @@
     // Gate: focus the answer field. Verdict: focus the dialog itself (no ring at rest on a button).
     (state === 'gate' ? sheet.querySelector('input') : sheet.querySelector('.sheet')).focus();
   }
+  if (window.layoutSeats) window.layoutSeats();
 </script>
 </body>
 </html>

@@ -8,7 +8,7 @@ Living record. Each line is the current end state.
 
 ## Table: refined tinted glass, and more seats
 The user is leaning to `sports` and the tinted `glass` table. `?felt=glass` is now the refined slab; the
-round-4 version stays as `?felt=glass-r4`. The seat count is switchable: `table.html?felt=glass&seats=6`
+round-4 version stays as `?felt=glass-r4`. Links to `?felt=glass` in the round-4 records now open the refined slab; the version those ratings scored is `glass-r4`. The seat count is switchable: `table.html?felt=glass&seats=6`
 (4, 6 or 9).
 
 ### What was wrong with `glass-r4` (both blind raters) → the fix
@@ -37,8 +37,9 @@ round-4 version stays as `?felt=glass-r4`. The seat count is switchable: `table.
 
 ### Result and recommendation (blind rating 3, `SCORECARD-TABLE.md`)
 - **Scores:** `sports` 8 overall (fit 8.17, scales 7.83). Refined `glass` 7 (fit 7.17, scales 7.33).
-  `glass-r4` 5 (fit 7.33, scales 6.33). The refinement lifted `glass` by 2 over its round-4 self in the same
-  rating, but `sports` still beats it on every summary score.
+  `glass-r4` 5 (fit 7.33, scales 6.33). In the same rating, the refinement put `glass` 2 points above `glass-r4` overall and on hierarchy
+  (7.67 vs 6.50). It is slightly lower on fit (7.17 vs 7.33) and on type (6.8 vs 8.0, the condensed numerals). `sports` still beats
+  it on every summary score.
 - **Recommendation: ship `sports`**, with its 6- and 9-seat rows layout. `glass` is the alternative if you
   want a literal table shape.
   - It is the better oval, and it scales to 9 seats at 900x640 with no overlaps.
@@ -103,15 +104,28 @@ round-4 version stays as `?felt=glass-r4`. The seat count is switchable: `table.
   - The live bettor gets a brighter rim and a larger stack.
   - Folded seats lose the plate and are dimmed.
   - A busted seat is a dashed empty chair reading "Sitting out".
-- **Verified by:** [r5-capture.log](/Users/pranavgk/Documents/scratch/temp/Poker/tests/tmp/r5-capture.log),
-  48 renders, all passing the layout guard. The guard checks for no clipping, no truncated names or
-  stacks, and no overlap between seats, hero, bets, pot, board, price, corners, dock and dealer, and that
-  the glass slab clears the dock.
-  - It includes probes with every villain betting and the button on a villain, at 6 and 9 seats.
-  - AA was checked on all 48: [r5-contrast.log](/Users/pranavgk/Documents/scratch/temp/Poker/tests/tmp/r5-contrast.log).
-    All 36 `glass` and `sports` renders pass (minimum 4.93:1 against the 4.5 bar).
-  - The only failures are `glass-r4` at 6 and 9 seats, at 3.2–3.65:1. There the bare-type seats land on
-    its rail hairline, which is a reason the round-4 surface does not scale.
+- **Verified by:** [r5-capture.log](/Users/pranavgk/Documents/scratch/temp/Poker/tests/tmp/r5-capture.log): 116 renders, all
+  passing the layout guard.
+  - **Sets covered:**
+    - The 48 evidence renders.
+    - Probes with every villain betting and the button on seat 1 or 4.
+    - Predict and gate at 4–9 seats.
+    - 5, 7 and 8 seats.
+  - **Checks:**
+    - No clipping, and no truncated name or stack.
+    - The seat count matches.
+    - No unplaced bet.
+    - No overlap between seats, hero, bets, pot, board, price, corners, dock, commit tray and every dealer button.
+    - The glass slab clears the dock and tray.
+  - **What it does not check:**
+    - Overlaps under an open sheet. The table behind is inert and dimmed, and only clipping is tested.
+    - The oval's hairline crossing seats. The rater flagged this at 9 seats.
+    - Resizing after load.
+  - **AA:** checked on the 48 evidence renders,
+    [r5-contrast.log](/Users/pranavgk/Documents/scratch/temp/Poker/tests/tmp/r5-contrast.log).
+    - All 36 `glass` and `sports` renders pass (minimum 4.93:1 against the 4.5 bar).
+    - The only failures are `glass-r4` at 6 and 9 seats, at 3.2–3.65:1. There its bare-type seats land on its rail hairline, which
+      is a reason the round-4 surface does not scale.
 
 ## Round 4 — the table surface (green under review)
 The user likes the direction but questions the green felt. Round 4 changes only the table surface and what

@@ -31,7 +31,7 @@ This is a static HTML/CSS mockup of a modern glass direction for Offsuit, built 
   `sports`. It covers collision-aware bet placement, three compaction tiers, and folded, busted and live-bettor states.
 - **What the real app supports:** solo is 4 seats and LAN is 2–6. 9-max is a stress case only.
 - **Verification:**
-  - Layout guard: 48/48 renders ok, including probes with every villain betting.
+  - Layout guard: 116/116 renders ok, including predict, gate, 5/7/8 seats and probes with every villain betting.
   - AA: passes on every `glass` and `sports` render (minimum 4.93).
   - `glass-r4` fails AA at 6 and 9 seats. It is a comparison variant only.
 - **Blind rating 3:** `sports` 8 (fit 8.17, scales 7.83), `glass` 7 (7.17 / 7.33), `glass-r4` 5 (7.33 / 6.33). The green glow

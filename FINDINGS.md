@@ -3,7 +3,7 @@
 ## Outcome
 - **Table: ship `sports`.** It has no table plate, row-card seats, a heavy SF score for the pot and one mint wash for your turn. Past 4
   seats it becomes a scoreboard U. In the latest blind rating it scored 8 overall, fit 8.17 and scales 7.83.
-- **Refined `glass` came second at 7** (fit 7.17, scales 7.33), up from 5 for the round-4 version. Open
+- **Refined `glass` came second at 7** (fit 7.17, scales 7.33), against 5 for the round-4 version scored in the same rating. The refined version is slightly lower on fit and type. Open
   `demo/glass/table-variants.html` and use the seat toggle.
 - **Seats the real app supports:** solo is hero plus 3 (fixed). LAN multiplayer allows 2 to 6. The engine itself has no cap.
   9-max is beyond the app and was mocked as a stress case only. Both surfaces hold at 9 seats at 900x640.
@@ -43,10 +43,10 @@
 - **Scaling:**
   - `compare-scaling.jpg` (felt × 4/6/9 seats, 1100x760)
   - `compare-scaling-900x640.jpg` (the stress size)
-  - `scaling-<felt>-<seats>-<state>-<size>.jpg`
+  - `<felt>-<seats>-<state>-<size>.jpg` (from `demo/glass/variants/scaling/`)
   - `gallery-9-seats.jpg`
 - **Checks:**
-  - `r5-capture.log`: the layout guard, 48/48 ok
+  - `r5-capture.log`: the layout guard, 116/116 ok, including predict, gate and 5/7/8 seats
   - `r5-contrast.log`: AA, with `glass` and `sports` passing at a minimum of 4.93
   - `probe-*-allbets-*.jpg`: every villain betting, with the button on a villain
 - **Scores:** `SCORECARD-TABLE.md`, `scores-r5.json`, `vblind5-key.json`

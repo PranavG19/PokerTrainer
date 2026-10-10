@@ -30,7 +30,7 @@
     { name: 'Hal', stack: 5000, act: 'fold' },
   ];
   // 9-max seats Eli (busted) between Dee and Fay; smaller tables simply drop the later chairs.
-  const order = n === 9 ? ['Ada', 'Bo', 'Cy', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal'] : CAST.slice(0, n - 1).filter((c) => c.act !== 'out').map((c) => c.name);
+  const order = n === 9 ? ['Ada', 'Bo', 'Cy', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal'] : CAST.filter((c) => c.act !== 'out').map((c) => c.name);
   const villains = order.slice(0, n - 1).map((name, i) => ({ ...CAST.find((c) => c.name === name), id: i + 1 }));
   const allBets = q.get('bets') === 'all';
   const dealerAt = Number(q.get('dealer')) || 0;
@@ -97,7 +97,12 @@
       });
       center.style.top = `${cy + ry * 0.04}px`;
       // The refined glass slab is sized so the hero sits on its bottom rim; other ovals keep the hero above the dock.
-      if (felt === 'glass') { hero.style.top = `${R.bottom - S.top - hero.offsetHeight / 2}px`; hero.style.bottom = 'auto'; }
+      // It never drops below whichever bottom float is showing (the dock, or the taller commit tray).
+      if (felt === 'glass') {
+        const float = [...stage.querySelectorAll('#dock, #tray')].find((el) => !el.hidden);
+        const floor = float ? float.getBoundingClientRect().top - S.top - 12 - hero.offsetHeight : H;
+        hero.style.top = `${Math.min(R.bottom - S.top - hero.offsetHeight / 2, floor)}px`; hero.style.bottom = 'auto';
+      }
     } else {
       cy = H * 0.47;
       const side = Math.max(1, Math.round(k / 4)), top = k - 2 * side;
@@ -125,6 +130,8 @@
     // another bet, try straight across toward the middle, then straight up or down, stepping outward.
     const rel = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - S.left, t: r.top - S.top, r: r.right - S.left, b: r.bottom - S.top }; };
     const blocks = [...stage.querySelectorAll('.seat, .hero-plate, .pot, .board, .price')].map(rel);
+    // The dealer button is mid-animation when this runs, so take its resting box from its offset inside its seat.
+    for (const dl of stage.querySelectorAll('.dealer')) { const o = rel(dl.offsetParent); blocks.push({ l: o.l + dl.offsetLeft, t: o.t + dl.offsetTop, r: o.l + dl.offsetLeft + dl.offsetWidth, b: o.t + dl.offsetTop + dl.offsetHeight }); }
     const hit = (a) => blocks.some((o) => a.l < o.r + 4 && o.l < a.r + 4 && a.t < o.b + 4 && o.t < a.b + 4);
     seats.forEach((s, i) => {
       if (!s.bet) return;
@@ -149,6 +156,7 @@
     });
   }
   layout();
+  window.layoutSeats = layout;          // table.html re-runs it once the state switch has shown the tray or a sheet
   addEventListener('resize', layout);
   document.fonts.ready.then(layout);   // the condensed figures change seat widths once SF loads
 })();

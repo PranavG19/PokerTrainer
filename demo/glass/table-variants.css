@@ -198,6 +198,7 @@ html [data-density='compact'] .seat.folded .stackval { font-size: 18px; }
 html [data-density='compact'] .seat.out { padding: 6px 10px; }
 /* sports at 9: the hero card sits a little lower so the side columns get room */
 html[data-felt='sports'] [data-density='compact'] .hero-plate { bottom: 90px; }
+html[data-felt='sports'] [data-density='compact'].predicting .hero-plate { bottom: 112px; }   /* the commit tray is taller than the dock */
 
 /* ───────────── &glow=1: a very faint green under the board (the raters' "sense of place" suggestion) ───────────── */
 html[data-glow][data-felt='glass'] .felt { background: radial-gradient(34% 36% at 50% 56%, rgba(61, 220, 151, 0.085), transparent 72%), radial-gradient(38% 40% at 50% 55%, oklch(1 0 0 / 0.05), transparent 72%); }
