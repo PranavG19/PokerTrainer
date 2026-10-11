@@ -40,9 +40,18 @@
   --fill-1: rgba(255, 255, 255, 0.08);
   --fill-2: rgba(255, 255, 255, 0.13);
   --fill-3: rgba(255, 255, 255, 0.2);
-  --thumb-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --thumb-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --top-light: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 
   /* Ink (measured AA on the coat). */
+  /* COLOUR ROLE MAP — each hue has one meaning; anything else is neutral.
+   *  neutrals (ink, fill, hair) … structure, every control, every label
+   *  bone  … physical objects (cards, dealer button, chip faces) and the ONE primary action
+   *  mint  (--positive, pinned) … your turn, positive deltas, an ON switch. Never a balance or decoration
+   *  coral … serious severity, a wrong value, negative deltas
+   *  amber … notable severity and the gate budget timer
+   *  felt green … the table only;  desk bands … the backdrop only */
+  --mint: var(--positive);
   --ink-1: #F3F4F6;
   --ink-2: #C0C6CD;
   --ink-3: #A3AAB2;
@@ -79,11 +88,36 @@
   --elev-2: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 4px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.38);
   --focus-ring: 0 0 0 2px rgba(20, 23, 30, 1), 0 0 0 4px rgba(255, 255, 255, 0.6);
 
-  --r-ctl: 8px;
-  --r-group: 12px;
-  --r-dock: 14px;
+  /* Radii, concentric: inner = outer - padding. */
+  --r-xs: 4px;       /* cells, keycaps, tags */
+  --r-thumb: 6px;    /* a thumb inside an 8px track with 2px padding */
+  --r-ctl: 8px;      /* buttons, fields, segmented tracks */
+  --r-group: 12px;   /* inset groups */
+  --r-dock: 14px;    /* dock and tray: 8px controls + 6px padding */
+  --r-sheet: 20px;   /* sheets */
   --r-card: 6px;
+  /* Control heights: two sizes, plus 36 for the Home CTA only. */
+  --h-sm: 28px;
   --h-ctl: 32px;
+  --h-lg: 36px;
+
+  /* Type: one scale (Apple text styles). caption 11 · footnote 12 · body 13 · headline 15 · title3 17 ·
+   * title2 22 · stat 28 · hero 34. Labels are 12/500 ink-2; captions 12/400 ink-3. */
+  --t-cap: 11px;
+  --t-foot: 12px;
+  --t-body: 13px;
+  --t-head: 15px;
+  --t-t3: 17px;
+  --t-t2: 22px;
+  --t-stat: 28px;
+  --t-hero: 34px;
+
+  /* Motion. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.3, 1.25, 0.5, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 320ms;
   --nav-h: 44px;       /* the titlebar nav; the table screen's fixed height is derived from it */
   --screen-pad-y: 8px;
 
@@ -137,37 +171,115 @@ body::before {
   padding: var(--screen-pad-y) 20px;
 }
 
-/* ─── Title bar: the macOS traffic lights sit inset over its left end (titleBarStyle: 'hiddenInset') ─── */
+/* ─── Title bar (unified): the coat runs under it, one hairline below. The macOS traffic lights sit inset
+ * over its left end (titleBarStyle 'hiddenInset', positioned in main.ts to centre on this bar). Then the
+ * spade mark + wordmark, then the eleven tabs in three groups (play / study / you) with short dividers and
+ * ONE sliding selected thumb (components/thumb.ts). The bar drags the window; every control opts out. ─── */
 .tabs {
   height: var(--nav-h);
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  justify-content: flex-start;
+  gap: 16px;
   padding: 0 16px 0 84px;
   flex-wrap: nowrap;
   border-bottom: 1px solid var(--hair);
   -webkit-app-region: drag;
 }
-.tab {
+.brand {
   flex: none;
-  height: 28px;
-  padding: 0 clamp(7px, 0.9vw, 11px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--t-head);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-1);
+  white-space: nowrap;
+}
+.brand svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.tab-strip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+.tab-divider {
+  flex: none;
+  width: 1px;
+  height: 12px;
+  margin: 0 6px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.nav-spacer {
+  flex: none;
+  width: 92px;
+}
+.tab {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: var(--h-sm);
+  padding: 0 clamp(7px, 0.9vw, 10px);
   border-radius: var(--r-ctl);
-  font-size: 13px;
+  font-size: var(--t-body);
   color: var(--ink-2);
   white-space: nowrap;
   -webkit-app-region: no-drag;
-  transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+  transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
 }
 .tab:hover {
   color: var(--ink-1);
   background: var(--fill-1);
 }
+.tab:active {
+  background: var(--fill-2);
+}
 .tab[data-active='true'] {
   color: var(--ink-1);
   font-weight: 500;
+  background: none;
+}
+.tab[data-active='true']:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+@media (max-width: 1040px) {
+  .brand-word,
+  .nav-spacer {
+    display: none;
+  }
+  .tabs {
+    gap: 12px;
+  }
+  .tab-divider {
+    margin: 0 3px;
+  }
+  .tab {
+    padding: 0 8px;
+  }
+}
+
+/* ─── The selected thumb: one material for tabs and every segmented control ─── */
+.has-thumb {
+  position: relative;
+}
+.sel-thumb {
+  position: absolute;
+  z-index: 0;
+  border-radius: var(--r-ctl);
   background: var(--fill-3);
   box-shadow: var(--thumb-shadow);
+  pointer-events: none;
+  transition: left var(--dur-2) var(--ease), width var(--dur-2) var(--ease), top var(--dur-2) var(--ease);
+}
+.has-thumb > :not(.sel-thumb) {
+  position: relative;
+  z-index: 1;
 }
 
 /* ─── Buttons: one spec, three ranks (secondary · primary · quiet) ─── */
@@ -231,6 +343,201 @@ body::before {
   outline: 2px solid rgba(255, 255, 255, 0.6);
   outline-offset: 2px;
   box-shadow: none;
+}
+
+/* ─── Shared primitives (the mock's component kit). Every screen composes these rather than restyling
+ * its own; the `g-` prefix keeps them clear of the per-screen class names.
+ *   text roles  .t-hero 34/600 · .t-stat 28/500 · .t-t2 22/600 · .t-t3 17/600 · .t-head 15/500
+ *               .g-label 12/500 ink-2 · .g-sub 13 ink-2 · .g-caption 12 ink-3 · .g-pos / .g-neg deltas
+ *   containers  .g-group (inset group: the ONLY container in the coat, for actionable lists)
+ *               .g-sect (a flat hairline section, for informational lists)
+ *   controls    .g-seg (segmented track; components/thumb.ts adds the sliding thumb) · .g-row (an
+ *               openable row) · .g-switch · .g-kbd (trailing keycap) · .g-chev · .g-icon (icon tile)
+ *   objects     .g-mini (the 24px mini card) ─── */
+.t-hero { font-size: var(--t-hero); font-weight: 600; letter-spacing: -0.012em; line-height: 1; }
+.t-stat { font-size: var(--t-stat); font-weight: 500; letter-spacing: -0.01em; line-height: 1.05; }
+.t-t2 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; line-height: 1.2; }
+.t-t3 { font-size: var(--t-t3); font-weight: 600; line-height: 1.25; }
+.t-head { font-size: var(--t-head); font-weight: 500; }
+.g-label { font-size: var(--t-foot); font-weight: 500; color: var(--ink-2); }
+.g-sub { font-size: var(--t-body); color: var(--ink-2); line-height: 1.5; }
+.g-caption { font-size: var(--t-foot); color: var(--ink-3); line-height: 1.5; }
+.g-num { font-variant-numeric: tabular-nums; }
+.g-pos { color: var(--mint); }
+.g-neg { color: var(--coral); }
+
+/* The stat component: a value over the shared 12/500 label, one baseline grammar everywhere. */
+.g-stat { display: flex; flex-direction: column; gap: 6px; }
+
+.g-group {
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  overflow: hidden;
+}
+.g-group > * + * { box-shadow: inset 0 0.5px 0 var(--hair-strong); }
+.g-sect { border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.g-flat > * + * { border-top: 1px solid var(--hair); }
+
+.g-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 0;
+  background: none;
+  color: var(--ink-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.g-row:hover { background: var(--fill-0); }
+.g-row:active { background: var(--fill-1); }
+.g-row:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: -3px; }
+.g-chev { width: 7px; height: 12px; flex: none; color: var(--ink-3); }
+.g-icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--fill-1);
+  box-shadow: var(--top-light), inset 0 0 0 0.5px var(--hair-strong);
+  color: var(--ink-1);
+}
+.g-icon svg { width: 15px; height: 15px; }
+
+/* Segmented control: a 3% track with an edge, items on the shared ramp, one sliding thumb. Items keep
+ * whatever element/class their screen gives them (often .pill): inside a track they lose the pill's own
+ * fill and edge, since the thumb is the selection. */
+.g-seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 2px;
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair);
+}
+html .g-seg > button {
+  height: calc(var(--h-sm) - 4px);
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--r-thumb);
+  background: none;
+  box-shadow: none;
+  font-size: var(--t-body);
+  font-weight: 400;
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
+}
+html .g-seg > button:not(:disabled):hover { color: var(--ink-1); background: var(--fill-0); box-shadow: none; }
+html .g-seg > button:not(:disabled):active { background: var(--fill-1); transform: none; }
+html .g-seg > button:is([data-active='true'], [aria-checked='true'], [aria-pressed='true'], [data-selected='true']) {
+  color: var(--ink-1);
+  font-weight: 500;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+html .g-seg > button:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.g-seg > .sel-thumb { border-radius: var(--r-thumb); }
+.g-seg.g-seg-sm > button { font-size: var(--t-foot); padding: 0 9px; }
+
+.g-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--h-sm);
+  padding: 0 6px 0 10px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  font: inherit;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.g-switch:hover { background: var(--fill-1); color: var(--ink-1); }
+.g-switch:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.g-switch-track {
+  position: relative;
+  width: 26px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--fill-2);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  transition: background-color var(--dur-2) var(--ease);
+}
+.g-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bone);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.g-switch[aria-checked='true'] { color: var(--ink-1); }
+.g-switch[aria-checked='true'] .g-switch-track { background: var(--mint); box-shadow: none; }
+.g-switch[aria-checked='true'] .g-switch-track::after { transform: translateX(10px); }
+
+/* Keycaps: trailing, only on real hotkeys. */
+.g-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-xs);
+  font-size: var(--t-cap);
+  font-weight: 500;
+  font-style: normal;
+  color: var(--ink-1);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.pill.primary .g-kbd,
+.controls .pill[data-testid='btn-raise'] .g-kbd {
+  color: #4A4C50;
+  background: rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.2);
+}
+.pill:disabled .g-kbd { opacity: 0.6; }
+
+/* The mini card: a dedicated 24px size, rank over suit, centred, one tone down from bone. */
+.g-mini { display: flex; gap: 3px; }
+html .g-mini .card.small {
+  width: 24px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1px;
+  background: #E9E6DE;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 0.5px 0 rgba(0, 0, 0, 0.35), 0 1px 1.5px rgba(0, 0, 0, 0.35);
+}
+html .g-mini .card.small .card-rank { font-size: 12px; line-height: 1; position: static; }
+html .g-mini .card.small .card-pip { font-size: 11px; line-height: 1; position: static; }
+
+/* Buttons: the tertiary rank (plain text, then fill on hover/press), and the one large primary. */
+html .pill.quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+html .pill.quiet:not(:disabled):hover { background: var(--fill-1); color: var(--ink-1); }
+html .pill.quiet:not(:disabled):active { background: var(--fill-2); }
+html .pill.sm { height: var(--h-sm); padding: 0 10px; font-size: var(--t-foot); }
+html .pill.lg { height: var(--h-lg); padding: 0 18px; font-size: var(--t-head); }
+.pill.primary:not(:disabled):active,
+.controls .pill[data-testid='btn-raise']:not(:disabled):active {
+  background: var(--bone-press);
 }
 
 /* ─── Fields ─── */
@@ -873,4 +1180,11 @@ html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong);
 html .home-screen:has(> .session-planner) {
   padding-top: 12px;
   padding-bottom: 12px;
+}
+
+/* Reduced motion: decorative motion stops (the slide of a thumb included). */
+@media (prefers-reduced-motion: reduce) {
+  .sel-thumb {
+    transition: none;
+  }
 }

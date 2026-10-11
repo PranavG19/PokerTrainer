@@ -6,6 +6,39 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## The full redesign (branch `glass-full-redesign`): the mockup, built
+The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old
+layouts. This branch builds the mock's layouts and components (`demo/glass/*.html`, rounds 3 and 5) in the
+real app. Kept as the user saw them: the in-app pre-blurred backdrop, regular-width SF numerals, the 2–6 seat
+rule.
+
+### Shared kit
+- **One component kit in `styles-glass.css` ("Shared primitives"), `g-` prefixed** so it never collides with
+  a per-screen class: text roles (`.t-hero` … `.t-head`, `.g-label`, `.g-sub`, `.g-caption`), `.g-stat`,
+  `.g-group` (inset group, actionable lists only), `.g-sect` / `.g-flat` (hairline sections, informational
+  lists), `.g-seg` (segmented track), `.g-row`, `.g-switch`, `.g-kbd`, `.g-chev`, `.g-icon`, `.g-mini`, and the
+  `.pill.quiet` / `.pill.sm` / `.pill.lg` button ranks. Screens compose these instead of restyling.
+- **One sliding selected thumb (`components/thumb.ts`)** for the tab strip and every segmented control. The
+  selected item keeps its own flag (`data-active`, `aria-checked`, …), which is what tests and assistive tech
+  read; the thumb is an `aria-hidden` span that follows it (a MutationObserver on those attributes plus a
+  ResizeObserver). A control that a screen re-renders gets a fresh thumb in place, so it slides only where
+  the DOM persists (the tab strip, the table's controls).
+- **Glyphs (`components/glyphs.ts`)** are built with `createElementNS`, never `innerHTML`: chevron, spade,
+  people, warning, icon tile, keycap. Keycaps are `aria-hidden`; the shortcut is announced by the control.
+
+### Window and nav chrome
+- **The tab bar is built once** and only its `data-active` (and `aria-current="page"`) changes per render,
+  so the thumb slides and a clicked tab keeps focus. Before, `nav.replaceChildren` rebuilt all eleven buttons
+  on every render.
+- **Grouped tabs:** play (Play, Learn, Train, Charts) · study (Bank, Equity, Ranges, Dossier) · you (Progress,
+  Profile, Settings), with 12px dividers. The grouping is presentation only; `TABS` stays the one registry
+  and the DOM order is unchanged.
+- **Wordmark:** the 14px SVG spade plus "Offsuit" at 15/600; the mark alone below 1040px.
+- **Unified title bar:** `titleBarStyle: 'hiddenInset'` was already set. Added `trafficLightPosition
+  {x:16, y:16}` so the 12px lights centre on the 44px bar. The bar is a drag region and every tab opts out
+  (`-webkit-app-region: no-drag`). The bar stays 44px (the mock's 48 would cost Home's 640px budget; the
+  e2e pin is ≤ 52).
+
 ## The app restyle (shipped look: glass, with the `sports` table)
 The user chose `sports`. The real app (`src/renderer/`) now uses the glass system and the `sports` table.
 The mock in `demo/glass/` stays as the reference.

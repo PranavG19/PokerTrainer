@@ -43,6 +43,8 @@ import { computeStats } from '../core/session.js';
 import { reachWeightedLoss } from '../core/rw.js';
 import { REFERENCE_REACH, classDecisionsFor, type GradedDecision } from '../core/reachRef.js';
 import { createSoundPlayer } from './sound.js';
+import { attachThumb } from './components/thumb.js';
+import { spadeIcon } from './components/glyphs.js';
 import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderCareer } from './screens/career.js';
@@ -213,6 +215,24 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'settings', label: 'Settings', testid: 'tab-settings' },
 ];
 
+/**
+ * The bar's three groups — play, study, you — drawn with short dividers so eleven equal tabs read as a
+ * hierarchy without hiding any of them (N1). Grouping is presentation only: TABS stays the one registry
+ * and its order is the DOM order.
+ */
+const TAB_GROUP_STARTS: ReadonlySet<Tab> = new Set<Tab>(['chart-bank', 'progress']);
+
+/** The spade mark (the mock's SVG, not the Unicode glyph) and the wordmark; the mark alone below 1040px. */
+function renderBrand(): HTMLElement {
+  const brand = document.createElement('div');
+  brand.className = 'brand';
+  const word = document.createElement('span');
+  word.className = 'brand-word';
+  word.textContent = 'Offsuit';
+  brand.append(spadeIcon(), word);
+  return brand;
+}
+
 async function boot(): Promise<void> {
   const io = bridge();
   const seed = (await io.getSeed()) ?? DEFAULT_SEED;
@@ -289,6 +309,29 @@ async function boot(): Promise<void> {
     });
     return b;
   };
+
+  // The bar is built once and only its selected flag changes per render, so the shared thumb can slide
+  // from the old tab to the new one (and a clicked tab keeps keyboard focus).
+  const tabButtons = new Map<Tab, HTMLButtonElement>();
+  const strip = document.createElement('div');
+  strip.className = 'tab-strip';
+  for (const t of TABS) {
+    if (TAB_GROUP_STARTS.has(t.id)) {
+      const divider = document.createElement('span');
+      divider.className = 'tab-divider';
+      divider.setAttribute('aria-hidden', 'true');
+      strip.appendChild(divider);
+    }
+    const button = tabButton(t.label, t.id, t.testid);
+    tabButtons.set(t.id, button);
+    strip.appendChild(button);
+  }
+  const navSpacer = document.createElement('div');
+  navSpacer.className = 'nav-spacer';
+  navSpacer.setAttribute('aria-hidden', 'true');
+  nav.setAttribute('aria-label', 'Sections');
+  nav.append(renderBrand(), strip, navSpacer);
+  attachThumb(strip, 'button.tab');
 
   function teardownTable(): void {
     table?.destroy();
@@ -703,13 +746,11 @@ async function boot(): Promise<void> {
   }
 
   function renderInner(): void {
-    nav.replaceChildren(
-      ...TABS.map((t) => {
-        const button = tabButton(t.label, t.id, t.testid);
-        button.dataset.active = String(tab === t.id);
-        return button;
-      }),
-    );
+    for (const [id, button] of tabButtons) {
+      button.dataset.active = String(tab === id);
+      if (tab === id) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    }
 
     // Every non-play tab tears the table down: a hand left mounted behind another screen would keep
     // its AI timer running and deal on while nobody is watching it.
