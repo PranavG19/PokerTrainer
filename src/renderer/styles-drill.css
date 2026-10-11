@@ -1,338 +1,331 @@
 /*
- * THE DRILL TAB — the arithmetic trainer. Palette comes from styles.css: no new colours, and no
- * mint and no red anywhere in this file. V2 reserves mint for win% and the fluency gate, and red
- * means irreversible rather than "wrong" — a missed division is neither, so severity here is
- * carried by wording, type weight and position only. Greyscale-print the screen and it still says
- * the same thing.
+ * THE DRILL TAB (Train → Math) as the glass mock (demo/glass/drill.html): a 216px "Drilling" column
+ * with a right hairline, and the work column. No cards in the coat: both columns are flat type on the
+ * window. Colour by the role map only — coral marks the wrong value ("You said" on a miss) and nothing
+ * else; a right answer is told apart by wording, never by mint.
  *
- * BUDGET, measured rather than estimated, because guessing it is the regression class this app has
- * already shipped twice. The shell spends 45px on the tab bar and 40px on .screen's vertical
- * padding, so the column budget is 100vh - 85px: 555px in a 640px window, 675px in a 760px one.
- * Width at the 900px minimum: 900 - 40px of .screen padding = 860px, of which the sidebar takes a
- * fixed 240px and the gap 20px, leaving 600px for the worked method.
+ * BUDGET, measured rather than estimated. The column budget is --screen-h (the window under the title
+ * bar, less the screen's vertical padding): 579px in a 640px window, 699px in a 760px one. Width at
+ * the 900px minimum: 716px of Train body, of which the kind column takes 216 and the gap 24, leaving
+ * 476px for the work column.
  *
- * BOTH COLUMNS SCROLL THEMSELVES rather than letting the page grow, which is the same remedy the
- * charts screen and the table's stats sheet use. Measured, neither needs to today: the tall state
- * is the graded one — five method steps plus the two figures — and it comes out 382px in the 640px
- * window against a 555px budget, with the sidebar at 419px. The max-height is a valve, not a fix;
- * it is here because a page-level scrollbar would move the answer box, which is the one thing the
- * learner is aiming at, and because a sixth method step must degrade into a scroll rather than into
- * clipped text. drill.spec.ts test 14 asserts the overflow is zero at both sizes, so the day it
- * starts scrolling is a failing test rather than a silent change.
+ * BOTH COLUMNS SCROLL THEMSELVES rather than letting the page grow. Measured, neither needs to today;
+ * the max-height is a valve so a sixth method step degrades into a scroll rather than clipped text.
+ * drill.spec.ts test 14 asserts the overflow is zero at both sizes, so the day it starts scrolling is a
+ * failing test rather than a silent change.
  */
 .drill-screen {
-  --panel-budget: calc(100vh - 85px);
-
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
 }
 
-/* ─── Sidebar: kind selection and the session tally ─── */
+/* ─── The Drilling column: the kind, the one kind list with its tally, the notes ─── */
 .drill-side {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 14px 16px;
-  max-height: var(--panel-budget);
+  gap: 16px;
+  align-self: stretch;
+  min-height: 0;
+  padding-right: 20px;
+  border-right: 1px solid var(--hair);
+  max-height: var(--screen-h);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-/* The kind in words. Large, because "which question is this" must never be a guess. */
-.drill-now {
-  font-size: 26px;
-  font-weight: 300;
-  line-height: 1.1;
-  letter-spacing: -0.5px;
-  color: var(--text-hi);
+.drill-head {
+  display: flex;
+  flex-direction: column;
 }
 
-.drill-now-asks {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-lo);
-  padding-bottom: 2px;
+.drill-now {
+  margin-top: 2px;
+  color: var(--ink-1);
 }
 
 /*
  * The current scaffolding rung (T6/T7). No colour: rung 0 is quiet (full support is the resting state,
  * not an achievement), and a faded rung is stated in fuller ink so the learner knows support was
- * withdrawn on purpose rather than by a bug. Weight and ink carry it, matching the drill's V2 palette.
+ * withdrawn on purpose rather than by a bug.
  */
 .drill-support {
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--text-lo);
-  padding-bottom: 4px;
-}
-
-.drill-support[data-rung='0'] {
-  color: var(--text-lo-2);
+  margin-top: 4px;
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
 .drill-support:not([data-rung='0']) {
-  color: var(--text-hi);
-  font-weight: 600;
+  color: var(--ink-1);
+  font-weight: 500;
 }
 
-/* The principle line shown at rung 2 in place of the worked method: the idea, named, without figures. */
-.drill-principle {
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-hi);
-}
-
-.drill-kinds {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-bottom: 4px;
-}
-
-.drill-kind-btn {
-  padding: 5px 10px;
-  font-size: 12px;
-  background: var(--surface-hi);
-  color: var(--text-lo);
-}
-
-/* The selected kind is the loud one: weight and ink, no accent colour. */
-.drill-kind-btn[data-active='true'] {
-  color: var(--ink);
-  background: var(--card-face);
-  font-weight: 600;
-}
-
-.drill-tallies {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  list-style: none;
-}
-
-.drill-tally-row {
+.drill-kind-title {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.drill-kind-scope {
+  font-size: var(--t-cap);
+  color: var(--ink-3);
+}
+
+/* The level-2 picker: no pill and no fill for the choice — a checkmark marks it, so it never reads as
+ * the Train sub-rail beside it. Hover/press ride the shared ramp. */
+.drill-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drill-kind-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 3px 0;
+  height: var(--h-sm);
+  padding: 0 8px 0 22px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-body);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
 }
 
-/* The total is separated by a rule and by weight, so it cannot be misread as a fifth kind. */
-.drill-tally-total {
-  border-top: 1px solid var(--surface-hi);
-  margin-top: 3px;
-  padding-top: 6px;
+.drill-kind-btn:hover {
+  background: var(--fill-0);
+  color: var(--ink-1);
 }
 
-.drill-tally-label {
-  font-size: 12px;
-  color: var(--text-hi);
+.drill-kind-btn:active {
+  background: var(--fill-1);
 }
 
-.drill-tally-total .drill-tally-label {
-  font-weight: 600;
+.drill-kind-btn[data-active='true'] {
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.drill-kind-btn[data-active='true']::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 10px;
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid var(--ink-1);
+  border-bottom: 1.5px solid var(--ink-1);
+  transform: rotate(-45deg);
+}
+
+.drill-kind-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
 
 /* Tabular so the column does not jitter as the scores tick over. */
 .drill-tally-score {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 400;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.drill-note {
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--text-lo);
+/* The total is separated by a hairline and by weight, so it cannot be misread as a sixth kind. */
+.drill-tally-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 8px 8px 0 22px;
+  border-top: 1px solid var(--hair);
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink-1);
 }
 
-/* ─── The problem, the answer box, and the worked method ─── */
+.drill-tally-total .drill-tally-score {
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+/* ─── The work column: the problem, the answer box, the verdict and the worked method ─── */
 .drill-work {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 18px 20px;
+  align-items: flex-start;
+  gap: 22px;
+  max-width: 600px;
   min-width: 0;
-  max-height: var(--panel-budget);
+  max-height: var(--screen-h);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-/*
- * The question itself, and the largest type on the screen: it is what the learner is reading when
- * they do the arithmetic, and it stays on screen after the commit so the method can be checked
- * against it.
- */
+.drill-work > * {
+  align-self: stretch;
+}
+
+/* The question: 22/600, the largest type on the screen. It stays after the commit so the method can be
+ * checked against it. */
 .drill-prompt-text {
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1.35;
-  color: var(--text-hi);
-  letter-spacing: -0.3px;
+  line-height: 1.25;
+  color: var(--ink-1);
 }
 
 .drill-answer-row {
-  display: grid;
-  grid-template-columns: auto auto;
-  justify-content: start;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
 
 .drill-field {
-  display: flex;
-  align-items: baseline;
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  background: var(--surface-hi);
-  border-radius: 12px;
-  padding: 8px 14px;
+  height: var(--h-lg);
+  padding: 0 12px;
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong), inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.drill-field:focus-within {
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 
 .drill-answer {
-  width: 120px;
+  width: 110px;
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-hi);
+  color: var(--ink-1);
   font: inherit;
-  font-size: 28px;
-  font-weight: 300;
+  font-size: var(--t-t3);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .drill-answer::placeholder {
-  color: var(--text-lo);
-  font-size: 18px;
+  color: var(--ink-3);
+  font-weight: 400;
 }
 
 /* The unit sits inside the field, so "25" cannot be read as a ratio or "0.25" as a percentage. */
 .drill-unit {
-  font-size: 18px;
-  color: var(--text-lo);
+  font-size: var(--t-head);
+  color: var(--ink-2);
 }
 
-.drill-commit,
-.drill-next {
-  padding: 10px 18px;
-  font-size: 14px;
-  background: var(--surface-hi);
-  color: var(--text-hi);
+.drill-commit {
+  flex: none;
 }
 
-.drill-next {
-  align-self: start;
+.drill-work > .drill-next {
+  align-self: flex-start;
 }
 
 .drill-hint {
-  grid-column: 1 / -1;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-lo);
+  flex-basis: 100%;
   max-width: 62ch;
 }
 
-/* An unreadable entry is stated at full contrast — it is information, not a scolding, and not red. */
+/* An unreadable entry is stated at full contrast — it is information, not a scolding, and not coral. */
 .drill-hint[data-unreadable='true'] {
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
 
-/* ─── The verdict: the learner's number beside the right one ─── */
+/* ─── The verdict: the band sentence, then the learner's number beside the right one ─── */
 .drill-verdict {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  /* A quiet settle-in as the verdict lands, parity with the puzzle verdict. OPACITY ONLY (not the
-   * 6px-rise panel keyframe): this pane is pixel-tight and self-scrolling, and a translate would
-   * shift the very numbers the learner is comparing. Same animation for right and wrong, so it is
-   * not a new severity channel. Reduced-motion guard at the foot of this file. */
-  animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
+  gap: 4px;
 }
 
-/*
- * SEVERITY BY WEIGHT AND WORDING, NEVER COLOUR (V2). A miss states the fact in full-contrast
- * medium type, a hit states it quietly, and neither is praised (G3) — there is no "correct!" here.
- */
+/* The graded result reveals together: a 320ms opacity fade (no translate — the numbers being compared
+ * must not move). The verdict keeps the shared offsuit-surface-in keyframe (drill.spec M1 reads it). */
+.drill-verdict,
+.drill-method,
+.drill-next {
+  animation: offsuit-surface-in var(--dur-3) var(--ease);
+}
+
 .drill-verdict-line {
-  font-size: 14px;
-}
-
-.drill-verdict[data-verdict='wrong'] .drill-verdict-line {
-  color: var(--text-hi);
+  font-size: var(--t-head);
   font-weight: 600;
-}
-
-.drill-verdict[data-verdict='right'] .drill-verdict-line {
-  color: var(--text-lo);
-  font-weight: 400;
-}
-
-/*
- * Both numbers in the same layout either way, because the teaching is the comparison. Fixed
- * columns rather than flex so the two values line up under each other's labels regardless of how
- * many digits each has.
- */
-.drill-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 140px));
-  gap: 12px;
-}
-
-.drill-figure {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--surface-hi);
-  border-radius: 12px;
-  padding: 8px 12px;
-}
-
-.drill-figure-value {
-  font-size: 26px;
-  font-weight: 300;
-  line-height: 1.15;
-  color: var(--text-hi);
-  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  color: var(--ink-1);
 }
 
 .drill-gap {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-lo);
   max-width: 62ch;
 }
 
-/* ─── The worked method ─── */
+/* Both numbers in the same layout either way, because the teaching is the comparison. */
+.drill-pair {
+  display: flex;
+  gap: 40px;
+  margin-top: 18px;
+}
+
+.drill-figure-value {
+  color: var(--ink-1);
+}
+
+/* Coral marks the wrong value, and only that. */
+.drill-verdict[data-verdict='wrong'] .drill-figure-value[data-testid='drill-yours'] {
+  color: var(--coral);
+}
+
+/* The principle line shown at rung 2 in place of the worked method: the idea, named, without figures. */
+.drill-principle {
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-1);
+  max-width: 62ch;
+}
+
+/* ─── The worked method: a divider, then numbered steps with tertiary tabular numerals ─── */
 .drill-method {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid var(--surface-hi);
-  padding-top: 10px;
+  gap: 10px;
+  border-top: 1px solid var(--hair);
+  padding-top: 22px;
 }
 
 .drill-steps {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
   list-style: none;
   counter-reset: step;
 }
 
 /* Numbered by counter rather than by a bullet glyph: the order of the steps is the method. */
 .drill-step {
-  position: relative;
-  padding-left: 20px;
-  font-size: 13px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  font-size: var(--t-body);
   line-height: 1.5;
-  color: var(--text-hi);
+  color: var(--ink-1);
   counter-increment: step;
   font-variant-numeric: tabular-nums;
   max-width: 74ch;
@@ -340,34 +333,173 @@
 
 .drill-step::before {
   content: counter(step);
-  position: absolute;
-  left: 0;
-  color: var(--text-lo);
+  padding-top: 1px;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* At the 640px minimum the display type is the cheapest height to give back. */
+/* At the 640px minimum the rhythm gives back a little height before anything scrolls. */
 @media (max-height: 700px) {
-  .drill-now {
-    font-size: 20px;
+  .drill-work {
+    gap: 16px;
   }
 
-  .drill-prompt-text {
-    font-size: 18px;
+  .drill-method {
+    padding-top: 16px;
+    gap: 8px;
   }
 
-  .drill-answer {
-    font-size: 22px;
+  .drill-steps {
+    gap: 6px;
   }
 
-  .drill-figure-value {
-    font-size: 20px;
+  .drill-pair {
+    margin-top: 12px;
   }
 }
 
-/* The verdict settle-in is disabled for a learner who has asked for reduced motion (V2 parity with
- * the global reduced-motion block in styles.css). */
+/* ─────────────────────────────────────────────────────────────────────────────────────────────────
+ * THE QUICK-ANSWER DRILLS — Reading and Sight (Train), Defense and 3-bet response (Charts modes).
+ * Their base layout lives in styles-charts.css (.defense-*); these rules restate them in the drill's
+ * language: the question type for the situation, flat type on the coat (no card), secondary answer
+ * keys with a trailing keycap, a segmented spot picker, and the last verdict as the band sentence
+ * (15/600) with a quiet caption, revealing with the same 320ms fade. The `html` prefix outranks the
+ * charts sheet whatever the bundle order.
+ * ───────────────────────────────────────────────────────────────────────────────────────────────── */
+html .defense-drill {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 760px;
+}
+
+/* The spot picker: a segmented control (one sliding thumb), with the width line under it as a caption. */
+html .defense-spots {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+html .defense-spots .g-seg {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+html .defense-spots .defense-width {
+  font-size: var(--t-foot);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+/* The prompt: flat on the coat. The situation line is the question type. */
+html .defense-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+html .defense-prompt .defense-width {
+  font-size: var(--t-t2);
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  line-height: 1.25;
+  color: var(--ink-1);
+  max-width: 30em;
+}
+
+html .defense-hand {
+  display: flex;
+  gap: 6px;
+}
+
+html .board-reading-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+html .board-reading-row > .stat-label {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+html .defense-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: 0;
+}
+
+/* Secondary keys: label, then the trailing keycap. */
+html .defense-key {
+  gap: 8px;
+  padding: 0 8px 0 14px;
+  font-size: var(--t-body);
+}
+
+/* The last verdict: a label, the band sentence, a quiet caption. Title case by CSS so the text the
+ * specs read ("last") is unchanged. */
+html .defense-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 4px;
+  min-height: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hair);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+html .defense-feedback:not([data-verdict='none']) {
+  animation: offsuit-surface-in var(--dur-3) var(--ease);
+}
+
+html .defense-feedback[data-verdict='none'] {
+  color: var(--ink-3);
+  font-size: var(--t-foot);
+}
+
+html .defense-when {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+  text-transform: capitalize;
+  letter-spacing: 0;
+}
+
+html .defense-feedback .defense-verdict,
+html .defense-feedback[data-verdict='right'] .defense-verdict,
+html .defense-feedback[data-verdict='wrong'] .defense-verdict {
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+html .defense-tag {
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* The verdict reveal is decorative motion: off for a learner who has asked for reduced motion. */
 @media (prefers-reduced-motion: reduce) {
-  .drill-verdict {
+  .drill-verdict,
+  .drill-method,
+  .drill-next,
+  html .defense-feedback:not([data-verdict='none']) {
     animation: none;
   }
 }
