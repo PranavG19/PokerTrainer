@@ -4,6 +4,8 @@ import type { Lesson, LessonExample, LessonPhase } from '../../core/lessons/inde
 import { LESSONS, lessonById } from '../../core/lessons/index.js';
 import { renderCard, renderCardRow } from '../components/card.js';
 import { text } from '../components/dom.js';
+import { chevron } from '../components/glyphs.js';
+import { attachThumb } from '../components/thumb.js';
 import { beginFocusRestore } from '../focusRestore.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
@@ -220,11 +222,11 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
 
     const heading = document.createElement('div');
     heading.className = 'lesson-list-heading';
-    heading.appendChild(text('div', 'lesson-list-title', 'Lessons'));
+    heading.appendChild(text('div', 'lesson-list-title t-t2', 'Lessons'));
     heading.appendChild(
       text(
         'div',
-        'lesson-hint',
+        'lesson-hint g-sub',
         'Any lesson, any order. Arrow keys move, Enter opens.',
       ),
     );
@@ -244,12 +246,16 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
       section.dataset.testid = 'phase-section';
       section.dataset.phase = String(phase);
       section.appendChild(
-        text('div', 'phase-label', `Phase ${phase} · ${PHASE_LABELS[phase]}`),
+        text('div', 'phase-label g-label', `Phase ${phase} · ${PHASE_LABELS[phase]}`),
       );
 
+      // The lessons are an actionable list (every row opens), so they sit in one inset group.
+      const group = document.createElement('div');
+      group.className = 'lesson-group g-group';
       for (const lesson of inPhase) {
-        section.appendChild(renderRow(lesson));
+        group.appendChild(renderRow(lesson));
       }
+      section.appendChild(group);
       list.appendChild(section);
     }
 
@@ -261,20 +267,22 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
 
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'lesson-row';
+    row.className = 'lesson-row g-row';
     row.dataset.testid = 'lesson-row';
     row.dataset.lessonId = lesson.id;
     row.dataset.cursor = String(index === cursor);
     row.addEventListener('click', () => openLesson(index));
 
-    row.appendChild(text('span', 'lesson-row-title', lesson.title));
-    row.appendChild(text('span', 'lesson-row-mechanism', lesson.mechanism));
+    const body = document.createElement('span');
+    body.className = 'lesson-row-body';
+    body.appendChild(text('span', 'lesson-row-title', lesson.title));
+    body.appendChild(text('span', 'lesson-row-mechanism', lesson.mechanism));
 
     const advice = prerequisiteAdvice(lesson);
     if (advice !== null) {
       const line = text('span', 'lesson-advice', advice);
       line.dataset.testid = 'lesson-advice';
-      row.appendChild(line);
+      body.appendChild(line);
     }
 
     const spots = text(
@@ -282,7 +290,9 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
       'lesson-row-meta',
       `${lesson.examples.length} position${lesson.examples.length === 1 ? '' : 's'}`,
     );
-    row.appendChild(spots);
+    body.appendChild(spots);
+    row.appendChild(body);
+    row.appendChild(chevron());
 
     return row;
   }
@@ -320,22 +330,26 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     const header = document.createElement('div');
     header.className = 'lesson-header';
 
+    // One toolbar row: the way back on the left, the lesson stepper on the right.
+    const bar = document.createElement('div');
+    bar.className = 'lesson-bar';
     const back = pill('All lessons', 'lesson-back', showList);
-    header.appendChild(back);
+    back.classList.add('quiet', 'sm');
+    bar.appendChild(back);
 
     const titles = document.createElement('div');
     titles.className = 'lesson-titles';
     titles.appendChild(
-      text('div', 'phase-label', `Phase ${lesson.phase} · ${PHASE_LABELS[lesson.phase]}`),
+      text('div', 'phase-label g-label', `Phase ${lesson.phase} · ${PHASE_LABELS[lesson.phase]}`),
     );
-    const title = text('h1', 'lesson-title', lesson.title);
+    const title = text('h1', 'lesson-title t-t2', lesson.title);
     title.dataset.testid = 'lesson-title';
     titles.appendChild(title);
-    header.appendChild(titles);
 
     const nav = document.createElement('div');
     nav.className = 'lesson-nav';
     const previous = pill('Previous', 'lesson-prev', () => openLesson(lessonIndex - 1));
+    previous.classList.add('sm');
     previous.disabled = lessonIndex === 0;
     nav.appendChild(previous);
     const position = text(
@@ -346,9 +360,12 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     position.dataset.testid = 'lesson-position';
     nav.appendChild(position);
     const next = pill('Next', 'lesson-next', () => openLesson(lessonIndex + 1));
+    next.classList.add('sm');
     next.disabled = lessonIndex === lessons.length - 1;
     nav.appendChild(next);
-    header.appendChild(nav);
+    bar.appendChild(nav);
+    header.appendChild(bar);
+    header.appendChild(titles);
 
     return header;
   }
@@ -361,7 +378,9 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
 
     if (lesson.examples.length > 1) {
       const tabs = document.createElement('div');
-      tabs.className = 'example-tabs';
+      tabs.className = 'example-tabs g-seg g-seg-sm';
+      tabs.setAttribute('role', 'group');
+      tabs.setAttribute('aria-label', 'Position');
       lesson.examples.forEach((candidate, index) => {
         const tab = pill(String(index + 1), 'example-tab', () => {
           exampleIndex = index;
@@ -372,11 +391,12 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
         tabs.appendChild(tab);
       });
       section.appendChild(tabs);
+      attachThumb(tabs);
     }
 
     section.appendChild(renderSpot(example));
 
-    const prompt = text('p', 'example-prompt', example.prompt);
+    const prompt = text('p', 'example-prompt t-t3', example.prompt);
     prompt.dataset.testid = 'lesson-prompt';
     section.appendChild(prompt);
 
@@ -449,8 +469,9 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     for (const [label, value] of facts) {
       const cell = document.createElement('div');
       cell.className = 'spot-fact';
-      cell.appendChild(text('div', 'spot-fact-value', value));
-      cell.appendChild(text('div', 'stat-label', label));
+      cell.className = 'spot-fact g-stat';
+      cell.appendChild(text('div', 'spot-fact-value g-num', value));
+      cell.appendChild(text('div', 'stat-label g-label', label));
       grid.appendChild(cell);
     }
     return grid;
@@ -468,12 +489,14 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     box.placeholder = 'How would you play it, and why?';
     form.appendChild(box);
 
+    // The one committing action on the screen, so it is the bone primary.
     const send = pill('Commit', 'commit-btn', () => {
       const answer = box.value.trim();
       if (answer === '') return;
       commitments.set(key(lesson, example), answer);
       render();
     });
+    send.classList.add('primary');
     send.disabled = true;
     box.addEventListener('input', () => {
       send.disabled = box.value.trim() === '';
@@ -488,12 +511,12 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     reveal.className = 'reveal';
     reveal.dataset.testid = 'lesson-reveal';
 
-    reveal.appendChild(text('div', 'stat-label', 'You committed'));
+    reveal.appendChild(text('div', 'stat-label g-label', 'You committed'));
     const committed = text('p', 'reveal-answer', answer);
     committed.dataset.testid = 'committed-answer';
     reveal.appendChild(committed);
 
-    reveal.appendChild(text('div', 'stat-label', 'The reasoning stored with this position'));
+    reveal.appendChild(text('div', 'stat-label g-label', 'The reasoning stored with this position'));
     const reasoning = text('p', 'reveal-reasoning', example.reasoning);
     reasoning.dataset.testid = 'lesson-reasoning';
     reveal.appendChild(reasoning);
@@ -506,7 +529,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     section.className = 'lexicon';
     section.dataset.testid = 'lexicon';
 
-    section.appendChild(text('div', 'stat-label', 'Your sentence for this mechanism'));
+    section.appendChild(text('div', 'stat-label g-label', 'Your sentence for this mechanism'));
 
     const mine = lexicon.filter((entry) => entry.lessonId === lesson.id);
     const accepted = mine.filter((entry) => entry.accepted);
@@ -567,7 +590,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
 
   function renderHistory(entries: readonly LexiconEntry[]): HTMLElement {
     const list = document.createElement('ol');
-    list.className = 'lexicon-history';
+    list.className = 'lexicon-history g-flat';
     list.dataset.testid = 'lexicon-history';
 
     if (entries.length === 0) {
@@ -581,7 +604,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     // Newest first, and read-only: L3 keeps the record of how the understanding moved.
     for (const entry of [...entries].reverse()) {
       const item = document.createElement('li');
-      item.className = 'list-row lexicon-entry';
+      item.className = 'lexicon-entry';
       item.dataset.testid = 'lexicon-entry';
       item.dataset.accepted = String(entry.accepted);
       item.appendChild(text('span', 'lexicon-entry-text', entry.text));
@@ -629,8 +652,14 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     if (view === 'list') {
       if (key === 'ArrowDown' || key === 'j') cursor = clamp(cursor + 1, 0, lessons.length - 1);
       else if (key === 'ArrowUp' || key === 'k') cursor = clamp(cursor - 1, 0, lessons.length - 1);
-      else if (key === 'Enter' || key === 'ArrowRight') return openLesson(cursor);
-      else return;
+      else if (key === 'Enter' || key === 'ArrowRight') {
+        // preventDefault first: with focus still on the Learn tab (the tab bar keeps a clicked tab
+        // focused), Enter's default action re-activates that tab, which re-rendered the list right
+        // over the lesson this key had just opened.
+        event.preventDefault();
+        openLesson(cursor);
+        return;
+      } else return;
       event.preventDefault();
       render();
       return;
@@ -698,7 +727,7 @@ function cardGroup(label: string, cards: HTMLElement): HTMLElement {
   const group = document.createElement('div');
   group.className = 'spot-group';
   group.appendChild(cards);
-  group.appendChild(text('div', 'stat-label', label));
+  group.appendChild(text('div', 'stat-label g-label', label));
   return group;
 }
 
