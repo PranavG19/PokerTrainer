@@ -1,3 +1,4 @@
+import '../styles-drill.css';
 import {
   ALL_COMBOS,
   THREEBET_RESPONSE_WIDTH_ORDER,
@@ -11,6 +12,8 @@ import {
 import type { Card } from '../../core/cards.js';
 import { mulberry32, type Rng } from '../../core/rng.js';
 import { renderCard } from '../components/card.js';
+import { keycap } from '../components/glyphs.js';
+import { attachThumb } from '../components/thumb.js';
 
 /**
  * FACING-A-3-BET RESPONSE DRILL — the third mode of the Charts screen (no tab budget for a 14th tab).
@@ -137,6 +140,11 @@ function renderSpotSelector(
   wrap.className = 'defense-spots';
   wrap.dataset.testid = 'threebet-spots';
 
+  // The spots are one segmented control with the shared sliding thumb; the width line sits under it.
+  const seg = document.createElement('div');
+  seg.className = 'g-seg';
+  seg.setAttribute('role', 'group');
+  seg.setAttribute('aria-label', 'Spot');
   for (const s of SPOTS) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -145,9 +153,12 @@ function renderSpotSelector(
     button.dataset.spot = s;
     button.dataset.active = String(s === active);
     button.textContent = SPOT_LABEL[s];
+    button.setAttribute('aria-pressed', String(s === active));
     button.addEventListener('click', () => onSelect(s));
-    wrap.appendChild(button);
+    seg.appendChild(button);
   }
+  wrap.appendChild(seg);
+  attachThumb(seg);
 
   const width = document.createElement('div');
   width.className = 'defense-width stat-label';
@@ -178,7 +189,8 @@ function renderPrompt(combo: Combo, onCommit: (action: DefenseAction) => void): 
     button.type = 'button';
     button.className = 'pill defense-key';
     button.dataset.testid = `threebet-${action}`;
-    button.textContent = `${ACTION_KEY[action]} ${ACTION_LABEL[action]}`;
+    button.setAttribute('aria-keyshortcuts', ACTION_KEY[action]);
+    button.append(ACTION_LABEL[action], keycap(ACTION_KEY[action]));
     button.addEventListener('click', () => onCommit(action));
     keys.appendChild(button);
   }

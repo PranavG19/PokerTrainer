@@ -1,19 +1,17 @@
 /*
- * THE TRAIN HUB — a persistent left rail + a body that swaps between six former tabs. Palette from
- * styles.css: no new colours, no mint (reserved for win% / gate / winner / pot-odds), no red (reserved
- * for irreversible). The active rung is carried by ink and a left edge marker, never by hue.
+ * THE TRAIN HUB — a persistent left sub-rail + a body that swaps between the training modes
+ * (demo/glass/drill.html, `drill-subnav`). The rail is a SECONDARY list, so its selection is the
+ * source-list material: a quiet fill-1 with no shadow, distinct from the title bar's sliding thumb
+ * (fill-3 + thumb shadow). Ink and fill carry the active rung, never a hue; no mint, no coral.
  *
- * WIDTH IS THE CONSTRAINT. The six body screens were each authored to fill the whole .screen width
- * (860px at the 900px minimum). The rail now takes some of that, so it is kept DELIBERATELY NARROW —
- * the mode renames (Spots/Math/Speed/Stress/Leaks/Upkeep, all <=6 chars) exist partly to allow this.
- * At 900px: 860 - 132 (rail 116 + gap 16) = 728px for the body. The drill (the tightest body, a fixed
- * 240px sidebar + a minmax(0,1fr) method that shrinks) still fits, and layout.spec/drill.spec measure
- * it at both documented sizes rather than trusting this arithmetic.
+ * WIDTH IS THE CONSTRAINT. At 900px: 860 - 144 (rail 120 + gap 24) = 716px for the body. The drill
+ * (the tightest body: a 216px kind column + a minmax(0,1fr) work column) still fits, and
+ * layout.spec / drill.spec measure it at both documented sizes rather than trusting this arithmetic.
  */
 .train-screen {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
 }
 
@@ -21,74 +19,85 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* The rail scrolls with the page only if it ever outgrows the window; six short rungs never do, so
-   * it needs no max-height valve of its own. */
 }
 
-.train-rail-btn {
+/* Source-list rows: 28px, label left, the optional muted count trailing. The `html .train-rail` prefix
+ * outranks the app-restyle's thumb rule for this rail in styles-glass.css. */
+html .train-rail .train-rail-btn {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-left: 2px solid transparent;
-  border-radius: 8px;
+  height: var(--h-sm);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-ctl);
   background: transparent;
-  color: var(--text-lo);
+  box-shadow: none;
+  color: var(--ink-2);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--t-body);
+  font-weight: 400;
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
   transition:
-    background var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out);
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
 }
 
-.train-rail-btn:hover {
-  background: var(--surface);
-  color: var(--text-hi);
+html .train-rail .train-rail-btn:hover {
+  background: var(--fill-0);
+  color: var(--ink-1);
 }
 
-/* The active rung: full ink + a left edge marker + a faint fill. Weight and edge, never a colour, so a
- * greyscale print still shows which mode is open. */
-.train-rail-btn[data-active='true'] {
-  background: var(--surface-hi);
-  color: var(--text-hi);
-  border-left-color: var(--text-hi);
-  font-weight: 600;
+html .train-rail .train-rail-btn:active {
+  background: var(--fill-1);
+}
+
+/* The active rung: fill-1, full ink, medium weight. No shadow, no edge marker. */
+html .train-rail .train-rail-btn[data-active='true'] {
+  background: var(--fill-1);
+  color: var(--ink-1);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+html .train-rail .train-rail-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .train-rail-label {
-  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The muted, zero-suppressed status count ("3 to fix"). Plain text, never a badge — no fill, no hue. */
 .train-rail-note {
-  font-size: 10.5px;
-  color: var(--text-lo);
+  flex: none;
+  font-size: var(--t-cap);
+  font-weight: 400;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
 .train-rail-btn[data-active='true'] .train-rail-note {
-  color: var(--text-hi);
+  color: var(--ink-2);
 }
 
 /* One hairline between the practice band and the maintenance band — a visual grouping, no label. */
 .train-rail-divider {
   height: 1px;
   margin: 6px 10px;
-  background: var(--surface-hi);
+  background: var(--hair);
 }
 
 /* The body just hosts whichever screen is mounted; the screen owns its own budget and scrolling. The
- * min-width:0 lets a grid child (e.g. the drill) shrink its method column instead of overflowing. */
+ * min-width:0 lets a grid child (e.g. the drill) shrink its work column instead of overflowing. */
 .train-body {
   min-width: 0;
-}
-
-.train-rail-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
 }

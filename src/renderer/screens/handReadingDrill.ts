@@ -1,8 +1,10 @@
+import '../styles-drill.css';
 import { classOf, type Combo } from '../../core/preflop.js';
 import { grade, nextQuestion, type HandReadingQuestion, type ReadScenario } from '../../core/handReading.js';
 import type { Card } from '../../core/cards.js';
 import { mulberry32 } from '../../core/rng.js';
 import { renderCard } from '../components/card.js';
+import { keycap } from '../components/glyphs.js';
 
 /**
  * HAND-READING DRILL — a Train-hub practice mode. An opener raises first-in from a position, and the
@@ -137,7 +139,8 @@ function renderPrompt(question: HandReadingQuestion, onCommit: (answer: Answer) 
     button.type = 'button';
     button.className = 'pill defense-key';
     button.dataset.testid = `hand-reading-${answer}`;
-    button.textContent = `${ANSWER_KEY[answer]} ${ANSWER_LABEL[answer]}`;
+    button.setAttribute('aria-keyshortcuts', ANSWER_KEY[answer]);
+    button.append(ANSWER_LABEL[answer], keycap(ANSWER_KEY[answer]));
     button.addEventListener('click', () => onCommit(answer));
     keys.appendChild(button);
   }

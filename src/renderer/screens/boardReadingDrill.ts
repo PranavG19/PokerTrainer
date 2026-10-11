@@ -1,9 +1,11 @@
+import '../styles-drill.css';
 import type { Card } from '../../core/cards.js';
 import { CATEGORY_NAMES, HandCategory } from '../../core/evaluate.js';
 import { RT_THRESHOLD_MS } from '../../core/anomaly.js';
 import { grade, nextQuestion, type BoardReadingQuestion, type BoardReadingVerdict } from '../../core/boardReading.js';
 import { mulberry32 } from '../../core/rng.js';
 import { renderCard } from '../components/card.js';
+import { keycap } from '../components/glyphs.js';
 
 /**
  * BOARD-READING DRILL — a Train-hub practice mode ("Sight"). Seven cards land; the learner names the
@@ -126,7 +128,8 @@ function renderPrompt(question: BoardReadingQuestion, onCommit: (c: HandCategory
     button.type = 'button';
     button.className = 'pill defense-key';
     button.dataset.testid = `board-reading-cat-${category}`;
-    button.textContent = `${i + 1} ${CATEGORY_NAMES[category]}`;
+    button.setAttribute('aria-keyshortcuts', String(i + 1));
+    button.append(CATEGORY_NAMES[category], keycap(String(i + 1)));
     button.addEventListener('click', () => onCommit(category));
     keys.appendChild(button);
   });
