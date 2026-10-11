@@ -1,243 +1,236 @@
 /*
- * PREFLOP CHART BANK — screen styles. Reuses the shared .chart-grid / .chart-cell base (defined in
- * styles-charts.css and global across the bundled sheets) for the 13x13 grid; this file adds only the
- * two-pane layout, the catalog list, and the per-action cell shading.
+ * PREFLOP CHART BANK, in the Charts mock's language (demo/glass/charts.html). The grid, the cells, the
+ * revealed ring, the legend swatches and the row-staggered fade are the shared grid language in
+ * styles-charts.css; the per-action cell faces are the kit's --cell-* tokens (styles-glass.css). This
+ * file adds the two-column layout, the catalog list and the detail header.
  *
- * Action shading stays HUE-INDEPENDENT (surface lightness + type weight + border), consistent with the
- * app's V2 no-colour rule: fold recedes, call sits at mid surface, open/3-bet come forward with weight
- * and a solid edge — so the three actions read apart for a learner who cannot distinguish the palette.
+ * Action shading stays HUE-INDEPENDENT (V2): fold --cell-out, call --cell-mid, open --cell-in and
+ * 3-bet --cell-in-strong, four lightness steps of one graphite.
+ *
+ * LAYOUT. The screen is exactly the shell's height, so the page never scrolls: a 288px side column
+ * with a right hairline (the catalog, which scrolls itself with an edge fade) and the detail column
+ * (header, the grid filling what is left, the quiz group).
  */
-
 .chart-bank-screen {
+  box-sizing: border-box;
+  height: var(--screen-h);
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: 288px minmax(0, 1fr);
+  column-gap: 24px;
 }
 
-/* ─── Catalog (left) ─── */
+/* ─── Catalog (left): a single-select list on the shared thumb ─── */
 .chart-catalog {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 14px 16px 20px;
-  max-height: calc(100vh - 113px);
+  gap: 16px;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 20px 24px 0;
+  border-right: 1px solid var(--hair);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 28px), transparent);
+}
+.chart-catalog > * {
+  flex: none;
 }
 
 .catalog-title {
   margin: 0;
-  font-size: 15px;
-  color: var(--text-hi);
+  font-size: var(--t-t3);
+  font-weight: 600;
+  color: var(--ink-1);
 }
 
 .catalog-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
 }
 
 .catalog-group-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-lo);
-  margin-top: 6px;
+  margin-bottom: 6px;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 .catalog-item {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
+  height: var(--h-sm);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-thumb);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-body);
+  line-height: var(--h-sm);
   text-align: left;
-  padding: 7px 10px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: var(--surface-hi);
-  color: var(--text-hi);
   cursor: pointer;
-  font-size: 13px;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
-
 .catalog-item:hover {
-  border-color: var(--text-lo);
+  background: var(--fill-0);
+  color: var(--ink-1);
 }
-
-.catalog-item[data-active='true'] {
-  background: var(--card-face);
-  color: var(--ink);
-  font-weight: 600;
-  border-color: var(--ink);
+.catalog-item:active {
+  background: var(--fill-1);
 }
-
-.catalog-item-width {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-lo);
-  font-size: 12px;
+.catalog-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
-
-.catalog-item[data-active='true'] .catalog-item-width {
-  color: var(--ink);
-}
-
-.catalog-item-score {
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  color: var(--text-lo);
-}
-
-/* ─── Detail (right) ─── */
-.chart-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.chart-header {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.chart-title {
-  margin: 0;
-  font-size: 18px;
-  color: var(--text-hi);
-}
-
-.chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  list-style: none;
-  margin: 2px 0 0;
-  padding: 0;
-  font-size: 12px;
-  color: var(--text-hi);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.legend-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  border: 1px solid var(--text-lo);
-  background: var(--surface);
-}
-
-.legend-swatch[data-action='fold'] {
-  background: var(--surface);
-}
-
-.legend-swatch[data-action='call'] {
-  background: var(--surface-hi);
-}
-
-.legend-swatch[data-action='open'],
-.legend-swatch[data-action='threebet'] {
-  background: var(--card-face);
-  border-color: var(--ink);
-}
-
-.legend-swatch[data-action='threebet'] {
-  border-width: 2px;
-}
-
-.chart-source {
-  margin: 0;
-  font-size: 11px;
-  color: var(--text-lo);
-  max-width: 60ch;
-}
-
-/* ─── Per-action cell shading (reuses .chart-grid / .chart-cell base) ─── */
-.chart-bank-screen .chart-cell[data-action='fold'] {
-  background: var(--surface);
-  color: var(--text-lo);
-}
-
-.chart-bank-screen .chart-cell[data-action='call'] {
-  background: var(--surface-hi);
-  color: var(--text-hi);
+/* The selection is the sliding thumb behind the item (components/thumb.ts), so the item itself
+ * carries no fill of its own (the kit's generic catalog rule would paint a second one). */
+html .chart-bank-screen .catalog-item[data-active='true'] {
+  background: none;
+  box-shadow: none;
+  color: var(--ink-1);
   font-weight: 500;
 }
 
-.chart-bank-screen .chart-cell[data-action='open'] {
-  background: var(--card-face);
-  color: var(--ink);
-  font-weight: 600;
+.catalog-item-width,
+.catalog-item-score {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+}
+.catalog-item-score {
+  color: var(--ink-2);
+}
+html .chart-bank-screen .catalog-item[data-active='true'] .catalog-item-width {
+  color: var(--ink-2);
 }
 
-.chart-bank-screen .chart-cell[data-action='threebet'] {
-  background: var(--card-face);
-  color: var(--ink);
-  font-weight: 700;
-  border-color: var(--ink);
-}
-
-/* ─── Drill ─── */
-.chart-drill {
+/* ─── Detail (right): header, grid, quiz ─── */
+.chart-detail {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+.chart-detail > :not(.chart-grid) {
+  flex: none;
 }
 
+/* Title and width on the left, the legend at the right; the source caption under both. */
+.chart-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'title legend'
+    'width legend'
+    'source source';
+  column-gap: 16px;
+  row-gap: 2px;
+  align-items: end;
+}
+.chart-title {
+  grid-area: title;
+  margin: 0;
+  color: var(--ink-1);
+}
+.chart-bank-screen .chart-width {
+  grid-area: width;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.chart-bank-screen .chart-width-value {
+  font-size: var(--t-head);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.chart-bank-screen .chart-legend {
+  grid-area: legend;
+  align-self: end;
+}
+.chart-source {
+  grid-area: source;
+  margin: 4px 0 0;
+}
+
+/* Legend swatches match the cells: fold and open/3-bet are set by the shared rule and the kit. */
+.chart-legend .legend-swatch[data-action='call'] {
+  background: var(--cell-mid);
+}
+
+.chart-bank-screen .chart-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ─── Quiz: one horizontal inset group, as on Charts ─── */
+.chart-drill {
+  padding: 10px 12px;
+}
 .chart-drill .drill-prompt {
   display: flex;
   align-items: center;
   gap: 14px;
-  flex-wrap: wrap;
 }
-
 .chart-drill .drill-hand {
   display: flex;
   gap: 4px;
 }
-
-.chart-drill .drill-situation {
-  font-size: 14px;
-  color: var(--text-hi);
+.chart-drill .card,
+.chart-drill .card-back {
+  width: 34px;
+  height: 47px;
+  border-radius: 7px;
+  padding: 4px 5px;
 }
-
+.chart-drill .card .card-rank {
+  font-size: var(--t-head);
+}
+.chart-drill .card .card-pip {
+  font-size: var(--t-cap);
+}
+.chart-drill .drill-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.chart-drill .drill-situation {
+  color: var(--ink-1);
+}
 .chart-drill .drill-keys {
   display: flex;
   gap: 8px;
+  margin-left: auto;
+}
+.chart-drill .drill-key {
+  gap: 8px;
+  padding: 0 8px 0 14px;
 }
 
 .chart-drill .drill-feedback {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  min-height: 20px;
-  font-size: 13px;
-  color: var(--text-hi);
+  flex-wrap: wrap;
+  column-gap: 6px;
+  min-height: 18px;
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
-
 .chart-drill .drill-when {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-lo);
+  color: var(--ink-3);
 }
-
+/* Severity by weight, never colour (V2). */
 .chart-drill .drill-feedback[data-verdict='wrong'] .drill-verdict {
-  font-weight: 700;
+  color: var(--ink-1);
+  font-weight: 500;
 }
-
-@media (max-width: 900px) {
-  .chart-bank-screen {
-    grid-template-columns: 1fr;
-  }
-  .chart-catalog {
-    max-height: none;
-  }
+.chart-drill .drill-feedback[data-verdict='right'] .drill-verdict {
+  color: var(--ink-2);
 }

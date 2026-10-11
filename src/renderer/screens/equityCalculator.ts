@@ -10,6 +10,7 @@ import {
 } from '../../core/equity.js';
 import { ALL_COMBOS, type Combo } from '../../core/preflop.js';
 import { renderCard } from '../components/card.js';
+import { attachThumb } from '../components/thumb.js';
 
 /**
  * STANDALONE EQUITY CALCULATOR — BACKLOG #5.
@@ -170,26 +171,42 @@ export function renderEquityCalculator(): HTMLElement {
   root.className = 'equity-screen';
   root.dataset.testid = 'equity-screen';
 
-  root.appendChild(text('h2', 'equity-title', 'Equity calculator'));
-  root.appendChild(
+  // Two columns: the inputs in a side column, the result and the range grid in the main one.
+  const side = document.createElement('div');
+  side.className = 'equity-side';
+  const main = document.createElement('div');
+  main.className = 'equity-main';
+  root.appendChild(side);
+  root.appendChild(main);
+  // Before any result and outside range mode the main column would be empty; say what fills it.
+  const placeholder = text(
+    'p',
+    'equity-placeholder g-caption',
+    'The result appears here. Pick “Range” to paint the villain’s range on a grid.',
+  );
+
+  side.appendChild(text('h2', 'equity-title t-t3', 'Equity calculator'));
+  side.appendChild(
     text(
       'p',
-      'equity-lede',
+      'equity-lede g-caption',
       'Type cards as rank+suit — As, Kh, Td, 9c. Hero is exact against a specific villain hand, and a Monte Carlo estimate against a range or any two cards.',
     ),
   );
 
-  const heroInput = field(root, 'Hero hand', 'equity-hero-input', 'As Ah', 'Two cards.');
-  const boardInput = field(root, 'Board', 'equity-board-input', '', 'Empty, or 3 / 4 / 5 cards.');
+  const heroInput = field(side, 'Hero hand', 'equity-hero-input', 'As Ah', 'Two cards.');
+  const boardInput = field(side, 'Board', 'equity-board-input', '', 'Empty, or 3 / 4 / 5 cards.');
 
   // Villain: a mode picker, then the input that mode needs (a hand text field or the range grid).
   const modeWrap = document.createElement('div');
   modeWrap.className = 'equity-field';
   modeWrap.appendChild(text('label', '', 'Villain'));
+  // A segmented control over the three radios: each label is a segment, the radio inside it stays the
+  // real control (keyboard, a11y, tests), and the shared thumb sits under the checked one.
   const modes = document.createElement('div');
-  modes.className = 'equity-modes';
+  modes.className = 'equity-modes g-seg';
   modeWrap.appendChild(modes);
-  root.appendChild(modeWrap);
+  side.appendChild(modeWrap);
 
   let villainMode: VillainMode = 'random';
   const selectedCombos = new Set<Combo>();
@@ -224,32 +241,48 @@ export function renderEquityCalculator(): HTMLElement {
       villainMode = option.value;
       syncVillainInputs();
     });
+    label.className = 'equity-mode';
+    label.dataset.selected = String(radio.checked);
     label.appendChild(radio);
     label.appendChild(document.createTextNode(option.label));
     modes.appendChild(label);
   }
+  attachThumb(modes, 'label');
 
-  root.appendChild(villainHandField);
-  root.appendChild(rangePanel);
+  side.appendChild(villainHandField);
 
+  const rangeGrid = rangePanel.querySelector<HTMLElement>('.equity-range-grid');
   function syncVillainInputs(): void {
     villainHandField.hidden = villainMode !== 'hand';
+    const wasHidden = rangePanel.hidden;
     rangePanel.hidden = villainMode !== 'range';
+    for (const label of modes.querySelectorAll<HTMLElement>('.equity-mode')) {
+      label.dataset.selected = String(label.querySelector('input')?.value === villainMode);
+    }
+    // The grid fades in row by row each time it is revealed (restart the animation by re-adding).
+    if (rangeGrid && wasHidden && !rangePanel.hidden) {
+      rangeGrid.classList.remove('is-entering');
+      void rangeGrid.offsetWidth;
+      rangeGrid.classList.add('is-entering');
+    }
+    if (resultElReady) syncPlaceholder();
   }
+  rangePanel.hidden = true;
+  let resultElReady = false;
   syncVillainInputs();
 
   const calculate = document.createElement('button');
   calculate.type = 'button';
-  calculate.className = 'pill';
+  calculate.className = 'pill primary';
   calculate.dataset.testid = 'equity-calculate';
   calculate.textContent = 'Calculate';
-  root.appendChild(calculate);
+  side.appendChild(calculate);
 
   const errorEl = document.createElement('div');
   errorEl.className = 'equity-error';
   errorEl.dataset.testid = 'equity-error';
   errorEl.setAttribute('role', 'alert');
-  root.appendChild(errorEl);
+  side.appendChild(errorEl);
 
   const resultEl = document.createElement('div');
   resultEl.className = 'equity-result';
@@ -257,7 +290,15 @@ export function renderEquityCalculator(): HTMLElement {
   // Announce the fresh number to a screen reader without stealing focus from the Calculate button.
   resultEl.setAttribute('aria-live', 'polite');
   resultEl.hidden = true;
-  root.appendChild(resultEl);
+  main.appendChild(resultEl);
+  main.appendChild(rangePanel);
+  main.appendChild(placeholder);
+  resultElReady = true;
+  syncPlaceholder();
+
+  function syncPlaceholder(): void {
+    placeholder.hidden = !resultEl.hidden || !rangePanel.hidden;
+  }
 
   function villainSpec(): VillainSpec {
     if (villainMode === 'hand') return { kind: 'hand', cards: parseCards(villainInput.value) };
@@ -296,7 +337,10 @@ export function renderEquityCalculator(): HTMLElement {
     paintResult(resultEl, input, computeEquity(input));
   }
 
-  calculate.addEventListener('click', run);
+  calculate.addEventListener('click', () => {
+    run();
+    syncPlaceholder();
+  });
 
   return root;
 }
@@ -332,15 +376,15 @@ function field(
 /** The 13x13 selectable grid of the 169 combos, mirroring the Charts grid layout. Toggling mutates `selected`. */
 function renderRangePanel(selected: Set<Combo>): HTMLElement {
   const panel = document.createElement('div');
-  panel.className = 'equity-field';
+  panel.className = 'equity-field equity-range-panel';
 
   const controls = document.createElement('div');
   controls.className = 'equity-range-controls';
-  const count = text('span', 'equity-range-count', '0 combos');
+  const count = text('span', 'equity-range-count g-caption g-num', '0 combos');
   count.dataset.testid = 'equity-range-count';
   const clear = document.createElement('button');
   clear.type = 'button';
-  clear.className = 'pill';
+  clear.className = 'pill sm';
   clear.dataset.testid = 'equity-range-clear';
   clear.textContent = 'Clear';
   controls.appendChild(clear);
@@ -358,12 +402,13 @@ function renderRangePanel(selected: Set<Combo>): HTMLElement {
     count.textContent = `${selected.size} combo${selected.size === 1 ? '' : 's'}`;
   };
 
-  for (const high of RANKS_DESC) {
+  RANKS_DESC.forEach((high, row) => {
     for (const low of RANKS_DESC) {
       const combo = comboAt(high, low);
       const cell = document.createElement('button');
       cell.type = 'button';
       cell.className = 'equity-range-cell';
+      cell.style.setProperty('--r', String(row));
       cell.dataset.testid = 'equity-range-cell';
       cell.dataset.combo = combo;
       cell.dataset.selected = 'false';
@@ -380,7 +425,7 @@ function renderRangePanel(selected: Set<Combo>): HTMLElement {
       cells.set(combo, cell);
       grid.appendChild(cell);
     }
-  }
+  });
 
   clear.addEventListener('click', () => {
     selected.clear();
@@ -405,9 +450,17 @@ function paintResult(host: HTMLElement, input: EquityInput, result: CalcResult):
   host.hidden = false;
   host.replaceChildren();
 
-  const value = text('div', 'equity-value', `${Math.round(result.equity * 100)}%`);
+  const value = text('div', 'equity-value t-hero g-num', `${Math.round(result.equity * 100)}%`);
   value.dataset.testid = 'equity-value';
-  host.appendChild(value);
+  // The headline over its label, the stat grammar every screen uses.
+  const stat = document.createElement('div');
+  stat.className = 'equity-stat g-stat';
+  stat.appendChild(value);
+  stat.appendChild(text('div', 'g-label', 'hero equity'));
+  const head = document.createElement('div');
+  head.className = 'equity-result-head';
+  head.appendChild(stat);
+  host.appendChild(head);
 
   // Show the cards the number is about, reusing the shared card renderer.
   const shown = document.createElement('div');
@@ -424,20 +477,20 @@ function paintResult(host: HTMLElement, input: EquityInput, result: CalcResult):
     for (const c of input.board) boardRow.appendChild(renderCard(c, { small: true }));
     shown.appendChild(boardRow);
   }
-  host.appendChild(shown);
+  head.appendChild(shown);
 
   if (result.win !== null && result.tie !== null && result.lose !== null) {
     const breakdown = document.createElement('div');
-    breakdown.className = 'equity-breakdown';
+    breakdown.className = 'equity-breakdown g-num';
     breakdown.appendChild(text('span', '', `Win ${Math.round(result.win * 100)}%`));
     breakdown.appendChild(text('span', '', `Tie ${Math.round(result.tie * 100)}%`));
     breakdown.appendChild(text('span', '', `Lose ${Math.round(result.lose * 100)}%`));
-    host.appendChild(breakdown);
+    head.appendChild(breakdown);
   }
 
   if (result.categoryChances) {
     const cats = document.createElement('div');
-    cats.className = 'equity-cats';
+    cats.className = 'equity-cats g-flat';
     const shownCats = Object.entries(result.categoryChances)
       .filter(([, chance]) => chance >= MIN_SHOWN_CHANCE)
       .sort((a, b) => b[1] - a[1]);
@@ -445,7 +498,7 @@ function paintResult(host: HTMLElement, input: EquityInput, result: CalcResult):
       const row = document.createElement('div');
       row.className = 'equity-cat';
       row.appendChild(text('span', '', name));
-      row.appendChild(text('span', '', `${Math.round(chance * 100)}%`));
+      row.appendChild(text('span', 'g-num', `${Math.round(chance * 100)}%`));
       cats.appendChild(row);
     }
     host.appendChild(cats);
@@ -454,5 +507,5 @@ function paintResult(host: HTMLElement, input: EquityInput, result: CalcResult):
   const note = result.exact
     ? 'Exact — full enumeration of every remaining board.'
     : `Monte Carlo estimate over ${result.iterations?.toLocaleString()} runouts.`;
-  host.appendChild(text('div', 'equity-note', note));
+  host.appendChild(text('div', 'equity-note g-caption', note));
 }

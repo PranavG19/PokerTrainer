@@ -1,20 +1,39 @@
+/*
+ * RANGE EDITOR, in the Charts mock's layout: a 288px side column with a right hairline (the name, Save
+ * as the one primary, Clear, the count, the saved library as an inset group of actionable rows) and the
+ * main column (the paintable grid in the shared grid language from styles-charts.css, then the drill as
+ * one horizontal inset group with trailing keycaps). The screen is exactly the shell's height.
+ */
 .range-editor-screen {
+  box-sizing: border-box;
+  height: var(--screen-h);
+  display: grid;
+  grid-template-columns: 288px minmax(0, 1fr);
+  column-gap: 24px;
+}
+
+.range-editor-side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-  max-width: 640px;
+  gap: 14px;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 20px 16px 0;
+  border-right: 1px solid var(--hair);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.range-editor-side > * {
+  flex: none;
 }
 
 .range-editor-title {
-  font-size: 1.4rem;
   margin: 0;
+  color: var(--ink-1);
 }
-
 .range-editor-lede {
   margin: 0;
-  color: var(--muted, #999);
-  font-size: 0.9rem;
 }
 
 .range-editor-field {
@@ -22,40 +41,29 @@
   flex-direction: column;
   gap: 6px;
 }
-
 .range-editor-field label {
-  font-size: 0.85rem;
-  color: var(--muted, #999);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
-
+/* The kit's field face (the same one the equity inputs use). */
 .range-editor-field input[type='text'] {
-  background: transparent;
-  color: inherit;
-  border: 1px solid var(--line, #444);
-  border-radius: 4px;
-  padding: 6px 8px;
+  box-sizing: border-box;
+  height: var(--h-ctl);
+  padding: 0 10px;
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  border: 1px solid var(--hair-strong);
+  color: var(--ink-1);
   font: inherit;
+  font-size: var(--t-body);
 }
-
-.range-editor-grid {
-  display: grid;
-  grid-template-columns: repeat(13, 1fr);
-  gap: 2px;
-  max-width: 520px;
+.range-editor-field input[type='text']::placeholder {
+  color: var(--ink-3);
 }
-
-.range-editor-cell {
-  font-size: 0.65rem;
-  padding: 3px 0;
-  border: 1px solid var(--line, #444);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.range-editor-cell[data-selected='true'] {
-  background: var(--accent, #3a7);
-  color: #fff;
+.range-editor-field input[type='text']:focus {
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 
 .range-editor-controls {
@@ -63,84 +71,149 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  font-size: 0.85rem;
 }
-
 .range-editor-count {
-  color: var(--muted, #999);
+  margin-left: 4px;
 }
 
+.range-editor-error {
+  font-size: var(--t-foot);
+  color: var(--coral);
+}
+.range-editor-error:empty {
+  display: none;
+}
+
+/* ─── Saved library: an inset group of rows (name + meta, then Load / Delete) ─── */
 .range-editor-saved {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
-
 .range-editor-saved-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
-
 .range-editor-saved-row {
   display: flex;
   gap: 8px;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid var(--line, #444);
-  border-radius: 4px;
-  padding: 4px 8px;
+  padding: 8px 8px 8px 12px;
 }
-
-.range-editor-saved-name {
-  font-weight: 600;
-}
-
-.range-editor-saved-meta {
-  color: var(--muted, #999);
-  font-size: 0.8rem;
-}
-
-.range-editor-error {
-  color: var(--danger, #d66);
-  font-size: 0.85rem;
-  min-height: 1em;
-}
-
-.range-editor-drill {
-  border: 1px solid var(--line, #444);
-  border-radius: 6px;
-  padding: 12px;
+.range-editor-saved-text {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  min-width: 0;
+}
+.range-editor-saved-name {
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.range-editor-saved-meta {
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+}
+.range-editor-saved-actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
 }
 
+/* ─── Main column: the grid fills what the drill leaves ─── */
+.range-editor-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+.range-editor-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The drill: one horizontal inset group (no separators) — cards, the prompt over the verdict and the
+ * score, the two answers with trailing keycaps, then Stop. */
+.range-editor-drill {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+}
+.range-editor-drill.g-group > * + * {
+  box-shadow: none;
+}
+.range-editor-drill > [data-testid='range-editor-start-drill'] {
+  margin-left: auto;
+}
 .range-editor-drill-hand {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
-
+.range-editor-drill-hand .card,
+.range-editor-drill-hand .card-back {
+  width: 34px;
+  height: 47px;
+  border-radius: 7px;
+  padding: 4px 5px;
+}
+.range-editor-drill-hand .card .card-rank {
+  font-size: var(--t-head);
+}
+.range-editor-drill-hand .card .card-pip {
+  font-size: var(--t-cap);
+}
+.range-editor-drill-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.range-editor-drill-prompt {
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+}
 .range-editor-drill-keys {
+  flex: none;
   display: flex;
   gap: 8px;
+  margin-left: auto;
 }
-
+.range-editor-drill > [data-testid='range-editor-stop-drill'] {
+  flex: none;
+}
+.range-editor-drill-keys .pill {
+  gap: 8px;
+  padding: 0 8px 0 14px;
+}
 .range-editor-drill-score {
-  color: var(--muted, #999);
-  font-size: 0.85rem;
+  font-size: var(--t-foot);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
 }
 
+/* Severity by weight, never colour (V2), and no underline. */
+.range-editor-drill-feedback {
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+}
 .range-editor-drill-feedback[data-verdict='right'] {
-  font-weight: 600;
+  color: var(--ink-2);
 }
-
 .range-editor-drill-feedback[data-verdict='wrong'] {
-  font-weight: 700;
-  text-decoration: underline;
+  font-weight: 500;
+  color: var(--ink-1);
 }
 
 .visually-hidden {
