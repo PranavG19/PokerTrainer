@@ -1,34 +1,37 @@
 /*
- * Hand review (replay a finished hand decision by decision). Palette comes from styles.css — no new
- * colours, and nothing here signals with colour alone: every verdict states its severity in words.
+ * Hand review (replay a finished hand decision by decision), as the glass mockup. The hand picker is an
+ * actionable list, so it is the one inset group: openable rows with 24px mini cards, the decision count
+ * and a chevron. The replay itself is informational, so it sits flat in the coat: a 12/500 step label,
+ * the cards, the figures as the shared stat component (value over label), the action, and the verdict
+ * behind a severity edge (amber notable, coral serious). Next is the one bone primary. Nothing signals
+ * with colour alone: every verdict states its severity in words.
  */
 
 .review-screen {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 40px;
-  max-width: 560px;
+  gap: 16px;
+  padding: 12px 20px 8px;
+  max-width: 600px;
   margin: 0 auto;
-  /* Same budget the profile column uses: the window minus the tab bar and the .screen padding. */
-  max-height: calc(100vh - 66px);
+  /* The screen height under the title bar (the kit's --screen-h). */
+  max-height: var(--screen-h);
 }
 
 .review-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   flex: 0 0 auto;
 }
 
 .review-title {
-  font-size: 20px;
-  font-weight: 500;
+  color: var(--ink-1);
 }
 
 .review-progress {
-  font-size: 13px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -36,14 +39,15 @@
   margin-left: auto;
 }
 
-/* The one panel allowed to give up height, so the step controls below stay on screen. */
+/* The one block allowed to give up height, so the step controls below stay on screen. Flat: a
+ * hairline above and below, no card. */
 .review-step {
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -51,15 +55,14 @@
 }
 
 .review-street {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 .review-cards {
   display: flex;
-  gap: 18px;
+  gap: 24px;
   flex-wrap: wrap;
 }
 
@@ -69,125 +72,127 @@
   gap: 6px;
 }
 
+/* The figures: stat components. The label is first in the DOM, so the column is reversed to put the
+ * value over it. */
 .review-numbers {
   display: flex;
-  gap: 20px;
+  gap: 32px;
   flex-wrap: wrap;
   font-variant-numeric: tabular-nums;
 }
+.review-numbers > div {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+}
 
 .review-number-label {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 .review-number-value {
-  font-size: 17px;
+  font-size: var(--t-t2);
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  line-height: 1.1;
+  color: var(--ink-1);
 }
+/* The result is a delta: mint for a win, coral for a loss, neutral at break-even. */
+.review-number-value[data-testid='review-net']:not([data-value='0']) { color: var(--mint); }
+.review-number-value[data-testid='review-net'][data-value^='-'] { color: var(--coral); }
 
 .review-action {
-  font-size: 17px;
-  font-weight: 500;
+  font-size: var(--t-t3);
+  font-weight: 600;
+  color: var(--ink-1);
 }
 
 .review-verdict {
-  border-left: 3px solid var(--text-lo);
-  padding-left: 12px;
+  border-left: 2px solid var(--hair-strong);
+  padding: 2px 0 2px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
 .review-verdict[data-severity='notable'] {
-  border-left-color: var(--chip-blind);
+  border-left-color: var(--amber);
 }
 
 .review-verdict[data-severity='serious'] {
-  border-left-color: var(--red);
+  border-left-color: var(--coral);
 }
 
 .review-verdict-severity {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
+.review-verdict[data-severity='notable'] .review-verdict-severity { color: var(--amber); }
+.review-verdict[data-severity='serious'] .review-verdict-severity { color: var(--coral); }
 
 .review-verdict-message {
-  font-size: 14px;
+  font-size: var(--t-body);
+  line-height: 1.55;
+  color: var(--ink-1);
+  max-width: 62ch;
 }
 
 .review-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 0 0 auto;
 }
 
 .review-hint {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   margin-left: auto;
 }
 
 /* ─── The history list that opens a review (Profile tab) ─── */
 
-/* Owns the whole column on the picker view, so it scrolls to reach every logged hand. */
+/* An inset group that owns the rest of the column, so it scrolls to reach every logged hand. */
 .review-list {
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 4px 16px;
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-
+.review-list > * { flex: none; }
 
 .review-hand-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: var(--text-hi);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  padding: 6px 0;
-}
-
-.review-hand-row:hover {
-  color: var(--mint);
+  padding: 8px 14px;
 }
 
 .review-hand-number {
-  font-size: 13px;
-  color: var(--text-lo);
-  min-width: 34px;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+  min-width: 44px;
   font-variant-numeric: tabular-nums;
 }
 
-/*
- * The `small` card exactly as components/card.ts authors it, no geometry override. Shrinking it here
- * to 26x36 for row density pushed the suit pip 2px past the card's own bottom edge: `.card.small
- * .card-rank` (three classes) outranks any two-class override from this file, so the 20px rank
- * stayed while the box got shorter. Fighting the component's CSS is forking it by another route.
- */
 .review-hand-cards {
   display: flex;
-  gap: 6px;
 }
 
 .review-hand-steps {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .review-empty {
-  font-size: 13px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-3);
   padding: 8px 0;
 }
+.review-list > .review-empty { padding: 12px 14px; }

@@ -21,18 +21,27 @@ export function renderCareer(opts: { record: CareerRecord; onBack: () => void })
 
   const back = document.createElement('button');
   back.type = 'button';
-  back.className = 'career-back';
+  back.className = 'pill sm quiet career-back';
   back.dataset.testid = 'career-back';
   back.textContent = '← Profile';
   back.addEventListener('click', opts.onBack);
   root.appendChild(back);
 
-  root.appendChild(renderStanding(record));
-  root.appendChild(section('Record', renderCounters(record)));
-  root.appendChild(section('Prediction accuracy', renderAccuracy(record)));
-  root.appendChild(section('Biggest leak', renderBiggestLeak(record)));
-  root.appendChild(section('Practice cadence', renderCadence(record)));
-  root.appendChild(section('Milestones', renderMilestones(record)));
+  // Two columns so the whole record fits the 900x640 minimum with no page scroll: the standing and
+  // the figures on the left, the cadence and the milestone ladder (the long list) on the right.
+  const main = document.createElement('div');
+  main.className = 'career-col career-col-main';
+  main.appendChild(renderStanding(record));
+  main.appendChild(section('Record', renderCounters(record)));
+  main.appendChild(section('Prediction accuracy', renderAccuracy(record)));
+  main.appendChild(section('Biggest leak', renderBiggestLeak(record)));
+
+  const side = document.createElement('div');
+  side.className = 'career-col career-col-side';
+  side.appendChild(section('Practice cadence', renderCadence(record)));
+  side.appendChild(section('Milestones', renderMilestones(record)));
+
+  root.append(main, side);
 
   return root;
 }
@@ -59,7 +68,7 @@ function renderStanding(record: CareerRecord): HTMLElement {
   wrap.appendChild(label);
 
   const value = document.createElement('div');
-  value.className = 'career-standing-value';
+  value.className = 'career-standing-value t-hero';
   value.dataset.testid = 'career-standing';
   value.textContent = record.depthLabel;
   wrap.appendChild(value);

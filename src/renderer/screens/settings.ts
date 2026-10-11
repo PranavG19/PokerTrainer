@@ -1,3 +1,6 @@
+import { attachThumb } from '../components/thumb.js';
+
+
 /**
  * SETTINGS AND PRIVACY — story 45 ("a plain statement of exactly what leaves my
  * machine, and an off switch") and story 44 ("without an API key the whole app
@@ -110,6 +113,14 @@ function isLive(status: SettingsStatus): boolean {
   return status.credentialsConfigured && status.tutorEnabled;
 }
 
+/** The .g-switch track: decoration only, so the button's text stays its On/Off label. */
+function switchTrack(): HTMLElement {
+  const track = document.createElement('span');
+  track.className = 'g-switch-track';
+  track.setAttribute('aria-hidden', 'true');
+  return track;
+}
+
 function section(label: string, body: HTMLElement): HTMLElement {
   const el = document.createElement('section');
   el.className = 'settings-section';
@@ -150,7 +161,7 @@ function renderTutorState(status: SettingsStatus, handlers: SettingsHandlers): H
   body.className = 'settings-block';
 
   const state = document.createElement('div');
-  state.className = 'settings-state';
+  state.className = 'settings-state t-t2';
   state.dataset.testid = 'tutor-state';
   state.dataset.live = String(isLive(status));
   state.textContent = isLive(status) ? 'The tutor is live' : 'The tutor is off';
@@ -188,7 +199,7 @@ function renderSwitch(status: SettingsStatus, handlers: SettingsHandlers): HTMLE
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'settings-toggle';
+  button.className = 'pill sm settings-tutor-toggle';
   button.dataset.testid = 'tutor-toggle';
   button.dataset.enabled = String(status.tutorEnabled);
   button.textContent = status.tutorEnabled ? 'Turn the tutor off' : 'Turn the tutor on';
@@ -216,21 +227,26 @@ function renderSwitch(status: SettingsStatus, handlers: SettingsHandlers): HTMLE
  */
 function renderNarration(spokenVerdicts: boolean, handlers: SettingsHandlers): HTMLElement {
   const body = document.createElement('div');
-  body.className = 'settings-block';
+  body.className = 'settings-block g-group settings-rows';
 
   const wrap = document.createElement('div');
   wrap.className = 'settings-switch';
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'settings-toggle';
+  button.className = 'g-switch settings-toggle-switch';
   button.dataset.testid = 'speak-verdicts-toggle';
+  // A real switch: the role and aria-checked drive the kit's .g-switch (mint track when ON); the
+  // visible On/Off text and the aria-label are unchanged.
+  button.setAttribute('role', 'switch');
+  button.setAttribute('aria-checked', String(spokenVerdicts));
   // `data-on` and a bare On/Off label, which is the contract tests/e2e/voice.spec.ts already asserts.
   // Deliberately NOT the tutor switch's `data-enabled` + verb-phrase idiom: that button describes the
   // action it performs ("Turn the tutor off"), which reads as the CURRENT state on a control whose
   // state the label is also carrying. Here the label states the state and the note explains it.
   button.dataset.on = String(spokenVerdicts);
   button.textContent = spokenVerdicts ? 'On' : 'Off';
+  button.appendChild(switchTrack());
   // The visible "On"/"Off" label (a voice.spec contract) does not name what it controls; an aria-label
   // does, without touching the asserted textContent.
   button.setAttribute('aria-label', `Read verdicts aloud: ${spokenVerdicts ? 'on' : 'off'}`);
@@ -257,19 +273,24 @@ function renderNarration(spokenVerdicts: boolean, handlers: SettingsHandlers): H
  */
 function renderSoundCues(soundCues: boolean, handlers: SettingsHandlers): HTMLElement {
   const body = document.createElement('div');
-  body.className = 'settings-block';
+  body.className = 'settings-block g-group settings-rows';
 
   const wrap = document.createElement('div');
   wrap.className = 'settings-switch';
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'settings-toggle';
+  button.className = 'g-switch settings-toggle-switch';
   button.dataset.testid = 'sound-cues-toggle';
+  // A real switch: the role and aria-checked drive the kit's .g-switch (mint track when ON); the
+  // visible On/Off text and the aria-label are unchanged.
+  button.setAttribute('role', 'switch');
+  button.setAttribute('aria-checked', String(soundCues));
   // Same `data-on` + bare On/Off contract as the narration switch (voice.spec's idiom), so an e2e can
   // read the state the same way; the aria-label names what it controls without touching the label text.
   button.dataset.on = String(soundCues);
   button.textContent = soundCues ? 'On' : 'Off';
+  button.appendChild(switchTrack());
   button.setAttribute('aria-label', `Play a sound on a mistake: ${soundCues ? 'on' : 'off'}`);
   button.addEventListener('click', () => handlers.onSoundCuesChange(!soundCues));
   wrap.appendChild(button);
@@ -300,10 +321,14 @@ const THEME_OPTIONS: readonly { id: string; label: string }[] = [
 
 function renderTheme(theme: string, handlers: SettingsHandlers): HTMLElement {
   const body = document.createElement('div');
-  body.className = 'settings-block';
+  body.className = 'settings-block g-group settings-rows';
+
+  // One row: the note, then the segmented control (one sliding thumb under the pressed option).
+  const row = document.createElement('div');
+  row.className = 'settings-switch';
 
   const group = document.createElement('div');
-  group.className = 'settings-switch';
+  group.className = 'g-seg settings-theme';
   group.setAttribute('role', 'group');
   group.setAttribute('aria-label', 'Visual theme');
   group.dataset.testid = 'theme-select';
@@ -312,7 +337,6 @@ function renderTheme(theme: string, handlers: SettingsHandlers): HTMLElement {
   for (const option of THEME_OPTIONS) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'settings-toggle';
     button.dataset.testid = `theme-option-${option.id}`;
     const active = option.id === theme;
     button.setAttribute('aria-pressed', String(active));
@@ -323,13 +347,15 @@ function renderTheme(theme: string, handlers: SettingsHandlers): HTMLElement {
     });
     group.appendChild(button);
   }
-  body.appendChild(group);
+  row.appendChild(group);
+  attachThumb(group);
 
   const note = document.createElement('span');
   note.className = 'settings-note';
   note.dataset.testid = 'theme-note';
   note.textContent = 'Applies instantly and stays on this machine. Every theme is dark.';
-  body.appendChild(note);
+  row.appendChild(note);
+  body.appendChild(row);
 
   return section('Theme', body);
 }

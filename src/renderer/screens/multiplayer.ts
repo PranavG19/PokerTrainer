@@ -256,14 +256,14 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     const el = document.createElement('div');
     el.className = 'mp-header';
     const title = document.createElement('h2');
-    title.className = 'mp-title';
+    title.className = 'mp-title t-t2';
     title.dataset.testid = 'mp-title';
     title.textContent = 'Play with friends';
     el.appendChild(title);
 
     const back = document.createElement('button');
     back.type = 'button';
-    back.className = 'pill';
+    back.className = 'pill sm';
     back.dataset.testid = 'mp-exit';
     back.textContent = 'Leave';
     back.addEventListener('click', () => {
@@ -298,7 +298,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
 
       const enableBtn = document.createElement('button');
       enableBtn.type = 'button';
-      enableBtn.className = 'pill';
+      enableBtn.className = 'pill primary';
       enableBtn.dataset.testid = 'mp-enable';
       enableBtn.textContent = 'Enable multiplayer';
       enableBtn.addEventListener('click', () => void enable());
@@ -338,6 +338,9 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       return el;
     }
 
+    // The two ways in are rows that act, so the panel becomes one inset group of two rows.
+    el.classList.add('g-group', 'mp-setup-rows');
+
     // Host a table: pick the seat count (2–6) first, then host.
     const hostRow = document.createElement('div');
     hostRow.className = 'mp-join-row';
@@ -363,7 +366,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
 
     const hostBtn = document.createElement('button');
     hostBtn.type = 'button';
-    hostBtn.className = 'pill';
+    hostBtn.className = 'pill primary';
     hostBtn.dataset.testid = 'mp-host';
     hostBtn.textContent = 'Host a table';
     hostBtn.addEventListener('click', () => void host());
@@ -441,7 +444,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     el.appendChild(board);
 
     const seats = document.createElement('div');
-    seats.className = 'mp-seats';
+    seats.className = 'mp-seats g-group';
     // Position labels (BTN/SB/BB/UTG…) derived once from the same inputs the engine uses: the dealer
     // index and which seats were dealt in (stack + committed > 0; an empty or busted seat is 0). Pure,
     // so the labels always match where the blinds actually posted.
@@ -499,7 +502,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
 
     // The redaction made visible: the player's own cards face up, everyone else face down (hole===null).
     const cards = document.createElement('span');
-    cards.className = 'mp-seat-cards';
+    cards.className = 'mp-seat-cards g-mini';
     if (seat.hole !== null) {
       for (const card of seat.hole) cards.appendChild(renderCard(card, { small: true }));
     } else if (!seat.folded) {
@@ -524,7 +527,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       // Hand over: only the host can deal the next one (a joined client's deal is a no-op in main).
       const deal = document.createElement('button');
       deal.type = 'button';
-      deal.className = 'pill';
+      deal.className = 'pill primary';
       deal.dataset.testid = 'mp-deal';
       deal.textContent = 'Next hand';
       deal.addEventListener('click', () => void bridge.mpDeal?.());

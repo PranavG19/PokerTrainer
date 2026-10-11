@@ -4,6 +4,7 @@ import type { Card } from '../../core/cards.js';
 import type { Grade } from '../../core/coach.js';
 import type { DecisionRecord, HandRecord } from '../../core/session.js';
 import { renderCard, renderCardRow } from '../components/card.js';
+import { chevron } from '../components/glyphs.js';
 
 export interface ReviewHandle {
   root: HTMLElement;
@@ -62,7 +63,7 @@ export function renderReview(opts: { hand: HandRecord; onBack: () => void }): Re
   root.appendChild(head);
 
   const title = document.createElement('div');
-  title.className = 'review-title';
+  title.className = 'review-title t-t2';
   title.textContent = `Hand #${hand.handNumber}`;
   head.appendChild(title);
 
@@ -72,7 +73,7 @@ export function renderReview(opts: { hand: HandRecord; onBack: () => void }): Re
   head.appendChild(progress);
 
   const back = pill('Back to history', 'review-back', () => opts.onBack());
-  back.classList.add('review-back');
+  back.classList.add('review-back', 'sm');
   head.appendChild(back);
 
   const step = document.createElement('div');
@@ -88,6 +89,8 @@ export function renderReview(opts: { hand: HandRecord; onBack: () => void }): Re
   // the press simply stays put, and the progress counter already says where the learner is.
   const prev = pill('Back', 'review-prev', () => go(index - 1));
   const next = pill('Next', 'review-next', () => go(index + 1));
+  // Stepping forward is the screen's one committing action: the bone primary.
+  next.classList.add('primary');
   nav.appendChild(prev);
   nav.appendChild(next);
 
@@ -355,7 +358,7 @@ export function renderReviewList(opts: {
   root.appendChild(head);
 
   const title = document.createElement('div');
-  title.className = 'review-title';
+  title.className = 'review-title t-t2';
   title.textContent = 'Review a hand';
   head.appendChild(title);
 
@@ -367,7 +370,7 @@ export function renderReviewList(opts: {
   head.appendChild(count);
 
   const back = pill('Back to profile', 'review-list-back', () => opts.onBack());
-  back.classList.add('review-back');
+  back.classList.add('review-back', 'sm');
   head.appendChild(back);
 
   root.appendChild(handList(opts.hands, opts.onOpen));
@@ -377,7 +380,7 @@ export function renderReviewList(opts: {
 
 function handList(hands: HandRecord[], onOpen: (index: number) => void): HTMLElement {
   const list = document.createElement('div');
-  list.className = 'review-list';
+  list.className = 'review-list g-group';
   list.dataset.testid = 'review-list';
 
   // Newest first for display, but each row keeps the hand's own index in the log so the click opens
@@ -395,7 +398,7 @@ function handList(hands: HandRecord[], onOpen: (index: number) => void): HTMLEle
   for (const { hand, index } of recent) {
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'review-hand-row';
+    row.className = 'review-hand-row g-row';
     row.dataset.testid = 'review-hand-row';
     row.dataset.hand = String(hand.handNumber);
     row.dataset.index = String(index);
@@ -407,7 +410,7 @@ function handList(hands: HandRecord[], onOpen: (index: number) => void): HTMLEle
     row.appendChild(number);
 
     const cards = document.createElement('span');
-    cards.className = 'review-hand-cards';
+    cards.className = 'review-hand-cards g-mini';
     for (const card of hand.hole) cards.appendChild(renderCard(card, { small: true }));
     row.appendChild(cards);
 
@@ -419,6 +422,7 @@ function handList(hands: HandRecord[], onOpen: (index: number) => void): HTMLEle
         ? 'no decisions recorded'
         : `${hand.decisions.length} decision${hand.decisions.length === 1 ? '' : 's'}`;
     row.appendChild(steps);
+    row.appendChild(chevron());
 
     list.appendChild(row);
   }
