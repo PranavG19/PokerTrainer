@@ -120,6 +120,8 @@
   --dur-3: 320ms;
   --nav-h: 44px;       /* the titlebar nav; the table screen's fixed height is derived from it */
   --screen-pad-y: 8px;
+  /* The height a screen has under the title bar (1px: the bar's hairline). */
+  --screen-h: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y));
 
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -664,7 +666,7 @@ select {
  * `transform`, so a resting seat's computed transform stays `none` and the to-act lift stays exactly
  * scale(1.02) (interaction.spec). */
 .table-screen {
-  height: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y));   /* 1px: the nav's hairline */
+  height: var(--screen-h);
   min-height: 0;
   gap: 8px;
 }
@@ -1106,7 +1108,6 @@ select {
 /* ─── Selected states across screens: the glass thumb (a light fill, light ink, no outline). These
  * sit in per-screen sheets that load after this one, hence the `html` prefix. ─── */
 html .catalog-item[data-active='true'],
-html .planner-row .pill[data-active='true'],
 html .settings-toggle[aria-pressed='true'] {
   background: var(--fill-3);
   color: var(--ink-1);
@@ -1175,12 +1176,7 @@ html .chart-bank-screen .chart-cell[data-action='threebet'] {
 html .legend-swatch[data-action='open'] { background: var(--cell-in); }
 html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong); }
 
-/* Home with the planner: the titlebar nav is a few px taller than the old tab strip, so the column's
- * top/bottom padding gives that back and Home keeps fitting 900x640 without scrolling. */
-html .home-screen:has(> .session-planner) {
-  padding-top: 12px;
-  padding-bottom: 12px;
-}
+
 
 /* Reduced motion: decorative motion stops (the slide of a thumb included). */
 @media (prefers-reduced-motion: reduce) {

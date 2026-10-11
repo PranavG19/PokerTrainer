@@ -4,6 +4,7 @@ import {
   type Source,
   type Suggestion,
 } from '../../core/recommend.js';
+import { chevron } from './glyphs.js';
 
 /**
  * THE RECOMMENDATION CARD — PRODUCT-SPEC N2 on the Home launcher, and N4's ask-once conversation.
@@ -45,39 +46,47 @@ const SOURCE_LABELS: Record<Source, string> = {
  * recommend, and saying so plainly is more honest than a fabricated first task. It deliberately does
  * NOT nag — N1 forbids a locked door, and it equally forbids a screen that insists on one path.
  */
-function renderNothingDue(): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'recommendation recommendation-empty';
+/** The section frame both states share: a flat hairline section headed by the 12/500 label. */
+function section(className: string): HTMLElement {
+  const card = document.createElement('section');
+  card.className = `recommendation g-sect ${className}`.trim();
   card.dataset.testid = 'recommendation';
+  const heading = document.createElement('div');
+  heading.className = 'recommendation-heading g-label';
+  heading.textContent = 'Suggested next';
+  card.appendChild(heading);
+  return card;
+}
+
+function renderNothingDue(): HTMLElement {
+  const card = section('recommendation-empty');
   card.dataset.source = 'none';
 
+  const body = document.createElement('div');
+  body.className = 'recommendation-body';
   const action = document.createElement('div');
-  action.className = 'recommendation-action';
+  action.className = 'recommendation-action t-t3';
   action.dataset.testid = 'recommendation-action';
   action.textContent = 'Nothing is owed yet';
-  card.appendChild(action);
+  body.appendChild(action);
 
   const reason = document.createElement('div');
-  reason.className = 'recommendation-reason';
+  reason.className = 'recommendation-reason g-sub';
   reason.dataset.testid = 'recommendation-reason';
   reason.textContent = 'Play a hand or open any drill — every surface is available from the start.';
-  card.appendChild(reason);
+  body.appendChild(reason);
+  card.appendChild(body);
 
   return card;
 }
 
-/**
- * N4's question, asked once after five consecutive declines: "it asks once what you'd rather work on
- * and adjusts weighting." One button per family, so the answer is a choice among what the recommender
- * actually weighs rather than a free-text wish it cannot act on.
- */
 function renderPreferenceAsk(handlers: RecommendationHandlers): HTMLElement {
   const block = document.createElement('div');
   block.className = 'recommendation-ask';
   block.dataset.testid = 'recommendation-ask';
 
   const prompt = document.createElement('div');
-  prompt.className = 'recommendation-ask-prompt';
+  prompt.className = 'recommendation-ask-prompt g-sub';
   prompt.dataset.testid = 'recommendation-ask-prompt';
   prompt.textContent = `That is ${CONSECUTIVE_DECLINES_TO_ASK} skips in a row — what would you rather work on?`;
   block.appendChild(prompt);
@@ -87,7 +96,7 @@ function renderPreferenceAsk(handlers: RecommendationHandlers): HTMLElement {
   for (const source of SOURCES) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'recommendation-ask-option';
+    button.className = 'pill sm recommendation-ask-option';
     button.dataset.testid = `prefer-${source}`;
     button.textContent = SOURCE_LABELS[source];
     button.addEventListener('click', () => handlers.onPrefer(source));
@@ -112,41 +121,43 @@ export function renderRecommendation(opts: {
   }
 
   const suggestion = opts.suggestion;
-  const card = document.createElement('div');
-  card.className = 'recommendation';
-  card.dataset.testid = 'recommendation';
+  const card = section('');
   // The source is published so a test can assert WHICH family won, not merely that something rendered.
   card.dataset.source = suggestion.source;
   card.dataset.subject = suggestion.subject;
   card.dataset.others = String(suggestion.otherCandidates);
 
-  const heading = document.createElement('div');
-  heading.className = 'recommendation-heading';
-  heading.textContent = 'Suggested next';
-  card.appendChild(heading);
-
+  // One action row: the title, the reason under it, a chevron. The whole row is the button, so its
+  // hover rect bleeds into the gutter and the text sits on the section edge.
   const action = document.createElement('button');
   action.type = 'button';
-  action.className = 'recommendation-action';
+  action.className = 'recommendation-row g-row';
   action.dataset.testid = 'recommendation-action';
-  action.textContent = suggestion.action;
   action.addEventListener('click', () => opts.handlers.onAccept(suggestion));
-  card.appendChild(action);
+
+  const body = document.createElement('span');
+  body.className = 'recommendation-body';
+  const title = document.createElement('span');
+  title.className = 'recommendation-action t-t3';
+  title.textContent = suggestion.action;
+  body.appendChild(title);
 
   // N2: one line, and it carries the numbers. Rendered from core's string so the screen cannot
   // paraphrase away the figures that make it a reason rather than a slogan.
-  const reason = document.createElement('div');
-  reason.className = 'recommendation-reason';
+  const reason = document.createElement('span');
+  reason.className = 'recommendation-reason g-sub';
   reason.dataset.testid = 'recommendation-reason';
   reason.textContent = suggestion.reason;
-  card.appendChild(reason);
+  body.appendChild(reason);
+  action.append(body, chevron());
+  card.appendChild(action);
 
   const controls = document.createElement('div');
   controls.className = 'recommendation-controls';
 
   const skip = document.createElement('button');
   skip.type = 'button';
-  skip.className = 'recommendation-skip';
+  skip.className = 'pill sm recommendation-skip';
   skip.dataset.testid = 'recommendation-skip';
   skip.textContent = 'Skip this';
   skip.addEventListener('click', () => opts.handlers.onDecline(suggestion));
@@ -159,7 +170,7 @@ export function renderRecommendation(opts: {
    */
   if (suggestion.otherCandidates > 0) {
     const others = document.createElement('span');
-    others.className = 'recommendation-others';
+    others.className = 'recommendation-others g-caption';
     others.dataset.testid = 'recommendation-others';
     others.textContent = `${suggestion.otherCandidates} other option${suggestion.otherCandidates === 1 ? '' : 's'} if you would rather`;
     controls.appendChild(others);

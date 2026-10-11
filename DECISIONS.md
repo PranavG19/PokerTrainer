@@ -39,6 +39,31 @@ rule.
   (`-webkit-app-region: no-drag`). The bar stays 44px (the mock's 48 would cost Home's 640px budget; the
   e2e pin is ≤ 52).
 
+### Home (`demo/glass/home.html`)
+- **Two columns:** the launcher column (headline, Suggested next, launch rows, Recent hands) and the planner.
+  Home fits 900x640 with no page scroll because Recent hands is the one block that shrinks: its inset group
+  scrolls inside itself (`session-plan.spec` 17 still pins the no-scroll and Start-above-the-fold rules).
+- **The bankroll is neutral ink (34/600) with a baseline-aligned delta** from the 10000 start ("+840" mint,
+  "−5000" coral, none at break-even). Supersedes: the whole figure coloured by direction, because the colour
+  role map reserves mint for deltas, never balances. The headline still reads as a loss at a glance (the
+  reason that colouring was added), because the delta is in the same coral as a losing row. `data-direction`
+  on the figure is unchanged.
+- **Standing** uses the same stat component: a 15/500 value over the 12/500 label, bottom-aligned with the
+  bankroll label.
+- **Suggested next is a flat hairline section:** the label, then one action row (title 17/600, reason, chevron)
+  whose hover rect bleeds 10px into the gutter so the text sits on the section edge. The label-to-title gap
+  is 6px (the round-3 rater's top complaint was the detached eyebrow). Skip is a small secondary button.
+- **New session / Play with friends are one inset group of rows** with icon tiles, captions and chevrons.
+- **Recent hands:** a title-case label (the uppercase eyebrow is gone), rows in an inset group with 24px
+  mini cards and 13/500 tabular amounts signed with the true minus (U+2212). The rows are not openable in
+  the app (no `onOpenHand` is wired), so they carry no chevron; the mock's chevron would promise an action.
+- **The planner is a flat hairline table:** title row with the Plan/Interleaving segmented control, Length and
+  Mode beside their labels, the detail scrolling inside the column, and Start pinned under it as the single
+  36px bone primary with its caption beside it. The caption stays inside the `plan-start` button (so it is
+  part of its accessible name and `.session-card-meta` still resolves); only the title part wears the bone.
+- **The planner's controls are built once** and only their flags change, so the three segmented thumbs
+  slide; only the plan body is rebuilt per change.
+
 ## The app restyle (shipped look: glass, with the `sports` table)
 The user chose `sports`. The real app (`src/renderer/`) now uses the glass system and the `sports` table.
 The mock in `demo/glass/` stays as the reference.

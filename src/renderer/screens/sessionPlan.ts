@@ -1,4 +1,5 @@
 import '../styles-session-plan.css';
+import { attachThumb } from '../components/thumb.js';
 
 import { dueNow, type ConceptState } from '../../core/schedule.js';
 import {
@@ -164,6 +165,20 @@ export function renderSessionPlanner(opts: SessionPlannerOpts = {}): HTMLElement
     paint();
   }
 
+  // The head row and the two segmented rows are built once and only their selected flags change, so
+  // each control's thumb slides; only the plan body below them is rebuilt per change.
+  const head = renderHeadRow(view, selectView);
+  const lengthRow = renderLengthRow(minutes, selectMinutes);
+  const modeRow = renderModeRow(mode, selectMode);
+  const lengthField = field('Length', lengthRow);
+  const modeField = field('Mode', modeRow);
+  const body = document.createElement('div');
+  body.className = 'planner-body';
+  root.append(head, lengthField, modeField, body);
+  for (const seg of [head.querySelector<HTMLElement>('.planner-views'), lengthRow, modeRow]) {
+    if (seg) attachThumb(seg);
+  }
+
   function paint(): void {
     const result = assemble({ durationMinutes: minutes, mode, dueProbes });
 
@@ -177,24 +192,38 @@ export function renderSessionPlanner(opts: SessionPlannerOpts = {}): HTMLElement
     root.dataset.deferred = result.ok ? String(result.plan.remediationDeferred) : '';
     root.dataset.view = view;
 
-    // The toggle heads the panel in both views; only the BODY swaps, so the plan view's height budget
-    // gains just the one compact pill row (measured against session-plan.spec test 17).
-    const body =
-      view === 'interleaving'
-        ? [renderInterleaving(spots)]
-        : [
-            renderLengthRow(minutes, selectMinutes),
-            renderModeRow(mode, selectMode),
-            result.ok
-              ? renderPlan(result.plan, () => opts.onStart?.(result.plan))
-              : renderRefusal(minutes, result.reason, () => selectMode('free-roam')),
-          ];
+    for (const b of root.querySelectorAll<HTMLElement>('.view-btn')) b.dataset.active = String(b.dataset.view === view);
+    for (const b of lengthRow.querySelectorAll<HTMLElement>('.length-btn')) {
+      b.dataset.active = String(Number(b.dataset.minutes) === minutes);
+    }
+    for (const b of modeRow.querySelectorAll<HTMLElement>('.mode-btn')) b.dataset.active = String(b.dataset.mode === mode);
 
-    root.replaceChildren(renderHeadRow(view, selectView), ...body);
+    // The toggle heads the panel in both views; the length and mode rows belong to the plan view only.
+    const planView = view === 'plan';
+    lengthField.hidden = !planView;
+    modeField.hidden = !planView;
+    body.replaceChildren(
+      planView
+        ? result.ok
+          ? renderPlan(result.plan, () => opts.onStart?.(result.plan))
+          : renderRefusal(minutes, result.reason, () => selectMode('free-roam'))
+        : renderInterleaving(spots),
+    );
   }
 
   paint();
   return root;
+}
+
+/** A form row: the control beside its label. */
+function field(label: string, control: HTMLElement): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'planner-field';
+  const name = document.createElement('span');
+  name.className = 'g-label planner-field-label';
+  name.textContent = label;
+  row.append(name, control);
+  return row;
 }
 
 function heading(text: string): HTMLElement {
@@ -206,7 +235,7 @@ function heading(text: string): HTMLElement {
 
 function renderLengthRow(selected: number, onSelect: (minutes: number) => void): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'planner-row';
+  row.className = 'planner-row g-seg';
   row.dataset.testid = 'length-row';
 
   for (const length of SITTING_LENGTHS) {
@@ -230,7 +259,7 @@ function renderLengthRow(selected: number, onSelect: (minutes: number) => void):
 /** S3: free-roam is a mode you pick, the same size and shape as a session, not a degraded fallback. */
 function renderModeRow(selected: SessionMode, onSelect: (mode: SessionMode) => void): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'planner-row';
+  row.className = 'planner-row g-seg';
   row.dataset.testid = 'mode-row';
 
   for (const mode of ['session', 'free-roam'] as const) {
@@ -269,7 +298,9 @@ function renderHeadRow(
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'planner-head';
-  row.appendChild(heading('Plan a sitting'));
+  const title = heading('Plan a sitting');
+  title.className = 'planner-title t-t3';
+  row.appendChild(title);
   row.appendChild(renderViewToggle(view, onSelect));
   return row;
 }
@@ -279,7 +310,7 @@ function renderViewToggle(
   onSelect: (view: 'plan' | 'interleaving') => void,
 ): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'planner-row planner-views';
+  row.className = 'planner-row planner-views g-seg';
   row.dataset.testid = 'planner-views';
 
   for (const view of ['plan', 'interleaving'] as const) {
@@ -390,10 +421,14 @@ function renderPlan(plan: SessionPlan, onStart: () => void): HTMLElement {
   wrap.className = 'planner-plan';
   wrap.dataset.testid = 'planner-plan';
 
-  wrap.appendChild(renderTotal(plan));
-  wrap.appendChild(renderIngredients(plan));
-  wrap.appendChild(renderCuts(plan));
-  if (plan.mode === 'free-roam') wrap.appendChild(renderFreeRoamNotes(plan));
+  // The detail scrolls inside the panel; Start stays pinned under it, always above the fold.
+  const detail = document.createElement('div');
+  detail.className = 'planner-detail';
+  detail.appendChild(renderTotal(plan));
+  detail.appendChild(renderIngredients(plan));
+  detail.appendChild(renderCuts(plan));
+  if (plan.mode === 'free-roam') detail.appendChild(renderFreeRoamNotes(plan));
+  wrap.appendChild(detail);
   wrap.appendChild(renderStart(plan, onStart));
 
   return wrap;
@@ -401,7 +436,7 @@ function renderPlan(plan: SessionPlan, onStart: () => void): HTMLElement {
 
 function renderTotal(plan: SessionPlan): HTMLElement {
   const el = document.createElement('div');
-  el.className = 'planner-total';
+  el.className = 'planner-total g-sub';
   el.dataset.testid = 'planner-total';
   el.dataset.total = String(plan.totalMinutes);
   el.dataset.requested = String(plan.requestedMinutes);
@@ -418,7 +453,7 @@ function renderTotal(plan: SessionPlan): HTMLElement {
 /** S1: all six ingredients, always, in the order they run. A skipped one says so at 0 minutes. */
 function renderIngredients(plan: SessionPlan): HTMLElement {
   const list = document.createElement('ol');
-  list.className = 'ingredient-list';
+  list.className = 'ingredient-list g-sect g-flat';
   list.dataset.testid = 'ingredient-list';
 
   const byKind = minutesByKind(plan);
@@ -498,7 +533,7 @@ function renderCuts(plan: SessionPlan): HTMLElement {
     wrap.appendChild(none);
   } else {
     const list = document.createElement('ol');
-    list.className = 'cut-list';
+    list.className = 'cut-list g-sect g-flat';
     list.dataset.testid = 'cut-list';
     for (const cut of plan.cuts) {
       const row = document.createElement('li');
@@ -558,14 +593,16 @@ function renderFreeRoamNotes(plan: SessionPlan): HTMLElement {
 function renderStart(plan: SessionPlan, onStart: () => void): HTMLElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'session-card planner-start';
+  // One element, two parts: the bone primary (the title) with its caption beside it. Both stay inside the
+  // button so the caption is part of its accessible name.
+  button.className = 'planner-start';
   button.dataset.testid = 'plan-start';
   button.dataset.minutes = String(plan.requestedMinutes);
   button.dataset.mode = plan.mode;
   button.addEventListener('click', onStart);
 
   const title = document.createElement('span');
-  title.className = 'session-card-title';
+  title.className = 'session-card-title planner-start-cta';
   title.textContent =
     plan.mode === 'session'
       ? `Start ${plan.requestedMinutes}-minute session`
@@ -573,7 +610,7 @@ function renderStart(plan: SessionPlan, onStart: () => void): HTMLElement {
   button.appendChild(title);
 
   const meta = document.createElement('span');
-  meta.className = 'session-card-meta';
+  meta.className = 'session-card-meta g-caption';
   const graded = plan.blocks.find((block) => block.kind === 'graded-spots');
   meta.textContent = `${graded?.units ?? 0} graded spots, sit down at the table`;
   button.appendChild(meta);
@@ -603,7 +640,7 @@ function renderRefusal(minutes: number, reason: string, onFreeRoam: () => void):
 
   const route = document.createElement('button');
   route.type = 'button';
-  route.className = 'pill refusal-route';
+  route.className = 'pill primary refusal-route';
   route.dataset.testid = 'refusal-route';
   route.textContent = `Practise free-roam for ${minutes} min instead`;
   route.addEventListener('click', onFreeRoam);

@@ -20,173 +20,162 @@
  */
 .home-screen:has(> .session-planner) {
   display: grid;
-  grid-template-columns: minmax(0, 300px) minmax(0, 400px);
-  gap: 20px 28px;
-  align-content: start;
-  max-width: 760px;
-  padding: 24px 40px 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  max-width: 1000px;
+  padding: 20px 32px;
 }
 
-.home-screen:has(> .session-planner) .home-bankroll .bankroll {
-  font-size: 44px;
-  /* This override drops the numeral to 44px but inherited the -2px tracking tuned for the 64px display
-   * size (-0.045em here vs -0.031em there — ~45% tighter, cramping '10000'). Restore the optical ratio.
-   * Horizontal-only, so the line box is unchanged and Home stays 640px (session-plan.spec test 17). */
-  letter-spacing: -1.25px;
-}
-
+/* The planner is a flat hairline table in the coat (informational, so no container): a title row with
+ * the view toggle, the Length and Mode rows beside their labels, the detail scrolling inside the column,
+ * and the one primary Start pinned under it. */
 .session-planner {
-  grid-column: 2;
-  /*
-   * SPANS EVERY BLOCK IN COLUMN 1, and the number has to be maintained with that column. It was
-   * `span 3` when column 1 held bankroll + launcher + recent hands; the N2 recommendation card made it
-   * four, and the fourth block fell past the span and pushed home to 772px in a 760px viewport —
-   * caught by test 17 in tests/e2e/session-plan.spec.ts, whose assertion was right and whose failure
-   * was a real layout regression rather than a stale expectation.
-   *
-   * Measured: `span 4` alone fixes it (the compacting rules I first added alongside turned out to be
-   * unnecessary and were removed). `1 / -1` does NOT work — it makes the grid taller, 872px.
-   */
-  grid-row: 1 / span 4;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  background: var(--surface);
-  /* The largest surface on Home floated flat against the black; --elev-1 gives it the same lifted-paper
-   * read the play-surface panels already have, unifying the depth language. Shadow paints outside the
-   * scroll box, so no layout height is added (session-plan.spec test 17's 640px budget is unaffected). */
-  box-shadow: var(--elev-1);
-  max-height: calc(100vh - 85px);
-  overflow-y: auto;
+  gap: 12px;
 }
-
-.planner-row {
+.session-planner > * {
+  flex: none;
+}
+.planner-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-
-.planner-row .pill {
-  padding: 7px 12px;
-  font-size: 13px;
-  color: var(--text-lo);
-  background: transparent;
-  border: 1px solid var(--surface-hi);
+.planner-title {
+  font-size: var(--t-t3);
+  font-weight: 600;
+  color: var(--ink-1);
 }
-
-.planner-row .pill[data-active='true'] {
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border-color: var(--text-lo);
+.planner-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-
+.planner-field-label {
+  min-width: 52px;
+}
+.planner-row {
+  display: inline-flex;
+}
 /* S2a on the control itself: a sitting length that is not a session length reads as one. */
-.length-btn[data-session-length='false'] {
+html .g-seg > .length-btn[data-session-length='false'] {
   font-style: italic;
 }
 
+.session-planner > .planner-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .planner-plan,
 .planner-refusal {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
-
-.planner-total {
-  font-size: 13px;
-  color: var(--text-lo);
-}
-
-/* ─── The six ingredients ─── */
-.ingredient-list {
+.planner-detail {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  list-style: none;
+  gap: 12px;
+  margin-right: -8px;
+  padding-right: 8px;
+}
+.planner-detail > * {
+  flex: none;
 }
 
-/*
- * ONE LINE PER INGREDIENT, and the four columns are fixed rather than auto: label, share, minutes,
- * units. Auto columns let "1 contrast set" and "13.75 min" wrap to three lines each, which measured
- * 787px of content in a 760px window — the overflow test 17 caught on the first run.
- */
-.ingredient-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px 58px 74px;
-  gap: 2px 6px;
-  align-items: baseline;
-  padding: 3px 0;
-  border-bottom: 1px solid var(--surface-hi);
-  font-size: 12px;
-}
-
-.ingredient-label {
-  color: var(--text-hi);
-}
-
-.ingredient-share,
-.ingredient-units {
-  color: var(--text-lo);
-  font-size: 11px;
-}
-
-.ingredient-minutes {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* A skipped ingredient stays on the list and states its own minutes as 0 — S1 shows all six. */
-.ingredient-row[data-skipped='true'] .ingredient-label,
-.ingredient-row[data-skipped='true'] .ingredient-minutes {
-  color: var(--text-lo);
-}
-
-.ingredient-units {
-  text-align: right;
-}
-
-.ingredient-why {
-  grid-column: 1 / -1;
-  font-size: 11px;
-  color: var(--text-lo);
-}
-
-/* ─── S2: the cut order, visible ─── */
-.cut-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
+/* ─── The six ingredients: label · share · minutes · count, one line each; zero rows in ink-2 ─── */
+.ingredient-list,
 .cut-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ingredient-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px 70px 96px;
+  column-gap: 12px;
+  align-items: baseline;
+  padding: 7px 0;
+  font-size: var(--t-body);
+}
+.ingredient-label {
+  color: var(--ink-1);
+}
+.ingredient-share {
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ingredient-minutes {
+  text-align: right;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+}
+.ingredient-units {
+  font-size: var(--t-foot);
+  color: var(--ink-2);
+  text-align: right;
+  white-space: nowrap;
+}
+/* A skipped ingredient stays on the list and states its own minutes as 0 — S1 shows all six. */
+.ingredient-row[data-skipped='true'] .ingredient-label,
+.ingredient-row[data-skipped='true'] .ingredient-minutes {
+  color: var(--ink-2);
+}
+.ingredient-why {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding-left: 16px;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
 }
 
+/* ─── S2: what a shorter sitting gave up — a section label over a flat two-column row ─── */
+.cut-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cut-panel > .stat-label {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+}
 .cut-row {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 13px;
+  padding: 7px 0;
+  font-size: var(--t-body);
 }
-
 .cut-minutes {
-  color: var(--text-lo);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
 }
-
 .cut-none,
 .cut-order,
 .cut-protected,
 .planner-note {
-  font-size: 11px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
-
 .free-roam-notes {
   display: flex;
   flex-direction: column;
@@ -195,20 +184,59 @@
 
 /* ─── S2a: the refusal, and the route out of it ─── */
 .refusal-title {
-  font-size: 15px;
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
 }
-
 .refusal-reason {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-2);
 }
-
 .refusal-route {
   align-self: flex-start;
 }
 
+/* Start: the single-line large primary (36px, r8) with its caption centred beside it. The button element
+ * holds both, so only its first part wears the bone. */
 .planner-start {
-  padding: 14px 16px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.planner-start-cta {
+  height: var(--h-lg);
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-ctl);
+  font-size: var(--t-head);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink-on-bone);
+  background: var(--bone);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 14px -6px rgba(0, 0, 0, 0.5);
+  transition: background-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+.planner-start:hover .planner-start-cta {
+  background: var(--bone-hover);
+}
+.planner-start:active .planner-start-cta {
+  background: var(--bone-press);
+  transform: scale(0.98);
+}
+.planner-start:focus-visible {
+  outline: none;
+}
+.planner-start:focus-visible .planner-start-cta {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
 
 /*
@@ -274,29 +302,4 @@
   font-weight: 600;
   line-height: 1.5;
   color: var(--text-hi);
-}
-
-/*
- * Heading and view toggle on one row. The plan view's height budget is at zero slack (home is exactly
- * 640px), so the toggle must add NO net height: the pills are compact and the row's height is bounded
- * so it does not exceed the space the heading already occupied. The interleaving body scrolls inside
- * the panel valve, so only this head row is a permanent cost — and it is made to cost nothing.
- */
-.planner-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.planner-head .planner-views {
-  flex: 0 0 auto;
-  gap: 4px;
-}
-
-/* Flat, small pills so the head row is no taller than the heading line it shares. */
-.planner-head .view-btn {
-  padding: 2px 8px;
-  font-size: 11px;
-  border-radius: 6px;
 }
