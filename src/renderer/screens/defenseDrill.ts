@@ -11,6 +11,8 @@ import {
 import type { Card } from '../../core/cards.js';
 import { mulberry32, type Rng } from '../../core/rng.js';
 import { renderCard } from '../components/card.js';
+import { keycap } from '../components/glyphs.js';
+import { attachThumb } from '../components/thumb.js';
 
 /**
  * FACING-A-RAISE DEFENSE DRILL — the second mode of the Charts screen (there is no tab budget for a
@@ -129,6 +131,10 @@ function renderSpotSelector(active: DefensePosition, onSelect: (spot: DefensePos
   wrap.className = 'defense-spots';
   wrap.dataset.testid = 'defense-spots';
 
+  // The spots as a kit segmented control (.g-seg with the sliding thumb).
+  const seg = document.createElement('div');
+  seg.className = 'defense-spot-seg g-seg';
+  wrap.appendChild(seg);
   for (const s of SPOTS) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -138,8 +144,9 @@ function renderSpotSelector(active: DefensePosition, onSelect: (spot: DefensePos
     button.dataset.active = String(s === active);
     button.textContent = SPOT_LABEL[s];
     button.addEventListener('click', () => onSelect(s));
-    wrap.appendChild(button);
+    seg.appendChild(button);
   }
+  attachThumb(seg);
 
   const width = document.createElement('div');
   width.className = 'defense-width stat-label';
@@ -171,7 +178,8 @@ function renderPrompt(combo: Combo, onCommit: (action: DefenseAction) => void): 
     button.type = 'button';
     button.className = 'pill defense-key';
     button.dataset.testid = `defense-${action}`;
-    button.textContent = `${ACTION_KEY[action]} ${ACTION_LABEL[action]}`;
+    // The word, then its trailing keycap (the kit's shortcut grammar).
+    button.append(ACTION_LABEL[action], keycap(ACTION_KEY[action]));
     button.addEventListener('click', () => onCommit(action));
     keys.appendChild(button);
   }
