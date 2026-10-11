@@ -75,6 +75,19 @@ async function withApp(body: (page: Page) => Promise<void>): Promise<void> {
 }
 
 test.describe('puzzle mode', () => {
+  test('0. each action button shows the key that actually takes it (Check is K, not C)', async () => {
+    await withApp(async (page) => {
+      await openPuzzle(page);
+      await passClassify(page);
+      // The onKey map is f/k/c/b/r. The hint used to be the action's first letter, so Check showed
+      // "C" — which is Call's key — and pressing it called instead of checking.
+      const want: Record<string, string> = { fold: 'F', check: 'K', call: 'C', bet: 'B', raise: 'R' };
+      for (const [kind, key] of Object.entries(want)) {
+        await expect(page.locator(`[data-testid="puzzle-${kind}"] .puzzle-key-hint`)).toHaveText(key);
+      }
+    });
+  });
+
   test('1. it opens on the first scenario with the hero cards and setup shown', async () => {
     await withApp(async (page) => {
       const errors: string[] = [];

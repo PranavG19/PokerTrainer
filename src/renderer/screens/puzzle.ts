@@ -23,6 +23,7 @@ import {
 } from '../../core/spotType.js';
 import { renderCardRow } from '../components/card.js';
 import { text } from '../components/dom.js';
+import { keycap } from '../components/glyphs.js';
 import { withRestoredFocus } from '../focusRestore.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
 
@@ -55,6 +56,9 @@ export interface PuzzleOptions {
   /** Persist one completed scenario. Called once per completion; main.ts folds it in and saves. */
   readonly onComplete?: (scenarioId: string, correct: number) => void;
 }
+
+/** The key that takes each action — the inverse of onKey's ACTION_KEYS, shown as each button's keycap. */
+const ACTION_LETTER: Record<Exclude<ActionKind, 'allin'>, string> = { fold: 'F', check: 'K', call: 'C', bet: 'B', raise: 'R' };
 
 export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
   const root = document.createElement('div');
@@ -506,9 +510,10 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
 
     const next = document.createElement('button');
     next.type = 'button';
-    next.className = 'pill';
+    next.className = 'pill primary';
     next.dataset.testid = 'puzzle-classify-continue';
-    next.textContent = 'Now play it';
+    next.setAttribute('aria-keyshortcuts', 'Enter');
+    next.append('Now play it', keycap('↩'));
     next.addEventListener('click', continueClassify);
     el.appendChild(next);
     return el;
@@ -519,18 +524,20 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     el.className = 'puzzle-controls';
     el.dataset.testid = 'puzzle-controls';
     const legal = state.toAct === HERO ? legalActions(state) : [];
-    for (const kind of ['fold', 'check', 'call', 'bet', 'raise'] as ActionKind[]) {
+    for (const kind of ['fold', 'check', 'call', 'bet', 'raise'] as const) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'pill';
       b.dataset.testid = `puzzle-${kind}`;
       b.appendChild(document.createTextNode(actionLabel(kind)));
-      // The keyboard shortcut, shown on the button so it is discoverable rather than hidden. The
-      // letter is the action's first character (F/K/C/B/R), matching the onKey handler.
-      const hint = document.createElement('span');
-      hint.className = 'puzzle-key-hint';
-      hint.textContent = kind.charAt(0).toUpperCase();
+      // The keyboard shortcut as a trailing keycap, so it is discoverable rather than hidden. The letter
+      // is read back out of ACTION_KEYS (F/K/C/B/R) — the map onKey uses — so the cap can never name
+      // another action's key (Check used to show "C", which is Call's).
+      const key = ACTION_LETTER[kind];
+      const hint = keycap(key);
+      hint.classList.add('puzzle-key-hint');
       b.appendChild(hint);
+      b.setAttribute('aria-keyshortcuts', key);
       b.disabled = !legal.includes(kind);
       b.addEventListener('click', () => takeAction(kind));
       el.appendChild(b);
@@ -560,9 +567,10 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
 
     const next = document.createElement('button');
     next.type = 'button';
-    next.className = 'pill';
+    next.className = 'pill primary';
     next.dataset.testid = 'puzzle-continue';
-    next.textContent = 'Continue';
+    next.setAttribute('aria-keyshortcuts', 'Enter');
+    next.append('Continue', keycap('↩'));
     next.addEventListener('click', continueOn);
     el.appendChild(next);
     return el;
@@ -600,9 +608,13 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
 
     const next = document.createElement('button');
     next.type = 'button';
-    next.className = 'pill';
+    next.className = 'pill primary';
     next.dataset.testid = 'puzzle-next-scenario';
-    next.textContent = scenarioIndex + 1 < SCENARIOS.length ? 'Next puzzle' : 'Back to the first puzzle';
+    next.setAttribute('aria-keyshortcuts', 'Enter');
+    next.append(
+      scenarioIndex + 1 < SCENARIOS.length ? 'Next puzzle' : 'Back to the first puzzle',
+      keycap('↩'),
+    );
     next.addEventListener('click', () => loadScenario(scenarioIndex + 1));
     el.appendChild(next);
 
@@ -622,7 +634,7 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
 
     const retry = document.createElement('button');
     retry.type = 'button';
-    retry.className = 'pill';
+    retry.className = 'pill quiet';
     retry.dataset.testid = 'puzzle-retry';
     retry.textContent = 'Replay this puzzle';
     retry.addEventListener('click', () => loadScenario(scenarioIndex));
