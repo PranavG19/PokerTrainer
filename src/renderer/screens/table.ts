@@ -55,6 +55,7 @@ import {
   showPredictResult,
 } from '../components/predictPanel.js';
 import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
+import { keycap } from '../components/glyphs.js';
 
 const SB = 25;
 /** The big blind, exported so the caller can size a depth-derived starting stack in the same units. */
@@ -217,6 +218,40 @@ export function renderTable(opts: {
   boardWrap.className = 'board-wrap';
   centre.appendChild(boardWrap);
 
+  // The table's corners: the blinds as metadata on the left; on the right the win/tie readout, the
+  // Coach switch and the Stats text button — table settings, off the action dock. Built once, so the
+  // switch animates and focus survives every render.
+  const cornerLeft = document.createElement('div');
+  cornerLeft.className = 'table-corner table-corner-l';
+  const blinds = document.createElement('span');
+  blinds.className = 'g-caption g-num';
+  blinds.textContent = `Blinds ${SB}/${BB}`;
+  cornerLeft.appendChild(blinds);
+  stage.appendChild(cornerLeft);
+
+  const cornerRight = document.createElement('div');
+  cornerRight.className = 'table-corner table-corner-r';
+  stage.appendChild(cornerRight);
+
+  const coachSwitch = document.createElement('button');
+  coachSwitch.type = 'button';
+  coachSwitch.className = 'g-switch';
+  coachSwitch.dataset.testid = 'coach-mode-toggle';
+  coachSwitch.setAttribute('role', 'switch');
+  const switchTrack = document.createElement('span');
+  switchTrack.className = 'g-switch-track';
+  switchTrack.setAttribute('aria-hidden', 'true');
+  coachSwitch.append('Coach', switchTrack);
+  coachSwitch.addEventListener('click', () => setCoachedMode(!coachedMode));
+
+  const statsToggle = document.createElement('button');
+  statsToggle.type = 'button';
+  statsToggle.className = 'pill quiet sm';
+  statsToggle.dataset.testid = 'stats-toggle';
+  statsToggle.textContent = 'Stats';
+  statsToggle.addEventListener('click', () => toggleStatsSheet(stats));
+  statsToggle.setAttribute('aria-expanded', 'false');
+
   const heroCards = document.createElement('div');
   heroCards.className = 'hero-cards';
   heroCards.dataset.testid = 'hero-cards';
@@ -241,9 +276,14 @@ export function renderTable(opts: {
   controls.className = 'controls';
   root.appendChild(controls);
 
+  // The stats readout lives in the table's top-right corner: the win/tie line always shown, the made-hand
+  // list opening under it as a small float.
   const stats = renderStatsSheet();
+  stats.addEventListener('stats-toggle', (e) =>
+    statsToggle.setAttribute('aria-expanded', String((e as CustomEvent<boolean>).detail)),
+  );
   toggleStatsSheet(stats, false);
-  root.appendChild(stats);
+  cornerRight.append(stats, coachSwitch, statsToggle);
 
   // ── mutable hand state ─────────────────────────────────────────────
   const table = createTable({
@@ -361,8 +401,14 @@ export function renderTable(opts: {
     clearPredictPanel(predict);
   }
 
+  function syncCoachSwitch(): void {
+    coachSwitch.setAttribute('aria-checked', String(coachedMode));
+    coachSwitch.dataset.on = String(coachedMode);
+  }
+
   function setCoachedMode(on: boolean): void {
     coachedMode = on;
+    syncCoachSwitch();
     syncPredictMount();
     opts.onCoachedModeChange?.(on);
     render();
@@ -790,13 +836,6 @@ export function renderTable(opts: {
   function renderControlsInner(): void {
     controls.replaceChildren();
 
-    // Before the showdown branch so the toggle is reachable at every point in a hand.
-    const modeToggle = pill(`Coach ${coachedMode ? 'on' : 'off'}`, 'coach-mode-toggle', () =>
-      setCoachedMode(!coachedMode),
-    );
-    modeToggle.dataset.on = String(coachedMode);
-    controls.appendChild(modeToggle);
-
     if (state.winners !== null) {
       const summary = document.createElement('div');
       summary.className = 'winner-summary';
@@ -853,6 +892,7 @@ export function renderTable(opts: {
       }
 
       const next = pill('Next hand', 'next-hand', () => nextHand());
+      next.classList.add('primary');
       controls.appendChild(next);
       return;
     }
@@ -866,24 +906,42 @@ export function renderTable(opts: {
     // `gate !== null` guard is the real lockout; this is the visible half of it).
     const committed = (!coachedMode || committedPrediction(predict) !== null) && gate === null;
 
+    // The dock, in rank order: the secondary actions (each with its real hotkey as a trailing keycap),
+    // the sizing group (slider, amount slot, presets), then the one primary, Raise.
     const fold = pill('Fold', 'btn-fold', () => heroAct({ kind: 'fold' }));
     fold.disabled = !heroTurn || !committed || !legal.includes('fold');
+    fold.appendChild(keycap('F'));
+    fold.setAttribute('aria-keyshortcuts', 'F');
     controls.appendChild(fold);
 
+    // C is check when checking is legal, else the call (onKey below): the keycap sits on whichever one C does.
+    const cIsCheck = legal.includes('check');
     const check = pill('Check', 'btn-check', () => heroAct({ kind: 'check' }));
     check.disabled = !heroTurn || !committed || !legal.includes('check');
+    if (cIsCheck) {
+      check.appendChild(keycap('C'));
+      check.setAttribute('aria-keyshortcuts', 'C');
+    }
     controls.appendChild(check);
 
     const call = pill(toCall > 0 ? `Call ${toCall}` : 'Call', 'btn-call', () =>
       heroAct({ kind: legal.includes('call') ? 'call' : 'allin' }),
     );
     call.disabled = !heroTurn || !committed || !(legal.includes('call') || legal.includes('allin'));
+    if (!cIsCheck) {
+      call.appendChild(keycap('C'));
+      call.setAttribute('aria-keyshortcuts', 'C');
+    }
     controls.appendChild(call);
+
+    controls.appendChild(dockSeparator());
 
     const canRaise = legal.includes('raise') || legal.includes('bet');
     const min = canRaise ? minRaiseTo(state) : 0;
     const max = canRaise ? maxRaiseTo(state) : 0;
 
+    const sizing = document.createElement('div');
+    sizing.className = 'dock-slider';
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.dataset.testid = 'raise-slider';
@@ -896,29 +954,37 @@ export function renderTable(opts: {
     // visible amount into aria-valuetext so a screen reader reads the chip count as it moves.
     slider.setAttribute('aria-label', 'Raise amount');
     slider.setAttribute('aria-valuetext', String(min));
-    controls.appendChild(slider);
+    sizing.appendChild(slider);
 
     const amountLabel = document.createElement('span');
     amountLabel.className = 'raise-amount';
     amountLabel.dataset.testid = 'raise-amount';
     amountLabel.textContent = String(min);
-    // Keep the slider value, the visible chip count and the screen-reader announcement in lock-step:
-    // set all three through one place so they can never drift.
+    // Keep the slider value, the visible chip count, the screen-reader announcement and the track fill in
+    // lock-step: set all four through one place so they can never drift.
     const setAmount = (value: string): void => {
       slider.value = value;
       amountLabel.textContent = value;
       slider.setAttribute('aria-valuetext', value);
+      slider.style.setProperty('--f', String(max > min ? (Number(value) - min) / (max - min) : 0));
     };
+    setAmount(String(min));
     slider.addEventListener('input', () => setAmount(slider.value));
-    controls.appendChild(amountLabel);
+    sizing.appendChild(amountLabel);
+    controls.appendChild(sizing);
 
     const setPreset = (fraction: number): void => {
       const target = fraction === Infinity ? max : clamp(Math.round(state.pot * fraction), min, max);
       setAmount(String(target));
     };
 
-    // The ½/¾ glyphs are their own accessible name, which reads as a meaningless fraction; spell each
-    // preset out. Pot/All-in already read fine but are labelled too for a consistent "Bet …" phrasing.
+    // The presets are one small segmented group of one-shot actions (role=group, not a selection). The
+    // ½/¾ glyphs are their own accessible name, which reads as a meaningless fraction; spell each preset
+    // out. Pot/All-in already read fine but are labelled too for a consistent "Bet …" phrasing.
+    const presetGroup = document.createElement('div');
+    presetGroup.className = 'g-seg g-seg-sm dock-presets';
+    presetGroup.setAttribute('role', 'group');
+    presetGroup.setAttribute('aria-label', 'Bet size');
     const presets: [string, string, number, string][] = [
       ['½', 'preset-half', 0.5, 'Bet half pot'],
       ['¾', 'preset-threequarter', 0.75, 'Bet three-quarter pot'],
@@ -928,19 +994,25 @@ export function renderTable(opts: {
     for (const [label, testid, fraction, ariaLabel] of presets) {
       const b = pill(label, testid, () => setPreset(fraction));
       b.setAttribute('aria-label', ariaLabel);
+      if (label.length === 1) b.classList.add('dock-frac');
+      // All-in is also the A hotkey, which shoves directly: named in the tooltip, not as a keycap on a
+      // control that only sizes.
+      if (testid === 'preset-allin') b.title = 'All-in (A)';
       b.disabled = !heroTurn || !canRaise;
-      controls.appendChild(b);
+      presetGroup.appendChild(b);
     }
+    controls.appendChild(presetGroup);
+
+    controls.appendChild(dockSeparator());
 
     const raise = pill('Raise', 'btn-raise', () => {
       const amount = clamp(parseInt(slider.value, 10) || min, min, max);
       heroAct({ kind: legal.includes('raise') ? 'raise' : 'bet', amount });
     });
     raise.disabled = !heroTurn || !committed || !canRaise;
+    raise.appendChild(keycap('R'));
+    raise.setAttribute('aria-keyshortcuts', 'R');
     controls.appendChild(raise);
-
-    const statsToggle = pill('Stats', 'stats-toggle', () => toggleStatsSheet(stats));
-    controls.appendChild(statsToggle);
   }
 
   // ── keyboard (R3) ──────────────────────────────────────────────────
@@ -963,6 +1035,7 @@ export function renderTable(opts: {
 
   // A restored coachedMode=true must arm the gate on the very first render, not only once the
   // toggle is clicked.
+  syncCoachSwitch();
   syncPredictMount();
   advance();
 
@@ -1099,6 +1172,13 @@ function pill(label: string, testid: string, onClick: () => void): HTMLButtonEle
   b.textContent = label;
   b.addEventListener('click', onClick);
   return b;
+}
+
+function dockSeparator(): HTMLElement {
+  const sep = document.createElement('span');
+  sep.className = 'dock-sep';
+  sep.setAttribute('aria-hidden', 'true');
+  return sep;
 }
 
 function clamp(n: number, lo: number, hi: number): number {

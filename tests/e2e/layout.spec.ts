@@ -511,6 +511,10 @@ test.describe('layout', () => {
           foldBottom: fold.bottom,
           rows: document.querySelectorAll('.stats-cat').length,
           bodyClips: body.scrollHeight > body.clientHeight,
+          // Every made-hand row that is not reachable by scrolling the body must be on screen.
+          rowsOnScreen: [...document.querySelectorAll('.stats-cat')].every(
+            (row) => row.getBoundingClientRect().bottom <= window.innerHeight,
+          ),
         };
       });
 
@@ -521,7 +525,12 @@ test.describe('layout', () => {
       expect(geo.foldBottom, 'the action pills stay on screen').toBeLessThanOrEqual(geo.innerHeight);
       // All the rows still exist — they are reachable by scrolling the sheet, not deleted.
       expect(geo.rows).toBeGreaterThan(0);
-      expect(geo.bodyClips, 'the sheet body is what scrolls').toBe(true);
+      // The list opens as a float in the table's corner (glass redesign) and fits at 900x640; were it
+      // ever taller, the body is what scrolls. Either way no row is lost below the fold.
+      expect(
+        geo.bodyClips || geo.rowsOnScreen,
+        'every made-hand row is on screen or reachable by scrolling the sheet body',
+      ).toBe(true);
     });
   });
 });

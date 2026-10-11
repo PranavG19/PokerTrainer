@@ -976,9 +976,12 @@ select {
   border-color: var(--mint);
   box-shadow: var(--ring-active), var(--elev-1);
 }
+/* Your turn, in ONE green: the pinned mint ring (interaction.spec). The round-5 rater faulted the plate
+ * for carrying three (the ring, a mint border and a mint wash), so the border is neutral-bright and the
+ * wash is a soft white light pool instead (the round-3 "your turn = a pool of light" treatment). */
 .table-screen .hero-wrap .seat[data-to-act='true'] {
-  border-color: var(--mint);
-  background: linear-gradient(105deg, rgba(61, 220, 151, 0.16), rgba(61, 220, 151, 0.04) 55%, rgba(255, 255, 255, 0.035));
+  border-color: rgba(255, 255, 255, 0.22);
+  background: radial-gradient(120% 140% at 30% 0%, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035) 70%);
   box-shadow: var(--ring-active), var(--elev-2);
 }
 .table-screen .hero-wrap .hero-cards { grid-area: cards; }
@@ -999,35 +1002,115 @@ select {
   translate: none;
   margin-top: 2px;
 }
-/* On the plate's left edge, off the cards. */
+/* The dealer button on the plate's top-right corner, clear of the hole cards (the round-5 rater's fix:
+ * it used to sit on the left card). */
 .table-screen .hero-wrap .dealer-button {
-  top: auto;
-  bottom: 8px;
-  right: auto;
-  left: -11px;
+  top: -9px;
+  bottom: auto;
+  right: -9px;
+  left: auto;
   margin-top: 0;
 }
 
-/* The dock. */
+/* The dock: secondary actions with trailing keycaps · the sizing group (slider, a fixed 40px amount slot,
+ * the presets as one small segmented group) · the one primary, Raise. r14 = 8px controls + 6px padding. */
 .table-screen .controls {
   flex: none;
   align-self: center;
+  align-items: center;
+  flex-wrap: nowrap;
   padding: 6px;
   gap: 6px;
+  white-space: nowrap;
 }
 .table-screen .controls .pill {
   padding: 0 12px;
+  gap: 8px;
+}
+.dock-sep {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--hair-strong);
+}
+.dock-slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px 0 8px;
+}
+/* The track fills to the thumb's centre, even at the minimum (--f is set with the value in table.ts). */
+.table-screen .raise-slider {
+  width: clamp(96px, 11vw, 150px);
+  --at: calc(9px + (100% - 18px) * var(--f, 0));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.78) 0 var(--at), rgba(255, 255, 255, 0.18) var(--at));
+}
+.table-screen .raise-slider:disabled {
+  background: rgba(255, 255, 255, 0.12);
+}
+.raise-slider:not(:disabled):hover::-webkit-slider-thumb {
+  transform: scale(1.06);
+}
+.raise-slider:not(:disabled):active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+.raise-slider:disabled::-webkit-slider-thumb {
+  background: var(--ink-3);
+  cursor: default;
 }
 .table-screen .raise-amount {
+  width: 40px;
+  padding-right: 8px;
+  box-sizing: content-box;
+  text-align: right;
   color: var(--ink-1);
   font-weight: 600;
+  font-size: var(--t-body);
+}
+.table-screen .controls .dock-presets > .pill {
+  padding: 0 9px;
+}
+.table-screen .controls .dock-presets > .dock-frac {
+  font-size: var(--t-head);
+  line-height: 1;
+}
+html .g-seg > button:disabled {
+  color: var(--ink-3);
 }
 .winner-summary {
+  font-size: var(--t-body);
   font-weight: 600;
+  color: var(--ink-1);
+  padding: 0 8px;
+}
+
+/* The table's corners: blinds as metadata (left); the win/tie readout, the Coach switch and the Stats
+ * text button (right), 16px apart, on one 28px row. */
+.table-corner {
+  position: absolute;
+  top: 0;
+  height: var(--h-sm);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 2;
+}
+.table-corner-l {
+  left: 4px;
+}
+.table-corner-r {
+  right: 0;
+  gap: 12px;
 }
 
 /* ─── Compact tiers: the stage shrinks when coached mode, the stats sheet or the coach verdict take
  * height at 900x640. Smaller cards and figures, and the top seat's bet moves beside it. ─── */
+/* A tall stage: the pot and board sit lower, so the price the hero is sizing against is near the plate
+ * (the round-5 rater: a ~170pt gap between them at 1100x760). */
+@container stage (min-height: 480px) {
+  .table-screen .table-centre { top: 56%; }
+}
 @container stage (max-height: 400px) {
   .table-screen .seat[data-slot='top'] { top: 30px; }
   .table-screen .seats .seat[data-slot='top'] .seat-committed {
@@ -1058,38 +1141,81 @@ select {
   .table-screen .hero-wrap .seat-stack { font-size: 22px; }
 }
 
-/* ─── The stats sheet on the table: a compact strip. The win% is the one figure; mint stays its colour
- * (it is a positive readout), at a size that no longer outranks the pot. ─── */
-.table-screen .stats-sheet {
-  padding: 8px 16px;
-  gap: 6px;
+/* ─── The stats readout, in the table's top-right corner. The win/tie line is quiet metadata in the stat
+ * grammar (value then label, neutral ink: the colour role map gives a win% no hue); opening Stats drops the
+ * made-hand list under it as a small float. ─── */
+html .table-screen .stats-sheet {
+  position: relative;
+  padding: 0;
+  gap: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 0;
 }
 .table-screen .stats-header {
-  align-items: center;
-  gap: 24px;
+  height: var(--h-sm);
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 8px;
+  border-radius: var(--r-ctl);
+  line-height: var(--h-sm);
+}
+.table-screen .stats-header:hover {
+  background: var(--fill-1);
+}
+.table-screen .stats-header:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 .table-screen .stats-win,
 .table-screen .stats-tie {
   display: flex;
+  flex-direction: row-reverse;
   align-items: baseline;
-  gap: 8px;
+  gap: 5px;
 }
-.table-screen .stats-win-value {
-  font-size: 24px;
+.table-screen .stats-win-value,
+.table-screen .stats-tie .stat-value {
+  font-size: var(--t-body);
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 1;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
-.table-screen .stats-tie .stat-value {
-  font-size: 17px;
-  font-weight: 600;
+.table-screen .stats-sheet .stat-label {
+  font-size: var(--t-foot);
+}
+html .table-screen .stats-sheet[data-open='true'] .stats-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 220px;
+  max-height: min(240px, calc(100cqh - 48px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px;
+  gap: 4px;
+  background: var(--float);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  border-radius: var(--r-group);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+}
+.table-screen .stats-cat .stat-label {
+  color: var(--ink-2);
 }
 .stats-cat-pct {
+  font-size: var(--t-body);
   font-weight: 500;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── The gate: one line to answer, inside the coach float ─── */
 .table-screen .coach {
   padding: 10px 14px;
 }
