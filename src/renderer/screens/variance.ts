@@ -40,7 +40,7 @@ export function renderVarianceScreen(options: VarianceOptions = {}): HTMLElement
   root.className = 'variance-screen';
   root.dataset.testid = 'variance-screen';
 
-  root.appendChild(text('h2', 'variance-title', 'Why there is no results graph yet'));
+  root.appendChild(text('h2', 'variance-title t-t2', 'Why there is no results graph yet'));
 
   const lede = text(
     'p',
@@ -51,7 +51,7 @@ export function renderVarianceScreen(options: VarianceOptions = {}): HTMLElement
   root.appendChild(lede);
 
   const table = document.createElement('div');
-  table.className = 'variance-table';
+  table.className = 'variance-table g-flat';
   table.dataset.testid = 'variance-table';
   for (const sample of SAMPLES) {
     const risk = riskOfLosing({ hands: sample.hands, winRateBbPer100: WIN_RATE, buyIns: sample.buyIns });
@@ -90,10 +90,10 @@ function renderRow(hands: number, buyIns: number, frame: string, risk: VarianceR
   row.dataset.probability = risk.probability.toFixed(4);
 
   const scale = text('div', 'variance-scale', `${hands.toLocaleString()} hands`);
-  scale.className = 'variance-scale';
+  scale.className = 'variance-scale g-num';
   row.appendChild(scale);
 
-  const frameLine = text('div', 'variance-frame stat-label', frame);
+  const frameLine = text('div', 'variance-frame stat-label g-label', frame);
   row.appendChild(frameLine);
 
   // The odds of finishing this sample down `buyIns`+ buy-ins, in the natural-frequency form the app

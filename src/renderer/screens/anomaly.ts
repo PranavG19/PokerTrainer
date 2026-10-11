@@ -290,7 +290,7 @@ function renderSide(opts: {
   panel.className = 'anomaly-side';
   panel.dataset.testid = 'anomaly-side';
 
-  panel.appendChild(text('div', 'stat-label', 'Two speeds'));
+  panel.appendChild(text('div', 'stat-label g-label', 'Two speeds'));
   panel.appendChild(
     text(
       'p',
@@ -299,7 +299,7 @@ function renderSide(opts: {
     ),
   );
 
-  panel.appendChild(text('div', 'stat-label', 'The four triggers'));
+  panel.appendChild(text('div', 'stat-label g-label', 'The four triggers'));
   panel.appendChild(renderTriggerList(opts.tallies, opts.firedBy));
   panel.appendChild(renderGate(opts.gate));
   if (opts.lifetime !== undefined && opts.lifetime.attempts > 0) {
@@ -326,7 +326,7 @@ function renderLifetime(lifetime: AnomalyLifetimeTally): HTMLElement {
   wrap.dataset.falseAlarm = String(lifetime.falseAlarm);
   wrap.dataset.slow = String(lifetime.slow);
 
-  wrap.appendChild(text('div', 'stat-label', 'Lifetime — across every sitting'));
+  wrap.appendChild(text('div', 'stat-label g-label', 'Lifetime — across every sitting'));
   wrap.appendChild(
     text(
       'p',
@@ -397,12 +397,12 @@ function renderGate(gate: ReturnType<typeof fluencyGate>): HTMLElement {
   wrap.dataset.passRate = gate.passRate.toFixed(4);
 
   wrap.appendChild(
-    text('div', 'stat-label', `Fluency gate — correct and under ${seconds(RT_THRESHOLD_MS)}`),
+    text('div', 'stat-label g-label', `Fluency gate — correct and under ${seconds(RT_THRESHOLD_MS)}`),
   );
 
   const headline = text(
     'div',
-    'anomaly-gate-headline',
+    'anomaly-gate-headline t-stat g-num',
     gate.attempts === 0 ? '—' : `${gate.passes} of ${gate.attempts}`,
   );
   headline.dataset.testid = 'anomaly-gate-headline';
@@ -501,7 +501,7 @@ function renderWork(opts: {
   const stimulus = opts.draw.stimulus;
   if (stimulus === null) return panel;
 
-  const prompt = text('p', 'anomaly-prompt', stimulus.prompt);
+  const prompt = text('p', 'anomaly-prompt t-t2', stimulus.prompt);
   prompt.dataset.testid = 'anomaly-prompt';
   panel.appendChild(prompt);
 
@@ -521,9 +521,11 @@ function renderWork(opts: {
 
   const next = document.createElement('button');
   next.type = 'button';
-  next.className = 'pill anomaly-next';
+  // The one primary on the screen. The label still reads "Next slot — Enter" (its text and accessible
+  // name); the dash is visually hidden and "Enter" is drawn as the trailing keycap of the real hotkey.
+  next.className = 'pill primary anomaly-next';
   next.dataset.testid = 'anomaly-next';
-  next.textContent = 'Next slot — Enter';
+  next.append('Next slot', hiddenText(' — '), keyText('Enter'));
   next.addEventListener('click', opts.onNext);
   panel.appendChild(next);
 
@@ -534,12 +536,13 @@ function renderKeys(onCommit: (answeredStandard: boolean) => void): HTMLElement 
   const row = document.createElement('div');
   row.className = 'anomaly-keys';
   row.dataset.testid = 'anomaly-keys';
-  row.appendChild(answerKey('Y standard', 'anomaly-yes', true, onCommit));
-  row.appendChild(answerKey('N anomalous', 'anomaly-no', false, onCommit));
+  row.appendChild(answerKey('Y', 'standard', 'anomaly-yes', true, onCommit));
+  row.appendChild(answerKey('N', 'anomalous', 'anomaly-no', false, onCommit));
   return row;
 }
 
 function answerKey(
+  hotkey: string,
   label: string,
   testid: string,
   answeredStandard: boolean,
@@ -547,9 +550,10 @@ function answerKey(
 ): HTMLElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'pill anomaly-key';
+  button.className = 'pill lg anomaly-key';
   button.dataset.testid = testid;
-  button.textContent = label;
+  // DOM order keeps the text "Y standard"; CSS draws the hotkey as the trailing keycap.
+  button.append(keyText(hotkey), text('span', 'anomaly-key-label', ` ${label}`));
   button.addEventListener('click', () => onCommit(answeredStandard));
   return button;
 }
@@ -643,6 +647,21 @@ function renderVerdict(graded: Graded): HTMLElement {
 // ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------
+
+/**
+ * A keycap that is part of the control's text (so its label and accessible name are unchanged), unlike
+ * glyphs.keycap, which is aria-hidden decoration beside a label that already names the key.
+ */
+function keyText(key: string): HTMLElement {
+  const cap = document.createElement('kbd');
+  cap.className = 'g-kbd anomaly-kbd';
+  cap.textContent = key;
+  return cap;
+}
+
+function hiddenText(content: string): HTMLElement {
+  return text('span', 'visually-hidden', content);
+}
 
 function seconds(ms: number): string {
   return `${(ms / 1000).toFixed(2)} s`;

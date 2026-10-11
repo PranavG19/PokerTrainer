@@ -1,55 +1,76 @@
-/* VARIANCE EXPLAINER — a reading surface, not a play surface. Calm and typographic: no mint (nothing
- * here is the teaching signal), no severity colour, plain ink on the standard surfaces. */
+/* VARIANCE EXPLAINER — a reading surface, not a play surface, so it is typeset as the drill mock's
+ * informational content: a 22/600 title, body prose, and the three samples as a flat hairline table
+ * (no cards: nothing here floats or opens). No mint (nothing here is the teaching signal), no severity
+ * colour, plain ink. The one action, Back to progress, is a secondary button: it leaves, it commits
+ * nothing. */
 
 .variance-screen {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   max-width: 560px;
   margin: 0 auto;
 }
 
 .variance-title {
-  font-size: 20px;
-  font-weight: 600;
   margin: 0;
 }
 
 .variance-lede,
 .variance-close {
-  color: var(--text-lo);
-  font-size: 14px;
-  line-height: 1.5;
   margin: 0;
+  font-size: var(--t-head);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.variance-close {
+  font-size: var(--t-body);
+  color: var(--ink-3);
 }
 
 .variance-table {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .variance-row {
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  box-shadow: var(--elev-1);
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  grid-template-areas:
+    'scale frame'
+    'scale odds';
+  column-gap: 16px;
+  row-gap: 2px;
+  align-items: baseline;
+  padding: 12px 2px;
 }
 
 .variance-scale {
-  font-size: 16px;
+  grid-area: scale;
+  font-size: var(--t-head);
   font-weight: 600;
-  color: var(--text-hi);
-  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+}
+
+/* "one session" — a label, sentence-cased from the authored lowercase. */
+.variance-frame {
+  grid-area: frame;
+  display: inline-block;
+  justify-self: start;
+}
+
+.variance-frame::first-letter {
+  text-transform: uppercase;
 }
 
 .variance-odds {
-  font-size: 14px;
-  color: var(--text-hi);
-  line-height: 1.4;
+  grid-area: odds;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-1);
 }
 
 .variance-back {

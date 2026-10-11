@@ -197,8 +197,11 @@ function renderSpotList(current: Spot, onSelect: (spot: Spot) => void): HTMLElem
   panel.className = 'robust-side';
   panel.dataset.testid = 'robust-side';
 
-  panel.appendChild(text('div', 'stat-label', 'Revealed spots'));
+  panel.appendChild(text('div', 'stat-label g-label', 'Revealed spots'));
 
+  // A level-2 picker (the drill mock's kind list): no pill, a check marks the choice.
+  const list = document.createElement('div');
+  list.className = 'robust-spots';
   for (const candidate of SPOTS) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -208,8 +211,9 @@ function renderSpotList(current: Spot, onSelect: (spot: Spot) => void): HTMLElem
     button.dataset.active = String(candidate.id === current.id);
     button.textContent = candidate.title;
     button.addEventListener('click', () => onSelect(candidate));
-    panel.appendChild(button);
+    list.appendChild(button);
   }
+  panel.appendChild(list);
 
   /*
    * O7's parenthetical, and it needs a testid for the same reason as the spread caption: unasserted, it
@@ -258,7 +262,7 @@ function renderSpot(spot: Spot): HTMLElement {
   for (const card of spot.input.board) cards.appendChild(renderCard(card, { small: true }));
   wrap.appendChild(cards);
 
-  const action = text('p', 'robust-action', spot.action);
+  const action = text('p', 'robust-action t-t3', spot.action);
   action.dataset.testid = 'robust-action';
   wrap.appendChild(action);
 
@@ -297,11 +301,11 @@ function renderContinuation(outcome: ContinuationOutcome, report: RobustnessRepo
   cell.dataset.extreme =
     outcome.id === report.best ? 'best' : outcome.id === report.worst ? 'worst' : '';
 
-  const name = text('div', 'robust-column-name', outcome.label);
+  const name = text('div', 'robust-column-name g-label', outcome.label);
   name.dataset.testid = 'robust-column-name';
   cell.appendChild(name);
 
-  const value = text('div', 'robust-column-ev', `${bb(outcome.evBb)} bb`);
+  const value = text('div', 'robust-column-ev t-stat g-num', `${bb(outcome.evBb)} bb`);
   value.dataset.testid = 'robust-column-ev';
   cell.appendChild(value);
 
