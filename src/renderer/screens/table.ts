@@ -42,6 +42,7 @@ import {
   renderCoachPanel,
   showGate,
   showGateRetry,
+  setCoachContext,
   showGrade,
   showReasonNote,
 } from '../components/coachPanel.js';
@@ -49,6 +50,8 @@ import {
   clearPredictPanel,
   committedPrediction,
   committedReason,
+  lendResult,
+  reclaimResult,
   renderPredictPanel,
   resetCommit,
   setCommitVisible,
@@ -56,6 +59,7 @@ import {
 } from '../components/predictPanel.js';
 import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
 import { keycap } from '../components/glyphs.js';
+import type { PredictedAction } from '../../core/predict.js';
 
 const SB = 25;
 /** The big blind, exported so the caller can size a depth-derived starting stack in the same units. */
@@ -260,6 +264,52 @@ export function renderTable(opts: {
   const coach = renderCoachPanel(() => submitGate());
   root.appendChild(coach);
 
+  /*
+   * THE COACHED SHEET (the mock's gate and verdict sheets). In coached mode the coach panel lives in a
+   * sheet that rises over the table stage: the stage dims and goes inert behind it, and the tray/dock
+   * below stay live — so "Next hand" at handover, and the next decision's commit, are never behind a
+   * modal, and every existing flow (the gate's 8s budget and Enter-to-submit, the verdict cleared at the
+   * next decision, the announcer) is unchanged. Opening moves focus into the sheet (the gate's answer
+   * field, or the sheet itself for a verdict); Close or Esc dismisses a verdict and returns focus to the
+   * first live control. Uncoached, the coach panel stays inline above the dock, as before.
+   */
+  const sheetLayer = document.createElement('div');
+  sheetLayer.className = 'coach-layer';
+  sheetLayer.hidden = true;
+  const scrim = document.createElement('div');
+  scrim.className = 'coach-scrim';
+  scrim.setAttribute('aria-hidden', 'true');
+  const sheet = document.createElement('section');
+  sheet.className = 'coach-sheet';
+  sheet.dataset.testid = 'coach-sheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-label', 'Coach');
+  sheet.tabIndex = -1;
+  // The second half of a verdict: what the hero committed to, then the reveal line (lent by the tray).
+  const sheetPredict = document.createElement('div');
+  sheetPredict.className = 'coach-sheet-predict';
+  const sheetCommit = document.createElement('div');
+  sheetCommit.className = 'coach-sheet-commit';
+  sheetCommit.dataset.testid = 'verdict-commit';
+  sheetPredict.appendChild(sheetCommit);
+  const sheetFoot = document.createElement('div');
+  sheetFoot.className = 'coach-sheet-foot';
+  const sheetCaption = document.createElement('span');
+  sheetCaption.className = 'g-caption';
+  const sheetClose = document.createElement('button');
+  sheetClose.type = 'button';
+  sheetClose.className = 'pill primary';
+  sheetClose.dataset.testid = 'coach-close';
+  sheetClose.append('Close', keycap('esc'));
+  sheetClose.setAttribute('aria-keyshortcuts', 'Escape');
+  sheetClose.addEventListener('click', () => dismissVerdict());
+  sheetFoot.append(sheetCaption, sheetClose);
+  sheetLayer.append(scrim, sheet);
+  /** 'gate' while a gate is up, 'verdict' while a coached verdict is shown, else null. */
+  let sheetKind: 'gate' | 'verdict' | null = null;
+  /** The prediction behind the verdict on show, for the sheet's "You committed to …" line. */
+  let sheetPrediction: { action: PredictedAction; confidence: Confidence } | null = null;
+
   let coachedMode = opts.coachedMode === true;
   // Built once, but only in the DOM while coached mode is on: with it detached there is no panel
   // to query and no gate to leak, so uncoached play is byte-for-byte the old behaviour.
@@ -267,6 +317,7 @@ export function renderTable(opts: {
   // released by the same commitment that unlocks the actions.
   const predict = renderPredictPanel(() => {
     refreshStats();
+    syncPredictMount();
     renderControls();
   });
 
@@ -388,15 +439,97 @@ export function renderTable(opts: {
     root.dataset.awaiting = v;
   }
 
+  /** The coach panel sits in the sheet in coached mode and inline above the dock otherwise. */
+  function syncCoachMount(): void {
+    if (coachedMode) {
+      if (coach.parentElement !== sheet) sheet.replaceChildren(coach, sheetPredict, sheetFoot);
+      if (sheetLayer.parentElement !== stage) stage.appendChild(sheetLayer);
+      return;
+    }
+    closeSheet();
+    if (coach.parentElement !== root) root.insertBefore(coach, predict.parentElement === root ? predict : controls);
+    sheetLayer.remove();
+  }
+
+  /** Everything in the stage but the sheet goes inert (out of the tab order and the a11y tree). */
+  function setStageInert(on: boolean): void {
+    for (const child of stage.children) {
+      if (child === sheetLayer) continue;
+      (child as HTMLElement).inert = on;
+    }
+  }
+
+  function openSheet(kind: 'gate' | 'verdict'): void {
+    sheetKind = kind;
+    root.dataset.sheet = kind;
+    sheetLayer.hidden = false;
+    sheetLayer.dataset.kind = kind;
+    setStageInert(true);
+    if (kind === 'verdict') {
+      sheet.setAttribute('aria-label', 'Coach verdict');
+      // The reveal line joins the verdict while the sheet is up; a free grade never opens the sheet.
+      if (sheetPrediction) {
+        const action = sheetPrediction.action[0].toUpperCase() + sheetPrediction.action.slice(1);
+        const conf = sheetPrediction.confidence === 'sure' ? 'Sure' : 'Guess';
+        sheetCommit.textContent = `You committed to ${action}, ${conf}`;
+        sheetPredict.hidden = false;
+        lendResult(predict, sheetPredict);
+      } else {
+        sheetPredict.hidden = true;
+      }
+      sheetCaption.textContent = state.winners === null ? 'The hand plays on behind this sheet' : '';
+      sheetClose.hidden = false;
+      sheet.focus({ preventScroll: true });
+    } else {
+      sheet.setAttribute('aria-label', 'Coach: explain this spot');
+      sheetPredict.hidden = true;
+      sheetCaption.textContent = 'The verdict appears when you answer, use both attempts, or the bar runs out.';
+      sheetClose.hidden = true;
+    }
+  }
+
+  function closeSheet(): void {
+    if (sheetKind === null) return;
+    const hadFocus = sheetLayer.contains(document.activeElement);
+    sheetKind = null;
+    delete root.dataset.sheet;
+    sheetLayer.hidden = true;
+    setStageInert(false);
+    reclaimResult(predict);
+    sheetPrediction = null;
+    // Focus returns to the first live control below the table, never to <body>.
+    if (hadFocus) {
+      const next = [...root.querySelectorAll<HTMLElement>('.predict button, .controls button, .controls input')].find(
+        (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
+      );
+      (next ?? stage).focus({ preventScroll: true });
+    }
+  }
+
+  /** Close (or Esc) on a verdict: the verdict is dismissed, exactly as the next decision would clear it. */
+  function dismissVerdict(): void {
+    if (sheetKind !== 'verdict') return;
+    clearCoach(coach);
+    if (adviceShown) opts.onVerdict?.(null);
+    adviceShown = false;
+    closeSheet();
+  }
+
   /** In the DOM only while coached mode is on; kept directly above the controls it gates. */
   function syncPredictMount(): void {
     if (coachedMode) {
       if (predict.parentElement === null) root.insertBefore(predict, controls);
       // The commit row belongs to a pending decision. At handover there is none, and leaving it up
       // is both a dead control and 74px of height the 900x640 column cannot spare.
-      setCommitVisible(predict, state.winners === null);
+      const commitVisible = state.winners === null;
+      setCommitVisible(predict, commitVisible);
+      // The tray takes the dock's place until the hero commits (every dock action is locked until then);
+      // once committed, the dock returns under it. A gate keeps the dock up, locked, under the sheet.
+      controls.hidden = commitVisible && committedPrediction(predict) === null && gate === null;
+      predict.dataset.committed = String(committedPrediction(predict) !== null);
       return;
     }
+    controls.hidden = false;
     predict.remove();
     clearPredictPanel(predict);
   }
@@ -409,6 +542,7 @@ export function renderTable(opts: {
   function setCoachedMode(on: boolean): void {
     coachedMode = on;
     syncCoachSwitch();
+    syncCoachMount();
     syncPredictMount();
     opts.onCoachedModeChange?.(on);
     render();
@@ -484,6 +618,8 @@ export function renderTable(opts: {
   function openGate(grade: Grade, reasonText: string, proceed: (attempts: 0 | 1 | 2) => void): void {
     gate = { grade, reasonText, proceed, attemptsUsed: 0 };
     root.dataset.gate = 'open';
+    // The sheet opens first so showGate's focus lands in a visible field.
+    openSheet('gate');
     showGate(coach, GATE_PROMPT, GATE_BUDGET_MS, GATE_MAX_ATTEMPTS);
     render();
     gateTimer = setTimeout(resolveGate, GATE_BUDGET_MS);
@@ -572,6 +708,9 @@ export function renderTable(opts: {
     }
     if (state.toAct === 0) {
       // A new decision: the previous verdict's pot and to-call no longer describe this spot.
+      // A coached sheet never sits over a live decision: whatever it holds (a verdict, or G4's note on
+      // a silent grade) is dismissed here, so the tray, the dock and the hotkeys are the hero's again.
+      if (sheetKind === 'verdict') dismissVerdict();
       if (adviceShown) {
         clearCoach(coach);
         adviceShown = false;
@@ -668,7 +807,8 @@ export function renderTable(opts: {
         toCall,
         action: action.kind,
         amount: action.amount ?? null,
-        verdict: { ...grade },
+        // The save keeps the grade's stored shape; the meter's price is a display detail, not persisted.
+        verdict: { severity: grade.severity, evLossBb: grade.evLossBb, message: grade.message, principle: grade.principle },
       };
       // Logged only when the gate actually fired; absent otherwise (matches the schema: absent = the
       // gate did not apply, never 0).
@@ -682,6 +822,15 @@ export function renderTable(opts: {
         opts.onPrediction?.(outcome, prediction.confidence);
         // Fresh commitment for the next street; the reveal line stays up until the next hand.
         resetCommit(predict);
+      }
+      // Coached: a verdict — or G4's reason note on a silent grade — rises as the sheet (the gate's sheet,
+      // if one was up, turns into it). Nothing to say closes it, and the reveal line stays in the tray.
+      if (coachedMode && !coach.hidden) {
+        setCoachContext(coach, verdictContext(street, action.kind, toCall));
+        sheetPrediction = prediction;
+        openSheet('verdict');
+      } else {
+        closeSheet();
       }
       state = applyAction(state, action);
       advance();
@@ -720,6 +869,7 @@ export function renderTable(opts: {
     potAnnouncer.textContent = '';
     if (adviceShown) opts.onVerdict?.(null);
     adviceShown = false;
+    closeSheet();
     clearPredictPanel(predict);
     state = startHand(state);
     heroStartStack = state.seats[0].stack + state.seats[0].committed;
@@ -1017,6 +1167,12 @@ export function renderTable(opts: {
 
   // ── keyboard (R3) ──────────────────────────────────────────────────
   function onKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && sheetKind === 'verdict') {
+      dismissVerdict();
+      return;
+    }
+    // Action hotkeys never reach a table that is behind a sheet.
+    if (sheetKind !== null) return;
     if (state.toAct !== 0 || state.winners !== null) return;
     const legal = legalActions(state);
     const key = e.key.toLowerCase();
@@ -1036,6 +1192,7 @@ export function renderTable(opts: {
   // A restored coachedMode=true must arm the gate on the very first render, not only once the
   // toggle is clicked.
   syncCoachSwitch();
+  syncCoachMount();
   syncPredictMount();
   advance();
 
@@ -1172,6 +1329,21 @@ function pill(label: string, testid: string, onClick: () => void): HTMLButtonEle
   b.textContent = label;
   b.addEventListener('click', onClick);
   return b;
+}
+
+const PAST: Record<ActionKind, string> = {
+  fold: 'folded',
+  check: 'checked',
+  call: 'called',
+  bet: 'bet',
+  raise: 'raised',
+  allin: 'went all-in',
+};
+
+/** The verdict sheet's context caption: "On the flop, you folded to 75". */
+function verdictContext(street: string, action: ActionKind, toCall: number): string {
+  const when = street === 'preflop' ? 'Preflop' : `On the ${street}`;
+  return `${when}, you ${PAST[action]}${toCall > 0 ? ` to ${toCall}` : ''}`;
 }
 
 function dockSeparator(): HTMLElement {

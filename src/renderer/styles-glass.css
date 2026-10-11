@@ -588,9 +588,8 @@ select {
 
 /* ─── Floats: the dock, the teaching panels, the stats sheet ─── */
 .table-screen .controls,
-.coach,
-.predict,
-.stats-sheet {
+.table-screen > .coach,
+.predict {
   background: var(--float);
   -webkit-backdrop-filter: var(--float-blur);
   backdrop-filter: var(--float-blur);
@@ -598,8 +597,8 @@ select {
   border-radius: var(--r-dock);
   box-shadow: var(--float-highlight), var(--float-shadow);
 }
-.coach[data-severity='notable'],
-.coach[data-severity='serious'] {
+.table-screen > .coach[data-severity='notable'],
+.table-screen > .coach[data-severity='serious'] {
   box-shadow: var(--float-highlight), var(--float-shadow);
 }
 
@@ -1109,7 +1108,7 @@ html .g-seg > button:disabled {
 /* A tall stage: the pot and board sit lower, so the price the hero is sizing against is near the plate
  * (the round-5 rater: a ~170pt gap between them at 1100x760). */
 @container stage (min-height: 480px) {
-  .table-screen .table-centre { top: 56%; }
+  .table-screen .table-centre { top: 60%; }
 }
 @container stage (max-height: 400px) {
   .table-screen .seat[data-slot='top'] { top: 30px; }
@@ -1216,18 +1215,361 @@ html .table-screen .stats-sheet[data-open='true'] .stats-body {
   font-variant-numeric: tabular-nums;
 }
 
-.table-screen .coach {
-  padding: 10px 14px;
+/* ─── The coach: verdict, gate, tray (demo/glass/table.html, states predict / gate / verdict) ───
+ * The coach panel's own parts, shared by its two homes: inline above the dock (uncoached), and the sheet
+ * over the table (coached). One headline, the severity as a glyph + word in coral/amber, the price meter,
+ * support at 56ch. */
+.coach {
+  gap: 8px;
+  border-left: 0;
 }
-.table-screen .coach-gate {
-  gap: 4px;
+.coach-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.table-screen .coach-gate-input {
-  height: 32px;
-  min-height: 32px;
-  padding: 6px 10px;
-  font-size: 13px;
+.coach[data-severity='none'] .coach-sev,
+.coach[data-gate='open'] .coach-sev {
+  display: none;
+}
+.coach-sev {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-foot);
+  font-weight: 600;
+  color: var(--amber);
+}
+.coach[data-severity='serious'] .coach-sev {
+  color: var(--coral);
+}
+.coach-sev .g-warn {
+  width: 13px;
+  height: 13px;
+}
+.coach-ctx {
+  margin-left: auto;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+}
+.coach-ctx:empty {
+  display: none;
+}
+html .coach .coach-message {
+  font-size: var(--t-t3);
+  font-weight: 600;
   line-height: 1.3;
+  color: var(--ink-1);
+}
+html .coach .coach-message:empty {
+  display: none;
+}
+.coach .coach-principle {
+  font-size: var(--t-body);
+  color: var(--ink-2);
+}
+.coach .coach-principle:empty {
+  display: none;
+}
+.coach .coach-reason-note {
+  font-size: var(--t-foot);
+  color: var(--amber);
+  margin-top: 0;
+}
+
+.coach-meter {
+  position: relative;
+  height: 34px;
+  margin-top: 2px;
+}
+.coach-meter[hidden] {
+  display: none;
+}
+.coach-meter-bar,
+.coach-meter-fill,
+.coach-meter-gap {
+  position: absolute;
+  top: 7px;
+  height: 4px;
+  border-radius: 2px;
+}
+.coach-meter-bar {
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+.coach-meter-fill {
+  left: 0;
+  width: var(--had);
+  background: rgba(255, 255, 255, 0.34);
+  animation: coach-meter-grow 600ms 200ms var(--ease) both;
+}
+/* The gap between the hand's share and the price is the bright band. */
+.coach-meter-gap {
+  left: var(--lo);
+  width: calc(var(--hi) - var(--lo));
+  background: rgba(255, 255, 255, 0.82);
+  animation: coach-fade 400ms 700ms both;
+}
+.coach-meter-need {
+  position: absolute;
+  top: 1px;
+  left: var(--need);
+  width: 2px;
+  height: 16px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--coral);
+}
+.coach-meter-lab-need,
+.coach-meter-lab-had,
+.coach-meter-end-lo,
+.coach-meter-end-hi {
+  position: absolute;
+  top: 20px;
+  font-size: var(--t-cap);
+  white-space: nowrap;
+}
+.coach-meter-lab-need {
+  left: var(--need);
+  transform: translateX(-50%);
+  color: var(--ink-2);
+}
+.coach-meter-lab-had {
+  left: var(--had);
+  transform: translateX(-50%);
+  color: var(--ink-2);
+}
+.coach-meter-end-lo { left: 0; color: var(--ink-3); }
+.coach-meter-end-hi { right: 0; color: var(--ink-3); }
+@keyframes coach-meter-grow { from { width: 0; } }
+@keyframes coach-fade { from { opacity: 0; } }
+
+/* The gate: one line to answer, a 32px field beside a 32px button, the budget as a 3px amber bar. */
+.coach-gate {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'bar bar'
+    'prompt prompt'
+    'count count'
+    'input submit'
+    'note note';
+  gap: 10px 8px;
+}
+.coach-gate[hidden] {
+  display: none;
+}
+.coach-gate-bar {
+  grid-area: bar;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+html .coach-gate-bar-fill {
+  background: var(--amber);
+}
+html .coach-gate-prompt {
+  grid-area: prompt;
+  font-size: var(--t-t3);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink-1);
+}
+html .coach-gate-count {
+  grid-area: count;
+  font-size: var(--t-foot);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
+html .coach-gate-input {
+  grid-area: input;
+  height: var(--h-ctl);
+  min-height: var(--h-ctl);
+  padding: 7px 12px;
+  font-size: var(--t-body);
+  line-height: 1.3;
+  resize: none;
+  overflow: hidden;
+}
+html .coach-gate-input:focus {
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+.coach-gate-submit {
+  grid-area: submit;
+}
+html .coach-gate-note {
+  grid-area: note;
+  color: var(--ink-1);
+}
+
+/* Inline (uncoached): the coach is a float above the dock, centred to the dock's width. */
+.table-screen > .coach {
+  align-self: center;
+  width: min(640px, 100%);
+  padding: 12px 16px;
+}
+
+/* The coached sheet: a float rising from the bottom of the stage over a scrim; the table behind recedes
+ * (dimmed and blurred, no bloom) and is inert. */
+.coach-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.coach-layer[hidden] {
+  display: none;
+}
+.coach-scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: rgba(10, 12, 16, 0.5);
+  animation: coach-fade var(--dur-2) var(--ease) both;
+}
+.table-screen[data-sheet] .table-stage > :not(.coach-layer) {
+  filter: blur(10px) brightness(0.45) saturate(0.7);
+  transition: filter var(--dur-3) var(--ease);
+}
+.coach-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  translate: -50% 0;
+  width: min(520px, calc(100% - 32px));
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px 16px;
+  border-radius: var(--r-sheet);
+  background: rgba(52, 56, 64, 0.72);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+  outline: none;
+  animation: coach-rise var(--dur-3) var(--ease) both;
+}
+@keyframes coach-rise { from { opacity: 0; translate: -50% 8px; } }
+html .coach-sheet > .coach {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 0;
+}
+.coach-sheet-predict {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+.coach-sheet-predict[hidden] {
+  display: none;
+}
+.coach-sheet-commit {
+  font-size: var(--t-foot);
+  color: var(--ink-2);
+}
+.coach-sheet-predict .predict-result {
+  font-size: var(--t-head);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.coach-sheet-predict .predict-support {
+  max-width: 56ch;
+  font-size: var(--t-foot);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.coach-sheet-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.coach-sheet-foot .g-caption {
+  margin-right: auto;
+}
+.coach-sheet-foot .pill[hidden] {
+  display: none;
+}
+
+/* The commit tray: the same thin float as the dock, a 15/600 question, then one 28px row — the action
+ * and confidence segmented controls and the optional "why" field. It takes the dock's place until the
+ * hero commits. */
+.table-screen .predict {
+  align-self: center;
+  width: min(700px, 100%);
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-left: 0;
+}
+.table-screen .predict-prompt {
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.table-screen .predict-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+html .table-screen .predict-row > .g-seg > .predict-choice {
+  padding: 0 11px;
+  font-size: var(--t-body);
+  letter-spacing: 0;
+  margin: 0;
+}
+html .predict-choice[data-selected='true'] {
+  background: none;
+  box-shadow: none;
+}
+html .table-screen .predict-reason {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-sm);
+  min-height: var(--h-sm);
+  padding: 5px 10px;
+  font-size: var(--t-body);
+  line-height: 1.3;
+  overflow: hidden;
+}
+.table-screen .predict-result {
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+html .predict-result[data-outcome] {
+  color: var(--ink-1);
+}
+html .predict-result[data-outcome='guess-wrong'],
+html .predict-result[data-outcome='deviated'] {
+  color: var(--ink-2);
+}
+.table-screen .predict-support {
+  color: var(--ink-2);
+}
+.table-screen .controls[hidden],
+.table-screen .predict-row[hidden],
+.table-screen .predict-prompt[hidden] {
+  display: none;
+}
+/* A tray with nothing to show (handover, with the reveal line lent to the verdict sheet) is not drawn. */
+.table-screen .predict:not(:has(> :not([hidden]))) {
+  display: none;
+}
+html .table-screen .predict-reason {
   resize: none;
 }
 
@@ -1259,13 +1601,7 @@ html .train-rail-btn[data-active='true'] {
 html .train-rail-btn:focus-visible {
   box-shadow: var(--focus-ring);
 }
-/* The committed prediction is a selection, not "your turn": the thumb, not mint. */
-html .predict-choice[data-selected='true'] {
-  background: var(--fill-3);
-  color: var(--ink-1);
-  border-color: transparent;
-  box-shadow: var(--thumb-shadow);
-}
+/* The committed prediction is a selection, not "your turn": the sliding thumb (predictPanel.ts), not mint. */
 html .settings-toggle {
   border-radius: var(--r-ctl);
   background: var(--fill-1);
@@ -1304,9 +1640,21 @@ html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong);
 
 
 
-/* Reduced motion: decorative motion stops (the slide of a thumb included). */
+/* Reduced motion: decorative motion stops (the slide of a thumb included, and the sheet's rise and the
+ * table's recede). The gate's budget bar keeps draining: it is a functional timer, not decoration (the
+ * round-3 rater found a frozen bar under reduced motion hid how long was left). */
 @media (prefers-reduced-motion: reduce) {
-  .sel-thumb {
+  .sel-thumb,
+  .table-screen[data-sheet] .table-stage > :not(.coach-layer) {
     transition: none;
+  }
+  .coach-sheet,
+  .coach-scrim,
+  .coach-meter-fill,
+  .coach-meter-gap {
+    animation: none;
+  }
+  html .coach-gate-bar-fill {
+    animation: offsuit-gate-drain var(--gate-budget) linear forwards;
   }
 }

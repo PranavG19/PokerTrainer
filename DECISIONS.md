@@ -64,6 +64,85 @@ rule.
 - **The planner's controls are built once** and only their flags change, so the three segmented thumbs
   slide; only the plan body is rebuilt per change.
 
+### Table (`demo/glass/table.html`, `sports`)
+- **Coach is a real switch and Stats a tertiary text button, in the table's top-right corner,** off the dock
+  (`role="switch"`, `aria-checked`; `data-on` kept). Both are built once, so the switch animates and focus
+  survives every render. The blinds sit top-left as 12px metadata.
+- **The Win/Tie strip under the dock is gone; the readout moved to that corner.** The win/tie line is quiet
+  metadata in the stat grammar (value then label, neutral ink — the role map gives a win% no hue, so it is no
+  longer mint), and Stats (or the readout itself) drops the made-hand list under it as a small float. This
+  frees the strip's ~40px at 900x640 and fixes the strip that matched nothing else in the system. The sheet's
+  testids, `data-open`, `data-withheld` and the "—" withholding in coached mode are unchanged.
+- **The dock has the round-3 hierarchy:** Fold / Check / Call secondary with trailing keycaps on their real
+  hotkeys (C sits on Check when checking is legal, else on Call, exactly as the C key behaves), a separator,
+  the sizing group (a slider whose track fills to the thumb centre, a fixed 40px tabular amount slot, and the
+  presets ½ ¾ Pot All-in as one small segmented group with `role="group"`; All-in's A hotkey is in its
+  tooltip), a separator, and Raise as the one bone primary with its R keycap. Next hand is the primary at
+  handover. Keycaps are `aria-hidden`; each button names its key with `aria-keyshortcuts`.
+- **Round-5 sports fixes:**
+  - **One green on the hero:** the pinned mint ring stays (`interaction.spec`); the mint border and mint wash
+    are gone. Your turn is the ring plus a soft white light pool on the plate.
+  - **The dealer button sits on the plate's top-right corner,** clear of the hole cards.
+  - **The pot and board sit lower on a tall stage** (60% instead of 46% when the stage is at least 480px
+    tall). Measured on the flop (`tests/tmp/fr-gap.mjs`), the board-to-hero gap went from 153px to 91px at
+    1100x760 and from 88px to 43px at 900x640. The app has no price
+    line (the mock's "75 to call, a 25% price"); adding one would hand the learner the pot-odds answer the
+    drills ask for, so it was not added.
+
+### Coach sheets and the commit tray (coached mode)
+- **The gate and the verdict are the mock's sheets** (`coach-sheet`, `role="dialog"`): a float that rises from
+  the bottom of the table stage over a scrim, with the stage dimmed and blurred behind it and every stage
+  child `inert`. The tray and the dock below the stage stay live. Supersedes: the inline coach panel in
+  coached mode, because the user asked for the mock's sheets.
+  - **Why not fully modal:** a modal over the dock would put "Next hand" behind the sheet at handover
+    (`coached-handover.spec` 1 pins it on screen and clickable) and add a dismissal before every next
+    decision. Keeping the dock live preserves every existing flow unchanged, and the sheet still takes focus,
+    blocks the table and its hotkeys, and dismisses with Close or Esc. The nav also stays live, as switching
+    tabs mid-hand already abandons the hand.
+- **Behaviour contracts kept:**
+  - The gate's 8s budget, two attempts, Enter-to-submit and its focus on the answer field are unchanged; the
+    sheet opens before `showGate` so the focus lands in a visible field.
+  - "Commit before feedback": the verdict sheet only ever opens after the action is committed and graded.
+  - A verdict is cleared at the hero's next decision, exactly as before (the sheet closes with it), and
+    survives to handover otherwise. Close or Esc dismisses it early, which also stops the voice narration.
+  - The screen-reader announcer still announces each verdict once.
+  - Action hotkeys never reach a table behind a sheet; Esc closes a verdict but never a gate.
+  - On close, focus returns to the first live control (the tray, else the dock), never to `<body>`.
+- **The verdict sheet holds both halves:** the coach's head (a 13px warning glyph plus "Serious"/"Notable" in
+  coral/amber, so severity is never colour alone, and "On the flop, you folded to 75" on the right), the 17/600
+  headline, the principle, the price meter, a divider, "You committed to Fold, Sure", the 15/600 neutral
+  reveal line and the support at 56ch, then Close (bone, `esc` keycap). The reveal line and support are lent
+  to the sheet by the tray and handed back on close (they stay up until the next hand, as before).
+- **The price meter** is new data on the grade: `Grade.price {needed, had}` on a priced, non-silent verdict
+  (`core/coach.ts`, unit-tested). It is a display detail, so the saved decision keeps the grade's stored shape.
+- **G4's reason note on a silent grade** also opens the sheet, so the note is seen; it is dismissed at the next
+  decision with everything else in the sheet.
+- **The commit tray takes the dock's place until the hero commits** (every dock action is locked until then);
+  once committed, the dock returns under it. During a gate the dock stays, locked, under the sheet. The tray
+  is the dock's thin glass with a 15/600 question and one 28px row: the action and confidence segmented
+  controls (with the sliding thumb; each choice carries `aria-pressed`), and the optional "why" field. The
+  confidence labels are title case on the control; the reveal line keeps "SURE".
+- **The uncoached verdict stays an inline float above the dock** with the same head, headline and meter. The
+  mock defines the sheets only in coached mode, and a dimming sheet after every uncoached mistake would turn
+  casual play into a dialog per decision.
+- **The gate's budget bar keeps draining under reduced motion.** It is a functional timer, not decoration;
+  every other animation on the table stops. Supersedes: the bar frozen under reduced motion.
+
+### Spec changes (each: what changed and why; none weakens what the spec asserts)
+- `screens.spec` (Home): hand nets are signed with the true minus U+2212, so the regex and `Number()` parse
+  accept it; the "one loss colour" test now compares the bankroll's delta with the losing row (the figure is
+  neutral ink by the role map) and asserts the figure is not painted as the loss.
+- `predict.spec` (toggle): the Coach toggle is a switch, so "off" is asserted as `role="switch"` +
+  `aria-checked="false"` instead of the old "Coach off" label text.
+- `layout.spec` 8: the made-hand list now opens as a small float that fits at 900x640, so "the body scrolls"
+  became "every row is on screen or reachable by scrolling the body". The no-page-scroll, win% on screen and
+  action pills on screen assertions are unchanged.
+- `gate.spec` 5: under reduced motion the budget bar's animation is now asserted ON (`offsuit-gate-drain`);
+  the gate box's entrance animation is still asserted off and the gate still fires, resolves and logs.
+- Added: `coached-handover.spec` 3 (the gate sheet takes focus into its field; the stage behind is inert; Esc
+  does not dismiss a gate) and 4 (the verdict sheet takes focus, holds both halves, Esc dismisses it, focus
+  lands on Next hand, nothing stays inert); `coach.test.ts` (`Grade.price`).
+
 ## The app restyle (shipped look: glass, with the `sports` table)
 The user chose `sports`. The real app (`src/renderer/`) now uses the glass system and the `sports` table.
 The mock in `demo/glass/` stays as the reference.
@@ -93,9 +172,8 @@ The mock in `demo/glass/` stays as the reference.
 - **Numerals are regular-width SF, heavy and tabular,** not the mock's condensed SF. Supersedes: condensed
   figures across the app. The latest blind rater scored the condensed face 6.8 on type and asked for SF Pro
   tabular, and it needs a system-font file hack that Electron's CSP would not load.
-- **The coach verdict, the gate and the commit row stay inline panels** under the table, now as glass
-  floats. They are not the mock's bottom sheets. Sheets would change focus and dismissal behaviour that a
-  dozen specs cover, so they are a separate change.
+- **The coach verdict, the gate and the commit row** were inline glass floats in this restyle. Supersedes: now
+  the mock's sheets and tray in coached mode (see "Coach sheets and the commit tray" above).
 - **Selected means the glass thumb** (a light fill with light ink) everywhere. It replaces the old white chip
   and the white outlines. The committed prediction is a selection, so it is no longer mint.
 - **Grid cells get opaque graphite faces:** in range is `#474C55`, out is `#1C1F25`, a 3-bet is stronger. Bone

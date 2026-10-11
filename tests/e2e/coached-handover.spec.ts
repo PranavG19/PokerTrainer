@@ -245,4 +245,72 @@ test.describe('coached handover at the documented minimum size', () => {
       await close();
     }
   });
+
+  /**
+   * The coached verdict and gate are the mock's sheets: they rise over the table, which dims and goes
+   * inert, while the tray and dock below stay live. These pin the behaviour contract of that structure:
+   * where focus goes, what Esc does, and that nothing behind the sheet takes input.
+   */
+  test('3. the gate is a sheet: focus is in its answer field and the table behind is inert', async () => {
+    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    try {
+      await sitDown(page);
+      await useViewport(app, page);
+      await page.locator(modeToggle).click();
+      await page.locator('[data-testid="predict-call"]').click();
+      await page.locator('[data-testid="confidence-sure"]').click();
+      await page.locator(sel.btnCall).click();
+      expect(await waitForIdle(page)).toBe('hero');
+      await page.locator('[data-testid="predict-fold"]').click();
+      await page.locator('[data-testid="confidence-sure"]').click();
+      await page.locator(sel.btnFold).click();
+      await expect(page.locator(tableScreen)).toHaveAttribute('data-gate', 'open');
+
+      const sheet = page.locator('[data-testid="coach-sheet"]');
+      await expect(sheet).toBeVisible();
+      await expect(sheet).toHaveAttribute('role', 'dialog');
+      await expect(page.locator('[data-testid="gate-input"]')).toBeFocused();
+      const inert = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('.table-stage > :not(.coach-layer)')].map((el) => el.inert),
+      );
+      expect(inert.length).toBeGreaterThan(0);
+      expect(inert.every(Boolean), 'everything on the table behind the gate is inert').toBe(true);
+      // Esc does not dismiss a gate (only a verdict): the self-explanation is still owed.
+      await page.keyboard.press('Escape');
+      await expect(page.locator(tableScreen)).toHaveAttribute('data-gate', 'open');
+    } finally {
+      await close();
+    }
+  });
+
+  test('4. the verdict is a sheet: focus moves into it, Esc dismisses it, focus lands on a live control', async () => {
+    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    try {
+      await sitDown(page);
+      await useViewport(app, page);
+      await reachGradedCoachedHandover(page);
+
+      const sheet = page.locator('[data-testid="coach-sheet"]');
+      await expect(sheet).toBeVisible();
+      await expect(sheet).toBeFocused();
+      // The two halves of the verdict are in the one sheet: the grade, then the prediction's reveal line.
+      await expect(sheet.locator('[data-testid="coach-message"]')).toBeVisible();
+      await expect(sheet.locator(predictResult)).toBeVisible();
+      await expect(page.locator('[data-testid="verdict-commit"]')).toHaveText('You committed to Fold, Sure');
+      await expect(page.locator('[data-testid="coach-severity"]')).toHaveText('Serious');
+
+      await page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+      await expect(page.locator(coachPanel)).toBeHidden();
+      // The reveal line goes back to the tray, where it stays until the next hand.
+      await expect(page.locator(`${predictPanel} ${predictResult}`)).toBeVisible();
+      await expect(page.locator(nextHand)).toBeFocused();
+      const inert = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('.table-stage > *')].some((el) => el.inert),
+      );
+      expect(inert, 'nothing stays inert once the sheet is gone').toBe(false);
+    } finally {
+      await close();
+    }
+  });
 });

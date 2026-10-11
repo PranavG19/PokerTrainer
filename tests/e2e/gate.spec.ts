@@ -245,7 +245,7 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
     });
   });
 
-  test('5. reduced motion still FIRES and LOGS the gate — animation off, behaviour intact', async () => {
+  test('5. reduced motion still FIRES and LOGS the gate — decoration off, timer bar on, behaviour intact', async () => {
     // With motion, the gate box and budget bar carry their animations.
     await withApp({ seed: 8 }, async (page) => {
       await reachSeed8Gate(page);
@@ -255,7 +255,7 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
       expect(animated).not.toBe('none');
     });
 
-    // Under reduced motion, the same gate fires and logs; only the animation is gone.
+    // Under reduced motion, the same gate fires and logs; only the decorative animation is gone.
     const dir = freshUserDataDir();
     const launched = await launchApp({ seed: 8, userDataDir: dir });
     try {
@@ -268,7 +268,9 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
         .locator(gateBarFill)
         .evaluate((el) => getComputedStyle(el).animationName);
       expect(boxAnim, 'gate box animation off under reduced motion').toBe('none');
-      expect(barAnim, 'budget bar animation off under reduced motion').toBe('none');
+      // The budget bar is a functional timer, not decoration: it keeps draining under reduced motion so
+      // the learner can still see how long is left (glass redesign; the round-3 rater's gate finding).
+      expect(barAnim, 'budget bar still drains under reduced motion').toBe('offsuit-gate-drain');
       // Critically, the gate STILL fires and a passing answer still resolves + reveals + logs.
       await page.locator(gateInput).fill('villain only continues a stronger range here');
       await page.locator(gateSubmit).click();
