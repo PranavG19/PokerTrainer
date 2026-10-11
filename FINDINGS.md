@@ -9,8 +9,9 @@
   - All 28 screens pick up the new tokens and buttons. Screenshots are in `after/` and `compare-*.jpg`.
 - **Checks:**
   - Typecheck is clean, and the unit tests pass (1802).
-  - The full e2e result is in `e2e-final.log`.
-  - AA passes on all 44 app renders (22 states × 2 sizes), minimum 4.95:1.
+  - The full e2e run on 7edf964 passed (545, with 1 skipped as on the baseline): `e2e-final.log`.
+  - AA passes on 96 renders of the running app (every screen state in both themes, plus busted seats),
+    minimum 4.75:1.
 - **Seats the app supports:** solo is hero plus 3, and LAN allows 2–6. The seat rule (`seatLayout.ts`) is
   unit-tested up to 8 villains.
 
@@ -57,6 +58,6 @@
 - **Records:**
   - `DECISIONS.md` ("The app restyle" section): what changed, the kept and changed e2e pins, and why no
     failing-first test applies.
-  - `code-review.md`: the independent review.
+  - `code-review.md`: the independent review. It was BLOCK, then PASS WITH NOTES after the fixes.
   - `PR-DRAFT.md`
 - **Design study:** `SCORECARD-TABLE.md`, `compare-scaling.jpg`, and the mock at `demo/glass/table-variants.html`.

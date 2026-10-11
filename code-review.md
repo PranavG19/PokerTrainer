@@ -230,4 +230,13 @@ fixed. The scope, scores, contrast and reference-image checks were all clean.
   - layout, session-plan, train, busted-seats, theme and rebuy: 53/53
   - earlier, charts, drill, interaction and gameplay
 - AA: 96 renders, 0 failures (`tests/tmp/app-contrast.log`).
-- The full e2e run on the final commit is in `tests/tmp/e2e-final.log`.
+- **Full e2e on 7edf964: 545 passed, 0 failed, 1 skipped** (the same skip as on the baseline), in
+  `tests/tmp/e2e-final.log`.
+- **The reviewer re-verified 7edf964: PASS WITH NOTES.** All 3 Act on fixes and the fixed Consider items
+  hold, measured with fresh probes.
+  - At 900x640 the side seats end at x290 and start at x610, clear of the board at x304–596.
+  - Busted-seat and Obsidian AA have 0 failures.
+  - The active rung shows the focus ring.
+  - Home is 640 and 760 tall at the two sizes.
+  - The notes were the e2e-written `screenshots/` (kept out of commits) and that the e2e result is the
+    author's log.

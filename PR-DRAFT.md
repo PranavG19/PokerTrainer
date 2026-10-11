@@ -13,13 +13,15 @@ restyle", for the details.
 - **Unchanged:** no dependency changes, and nothing outside `src/renderer/` changes apart from tests. The
   state schema and the LAN protocol are untouched.
 - **Tests:**
-  - typecheck and unit tests (1802) pass, and the full e2e result is in the evidence.
+  - typecheck and unit tests (1802) pass, and the full e2e passes on 7edf964 (545, with 1 skipped as on
+    `main`).
   - Two e2e changes:
     - `interaction.spec`'s pot pin now asserts the pot figure is the largest on the table, instead of the
       old 14px.
     - `voice.spec` test 2 failed on `main` before this work. Its second verdict is hand 2, so it now accepts
       any graded verdict.
-  - AA passes on 44 renders of the running app.
+  - AA passes on 96 renders of the running app.
+  - An independent review was BLOCK, then PASS WITH NOTES after the fixes (see code-review.md).
 
 The rest of this description covers the static mock under `demo/glass/` that led here.
 This is a static HTML/CSS mockup of a modern glass direction for Offsuit, built from real app screens and copy.
