@@ -12,6 +12,7 @@ import {
 } from '../../core/rangeEditor.js';
 import { mulberry32, type Rng } from '../../core/rng.js';
 import { renderCard } from '../components/card.js';
+import { keycap } from '../components/glyphs.js';
 
 /**
  * PREFLOP RANGE EDITOR / TRAINER — BACKLOG #6.
@@ -94,11 +95,20 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
   announcer.setAttribute('aria-live', 'polite');
   root.appendChild(announcer);
 
-  root.appendChild(text('h2', 'range-editor-title', 'Range editor'));
-  root.appendChild(
+  // Two columns: the name, controls and saved library in a side column; the grid and the drill in the
+  // main one.
+  const side = document.createElement('div');
+  side.className = 'range-editor-side';
+  const main = document.createElement('div');
+  main.className = 'range-editor-main';
+  root.appendChild(side);
+  root.appendChild(main);
+
+  side.appendChild(text('h2', 'range-editor-title t-t3', 'Range editor'));
+  side.appendChild(
     text(
       'p',
-      'range-editor-lede',
+      'range-editor-lede g-caption',
       'Paint a preflop range on the grid, name it and save it. Load a saved range to drill: the trainer deals a hand and you say whether it is in the range.',
     ),
   );
@@ -116,19 +126,21 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
   nameInput.placeholder = 'e.g. BTN open';
   nameField.appendChild(nameLabel);
   nameField.appendChild(nameInput);
-  root.appendChild(nameField);
+  side.appendChild(nameField);
 
   // --- The 13x13 grid -------------------------------------------------------
   const grid = document.createElement('div');
-  grid.className = 'range-editor-grid';
+  // The grid fades in row by row when the screen opens.
+  grid.className = 'range-editor-grid is-entering';
   grid.dataset.testid = 'range-editor-grid';
   const cells = new Map<Combo, HTMLButtonElement>();
-  for (const high of RANKS_DESC) {
+  RANKS_DESC.forEach((high, row) => {
     for (const low of RANKS_DESC) {
       const combo = comboAt(high, low);
       const cell = document.createElement('button');
       cell.type = 'button';
       cell.className = 'range-editor-cell';
+      cell.style.setProperty('--r', String(row));
       cell.dataset.testid = 'range-editor-cell';
       cell.dataset.combo = combo;
       cell.dataset.selected = 'false';
@@ -145,46 +157,48 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
       cells.set(combo, cell);
       grid.appendChild(cell);
     }
-  }
+  });
   // ALL_COMBOS is the canonical 169; a missing cell would silently drop a hand from every range.
   if (cells.size !== ALL_COMBOS.length) {
     throw new Error(`range grid built ${cells.size} cells, expected ${ALL_COMBOS.length}`);
   }
-  root.appendChild(grid);
+  main.appendChild(grid);
 
   // --- Controls -------------------------------------------------------------
   const controls = document.createElement('div');
   controls.className = 'range-editor-controls';
-  const count = text('span', 'range-editor-count', '');
+  const count = text('span', 'range-editor-count g-caption g-num', '');
   count.dataset.testid = 'range-editor-count';
   const clearBtn = pill('range-editor-clear', 'Clear');
   const saveBtn = pill('range-editor-save', 'Save');
+  // Save is the screen's one committing action: the bone primary.
+  saveBtn.classList.add('primary');
   controls.appendChild(saveBtn);
   controls.appendChild(clearBtn);
   controls.appendChild(count);
-  root.appendChild(controls);
+  side.appendChild(controls);
 
   const error = document.createElement('div');
   error.className = 'range-editor-error';
   error.dataset.testid = 'range-editor-error';
   error.setAttribute('role', 'alert');
-  root.appendChild(error);
+  side.appendChild(error);
 
   // --- Saved library --------------------------------------------------------
   const savedSection = document.createElement('div');
   savedSection.className = 'range-editor-saved';
-  savedSection.appendChild(text('div', 'stat-label', 'Saved ranges'));
+  savedSection.appendChild(text('div', 'stat-label g-label', 'Saved ranges'));
   const savedList = document.createElement('ul');
   savedList.className = 'range-editor-saved-list';
   savedList.dataset.testid = 'range-editor-saved-list';
   savedSection.appendChild(savedList);
-  root.appendChild(savedSection);
+  side.appendChild(savedSection);
 
   // --- Drill ----------------------------------------------------------------
   const drill = document.createElement('section');
-  drill.className = 'range-editor-drill';
+  drill.className = 'range-editor-drill g-group';
   drill.dataset.testid = 'range-editor-drill';
-  root.appendChild(drill);
+  main.appendChild(drill);
 
   // -------------------------------------------------------------------------
 
@@ -224,9 +238,11 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
   function refreshSavedList(): void {
     savedList.replaceChildren();
     root.dataset.saved = String(savedRanges.length);
+    // An actionable list (each row loads or deletes) is an inset group; the empty line is a caption.
+    savedList.classList.toggle('g-group', savedRanges.length > 0);
     if (savedRanges.length === 0) {
       const empty = document.createElement('li');
-      empty.className = 'range-editor-saved-meta';
+      empty.className = 'range-editor-saved-meta g-caption';
       empty.dataset.testid = 'range-editor-saved-empty';
       empty.textContent = 'No saved ranges yet.';
       savedList.appendChild(empty);
@@ -241,21 +257,22 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
       const name = text('span', 'range-editor-saved-name', range.name);
       const meta = text(
         'span',
-        'range-editor-saved-meta',
+        'range-editor-saved-meta g-num',
         `${range.combos.length} combos · ${Math.round(rangeWidth(range) * 100)}%`,
       );
       const loadBtn = pill('range-editor-load', 'Load');
+      loadBtn.classList.add('sm');
       loadBtn.addEventListener('click', () => loadRange(range));
       const deleteBtn = pill('range-editor-delete', 'Delete');
+      deleteBtn.classList.add('sm', 'quiet');
       deleteBtn.addEventListener('click', () => removeRange(range.name));
 
       const left = document.createElement('div');
-      left.style.display = 'flex';
-      left.style.flexDirection = 'column';
+      left.className = 'range-editor-saved-text';
       left.appendChild(name);
       left.appendChild(meta);
       const right = document.createElement('div');
-      right.className = 'range-editor-drill-keys';
+      right.className = 'range-editor-saved-actions';
       right.appendChild(loadBtn);
       right.appendChild(deleteBtn);
 
@@ -336,15 +353,17 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
       announcer.textContent = '';
       const startBtn = pill('range-editor-start-drill', 'Drill this range');
       startBtn.addEventListener('click', startDrill);
-      drill.appendChild(text('div', 'stat-label', 'Drill'));
+      drill.appendChild(text('div', 'stat-label g-label', 'Drill'));
       drill.appendChild(startBtn);
       delete root.dataset.drillCombo;
       root.dataset.drillVerdict = '';
       return;
     }
 
-    drill.appendChild(
-      text('div', 'stat-label', `Drilling "${drillRange.name || 'unsaved'}" — is this hand in the range?`),
+    const prompt = text(
+      'div',
+      'stat-label range-editor-drill-prompt',
+      `Drilling "${drillRange.name || 'unsaved'}" — is this hand in the range?`,
     );
 
     if (drillCombo !== null) {
@@ -357,11 +376,16 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
       root.dataset.drillCombo = drillCombo;
     }
 
+    // The prompt over the verdict line, as one text column between the cards and the keys.
+    const textCol = document.createElement('div');
+    textCol.className = 'range-editor-drill-text';
+    textCol.appendChild(prompt);
+    drill.appendChild(textCol);
+
     const keys = document.createElement('div');
     keys.className = 'range-editor-drill-keys';
-    keys.appendChild(drillKey('range-editor-in', 'I — in range', 'in'));
-    keys.appendChild(drillKey('range-editor-out', 'O — out', 'out'));
-    drill.appendChild(keys);
+    keys.appendChild(drillKey('range-editor-in', 'in range', 'I', 'in'));
+    keys.appendChild(drillKey('range-editor-out', 'out', 'O', 'out'));
 
     // Feedback on the PREVIOUS spot (the next hand is already dealt above), labelled "last" like Charts.
     const feedback = document.createElement('div');
@@ -382,7 +406,7 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
       root.dataset.drillVerdict = right ? 'right' : 'wrong';
       announcer.textContent = line;
     }
-    drill.appendChild(feedback);
+    textCol.appendChild(feedback);
 
     const score = text(
       'div',
@@ -392,15 +416,19 @@ export function renderRangeEditor(options: RangeEditorOptions = {}): HTMLElement
     score.dataset.testid = 'range-editor-drill-score';
     score.dataset.attempts = String(drillTally.attempts);
     score.dataset.correct = String(drillTally.correct);
-    drill.appendChild(score);
+    textCol.appendChild(score);
 
+    drill.appendChild(keys);
     const stopBtn = pill('range-editor-stop-drill', 'Stop drill');
+    stopBtn.classList.add('quiet');
     stopBtn.addEventListener('click', stopDrill);
     drill.appendChild(stopBtn);
   }
 
-  function drillKey(testid: string, label: string, answer: DrillAnswer): HTMLButtonElement {
+  function drillKey(testid: string, label: string, key: string, answer: DrillAnswer): HTMLButtonElement {
     const btn = pill(testid, label);
+    // The word, then its trailing keycap (the kit's shortcut grammar).
+    btn.appendChild(keycap(key));
     btn.addEventListener('click', () => answerDrill(answer));
     return btn;
   }
