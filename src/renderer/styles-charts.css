@@ -1,40 +1,45 @@
 /*
- * PREFLOP CHART TRAINER (N3). Palette comes from styles.css — no new colours, and no mint anywhere
- * in this file: V2 reserves it for win% and the fluency gate, and severity here is carried by type
- * weight and edge treatment instead.
+ * PREFLOP CHART TRAINER (N3), built as demo/glass/charts.html. No mint anywhere in this file: V2
+ * reserves it, and severity here is carried by type weight and a corner notch instead.
  *
- * BUDGET, which is the whole difficulty of this screen — and it is measured, because guessing it
- * wrong is the regression class this app has already shipped twice.
- *
- * WIDTH. At the documented 900px minimum the shell spends 40px on .screen padding, leaving 860px.
- * The compressed panel is fixed at 300px and the column gap is 20px, so the grid gets 540px: 13
- * columns plus 12 gaps of 2px fits at 39px a cell.
- *
- * HEIGHT is the tighter of the two, which is easy to miss. The tab bar takes 45px and .screen adds
- * 20px of vertical padding, so a 760px window leaves 695px and a 640px one leaves 575px. Measured,
- * the compressed panel wants 709px — over budget at BOTH documented sizes, not just the small one.
- * So it scrolls itself unconditionally (--panel-budget below) rather than letting the page grow a
- * scrollbar, which is the same remedy the table screen uses for its open stats sheet. The grid and
- * the drill keys never move, which is the pair the learner is acting on.
+ * LAYOUT. The screen is exactly the shell's height (--screen-h), so the page never scrolls. Column 1
+ * is a 288px side column with a right hairline: the spot and seat segmented controls, the width stat,
+ * the classes, the rules, the boundary tags and the captions. It scrolls itself (with an edge fade) when
+ * it is taller than the window, which it is at both documented sizes. Column 2 is the grid: its head
+ * (label + legend), the 13x13 grid filling whatever height is left, and the quiz group under it. The
+ * grid's cells are 1fr tracks, so the binding axis is whatever the window leaves; charts.spec test 10
+ * pins a 28px floor at 900x640 (measured ~34px there).
  */
 .charts-screen {
-  /* 65px = 45 tab bar + 20 shell padding. The extra 48 = the mode-toggle row (~24px) plus its 20px
-   * grid gap: the toggle sits in row 1 above the compressed panel, so the self-scrolling panels below
-   * it (compressed, defense drill) get that much less height before they scroll. The GRID panel does
-   * NOT lose this — it spans both rows in column 2, so its height budget (the 220 in --cell) is
-   * unchanged and its cell floor at 640px stays comfortable. */
-  --panel-budget: calc(100vh - 113px);
-
+  box-sizing: border-box;
+  height: var(--screen-h);
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 288px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 24px;
+  row-gap: 0;
   align-items: start;
 }
 
-/* The mode toggle heads column 1 only; the compressed panel drops beneath it. */
+/* The side column's right hairline, drawn once down both of its rows (the spot control sits in row 1,
+ * the compressed form in row 2). RFI mode only: the other two modes span both columns. */
+.charts-screen[data-mode='rfi']::before {
+  content: '';
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: stretch;
+  justify-self: end;
+  width: 1px;
+  margin-right: -0.5px;
+  background: var(--hair);
+  pointer-events: none;
+}
+
 .charts-screen > .charts-modes {
   grid-column: 1;
   grid-row: 1;
+  justify-self: start;
+  margin-bottom: 8px;
 }
 
 .charts-screen > .compressed {
@@ -42,8 +47,7 @@
   grid-row: 2;
 }
 
-/* The grid panel is the height-binding element, so it spans both rows and starts at the shell top —
- * the toggle above never steals from its budget. */
+/* The grid column spans both rows and starts at the screen top. */
 .charts-screen > .grid-panel {
   grid-column: 2;
   grid-row: 1 / span 2;
@@ -51,276 +55,343 @@
 
 /*
  * ─── Compressed form — first in DOM order (N3) ───
- * Scrolls itself so the page never does. Every part of it stays reachable; none is deleted.
+ * Scrolls itself so the page never does; the bottom fades out over the last 28px so a cut line reads
+ * as "more below", not as a clipped panel.
  */
 .compressed {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: var(--surface);
-  border-radius: 16px;
-  /* Extra bottom padding so the rail's last explanatory line clears the scroll edge instead of sitting
-     flush against it (it read as sheared at the 760px window). The rail scrolls itself, so this only
-     affects where the final line rests, never the grid beside it. */
-  padding: 14px 16px 22px;
-  max-height: var(--panel-budget);
+  gap: 16px;
+  max-height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 20px 24px 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 28px), transparent);
+}
+.compressed > * {
+  flex: none;
 }
 
 .position-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.position-btn {
-  padding: 5px 10px;
-  font-size: 12px;
-  background: var(--surface-hi);
-  color: var(--text-lo);
-}
-
-/* The selected seat is the loud one: weight and ink, no accent colour. */
-.position-btn[data-active='true'] {
-  color: var(--ink);
-  background: var(--card-face);
-  font-weight: 600;
-}
-
-.chart-width {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-self: flex-start;
 }
 
 .chart-width-value {
-  font-size: 40px;
-  font-weight: 200;
-  line-height: 1;
-  letter-spacing: -1px;
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
 
+.charts-sect-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.charts-sect-caption {
+  font-size: var(--t-cap);
+  color: var(--ink-3);
+}
+
+/* Classes: a flat list (hairlines between rows, no container). Name, cell count, score on the row;
+ * the description under the name. The "review" tag, when present, sits after the name. */
 .class-list,
 .rule-list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
   list-style: none;
-  counter-reset: item;
+  margin: 0;
+  padding: 0;
 }
 
 .class-row {
   display: grid;
-  /* Fourth column holds the "review" marker; empty on every unmarked row, so the score column stays
-   * aligned down the list. */
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: auto 1fr auto 30px;
+  grid-template-areas:
+    'nm rv n sc'
+    'ds ds ds ds';
+  column-gap: 10px;
   align-items: baseline;
-  gap: 8px;
-  padding: 3px 0;
+  padding: 6px 0;
 }
-
-/* The class the drill is drilling hardest, so the learner knows what to study and why it recurs. Mint
- * is reserved elsewhere in this screen for the RFI colour, so this uses the blind accent instead. */
-.class-review {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--chip-blind);
-}
-
 .class-label {
-  font-size: 12px;
-  color: var(--text-hi);
-}
-
-.class-cells {
-  font-size: 11px;
-  color: var(--text-lo);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The per-class drill readout. Tabular so the column does not jitter as scores tick over. */
-.class-score {
-  font-size: 12px;
+  grid-area: nm;
+  font-size: var(--t-body);
   font-weight: 500;
-  color: var(--text-lo);
-  font-variant-numeric: tabular-nums;
-  min-width: 34px;
+  color: var(--ink-1);
+}
+.class-review {
+  grid-area: rv;
+  justify-self: start;
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+  background: var(--fill-1);
+  font-size: var(--t-cap);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.class-cells {
+  grid-area: n;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   text-align: right;
 }
-
+/* The per-class drill readout. Tabular so the column does not jitter as scores tick over. */
+.class-score {
+  grid-area: sc;
+  font-size: var(--t-foot);
+  color: var(--ink-2);
+  text-align: right;
+}
 .class-score[data-attempts='0'] {
-  color: var(--text-lo-2);
+  color: var(--ink-3);
+}
+.class-desc {
+  grid-area: ds;
+  font-size: var(--t-foot);
+  line-height: 1.45;
+  color: var(--ink-2);
 }
 
+/* Rules: 13px, numbered with tertiary tabular numerals in an 18px gutter. */
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  counter-reset: item;
+}
 .rule-row {
-  font-size: 12px;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  font-size: var(--t-body);
   line-height: 1.45;
-  color: var(--text-hi);
-  padding-left: 14px;
-  position: relative;
+  color: var(--ink-1);
   counter-increment: item;
 }
-
 .rule-row::before {
   content: counter(item);
-  position: absolute;
-  left: 0;
-  color: var(--text-lo);
+  padding-top: 1px;
+  font-size: var(--t-foot);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
 }
 
+/* Boundary combos: flat, non-interactive tags. The side of the frontier they sit on is told by ink
+ * (still opens: ink-1; already folds: ink-2), never by hue. */
 .boundary-row {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
-
-/*
- * Boundary combos in the compressed list. Marked by weight and edge, never hue — and the two sides
- * of the frontier are told apart by whether the edge is filled, so "still opens" vs "already folds"
- * survives a greyscale print.
- */
 .boundary-chip {
-  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: var(--r-xs);
+  background: var(--fill-0);
+  font-size: var(--t-foot);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  padding: 2px 6px;
-  border-radius: 6px;
-  border: 1px solid var(--text-lo);
-  color: var(--text-lo);
+  color: var(--ink-2);
 }
-
 .boundary-chip[data-open='true'] {
-  border-color: var(--card-face);
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
 
 .chart-notes {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-top: 2px;
+  gap: 8px;
 }
-
 .chart-note {
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--text-lo);
+  margin: 0;
 }
 
-/* ─── Grid panel ─── */
+/* ─── Grid panel: head (label + legend), the grid, the quiz ─── */
 .grid-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  height: 100%;
   min-width: 0;
+  min-height: 0;
+}
+.grid-panel > :not(.chart-grid) {
+  flex: none;
+}
+
+.grid-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 
 /*
- * A square cell is constrained by BOTH axes, and HEIGHT is the binding one — measured, a
- * width-only sizing produced a 596px-tall grid in a 695px column that also had to hold the heading
- * and the drill, pushing the page to 783px in a 760px viewport. So the cell is the smaller of what
- * the column allows and what the leftover height allows, capped so 1100px does not draw absurd
- * cells. Every term below is measured, not estimated:
- *
- *   width  → (column width - 12 gaps of 2px) / 13
- *   height → (viewport - 220px) / 13, where 220 = 65 shell + 22 heading + 16 two gaps
- *            + 93 drill panel + 24 the grid's own 12 row gaps
- *
- * Never below the ~28px "A2s" needs to stay legible; charts.spec.ts test 10 pins that floor at both
- * documented sizes, so a future change to any term above fails loudly instead of quietly shrinking
- * the grid into unreadability.
+ * ─── The grid language (shared by Charts, Bank, Equity and Ranges) ───
+ * An OPAQUE base under the grid so the coat's wallpaper never tints data cells into a fake heatmap,
+ * and opaque graphite cells (the kit's --cell-* tokens, set in styles-glass.css). Cells carry three
+ * states only: in (--cell-in), out (--cell-out), and the boundary, which is a 10px CORNER NOTCH — an
+ * annotation, never a ring, because a ring means focus (or, on Charts, the revealed cell).
  */
-.chart-grid {
-  --cell: min(calc((100% - 24px) / 13), calc((100vh - 220px) / 13), 46px);
-
+.chart-grid,
+.equity-range-grid,
+.range-editor-grid {
+  --grid-base: color-mix(in srgb, var(--cell-out) 72%, black);
   display: grid;
-  grid-template-columns: repeat(13, var(--cell));
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  grid-template-rows: repeat(13, minmax(0, 1fr));
   gap: 2px;
-  justify-content: start;
+  padding: 3px;
+  border-radius: var(--r-ctl);
+  background: var(--grid-base);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.chart-grid {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.chart-cell {
-  aspect-ratio: 1;
+.chart-cell,
+.equity-range-cell,
+.range-editor-cell {
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
   display: grid;
   place-items: center;
-  border-radius: 4px;
-  font-size: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  font: inherit;
+  font-size: var(--t-cap);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  background: var(--surface);
-  color: var(--text-lo);
-  /* A boundary cell gains a dashed edge; reserving the ring on every cell stops the grid reflowing
-     when the position changes and a different twelve cells light up. */
-  border: 1px solid transparent;
+  color: var(--ink-2);
+  background: var(--cell-out);
   overflow: hidden;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), filter var(--dur-1) var(--ease);
 }
 
-/* In the range: near-white face, the same ink the card faces use. Out: a recessed surface. */
-.chart-cell[data-open='true'] {
-  background: var(--card-face);
-  color: var(--ink);
-  font-weight: 600;
+/* Cells that are buttons (Equity, Ranges) answer the pointer on the shared ramp: lift, then press. */
+.equity-range-cell,
+.range-editor-cell {
+  cursor: pointer;
+}
+.equity-range-cell:hover,
+.range-editor-cell:hover {
+  filter: brightness(1.3);
+  color: var(--ink-1);
+}
+.equity-range-cell:active,
+.range-editor-cell:active {
+  filter: brightness(1.5);
+}
+.equity-range-cell:focus-visible,
+.range-editor-cell:focus-visible {
+  z-index: 1;
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* The boundary: a corner notch in the cell's top-right. Brighter on an in cell than on an out one. */
+.chart-cell[data-boundary='true']::after,
+.grid-swatch[data-kind='boundary']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-top: 10px solid var(--ink-1);
+  border-left: 10px solid transparent;
+  border-top-right-radius: var(--r-xs);
+  pointer-events: none;
+}
+.chart-cell[data-boundary='true'][data-open='false']::after {
+  border-top-color: var(--ink-2);
 }
 
 /*
- * The ~12 cells that actually flip the decision, per N3. Dashed edge plus heavier type — no colour,
- * so this reads identically to a learner who cannot distinguish the palette.
+ * The cell the last commit was about: a solid 2px ring in full ink, which reads against both faces
+ * (charts.spec 6b measures the luminance gap on an in and an out cell). The cell settles in with an
+ * opacity fade as its ring lands (offsuit-surface-in, from styles.css); reduced-motion guard below.
  */
-.chart-cell[data-boundary='true'] {
-  border-style: dashed;
-  border-color: var(--text-lo);
-  font-weight: 700;
-}
-
-.chart-cell[data-open='true'][data-boundary='true'] {
-  border-color: var(--ink);
-}
-
-/*
- * The cell the last commit was about. A solid 2px ring, so it cannot be read as a boundary's dashed
- * 1px one. Two rules, because ONE is a bug: a near-white ring on a near-white open cell is
- * invisible, which is how the first version of this shipped — the revealed AA was indistinguishable
- * from any other open cell. The ring inverts with the face it sits on.
- */
-.chart-cell[data-revealed='true'] {
-  border-style: solid;
-  border-width: 2px;
-  border-color: var(--text-hi);
-  /* The cell the commit was just about settles in as its ring lands — opacity only (offsuit-surface-in
-   * is defined in styles.css; keyframes are global across the loaded sheets), so nothing in the grid
-   * reflows and charts.spec's colour/contrast scan is unaffected. Reduced-motion guard at the foot. */
+.chart-grid .chart-cell[data-revealed='true'] {
+  border: 2px solid var(--ink-1);
   animation: offsuit-surface-in var(--motion-fast) var(--ease-out);
 }
 
-.chart-cell[data-revealed='true'][data-open='true'] {
-  border-color: var(--ink);
+/* Row-staggered fade-in when a grid first appears (and when the seat changes). Opacity only. */
+@keyframes grid-cell-in {
+  from {
+    opacity: 0;
+  }
+}
+.chart-grid.is-entering .chart-cell,
+.equity-range-grid.is-entering .equity-range-cell,
+.range-editor-grid.is-entering .range-editor-cell {
+  animation: grid-cell-in var(--dur-3) var(--ease) both;
+  animation-delay: calc(var(--r, 0) * 18ms);
+}
+.chart-grid.is-entering .chart-cell[data-revealed='true'] {
+  animation: offsuit-surface-in var(--motion-fast) var(--ease-out);
 }
 
-/* ─── Drill ─── */
-.drill {
+/* The legend: swatches drawn as the cells are — the same faces, a hairline, the same notch. */
+.grid-legend,
+.chart-legend {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 10px 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-foot);
+  color: var(--ink-2);
+}
+.grid-legend-item,
+.chart-legend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.grid-swatch,
+.chart-legend .legend-swatch {
+  position: relative;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: var(--cell-out);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  overflow: hidden;
+}
+.grid-swatch[data-kind='open'],
+.grid-swatch[data-kind='boundary'] {
+  background: var(--cell-in);
+}
+.grid-swatch[data-kind='boundary']::after {
+  border-top-width: 5px;
+  border-left-width: 5px;
 }
 
+/* ─── The quiz: one horizontal inset group (no separators): cards, the seat over the verdict, and
+ * the two answers with trailing keycaps. ─── */
+.drill {
+  padding: 10px 12px;
+}
 .drill-prompt {
   display: flex;
   align-items: center;
   gap: 14px;
 }
-
 .drill-hand {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
-
-/* Smaller than the table's small card: this panel shares a 640px column with a 13-row grid. */
+/* Smaller than the table's small card: this group shares the grid column. */
 .drill .card,
 .drill .card-back {
   width: 34px;
@@ -328,107 +399,89 @@
   border-radius: 7px;
   padding: 4px 5px;
 }
-
 .drill .card .card-rank {
-  font-size: 15px;
+  font-size: var(--t-head);
 }
-
 .drill .card .card-pip {
-  font-size: 10px;
+  font-size: var(--t-cap);
 }
-
+.drill-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
 .drill-seat {
-  font-size: 13px;
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
-
 .drill-keys {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
 }
-
-.drill-key {
-  padding: 7px 14px;
-  font-size: 13px;
+.charts-screen .drill-key {
+  gap: 8px;
+  padding: 0 8px 0 14px;
 }
 
-.drill-feedback {
+.drill > .chart-note {
+  color: var(--ink-3);
+}
+
+.charts-screen .drill-feedback {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  flex-wrap: wrap;
+  column-gap: 6px;
   min-height: 18px;
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
 /*
- * SEVERITY BY WEIGHT AND POSITION, NEVER COLOUR (V2). A miss states the correction in full-contrast
- * medium type; a correct commit states the same fact quietly. Neither is coloured and neither is
- * praised (G3).
+ * SEVERITY BY WEIGHT, NEVER COLOUR (V2). A miss states the correction in full ink at 500; a correct
+ * commit states the same fact quietly. Neither is coloured and neither is praised (G3).
  */
-.drill-feedback[data-verdict='wrong'] .drill-verdict {
-  color: var(--text-hi);
-  font-weight: 600;
+.charts-screen .drill-feedback[data-verdict='wrong'] .drill-verdict {
+  color: var(--ink-1);
+  font-weight: 500;
 }
-
-.drill-feedback[data-verdict='right'] .drill-verdict {
-  color: var(--text-lo);
+.charts-screen .drill-feedback[data-verdict='right'] .drill-verdict {
+  color: var(--ink-2);
   font-weight: 400;
 }
-
-/* Quiet, and quiet on purpose: it scopes the verdict without competing with it. */
-.drill-when {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-lo-2);
-}
-
-.drill-tag {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-lo);
-}
-
-/* At the 640px minimum the headline numeral is the cheapest height to give back. */
-@media (max-height: 700px) {
-  .chart-width-value {
-    font-size: 30px;
-  }
+/* "last" and the class name scope the verdict without competing with it. */
+.charts-screen .drill-when,
+.charts-screen .drill-tag {
+  color: var(--ink-3);
 }
 
 /* ─── Mode toggle (RFI vs Defense) + Defense drill ───────────────────────────────
- * The defense drill is the Charts screen's second mode (no tab budget for a 14th tab). It reuses the
- * RFI drill's visual language: no accent colour, severity by weight and position, silence is not praise. */
-/* The screen is a 2-column grid (compressed | grid). The mode toggle heads column 1 (placement above);
- * in RFI mode the grid panel spans both rows beside it so the tuned height budget is untouched. In
- * defense mode the defense panel spans both columns in row 2, beneath the toggle, and scrolls itself. */
-.charts-modes {
-  display: flex;
-  gap: 4px;
-}
-
+ * The defense drill is the Charts screen's second mode (no tab budget for a 14th tab). The toggle is a
+ * kit segmented control (.g-seg with the sliding thumb). In the two drill modes the drill panel spans
+ * both columns under the toggle and scrolls itself. The .defense-* classes are shared with the Train
+ * reading drills, so only rules scoped to .charts-screen change them here. */
 .charts-screen > .defense-drill {
   grid-column: 1 / -1;
   grid-row: 2;
-  max-height: var(--panel-budget);
+  max-height: 100%;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-
-.charts-mode-btn {
-  padding: 5px 12px;
-  font-size: 12px;
-  background: var(--surface-hi);
-  color: var(--text-lo);
+.charts-screen .defense-when,
+.charts-screen .defense-tag {
+  font-size: var(--t-foot);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
 }
-
-.charts-mode-btn[data-active='true'] {
-  color: var(--ink);
-  background: var(--card-face);
-  font-weight: 600;
+.charts-screen .defense-prompt {
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  padding: 10px 12px;
 }
 
 .defense-drill {
@@ -539,9 +592,14 @@
   letter-spacing: 0.05em;
 }
 
-/* The revealed-cell settle-in respects a reduced-motion preference (parity with styles.css). */
+/* The revealed-cell settle-in and the grid's row stagger respect a reduced-motion preference. */
 @media (prefers-reduced-motion: reduce) {
-  .chart-cell[data-revealed='true'] {
+  .chart-grid .chart-cell,
+  .chart-grid .chart-cell[data-revealed='true'],
+  .chart-grid.is-entering .chart-cell,
+  .chart-grid.is-entering .chart-cell[data-revealed='true'],
+  .equity-range-grid.is-entering .equity-range-cell,
+  .range-editor-grid.is-entering .range-editor-cell {
     animation: none;
   }
 }

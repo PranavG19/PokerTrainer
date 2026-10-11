@@ -288,6 +288,8 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
             background: s.backgroundColor,
             borderStyle: s.borderTopStyle,
             weight: s.fontWeight,
+            // The glass grid marks a boundary with a corner notch drawn by ::after (DECISIONS.md, grid).
+            notch: getComputedStyle(el, '::after').content,
           };
         };
         const pick = (boundary: string, open: string): Element | null =>
@@ -306,7 +308,8 @@ test.describe('N3 charts: the grid and the compressed form beside it', () => {
       // Distinguished by SOMETHING other than colour.
       const differsStructurally =
         compare.boundaryOpen.borderStyle !== compare.plainOpen.borderStyle ||
-        compare.boundaryOpen.weight !== compare.plainOpen.weight;
+        compare.boundaryOpen.weight !== compare.plainOpen.weight ||
+        compare.boundaryOpen.notch !== compare.plainOpen.notch;
       expect(
         differsStructurally,
         `boundary cells are only distinguishable by colour: ${JSON.stringify(compare)}`,
