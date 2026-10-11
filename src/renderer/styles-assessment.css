@@ -1,14 +1,17 @@
-/* ASSESSMENT screen — the weekly assessment block. Deliberately spare: it reuses the puzzle screen's
- * surface treatment so the play view feels like the rest of the app, but shows NO severity colour during
- * play (the whole point is withheld feedback) and reserves the mint teaching accent for nowhere here —
- * the end-of-block score is a neutral summary, not a "good/bad" signal, so it renders in plain ink. */
+/* ASSESSMENT screen — the weekly assessment block, as the glass mockup. Deliberately spare and shows NO
+ * severity colour during play (the whole point is withheld feedback). The spot sits flat in the coat
+ * (pot, board, your hand — no card around it); the action buttons sit in the same float glass as the
+ * table's dock, each with its trailing keycap. The end-of-block reveal is flat too: the score is the
+ * shared stat at --t-stat in neutral ink (a neutral instrument, not praise or alarm), the costliest
+ * decisions are a flat list behind a severity edge, and Done is the one bone primary. */
 
 .assessment-screen {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 560px;
+  gap: 16px;
+  max-width: 600px;
   margin: 0 auto;
+  padding-top: 8px;
 }
 
 .assessment-play,
@@ -19,35 +22,36 @@
 }
 
 .assessment-progress {
-  font-size: 12px;
-  color: var(--text-lo);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .assessment-note {
-  color: var(--text-lo);
-  font-size: 13px;
+  color: var(--ink-3);
+  font-size: var(--t-body);
   text-align: center;
-  margin: 0;
+  margin: -8px 0 0;
 }
 
+/* The spot: flat, between two hairlines. */
 .assessment-table {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow: var(--elev-1);
+  gap: 14px;
+  padding: 18px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .assessment-pot {
-  font-size: 13px;
-  color: var(--text-hi);
-  font-weight: 500;
+  font-size: var(--t-t3);
+  font-weight: 600;
+  color: var(--ink-1);
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .assessment-board,
@@ -59,109 +63,125 @@
 }
 
 .assessment-board-empty {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-3);
 }
 
-.assessment-hero-label,
+.assessment-hero-label {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+}
 .assessment-hero-stack {
-  font-size: 12px;
-  color: var(--text-lo);
-}
-
-.assessment-controls {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.assessment-key-hint {
-  margin-left: 6px;
-  font-size: 10px;
-  font-weight: 600;
-  opacity: 0.55;
+  font-size: var(--t-body);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 
-/* The single end-of-block reveal — the one focal surface, lifted above the play table's elevation. */
+/* The controls: the table dock's float glass (it is the one thing on this screen that floats). */
+.assessment-controls {
+  display: flex;
+  align-self: center;
+  gap: 6px;
+  padding: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: var(--float);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  border-radius: var(--r-dock);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+}
+.assessment-controls .pill {
+  padding: 0 8px 0 12px;
+  gap: 8px;
+}
+.assessment-controls .pill:disabled .g-kbd { opacity: 0.6; }
+
+/* The single end-of-block reveal: flat, centred, the score leading. */
 .assessment-reveal {
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 20px;
   align-items: center;
   text-align: center;
-  box-shadow: var(--elev-2);
-  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
+  padding: 18px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+  animation: offsuit-panel-in var(--dur-3) var(--ease);
 }
 
 .assessment-reveal-title {
-  font-size: 18px;
+  font-size: var(--t-t3);
   font-weight: 600;
+  color: var(--ink-1);
   margin: 0;
 }
 
-/* Plain high-contrast ink, NOT mint: the assessment score is a neutral instrument, not the reserved
- * teaching signal, and colouring it would read as praise or alarm the number is not meant to carry. */
+/* Plain ink, NOT mint: the assessment score is a neutral instrument. */
 .assessment-score {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-hi);
+  margin-top: 4px;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
 
 .assessment-sample {
-  color: var(--text-lo);
+  margin-top: -8px;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 .assessment-spread {
-  font-size: 13px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
-/* The costliest-decisions post-mortem — the verdicts withheld during play, delivered at the end.
- * Left-aligned inside the centred reveal so the messages read as a list, not a headline. Severity is
- * carried by data-severity for the e2e but NOT expressed as hue here (the palette lock): every message
- * reads in the same ink, ordered by cost, weight alone marking the hand label. */
+/* The costliest-decisions post-mortem: a flat list, left-aligned, each message behind a severity edge
+ * (amber notable, coral serious). data-severity carries it for the e2e; the words carry it too. */
 .assessment-leaks {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   width: 100%;
   text-align: left;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .assessment-leaks-head {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+  margin-bottom: 6px;
 }
 
 .assessment-leaks-empty {
-  font-size: 13px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-3);
+  text-align: center;
 }
 
 .assessment-leak {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 12px;
-  background: var(--surface-hi);
-  border-radius: var(--radius-sm);
+  padding: 8px 0 8px 12px;
+  border-left: 2px solid var(--hair-strong);
 }
+.assessment-leak + .assessment-leak { margin-top: 8px; }
+.assessment-leak[data-severity='notable'] { border-left-color: var(--amber); }
+.assessment-leak[data-severity='serious'] { border-left-color: var(--coral); }
 
 .assessment-leak-hand {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 .assessment-leak-message {
-  font-size: 13px;
-  color: var(--text-hi);
-  line-height: 1.4;
+  font-size: var(--t-body);
+  color: var(--ink-1);
+  line-height: 1.5;
 }
 
 .assessment-done {

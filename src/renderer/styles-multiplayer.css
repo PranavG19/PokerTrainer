@@ -1,9 +1,17 @@
+/*
+ * Play with friends (LAN), as the glass mockup. Nothing in the coat is a card unless it acts: the two ways
+ * in (host, join) are one inset group of two rows, and the seats are rows in an inset group. The opt-in
+ * explanation, the connecting state and the pot/board are flat. The action buttons sit in the table
+ * dock's float glass. One bone primary per state: Enable, then Host a table, then the enabled Raise (the
+ * table's committing action) or Next hand. The acting seat carries the table's mint to-act treatment.
+ */
 .mp-screen {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 560px;
+  max-width: 600px;
   margin: 0 auto;
+  padding-top: 8px;
 }
 
 .mp-header {
@@ -14,184 +22,216 @@
 }
 
 .mp-title {
-  font-size: 20px;
-  font-weight: 600;
+  margin: 0;
+  color: var(--ink-1);
 }
 
+/* The setup before it acts: flat copy and the enable button. */
 .mp-setup {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  box-shadow: var(--elev-1);
 }
 
 .mp-explain {
-  color: var(--text-lo);
-  font-size: 14px;
-  line-height: 1.5;
-  max-width: 46ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  max-width: 52ch;
 }
 
+/* A notice is notable, not serious: an amber lead edge, flat. */
 .mp-notice {
-  font-size: 13px;
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-1);
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--amber);
 }
 
 .mp-connecting {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: var(--t-t3);
+  font-weight: 600;
+  color: var(--ink-1);
 }
 
-/* While connecting, the shared port is the one thing the host must read and act on. Full ink (a
- * neutral high-contrast token, not a severity colour) and the opacity-only surface-in entrance the
- * puzzle teaching number uses — it appears once when the port resolves. tabular-nums keeps it steady. */
+/* While connecting, the shared address is the one thing the host must read and act on: full ink and
+ * the opacity-only entrance, once, when the port resolves. */
 .mp-share {
-  font-size: 14px;
-  color: var(--text-hi);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
-  animation: offsuit-surface-in var(--motion-fast) var(--ease-out);
+  animation: offsuit-surface-in var(--dur-1) var(--ease);
 }
 
+/* The two ways in: one inset group, a row each — fields on the left, the button on the right. */
+.mp-setup.mp-setup-rows {
+  align-items: stretch;
+  gap: 0;
+}
+.mp-setup-rows > .mp-notice {
+  margin: 10px 14px;
+}
 .mp-join-row {
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  padding: 10px 10px 10px 14px;
+}
+.mp-setup-rows .mp-join-row > .pill {
+  margin-left: auto;
+  flex: none;
 }
 
 .mp-seat-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-lo);
+  gap: 10px;
+  font-size: var(--t-body);
+  color: var(--ink-1);
 }
 
 .mp-input {
+  height: var(--h-ctl);
   font: inherit;
-  font-size: 13px;
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border: 1px solid var(--surface-hi);
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  font-size: var(--t-body);
+  padding: 0 10px;
+  min-width: 0;
 }
+.mp-input[data-testid='mp-join-host'] { flex: 1 1 200px; }
+.mp-input[data-testid='mp-join-port'] { flex: 0 1 90px; }
 
 .mp-input:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
+/* The live room: flat in the coat. */
 .mp-table {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow: var(--elev-1);
+  gap: 14px;
+  font-size: var(--t-body);
+  color: var(--ink-2);
 }
 
 .mp-pot {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-hi);
+  font-size: var(--t-t3);
+  font-weight: 600;
+  color: var(--ink-1);
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
+.mp-table > [data-testid='mp-board'] { justify-content: center; min-height: 0; }
 
+/* Seats as rows in an inset group. */
 .mp-seats {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .mp-seat {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-hi);
-  /* A single soft shadow so a seat reads as a card, not a text row — the live table's resting-pod
-   * treatment. Opacity is deliberately NOT in the transition: folded seats carry opacity as a locked
-   * state channel (0.4 below), so tweening it would collide with that. */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-  transition:
-    box-shadow var(--motion-fast) var(--ease-out),
-    transform var(--motion-fast) var(--ease-out);
+  padding: 8px 14px;
+  transition: background-color var(--dur-1) var(--ease);
 }
 
-/* The acting seat comes forward by depth, not colour — the live table's exact to-act treatment: the
- * reserved mint ring layered over elevation plus a 2% scale, so "who acts now" is read from depth.
- * Folded seats recede via opacity, matching the seat state channel elsewhere. */
+/* The acting seat: the table's to-act grammar inside a row — a faint fill and the mint edge. Opacity
+ * stays the folded channel, never tweened. */
 .mp-seat[data-to-act='true'] {
-  box-shadow: var(--ring-active), var(--elev-2);
-  transform: scale(1.02);
+  background: var(--fill-1);
+  box-shadow: inset 3px 0 0 var(--mint);
 }
 
 .mp-seat[data-folded='true'] {
-  opacity: 0.4;
+  opacity: 0.56;
 }
 
 .mp-seat-name {
   flex: 1;
-  font-size: 14px;
+  min-width: 0;
+  font-size: var(--t-body);
+  color: var(--ink-1);
 }
+.mp-seat[data-you='true'] .mp-seat-name { font-weight: 600; }
 
-/* The poker position label (BTN/SB/BB/UTG…) — a small neutral tag, emphasis by weight not colour. */
+/* The poker position label (BTN/SB/BB/UTG…): a small neutral tag on the 4px radius. */
 .mp-seat-position {
-  font-size: 10px;
+  font-size: var(--t-cap);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text-lo);
+  color: var(--ink-2);
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  background: var(--fill-1);
   font-variant-numeric: tabular-nums;
 }
 
-/* The dealer button — a small round neutral chip, not a severity colour. */
+/* The dealer button: the physical puck, in bone like the table's. */
 .mp-seat-button {
-  font-size: 10px;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: var(--t-cap);
   font-weight: 700;
-  color: var(--text-hi);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 2px 6px;
+  color: var(--ink-on-bone);
+  background: var(--bone);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .mp-seat-cards {
   display: flex;
-  gap: 4px;
+  gap: 3px;
+}
+/* Face-down cards at the kit's 24px mini-card size (the kit's .g-mini sizes faces only). */
+html .mp-seat-cards.g-mini .card-back.small {
+  width: 24px;
+  height: 34px;
+  padding: 0;
 }
 
 .mp-seat-stack {
-  font-size: 13px;
-  color: var(--text-lo);
+  min-width: 44px;
+  text-align: right;
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
 
+/* The controls: the table dock's float glass. */
 .mp-controls {
   display: flex;
-  gap: 8px;
-  justify-content: center;
+  align-self: center;
+  gap: 6px;
+  padding: 6px;
   flex-wrap: wrap;
+  justify-content: center;
+  background: var(--float);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  border-radius: var(--r-dock);
+  box-shadow: var(--float-highlight), var(--float-shadow);
 }
 
-/* The committing action reads as primary by depth, not hue — the live table lifts only the enabled
- * raise pill (no mint, no red). The emphasis tracks actionability: controls() disables illegal actions. */
+/* The committing action is the bone primary, as on the table: only the enabled Raise. */
 .mp-controls .pill[data-testid='mp-raise']:not(:disabled) {
-  box-shadow: var(--elev-1);
-}
-
-/* At hand-end the deal button is the sole forward action, so give it presence by weight — the same
- * treatment the puzzle completion screen's primary pill uses. */
-.mp-controls .pill[data-testid='mp-deal'] {
+  background: var(--bone);
+  color: var(--ink-on-bone);
   font-weight: 600;
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 14px -6px rgba(0, 0, 0, 0.5);
 }
+.mp-controls .pill[data-testid='mp-raise']:not(:disabled):hover { background: var(--bone-hover); }
+.mp-controls .pill[data-testid='mp-raise']:not(:disabled):active { background: var(--bone-press); }
 
 @media (prefers-reduced-motion: reduce) {
   .mp-seat {
