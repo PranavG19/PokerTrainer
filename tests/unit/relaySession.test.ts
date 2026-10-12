@@ -1,7 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import * as net from 'node:net';
-import { hostSession, joinSession, lanAddresses, type RelaySession } from '../../src/main/relaySession.js';
-import { MAX_MESSAGE_BYTES } from '../../src/main/relayHost.js';
+import * as tls from 'node:tls';
+import {
+  FINGERPRINT_MISMATCH,
+  SECURE_CONNECT_FAILED,
+  hostSession,
+  joinSession,
+  lanAddresses,
+  type HostInfo,
+  type RelaySession,
+} from '../../src/main/relaySession.js';
+import { BAD_TOKEN, MAX_MESSAGE_BYTES } from '../../src/main/relayHost.js';
+import { createTableCertificate } from '../../src/main/selfSignedCert.js';
+import { parseInvite, type Invite } from '../../src/core/relayClient.js';
 import type { RoomView } from '../../src/core/multiplayer.js';
 import type * as os from 'node:os';
 
@@ -25,7 +36,12 @@ function iface(over: Partial<os.NetworkInterfaceInfo>): os.NetworkInterfaceInfo 
  * guarantee holding for BOTH.
  */
 
-const OPTS = { roomId: 'r1', seatCount: 3, sb: 25, bb: 50, startStack: 5000, seed: 42 } as const;
+const OPTS = { roomId: 'r1', seatCount: 3, sb: 25, bb: 50, startStack: 5000 } as const;
+
+/** The loopback invite for a hosted table (the advertised ones carry LAN addresses). */
+function loopback(info: HostInfo, over: Partial<Invite> = {}): Invite {
+  return { host: '127.0.0.1', port: info.port, fingerprint: info.fingerprint, token: info.token, ...over };
+}
 
 const sessions: RelaySession[] = [];
 afterEach(async () => {
@@ -100,9 +116,13 @@ describe('host + join end to end', () => {
     // HostInfo carries the LAN address(es) a guest must type — a bare port is unusable across machines.
     // It mirrors this machine's routable IPv4s (may be empty on a network-less CI box; then it's just []).
     expect(info.addresses).toEqual(lanAddresses());
+    // One invite per address, each parsing back to that address, this table's port, pin and token.
+    expect(info.invites.map((i) => parseInvite(i))).toEqual(
+      info.addresses.map((host) => ({ host, port: info.port, fingerprint: info.fingerprint, token: info.token })),
+    );
 
     const guestSide = collector();
-    const guest = joinSession({ host: '127.0.0.1', port: info.port }, 'Guest', guestSide.callbacks);
+    const guest = joinSession(loopback(info), 'Guest', guestSide.callbacks);
     sessions.push(guest);
 
     // Once the guest joins, two players are present and the host deals; both sides get a hand-1 view.
@@ -138,7 +158,7 @@ describe('host + join end to end', () => {
     expect(info.addresses).toContain(lan);
 
     const guestSide = collector();
-    const guest = joinSession({ host: lan, port: info.port }, 'Guest', guestSide.callbacks);
+    const guest = joinSession(loopback(info, { host: lan }), 'Guest', guestSide.callbacks);
     sessions.push(guest);
 
     // A hand only reaches the guest if the socket actually connected to the LAN-bound listener.
@@ -151,7 +171,7 @@ describe('host + join end to end', () => {
     const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
     sessions.push(host);
     const guestSide = collector();
-    const guest = joinSession({ host: '127.0.0.1', port: info.port }, 'Guest', guestSide.callbacks);
+    const guest = joinSession(loopback(info), 'Guest', guestSide.callbacks);
     sessions.push(guest);
     await waitFor(() => (hostSide.latest()?.handNumber ?? 0) >= 1 && (guestSide.latest()?.handNumber ?? 0) >= 1);
 
@@ -173,7 +193,7 @@ describe('host + join end to end', () => {
     const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
     sessions.push(host);
     const guestSide = collector();
-    const guest = joinSession({ host: '127.0.0.1', port: info.port }, 'Guest', guestSide.callbacks);
+    const guest = joinSession(loopback(info), 'Guest', guestSide.callbacks);
     sessions.push(guest);
     await waitFor(() => (hostSide.latest()?.handNumber ?? 0) >= 1 && (guestSide.latest()?.handNumber ?? 0) >= 1);
 
@@ -194,7 +214,7 @@ describe('host + join end to end', () => {
     const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
     sessions.push(host);
     const guestSide = collector();
-    const guest = joinSession({ host: '127.0.0.1', port: info.port }, 'Guest', guestSide.callbacks);
+    const guest = joinSession(loopback(info), 'Guest', guestSide.callbacks);
     sessions.push(guest);
     await waitFor(() => (hostSide.latest()?.handNumber ?? 0) >= 1 && (guestSide.latest()?.handNumber ?? 0) >= 1);
 
@@ -215,8 +235,10 @@ describe('host + join end to end', () => {
   it('a joined client drops a host that floods an oversized frame instead of buffering it forever', async () => {
     // A rogue/buggy host that writes a colossal line with no newline would otherwise grow the join
     // socket's receive buffer without bound in the main process. Stand one up and assert the guard fires.
+    // It speaks TLS and the invite pins its certificate, so the flood is past every handshake check.
+    const cert = createTableCertificate();
     const rogueSockets: net.Socket[] = [];
-    const rogue = net.createServer((socket) => {
+    const rogue = tls.createServer({ key: cert.keyPem, cert: cert.certPem }, (socket) => {
       rogueSockets.push(socket);
       // Ignore the reset the client raises when it destroys the socket on overflow — an unhandled
       // 'error' on this side would otherwise throw out of the test.
@@ -228,7 +250,8 @@ describe('host + join end to end', () => {
 
     try {
       const side = collector();
-      const session = joinSession({ host: '127.0.0.1', port }, 'Guest', side.callbacks);
+      const invite = { host: '127.0.0.1', port, fingerprint: cert.fingerprint, token: 'A'.repeat(22) };
+      const session = joinSession(invite, 'Guest', side.callbacks);
       sessions.push(session);
       await waitFor(() => side.errors.includes('message too large'));
       expect(side.errors).toContain('message too large');
@@ -238,5 +261,114 @@ describe('host + join end to end', () => {
       for (const s of rogueSockets) s.destroy();
       await new Promise<void>((resolve) => rogue.close(() => resolve()));
     }
+  });
+
+  it('the deal arrives verified: the guest checks every card it saw by the end of the hand', async () => {
+    const hostSide = collector();
+    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
+    sessions.push(host);
+    const verified: number[] = [];
+    const guestSide = collector();
+    const guest = joinSession(loopback(info), 'Guest', { ...guestSide.callbacks, onVerified: (hand) => verified.push(hand) });
+    sessions.push(guest);
+    await waitFor(() => (guestSide.latest()?.handNumber ?? 0) >= 1);
+    if (hostSide.latest()!.yourTurn) host.action({ kind: 'fold' });
+    else guest.action({ kind: 'fold' });
+    await waitFor(() => verified.length === 1);
+    expect(guestSide.errors).toEqual([]);
+  });
+});
+
+describe('joining safely — pin, token, versions, reconnect', () => {
+  it('a certificate that does not match the invite is refused before the token is ever sent', async () => {
+    const hostSide = collector();
+    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
+    sessions.push(host);
+    const other = createTableCertificate(); // an interceptor's certificate
+    const side = collector();
+    sessions.push(joinSession(loopback(info, { fingerprint: other.fingerprint }), 'Guest', side.callbacks));
+    await waitFor(() => side.errors.length > 0);
+    expect(side.errors).toEqual([FINGERPRINT_MISMATCH]);
+    // The host never seated anyone: its own view still has just the host's seat.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(hostSide.latest()!.seats).toHaveLength(1);
+  });
+
+  it('a man in the middle with its own certificate never learns the room token', async () => {
+    // The interceptor terminates TLS with its own certificate and records whatever the guest sends.
+    const cert = createTableCertificate();
+    const heard: string[] = [];
+    const mitm = tls.createServer({ key: cert.keyPem, cert: cert.certPem }, (socket) => {
+      socket.setEncoding('utf8');
+      socket.on('data', (c: string) => heard.push(c));
+      socket.on('error', () => undefined);
+    });
+    await new Promise<void>((r) => mitm.listen(0, '127.0.0.1', r));
+    const { port } = mitm.address() as net.AddressInfo;
+    try {
+      const realCert = createTableCertificate();
+      const side = collector();
+      const token = 'Q'.repeat(22);
+      sessions.push(joinSession({ host: '127.0.0.1', port, fingerprint: realCert.fingerprint, token }, 'G', side.callbacks));
+      await waitFor(() => side.errors.length > 0);
+      expect(side.errors).toEqual([FINGERPRINT_MISMATCH]);
+      expect(heard.join('')).not.toContain(token);
+    } finally {
+      await new Promise<void>((r) => mitm.close(() => r()));
+    }
+  });
+
+  it('a wrong token gets the host’s refusal and no seat', async () => {
+    const hostSide = collector();
+    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
+    sessions.push(host);
+    const side = collector();
+    sessions.push(joinSession(loopback(info, { token: 'B'.repeat(22) }), 'Guest', side.callbacks));
+    await waitFor(() => side.errors.length > 0);
+    expect(side.errors[0]).toBe(BAD_TOKEN);
+    expect(hostSide.latest()!.seats).toHaveLength(1);
+  });
+
+  it('a v2 guest pointed at a v1 (plaintext) host says so instead of hanging', async () => {
+    const v1 = net.createServer((socket) => {
+      socket.on('error', () => undefined);
+      socket.write('{"type":"state","view":{}}\n');
+    });
+    await new Promise<void>((r) => v1.listen(0, '127.0.0.1', r));
+    const { port } = v1.address() as net.AddressInfo;
+    try {
+      const side = collector();
+      sessions.push(joinSession({ host: '127.0.0.1', port, fingerprint: 'A'.repeat(43), token: 'A'.repeat(22) }, 'G', side.callbacks));
+      await waitFor(() => side.errors.length > 0);
+      expect(side.errors).toEqual([SECURE_CONNECT_FAILED]);
+    } finally {
+      v1.close();
+    }
+  });
+
+  it('a guest that leaves can rejoin with the same invite; an invite for a closed table cannot', async () => {
+    const hostSide = collector();
+    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks);
+    sessions.push(host);
+    const first = collector();
+    const g1 = joinSession(loopback(info), 'Guest', first.callbacks);
+    await waitFor(() => (first.latest()?.handNumber ?? 0) >= 1);
+    await g1.stop();
+
+    const again = collector();
+    sessions.push(joinSession(loopback(info), 'Guest', again.callbacks));
+    await waitFor(() => again.views.length > 0);
+    expect(again.errors).toEqual([]);
+
+    // The host closes and hosts a new table: a fresh certificate and token, so the old invite is dead.
+    await host.stop();
+    const { session: next, info: nextInfo } = await hostSession(OPTS, collector().callbacks);
+    sessions.push(next);
+    expect(nextInfo.fingerprint).not.toBe(info.fingerprint);
+    expect(nextInfo.token).not.toBe(info.token);
+    const stale = collector();
+    sessions.push(joinSession(loopback(nextInfo, { fingerprint: info.fingerprint, token: info.token }), 'G', stale.callbacks));
+    await waitFor(() => stale.errors.length > 0);
+    expect(stale.errors).toEqual([FINGERPRINT_MISMATCH]);
   });
 });

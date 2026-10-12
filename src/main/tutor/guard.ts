@@ -11,11 +11,14 @@
  *   in the payload, "risking 10 to win 5" inverts the relationship and passes.
  * - A false claim containing no numeral passes entirely — "your range is
  *   uncapped here" when it is capped is invisible to every check below.
- * - Spelled-out numbers are checked only where they read as a quantity: a
- *   compound ("seven fifty", "one hundred", "twenty five", "seven point five")
- *   or a single word before a quantity unit ("three big blinds", "nine outs").
- *   A lone counting word with no unit ("two hole cards", "one seat") is prose
- *   and passes, and ordinals and fractions ("a third of the pot") are not read.
+ * - Spelled-out numbers (check `number-words`, kept separate from the digit
+ *   check so the agent's post-reveal path, which replaces digit provenance with
+ *   phrase checks, still runs it) are read only where they are a quantity: a
+ *   compound ("seven fifty", "one hundred"), any tens word ("fifty"), a single
+ *   word before a quantity unit ("three big blinds", "nine outs"), or a `k`
+ *   amount ("1k"). A lone counting word with no unit ("two hole cards", "one
+ *   seat") is prose and passes; ordinals, fractions and "a dozen" ("a third of
+ *   the pot", "half the pot") are not read.
  * - Check 4 is a *proxy* for the method's "task as grammatical subject". The
  *   full property needs a dependency parse plus semantic classification of the
  *   subject and is not pure-function decidable. The proxy ships; the full
@@ -29,7 +32,7 @@
 
 import type { TutorOutputKind, TutorRequest } from './types.js';
 
-export type GuardCheck = 'word-count' | 'ban-list' | 'number-provenance' | 'leading-pronoun';
+export type GuardCheck = 'word-count' | 'ban-list' | 'number-provenance' | 'number-words' | 'leading-pronoun';
 
 export interface GuardViolation {
   readonly check: GuardCheck;
@@ -206,13 +209,23 @@ function numberWordsIn(text: string): { phrase: string; value: string }[] {
       j += 1;
     }
     const words = run.filter((w) => w !== 'and');
+    // "fifty-fifty" is an even split, not 5050.
+    if (words.length === 2 && words[0] === words[1] && words[0] in TENS) {
+      i = j;
+      continue;
+    }
     // "per hundred" names a rate's denominator, not a quantity.
     const perScale = words.length === 1 && words[0] in SCALES && tokens[i - 1]?.[0].toLowerCase() === 'per';
-    const compound = !perScale && (words.length > 1 || words.some((w) => w in SCALES));
+    const compound = !perScale && (words.length > 1 || words.some((w) => w in SCALES || w in TENS));
     if (compound || QUANTITY_UNIT.test(text.slice(end))) {
       out.push({ phrase: text.slice(tokens[i].index, end).toLowerCase(), value: String(numberWordValue(words)) });
     }
     i = j;
+  }
+  // "1k", "2.5k": a digit the prose regex reads as 1 or 2.5, meaning a thousand times that. Lowercase,
+  // attached and standalone only, so card text ("9 K 2", "3k-high") is not read as thousands.
+  for (const m of text.matchAll(/(?<![\w.])(\d+(?:\.\d+)?)k(?![\w-])/g)) {
+    out.push({ phrase: m[0].toLowerCase(), value: String(Number(m[1]) * 1000) });
   }
   return out;
 }
@@ -272,7 +285,7 @@ export function checkTutorOutput(
 
   for (const { phrase, value } of numberWordsIn(output.text)) {
     if (!allowed.has(value)) {
-      violations.push({ check: 'number-provenance', detail: `${phrase} (${value})` });
+      violations.push({ check: 'number-words', detail: `${phrase} (${value})` });
     }
   }
 

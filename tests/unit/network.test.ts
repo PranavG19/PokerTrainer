@@ -104,6 +104,12 @@ describe('silenceChromium', () => {
     for (const feature of ['SafeBrowsing', 'OptimizationHints', 'SpellcheckService']) {
       expect(String(features?.[1]), `${feature} is not in disable-features`).toContain(feature);
     }
+
+    // WebRTC's UDP bypasses webRequest and CSP (review R13): it must be switched off process-wide.
+    expect(appMock.commandLine.appendSwitch).toHaveBeenCalledWith(
+      'force-webrtc-ip-handling-policy',
+      'disable_non_proxied_udp',
+    );
   });
 
   it('THROWS when called after the app is ready, because the switches would be ignored', () => {
@@ -181,5 +187,14 @@ describe('sealNetwork', () => {
     expect(fresh.webRequest.onBeforeRequest, 'a newly created session was not sealed').toHaveBeenCalledTimes(
       1,
     );
+  });
+
+  it('applies the WebRTC policy to every webContents as it is created', () => {
+    sealNetwork();
+    const created = appMock.on.mock.calls.find((call) => call[0] === 'web-contents-created');
+    expect(created, 'no web-contents-created handler').toBeDefined();
+    const contents = { setWebRTCIPHandlingPolicy: vi.fn() };
+    (created?.[1] as (event: unknown, c: unknown) => void)({}, contents);
+    expect(contents.setWebRTCIPHandlingPolicy).toHaveBeenCalledWith('disable_non_proxied_udp');
   });
 });

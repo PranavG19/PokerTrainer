@@ -31,8 +31,7 @@ contextBridge.exposeInMainWorld('offsuit', {
   mpStatus: (): Promise<{ enabled: boolean; active: boolean }> => ipcRenderer.invoke('mp:status'),
   mpSetEnabled: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke('mp:setEnabled', enabled),
   mpHost: (opts: { seatCount?: number }): Promise<unknown> => ipcRenderer.invoke('mp:host', opts),
-  mpJoin: (address: { host: string; port: number; name?: string }): Promise<unknown> =>
-    ipcRenderer.invoke('mp:join', address),
+  mpJoin: (request: { invite: string; name?: string }): Promise<unknown> => ipcRenderer.invoke('mp:join', request),
   mpAction: (action: unknown): Promise<void> => ipcRenderer.invoke('mp:action', action),
   mpDeal: (): Promise<void> => ipcRenderer.invoke('mp:deal'),
   mpStop: (): Promise<void> => ipcRenderer.invoke('mp:stop'),
