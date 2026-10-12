@@ -471,7 +471,12 @@ export function renderTable(opts: {
       if (sheetPrediction) {
         const action = sheetPrediction.action[0].toUpperCase() + sheetPrediction.action.slice(1);
         const conf = sheetPrediction.confidence === 'sure' ? 'Sure' : 'Guess';
-        sheetCommit.textContent = `You committed to ${action}, ${conf}`;
+        const em = (text: string): HTMLElement => {
+          const b = document.createElement('b');
+          b.textContent = text;
+          return b;
+        };
+        sheetCommit.replaceChildren('You committed to ', em(action), ', ', em(conf));
         sheetPredict.hidden = false;
         lendResult(predict, sheetPredict);
       } else {

@@ -1479,6 +1479,10 @@ html .coach-sheet > .coach {
   font-size: var(--t-foot);
   color: var(--ink-2);
 }
+.coach-sheet-commit b {
+  font-weight: 500;
+  color: var(--ink-1);
+}
 .coach-sheet-predict .predict-result {
   font-size: var(--t-head);
   font-weight: 600;
