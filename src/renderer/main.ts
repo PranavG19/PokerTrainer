@@ -49,6 +49,7 @@ import { renderHome } from './screens/home.js';
 import { renderProfile } from './screens/profile.js';
 import { renderCareer } from './screens/career.js';
 import { careerRecord, type CareerInput } from '../core/career.js';
+import { systemDayKeyOf } from '../core/localDay.js';
 import { renderProgressScreen } from './screens/progress.js';
 import { decisionRecordsFromHands, type KcEvidence } from '../core/progress.js';
 import { standing, currentForm, puzzleCoverage, depthLabel, depthToStack, affordableStack, type Depth, type FormState } from '../core/standing.js';
@@ -67,7 +68,7 @@ import { renderAnomalyScreen } from './screens/anomaly.js';
 import { renderDossier } from './screens/dossier.js';
 import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
-import { renderSettings, type SettingsStatus } from './screens/settings.js';
+import { readOnlyHeadline, renderSettings, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
 import { renderTrainScreen, type TrainMode as TrainModeSpec } from './screens/train.js';
 import { conceptStatesFromLog, dueNow, gate, posterior, type ConceptState } from '../core/schedule.js';
@@ -89,7 +90,8 @@ export interface SpeakResult {
 
 interface OffsuitBridge {
   loadState: () => Promise<Record<string, unknown>>;
-  saveState: (obj: Record<string, unknown>) => Promise<void>;
+  /** Main answers `{ saved: false, readOnly }` when it refused the write; the in-memory bridge answers nothing. */
+  saveState: (obj: Record<string, unknown>) => Promise<{ saved: boolean; readOnly: string | null } | void>;
   getSeed: () => Promise<number | null>;
   readSettings?: () => Promise<SettingsStatus>;
   setTutorEnabled?: (enabled: boolean) => Promise<boolean>;
@@ -234,7 +236,17 @@ function renderBrand(): HTMLElement {
 }
 
 async function boot(): Promise<void> {
-  const io = bridge();
+  const base = bridge();
+  // Every save goes through here, so a refusal from main (read-only profile) shows the banner the moment
+  // it happens, whichever of the ~20 save sites hit it.
+  const io: OffsuitBridge = {
+    ...base,
+    saveState: async (obj) => {
+      const outcome = await base.saveState(obj);
+      if (outcome && !outcome.saved && settings.profile.readOnly == null) await refreshSettings();
+      return outcome;
+    },
+  };
   const seed = (await io.getSeed()) ?? DEFAULT_SEED;
   let session: SessionState = deserialize(await io.loadState());
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
@@ -290,7 +302,24 @@ async function boot(): Promise<void> {
   nav.className = 'tabs';
   const screen = document.createElement('main');
   screen.className = 'screen';
-  app.replaceChildren(nav, screen);
+  /**
+   * The read-only banner: shown over every screen while main refuses to save, so nobody plays a long
+   * session believing it is being kept. Fixed-position and click-through, so it never moves layout or
+   * blocks a control; Settings carries the full explanation.
+   */
+  const readOnlyBanner = document.createElement('div');
+  readOnlyBanner.className = 'profile-read-only';
+  readOnlyBanner.dataset.testid = 'read-only-banner';
+  readOnlyBanner.setAttribute('role', 'status');
+  readOnlyBanner.hidden = true;
+  app.replaceChildren(nav, screen, readOnlyBanner);
+  function paintReadOnly(): void {
+    const reason = settings.profile.readOnly ?? null;
+    readOnlyBanner.hidden = reason === null;
+    readOnlyBanner.dataset.reason = reason ?? '';
+    readOnlyBanner.textContent = reason === null ? '' : readOnlyHeadline(reason);
+  }
+  paintReadOnly();
 
   const tabButton = (label: string, id: Tab, testid: string): HTMLButtonElement => {
     const b = document.createElement('button');
@@ -534,6 +563,8 @@ async function boot(): Promise<void> {
       rebuys: session.rebuys,
       assessmentsTaken: session.assessments.length,
       activityTimestamps: [...handTimestamps, ...assessmentTimestamps],
+      // The learner's own day (4 am local), not UTC: an evening session belongs to that evening.
+      dayKeyOf: systemDayKeyOf(),
     };
   }
 
@@ -626,6 +657,7 @@ async function boot(): Promise<void> {
   /** Re-read from main after every mutation, so the screen reports the resolved state, not a guess. */
   async function refreshSettings(): Promise<void> {
     settings = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
+    paintReadOnly();
     if (tab === 'settings') render();
   }
 

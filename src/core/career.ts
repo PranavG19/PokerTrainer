@@ -11,6 +11,7 @@
  * THIS. The renderer's only job is to lay these numbers out.
  */
 
+import type { DayKeyOf } from './localDay.js';
 import type { SessionStats } from './session.js';
 import { sureAccuracy, guessAccuracy, type Calibration } from './predict.js';
 import {
@@ -55,6 +56,11 @@ export interface CareerInput {
    * caller simply omits.
    */
   readonly activityTimestamps: readonly number[];
+  /**
+   * The learner's local day for a timestamp (localDay.ts). Required, so no caller can fall back to UTC
+   * days: bucketing by UTC put a UTC−8 evening session on "tomorrow".
+   */
+  readonly dayKeyOf: DayKeyOf;
 }
 
 /** The biggest single leak by total bb cost, or null when nothing has been graded. */
@@ -99,13 +105,10 @@ export interface CareerRecord {
   readonly milestones: readonly Milestone[];
 }
 
-/** UTC day index of an epoch-ms timestamp. Deterministic, timezone-free, no Date needed. */
-const dayIndex = (ms: number): number => Math.floor(ms / 86_400_000);
-
-function computeCadence(timestamps: readonly number[], now: number): PracticeCadence {
+function computeCadence(timestamps: readonly number[], now: number, dayKeyOf: DayKeyOf): PracticeCadence {
   const days = new Set<number>();
-  for (const ts of timestamps) if (Number.isFinite(ts) && ts > 0) days.add(dayIndex(ts));
-  const today = dayIndex(now);
+  for (const ts of timestamps) if (Number.isFinite(ts) && ts > 0) days.add(dayKeyOf(ts));
+  const today = dayKeyOf(now);
   // last30: index 29 = today, 0 = 29 days ago.
   const last30 = Array.from({ length: 30 }, (_, i) => days.has(today - (29 - i)));
   // currentRun: consecutive days with activity ending today (or yesterday, so a day mid-play still counts).
@@ -182,7 +185,7 @@ export function careerRecord(input: CareerInput, now: number): CareerRecord {
     sureAccuracy: sureAccuracyMaybe(input.calibration),
     guessAccuracy: guessAccuracyMaybe(input.calibration),
     biggestLeak: biggestLeakOf(input.stats.leakCostBb),
-    cadence: computeCadence(input.activityTimestamps, now),
+    cadence: computeCadence(input.activityTimestamps, now, input.dayKeyOf),
     milestones: computeMilestones({
       floor: st.floor,
       conceptsMastered: input.masteredKcCount,

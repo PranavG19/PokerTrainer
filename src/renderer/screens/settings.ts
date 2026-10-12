@@ -36,6 +36,15 @@ export interface SettingsStatus {
     readonly path: string;
     readonly backupCount: number;
     readonly lastRecovery: string;
+    /** The profile format this build writes, and the format of the file as loaded (profileSchema.ts). */
+    readonly schemaVersion?: number;
+    readonly fileSchemaVersion?: number;
+    /** Set when this load upgraded the profile from an older format. */
+    readonly migratedFrom?: number | null;
+    /** The untouched copy kept from before the upgrade, when there is one. */
+    readonly preMigrationCopy?: string | null;
+    /** Why main refuses to save, or null. */
+    readonly readOnly?: ReadOnlyReason | null;
   };
   readonly deleteConfirmPhrase: string;
   /** The chosen visual theme id (graphite default). A device preference, read from the settings file. */
@@ -508,6 +517,20 @@ function renderProfileSection(status: SettingsStatus, handlers: SettingsHandlers
   backups.textContent = backupLine(status.profile.backupCount);
   body.appendChild(backups);
 
+  const readOnly = status.profile.readOnly ?? null;
+  if (readOnly !== null) {
+    body.appendChild(paragraph(readOnlyExplanation(readOnly, status.profile.fileSchemaVersion), 'read-only-notice'));
+  } else if (status.profile.migratedFrom != null) {
+    body.appendChild(
+      paragraph(
+        status.profile.preMigrationCopy
+          ? `Your profile was upgraded to format ${status.profile.schemaVersion ?? ''} at this start. The original file was kept, untouched, next to it.`
+          : `Your profile was upgraded to format ${status.profile.schemaVersion ?? ''} at this start.`,
+        'migration-notice',
+      ),
+    );
+  }
+
   if (status.profile.lastRecovery.startsWith('backup')) {
     body.appendChild(
       paragraph(
@@ -579,4 +602,21 @@ function renderDelete(status: SettingsStatus, handlers: SettingsHandlers): HTMLE
   button.addEventListener('click', () => handlers.onDeleteProfile(input.value));
 
   return wrap;
+}
+
+export type ReadOnlyReason = 'newer-version' | 'changed-elsewhere';
+
+/** The long form of the read-only banner (main.ts shows the short one over every screen). */
+export function readOnlyExplanation(reason: ReadOnlyReason, fileVersion?: number): string {
+  if (reason === 'newer-version') {
+    return `This profile was saved by a newer version of Offsuit${fileVersion ? ` (format ${fileVersion})` : ''}. It is open read-only: nothing you do here is saved, so the newer version's data stays exactly as it was. Open it in that version to keep practising.`;
+  }
+  return 'The profile file was changed by another copy of Offsuit while this one was open. To keep that copy’s progress, this one has stopped saving. Restart Offsuit to pick up the latest profile.';
+}
+
+/** The short form, for the banner. */
+export function readOnlyHeadline(reason: ReadOnlyReason): string {
+  return reason === 'newer-version'
+    ? 'Read-only: this profile is from a newer Offsuit. Nothing here is saved.'
+    : 'Not saving: another copy of Offsuit changed this profile. Restart to continue.';
 }

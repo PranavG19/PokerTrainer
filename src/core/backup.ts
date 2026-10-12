@@ -58,6 +58,8 @@ export interface Recovery {
   /** null when neither the live file nor any backup could be read. */
   readonly state: Record<string, unknown> | null;
   readonly source: RecoverySource;
+  /** The file `state` was read from, so a pre-migration snapshot copies exactly that; null when fresh. */
+  readonly path: string | null;
 }
 
 /**
@@ -67,14 +69,16 @@ export interface Recovery {
  */
 export function loadWithRecovery(file: string): Recovery {
   const live = readProfile(file);
-  if (live !== null) return { state: live, source: 'live' };
+  if (live !== null) return { state: live, source: 'live', path: file };
 
   for (let slot = 1; slot <= BACKUP_DEPTH; slot++) {
     const restored = readProfile(backupPath(file, slot));
-    if (restored !== null) return { state: restored, source: `backup-${slot}` as RecoverySource };
+    if (restored !== null) {
+      return { state: restored, source: `backup-${slot}` as RecoverySource, path: backupPath(file, slot) };
+    }
   }
 
-  return { state: null, source: 'fresh' };
+  return { state: null, source: 'fresh', path: null };
 }
 
 function renameIfPresent(from: string, to: string): void {
@@ -122,8 +126,79 @@ export function atomicWrite(file: string, text: string): void {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true });
   const tmp = path.join(dir, `${path.basename(file)}.${crypto.randomUUID()}.tmp`);
-  fs.writeFileSync(tmp, text, 'utf-8');
-  fs.renameSync(tmp, file);
+  try {
+    fs.writeFileSync(tmp, text, 'utf-8');
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    // A full disk fails part-way through the temp file. The live file is untouched; the half-written
+    // temp would only hold on to the space the next save needs.
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      // Never created.
+    }
+    throw error;
+  }
+}
+
+/**
+ * Temp files a crash left behind (a write interrupted before its rename). Nothing reads them; removing
+ * them at load gives the space back. Only this file's own temps, by the atomicWrite naming pattern.
+ */
+export function sweepTempFiles(file: string): number {
+  const base = path.basename(file);
+  const pattern = new RegExp(`^${escapeRegExp(base)}\\.[0-9a-f-]{36}\\.tmp$`);
+  let removed = 0;
+  let names: string[] = [];
+  try {
+    names = fs.readdirSync(path.dirname(file));
+  } catch {
+    return 0;
+  }
+  for (const name of names) {
+    if (pattern.test(name) && unlinkIfPresent(path.join(path.dirname(file), name))) removed++;
+  }
+  return removed;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The named copy kept before a schema migration: `offsuit-state.json.pre-v2`. Unlike the rolling
+ * backups it is never rotated out (three ordinary saves would push the pre-migration file out of
+ * `.bak3` within one sitting) and never overwritten, so it is always the file as it was before this
+ * build first touched it. Only deleteProfile removes it.
+ */
+export function preMigrationPath(file: string, toVersion: number): string {
+  return `${file}.pre-v${toVersion}`;
+}
+
+/**
+ * Copy `source` (the file the profile was actually read from: the live file or the backup recovery
+ * used) to the pre-migration path, atomically. Returns false when a snapshot already exists, which is
+ * the re-migration case (a downgrade and re-upgrade): the first snapshot is the one worth keeping.
+ * Throws on a failed write, so the caller can refuse to save over a profile it could not snapshot.
+ */
+export function snapshotBeforeMigrate(file: string, source: string, toVersion: number): boolean {
+  const target = preMigrationPath(file, toVersion);
+  if (fs.existsSync(target)) return false;
+  atomicWrite(target, fs.readFileSync(source, 'utf-8'));
+  return true;
+}
+
+function preMigrationSnapshots(file: string): string[] {
+  const base = path.basename(file);
+  const pattern = new RegExp(`^${escapeRegExp(base)}\\.pre-v\\d+$`);
+  try {
+    return fs
+      .readdirSync(path.dirname(file))
+      .filter((name) => pattern.test(name))
+      .map((name) => path.join(path.dirname(file), name));
+  } catch {
+    return [];
+  }
 }
 
 /** How many rolling backups exist right now. Shown in settings. */
@@ -163,8 +238,10 @@ export function deleteProfile(file: string, confirmation: string): DeleteOutcome
     return { deleted: false, refusedBecause: 'not-confirmed', removed: [] };
   }
 
+  // The pre-migration snapshots are copies of the profile too: leaving them would make this not a delete.
   const targets = [file];
   for (let slot = 1; slot <= BACKUP_DEPTH; slot++) targets.push(backupPath(file, slot));
+  targets.push(...preMigrationSnapshots(file));
 
   return { deleted: true, removed: targets.filter(unlinkIfPresent) };
 }

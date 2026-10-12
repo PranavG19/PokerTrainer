@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { careerRecord, type CareerInput } from '../../src/core/career.js';
 import { emptyCalibration, type Calibration } from '../../src/core/predict.js';
+import { fixedOffsetDayKeyOf } from '../../src/core/localDay.js';
 import type { SessionStats } from '../../src/core/session.js';
 
 const DAY = 86_400_000;
@@ -25,6 +26,8 @@ const baseInput = (over: Partial<CareerInput> = {}): CareerInput => ({
   rebuys: 0,
   assessmentsTaken: 0,
   activityTimestamps: [],
+  // UTC days with a midnight boundary: these cases are about counting days, not where a day starts.
+  dayKeyOf: fixedOffsetDayKeyOf(0, 0),
   ...over,
 });
 
