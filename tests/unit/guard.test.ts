@@ -289,6 +289,7 @@ describe('T4 check 3 — number provenance covers spelled-out numbers', () => {
   it('structural counting words with no quantity unit are prose, not claims', () => {
     // "two hole cards", "one seat", "three chunks" describe the game, not an engine number.
     expect(checks('Range advantage with two hole cards, one seat from the button, in two days.')).toEqual([]);
+    expect(checks('The class loses chips per hundred decisions.')).toEqual([]);
   });
 });
 
