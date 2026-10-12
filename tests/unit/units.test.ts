@@ -32,7 +32,18 @@ describe('chips, Reps and Chalk do not mix', () => {
     // @ts-expect-error arithmetic drops the brand, so a sum of chips is not Chalk either
     const summed: Chalk = bankroll + 1;
 
+    // The constructors are the only way in, and they refuse a value that already has a unit.
+    // @ts-expect-error chips cannot be minted into Chalk
+    const minted = chalk(bankroll);
+    // @ts-expect-error chips cannot be minted into Reps
+    const repsFromChips = reps(bankroll);
+    // @ts-expect-error Reps cannot be minted into Chalk
+    const chalkFromReps = chalk(r);
+    // @ts-expect-error Chalk cannot be minted into chips
+    const chipsFromChalk = chips(c);
+
     void [chipsAsChalk, chipsAsReps, repsAsChalk, chalkAsReps, chalkAsChips, repsAsChips, bare, summed];
+    void [minted, repsFromChips, chalkFromReps, chipsFromChalk];
     expect(bankroll).toBe(10000);
   });
 

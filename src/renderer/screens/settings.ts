@@ -614,9 +614,9 @@ export function readOnlyExplanation(reason: ReadOnlyReason, fileVersion?: number
   return 'The profile file was changed by another copy of Offsuit while this one was open. To keep that copy’s progress, this one has stopped saving. Restart Offsuit to pick up the latest profile.';
 }
 
-/** The short form, for the banner. */
-export function readOnlyHeadline(reason: ReadOnlyReason): string {
-  return reason === 'newer-version'
-    ? 'Read-only: this profile is from a newer Offsuit. Nothing here is saved.'
-    : 'Not saving: another copy of Offsuit changed this profile. Restart to continue.';
+/** The short form, for the banner. `save-failing` is the renderer's own state: writes are failing. */
+export function readOnlyHeadline(reason: ReadOnlyReason | 'save-failing'): string {
+  if (reason === 'newer-version') return 'Read-only: this profile is from a newer Offsuit. Nothing here is saved.';
+  if (reason === 'changed-elsewhere') return 'Not saving: another copy of Offsuit changed this profile. Restart to continue.';
+  return 'Not saving: the profile could not be written (is the disk full?). Your progress is kept here and saves as soon as it can.';
 }

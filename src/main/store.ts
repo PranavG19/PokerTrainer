@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -55,6 +56,32 @@ let migratedFrom: number | null = null;
 let pendingSnapshot: { source: string; toVersion: number } | null = null;
 /** What the live file looked like after this build last read or wrote it; null when it did not exist. */
 let lastSeen: FileStamp | null = null;
+/**
+ * A hash of those bytes. A changed mtime or size alone does not stop saving: the content must differ
+ * too, so a touched-but-identical file (a sync tool, a coarse clock) can never silently end all saves.
+ */
+let lastSeenHash: string | null = null;
+
+function hashOf(file: string): string | null {
+  try {
+    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+function remember(): void {
+  lastSeen = stampOf(STATE_FILE);
+  lastSeenHash = hashOf(STATE_FILE);
+}
+
+/** True only when the live file's bytes differ from what this build last read or wrote. */
+function changedElsewhere(): boolean {
+  if (sameStamp(stampOf(STATE_FILE), lastSeen)) return false;
+  if (hashOf(STATE_FILE) !== lastSeenHash) return true;
+  lastSeen = stampOf(STATE_FILE);
+  return false;
+}
 
 interface FileStamp {
   readonly mtimeMs: number;
@@ -78,7 +105,7 @@ export function load(): Record<string, unknown> {
   sweepTempFiles(STATE_FILE);
   const recovery = loadWithRecovery(STATE_FILE);
   lastRecovery = recovery.source;
-  lastSeen = stampOf(STATE_FILE);
+  remember();
   readOnly = null;
   migratedFrom = null;
   pendingSnapshot = null;
@@ -117,26 +144,34 @@ function takePendingSnapshot(): void {
 export interface SaveOutcome {
   readonly saved: boolean;
   readonly readOnly: ReadOnlyReason | null;
+  /**
+   * Set when the write itself failed (a full disk, or the pre-migration copy could not be made first).
+   * Returned rather than thrown so the renderer can say so: a thrown save would be an unhandled
+   * rejection at ~20 call sites, and the learner would play on with nothing saved and nothing shown.
+   * Nothing was written; the renderer keeps its session in memory and the next save retries.
+   */
+  readonly failed?: 'write' | 'pre-migration-copy';
 }
 
-/**
- * Write the renderer's profile, unless this build must not. Throws (and writes nothing) on a failed
- * write, the same as before: the renderer keeps its in-memory session and the next save retries.
- */
+/** Write the renderer's profile, unless this build must not. Never throws. */
 export function save(obj: Record<string, unknown>): SaveOutcome {
   if (readOnly !== null) return { saved: false, readOnly };
-  if (!sameStamp(stampOf(STATE_FILE), lastSeen)) {
+  if (changedElsewhere()) {
     readOnly = 'changed-elsewhere';
     return { saved: false, readOnly };
   }
   try {
     takePendingSnapshot();
-  } catch (error) {
-    throw new Error(`profile not saved: the pre-migration copy could not be written (${String(error)})`);
+  } catch {
+    return { saved: false, readOnly: null, failed: 'pre-migration-copy' };
   }
-  // Stamped here as well as by serialize, so nothing this build writes can claim another version.
-  saveWithBackup(STATE_FILE, JSON.stringify({ ...obj, schemaVersion: SCHEMA_VERSION }, null, 2));
-  lastSeen = stampOf(STATE_FILE);
+  try {
+    // Stamped here as well as by serialize, so nothing this build writes can claim another version.
+    saveWithBackup(STATE_FILE, JSON.stringify({ ...obj, schemaVersion: SCHEMA_VERSION }, null, 2));
+  } catch {
+    return { saved: false, readOnly: null, failed: 'write' };
+  }
+  remember();
   return { saved: true, readOnly: null };
 }
 
@@ -179,7 +214,7 @@ export function deleteProfile(confirmation: string): DeleteOutcome {
     migratedFrom = null;
     pendingSnapshot = null;
     fileSchemaVersion = SCHEMA_VERSION;
-    lastSeen = stampOf(STATE_FILE);
+    remember();
   }
   return outcome;
 }

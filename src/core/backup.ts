@@ -98,24 +98,28 @@ function copyIfPresent(from: string, to: string): void {
 }
 
 /**
- * Rotate the backups, then swap the live file.
+ * Write the new version to a temp file, then rotate the backups, then swap the live file.
  *
- * The order is the whole guarantee. The only operation that touches `file` is a
- * rename of an already-complete temp file, so `file` is never absent and never
- * half-written: a reader either sees the previous complete version or the new
- * one. A crash during rotation costs a backup copy, which is reconstructible by
- * definition; a crash during the write costs a temp file nothing reads.
+ * The order is the whole guarantee. The only operation that touches `file` is a rename of an
+ * already-complete temp file, so `file` is never absent and never half-written: a reader either sees
+ * the previous complete version or the new one. The temp is written FIRST so a failed write (a full
+ * disk) throws before any backup moves: rotating first meant each failed save pushed one more good
+ * version out of `.bak3`. A crash during rotation costs a backup copy, which is reconstructible by
+ * definition; a crash during the write costs a temp file the next load sweeps.
  */
 export function saveWithBackup(file: string, text: string): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-
-  // Oldest first, or each rename would overwrite the slot it is about to read.
-  for (let slot = BACKUP_DEPTH - 1; slot >= 1; slot--) {
-    renameIfPresent(backupPath(file, slot), backupPath(file, slot + 1));
+  const tmp = writeTemp(file, text);
+  try {
+    // Oldest first, or each rename would overwrite the slot it is about to read.
+    for (let slot = BACKUP_DEPTH - 1; slot >= 1; slot--) {
+      renameIfPresent(backupPath(file, slot), backupPath(file, slot + 1));
+    }
+    copyIfPresent(file, backupPath(file, 1));
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    unlinkIfPresent(tmp);
+    throw error;
   }
-  copyIfPresent(file, backupPath(file, 1));
-
-  atomicWrite(file, text);
 }
 
 /**
@@ -123,31 +127,40 @@ export function saveWithBackup(file: string, text: string): void {
  * torn-write immunity as the profile without needing the version history.
  */
 export function atomicWrite(file: string, text: string): void {
-  const dir = path.dirname(file);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = path.join(dir, `${path.basename(file)}.${crypto.randomUUID()}.tmp`);
+  const tmp = writeTemp(file, text);
   try {
-    fs.writeFileSync(tmp, text, 'utf-8');
     fs.renameSync(tmp, file);
   } catch (error) {
-    // A full disk fails part-way through the temp file. The live file is untouched; the half-written
-    // temp would only hold on to the space the next save needs.
-    try {
-      fs.unlinkSync(tmp);
-    } catch {
-      // Never created.
-    }
+    unlinkIfPresent(tmp);
     throw error;
   }
 }
 
 /**
+ * A complete temp file next to `file`, or a throw with nothing left behind: a full disk fails part-way
+ * through, and the half-written temp would only hold on to the space the next save needs.
+ */
+function writeTemp(file: string, text: string): string {
+  const dir = path.dirname(file);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmp = path.join(dir, `${path.basename(file)}.${crypto.randomUUID()}.tmp`);
+  try {
+    fs.writeFileSync(tmp, text, 'utf-8');
+  } catch (error) {
+    unlinkIfPresent(tmp);
+    throw error;
+  }
+  return tmp;
+}
+
+/**
  * Temp files a crash left behind (a write interrupted before its rename). Nothing reads them; removing
- * them at load gives the space back. Only this file's own temps, by the atomicWrite naming pattern.
+ * them at load gives the space back. Only this file's own temps and its snapshots' temps (writeTemp's
+ * naming pattern).
  */
 export function sweepTempFiles(file: string): number {
   const base = path.basename(file);
-  const pattern = new RegExp(`^${escapeRegExp(base)}\\.[0-9a-f-]{36}\\.tmp$`);
+  const pattern = new RegExp(`^${escapeRegExp(base)}(\\.pre-v\\d+)?\\.[0-9a-f-]{36}\\.tmp$`);
   let removed = 0;
   let names: string[] = [];
   try {

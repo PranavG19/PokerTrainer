@@ -91,7 +91,7 @@ export interface SpeakResult {
 interface OffsuitBridge {
   loadState: () => Promise<Record<string, unknown>>;
   /** Main answers `{ saved: false, readOnly }` when it refused the write; the in-memory bridge answers nothing. */
-  saveState: (obj: Record<string, unknown>) => Promise<{ saved: boolean; readOnly: string | null } | void>;
+  saveState: (obj: Record<string, unknown>) => Promise<{ saved: boolean; readOnly: string | null; failed?: string } | void>;
   getSeed: () => Promise<number | null>;
   readSettings?: () => Promise<SettingsStatus>;
   setTutorEnabled?: (enabled: boolean) => Promise<boolean>;
@@ -237,13 +237,30 @@ function renderBrand(): HTMLElement {
 
 async function boot(): Promise<void> {
   const base = bridge();
-  // Every save goes through here, so a refusal from main (read-only profile) shows the banner the moment
-  // it happens, whichever of the ~20 save sites hit it.
+  /**
+   * True while saves are failing (a full disk). Shown in the same banner as read-only, cleared by the
+   * next save that lands, so nobody plays on believing a session is being kept when it is not.
+   */
+  let saveFailing = false;
+  // Every save goes through here, so a refusal or a failure shows the banner the moment it happens,
+  // whichever of the ~20 save sites hit it.
   const io: OffsuitBridge = {
     ...base,
     saveState: async (obj) => {
-      const outcome = await base.saveState(obj);
-      if (outcome && !outcome.saved && settings.profile.readOnly == null) await refreshSettings();
+      let outcome: Awaited<ReturnType<OffsuitBridge['saveState']>>;
+      try {
+        outcome = await base.saveState(obj);
+      } catch {
+        outcome = { saved: false, readOnly: null, failed: 'ipc' };
+      }
+      const failing = outcome ? !outcome.saved && outcome.readOnly == null : false;
+      if (failing !== saveFailing) {
+        saveFailing = failing;
+        paintReadOnly();
+      }
+      if (outcome && !outcome.saved && outcome.readOnly != null && settings.profile.readOnly == null) {
+        await refreshSettings();
+      }
       return outcome;
     },
   };
@@ -314,7 +331,7 @@ async function boot(): Promise<void> {
   readOnlyBanner.hidden = true;
   app.replaceChildren(nav, screen, readOnlyBanner);
   function paintReadOnly(): void {
-    const reason = settings.profile.readOnly ?? null;
+    const reason = settings.profile.readOnly ?? (saveFailing ? 'save-failing' : null);
     readOnlyBanner.hidden = reason === null;
     readOnlyBanner.dataset.reason = reason ?? '';
     readOnlyBanner.textContent = reason === null ? '' : readOnlyHeadline(reason);

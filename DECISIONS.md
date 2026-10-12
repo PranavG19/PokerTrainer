@@ -42,8 +42,12 @@ Living record. Each line is the current end state.
   recovery used). It is written at load, before any save. It is never overwritten: on a re-upgrade the first
   copy is kept, and the rolling backups hold the later one. If the snapshot can't be written (a full disk),
   load still works, but every save refuses until the snapshot succeeds. Delete removes it.
+- **A failed write never throws to the renderer.** `save` returns `failed`, the banner says "Not saving"
+  until the next save lands, and the session stays in memory. Writes go temp file first, then backup
+  rotation, then rename, so failed saves on a full disk never push good versions out of `.bakN`.
 - **Read-only lives in main, not the renderer.** It covers a newer `schemaVersion` and a file changed on
-  disk (mtime/size) since this build last read or wrote it. Delete is the one way out. The banner is fixed
+  disk since this build last read or wrote it: mtime/size flags a change, and only different bytes (sha256)
+  stop saving. Delete is the one way out. The banner is fixed
   and click-through, so no layout changes. It is amber because read-only is notable, not an error.
 - **Unknown keys are carried** at the top level and at every fixed-shape level of `progression`, using a
   declared key tree. Lists, maps and v1 objects are owned whole by their parsers. A carried key never
@@ -56,7 +60,8 @@ Living record. Each line is the current end state.
   `litDays`, so either UI fits the same data.
 - **Local day = local time, turning at 4 am**, with the offset looked up per timestamp (DST-safe). Career's
   cadence uses it now. It was UTC.
-- **Units:** `bankroll` is `Chips`, and `Reps`/`Chalk` are separate brands with no converters. Isolation is
+- **Units:** `bankroll` is `Chips`, and `Reps`/`Chalk` are separate brands with no converters, and the constructors refuse any branded number,
+  so `chalk(bankroll)` does not compile. Isolation is
   tested by type (`@ts-expect-error`), at runtime, and by a source scan of `core/progression`.
 - **Single-instance lock** per user-data directory. A second launch exits and focuses the first, except
   under e2e, where it does not take focus.

@@ -135,7 +135,7 @@ describe('disk full', () => {
     fs.chmodSync(userData, 0o555); // nothing new can be created in the directory: the snapshot fails
     const loaded = store.load(); // loading still works
     expect(loaded.schemaVersion).toBe(2);
-    expect(() => store.save(playOneHand(loaded))).toThrow(/pre-migration copy/);
+    expect(store.save(playOneHand(loaded))).toEqual({ saved: false, readOnly: null, failed: 'pre-migration-copy' });
     expect(fs.readFileSync(stateFile(), 'utf-8')).toBe(original);
     expect(fs.existsSync(snapshotFile())).toBe(false);
 
@@ -219,6 +219,39 @@ describe('a second copy writing the same profile', () => {
     expect(store.save(playOneHand(loaded))).toEqual({ saved: false, readOnly: 'changed-elsewhere' });
     expect(readJson(stateFile()).bankroll).toBe(1234);
     expect(store.profileStatus().readOnly).toBe('changed-elsewhere');
+  });
+});
+
+describe('a write that fails', () => {
+  it('reports failed instead of throwing, keeps every backup, and the next save lands', async () => {
+    const store = await freshStore();
+    let state = store.load();
+    for (let i = 0; i < 4; i++) {
+      state = playOneHand(state);
+      store.save(state);
+    }
+    const backups = [1, 2, 3].map((slot) => fs.readFileSync(backupPath(stateFile(), slot), 'utf-8'));
+    const live = fs.readFileSync(stateFile(), 'utf-8');
+    fs.chmodSync(userData, 0o555); // no new file can be created: the temp write fails, like a full disk
+    for (let i = 0; i < 3; i++) {
+      state = playOneHand(state);
+      expect(store.save(state)).toEqual({ saved: false, readOnly: null, failed: 'write' });
+    }
+    expect(fs.readFileSync(stateFile(), 'utf-8')).toBe(live);
+    expect([1, 2, 3].map((slot) => fs.readFileSync(backupPath(stateFile(), slot), 'utf-8'))).toEqual(backups);
+    fs.chmodSync(userData, 0o755);
+    expect(store.save(state).saved).toBe(true);
+  });
+});
+
+describe('a file touched but not changed', () => {
+  it('does not stop saving: only different bytes count as another copy’s write', async () => {
+    const store = await freshStore();
+    const loaded = store.load();
+    store.save(playOneHand(loaded));
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(stateFile(), future, future);
+    expect(store.save(playOneHand(loaded)).saved).toBe(true);
   });
 });
 

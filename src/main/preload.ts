@@ -3,7 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('offsuit', {
   loadState: (): Promise<Record<string, unknown>> => ipcRenderer.invoke('store:load'),
   /** `{ saved: false, readOnly }` when main refused the write (a newer or externally changed profile). */
-  saveState: (obj: Record<string, unknown>): Promise<{ saved: boolean; readOnly: string | null }> =>
+  saveState: (obj: Record<string, unknown>): Promise<{ saved: boolean; readOnly: string | null; failed?: string }> =>
     ipcRenderer.invoke('store:save', obj),
   getSeed: (): Promise<number | null> => ipcRenderer.invoke('app:seed'),
   // The tutor lives in main; the renderer only ever sees the answer text and
