@@ -1,6 +1,7 @@
 import type { Confidence, PredictOutcome, PredictedAction, Prediction } from '../../core/predict.js';
 import { PREDICTED_ACTIONS } from '../../core/predict.js';
 import type { ConfidenceRoute, SupportLevel } from '../../core/confidence.js';
+import { attachThumb } from './thumb.js';
 
 /**
  * The commit half of the coaching loop. The panel holds its own state in `dataset` — the same
@@ -22,36 +23,46 @@ export function renderPredictPanel(onCommit: () => void): HTMLElement {
   root.appendChild(prompt);
 
   // One row, not two: the table has no vertical slack at the documented 900x640 minimum, and a
-  // second row of pills pushed the document into a scrollbar.
+  // second row of pills pushed the document into a scrollbar. The row holds the two choices as
+  // segmented controls (each with the sliding thumb) and the optional "why" field, all 28px high.
   const row = document.createElement('div');
   row.className = 'predict-row';
+  const actions = document.createElement('div');
+  actions.className = 'g-seg predict-actions';
+  actions.setAttribute('role', 'group');
+  actions.setAttribute('aria-label', 'Predicted action');
   for (const action of PREDICTED_ACTIONS) {
-    row.appendChild(
+    actions.appendChild(
       choice(label(action), `predict-${action}`, () => {
         root.dataset.predictAction = action;
         onCommit();
       }),
     );
   }
+  row.appendChild(actions);
+  const confidences = document.createElement('div');
+  confidences.className = 'g-seg predict-confidences';
+  confidences.setAttribute('role', 'group');
+  confidences.setAttribute('aria-label', 'Confidence');
   for (const confidence of ['sure', 'guess'] as Confidence[]) {
-    const button = choice(confidence.toUpperCase(), `confidence-${confidence}`, () => {
+    // Title case on the control (the reveal line keeps the core's "SURE"/"GUESS" wording).
+    const button = choice(confidence === 'sure' ? 'Sure' : 'Guess', `confidence-${confidence}`, () => {
       root.dataset.predictConfidence = confidence;
       onCommit();
     });
     button.classList.add('predict-confidence');
-    row.appendChild(button);
+    confidences.appendChild(button);
   }
+  row.appendChild(confidences);
   root.appendChild(row);
 
-  // G4's reason (story 14): a one-line "why", graded SEPARATELY from the action. Optional — it does
-  // not gate the action buttons (committedPrediction ignores it), so an empty box behaves exactly as
-  // before the feature. Part of the commit half, so setCommitVisible hides it at handover with the rest.
   const reason = document.createElement('textarea');
   reason.className = 'predict-reason lesson-input';
   reason.dataset.testid = 'reason-input';
   reason.rows = 1;
   reason.placeholder = 'Why? (optional — graded separately)';
-  root.appendChild(reason);
+  reason.setAttribute('aria-label', 'Why (optional)');
+  row.appendChild(reason);
 
   const result = document.createElement('div');
   result.className = 'predict-result';
@@ -67,8 +78,30 @@ export function renderPredictPanel(onCommit: () => void): HTMLElement {
   support.hidden = true;
   root.appendChild(support);
 
+  RESULT_PARTS.set(root, { result, support });
   syncSelection(root);
+  attachThumb(actions);
+  attachThumb(confidences);
   return root;
+}
+
+/**
+ * The reveal line and its support live in the panel, but the table's coached verdict sheet borrows them
+ * while it is open (they are the second half of the verdict) and hands them back on close. Held by
+ * reference so the helpers below find them wherever they currently sit in the document.
+ */
+const RESULT_PARTS = new WeakMap<HTMLElement, { result: HTMLElement; support: HTMLElement }>();
+
+/** Move the reveal line and its support into `host` (the verdict sheet). */
+export function lendResult(root: HTMLElement, host: HTMLElement): void {
+  const parts = RESULT_PARTS.get(root);
+  if (parts) host.append(parts.result, parts.support);
+}
+
+/** Put the reveal line and its support back at the end of the panel. */
+export function reclaimResult(root: HTMLElement): void {
+  const parts = RESULT_PARTS.get(root);
+  if (parts && parts.result.parentElement !== root) root.append(parts.result, parts.support);
 }
 
 /**
@@ -194,11 +227,11 @@ export function clearPredictPanel(root: HTMLElement): void {
 }
 
 function resultEl(root: HTMLElement): HTMLElement | null {
-  return root.querySelector<HTMLElement>('[data-testid="predict-result"]');
+  return RESULT_PARTS.get(root)?.result ?? null;
 }
 
 function supportEl(root: HTMLElement): HTMLElement | null {
-  return root.querySelector<HTMLElement>('[data-testid="predict-support"]');
+  return RESULT_PARTS.get(root)?.support ?? null;
 }
 
 function reasonEl(root: HTMLElement): HTMLElement | null {
@@ -212,6 +245,7 @@ function syncSelection(root: HTMLElement): void {
       id === `predict-${root.dataset.predictAction ?? ''}` ||
       id === `confidence-${root.dataset.predictConfidence ?? ''}`;
     button.dataset.selected = String(selected);
+    button.setAttribute('aria-pressed', String(selected));
   }
 }
 

@@ -1,9 +1,51 @@
+/*
+ * SPOTS (Train → Spots, the puzzle screen) in the glass language. Two columns inside the Train body:
+ * the spot (header, the table, the decision) on the left, and the tutor rail on the right behind a
+ * hairline — the same split as the Math drill's kind column, mirrored. Everything is flat type on the
+ * coat: no translucent cards. Colour by the role map only: the verdict is told by wording and weight
+ * (no mint for "correct", no coral sentence), and the one primary is the bone forward action
+ * (Now play it / Continue / Next puzzle), each with the ↩ keycap Enter actually takes.
+ *
+ * BUDGET: the screen is exactly --screen-h tall and the page never scrolls; the rail column scrolls
+ * itself (its transcript is bounded by styles-lesson.css) and the decision cell does too if a long
+ * explanation ever outgrows the window.
+ */
 .puzzle-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  column-gap: 28px;
+  row-gap: 18px;
+  height: var(--screen-h);
+  max-width: 1000px;
+}
+
+.puzzle-screen > .puzzle-header,
+.puzzle-screen > .puzzle-table {
+  grid-column: 1;
+}
+
+/* The decision cell: whichever of classify / classify verdict / controls / verdict / complete is up. */
+.puzzle-screen > .puzzle-classify,
+.puzzle-screen > .puzzle-classify-verdict,
+.puzzle-screen > .puzzle-controls,
+.puzzle-screen > .puzzle-verdict,
+.puzzle-screen > .puzzle-complete {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: start;
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  /* Room for the 2px focus ring at a 2px offset inside the scroll box. */
+  padding: 4px;
+  margin: -4px;
+}
+
+/* ─── Header: progress, the jump picker, the module, the title and the setup ─── */
+.puzzle-header {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 560px;
-  margin: 0 auto;
 }
 
 .puzzle-picker-row {
@@ -14,218 +56,182 @@
 }
 
 .puzzle-picker-label {
-  font-size: 12px;
-  color: var(--text-lo);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Jump-to-any-scenario dropdown. A native select so it is compact (one row), keyboard-accessible, and
  * scales to any library size without its own layout budget. */
 .puzzle-picker {
-  font: inherit;
-  font-size: 13px;
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border: 1px solid var(--surface-hi);
-  border-radius: var(--radius-sm);
-  padding: 4px 8px;
+  height: var(--h-sm);
   max-width: 60%;
+  padding: 0 8px;
+  font: inherit;
+  font-size: var(--t-foot);
   cursor: pointer;
 }
 
 .puzzle-picker:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
 
-/* The curriculum module this spot sits in — a quiet caption above the title, so the preflop→river
- * progression is legible while playing. Muted and small so it frames the title without competing. */
+/* The curriculum module this spot sits in — a caption over the title, so the preflop→river
+ * progression is legible while playing. */
 .puzzle-module {
-  font-size: 12px;
-  color: var(--text-lo);
-  margin-top: 6px;
+  margin-top: 10px;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
 }
 
 .puzzle-title {
-  font-size: 20px;
+  margin: 2px 0 0;
+  font-size: var(--t-t2);
   font-weight: 600;
-  margin-top: 2px;
+  letter-spacing: -0.008em;
+  line-height: 1.25;
+  color: var(--ink-1);
 }
 
 .puzzle-setup {
-  color: var(--text-lo);
-  font-size: 14px;
-  line-height: 1.4;
   margin-top: 4px;
-  /* Cap the secondary spot-setup to a comfortable reading measure so it reads as scannable prose
-   * (read-order step 1) rather than a full-width block competing with the title and table. */
-  max-width: 46ch;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 60ch;
 }
 
+/* ─── The table: a flat hairline section — the price line, then the board beside the hero's hand ─── */
 .puzzle-table {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 16px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: var(--elev-1);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  column-gap: 32px;
+  row-gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
-/* The pot governs every price decision, so it renders in full ink and medium weight — the same
- * inverted-hierarchy fix the table's .pot already carries (styles.css). Size unchanged, so no rect
- * moves; text-hi is a neutral high-contrast token, not a severity colour. */
+/* The pot governs every price decision: full ink, medium weight, tabular. */
 .puzzle-pot {
-  font-size: 13px;
-  color: var(--text-hi);
+  flex-basis: 100%;
+  font-size: var(--t-body);
   font-weight: 500;
-  text-align: center;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
 }
 
-/* The price the hero is being laid, shown only when facing a bet. Tabular so the percentage does not
- * jitter, and mint (the reserved "this is the teaching signal" accent) to draw the eye to the number. */
+/* The price the hero is being laid, shown only when facing a bet. Size and weight make it the focal
+ * number; no hue (mint is "your turn" only). It fades in as the bet appears — opacity only. */
 .puzzle-odds {
-  /* The core teaching signal: mint is the reserved teaching accent, and size+weight (not more colour)
-   * make it a focal point. It fades up quickly the moment the hero faces a real bet — opacity-only,
-   * so it cannot nudge geometry — drawing the eye to the price as it appears. */
-  font-size: 16px;
+  flex-basis: 100%;
+  margin-top: -6px;
+  font-size: var(--t-head);
   font-weight: 600;
-  color: var(--mint);
-  text-align: center;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
-  animation: offsuit-surface-in var(--motion-fast) var(--ease-out);
+  animation: offsuit-surface-in var(--dur-3) var(--ease);
 }
 
 .puzzle-board,
 .puzzle-hero {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
 }
 
 .puzzle-board-empty {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
 }
 
 .puzzle-hero-label,
 .puzzle-hero-stack {
-  font-size: 12px;
-  color: var(--text-lo);
-}
-
-.puzzle-controls {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-/* State 1 CLASSIFY — name the spot before acting. A prompt over the closed set of spot-type buttons,
- * and its own verdict block, matching the action controls' surface treatment. The PICKER stays at
- * --elev-1: while classifying, the table is deliberately the focal surface ("read the table"). */
-.puzzle-classify,
-.puzzle-classify-verdict {
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: var(--elev-1);
-  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
-}
-
-/* The classify VERDICT is the graded conclusion of the CLASSIFY state — the analog of
- * .puzzle-verdict / .puzzle-complete, which lift to --elev-2 above the always-rendered table
- * (--elev-1) so the graded conclusion is the one focal surface when it appears. The classify verdict
- * shared the picker's --elev-1 and so had no focal lift; raise it to match the other conclusions. */
-.puzzle-classify-verdict {
-  box-shadow: var(--elev-2);
-}
-
-.puzzle-classify-prompt {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.puzzle-classify-picks {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.puzzle-classify-verdict[data-correct='true'] .puzzle-verdict-head {
-  color: var(--mint);
-}
-
-.puzzle-classify-verdict[data-correct='false'] .puzzle-verdict-head {
-  color: var(--chip-blind);
-}
-
-/* The keyboard shortcut letter, shown after the action label so a learner can drill by keyboard. Muted
- * and small so it reads as a hint, not part of the label; dims with the button when it is disabled. */
-.puzzle-key-hint {
-  margin-left: 6px;
-  font-size: 10px;
-  font-weight: 600;
-  opacity: 0.55;
+  font-size: var(--t-foot);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 
-.puzzle-verdict,
-.puzzle-complete {
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  /* Lift the conclusion above the acting-state table (which sits at --elev-1): verdict and complete are
-   * mutually exclusive with the controls per paint, so this is the one focal surface when it appears. */
-  box-shadow: var(--elev-2);
-  animation: offsuit-panel-in var(--motion-panel) var(--ease-out);
-}
-
-/* The completion screen stacks up to four identical pills; give only the primary forward action more
- * weight (not colour, not a shadow that would fight the focus ring) so one clear next step stands out. */
-.puzzle-complete .pill[data-testid='puzzle-next-scenario'] {
-  font-weight: 600;
-}
-
-.puzzle-verdict[data-correct='true'] .puzzle-verdict-head {
-  color: var(--mint);
-}
-
-.puzzle-verdict[data-correct='false'] .puzzle-verdict-head {
-  color: var(--chip-blind);
-}
-
-/* The graded conclusion the eye lands on — carried by weight and size so it does not lean on the
- * mint/chip-blind text colour to read as the verdict. line-height keeps the longer "Not quite…" tidy. */
-.puzzle-verdict-head {
-  font-weight: 700;
-  font-size: 18px;
-  line-height: 1.3;
-}
-
-.puzzle-explanation {
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-hi);
-}
-
-.puzzle-score {
-  font-size: 15px;
+.puzzle-hero-label {
   font-weight: 500;
 }
 
-/* Per-decision recap on the completion screen: one line per hero decision, coloured like the verdict
- * head (mint correct, chip-blind miss) so the leak reads at a glance without hunting the numbers. */
+/* ─── The decision ─── */
+.puzzle-controls,
+.puzzle-classify-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The shortcut keycap trails the action label (styled by the kit's .g-kbd). */
+.puzzle-controls .pill {
+  padding-right: 8px;
+}
+
+/* State 1 CLASSIFY — name the spot before acting: the prompt, then the closed set of spot types. */
+.puzzle-classify,
+.puzzle-classify-verdict,
+.puzzle-verdict,
+.puzzle-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.puzzle-classify-verdict,
+.puzzle-verdict,
+.puzzle-complete {
+  animation: offsuit-surface-in var(--dur-3) var(--ease);
+}
+
+.puzzle-classify-prompt {
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+/* The graded conclusion: the band sentence, 15/600 ink-1 either way — wording carries right/wrong. */
+.puzzle-verdict-head,
+.puzzle-score {
+  font-size: var(--t-head);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink-1);
+}
+
+.puzzle-explanation {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+/* Completion: the score and the recap, then one row of actions — the forward primary leads, Replay is
+ * tertiary. */
+.puzzle-complete {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 8px;
+}
+
+.puzzle-complete > .puzzle-score,
+.puzzle-complete > .puzzle-recap {
+  flex-basis: 100%;
+}
+
+/* Per-decision recap on the completion screen: one numbered line per hero decision, tertiary numerals
+ * like the drill's method. The wording names the leak; no hue. */
 .puzzle-recap {
+  margin: 0;
+  padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -233,31 +239,80 @@
 }
 
 .puzzle-recap-step {
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-1);
 }
 
 .puzzle-recap-step[data-correct='true'] {
-  color: var(--mint);
+  color: var(--ink-2);
 }
 
-.puzzle-recap-step[data-correct='false'] {
-  color: var(--chip-blind);
-}
-
-/* The tutor rail sits below the spot as its own panel, matching the lesson screen's placement. It is
- * always mounted so the learner can ask deeper questions; before they act it withholds strategy
- * (spot-pre-commit), after a verdict it opens up (spot-post-reveal) — that routing lives in the rail
- * and the mute matrix, not here. */
+/* ─── The tutor rail: the right column behind a hairline, flat (no panel of its own) ─── */
 .puzzle-rail {
   display: block;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  min-height: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--hair);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.puzzle-rail .tutor-rail {
+  gap: 14px;
+  padding: 0 2px 4px 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.puzzle-rail .tutor-rail-title {
+  font-size: var(--t-head);
+  font-weight: 600;
+}
+
+.puzzle-rail .tutor-rail-provenance,
+.puzzle-rail .tutor-rail-empty {
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+}
+
+.puzzle-rail .tutor-turn-body {
+  font-size: var(--t-body);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.puzzle-rail .tutor-turn[data-role='learner'] .tutor-turn-body {
+  font-weight: 400;
+  color: var(--ink-2);
+  border-left-color: var(--hair-strong);
+}
+
+.puzzle-rail .tutor-turn-source {
+  font-size: var(--t-cap);
+  color: var(--ink-3);
+}
+
+.puzzle-rail .lesson-input {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: var(--t-body);
+  resize: none;
+}
+
+.puzzle-rail .tutor-composer .pill {
+  height: var(--h-sm);
+  padding: 0 12px;
+  font-size: var(--t-foot);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .puzzle-verdict,
   .puzzle-complete,
   .puzzle-odds,
-  .puzzle-classify,
   .puzzle-classify-verdict {
     animation: none;
   }

@@ -1,8 +1,11 @@
 /*
- * The Repair tab (contrast-set remediation). Palette and pill shapes come from styles.css — no new
- * colours, and MINT is not used: it belongs to win% and the fluency gate, and severity is not a
- * thing this screen colours. An axis that does not exist in this build is dimmer and un-pill-shaped,
- * which is a statement about the world rather than a lock on a control.
+ * The Repair tab (Train → Leaks, contrast-set remediation), in the drill mock's language: a 22/600
+ * title, the queue as one inset group of openable rows (the only container, because every row opens),
+ * the axis picker as a quiet secondary list (fill-1, no shadow), the contrast set and the worked example
+ * as flat hairline sections, numbered steps with tertiary tabular numerals, and one bone primary
+ * (Adopt this sentence). MINT is not used, and severity is not a thing this screen colours. An axis
+ * that does not exist in this build is a plain hairline row with its reason — a statement about the
+ * world rather than a lock on a control.
  *
  * The column scrolls itself rather than the document, matching .lesson-screen's budget, so the tab
  * bar stays in the viewport at the documented 900x640 minimum.
@@ -11,7 +14,7 @@
 .repair-screen {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   max-width: 720px;
   margin: 0 auto;
   max-height: calc(100vh - 66px);
@@ -26,61 +29,45 @@
   gap: 4px;
 }
 
-.repair-title {
-  font-size: 30px;
-  font-weight: 200;
-  letter-spacing: -0.5px;
-}
-
-.repair-hint {
-  font-size: 12px;
-  color: var(--text-lo);
-  line-height: 1.5;
-}
-
-/* ─── The queue ─── */
-.repair-queue {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
+/* ─── The queue: one inset group ─── */
 .repair-row {
+  gap: 14px;
+}
+
+.repair-row-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--text-hi);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s;
+  gap: 2px;
 }
 
-.repair-row:hover,
 .repair-row[data-selected='true'] {
-  background: var(--surface-hi);
+  background: var(--fill-1);
 }
 
 .repair-row-title {
-  font-size: 15px;
+  font-size: var(--t-head);
   font-weight: 500;
+  color: var(--ink-1);
 }
 
-.repair-row-family,
+.repair-row-family {
+  font-size: var(--t-foot);
+  color: var(--ink-2);
+}
+
 .repair-row-trigger {
-  font-size: 11px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* A fired repair is marked by an outline, never by colour: it is a fact, not an alarm. */
-.repair-row[data-fired='true'] {
-  outline: 1px solid var(--text-lo);
+/* A fired repair is marked by weight and ink on its cost line, never by colour: a fact, not an alarm. */
+.repair-row[data-fired='true'] .repair-row-trigger {
+  color: var(--ink-1);
+  font-weight: 500;
 }
 
 /* ─── One concept ─── */
@@ -92,93 +79,124 @@
 
 .repair-back {
   align-self: flex-start;
+  margin-left: -10px;
 }
 
 .repair-concept-title {
-  font-size: 24px;
-  font-weight: 200;
-  letter-spacing: -0.4px;
-  line-height: 1.2;
+  margin: 0;
 }
 
 .repair-queued {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
 }
 
-/* ─── Axis offers ─── */
+/* The learner's own sentence, quoted back behind a hairline. */
+.lexicon-quote {
+  font-size: var(--t-head);
+  line-height: 1.5;
+  color: var(--ink-1);
+  padding-left: 12px;
+  border-left: 2px solid var(--hair-strong);
+}
+
+/* ─── Axis offers: a secondary picker, then the absent axes as hairline rows ─── */
 .axis-offers {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+  padding-top: 2px;
 }
 
 .axis-offer {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 1px;
   max-width: 100%;
 }
 
-.axis-offer.pill {
-  padding: 8px 14px;
+button.axis-offer {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
-.axis-offer[data-selected='true'].pill {
-  background: var(--card-face);
-  color: var(--ink);
+button.axis-offer:hover {
+  background: var(--fill-0);
+  color: var(--ink-1);
+}
+
+button.axis-offer:active {
+  background: var(--fill-1);
+}
+
+button.axis-offer:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* Selected: the quieter secondary-list fill (fill-1, no shadow), not the toolbar thumb. */
+button.axis-offer[data-selected='true'] {
+  background: var(--fill-1);
+  color: var(--ink-1);
 }
 
 .axis-offer-name {
-  font-size: 13px;
+  font-size: var(--t-body);
+  font-weight: 500;
 }
 
 .axis-offer-meta {
-  font-size: 11px;
-  opacity: 0.75;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Absent, not withheld: no pill shape, so it never reads as a control someone disabled. */
+/* Absent, not withheld: no control shape, so it never reads as a control someone disabled. */
 .axis-offer-absent {
   flex: 1 1 100%;
   padding: 8px 0;
-  border-top: 1px solid var(--surface-hi);
-  color: var(--text-lo);
+  border-top: 1px solid var(--hair);
+  color: var(--ink-2);
 }
 
 .axis-offer-reason {
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
-/* ─── The set ─── */
+/* ─── The set: flat hairline sections, one per position ─── */
 .contrast-set {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
 }
 
 .contrast-claim {
-  font-size: 14px;
-  font-weight: 300;
-  line-height: 1.55;
+  margin: 0 0 6px;
+  line-height: 1.45;
+  color: var(--ink-1);
 }
 
 .contrast-spots {
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
 .contrast-spot {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hair);
 }
 
 .contrast-cards {
@@ -203,109 +221,121 @@
 }
 
 .contrast-noboard {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
 }
 
-/* The toggled dimension is the loudest line in the pod, because it is the entire lesson. */
+/* The toggled dimension is the loudest line in the pod, because it is the entire lesson: the 15/600
+ * sentence. */
 .contrast-toggled {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
 }
 
 .contrast-held {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  gap: 4px 14px;
 }
 
 .contrast-held-cell {
-  font-size: 11px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
 .contrast-facts {
-  font-size: 11px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ─── The worked example (S2's floor) ─── */
+/* ─── The worked example (S2's floor): the mock's numbered method ─── */
 .worked-example {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
 }
 
 .worked-steps {
+  counter-reset: worked;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
 }
 
 .worked-step {
-  font-size: 14px;
-  font-weight: 300;
-  line-height: 1.55;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-1);
+}
+
+/* Tertiary tabular numerals inside the content edge. */
+.worked-step::before {
+  counter-increment: worked;
+  content: counter(worked);
+  padding-top: 1px;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .worked-reason,
 .worked-floor {
-  font-size: 11px;
-  color: var(--text-lo);
-  line-height: 1.45;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  line-height: 1.5;
 }
 
-/* ─── Lexicon: name the concept (L1/L2/L3) ───────────────────────────────────
+/* ─── Lexicon: name the concept (L1/L2/L3), a flat hairline section ──────────
  * Sits under the resolved contrast set: the learner writes the one mechanism sentence that names what
  * flipped the answer. Severity is by WEIGHT and WORDING, never colour (V2 parity with the drills): an
- * accepted sentence gets a quiet confirmation, a rejected one states its correction in fuller contrast.
- * The adopted quote is the light-weight recital the lesson lexicon uses, so the two surfaces read alike. */
+ * accepted sentence gets a quiet confirmation, a rejected one states its correction in full ink. */
 .lexicon-panel {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px;
-}
-
-.lexicon-quote {
-  font-size: 15px;
-  font-weight: 300;
-  line-height: 1.5;
-  color: var(--text-hi);
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
 }
 
 .lexicon-prompt {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-2);
   line-height: 1.5;
 }
 
+/* The kit's field: 3% fill, a strong hairline, r8, the 1.5px focus ring. */
 .lexicon-input {
   width: 100%;
   box-sizing: border-box;
   resize: vertical;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--t-body);
   line-height: 1.5;
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 10px 12px;
+  color: var(--ink-1);
+  background: var(--fill-0);
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--r-ctl);
+  padding: 8px 10px;
+}
+
+.lexicon-input::placeholder {
+  color: var(--ink-3);
 }
 
 .lexicon-input:focus {
-  outline: none;
-  border-color: var(--card-face);
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 
 .lexicon-feedback {
@@ -314,28 +344,39 @@
   flex-wrap: wrap;
   gap: 8px;
   min-height: 18px;
-  font-size: 12px;
+  font-size: var(--t-body);
   line-height: 1.5;
-  color: var(--text-lo);
+  color: var(--ink-2);
 }
 
-/* The correction is the loud one: full contrast, medium weight. Acceptance stays quiet — silence is not praise. */
+/* The correction is the loud one: full ink, 600. Acceptance stays quiet — silence is not praise. */
 .lexicon-feedback[data-verdict='rejected'] .lexicon-verdict {
-  color: var(--text-hi);
+  color: var(--ink-1);
   font-weight: 600;
 }
 
 .lexicon-feedback[data-verdict='accepted'] .lexicon-verdict {
-  color: var(--text-lo);
+  color: var(--ink-2);
   font-weight: 400;
 }
 
+/* Neutral tags (r4), sentence-cased from the authored lowercase; no uppercase eyebrow. */
 .lexicon-frame,
 .lexicon-pushback {
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  display: inline-block;
+  font-size: var(--t-cap);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.lexicon-frame {
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  background: var(--fill-1);
+}
+
+.lexicon-frame::first-letter {
   text-transform: uppercase;
-  color: var(--text-lo);
 }
 
 .lexicon-adopted {
@@ -343,28 +384,31 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding-top: 4px;
+  padding-top: 6px;
 }
 
 .lexicon-adopted-row {
-  font-size: 13px;
-  font-weight: 300;
+  font-size: var(--t-body);
   line-height: 1.5;
-  color: var(--text-lo);
+  color: var(--ink-2);
+  padding: 6px 0;
+  border-top: 1px solid var(--hair);
 }
 
 /* The 900x640 minimum: trim the vertical slack, never the content. */
 @media (max-height: 700px) {
   .repair-screen {
-    gap: 12px;
-  }
-
-  .repair-title {
-    font-size: 24px;
+    gap: 14px;
   }
 
   .contrast-spot {
-    padding: 10px;
+    padding: 10px 0;
     gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.axis-offer {
+    transition: none;
   }
 }

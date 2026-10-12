@@ -395,7 +395,7 @@ function renderRegistration(opts: {
   panel.dataset.testid = 'registration-panel';
 
   panel.appendChild(text('div', 'stat-label', `Dossier — ${VILLAIN}`));
-  const villain = text('div', 'dossier-villain', VILLAIN);
+  const villain = text('div', 'dossier-villain t-t2', VILLAIN);
   villain.dataset.testid = 'villain-name';
   panel.appendChild(villain);
 
@@ -426,7 +426,7 @@ function renderRegistration(opts: {
   panel.appendChild(text('div', 'stat-label', 'Tendencies you might think you see'));
 
   const list = document.createElement('ul');
-  list.className = 'dossier-tendency-list';
+  list.className = 'dossier-tendency-list g-group';
   list.dataset.testid = 'tendency-list';
 
   for (const tendency of TENDENCIES) {
@@ -454,7 +454,7 @@ function renderRegistration(opts: {
 
     const register = document.createElement('button');
     register.type = 'button';
-    register.className = 'pill dossier-mini';
+    register.className = 'pill sm dossier-mini';
     register.dataset.testid = 'prereg-btn';
     register.dataset.tendency = tendency.id;
     register.textContent = track?.preRegistered === true ? 'pre-registered' : 'pre-register';
@@ -463,7 +463,7 @@ function renderRegistration(opts: {
 
     const notebook = document.createElement('button');
     notebook.type = 'button';
-    notebook.className = 'pill dossier-mini';
+    notebook.className = 'pill sm quiet dossier-mini';
     notebook.dataset.testid = 'notebook-btn';
     notebook.dataset.tendency = tendency.id;
     notebook.textContent = 'notebook';
@@ -484,7 +484,7 @@ function renderRegistration(opts: {
 
   panel.appendChild(text('div', 'stat-label', "Notebook — next session's hypotheses"));
   const notebookList = document.createElement('ul');
-  notebookList.className = 'dossier-notebook';
+  notebookList.className = 'dossier-notebook g-flat';
   notebookList.dataset.testid = 'notebook-list';
   const noted = TENDENCIES.filter((t) => opts.tracks.get(t.id)?.inNotebook === true);
   if (noted.length === 0) {
@@ -550,13 +550,13 @@ function renderFalseReadArithmetic(): HTMLElement {
 
 function rateRow(testid: string, rate: number, label: string): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'dossier-rate-row';
+  row.className = 'dossier-rate-row g-stat';
   row.dataset.testid = testid;
   row.dataset.rate = rate.toFixed(6);
 
-  const value = text('span', 'dossier-rate-value', percent(rate));
+  const value = text('span', 'dossier-rate-value g-num', percent(rate));
   row.appendChild(value);
-  row.appendChild(text('span', 'dossier-rate-label', label));
+  row.appendChild(text('span', 'dossier-rate-label g-label', label));
   return row;
 }
 
@@ -583,7 +583,7 @@ function renderStream(opts: {
   panel.dataset.testid = 'stream-panel';
 
   panel.appendChild(text('div', 'stat-label', 'Observing'));
-  const subject = text('div', 'dossier-subject', opts.tendency.label);
+  const subject = text('div', 'dossier-subject t-t3', opts.tendency.label);
   subject.dataset.testid = 'stream-subject';
   subject.dataset.tendency = opts.tendency.id;
   panel.appendChild(subject);
@@ -821,7 +821,7 @@ function renderRevert(
 
   const end = document.createElement('button');
   end.type = 'button';
-  end.className = 'pill dossier-mini';
+  end.className = 'pill sm dossier-mini';
   end.dataset.testid = 'end-session-btn';
   end.textContent = 'end session';
   end.addEventListener('click', onEndSession);
@@ -863,7 +863,7 @@ function counter(
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'pill dossier-mini';
+  button.className = 'pill sm dossier-mini';
   button.dataset.testid = buttonTestid;
   button.textContent = label;
   button.addEventListener('click', onClick);
@@ -893,7 +893,7 @@ function renderPlan(opts: {
   panel.appendChild(text('div', 'stat-label', 'R3 — the ledger, ranked by reach × bb'));
 
   const nodeList = document.createElement('ul');
-  nodeList.className = 'dossier-node-list';
+  nodeList.className = 'dossier-node-list g-flat';
   nodeList.dataset.testid = 'node-list';
   for (const node of rankNodes(NODES)) {
     const row = document.createElement('li');
@@ -926,7 +926,7 @@ function renderPlan(opts: {
   panel.appendChild(text('div', 'stat-label', `Active deviations — at most ${MAX_ACTIVE_DEVIATIONS}`));
 
   const active = document.createElement('ul');
-  active.className = 'dossier-plan-list';
+  active.className = 'dossier-plan-list g-flat';
   active.dataset.testid = 'plan-active';
   if (opts.plan.active.length === 0) {
     const none = text('li', 'dossier-plan-empty', 'None. Baseline everywhere, which is the default and not a failure.');
@@ -955,7 +955,7 @@ function renderPlan(opts: {
 
   panel.appendChild(text('div', 'stat-label', 'Dropped, and why'));
   const dropped = document.createElement('ul');
-  dropped.className = 'dossier-plan-list';
+  dropped.className = 'dossier-plan-list g-flat';
   dropped.dataset.testid = 'plan-dropped';
   for (const drop of opts.plan.dropped) {
     const row = document.createElement('li');
@@ -1046,10 +1046,10 @@ function labelOf(tendencyId: string): string {
 
 function figure(testid: string, value: string, label: string): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'dossier-figure';
+  row.className = 'dossier-figure g-stat';
   row.dataset.testid = testid;
-  row.appendChild(text('span', 'dossier-figure-value', value));
-  row.appendChild(text('span', 'dossier-figure-label', label));
+  row.appendChild(text('span', 'dossier-figure-value g-num', value));
+  row.appendChild(text('span', 'dossier-figure-label g-label', label));
   return row;
 }
 

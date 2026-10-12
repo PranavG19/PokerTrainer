@@ -134,7 +134,7 @@ function renderLadder(): HTMLElement {
   section.appendChild(label('The waves, and the gap to the one before'));
 
   const list = document.createElement('ol');
-  list.className = 'wave-list';
+  list.className = 'wave-list g-flat';
 
   WAVES.forEach((wave, index) => {
     const previous = index === 0 ? null : WAVES[index - 1];
@@ -226,7 +226,7 @@ function renderQueue(due: readonly DueRep[]): HTMLElement {
   }
 
   const list = document.createElement('ol');
-  list.className = 'due-rows';
+  list.className = 'due-rows g-flat';
 
   due.forEach((rep, index) => {
     const row = document.createElement('li');
@@ -323,7 +323,7 @@ function renderConcept(
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'pill probe-miss';
+  button.className = 'pill sm probe-miss';
   button.dataset.testid = 'probe-miss';
   button.dataset.concept = state.id;
   button.textContent = 'Record a decay-probe miss';
@@ -399,7 +399,7 @@ function cell(testid: string, text: string): HTMLElement {
 
 function label(text: string): HTMLElement {
   const el = document.createElement('div');
-  el.className = 'stat-label';
+  el.className = 'stat-label g-label';
   el.textContent = text;
   return el;
 }

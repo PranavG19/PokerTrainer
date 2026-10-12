@@ -1,5 +1,6 @@
 import type { Grade } from '../../core/coach.js';
 import type { ReasonAdjustedGrade } from '../../core/reasonGrade.js';
+import { warningIcon } from './glyphs.js';
 
 /**
  * The coach panel. The silence rule is the feature: a 'free' grade (<0.5bb) produces no output at
@@ -20,6 +21,20 @@ export function renderCoachPanel(onGateSubmit: () => void = () => {}): HTMLEleme
   // budget (the 900x640 column has none to spare). Hidden until a gate fires; while open it shows a
   // draining budget bar, the fixed mechanism prompt, an attempt counter, a one-line input and a
   // submit. It deliberately does NOT set data-severity — the tier is withheld until the reveal.
+  // The verdict's head: the severity (a glyph plus the word, so it is never colour alone) and, on the
+  // right, what the verdict is about ("On the flop, you folded to 75"), set by the table.
+  const head = document.createElement('div');
+  head.className = 'coach-head';
+  const sev = document.createElement('span');
+  sev.className = 'coach-sev';
+  sev.dataset.testid = 'coach-severity';
+  sev.append(warningIcon(), document.createElement('span'));
+  const ctx = document.createElement('span');
+  ctx.className = 'coach-ctx';
+  ctx.dataset.testid = 'coach-context';
+  head.append(sev, ctx);
+  root.appendChild(head);
+
   const gate = document.createElement('div');
   gate.className = 'coach-gate';
   gate.dataset.testid = 'coach-gate';
@@ -87,6 +102,25 @@ export function renderCoachPanel(onGateSubmit: () => void = () => {}): HTMLEleme
   // G4's separate reason verdict (story 14). Its own element so it renders independently of the EV
   // grade above: a decision can be EV-free yet "right for the wrong reason", which is precisely the
   // case the panel must be able to show when the severity line is silent.
+  // The price meter: a 4px bar, a dim fill to the hand's share, a bright band for the gap between that
+  // and the price, a coral tick at the price, and 0 / 100% endpoints. The insight is the gap.
+  const meter = document.createElement('div');
+  meter.className = 'coach-meter';
+  meter.dataset.testid = 'coach-meter';
+  meter.setAttribute('role', 'img');
+  meter.hidden = true;
+  for (const part of ['bar', 'fill', 'gap', 'need']) {
+    const el = document.createElement('div');
+    el.className = `coach-meter-${part}`;
+    meter.appendChild(el);
+  }
+  for (const part of ['end-lo', 'lab-need', 'lab-had', 'end-hi']) {
+    const el = document.createElement('span');
+    el.className = `coach-meter-${part}`;
+    meter.appendChild(el);
+  }
+  root.appendChild(meter);
+
   const reasonNote = document.createElement('div');
   reasonNote.className = 'coach-reason-note';
   reasonNote.dataset.testid = 'coach-reason-note';
@@ -110,6 +144,9 @@ export function showGrade(el: HTMLElement, grade: Grade): void {
   el.dataset.severity = grade.severity;
   el.hidden = false;
   message.textContent = grade.message;
+  const sevWord = el.querySelector<HTMLElement>('.coach-sev > span');
+  if (sevWord) sevWord.textContent = grade.severity === 'serious' ? 'Serious' : 'Notable';
+  paintMeter(el, grade.price);
   principle.textContent = grade.principle
     ? `${grade.principle} · ${grade.evLossBb.toFixed(1)} bb`
     : `${grade.evLossBb.toFixed(1)} bb`;
@@ -122,6 +159,37 @@ export function showGrade(el: HTMLElement, grade: Grade): void {
  * the escalated case (an explicit guess) is the whole point of surfacing it. Passing an adjusted with
  * rightForWrongReason false clears the note without touching the EV grade line.
  */
+const pct = (x: number): string => `${Math.round(x * 100)}%`;
+
+function paintMeter(el: HTMLElement, price: Grade['price']): void {
+  const meter = el.querySelector<HTMLElement>('[data-testid="coach-meter"]');
+  if (!meter) return;
+  if (!price) {
+    meter.hidden = true;
+    return;
+  }
+  meter.hidden = false;
+  meter.style.setProperty('--need', pct(price.needed));
+  meter.style.setProperty('--had', pct(price.had));
+  meter.style.setProperty('--lo', pct(Math.min(price.needed, price.had)));
+  meter.style.setProperty('--hi', pct(Math.max(price.needed, price.had)));
+  meter.setAttribute('aria-label', `Needed ${pct(price.needed)} pot share, you had ${pct(price.had)}`);
+  const set = (cls: string, text: string): void => {
+    const node = meter.querySelector<HTMLElement>(`.coach-meter-${cls}`);
+    if (node) node.textContent = text;
+  };
+  set('end-lo', '0');
+  set('end-hi', '100%');
+  set('lab-need', `needed ${pct(price.needed)}`);
+  set('lab-had', `you had ${pct(price.had)}`);
+}
+
+/** What the verdict is about, in the head's right-hand caption. */
+export function setCoachContext(el: HTMLElement, text: string): void {
+  const ctx = el.querySelector<HTMLElement>('[data-testid="coach-context"]');
+  if (ctx) ctx.textContent = text;
+}
+
 export function showReasonNote(el: HTMLElement, adjusted: ReasonAdjustedGrade): void {
   const note = el.querySelector<HTMLElement>('[data-testid="coach-reason-note"]');
   if (!note) return;
@@ -231,6 +299,8 @@ export function clearCoach(el: HTMLElement): void {
     reasonNote.textContent = '';
     reasonNote.hidden = true;
   }
+  paintMeter(el, undefined);
+  setCoachContext(el, '');
   // A stray open gate is wiped too (tab-switch mid-gate), and its attempt count reset — unlike
   // clearGate, this is a full reset, so the next hand starts with no gate residue.
   clearGate(el);

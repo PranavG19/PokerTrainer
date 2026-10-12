@@ -1,124 +1,209 @@
-/* EQUITY CALCULATOR — a standalone tool over the verified equity engine. */
-
+/*
+ * EQUITY CALCULATOR — a standalone tool over the verified equity engine, in the Charts mock's layout:
+ * a 288px side column with a right hairline (the inputs, the villain segmented control, the one
+ * primary action) and the main column (the result, and the villain's range on the shared grid
+ * language from styles-charts.css). The screen is exactly the shell's height; the side column scrolls
+ * itself if it ever has to, the page never does.
+ */
 .equity-screen {
+  box-sizing: border-box;
+  height: var(--screen-h);
+  display: grid;
+  grid-template-columns: 288px minmax(0, 1fr);
+  column-gap: 24px;
+}
+
+.equity-side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-  max-width: 760px;
+  gap: 14px;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 20px 16px 0;
+  border-right: 1px solid var(--hair);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.equity-side > * {
+  flex: none;
 }
 
 .equity-title {
   margin: 0;
+  color: var(--ink-1);
 }
-
 .equity-lede {
   margin: 0;
-  color: var(--muted, #9aa0a6);
-  font-size: 0.9rem;
 }
 
+/* ─── Fields: the kit's field face (styles-glass.css), a 12/500 label, a caption hint ─── */
 .equity-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
-
-.equity-field label {
-  font-size: 0.85rem;
-  font-weight: 600;
+.equity-field > label {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
-
 .equity-field input[type='text'] {
-  padding: 6px 8px;
-  font-family: inherit;
-  font-size: 0.95rem;
+  box-sizing: border-box;
+  height: var(--h-ctl);
+  padding: 0 10px;
+  font: inherit;
+  font-size: var(--t-body);
 }
-
+/* `hidden` must win over the field's own display (the villain inputs toggle with the mode). */
+.equity-field[hidden] {
+  display: none;
+}
 .equity-field .equity-hint {
-  font-size: 0.8rem;
-  color: var(--muted, #9aa0a6);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+}
+.equity-side .pill.primary {
+  align-self: flex-start;
 }
 
+/* ─── Villain: a segmented control whose segments are the radios' labels. The radio stays the real
+ * control (visually hidden, still focusable); its focus ring is drawn on the segment. ─── */
 .equity-modes {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  align-self: flex-start;
 }
-
-.equity-modes label {
+.equity-mode {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.9rem;
+  height: calc(var(--h-sm) - 4px);
+  padding: 0 10px;
+  border-radius: var(--r-thumb);
+  font-size: var(--t-body);
+  color: var(--ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
 }
-
-.equity-range-grid {
-  display: grid;
-  grid-template-columns: repeat(13, 1fr);
-  gap: 2px;
-  max-width: 520px;
+.equity-mode:hover {
+  color: var(--ink-1);
+  background: var(--fill-0);
 }
-
-.equity-range-cell {
-  font-size: 0.65rem;
-  padding: 3px 0;
-  border: 1px solid var(--line, #444);
-  background: transparent;
-  color: inherit;
+.equity-mode:active {
+  background: var(--fill-1);
+}
+.equity-mode[data-selected='true'] {
+  color: var(--ink-1);
+  font-weight: 500;
+  background: none;
+}
+.equity-mode:has(input:focus-visible) {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+/* The radio covers its segment, invisible, so a click anywhere on the segment lands on the real control. */
+.equity-mode input[type='radio'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
   cursor: pointer;
 }
 
-.equity-range-cell[data-selected='true'] {
-  background: var(--accent, #3a7);
-  color: #fff;
+.equity-error {
+  font-size: var(--t-foot);
+  color: var(--coral);
+}
+.equity-error:empty {
+  display: none;
 }
 
-.equity-range-controls {
+/* ─── Main column: the result over the range grid ─── */
+.equity-main {
   display: flex;
-  gap: 8px;
-  align-items: center;
-  font-size: 0.85rem;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+.equity-main > :not(.equity-range-panel) {
+  flex: none;
+}
+.equity-placeholder {
+  margin: 0;
+  padding-top: 4px;
 }
 
+/* The result is informational, so it is flat: a headline stat, the cards, the win/tie/lose line, then
+ * the made-hand chances as a hairline list in columns. No card of its own. */
 .equity-result {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--line, #444);
-  border-radius: 6px;
+  gap: 10px;
 }
-
+.equity-result[hidden] {
+  display: none;
+}
+.equity-result-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
 .equity-value {
-  font-size: 2rem;
-  font-weight: 700;
+  color: var(--ink-1);
 }
-
+.equity-shown {
+  display: flex;
+  gap: 12px;
+}
+.equity-shown .board {
+  display: flex;
+  gap: 3px;
+}
 .equity-breakdown {
   display: flex;
   gap: 16px;
+  font-size: var(--t-body);
+  color: var(--ink-2);
 }
-
 .equity-cats {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 24px;
 }
-
+/* .g-flat draws a hairline between successive rows; in columns, every row carries its own top line. */
+.equity-cats.g-flat > * {
+  border-top: 1px solid var(--hair);
+}
 .equity-cat {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  font-size: 0.85rem;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: var(--t-foot);
+  color: var(--ink-2);
 }
-
+.equity-cat > :last-child {
+  color: var(--ink-1);
+}
 .equity-note {
-  font-size: 0.8rem;
-  color: var(--muted, #9aa0a6);
+  margin: 0;
 }
 
-.equity-error {
-  color: var(--danger, #e06);
-  font-size: 0.9rem;
+/* The range panel: Clear and the count over the grid, the grid filling what is left. */
+.equity-range-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+}
+.equity-range-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.equity-range-grid {
+  flex: 1 1 auto;
+  min-height: 0;
 }

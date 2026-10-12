@@ -101,6 +101,10 @@ export function updateStatsSheet(
 export function toggleStatsSheet(el: HTMLElement, open?: boolean): void {
   const next = open ?? el.dataset.open !== 'true';
   el.dataset.open = String(next);
+  el.querySelector('.stats-header')?.setAttribute('aria-expanded', String(next));
+  // The table's Stats button is a second toggle for the same sheet; it listens for this to keep its
+  // aria-expanded in step whichever one was used.
+  el.dispatchEvent(new CustomEvent('stats-toggle', { detail: next }));
 }
 
 function categoryRow(name: string, chance: number): HTMLElement {

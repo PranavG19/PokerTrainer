@@ -448,8 +448,9 @@ test.describe('R8 home screen', () => {
         const source = byNumber.get(row.hand);
         expect(source, `no fixture hand #${row.hand}`).toBeDefined();
         expect(row.cards, `hole cards of hand #${row.hand}`).toEqual(source?.hole);
-        expect(row.net, `net of hand #${row.hand}`).toMatch(/^[+-]\d+$/);
-        expect(Number(row.net)).toBe(source?.net);
+        // Signed with the true minus (U+2212), the glyph that sets at the plus sign's width.
+        expect(row.net, `net of hand #${row.hand}`).toMatch(/^[+\u2212]\d+$/);
+        expect(Number(row.net.replace('\u2212', '-'))).toBe(source?.net);
       }
 
       // Scenario 3: the numeral is the persisted number, not a coincidence.
@@ -507,7 +508,7 @@ test.describe('R8 home screen', () => {
       );
       expect(rowCards).toEqual(dealt);
       // "0" is a legal rendering now: a break-even hand carries no sign (see test 10).
-      await expect(page.locator(`${handRow} .hand-net`)).toHaveText(/^(0|[+-]\d+)$/);
+      await expect(page.locator(`${handRow} .hand-net`)).toHaveText(/^(0|[+\u2212]\d+)$/);
 
       expect(await readBankrollNumeral(page)).toBe(readPersistedBankroll(userDataDir));
 
@@ -769,7 +770,7 @@ test.describe('R8 home screen — a break-even hand', () => {
       const loss = byHand.get(2);
       const flat = byHand.get(1);
       expect(win?.text).toBe('+50');
-      expect(loss?.text).toBe('-50');
+      expect(loss?.text).toBe('\u221250');
 
       // No "+" on a hand that won nothing.
       expect(flat?.text, 'a break-even hand must not carry a plus sign').toBe('0');
@@ -1151,11 +1152,18 @@ test.describe('the bankroll headline is colour-coded like the rows beneath it', 
     const { page, close } = await launchApp({ seed: 42, userDataDir });
     try {
       await page.waitForSelector(sel.bankroll);
+      // The glass headline carries its win/loss reading on the delta beside the figure (the figure is a
+      // balance, so it is neutral ink by the colour role map). The loss must still be visible in the
+      // headline, and in the same red as a losing row.
       const colours = await page.evaluate(() => ({
-        headline: getComputedStyle(document.querySelector('[data-testid="bankroll"]')!).color,
+        figure: getComputedStyle(document.querySelector('[data-testid="bankroll"]')!).color,
+        delta: getComputedStyle(document.querySelector('[data-testid="bankroll-delta"]')!).color,
+        deltaText: document.querySelector('[data-testid="bankroll-delta"]')!.textContent,
         row: getComputedStyle(document.querySelector('.hand-net')!).color,
       }));
-      expect(colours.headline, 'one loss colour, not two').toBe(colours.row);
+      expect(colours.deltaText, 'the headline states the loss').toBe('\u221215000');
+      expect(colours.delta, 'one loss colour, not two').toBe(colours.row);
+      expect(colours.figure, 'the balance itself is not painted as the loss').not.toBe(colours.row);
     } finally {
       await close();
     }

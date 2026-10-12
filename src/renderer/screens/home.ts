@@ -5,6 +5,7 @@ import type { Source, Suggestion } from '../../core/recommend.js';
 import { renderCard } from '../components/card.js';
 import { renderRecommendation, type RecommendationHandlers } from '../components/recommendation.js';
 import { renderSessionPlanner } from './sessionPlan.js';
+import { chevron, iconTile, peopleIcon, spadeIcon } from '../components/glyphs.js';
 
 const RECENT_LIMIT = 5;
 
@@ -41,7 +42,13 @@ export function renderHome(opts: {
   root.className = 'home-screen';
   root.dataset.testid = 'home-screen';
 
-  root.appendChild(renderHeadline(opts.session.bankroll, opts.standing));
+  // The launcher column (headline, suggestion, the two launch rows, recent hands); the planner takes the
+  // second column. Order inside the column is the order the rest of the suite drives.
+  const col = document.createElement('div');
+  col.className = 'home-col';
+  root.appendChild(col);
+
+  col.appendChild(renderHeadline(opts.session.bankroll, opts.standing));
 
   /*
    * FIRST, ABOVE THE SESSION BUTTON. N5 calls Home "a launcher, not a surface", and the one thing a
@@ -49,7 +56,7 @@ export function renderHome(opts: {
    * rather than under the hand history where it would be a footnote.
    */
   if (opts.recommendation && opts.recommendationHandlers) {
-    root.appendChild(
+    col.appendChild(
       renderRecommendation({
         suggestion: opts.recommendation.suggestion,
         askPreference: opts.recommendation.askPreference,
@@ -58,19 +65,13 @@ export function renderHome(opts: {
     );
   }
 
-  // The two launch cards sit side by side rather than stacked: Home is exactly 640px at the minimum
-  // window with no spare height (session-plan.spec test 17), so a second stacked card grew a page
-  // scrollbar. A row adds the multiplayer entry at zero net height.
-  if (opts.onPlayWithFriends) {
-    const cards = document.createElement('div');
-    cards.className = 'home-session-cards';
-    cards.appendChild(renderNewSessionCard(opts.onNewSession));
-    cards.appendChild(renderPlayWithFriendsCard(opts.onPlayWithFriends));
-    root.appendChild(cards);
-  } else {
-    root.appendChild(renderNewSessionCard(opts.onNewSession));
-  }
-  root.appendChild(renderRecentHands(opts.session.hands, opts.onOpenHand));
+  // One inset group of launch rows (the mock's grouped list): New session, then Play with friends.
+  const launch = document.createElement('div');
+  launch.className = 'g-group home-launch';
+  launch.appendChild(renderNewSessionCard(opts.onNewSession));
+  if (opts.onPlayWithFriends) launch.appendChild(renderPlayWithFriendsCard(opts.onPlayWithFriends));
+  col.appendChild(launch);
+  col.appendChild(renderRecentHands(opts.session.hands, opts.onOpenHand));
   /**
    * S1's "Start session" lives here because N5 makes home the launcher: choosing how long you are
    * sitting down for is the launch decision, not a surface to visit. Last in DOM order so the
@@ -111,18 +112,18 @@ function renderHeadline(bankroll: number, standing?: { depth: number; label: str
 
 function renderStanding(standing: { depth: number; label: string; form?: string }): HTMLElement {
   const block = document.createElement('div');
-  block.className = 'home-standing';
+  block.className = 'home-standing g-stat';
   block.dataset.testid = 'home-standing';
   block.dataset.depth = String(standing.depth);
 
   const value = document.createElement('div');
-  value.className = 'home-standing-value';
+  value.className = 'home-standing-value t-head';
   value.dataset.testid = 'home-standing-label';
   value.textContent = standing.label;
   block.appendChild(value);
 
   const caption = document.createElement('div');
-  caption.className = 'stat-label';
+  caption.className = 'stat-label g-label';
   caption.dataset.testid = 'home-standing-caption';
   // The caption carries the SEPARATE live "current form" reading when there is one to show — a bad run
   // surfaces HERE, never as a demotion of the ratcheted depth above. 'settling' means "not enough to say"
@@ -151,67 +152,76 @@ function renderStanding(standing: { depth: number; label: string; form?: string 
 
 function renderBankroll(bankroll: number): HTMLElement {
   const block = document.createElement('div');
-  block.className = 'home-bankroll';
+  block.className = 'home-bankroll g-stat';
 
-  const value = document.createElement('div');
+  const line = document.createElement('div');
+  line.className = 'home-bankroll-line';
+  const value = document.createElement('span');
   const rounded = Math.round(bankroll);
-  // Same win/loss colouring as the hand rows below. Without it the headline number — the most
-  // prominent thing on the screen — was the only figure not colour-coded, so a bankroll of -5000
-  // (reachable: three busts and rebuys off a 10000 start) read as plain white next to red rows.
+  // The figure is a balance, so it is neutral ink (colour role map: mint is never a balance). The win/
+  // loss reading the headline owes (a -5000 bankroll must not read as plain white next to red rows) is
+  // the delta beside it, in the same mint/coral as the hand rows below.
   const direction = rounded > DEFAULT_BANKROLL ? 'net-up' : rounded < DEFAULT_BANKROLL ? 'net-down' : 'net-flat';
-  value.className = `bankroll ${direction}`;
+  value.className = 'bankroll t-hero';
   value.dataset.testid = 'bankroll';
   value.dataset.direction = direction;
   // Plain digits, no separators: the e2e suite parses this text as a number.
   value.textContent = String(rounded);
-  block.appendChild(value);
+  line.appendChild(value);
+
+  const change = rounded - DEFAULT_BANKROLL;
+  if (change !== 0) {
+    const delta = document.createElement('span');
+    delta.className = `bankroll-delta ${direction}`;
+    delta.dataset.testid = 'bankroll-delta';
+    delta.textContent = formatNet(change);
+    delta.setAttribute('aria-label', `${change > 0 ? 'up' : 'down'} ${Math.abs(change)} from the start`);
+    line.appendChild(delta);
+  }
+  block.appendChild(line);
 
   const label = document.createElement('div');
-  label.className = 'stat-label';
+  label.className = 'stat-label g-label';
   label.textContent = 'Bankroll';
   block.appendChild(label);
 
   return block;
 }
 
+/** A launcher row: icon tile, title over a one-line caption, trailing chevron. */
+function launchRow(testid: string, icon: SVGSVGElement, title: string, meta: string, onClick: () => void): HTMLElement {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'g-row session-card';
+  row.dataset.testid = testid;
+  row.addEventListener('click', onClick);
+
+  const text = document.createElement('span');
+  text.className = 'session-card-text';
+  const t = document.createElement('span');
+  t.className = 'session-card-title t-head';
+  t.textContent = title;
+  const m = document.createElement('span');
+  m.className = 'session-card-meta g-caption';
+  m.textContent = meta;
+  text.append(t, m);
+
+  row.append(iconTile(icon), text, chevron());
+  return row;
+}
+
 function renderNewSessionCard(onNewSession: () => void): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'session-card';
-  card.dataset.testid = 'new-hand';
-  card.addEventListener('click', onNewSession);
-
-  const title = document.createElement('span');
-  title.className = 'session-card-title';
-  title.textContent = 'New session';
-  card.appendChild(title);
-
-  const meta = document.createElement('span');
-  meta.className = 'session-card-meta';
-  meta.textContent = 'Sit down and play a hand with the coach watching';
-  card.appendChild(meta);
-
-  return card;
+  return launchRow('new-hand', spadeIcon(), 'New session', 'Sit down and play a hand with the coach watching', onNewSession);
 }
 
 function renderPlayWithFriendsCard(onPlayWithFriends: () => void): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'session-card';
-  card.dataset.testid = 'play-with-friends';
-  card.addEventListener('click', onPlayWithFriends);
-
-  const title = document.createElement('span');
-  title.className = 'session-card-title';
-  title.textContent = 'Play with friends';
-  card.appendChild(title);
-
-  const meta = document.createElement('span');
-  meta.className = 'session-card-meta';
-  meta.textContent = 'Host or join a table on your local network';
-  card.appendChild(meta);
-
-  return card;
+  return launchRow(
+    'play-with-friends',
+    peopleIcon(),
+    'Play with friends',
+    'Host or join a table on your local network',
+    onPlayWithFriends,
+  );
 }
 
 function renderRecentHands(
@@ -221,8 +231,9 @@ function renderRecentHands(
   const section = document.createElement('section');
   section.className = 'home-recent';
 
+  // A title-case section label (not the old uppercase eyebrow), on the shared 12/500 label role.
   const heading = document.createElement('div');
-  heading.className = 'stat-label';
+  heading.className = 'stat-label g-label';
   heading.textContent = 'Recent hands';
   section.appendChild(heading);
 
@@ -233,7 +244,7 @@ function renderRecentHands(
   }
 
   const list = document.createElement('div');
-  list.className = 'hand-list';
+  list.className = 'hand-list g-group';
   for (const hand of recent) {
     list.appendChild(renderHandRow(hand, onOpenHand));
   }
@@ -271,21 +282,24 @@ function renderHandRow(hand: HandRecord, onOpenHand?: (handNumber: number) => vo
   }
 
   const number = document.createElement('span');
-  number.className = 'hand-number';
+  number.className = 'hand-number g-num';
   number.textContent = `#${hand.handNumber}`;
   row.appendChild(number);
 
   const cards = document.createElement('span');
-  cards.className = 'hand-cards';
+  cards.className = 'hand-cards g-mini';
   for (const card of hand.hole) {
     cards.appendChild(renderCard(card, { small: true }));
   }
   row.appendChild(cards);
 
   const net = document.createElement('span');
-  net.className = 'hand-net ' + netClass(hand.net);
+  net.className = 'hand-net g-num ' + netClass(hand.net);
   net.textContent = formatNet(hand.net);
   row.appendChild(net);
+
+  // Rows that open read as openable.
+  if (onOpenHand) row.appendChild(chevron());
 
   return row;
 }
@@ -302,8 +316,9 @@ function netClass(net: number): string {
   return 'net-up';
 }
 
+/** Signed, with the true minus sign (U+2212): it sets at the width of the plus in tabular figures. */
 function formatNet(net: number): string {
   const rounded = Math.round(net);
   if (rounded === 0) return '0';
-  return rounded < 0 ? String(rounded) : `+${rounded}`;
+  return rounded < 0 ? `\u2212${-rounded}` : `+${rounded}`;
 }

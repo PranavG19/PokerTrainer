@@ -18,6 +18,8 @@ import {
 import { mulberry32, type Rng } from '../../core/rng.js';
 import { pickWeightedClass, weakestAttemptedClass, type ClassTally } from '../../core/masteryDrill.js';
 import { renderCard } from '../components/card.js';
+import { keycap } from '../components/glyphs.js';
+import { attachThumb } from '../components/thumb.js';
 import { renderDefenseDrill } from './defenseDrill.js';
 import { renderThreeBetResponseDrill } from './threeBetResponseDrill.js';
 
@@ -115,9 +117,20 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
   let defensePanel: HTMLElement | null = null;
   let threeBetPanel: HTMLElement | null = null;
 
+  /*
+   * The two segmented controls are built ONCE and only have their flags flipped on a paint, so the
+   * shared thumb slides from the old choice to the new one instead of being rebuilt in place.
+   */
+  const modeToggle = renderModeToggle((m) => selectMode(m));
+  const positionSelector = renderPositionSelector((p) => selectPosition(p));
+  // The grid fades in row by row when it first appears and when the seat changes (a new range); a
+  // commit repaints the same range, so it must not replay the fade on every keystroke.
+  let staggerGrid = true;
+
   function selectMode(next: ChartsMode): void {
     if (next === mode) return;
     mode = next;
+    staggerGrid = true;
     paint();
   }
 
@@ -132,6 +145,7 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
     // the learner against a rule they were not looking at. Draw a fresh one and drop the feedback.
     drawSpot();
     feedback = null;
+    staggerGrid = true;
     paint();
   }
 
@@ -191,19 +205,27 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
     root.dataset.answered = String(answered);
     root.dataset.verdict = feedback === null ? '' : feedback.chose === feedback.correct ? 'right' : 'wrong';
     root.dataset.mode = mode;
+    for (const b of modeToggle.querySelectorAll<HTMLElement>('[data-mode]')) {
+      b.dataset.active = String(b.dataset.mode === mode);
+      b.setAttribute('aria-checked', b.dataset.active);
+    }
+    for (const b of positionSelector.querySelectorAll<HTMLElement>('[data-position]')) {
+      b.dataset.active = String(b.dataset.position === position);
+      b.setAttribute('aria-checked', b.dataset.active);
+    }
 
     if (mode === 'defense') {
       defensePanel ??= renderDefenseDrill();
       // The defense drill owns its verdict; nothing to announce from the RFI region here.
       verdictAnnouncer.textContent = '';
-      root.replaceChildren(verdictAnnouncer, renderModeToggle(mode, selectMode), defensePanel);
+      root.replaceChildren(verdictAnnouncer, modeToggle, defensePanel);
       return;
     }
 
     if (mode === '3bet-response') {
       threeBetPanel ??= renderThreeBetResponseDrill();
       verdictAnnouncer.textContent = '';
-      root.replaceChildren(verdictAnnouncer, renderModeToggle(mode, selectMode), threeBetPanel);
+      root.replaceChildren(verdictAnnouncer, modeToggle, threeBetPanel);
       return;
     }
 
@@ -212,11 +234,12 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
     verdictAnnouncer.textContent = feedback === null ? '' : rfiVerdictAnnouncement(feedback);
     root.replaceChildren(
       verdictAnnouncer,
-      renderModeToggle(mode, selectMode),
+      modeToggle,
       // DOM ORDER IS THE CONTRACT: the compressed form precedes the grid (N3).
-      renderCompressed({ position, tallies, onSelect: selectPosition }),
-      renderGridPanel({ position, spot, feedback, onCommit: commit }),
+      renderCompressed({ position, tallies, positionSelector }),
+      renderGridPanel({ position, spot, feedback, onCommit: commit, stagger: staggerGrid }),
     );
+    staggerGrid = false;
   }
 
   paint();
@@ -230,10 +253,12 @@ export function renderCharts(options: ChartsOptions = {}): HTMLElement {
 /** The three preflop drills the Charts screen hosts (no extra tabs — the bar is at its width budget). */
 type ChartsMode = 'rfi' | 'defense' | '3bet-response';
 
-function renderModeToggle(active: ChartsMode, onSelect: (mode: ChartsMode) => void): HTMLElement {
+function renderModeToggle(onSelect: (mode: ChartsMode) => void): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'charts-modes';
+  row.className = 'charts-modes g-seg';
   row.dataset.testid = 'charts-modes';
+  row.setAttribute('role', 'radiogroup');
+  row.setAttribute('aria-label', 'Spot');
 
   // Terse labels so three modes fit one row inside the fixed 300px column 1 at the 900x640 minimum — a
   // third full-length label wrapped the row and pushed the RFI grid 11px past the 760px budget.
@@ -248,11 +273,14 @@ function renderModeToggle(active: ChartsMode, onSelect: (mode: ChartsMode) => vo
     button.className = 'pill charts-mode-btn';
     button.dataset.testid = 'charts-mode-btn';
     button.dataset.mode = m.id;
-    button.dataset.active = String(m.id === active);
+    button.dataset.active = 'false';
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-checked', 'false');
     button.textContent = m.label;
     button.addEventListener('click', () => onSelect(m.id));
     row.appendChild(button);
   }
+  attachThumb(row);
   return row;
 }
 
@@ -263,39 +291,58 @@ function renderModeToggle(active: ChartsMode, onSelect: (mode: ChartsMode) => vo
 function renderCompressed(opts: {
   position: Position;
   tallies: ReadonlyMap<HandClassId, Tally>;
-  onSelect: (position: Position) => void;
+  positionSelector: HTMLElement;
 }): HTMLElement {
   const panel = document.createElement('section');
   panel.className = 'compressed';
   panel.dataset.testid = 'compressed-form';
 
-  panel.appendChild(renderPositionSelector(opts.position, opts.onSelect));
+  panel.appendChild(opts.positionSelector);
   panel.appendChild(renderWidth(opts.position));
-  panel.appendChild(label('Six classes, strongest first'));
-  panel.appendChild(renderClasses(opts.tallies));
-  panel.appendChild(label('Three rules for this seat'));
-  panel.appendChild(renderRules(opts.position));
-  panel.appendChild(label('Boundary combos — the cells that flip'));
-  panel.appendChild(renderBoundaries(opts.position));
+  panel.appendChild(
+    section(label('Six classes, strongest first'), renderClasses(opts.tallies), 'cells · score'),
+  );
+  panel.appendChild(section(label('Three rules for this seat'), renderRules(opts.position)));
+  panel.appendChild(
+    section(label('Boundary combos — the cells that flip'), renderBoundaries(opts.position)),
+  );
   panel.appendChild(renderNotes(opts.position));
 
   return panel;
 }
 
+/** A side-column section: its 12/500 label (with an optional caption at the right), then the body. */
+function section(title: HTMLElement, body: HTMLElement, caption?: string): HTMLElement {
+  const wrap = document.createElement('section');
+  wrap.className = 'charts-sect';
+  const head = document.createElement('div');
+  head.className = 'charts-sect-title';
+  head.appendChild(title);
+  if (caption !== undefined) {
+    const cap = document.createElement('span');
+    cap.className = 'charts-sect-caption';
+    cap.setAttribute('aria-hidden', 'true');
+    cap.textContent = caption;
+    head.appendChild(cap);
+  }
+  wrap.appendChild(head);
+  wrap.appendChild(body);
+  return wrap;
+}
+
 function label(text: string): HTMLElement {
   const el = document.createElement('div');
-  el.className = 'stat-label';
+  el.className = 'stat-label g-label';
   el.textContent = text;
   return el;
 }
 
-function renderPositionSelector(
-  position: Position,
-  onSelect: (position: Position) => void,
-): HTMLElement {
+function renderPositionSelector(onSelect: (position: Position) => void): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'position-row';
+  row.className = 'position-row g-seg';
   row.dataset.testid = 'position-selector';
+  row.setAttribute('role', 'radiogroup');
+  row.setAttribute('aria-label', 'Seat');
 
   for (const seat of POSITIONS) {
     const button = document.createElement('button');
@@ -303,22 +350,25 @@ function renderPositionSelector(
     button.className = 'pill position-btn';
     button.dataset.testid = 'position-btn';
     button.dataset.position = seat;
-    button.dataset.active = String(seat === position);
+    button.dataset.active = 'false';
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-checked', 'false');
     button.textContent = seat;
     button.addEventListener('click', () => onSelect(seat));
     row.appendChild(button);
   }
+  attachThumb(row);
 
   return row;
 }
 
 function renderWidth(position: Position): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'chart-width';
+  wrap.className = 'chart-width g-stat';
   wrap.dataset.testid = 'chart-width';
 
   const value = document.createElement('div');
-  value.className = 'chart-width-value';
+  value.className = 'chart-width-value t-stat g-num';
   // BB has no first-in node at all, so a "0% of hands" headline would read as a bug rather than as
   // the structural fact it is.
   value.textContent = position === 'BB' ? 'no open' : `${Math.round(rfiWidth(position) * 100)}%`;
@@ -337,7 +387,7 @@ function renderWidth(position: Position): HTMLElement {
 
 function renderClasses(tallies: ReadonlyMap<HandClassId, Tally>): HTMLElement {
   const list = document.createElement('ol');
-  list.className = 'class-list';
+  list.className = 'class-list g-flat';
   list.dataset.testid = 'class-list';
 
   // Which class the drill is drilling hardest among those attempted — the one to review. Same order
@@ -357,13 +407,16 @@ function renderClasses(tallies: ReadonlyMap<HandClassId, Tally>): HTMLElement {
     // Marked only when this class is the weakest ATTEMPTED one; an all-fresh scoreboard marks nothing.
     if (classIndex === weakest) row.dataset.review = 'true';
 
+    // The module's label is "name — description"; the list shows the name on the row and the
+    // description beneath it (the words are the module's, only the dash between them is dropped).
+    const [className, ...rest] = handClass.label.split(' — ');
     const name = document.createElement('span');
     name.className = 'class-label';
-    name.textContent = handClass.label;
+    name.textContent = className;
     row.appendChild(name);
 
     const cells = document.createElement('span');
-    cells.className = 'class-cells';
+    cells.className = 'class-cells g-num';
     cells.textContent = `${combosInClass(handClass.id).length} cells`;
     row.appendChild(cells);
 
@@ -373,7 +426,7 @@ function renderClasses(tallies: ReadonlyMap<HandClassId, Tally>): HTMLElement {
      * boundary the learner has not drawn yet rather than one of 169 unrelated facts.
      */
     const score = document.createElement('span');
-    score.className = 'class-score';
+    score.className = 'class-score g-num';
     score.dataset.testid = 'class-accuracy';
     score.dataset.class = handClass.id;
     score.dataset.attempts = String(tally.attempts);
@@ -389,6 +442,13 @@ function renderClasses(tallies: ReadonlyMap<HandClassId, Tally>): HTMLElement {
       flag.dataset.testid = 'class-review';
       flag.textContent = 'review';
       row.appendChild(flag);
+    }
+
+    if (rest.length > 0) {
+      const desc = document.createElement('span');
+      desc.className = 'class-desc';
+      desc.textContent = rest.join(' — ');
+      row.appendChild(desc);
     }
 
     list.appendChild(row);
@@ -464,7 +524,7 @@ function renderNotes(position: Position): HTMLElement {
 
 function note(testid: string, text: string): HTMLElement {
   const el = document.createElement('p');
-  el.className = 'chart-note';
+  el.className = 'chart-note g-caption';
   el.dataset.testid = testid;
   el.textContent = text;
   return el;
@@ -479,27 +539,52 @@ function renderGridPanel(opts: {
   spot: Combo;
   feedback: Feedback | null;
   onCommit: (action: Action) => void;
+  stagger: boolean;
 }): HTMLElement {
   const panel = document.createElement('section');
   panel.className = 'grid-panel';
 
-  panel.appendChild(label('Reference expansion — all 169 cells'));
-  panel.appendChild(renderGrid(opts.position, opts.feedback?.combo ?? null));
+  const head = document.createElement('div');
+  head.className = 'grid-head';
+  head.appendChild(label('Reference expansion — all 169 cells'));
+  head.appendChild(renderLegend());
+  panel.appendChild(head);
+  panel.appendChild(renderGrid(opts.position, opts.feedback?.combo ?? null, opts.stagger));
   panel.appendChild(renderDrill(opts));
 
   return panel;
 }
 
-function renderGrid(position: Position, revealed: Combo | null): HTMLElement {
+/** The key to the grid: three swatches drawn exactly as the cells are (open, fold, the boundary notch). */
+function renderLegend(): HTMLElement {
+  const legend = document.createElement('div');
+  legend.className = 'grid-legend';
+  for (const kind of ['open', 'fold', 'boundary'] as const) {
+    const item = document.createElement('span');
+    item.className = 'grid-legend-item';
+    const swatch = document.createElement('i');
+    swatch.className = 'grid-swatch';
+    swatch.dataset.kind = kind;
+    swatch.setAttribute('aria-hidden', 'true');
+    item.appendChild(swatch);
+    item.appendChild(document.createTextNode(kind));
+    legend.appendChild(item);
+  }
+  return legend;
+}
+
+function renderGrid(position: Position, revealed: Combo | null, stagger: boolean): HTMLElement {
   const grid = document.createElement('div');
-  grid.className = 'chart-grid';
+  grid.className = stagger ? 'chart-grid is-entering' : 'chart-grid';
   grid.dataset.testid = 'chart-grid';
 
-  for (const high of RANKS_DESC) {
+  RANKS_DESC.forEach((high, row) => {
     for (const low of RANKS_DESC) {
-      grid.appendChild(cell(comboAt(high, low), position, revealed));
+      const el = cell(comboAt(high, low), position, revealed);
+      el.style.setProperty('--r', String(row));
+      grid.appendChild(el);
     }
-  }
+  });
 
   return grid;
 }
@@ -519,8 +604,8 @@ function cell(combo: Combo, position: Position, revealed: Combo | null): HTMLEle
   el.dataset.combo = combo;
   el.dataset.class = classOf(combo);
   el.dataset.open = String(isInRfiRange(combo, position));
-  // V2: mint is reserved, so a boundary cell is marked by weight and a dashed edge (see the CSS),
-  // never by hue. The revealed cell uses a solid ring so the two marks cannot be confused.
+  // V2: mint is reserved, so a boundary cell is marked by a corner notch (see the CSS), never by hue.
+  // The revealed cell uses a solid ring, so the two marks cannot be confused.
   el.dataset.boundary = String(isBoundaryCombo(combo, position));
   el.dataset.revealed = String(combo === revealed);
   el.textContent = combo;
@@ -534,7 +619,7 @@ function renderDrill(opts: {
   onCommit: (action: Action) => void;
 }): HTMLElement {
   const panel = document.createElement('section');
-  panel.className = 'drill';
+  panel.className = 'drill g-group';
   panel.dataset.testid = 'chart-drill';
 
   if (opts.position === 'BB') {
@@ -560,12 +645,17 @@ function renderDrill(opts: {
   prompt.appendChild(hand);
 
   const seat = document.createElement('div');
-  seat.className = 'drill-seat';
+  seat.className = 'drill-seat t-head';
   seat.dataset.testid = 'drill-seat';
   // Story 12: the seat and the price are facts. The class of the hand is NOT named — the learner
   // must place it themselves, and printing it here would delete the skill the drill trains.
   seat.textContent = `${opts.position}, first in`;
-  prompt.appendChild(seat);
+  // The seat over the verdict line, as one text column between the cards and the keys.
+  const text = document.createElement('div');
+  text.className = 'drill-text';
+  text.appendChild(seat);
+  text.appendChild(renderFeedback(opts.feedback));
+  prompt.appendChild(text);
 
   const keys = document.createElement('div');
   keys.className = 'drill-keys';
@@ -574,7 +664,6 @@ function renderDrill(opts: {
   prompt.appendChild(keys);
 
   panel.appendChild(prompt);
-  panel.appendChild(renderFeedback(opts.feedback));
 
   return panel;
 }
@@ -654,7 +743,8 @@ function drillKey(
   button.type = 'button';
   button.className = 'pill drill-key';
   button.dataset.testid = `drill-${action}`;
-  button.textContent = `${glyph} ${action}`;
+  // The word, then its trailing keycap (the kit's shortcut grammar).
+  button.append(action, keycap(glyph));
   button.addEventListener('click', () => onCommit(action));
   return button;
 }

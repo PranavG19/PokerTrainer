@@ -1,84 +1,112 @@
 /*
- * THE ROBUSTNESS DRILL (O7). Palette comes from styles.css: no new colours, and no mint and no red
- * anywhere in this file. V2 reserves mint for win% and the fluency gate, and red means irreversible
- * rather than "bad" — a leak is neither, so the four continuations are told apart by type weight and
- * edge treatment only. Greyscale-print the screen and it still says the same thing, which matters
- * more here than elsewhere: a red "leak" column would read as a bound, which is exactly the false
- * claim O7 forbids.
+ * THE ROBUSTNESS DRILL (O7), in the drill mock's language (demo/glass/drill.html): the spot list as a
+ * level-2 picker behind one hairline (a check marks the choice, no pill), the report in the coat with
+ * no cards, the four continuations as the shared stat (a 28/500 figure over the 12/500 label), the
+ * verdict as a 15/600 sentence, and flat hairline sections for the reading matter.
  *
- * BUDGET, measured rather than estimated. The shell spends 45px on the tab bar and 40px on
- * .screen's vertical padding, so the column budget is 100vh - 85px: 555px in a 640px window, 675px
- * in a 760px one. WIDTH now accounts for the Train hub rail: the screen mounts inside .train-body,
- * which at the 900px minimum leaves ~756px (860 - the rail's 92px - the 12px hub gap) rather than the
- * full 860px. So the sidebar is trimmed to 168px and the report gap to 6px, leaving ~576px for the
- * four continuation columns at minmax(0, 1fr) — enough that the labels no longer wrap to a taller box
- * (the wrap was what pushed the report 31px past the height budget once the rail took its width).
+ * No mint and no coral anywhere in this file. Red means irreversible rather than "bad", and a red
+ * "leak" column would read as a bound, which is exactly the false claim O7 forbids; so the sign carries
+ * the direction and a losing EV steps down to ink-2. Greyscale-print the screen and it still says the
+ * same thing.
  *
- * BOTH COLUMNS SCROLL THEMSELVES rather than letting the page grow, the same valve the charts and
- * drill screens use. robustness.spec.ts asserts the internal overflow is zero at both documented
- * sizes, so the day the content outgrows the window it is a failing test rather than a scrollbar
- * that quietly hides the heuristic label.
+ * BUDGET. The shell spends 45px on the tab bar and 40px on .screen's vertical padding, so the column
+ * budget is 100vh - 85px: 555px in a 640px window, 675px in a 760px one. The screen mounts inside the
+ * Train body, ~728px wide at the 900px minimum, so the picker is 168px and the four continuations
+ * share the rest at minmax(0, 1fr).
+ *
+ * BOTH COLUMNS SCROLL THEMSELVES rather than letting the page grow. robustness.spec.ts asserts the
+ * internal overflow is zero at both documented sizes, so the day the content outgrows the window it is
+ * a failing test rather than a scrollbar that quietly hides the heuristic label.
  */
 .robust-screen {
   --panel-budget: calc(100vh - 85px);
 
   display: grid;
   grid-template-columns: 168px minmax(0, 1fr);
-  gap: 12px;
+  gap: 22px;
   align-items: start;
 }
 
-/* ─── Sidebar: the revealed spots ─── */
+/* ─── The picker: the revealed spots ─── */
 .robust-side {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding-right: 16px;
+  border-right: 1px solid var(--hair);
   max-height: var(--panel-budget);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-.robust-spot-btn {
-  border: none;
-  border-radius: 10px;
-  padding: 8px 10px;
-  text-align: left;
-  font: inherit;
-  font-size: 12px;
-  line-height: 1.3;
-  background: var(--surface-hi);
-  color: var(--text-lo);
-  cursor: pointer;
+.robust-spots {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* The selected spot is the loud one: weight and ink, no accent colour. */
+.robust-spot-btn {
+  position: relative;
+  border: none;
+  border-radius: var(--r-ctl);
+  padding: 6px 8px 6px 22px;
+  text-align: left;
+  font: inherit;
+  font-size: var(--t-body);
+  line-height: 1.35;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.robust-spot-btn:hover {
+  background: var(--fill-0);
+  color: var(--ink-1);
+}
+
+.robust-spot-btn:active {
+  background: var(--fill-1);
+}
+
+.robust-spot-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* The selected spot: full ink, weight and a check — never an accent colour. */
 .robust-spot-btn[data-active='true'] {
-  background: var(--card-face);
-  color: var(--ink);
-  font-weight: 600;
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.robust-spot-btn[data-active='true']::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 11px;
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid var(--ink-1);
+  border-bottom: 1.5px solid var(--ink-1);
+  transform: rotate(-45deg);
 }
 
 .robust-note {
-  margin-top: 4px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--text-lo);
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hair);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
-/* ─── The report ─── */
+/* ─── The report: in the coat, no card ─── */
 .robust-work {
   display: flex;
   flex-direction: column;
-  /* gap and vertical padding trimmed slightly (10→8, 14→12) to give back the ~16px the report needed
-   * once the Train hub rail took some of its width — the four columns then fit without the last one
-   * scrolling. Measured against robustness.spec test 10 at both documented sizes. */
-  gap: 8px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 12px 16px;
+  gap: 14px;
+  min-width: 0;
   max-height: var(--panel-budget);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -94,6 +122,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-bottom: 4px;
 }
 
 /* Hole cards read as a pair only if something separates them from the board. */
@@ -102,138 +131,166 @@
 }
 
 .robust-action {
-  font-size: 14px;
-  line-height: 1.35;
-  color: var(--text-hi);
+  margin: 0;
+  color: var(--ink-1);
 }
 
 .robust-chips {
-  font-size: 11px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ─── The four continuations ─── */
+/* ─── The four continuations: four stats in a row, hairlines between ─── */
 .robust-columns {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .robust-column {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  background: var(--surface-hi);
-  border-radius: 12px;
-  border: 1px solid transparent;
-  padding: 8px 10px;
+  gap: 4px;
+  padding: 10px 10px 10px 12px;
   min-width: 0;
+  border-radius: var(--r-ctl);
 }
 
-/* The best and worst continuations are the two ends of the spread, so they carry the edge. */
+.robust-column + .robust-column {
+  box-shadow: inset 1px 0 0 var(--hair);
+}
+
+/* The best and worst continuations are the two ends of the spread: the quiet fill, not a hue. */
 .robust-column[data-extreme='best'],
 .robust-column[data-extreme='worst'] {
-  border-color: var(--text-lo);
+  background: var(--fill-1);
+  box-shadow: none;
 }
 
-.robust-column-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-hi);
+.robust-column[data-extreme] + .robust-column {
+  box-shadow: none;
 }
 
-/* Huge light-weight numeral (V1), and the sign does the work no colour is allowed to do. */
 .robust-column-ev {
-  font-size: 24px;
-  font-weight: 200;
-  letter-spacing: -0.5px;
-  color: var(--text-hi);
+  order: -1;
+  color: var(--ink-1);
+  white-space: nowrap;
 }
 
 .robust-column[data-profit='false'] .robust-column-ev {
-  color: var(--text-lo);
+  color: var(--ink-2);
+}
+
+/* "this line, against them" — a caption, sentence-cased from the authored lowercase. */
+.robust-column .stat-label,
+.robust-verdict .stat-label {
+  display: inline-block;
+  font-size: var(--t-foot);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.robust-column .stat-label::first-letter,
+.robust-verdict .stat-label::first-letter {
+  text-transform: uppercase;
 }
 
 .robust-column-weights {
-  margin-top: 2px;
-  font-size: 10px;
-  line-height: 1.35;
-  color: var(--text-lo);
+  font-size: var(--t-cap);
+  line-height: 1.4;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ─── The verdict and its reason ─── */
+/* ─── The verdict and its reason: the 15/600 sentence, then its support ─── */
 .robust-verdict {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
-  background: var(--surface-hi);
-  border-radius: 12px;
-  /* Vertical padding trimmed 10→7 for the last few px of the hub-rail width reclaim (see .robust-work). */
-  padding: 7px 12px;
-  /* Quiet settle-in as the verdict lands. Opacity only; identical for robust and leak, so it is not a
-   * severity channel. Reduced-motion guard at the foot of this file. */
-  animation: offsuit-surface-in var(--motion-panel) var(--ease-out);
+  /* The 320ms drill reveal. Opacity only; identical for robust and leak, so it is not a severity
+   * channel. Reduced-motion guard at the foot of this file. */
+  animation: offsuit-surface-in var(--dur-3) var(--ease);
 }
 
 .robust-verdict-word {
-  font-size: 20px;
-  font-weight: 300;
-  color: var(--text-hi);
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
 }
 
 .robust-verdict-reason {
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--text-hi);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
 }
 
 .robust-spread {
-  margin-top: 2px;
-  font-size: 18px;
-  font-weight: 200;
-  color: var(--text-hi);
+  margin-top: 6px;
+  font-size: var(--t-head);
+  font-weight: 500;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
 }
 
 .robust-message {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-lo);
+  margin-top: 4px;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
 }
 
 .robust-scope {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
 /*
  * ─── Heuristic, never a bound ───
- * Part of the frame, not a footnote: the label sits in the report column at body size, and its own
- * rule above it so it cannot be mistaken for more of the verdict.
+ * Part of the frame, not a footnote: the label sits in the report column at body size, with its own
+ * hairline above it so it cannot be mistaken for more of the verdict.
  */
 .robust-heuristic {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  border-top: 1px solid var(--surface-hi);
-  padding-top: 8px;
+  border-top: 1px solid var(--hair);
+  padding-top: 10px;
 }
 
 .robust-heuristic-label {
-  font-size: 12px;
+  font-size: var(--t-body);
   font-weight: 600;
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
 
 .robust-heuristic-body {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* At the 640px minimum the reading matter gives back its slack, never its content. */
+@media (max-height: 700px) {
+  .robust-work {
+    gap: 10px;
+  }
+
+  .robust-column {
+    padding: 8px 8px 8px 10px;
+  }
 }
 
 /* The verdict settle-in respects a reduced-motion preference (parity with styles.css). */
 @media (prefers-reduced-motion: reduce) {
   .robust-verdict {
     animation: none;
+  }
+
+  .robust-spot-btn {
+    transition: none;
   }
 }

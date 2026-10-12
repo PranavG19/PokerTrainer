@@ -4,6 +4,8 @@ import { RANKS, type Card, type Rank } from '../../core/cards.js';
 import { ALL_COMBOS, type Combo } from '../../core/preflop.js';
 import { mulberry32, type Rng } from '../../core/rng.js';
 import { renderCard } from '../components/card.js';
+import { keycap } from '../components/glyphs.js';
+import { attachThumb } from '../components/thumb.js';
 import {
   CHART_BANK,
   EMPTY_PROGRESS,
@@ -83,6 +85,12 @@ export function renderChartBank(options: ChartBankOptions = {}): HTMLElement {
   let spot: Combo = drawSpot(rng);
   let feedback: DrillFeedback | null = null;
   let answered = 0;
+  // The grid fades in row by row when it first appears and when a different chart is selected; a
+  // commit repaints the same chart, so it must not replay the fade on every keystroke.
+  let staggerGrid = true;
+  // The catalog is built ONCE and only has its flags and scores updated on a paint, so the selection
+  // thumb slides between charts instead of being rebuilt in place.
+  const catalog = renderCatalog((next) => selectChart(next));
 
   function persist(): void {
     options.onProgress?.(progress);
@@ -96,6 +104,7 @@ export function renderChartBank(options: ChartBankOptions = {}): HTMLElement {
     // learner against a chart they were not looking at. Draw fresh and drop the feedback.
     spot = drawSpot(rng);
     feedback = null;
+    staggerGrid = true;
     persist();
     paint();
   }
@@ -152,11 +161,9 @@ export function renderChartBank(options: ChartBankOptions = {}): HTMLElement {
 
     announcer.textContent = feedback === null ? '' : drillAnnouncement(feedback);
 
-    root.replaceChildren(
-      announcer,
-      renderCatalog(chart, progress, selectChart),
-      renderDetail(chart, spot, feedback, commit),
-    );
+    syncCatalog(catalog, chart, progress);
+    root.replaceChildren(announcer, catalog, renderDetail(chart, spot, feedback, commit, staggerGrid));
+    staggerGrid = false;
   }
 
   paint();
@@ -167,11 +174,7 @@ export function renderChartBank(options: ChartBankOptions = {}): HTMLElement {
 // Catalog (left pane)
 // ---------------------------------------------------------------------------
 
-function renderCatalog(
-  active: PreflopChart,
-  progress: ChartBankProgress,
-  onSelect: (chart: PreflopChart) => void,
-): HTMLElement {
+function renderCatalog(onSelect: (chart: PreflopChart) => void): HTMLElement {
   const panel = document.createElement('nav');
   panel.className = 'chart-catalog';
   panel.dataset.testid = 'chart-catalog';
@@ -193,27 +196,24 @@ function renderCatalog(
     group.appendChild(label);
 
     for (const chart of CHART_BANK.filter((c) => c.category === category)) {
-      group.appendChild(renderCatalogItem(chart, chart.id === active.id, progress, onSelect));
+      group.appendChild(renderCatalogItem(chart, onSelect));
     }
+    // One selection thumb per group: the group holding the active chart shows it, the other hides it.
+    attachThumb(group);
     panel.appendChild(group);
   }
 
   return panel;
 }
 
-function renderCatalogItem(
-  chart: PreflopChart,
-  isActive: boolean,
-  progress: ChartBankProgress,
-  onSelect: (chart: PreflopChart) => void,
-): HTMLElement {
+function renderCatalogItem(chart: PreflopChart, onSelect: (chart: PreflopChart) => void): HTMLElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'catalog-item';
   button.dataset.testid = 'catalog-item';
   button.dataset.chart = chart.id;
-  button.dataset.active = String(isActive);
-  button.setAttribute('aria-pressed', String(isActive));
+  button.dataset.active = 'false';
+  button.setAttribute('aria-pressed', 'false');
 
   const name = document.createElement('span');
   name.className = 'catalog-item-name';
@@ -225,22 +225,33 @@ function renderCatalogItem(
   width.textContent = `${Math.round(chartWidth(chart) * 100)}%`;
   button.appendChild(width);
 
-  // The learner's running score on this chart, if they have drilled it. Zeroed charts show nothing —
-  // a fresh bank stays bare rather than announcing "0/0" eleven times.
-  const tally = progress.tallies[chart.id];
-  if (tally && tally.attempts > 0) {
-    const score = document.createElement('span');
-    score.className = 'catalog-item-score';
-    score.dataset.testid = 'catalog-item-score';
-    score.dataset.chart = chart.id;
-    score.dataset.attempts = String(tally.attempts);
-    score.dataset.correct = String(tally.correct);
-    score.textContent = `${tally.correct}/${tally.attempts}`;
-    button.appendChild(score);
-  }
-
   button.addEventListener('click', () => onSelect(chart));
   return button;
+}
+
+/** Flip the catalog's selected flag and refresh each item's running score, in place. */
+function syncCatalog(panel: HTMLElement, active: PreflopChart, progress: ChartBankProgress): void {
+  for (const button of panel.querySelectorAll<HTMLElement>('[data-testid="catalog-item"]')) {
+    const id = button.dataset.chart ?? '';
+    const isActive = id === active.id;
+    button.dataset.active = String(isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+
+    // The learner's running score on this chart, if they have drilled it. Zeroed charts show nothing —
+    // a fresh bank stays bare rather than announcing "0/0" eleven times.
+    button.querySelector('.catalog-item-score')?.remove();
+    const tally = progress.tallies[id];
+    if (tally && tally.attempts > 0) {
+      const score = document.createElement('span');
+      score.className = 'catalog-item-score';
+      score.dataset.testid = 'catalog-item-score';
+      score.dataset.chart = id;
+      score.dataset.attempts = String(tally.attempts);
+      score.dataset.correct = String(tally.correct);
+      score.textContent = `${tally.correct}/${tally.attempts}`;
+      button.appendChild(score);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -252,13 +263,14 @@ function renderDetail(
   spot: Combo,
   feedback: DrillFeedback | null,
   onCommit: (action: ChartAction) => void,
+  stagger: boolean,
 ): HTMLElement {
   const panel = document.createElement('section');
   panel.className = 'chart-detail';
   panel.dataset.testid = 'chart-detail';
 
   panel.appendChild(renderHeader(chart));
-  panel.appendChild(renderGrid(chart, feedback?.combo ?? null));
+  panel.appendChild(renderGrid(chart, feedback?.combo ?? null, stagger));
   panel.appendChild(renderDrill(chart, spot, feedback, onCommit));
 
   return panel;
@@ -269,7 +281,7 @@ function renderHeader(chart: PreflopChart): HTMLElement {
   header.className = 'chart-header';
 
   const title = document.createElement('h3');
-  title.className = 'chart-title';
+  title.className = 'chart-title t-t3';
   title.dataset.testid = 'chart-title';
   title.textContent = chart.label;
   header.appendChild(title);
@@ -278,11 +290,11 @@ function renderHeader(chart: PreflopChart): HTMLElement {
   width.className = 'chart-width';
   width.dataset.testid = 'chart-width';
   const pct = document.createElement('span');
-  pct.className = 'chart-width-value';
+  pct.className = 'chart-width-value g-num';
   pct.textContent = `${Math.round(chartWidth(chart) * 100)}%`;
   width.appendChild(pct);
   const caption = document.createElement('span');
-  caption.className = 'stat-label';
+  caption.className = 'stat-label g-label';
   caption.textContent =
     chart.category === 'rfi' ? 'of hands open first in' : 'of hands continue (call or 3-bet)';
   width.appendChild(caption);
@@ -292,7 +304,7 @@ function renderHeader(chart: PreflopChart): HTMLElement {
 
   // These are teaching charts, said on screen — a standard published line, not a live solver claim.
   const source = document.createElement('p');
-  source.className = 'chart-source';
+  source.className = 'chart-source g-caption';
   source.dataset.testid = 'chart-source';
   source.textContent =
     'Standard published 100bb 6-max ranges, purified to whole-in / whole-out cells. A teaching reference, not a live solve.';
@@ -322,19 +334,20 @@ function renderLegend(chart: PreflopChart): HTMLElement {
   return legend;
 }
 
-function renderGrid(chart: PreflopChart, revealed: Combo | null): HTMLElement {
+function renderGrid(chart: PreflopChart, revealed: Combo | null, stagger: boolean): HTMLElement {
   const grid = document.createElement('div');
-  grid.className = 'chart-grid';
+  grid.className = stagger ? 'chart-grid is-entering' : 'chart-grid';
   grid.dataset.testid = 'chart-grid';
 
   // chartCells is in ALL_COMBOS order; the grid needs row/col placement, so map by combo.
   const actionOf = new Map<Combo, ChartAction>(chartCells(chart).map((c) => [c.combo, c.action]));
 
-  for (const high of RANKS_DESC) {
+  RANKS_DESC.forEach((high, row) => {
     for (const low of RANKS_DESC) {
       const combo = comboAt(high, low);
       const el = document.createElement('div');
       el.className = 'chart-cell';
+      el.style.setProperty('--r', String(row));
       el.dataset.testid = 'chart-cell';
       el.dataset.combo = combo;
       el.dataset.action = actionOf.get(combo) ?? correctAction(chart, combo);
@@ -342,7 +355,7 @@ function renderGrid(chart: PreflopChart, revealed: Combo | null): HTMLElement {
       el.textContent = combo;
       grid.appendChild(el);
     }
-  }
+  });
 
   return grid;
 }
@@ -370,7 +383,7 @@ function renderDrill(
   onCommit: (action: ChartAction) => void,
 ): HTMLElement {
   const panel = document.createElement('section');
-  panel.className = 'chart-drill';
+  panel.className = 'chart-drill g-group';
   panel.dataset.testid = 'chart-drill';
 
   const prompt = document.createElement('div');
@@ -386,10 +399,15 @@ function renderDrill(
   prompt.appendChild(hand);
 
   const situation = document.createElement('div');
-  situation.className = 'drill-situation';
+  situation.className = 'drill-situation t-head';
   situation.dataset.testid = 'drill-situation';
   situation.textContent = chart.label;
-  prompt.appendChild(situation);
+  // The situation over the verdict line, as one text column between the cards and the keys.
+  const text = document.createElement('div');
+  text.className = 'drill-text';
+  text.appendChild(situation);
+  text.appendChild(renderFeedback(feedback));
+  prompt.appendChild(text);
 
   const keys = document.createElement('div');
   keys.className = 'drill-keys';
@@ -397,7 +415,6 @@ function renderDrill(
   prompt.appendChild(keys);
 
   panel.appendChild(prompt);
-  panel.appendChild(renderFeedback(feedback));
 
   return panel;
 }
@@ -408,7 +425,8 @@ function drillKey(action: ChartAction, onCommit: (action: ChartAction) => void):
   button.className = 'pill drill-key';
   button.dataset.testid = `drill-${action}`;
   button.dataset.action = action;
-  button.textContent = `${ACTION_KEY[action]} ${ACTION_LABEL[action]}`;
+  // The word, then its trailing keycap (the kit's shortcut grammar).
+  button.append(ACTION_LABEL[action], keycap(ACTION_KEY[action]));
   button.addEventListener('click', () => onCommit(action));
   return button;
 }

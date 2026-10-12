@@ -229,7 +229,7 @@ function renderResultsGraph(graph: ResultsGraph, onOpenVariance?: () => void): H
 
     const route = document.createElement('button');
     route.type = 'button';
-    route.className = 'progress-graph-route';
+    route.className = 'pill sm progress-graph-route';
     route.dataset.testid = 'graph-alternative';
     route.dataset.route = graph.alternative;
     route.textContent = guarded('Read the variance module instead');
@@ -329,7 +329,7 @@ export function renderProgressScreen(opts: {
   if (opts.onStartAssessment) {
     const launch = document.createElement('button');
     launch.type = 'button';
-    launch.className = 'pill progress-start-assessment';
+    launch.className = 'pill sm primary progress-start-assessment';
     launch.dataset.testid = 'progress-start-assessment';
     launch.textContent = 'Start an assessment block';
     launch.addEventListener('click', opts.onStartAssessment);

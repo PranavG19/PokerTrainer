@@ -165,7 +165,8 @@ function renderControls(legal: readonly ActionKind[], onCommit: (kind: ActionKin
     b.dataset.testid = `assessment-${kind}`;
     b.appendChild(document.createTextNode(ACTION_LABEL[kind]));
     const hint = document.createElement('span');
-    hint.className = 'assessment-key-hint';
+    hint.className = 'assessment-key-hint g-kbd';
+    hint.setAttribute('aria-hidden', 'true');
     hint.textContent = kind.charAt(0).toUpperCase();
     b.appendChild(hint);
     b.disabled = !legal.includes(kind);
@@ -190,7 +191,7 @@ function revealBlock(grades: readonly AssessmentGrade[], onDone: () => void): HT
 
   const n = grades.length;
   const meanBb100 = n === 0 ? 0 : (grades.reduce((s, g) => s + g.grade.evLossBb, 0) / n) * 100;
-  const score = text('div', 'assessment-score', `${meanBb100.toFixed(1)} bb/100 EV lost`);
+  const score = text('div', 'assessment-score t-stat', `${meanBb100.toFixed(1)} bb/100 EV lost`);
   score.dataset.testid = 'assessment-score';
   score.dataset.bb100 = meanBb100.toFixed(2);
   el.appendChild(score);
@@ -217,7 +218,7 @@ function revealBlock(grades: readonly AssessmentGrade[], onDone: () => void): HT
 
   const done = document.createElement('button');
   done.type = 'button';
-  done.className = 'pill assessment-done';
+  done.className = 'pill primary assessment-done';
   done.dataset.testid = 'assessment-done';
   done.textContent = 'Done';
   done.addEventListener('click', onDone);

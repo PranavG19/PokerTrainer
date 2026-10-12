@@ -1,304 +1,299 @@
 /*
- * THE DOSSIER (N5, R1-R4, R6, O4). Palette comes from styles.css; nothing new is defined here.
+ * THE DOSSIER (N5, R1-R4, R6, O4), as the glass mockup: three columns in the coat, separated by
+ * hairlines rather than sitting in three translucent cards (nothing in the coat gets a card unless it
+ * is an actionable list). The tendency picker is the one actionable list, so it is the one inset
+ * group; the gates, the figures, the ledger and the plan are informational, so they are flat hairline
+ * lists. Every figure is the shared stat component (value over the 12/500 label).
  *
  * BUDGET. Three columns, because the surface is three questions — what am I allowed to track, what
  * have I actually seen, and what does that license — and collapsing any two of them puts the gate
- * verdict off screen from the weight it must be compared against. At the documented 900px minimum
- * the shell spends 40px on .screen padding, leaving 860px; two 20px gaps leave 820px for content,
- * split 250 / minmax(0,1fr) / 290. The middle column is the elastic one because the gate rows are
- * the only prose that must not wrap to four lines.
+ * verdict off screen from the weight it must be compared against. At the 900px minimum the screen
+ * has 860px; two 24px gutters (each split by its hairline) leave 812px, split 248 / 1fr / 280.
  *
- * HEIGHT is the binding constraint, as it is on the charts screen. The tab bar takes 45px and
- * .screen adds 20px of vertical padding, so a 640px window leaves 575px, and the middle column
- * alone wants more than that. Each panel therefore scrolls itself unconditionally rather than
- * letting the page grow a scrollbar. The forecast ladder stays inside its own column's scroll — it
- * is not pinned, because a pinned control over scrolling prose was the layout that hid the gate
- * readout it exists to change.
+ * HEIGHT is the binding constraint. Each column scrolls itself inside the screen height
+ * (--screen-h, from the kit) so the page never grows a scrollbar. The forecast ladder stays inside
+ * its own column's scroll — a pinned control over scrolling prose hid the gate readout it changes.
  *
- * NO MINT ANYWHERE. V2 reserves it for win% and the fluency gate. An open gate and a shut one are
- * told apart by type weight and by the words "open" and "shut", never by hue — this screen's entire
- * subject is a learner over-reading a signal, so a green light on a 20-observation sample would be
- * the screen arguing against itself.
+ * NO MINT ANYWHERE. An open gate and a shut one are told apart by weight, ink and the words "open"
+ * and "shut", never by hue: a green light on a 20-observation sample would argue against the screen.
  */
 .dossier-screen {
-  --dossier-budget: calc(100vh - 65px);
-
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr) 290px;
-  gap: 20px;
+  grid-template-columns: 248px minmax(0, 1fr) 280px;
+  gap: 0;
   align-items: start;
 }
 
 .dossier-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 14px 16px;
-  max-height: var(--dossier-budget);
+  max-height: var(--screen-h);
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: 8px 12px 16px;
+}
+.dossier-panel > * { flex: none; }
+.dossier-panel:first-child { padding-left: 0; padding-right: 20px; }
+.dossier-panel:last-child { padding-right: 0; padding-left: 20px; }
+.dossier-stream { padding-left: 20px; padding-right: 20px; }
+.dossier-panel + .dossier-panel { border-left: 1px solid var(--hair); }
+
+/* Section labels: the shared 12/500 label, a little air above, tight to what they title. */
+.dossier-panel > .stat-label,
+.dossier-shrinkage > .stat-label,
+.dossier-revert > .stat-label,
+.dossier-accuracy > .stat-label {
+  margin-top: 4px;
+  margin-bottom: -4px;
+}
+.dossier-panel > .stat-label:first-child { margin-top: 0; }
+
+.dossier-note {
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
 /* ─── Column 1: pre-registration (R2) ─── */
-
 .dossier-villain {
-  font-size: 20px;
-  font-weight: 600;
+  margin-top: -6px;
+  color: var(--ink-1);
 }
 
 .dossier-prereg-count {
-  font-size: 13px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 
+/* The picker: one inset group of rows. The name selects (the whole top line is the hit area); the
+ * two small buttons sit under it. The selected row keeps the kit's fill-2 + inset edge. */
 .dossier-tendency-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
-
 .dossier-tendency-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: var(--surface-hi);
-  border-radius: 10px;
-  padding: 8px 10px;
+  padding: 8px 10px 9px;
+  transition: background-color var(--dur-1) var(--ease);
 }
-
-/* The tracked tendency is the loud one: weight and ink, no accent colour. */
-.dossier-tendency-row[data-selected='true'] {
-  outline: 1px solid var(--text-lo);
-}
+.dossier-tendency-row:not([data-selected='true']):hover { background: var(--fill-0); }
 
 .dossier-tendency-name {
-  padding: 0;
+  padding: 2px 0;
   border: none;
+  border-radius: var(--r-xs);
   background: transparent;
-  color: var(--text-hi);
+  color: var(--ink-1);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--t-body);
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
 }
-
-.dossier-tendency-row[data-selected='true'] .dossier-tendency-name {
-  font-weight: 600;
+.dossier-tendency-name:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
+.dossier-tendency-row[data-selected='true'] .dossier-tendency-name { font-weight: 600; }
 
 .dossier-tendency-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+.dossier-tendency-actions .pill.sm { height: 24px; }
+.dossier-tendency-actions .pill.quiet { margin-left: 0; }
 
-.dossier-mini {
-  padding: 4px 8px;
-  font-size: 11px;
-  background: var(--surface);
-  color: var(--text-lo);
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
+/* Registered: the button reads as set (ink-1, 600) on the secondary ramp — never mint. */
 .dossier-tendency-row[data-registered='true'] .dossier-mini[data-testid='prereg-btn'] {
-  color: var(--text-hi);
+  color: var(--ink-1);
   font-weight: 600;
+  background: var(--fill-2);
 }
 
 /*
- * The refusal is prose, not a toast: it has to say what happened to the tendency it refused, and a
- * three-second toast is exactly the wrong medium for "this is now next session's hypothesis".
+ * The refusal is prose, not a toast: it says what happened to the tendency it refused. It is a
+ * flat section with an amber lead edge (notable), not a card.
  */
 .dossier-refusal {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border-radius: 10px;
-  padding: 8px 10px;
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-1);
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--amber);
 }
 
 .dossier-notebook {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
-
 .dossier-notebook-row,
 .dossier-notebook-empty {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  padding: 5px 0;
 }
+.dossier-notebook-row { color: var(--ink-1); }
+.dossier-notebook-empty { color: var(--ink-3); padding-top: 0; }
 
+/* The false-read rates: three stats in a flat list, then their note. */
 .dossier-falseread {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
-
-.dossier-rate-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+.dossier-falseread > .dossier-rate-row {
+  gap: 2px;
+  padding: 7px 0;
 }
-
+.dossier-falseread > .dossier-rate-row + .dossier-rate-row { border-top: 1px solid var(--hair); }
+.dossier-falseread > .dossier-note { padding-top: 6px; }
 .dossier-rate-value {
-  font-size: 15px;
+  font-size: var(--t-t3);
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  flex: 0 0 auto;
-}
-
-.dossier-rate-label {
-  font-size: 11px;
-  color: var(--text-lo);
+  line-height: 1.2;
+  color: var(--ink-1);
 }
 
 /* ─── Column 2: the stream, the gates, the trap (R6, R1, R4) ─── */
-
 .dossier-subject {
-  font-size: 17px;
-  font-weight: 600;
+  margin-top: -6px;
+  color: var(--ink-1);
 }
 
 .dossier-observation-count {
-  font-size: 13px;
-  color: var(--text-lo);
+  margin-top: -8px;
+  font-size: var(--t-body);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 
+/* The last observation: one line, a flat hairline section (the stream is never a list). */
 .dossier-last {
-  font-size: 14px;
-  background: var(--surface-hi);
-  border-radius: 10px;
-  padding: 10px 12px;
+  font-size: var(--t-head);
+  font-weight: 500;
+  color: var(--ink-2);
+  padding: 10px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+  font-variant-numeric: tabular-nums;
 }
+.dossier-last[data-index]:not([data-index='0']) { color: var(--ink-1); }
+.dossier-last[data-occurred='true'] { font-weight: 600; }
 
-.dossier-last[data-occurred='true'] {
-  font-weight: 600;
-}
-
+/* The forecast ladder: five actions (each one draws an observation), one row of equal buttons. */
 .dossier-forecast-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
 }
-
 .dossier-forecast {
-  padding: 6px 12px;
-  font-size: 13px;
-  background: var(--surface-hi);
-  color: var(--text-hi);
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
+  padding: 0 4px;
   font-variant-numeric: tabular-nums;
 }
 
+/* Gates: a flat list — mark, then the sentence. Open is ink-1 600; shut is ink-3. */
 .dossier-gates {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
-
 .dossier-gate-row {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--hair);
 }
-
 .dossier-gate-mark {
-  flex: 0 0 44px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-lo);
+  flex: 0 0 40px;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-3);
+  text-transform: capitalize;
 }
-
 .dossier-gate-row[data-pass='true'] .dossier-gate-mark {
-  color: var(--text-hi);
-  font-weight: 700;
+  color: var(--ink-1);
+  font-weight: 600;
 }
-
 .dossier-gate-label {
-  font-size: 12px;
-  color: var(--text-lo);
-}
-
-.dossier-licensed {
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--text-lo);
-}
-
-.dossier-licensed[data-licensed='true'] {
-  color: var(--text-hi);
-  font-weight: 600;
-}
-
-.dossier-shrinkage,
-.dossier-revert {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid var(--surface-hi);
-  padding-top: 10px;
-}
-
-.dossier-figure {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.dossier-figure-value {
-  flex: 0 0 84px;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--t-body);
+  line-height: 1.45;
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
+.dossier-gate-row[data-pass='true'] .dossier-gate-label { color: var(--ink-1); }
 
-.dossier-figure-label {
-  font-size: 11px;
-  color: var(--text-lo);
+.dossier-licensed {
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
+  padding-top: 8px;
+  border-top: 1px solid var(--hair);
+}
+.dossier-licensed[data-licensed='true'] {
+  color: var(--ink-1);
+  font-weight: 600;
 }
 
+/* Magnitude and revert: a label, then the figures as stat components on a two-column grid. */
+.dossier-shrinkage,
+.dossier-revert {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+.dossier-shrinkage > :not(.dossier-figure),
+.dossier-revert > :not(.dossier-figure) {
+  grid-column: 1 / -1;
+}
+
+.dossier-figure { gap: 4px; min-width: 0; }
+.dossier-figure-value {
+  font-size: var(--t-t2);
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  line-height: 1.1;
+  color: var(--ink-1);
+}
+.dossier-figure-label { line-height: 1.35; }
+
 /*
- * The trap paragraph is the most important text on the screen and is styled to read as body copy
- * rather than as a footnote, because a learner who skims it is the learner it is written for.
+ * The trap paragraph is the most important text on the screen and reads as body copy, not as a
+ * footnote. A flat section with a neutral lead edge — set apart, never a card.
  */
 .dossier-trap {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border-radius: 10px;
-  padding: 10px 12px;
+  font-size: var(--t-body);
+  line-height: 1.55;
+  color: var(--ink-1);
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--hair-strong);
+  max-width: 62ch;
 }
 
 .dossier-revert-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 12px;
   align-items: center;
 }
-
 .dossier-counter {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
-
 .dossier-counter-value {
-  font-size: 13px;
+  min-width: 14px;
+  font-size: var(--t-head);
   font-weight: 600;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
 
@@ -306,76 +301,86 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
-
 .dossier-trigger-row {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
+  padding: 5px 0;
 }
-
+.dossier-trigger-row + .dossier-trigger-row { border-top: 1px solid var(--hair); }
 .dossier-triggers .dossier-trigger-row[data-testid='revert-trigger'] {
-  color: var(--text-hi);
+  color: var(--ink-1);
   font-weight: 600;
 }
 
 /* ─── Column 3: the plan and the grading (R3, O4) ─── */
-
 .dossier-node-list,
 .dossier-plan-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
-
 .dossier-node-row,
 .dossier-plan-row {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--surface-hi);
-  border-radius: 10px;
-  padding: 6px 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
 }
-
-/* A node inside the top two is marked by weight and a solid edge, never by hue. */
-.dossier-node-row[data-selected='true'] {
-  outline: 1px solid var(--text-lo);
-}
-
 .dossier-node-name,
 .dossier-plan-name {
-  font-size: 12px;
+  font-size: var(--t-body);
+  color: var(--ink-1);
+  min-width: 0;
 }
-
-.dossier-node-row[data-selected='true'] .dossier-node-name {
-  font-weight: 700;
-}
-
 .dossier-node-value,
 .dossier-plan-value {
-  font-size: 11px;
-  color: var(--text-lo);
+  flex: none;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.dossier-plan-row { flex-direction: column; align-items: stretch; gap: 1px; }
+.dossier-plan-value { text-align: left; }
+
+/*
+ * The top two nodes: the ledger is informational (nothing to click), so the selection is told by
+ * weight and ink rather than by the kit's row fill — a filled row would promise an action. This
+ * overrides styles-glass.css's `.dossier-node-row[data-selected]` rule (same specificity, later sheet).
+ */
+html .dossier-node-row[data-selected='true'] {
+  background: none;
+  box-shadow: none;
+}
+.dossier-node-row[data-selected='true'] .dossier-node-name { font-weight: 600; }
+.dossier-node-row[data-selected='true'] .dossier-node-value { color: var(--ink-1); }
+.dossier-node-row[data-selected='true'] .dossier-node-name::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--ink-1);
+  vertical-align: 2px;
 }
 
 .dossier-plan-empty {
-  font-size: 12px;
-  color: var(--text-lo);
-}
-
-.dossier-accuracy {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid var(--surface-hi);
-  padding-top: 10px;
-}
-
-.dossier-note {
-  font-size: 11px;
+  font-size: var(--t-foot);
   line-height: 1.5;
-  color: var(--text-lo);
+  color: var(--ink-3);
 }
+
+/* O4: the grades are stat components on a two-column grid. */
+.dossier-accuracy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+.dossier-accuracy > :not(.dossier-figure) { grid-column: 1 / -1; }
+.dossier-accuracy > .dossier-figure[data-testid='brier'] { grid-column: 1 / -1; }

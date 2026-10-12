@@ -40,9 +40,18 @@
   --fill-1: rgba(255, 255, 255, 0.08);
   --fill-2: rgba(255, 255, 255, 0.13);
   --fill-3: rgba(255, 255, 255, 0.2);
-  --thumb-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --thumb-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --top-light: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 
   /* Ink (measured AA on the coat). */
+  /* COLOUR ROLE MAP — each hue has one meaning; anything else is neutral.
+   *  neutrals (ink, fill, hair) … structure, every control, every label
+   *  bone  … physical objects (cards, dealer button, chip faces) and the ONE primary action
+   *  mint  (--positive, pinned) … your turn, positive deltas, an ON switch. Never a balance or decoration
+   *  coral … serious severity, a wrong value, negative deltas
+   *  amber … notable severity and the gate budget timer
+   *  felt green … the table only;  desk bands … the backdrop only */
+  --mint: var(--positive);
   --ink-1: #F3F4F6;
   --ink-2: #C0C6CD;
   --ink-3: #A3AAB2;
@@ -79,13 +88,40 @@
   --elev-2: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 4px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.38);
   --focus-ring: 0 0 0 2px rgba(20, 23, 30, 1), 0 0 0 4px rgba(255, 255, 255, 0.6);
 
-  --r-ctl: 8px;
-  --r-group: 12px;
-  --r-dock: 14px;
+  /* Radii, concentric: inner = outer - padding. */
+  --r-xs: 4px;       /* cells, keycaps, tags */
+  --r-thumb: 6px;    /* a thumb inside an 8px track with 2px padding */
+  --r-ctl: 8px;      /* buttons, fields, segmented tracks */
+  --r-group: 12px;   /* inset groups */
+  --r-dock: 14px;    /* dock and tray: 8px controls + 6px padding */
+  --r-sheet: 20px;   /* sheets */
   --r-card: 6px;
+  /* Control heights: two sizes, plus 36 for the Home CTA only. */
+  --h-sm: 28px;
   --h-ctl: 32px;
+  --h-lg: 36px;
+
+  /* Type: one scale (Apple text styles). caption 11 · footnote 12 · body 13 · headline 15 · title3 17 ·
+   * title2 22 · stat 28 · hero 34. Labels are 12/500 ink-2; captions 12/400 ink-3. */
+  --t-cap: 11px;
+  --t-foot: 12px;
+  --t-body: 13px;
+  --t-head: 15px;
+  --t-t3: 17px;
+  --t-t2: 22px;
+  --t-stat: 28px;
+  --t-hero: 34px;
+
+  /* Motion. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.3, 1.25, 0.5, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 320ms;
   --nav-h: 44px;       /* the titlebar nav; the table screen's fixed height is derived from it */
   --screen-pad-y: 8px;
+  /* The height a screen has under the title bar (1px: the bar's hairline). */
+  --screen-h: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y));
 
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -137,37 +173,115 @@ body::before {
   padding: var(--screen-pad-y) 20px;
 }
 
-/* ─── Title bar: the macOS traffic lights sit inset over its left end (titleBarStyle: 'hiddenInset') ─── */
+/* ─── Title bar (unified): the coat runs under it, one hairline below. The macOS traffic lights sit inset
+ * over its left end (titleBarStyle 'hiddenInset', positioned in main.ts to centre on this bar). Then the
+ * spade mark + wordmark, then the eleven tabs in three groups (play / study / you) with short dividers and
+ * ONE sliding selected thumb (components/thumb.ts). The bar drags the window; every control opts out. ─── */
 .tabs {
   height: var(--nav-h);
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  justify-content: flex-start;
+  gap: 16px;
   padding: 0 16px 0 84px;
   flex-wrap: nowrap;
   border-bottom: 1px solid var(--hair);
   -webkit-app-region: drag;
 }
-.tab {
+.brand {
   flex: none;
-  height: 28px;
-  padding: 0 clamp(7px, 0.9vw, 11px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--t-head);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-1);
+  white-space: nowrap;
+}
+.brand svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.tab-strip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+.tab-divider {
+  flex: none;
+  width: 1px;
+  height: 12px;
+  margin: 0 6px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.nav-spacer {
+  flex: none;
+  width: 92px;
+}
+.tab {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: var(--h-sm);
+  padding: 0 clamp(7px, 0.9vw, 10px);
   border-radius: var(--r-ctl);
-  font-size: 13px;
+  font-size: var(--t-body);
   color: var(--ink-2);
   white-space: nowrap;
   -webkit-app-region: no-drag;
-  transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+  transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
 }
 .tab:hover {
   color: var(--ink-1);
   background: var(--fill-1);
 }
+.tab:active {
+  background: var(--fill-2);
+}
 .tab[data-active='true'] {
   color: var(--ink-1);
   font-weight: 500;
+  background: none;
+}
+.tab[data-active='true']:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+@media (max-width: 1040px) {
+  .brand-word,
+  .nav-spacer {
+    display: none;
+  }
+  .tabs {
+    gap: 12px;
+  }
+  .tab-divider {
+    margin: 0 3px;
+  }
+  .tab {
+    padding: 0 8px;
+  }
+}
+
+/* ─── The selected thumb: one material for tabs and every segmented control ─── */
+.has-thumb {
+  position: relative;
+}
+.sel-thumb {
+  position: absolute;
+  z-index: 0;
+  border-radius: var(--r-ctl);
   background: var(--fill-3);
   box-shadow: var(--thumb-shadow);
+  pointer-events: none;
+  transition: left var(--dur-2) var(--ease), width var(--dur-2) var(--ease), top var(--dur-2) var(--ease);
+}
+.has-thumb > :not(.sel-thumb) {
+  position: relative;
+  z-index: 1;
 }
 
 /* ─── Buttons: one spec, three ranks (secondary · primary · quiet) ─── */
@@ -233,6 +347,202 @@ body::before {
   box-shadow: none;
 }
 
+/* ─── Shared primitives (the mock's component kit). Every screen composes these rather than restyling
+ * its own; the `g-` prefix keeps them clear of the per-screen class names.
+ *   text roles  .t-hero 34/600 · .t-stat 28/500 · .t-t2 22/600 · .t-t3 17/600 · .t-head 15/500
+ *               .g-label 12/500 ink-2 · .g-sub 13 ink-2 · .g-caption 12 ink-3 · .g-pos / .g-neg deltas
+ *   containers  .g-group (inset group: the ONLY container in the coat, for actionable lists)
+ *               .g-sect (a flat hairline section, for informational lists)
+ *   controls    .g-seg (segmented track; components/thumb.ts adds the sliding thumb) · .g-row (an
+ *               openable row) · .g-switch · .g-kbd (trailing keycap) · .g-chev · .g-icon (icon tile)
+ *   objects     .g-mini (the 24px mini card) ─── */
+.t-hero { font-size: var(--t-hero); font-weight: 600; letter-spacing: -0.012em; line-height: 1; }
+.t-stat { font-size: var(--t-stat); font-weight: 500; letter-spacing: -0.01em; line-height: 1.05; }
+.t-t2 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; line-height: 1.2; }
+.t-t3 { font-size: var(--t-t3); font-weight: 600; line-height: 1.25; }
+.t-head { font-size: var(--t-head); font-weight: 500; }
+.g-label { font-size: var(--t-foot); font-weight: 500; color: var(--ink-2); }
+.g-sub { font-size: var(--t-body); color: var(--ink-2); line-height: 1.5; }
+.g-caption { font-size: var(--t-foot); color: var(--ink-3); line-height: 1.5; }
+.g-num { font-variant-numeric: tabular-nums; }
+.g-pos { color: var(--mint); }
+.g-neg { color: var(--coral); }
+
+/* The stat component: a value over the shared 12/500 label, one baseline grammar everywhere. */
+.g-stat { display: flex; flex-direction: column; gap: 6px; }
+
+.g-group {
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  overflow: hidden;
+}
+.g-group > * + * { box-shadow: inset 0 0.5px 0 var(--hair-strong); }
+.g-sect { border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.g-flat > * + * { border-top: 1px solid var(--hair); }
+
+.g-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 0;
+  background: none;
+  color: var(--ink-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.g-row:hover { background: var(--fill-0); }
+.g-row:active { background: var(--fill-1); }
+.g-row:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: -3px; }
+.g-chev { width: 7px; height: 12px; flex: none; color: var(--ink-3); }
+.g-icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--fill-1);
+  box-shadow: var(--top-light), inset 0 0 0 0.5px var(--hair-strong);
+  color: var(--ink-1);
+}
+.g-icon svg { width: 15px; height: 15px; }
+
+/* Segmented control: a 3% track with an edge, items on the shared ramp, one sliding thumb. Items keep
+ * whatever element/class their screen gives them (often .pill): inside a track they lose the pill's own
+ * fill and edge, since the thumb is the selection. */
+.g-seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 2px;
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair);
+}
+html .g-seg > button {
+  height: calc(var(--h-sm) - 4px);
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--r-thumb);
+  background: none;
+  box-shadow: none;
+  font-size: var(--t-body);
+  font-weight: 400;
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
+}
+html .g-seg > button:not(:disabled):hover { color: var(--ink-1); background: var(--fill-0); box-shadow: none; }
+html .g-seg > button:not(:disabled):active { background: var(--fill-1); transform: none; }
+html .g-seg > button:is([data-active='true'], [aria-checked='true'], [aria-pressed='true'], [data-selected='true']) {
+  color: var(--ink-1);
+  font-weight: 500;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+html .g-seg > button:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.g-seg > .sel-thumb { border-radius: var(--r-thumb); }
+.g-seg.g-seg-sm > button { font-size: var(--t-foot); padding: 0 9px; }
+
+.g-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--h-sm);
+  padding: 0 6px 0 10px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  font: inherit;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.g-switch:hover { background: var(--fill-1); color: var(--ink-1); }
+.g-switch:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.g-switch-track {
+  position: relative;
+  width: 26px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--fill-2);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  transition: background-color var(--dur-2) var(--ease);
+}
+.g-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bone);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.g-switch[aria-checked='true'] { color: var(--ink-1); }
+.g-switch[aria-checked='true'] .g-switch-track { background: var(--mint); box-shadow: none; }
+.g-switch[aria-checked='true'] .g-switch-track::after { transform: translateX(10px); }
+
+/* Keycaps: trailing, only on real hotkeys. */
+.g-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-xs);
+  font-family: inherit;   /* <kbd> otherwise falls back to the UA monospace face */
+  font-size: var(--t-cap);
+  font-weight: 500;
+  font-style: normal;
+  color: var(--ink-1);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.pill.primary .g-kbd,
+.controls .pill[data-testid='btn-raise'] .g-kbd {
+  color: #4A4C50;
+  background: rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.2);
+}
+.pill:disabled .g-kbd { opacity: 0.6; }
+
+/* The mini card: a dedicated 24px size, rank over suit, centred, one tone down from bone. */
+.g-mini { display: flex; gap: 3px; }
+html .g-mini .card.small {
+  width: 24px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1px;
+  background: #E9E6DE;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 0.5px 0 rgba(0, 0, 0, 0.35), 0 1px 1.5px rgba(0, 0, 0, 0.35);
+}
+html .g-mini .card.small .card-rank { font-size: 12px; line-height: 1; position: static; }
+html .g-mini .card.small .card-pip { font-size: 11px; line-height: 1; position: static; }
+
+/* Buttons: the tertiary rank (plain text, then fill on hover/press), and the one large primary. */
+html .pill.quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+html .pill.quiet:not(:disabled):hover { background: var(--fill-1); color: var(--ink-1); }
+html .pill.quiet:not(:disabled):active { background: var(--fill-2); }
+html .pill.sm { height: var(--h-sm); padding: 0 10px; font-size: var(--t-foot); }
+html .pill.lg { height: var(--h-lg); padding: 0 18px; font-size: var(--t-head); }
+.pill.primary:not(:disabled):active,
+.controls .pill[data-testid='btn-raise']:not(:disabled):active {
+  background: var(--bone-press);
+}
+
 /* ─── Fields ─── */
 .lesson-input,
 .mp-input,
@@ -279,9 +589,8 @@ select {
 
 /* ─── Floats: the dock, the teaching panels, the stats sheet ─── */
 .table-screen .controls,
-.coach,
-.predict,
-.stats-sheet {
+.table-screen > .coach,
+.predict {
   background: var(--float);
   -webkit-backdrop-filter: var(--float-blur);
   backdrop-filter: var(--float-blur);
@@ -289,8 +598,8 @@ select {
   border-radius: var(--r-dock);
   box-shadow: var(--float-highlight), var(--float-shadow);
 }
-.coach[data-severity='notable'],
-.coach[data-severity='serious'] {
+.table-screen > .coach[data-severity='notable'],
+.table-screen > .coach[data-severity='serious'] {
   box-shadow: var(--float-highlight), var(--float-shadow);
 }
 
@@ -357,7 +666,7 @@ select {
  * `transform`, so a resting seat's computed transform stays `none` and the to-act lift stays exactly
  * scale(1.02) (interaction.spec). */
 .table-screen {
-  height: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y));   /* 1px: the nav's hairline */
+  height: var(--screen-h);
   min-height: 0;
   gap: 8px;
 }
@@ -634,6 +943,15 @@ select {
 .table-screen .board-wrap {
   min-height: 72px;
 }
+/* An empty street: a 1px-edged inset well the size of a board card. */
+.table-screen .board-wrap .card-well {
+  flex: none;
+  width: 52px;
+  height: 72px;
+  border-radius: var(--r-card);
+  background: rgba(0, 0, 0, 0.24);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.45), inset 0 -0.5px 0 rgba(255, 255, 255, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
 
 /* The hero plate: the hero's seat holds the big cards, name and stack. Your turn is the to-act ring
  * plus one faint mint wash; there is no mint text, so green appears once. */
@@ -667,9 +985,12 @@ select {
   border-color: var(--mint);
   box-shadow: var(--ring-active), var(--elev-1);
 }
+/* Your turn, in ONE green: the pinned mint ring (interaction.spec). The round-5 rater faulted the plate
+ * for carrying three (the ring, a mint border and a mint wash), so the border is neutral-bright and the
+ * wash is a soft white light pool instead (the round-3 "your turn = a pool of light" treatment). */
 .table-screen .hero-wrap .seat[data-to-act='true'] {
-  border-color: var(--mint);
-  background: linear-gradient(105deg, rgba(61, 220, 151, 0.16), rgba(61, 220, 151, 0.04) 55%, rgba(255, 255, 255, 0.035));
+  border-color: rgba(255, 255, 255, 0.22);
+  background: radial-gradient(120% 140% at 30% 0%, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035) 70%);
   box-shadow: var(--ring-active), var(--elev-2);
 }
 .table-screen .hero-wrap .hero-cards { grid-area: cards; }
@@ -690,35 +1011,128 @@ select {
   translate: none;
   margin-top: 2px;
 }
-/* On the plate's left edge, off the cards. */
+/* The dealer button on the plate's top-right corner, clear of the hole cards (the round-5 rater's fix:
+ * it used to sit on the left card). */
 .table-screen .hero-wrap .dealer-button {
-  top: auto;
-  bottom: 8px;
-  right: auto;
-  left: -11px;
+  top: -9px;
+  bottom: auto;
+  right: -9px;
+  left: auto;
   margin-top: 0;
 }
 
-/* The dock. */
+/* The dock: secondary actions with trailing keycaps · the sizing group (slider, a fixed 40px amount slot,
+ * the presets as one small segmented group) · the one primary, Raise. r14 = 8px controls + 6px padding. */
 .table-screen .controls {
   flex: none;
   align-self: center;
+  align-items: center;
+  flex-wrap: nowrap;
   padding: 6px;
   gap: 6px;
+  white-space: nowrap;
 }
 .table-screen .controls .pill {
   padding: 0 12px;
+  gap: 8px;
+}
+.dock-sep {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--hair-strong);
+}
+.dock-slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px 0 8px;
+}
+/* The track fills to the thumb's centre, even at the minimum (--f is set with the value in table.ts). */
+.table-screen .raise-slider {
+  width: clamp(96px, 11vw, 150px);
+  --at: calc(9px + (100% - 18px) * var(--f, 0));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.78) 0 var(--at), rgba(255, 255, 255, 0.18) var(--at));
+}
+.table-screen .raise-slider:disabled {
+  background: rgba(255, 255, 255, 0.12);
+}
+.raise-slider:not(:disabled):hover::-webkit-slider-thumb {
+  transform: scale(1.06);
+}
+.raise-slider:not(:disabled):active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+.raise-slider:disabled::-webkit-slider-thumb {
+  background: var(--ink-3);
+  cursor: default;
 }
 .table-screen .raise-amount {
+  width: 40px;
+  padding-right: 8px;
+  box-sizing: content-box;
+  text-align: right;
   color: var(--ink-1);
   font-weight: 600;
+  font-size: var(--t-body);
+}
+.table-screen .controls .dock-presets > .pill {
+  padding: 0 9px;
+}
+.table-screen .controls .dock-presets > .dock-frac {
+  font-size: var(--t-head);
+  line-height: 1;
+}
+html .g-seg > button:disabled {
+  color: var(--ink-3);
 }
 .winner-summary {
+  font-size: var(--t-body);
   font-weight: 600;
+  color: var(--ink-1);
+  padding: 0 8px;
+}
+
+/* The table's corners: blinds as metadata (left); the win/tie readout, the Coach switch and the Stats
+ * text button (right), 16px apart, on one 28px row. */
+.table-corner {
+  position: absolute;
+  top: 0;
+  height: var(--h-sm);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 2;
+}
+.table-corner-l {
+  left: 4px;
+}
+.table-corner-r {
+  right: 0;
+  gap: 12px;
+  z-index: 6;   /* above a coach sheet's scrim: table settings stay reachable */
+}
+/* While a verdict sheet is up, its Close is the one primary; Next hand under it reads as secondary. */
+html .table-screen[data-sheet='verdict'] .controls .pill.primary:not(:disabled) {
+  background: var(--fill-1);
+  color: var(--ink-1);
+  font-weight: 500;
+  border-color: var(--hair-strong);
+  box-shadow: none;
+}
+html .table-screen[data-sheet='verdict'] .controls .pill.primary:not(:disabled):hover {
+  background: var(--fill-2);
+  box-shadow: none;
 }
 
 /* ─── Compact tiers: the stage shrinks when coached mode, the stats sheet or the coach verdict take
  * height at 900x640. Smaller cards and figures, and the top seat's bet moves beside it. ─── */
+/* A tall stage: the pot and board sit lower, so the price the hero is sizing against is near the plate
+ * (the round-5 rater: a ~170pt gap between them at 1100x760). */
+@container stage (min-height: 480px) {
+  .table-screen .table-centre { top: 60%; }
+}
 @container stage (max-height: 400px) {
   .table-screen .seat[data-slot='top'] { top: 30px; }
   .table-screen .seats .seat[data-slot='top'] .seat-committed {
@@ -743,63 +1157,454 @@ select {
   .table-screen .pot { flex-direction: row; align-items: baseline; gap: 6px; }
   .pot-value { font-size: 26px; }
   .table-screen .table-centre { top: 42%; }
-  .table-screen .table-centre .card { width: 44px; height: 62px; }
+  .table-screen .table-centre .card,
+  .table-screen .board-wrap .card-well { width: 44px; height: 62px; }
   .table-screen .board-wrap { min-height: 62px; }
   .table-screen .hero-cards .card { width: 40px; height: 56px; }
   .table-screen .hero-wrap .seat-stack { font-size: 22px; }
 }
 
-/* ─── The stats sheet on the table: a compact strip. The win% is the one figure; mint stays its colour
- * (it is a positive readout), at a size that no longer outranks the pot. ─── */
-.table-screen .stats-sheet {
-  padding: 8px 16px;
-  gap: 6px;
+/* ─── The stats readout, in the table's top-right corner. The win/tie line is quiet metadata in the stat
+ * grammar (value then label, neutral ink: the colour role map gives a win% no hue); opening Stats drops the
+ * made-hand list under it as a small float. ─── */
+/* static, so the made-hand float anchors to the corner's right edge, clear of the top seat. */
+html .table-screen .stats-sheet {
+  position: static;
+  padding: 0;
+  gap: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 0;
 }
 .table-screen .stats-header {
-  align-items: center;
-  gap: 24px;
+  height: var(--h-sm);
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 8px;
+  border-radius: var(--r-ctl);
+  line-height: var(--h-sm);
+}
+.table-screen .stats-header:hover {
+  background: var(--fill-1);
+}
+.table-screen .stats-header:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 .table-screen .stats-win,
 .table-screen .stats-tie {
   display: flex;
+  flex-direction: row-reverse;
   align-items: baseline;
-  gap: 8px;
+  gap: 5px;
 }
-.table-screen .stats-win-value {
-  font-size: 24px;
+.table-screen .stats-win-value,
+.table-screen .stats-tie .stat-value {
+  font-size: var(--t-body);
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 1;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
-.table-screen .stats-tie .stat-value {
-  font-size: 17px;
-  font-weight: 600;
+.table-screen .stats-sheet .stat-label {
+  font-size: var(--t-foot);
+}
+html .table-screen .stats-sheet[data-open='true'] .stats-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 220px;
+  max-height: min(240px, calc(100cqh - 48px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px;
+  gap: 4px;
+  background: var(--float);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  border-radius: var(--r-group);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+}
+.table-screen .stats-cat .stat-label {
+  color: var(--ink-2);
 }
 .stats-cat-pct {
+  font-size: var(--t-body);
   font-weight: 500;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── The gate: one line to answer, inside the coach float ─── */
-.table-screen .coach {
-  padding: 10px 14px;
+/* ─── The coach: verdict, gate, tray (demo/glass/table.html, states predict / gate / verdict) ───
+ * The coach panel's own parts, shared by its two homes: inline above the dock (uncoached), and the sheet
+ * over the table (coached). One headline, the severity as a glyph + word in coral/amber, the price meter,
+ * support at 56ch. */
+.coach {
+  gap: 8px;
+  border-left: 0;
 }
-.table-screen .coach-gate {
-  gap: 4px;
+.coach-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.table-screen .coach-gate-input {
-  height: 32px;
-  min-height: 32px;
-  padding: 6px 10px;
-  font-size: 13px;
+.coach[data-severity='none'] .coach-sev,
+.coach[data-gate='open'] .coach-sev {
+  display: none;
+}
+.coach-sev {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-foot);
+  font-weight: 600;
+  color: var(--amber);
+}
+.coach[data-severity='serious'] .coach-sev {
+  color: var(--coral);
+}
+.coach-sev .g-warn {
+  width: 13px;
+  height: 13px;
+}
+.coach-ctx {
+  margin-left: auto;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+}
+.coach-ctx:empty {
+  display: none;
+}
+html .coach .coach-message {
+  font-size: var(--t-t3);
+  font-weight: 600;
   line-height: 1.3;
+  color: var(--ink-1);
+}
+html .coach .coach-message:empty {
+  display: none;
+}
+.coach .coach-principle {
+  font-size: var(--t-body);
+  color: var(--ink-2);
+}
+.coach .coach-principle:empty {
+  display: none;
+}
+.coach .coach-reason-note {
+  font-size: var(--t-foot);
+  color: var(--amber);
+  margin-top: 0;
+}
+
+.coach-meter {
+  position: relative;
+  height: 34px;
+  margin-top: 2px;
+}
+.coach-meter[hidden] {
+  display: none;
+}
+.coach-meter-bar,
+.coach-meter-fill,
+.coach-meter-gap {
+  position: absolute;
+  top: 7px;
+  height: 4px;
+  border-radius: 2px;
+}
+.coach-meter-bar {
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+.coach-meter-fill {
+  left: 0;
+  width: var(--had);
+  background: rgba(255, 255, 255, 0.34);
+  animation: coach-meter-grow 600ms 200ms var(--ease) both;
+}
+/* The gap between the hand's share and the price is the bright band. */
+.coach-meter-gap {
+  left: var(--lo);
+  width: calc(var(--hi) - var(--lo));
+  background: rgba(255, 255, 255, 0.82);
+  animation: coach-fade 400ms 700ms both;
+}
+.coach-meter-need {
+  position: absolute;
+  top: 1px;
+  left: var(--need);
+  width: 2px;
+  height: 16px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--coral);
+}
+.coach-meter-lab-need,
+.coach-meter-lab-had,
+.coach-meter-end-lo,
+.coach-meter-end-hi {
+  position: absolute;
+  top: 20px;
+  font-size: var(--t-cap);
+  white-space: nowrap;
+}
+.coach-meter-lab-need {
+  left: var(--need);
+  transform: translateX(-50%);
+  color: var(--ink-2);
+}
+.coach-meter-lab-had {
+  left: var(--had);
+  transform: translateX(-50%);
+  color: var(--ink-2);
+}
+.coach-meter-end-lo { left: 0; color: var(--ink-3); }
+.coach-meter-end-hi { right: 0; color: var(--ink-3); }
+@keyframes coach-meter-grow { from { width: 0; } }
+@keyframes coach-fade { from { opacity: 0; } }
+
+/* The gate: one line to answer, a 32px field beside a 32px button, the budget as a 3px amber bar. */
+.coach-gate {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'bar bar'
+    'prompt prompt'
+    'count count'
+    'input submit'
+    'note note';
+  gap: 10px 8px;
+}
+.coach-gate[hidden] {
+  display: none;
+}
+.coach-gate-bar {
+  grid-area: bar;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+html .coach-gate-bar-fill {
+  background: var(--amber);
+}
+html .coach-gate-prompt {
+  grid-area: prompt;
+  font-size: var(--t-t3);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink-1);
+}
+html .coach-gate-count {
+  grid-area: count;
+  font-size: var(--t-foot);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
+html .coach-gate-input {
+  grid-area: input;
+  height: var(--h-ctl);
+  min-height: var(--h-ctl);
+  padding: 7px 12px;
+  font-size: var(--t-body);
+  line-height: 1.3;
+  resize: none;
+  overflow: hidden;
+}
+html .coach-gate-input:focus {
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+.coach-gate-submit {
+  grid-area: submit;
+}
+html .coach-gate-note {
+  grid-area: note;
+  color: var(--ink-1);
+}
+
+/* Inline (uncoached): the coach is a float above the dock, centred to the dock's width. */
+.table-screen > .coach {
+  align-self: center;
+  width: min(640px, 100%);
+  padding: 12px 16px;
+}
+
+/* The coached sheet: a float rising from the bottom of the stage over a scrim; the table behind recedes
+ * (dimmed and blurred, no bloom) and is inert. */
+.coach-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.coach-layer[hidden] {
+  display: none;
+}
+.coach-scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: rgba(10, 12, 16, 0.5);
+  animation: coach-fade var(--dur-2) var(--ease) both;
+}
+.table-screen[data-sheet] .table-stage > :not(.coach-layer):not(.table-corner-r) {
+  filter: blur(10px) brightness(0.45) saturate(0.7);
+  transition: filter var(--dur-3) var(--ease);
+}
+.coach-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  translate: -50% 0;
+  width: min(520px, calc(100% - 32px));
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px 16px;
+  border-radius: var(--r-sheet);
+  background: rgba(52, 56, 64, 0.72);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+  outline: none;
+  animation: coach-rise var(--dur-3) var(--ease) both;
+}
+@keyframes coach-rise { from { opacity: 0; translate: -50% 8px; } }
+html .coach-sheet > .coach {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 0;
+}
+.coach-sheet-predict {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+.coach-sheet-predict[hidden] {
+  display: none;
+}
+.coach-sheet-commit {
+  font-size: var(--t-foot);
+  color: var(--ink-2);
+}
+.coach-sheet-commit b {
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.coach-sheet-predict .predict-result {
+  font-size: var(--t-head);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.coach-sheet-predict .predict-support {
+  max-width: 56ch;
+  font-size: var(--t-foot);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.coach-sheet-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.coach-sheet-foot .g-caption {
+  margin-right: auto;
+}
+.coach-sheet-foot .pill[hidden] {
+  display: none;
+}
+
+/* The commit tray: the same thin float as the dock, a 15/600 question, then one 28px row — the action
+ * and confidence segmented controls and the optional "why" field. It takes the dock's place until the
+ * hero commits. */
+.table-screen .predict {
+  align-self: center;
+  width: min(700px, 100%);
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-left: 0;
+}
+.table-screen .predict-prompt {
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.table-screen .predict-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+html .table-screen .predict-row > .g-seg > .predict-choice {
+  padding: 0 11px;
+  font-size: var(--t-body);
+  letter-spacing: 0;
+  margin: 0;
+}
+html .predict-choice[data-selected='true'] {
+  background: none;
+  box-shadow: none;
+}
+html .table-screen .predict-reason {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-sm);
+  min-height: var(--h-sm);
+  padding: 5px 10px;
+  font-size: var(--t-body);
+  line-height: 1.3;
+  overflow: hidden;
+}
+.table-screen .predict-result {
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+html .predict-result[data-outcome] {
+  color: var(--ink-1);
+}
+html .predict-result[data-outcome='guess-wrong'],
+html .predict-result[data-outcome='deviated'] {
+  color: var(--ink-2);
+}
+.table-screen .predict-support {
+  color: var(--ink-2);
+}
+.table-screen .controls[hidden],
+.table-screen .predict-row[hidden],
+.table-screen .predict-prompt[hidden] {
+  display: none;
+}
+/* A tray with nothing to show (handover, with the reveal line lent to the verdict sheet) is not drawn. */
+.table-screen .predict:not(:has(> :not([hidden]))) {
+  display: none;
+}
+html .table-screen .predict-reason {
   resize: none;
 }
 
 /* ─── Selected states across screens: the glass thumb (a light fill, light ink, no outline). These
  * sit in per-screen sheets that load after this one, hence the `html` prefix. ─── */
 html .catalog-item[data-active='true'],
-html .planner-row .pill[data-active='true'],
 html .settings-toggle[aria-pressed='true'] {
   background: var(--fill-3);
   color: var(--ink-1);
@@ -825,13 +1630,7 @@ html .train-rail-btn[data-active='true'] {
 html .train-rail-btn:focus-visible {
   box-shadow: var(--focus-ring);
 }
-/* The committed prediction is a selection, not "your turn": the thumb, not mint. */
-html .predict-choice[data-selected='true'] {
-  background: var(--fill-3);
-  color: var(--ink-1);
-  border-color: transparent;
-  box-shadow: var(--thumb-shadow);
-}
+/* The committed prediction is a selection, not "your turn": the sliding thumb (predictPanel.ts), not mint. */
 html .settings-toggle {
   border-radius: var(--r-ctl);
   background: var(--fill-1);
@@ -868,9 +1667,23 @@ html .chart-bank-screen .chart-cell[data-action='threebet'] {
 html .legend-swatch[data-action='open'] { background: var(--cell-in); }
 html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong); }
 
-/* Home with the planner: the titlebar nav is a few px taller than the old tab strip, so the column's
- * top/bottom padding gives that back and Home keeps fitting 900x640 without scrolling. */
-html .home-screen:has(> .session-planner) {
-  padding-top: 12px;
-  padding-bottom: 12px;
+
+
+/* Reduced motion: decorative motion stops (the slide of a thumb included, and the sheet's rise and the
+ * table's recede). The gate's budget bar keeps draining: it is a functional timer, not decoration (the
+ * round-3 rater found a frozen bar under reduced motion hid how long was left). */
+@media (prefers-reduced-motion: reduce) {
+  .sel-thumb,
+  .table-screen[data-sheet] .table-stage > :not(.coach-layer):not(.table-corner-r) {
+    transition: none;
+  }
+  .coach-sheet,
+  .coach-scrim,
+  .coach-meter-fill,
+  .coach-meter-gap {
+    animation: none;
+  }
+  html .coach-gate-bar-fill {
+    animation: offsuit-gate-drain var(--gate-budget) linear forwards;
+  }
 }

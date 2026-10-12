@@ -133,7 +133,9 @@ test.describe('coached mode toggle', () => {
       await expect(page.locator(predictPanel)).toHaveCount(0);
       await expect(page.locator(predictResult)).toHaveCount(0);
       await expect(page.locator(modeToggle)).toHaveAttribute('data-on', 'false');
-      await expect(page.locator(modeToggle)).toHaveText(/off/i);
+      // The toggle is a switch now (it used to read "Coach off"): its state is aria-checked.
+      await expect(page.locator(modeToggle)).toHaveAttribute('role', 'switch');
+      await expect(page.locator(modeToggle)).toHaveAttribute('aria-checked', 'false');
     });
   });
 

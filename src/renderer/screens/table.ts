@@ -42,6 +42,7 @@ import {
   renderCoachPanel,
   showGate,
   showGateRetry,
+  setCoachContext,
   showGrade,
   showReasonNote,
 } from '../components/coachPanel.js';
@@ -49,12 +50,16 @@ import {
   clearPredictPanel,
   committedPrediction,
   committedReason,
+  lendResult,
+  reclaimResult,
   renderPredictPanel,
   resetCommit,
   setCommitVisible,
   showPredictResult,
 } from '../components/predictPanel.js';
 import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
+import { keycap } from '../components/glyphs.js';
+import type { PredictedAction } from '../../core/predict.js';
 
 const SB = 25;
 /** The big blind, exported so the caller can size a depth-derived starting stack in the same units. */
@@ -217,6 +222,40 @@ export function renderTable(opts: {
   boardWrap.className = 'board-wrap';
   centre.appendChild(boardWrap);
 
+  // The table's corners: the blinds as metadata on the left; on the right the win/tie readout, the
+  // Coach switch and the Stats text button — table settings, off the action dock. Built once, so the
+  // switch animates and focus survives every render.
+  const cornerLeft = document.createElement('div');
+  cornerLeft.className = 'table-corner table-corner-l';
+  const blinds = document.createElement('span');
+  blinds.className = 'g-caption g-num';
+  blinds.textContent = `Blinds ${SB}/${BB}`;
+  cornerLeft.appendChild(blinds);
+  stage.appendChild(cornerLeft);
+
+  const cornerRight = document.createElement('div');
+  cornerRight.className = 'table-corner table-corner-r';
+  stage.appendChild(cornerRight);
+
+  const coachSwitch = document.createElement('button');
+  coachSwitch.type = 'button';
+  coachSwitch.className = 'g-switch';
+  coachSwitch.dataset.testid = 'coach-mode-toggle';
+  coachSwitch.setAttribute('role', 'switch');
+  const switchTrack = document.createElement('span');
+  switchTrack.className = 'g-switch-track';
+  switchTrack.setAttribute('aria-hidden', 'true');
+  coachSwitch.append('Coach', switchTrack);
+  coachSwitch.addEventListener('click', () => setCoachedMode(!coachedMode));
+
+  const statsToggle = document.createElement('button');
+  statsToggle.type = 'button';
+  statsToggle.className = 'pill quiet sm';
+  statsToggle.dataset.testid = 'stats-toggle';
+  statsToggle.textContent = 'Stats';
+  statsToggle.addEventListener('click', () => toggleStatsSheet(stats));
+  statsToggle.setAttribute('aria-expanded', 'false');
+
   const heroCards = document.createElement('div');
   heroCards.className = 'hero-cards';
   heroCards.dataset.testid = 'hero-cards';
@@ -225,6 +264,52 @@ export function renderTable(opts: {
   const coach = renderCoachPanel(() => submitGate());
   root.appendChild(coach);
 
+  /*
+   * THE COACHED SHEET (the mock's gate and verdict sheets). In coached mode the coach panel lives in a
+   * sheet that rises over the table stage: the stage dims and goes inert behind it, and the tray/dock
+   * below stay live — so "Next hand" at handover, and the next decision's commit, are never behind a
+   * modal, and every existing flow (the gate's 8s budget and Enter-to-submit, the verdict cleared at the
+   * next decision, the announcer) is unchanged. Opening moves focus into the sheet (the gate's answer
+   * field, or the sheet itself for a verdict); Close or Esc dismisses a verdict and returns focus to the
+   * first live control. Uncoached, the coach panel stays inline above the dock, as before.
+   */
+  const sheetLayer = document.createElement('div');
+  sheetLayer.className = 'coach-layer';
+  sheetLayer.hidden = true;
+  const scrim = document.createElement('div');
+  scrim.className = 'coach-scrim';
+  scrim.setAttribute('aria-hidden', 'true');
+  const sheet = document.createElement('section');
+  sheet.className = 'coach-sheet';
+  sheet.dataset.testid = 'coach-sheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-label', 'Coach');
+  sheet.tabIndex = -1;
+  // The second half of a verdict: what the hero committed to, then the reveal line (lent by the tray).
+  const sheetPredict = document.createElement('div');
+  sheetPredict.className = 'coach-sheet-predict';
+  const sheetCommit = document.createElement('div');
+  sheetCommit.className = 'coach-sheet-commit';
+  sheetCommit.dataset.testid = 'verdict-commit';
+  sheetPredict.appendChild(sheetCommit);
+  const sheetFoot = document.createElement('div');
+  sheetFoot.className = 'coach-sheet-foot';
+  const sheetCaption = document.createElement('span');
+  sheetCaption.className = 'g-caption';
+  const sheetClose = document.createElement('button');
+  sheetClose.type = 'button';
+  sheetClose.className = 'pill primary';
+  sheetClose.dataset.testid = 'coach-close';
+  sheetClose.append('Close', keycap('esc'));
+  sheetClose.setAttribute('aria-keyshortcuts', 'Escape');
+  sheetClose.addEventListener('click', () => dismissVerdict());
+  sheetFoot.append(sheetCaption, sheetClose);
+  sheetLayer.append(scrim, sheet);
+  /** 'gate' while a gate is up, 'verdict' while a coached verdict is shown, else null. */
+  let sheetKind: 'gate' | 'verdict' | null = null;
+  /** The prediction behind the verdict on show, for the sheet's "You committed to …" line. */
+  let sheetPrediction: { action: PredictedAction; confidence: Confidence } | null = null;
+
   let coachedMode = opts.coachedMode === true;
   // Built once, but only in the DOM while coached mode is on: with it detached there is no panel
   // to query and no gate to leak, so uncoached play is byte-for-byte the old behaviour.
@@ -232,6 +317,7 @@ export function renderTable(opts: {
   // released by the same commitment that unlocks the actions.
   const predict = renderPredictPanel(() => {
     refreshStats();
+    syncPredictMount();
     renderControls();
   });
 
@@ -241,9 +327,14 @@ export function renderTable(opts: {
   controls.className = 'controls';
   root.appendChild(controls);
 
+  // The stats readout lives in the table's top-right corner: the win/tie line always shown, the made-hand
+  // list opening under it as a small float.
   const stats = renderStatsSheet();
+  stats.addEventListener('stats-toggle', (e) =>
+    statsToggle.setAttribute('aria-expanded', String((e as CustomEvent<boolean>).detail)),
+  );
   toggleStatsSheet(stats, false);
-  root.appendChild(stats);
+  cornerRight.append(stats, coachSwitch, statsToggle);
 
   // ── mutable hand state ─────────────────────────────────────────────
   const table = createTable({
@@ -348,21 +439,127 @@ export function renderTable(opts: {
     root.dataset.awaiting = v;
   }
 
+  /** The coach panel sits in the sheet in coached mode and inline above the dock otherwise. */
+  function syncCoachMount(): void {
+    if (coachedMode) {
+      if (coach.parentElement !== sheet) sheet.replaceChildren(coach, sheetPredict, sheetFoot);
+      if (sheetLayer.parentElement !== stage) stage.appendChild(sheetLayer);
+      // A verdict already up (shown inline while uncoached) moves into the sheet rather than vanishing
+      // inside a hidden layer while the voice and the announcer still carry it.
+      if (!coach.hidden && sheetKind === null) openSheet(gate !== null ? 'gate' : 'verdict');
+      return;
+    }
+    closeSheet();
+    if (coach.parentElement !== root) root.insertBefore(coach, predict.parentElement === root ? predict : controls);
+    sheetLayer.remove();
+  }
+
+  /** Everything in the stage but the sheet goes inert (out of the tab order and the a11y tree). The
+   *  right-hand corner is table settings, not table content: the Coach switch and Stats stay reachable at
+   *  every point in a hand, sheet or not. */
+  function setStageInert(on: boolean): void {
+    for (const child of stage.children) {
+      if (child === sheetLayer || child === cornerRight) continue;
+      (child as HTMLElement).inert = on;
+    }
+  }
+
+  function openSheet(kind: 'gate' | 'verdict'): void {
+    sheetKind = kind;
+    root.dataset.sheet = kind;
+    sheetLayer.hidden = false;
+    sheetLayer.dataset.kind = kind;
+    setStageInert(true);
+    if (kind === 'verdict') {
+      sheet.setAttribute('aria-label', 'Coach verdict');
+      // The reveal line joins the verdict while the sheet is up; a free grade never opens the sheet.
+      if (sheetPrediction) {
+        const action = sheetPrediction.action[0].toUpperCase() + sheetPrediction.action.slice(1);
+        const conf = sheetPrediction.confidence === 'sure' ? 'Sure' : 'Guess';
+        const em = (text: string): HTMLElement => {
+          const b = document.createElement('b');
+          b.textContent = text;
+          return b;
+        };
+        sheetCommit.replaceChildren('You committed to ', em(action), ', ', em(conf));
+        sheetPredict.hidden = false;
+        lendResult(predict, sheetPredict);
+      } else {
+        sheetPredict.hidden = true;
+      }
+      syncSheetCaption();
+      sheetClose.hidden = false;
+      sheet.focus({ preventScroll: true });
+    } else {
+      sheet.setAttribute('aria-label', 'Coach: explain this spot');
+      sheetPredict.hidden = true;
+      sheetCaption.textContent = 'The verdict appears when you answer, use both attempts, or the bar runs out.';
+      sheetClose.hidden = true;
+    }
+  }
+
+  /** A verdict opens before its action is applied, so the caption follows the live state (render()). */
+  function syncSheetCaption(): void {
+    if (sheetKind === 'verdict') {
+      sheetCaption.textContent = state.winners === null ? 'The hand plays on behind this sheet' : '';
+    }
+  }
+
+  function closeSheet(): void {
+    if (sheetKind === null) return;
+    const hadFocus = sheetLayer.contains(document.activeElement);
+    sheetKind = null;
+    delete root.dataset.sheet;
+    sheetLayer.hidden = true;
+    setStageInert(false);
+    reclaimResult(predict);
+    sheetPrediction = null;
+    // Focus returns to the first live control below the table, never to <body>.
+    if (hadFocus) {
+      const next = [...root.querySelectorAll<HTMLElement>('.predict button, .controls button, .controls input')].find(
+        (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
+      );
+      (next ?? stage).focus({ preventScroll: true });
+    }
+  }
+
+  /** Close (or Esc) on a verdict: the verdict is dismissed, exactly as the next decision would clear it. */
+  function dismissVerdict(): void {
+    if (sheetKind !== 'verdict') return;
+    clearCoach(coach);
+    if (adviceShown) opts.onVerdict?.(null);
+    adviceShown = false;
+    closeSheet();
+  }
+
   /** In the DOM only while coached mode is on; kept directly above the controls it gates. */
   function syncPredictMount(): void {
     if (coachedMode) {
       if (predict.parentElement === null) root.insertBefore(predict, controls);
       // The commit row belongs to a pending decision. At handover there is none, and leaving it up
       // is both a dead control and 74px of height the 900x640 column cannot spare.
-      setCommitVisible(predict, state.winners === null);
+      const commitVisible = state.winners === null;
+      setCommitVisible(predict, commitVisible);
+      // The tray takes the dock's place until the hero commits (every dock action is locked until then);
+      // once committed, the dock returns under it. A gate keeps the dock up, locked, under the sheet.
+      controls.hidden = commitVisible && committedPrediction(predict) === null && gate === null;
+      predict.dataset.committed = String(committedPrediction(predict) !== null);
       return;
     }
+    controls.hidden = false;
     predict.remove();
     clearPredictPanel(predict);
   }
 
+  function syncCoachSwitch(): void {
+    coachSwitch.setAttribute('aria-checked', String(coachedMode));
+    coachSwitch.dataset.on = String(coachedMode);
+  }
+
   function setCoachedMode(on: boolean): void {
     coachedMode = on;
+    syncCoachSwitch();
+    syncCoachMount();
     syncPredictMount();
     opts.onCoachedModeChange?.(on);
     render();
@@ -438,6 +635,8 @@ export function renderTable(opts: {
   function openGate(grade: Grade, reasonText: string, proceed: (attempts: 0 | 1 | 2) => void): void {
     gate = { grade, reasonText, proceed, attemptsUsed: 0 };
     root.dataset.gate = 'open';
+    // The sheet opens first so showGate's focus lands in a visible field.
+    openSheet('gate');
     showGate(coach, GATE_PROMPT, GATE_BUDGET_MS, GATE_MAX_ATTEMPTS);
     render();
     gateTimer = setTimeout(resolveGate, GATE_BUDGET_MS);
@@ -526,6 +725,9 @@ export function renderTable(opts: {
     }
     if (state.toAct === 0) {
       // A new decision: the previous verdict's pot and to-call no longer describe this spot.
+      // A coached sheet never sits over a live decision: whatever it holds (a verdict, or G4's note on
+      // a silent grade) is dismissed here, so the tray, the dock and the hotkeys are the hero's again.
+      if (sheetKind === 'verdict') dismissVerdict();
       if (adviceShown) {
         clearCoach(coach);
         adviceShown = false;
@@ -622,7 +824,8 @@ export function renderTable(opts: {
         toCall,
         action: action.kind,
         amount: action.amount ?? null,
-        verdict: { ...grade },
+        // The save keeps the grade's stored shape; the meter's price is a display detail, not persisted.
+        verdict: { severity: grade.severity, evLossBb: grade.evLossBb, message: grade.message, principle: grade.principle },
       };
       // Logged only when the gate actually fired; absent otherwise (matches the schema: absent = the
       // gate did not apply, never 0).
@@ -636,6 +839,15 @@ export function renderTable(opts: {
         opts.onPrediction?.(outcome, prediction.confidence);
         // Fresh commitment for the next street; the reveal line stays up until the next hand.
         resetCommit(predict);
+      }
+      // Coached: a verdict — or G4's reason note on a silent grade — rises as the sheet (the gate's sheet,
+      // if one was up, turns into it). Nothing to say closes it, and the reveal line stays in the tray.
+      if (coachedMode && !coach.hidden) {
+        setCoachContext(coach, verdictContext(street, action.kind, toCall));
+        sheetPrediction = prediction;
+        openSheet('verdict');
+      } else {
+        closeSheet();
       }
       state = applyAction(state, action);
       advance();
@@ -674,6 +886,7 @@ export function renderTable(opts: {
     potAnnouncer.textContent = '';
     if (adviceShown) opts.onVerdict?.(null);
     adviceShown = false;
+    closeSheet();
     clearPredictPanel(predict);
     state = startHand(state);
     heroStartStack = state.seats[0].stack + state.seats[0].committed;
@@ -715,6 +928,15 @@ export function renderTable(opts: {
       if (state.winners === null) potAnnouncer.textContent = `Pot ${state.pot}`;
     }
     prevBoardLen = state.board.length;
+    // The streets still to come are drawn as empty inset wells, so the board keeps its five-card shape.
+    // Not cards: they carry no card testid, so every card query is unchanged.
+    for (let n = state.board.length; n < 5; n++) {
+      const well = document.createElement('div');
+      well.className = 'card-well';
+      // Decoration: a screen reader already hears the street from the pot announcer.
+      well.setAttribute('aria-hidden', 'true');
+      row.appendChild(well);
+    }
     boardWrap.replaceChildren(row);
 
     const hero = heroSeat();
@@ -744,6 +966,7 @@ export function renderTable(opts: {
     // The commit row tracks whether a decision is pending, so it must be re-synced every render,
     // not only when the toggle is clicked.
     syncPredictMount();
+    syncSheetCaption();
 
     refreshStats();
 
@@ -789,13 +1012,6 @@ export function renderTable(opts: {
 
   function renderControlsInner(): void {
     controls.replaceChildren();
-
-    // Before the showdown branch so the toggle is reachable at every point in a hand.
-    const modeToggle = pill(`Coach ${coachedMode ? 'on' : 'off'}`, 'coach-mode-toggle', () =>
-      setCoachedMode(!coachedMode),
-    );
-    modeToggle.dataset.on = String(coachedMode);
-    controls.appendChild(modeToggle);
 
     if (state.winners !== null) {
       const summary = document.createElement('div');
@@ -853,6 +1069,7 @@ export function renderTable(opts: {
       }
 
       const next = pill('Next hand', 'next-hand', () => nextHand());
+      next.classList.add('primary');
       controls.appendChild(next);
       return;
     }
@@ -866,24 +1083,42 @@ export function renderTable(opts: {
     // `gate !== null` guard is the real lockout; this is the visible half of it).
     const committed = (!coachedMode || committedPrediction(predict) !== null) && gate === null;
 
+    // The dock, in rank order: the secondary actions (each with its real hotkey as a trailing keycap),
+    // the sizing group (slider, amount slot, presets), then the one primary, Raise.
     const fold = pill('Fold', 'btn-fold', () => heroAct({ kind: 'fold' }));
     fold.disabled = !heroTurn || !committed || !legal.includes('fold');
+    fold.appendChild(keycap('F'));
+    fold.setAttribute('aria-keyshortcuts', 'F');
     controls.appendChild(fold);
 
+    // C is check when checking is legal, else the call (onKey below): the keycap sits on whichever one C does.
+    const cIsCheck = legal.includes('check');
     const check = pill('Check', 'btn-check', () => heroAct({ kind: 'check' }));
     check.disabled = !heroTurn || !committed || !legal.includes('check');
+    if (cIsCheck) {
+      check.appendChild(keycap('C'));
+      check.setAttribute('aria-keyshortcuts', 'C');
+    }
     controls.appendChild(check);
 
     const call = pill(toCall > 0 ? `Call ${toCall}` : 'Call', 'btn-call', () =>
       heroAct({ kind: legal.includes('call') ? 'call' : 'allin' }),
     );
     call.disabled = !heroTurn || !committed || !(legal.includes('call') || legal.includes('allin'));
+    if (!cIsCheck) {
+      call.appendChild(keycap('C'));
+      call.setAttribute('aria-keyshortcuts', 'C');
+    }
     controls.appendChild(call);
+
+    controls.appendChild(dockSeparator());
 
     const canRaise = legal.includes('raise') || legal.includes('bet');
     const min = canRaise ? minRaiseTo(state) : 0;
     const max = canRaise ? maxRaiseTo(state) : 0;
 
+    const sizing = document.createElement('div');
+    sizing.className = 'dock-slider';
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.dataset.testid = 'raise-slider';
@@ -896,29 +1131,37 @@ export function renderTable(opts: {
     // visible amount into aria-valuetext so a screen reader reads the chip count as it moves.
     slider.setAttribute('aria-label', 'Raise amount');
     slider.setAttribute('aria-valuetext', String(min));
-    controls.appendChild(slider);
+    sizing.appendChild(slider);
 
     const amountLabel = document.createElement('span');
     amountLabel.className = 'raise-amount';
     amountLabel.dataset.testid = 'raise-amount';
     amountLabel.textContent = String(min);
-    // Keep the slider value, the visible chip count and the screen-reader announcement in lock-step:
-    // set all three through one place so they can never drift.
+    // Keep the slider value, the visible chip count, the screen-reader announcement and the track fill in
+    // lock-step: set all four through one place so they can never drift.
     const setAmount = (value: string): void => {
       slider.value = value;
       amountLabel.textContent = value;
       slider.setAttribute('aria-valuetext', value);
+      slider.style.setProperty('--f', String(max > min ? (Number(value) - min) / (max - min) : 0));
     };
+    setAmount(String(min));
     slider.addEventListener('input', () => setAmount(slider.value));
-    controls.appendChild(amountLabel);
+    sizing.appendChild(amountLabel);
+    controls.appendChild(sizing);
 
     const setPreset = (fraction: number): void => {
       const target = fraction === Infinity ? max : clamp(Math.round(state.pot * fraction), min, max);
       setAmount(String(target));
     };
 
-    // The ½/¾ glyphs are their own accessible name, which reads as a meaningless fraction; spell each
-    // preset out. Pot/All-in already read fine but are labelled too for a consistent "Bet …" phrasing.
+    // The presets are one small segmented group of one-shot actions (role=group, not a selection). The
+    // ½/¾ glyphs are their own accessible name, which reads as a meaningless fraction; spell each preset
+    // out. Pot/All-in already read fine but are labelled too for a consistent "Bet …" phrasing.
+    const presetGroup = document.createElement('div');
+    presetGroup.className = 'g-seg g-seg-sm dock-presets';
+    presetGroup.setAttribute('role', 'group');
+    presetGroup.setAttribute('aria-label', 'Bet size');
     const presets: [string, string, number, string][] = [
       ['½', 'preset-half', 0.5, 'Bet half pot'],
       ['¾', 'preset-threequarter', 0.75, 'Bet three-quarter pot'],
@@ -928,23 +1171,37 @@ export function renderTable(opts: {
     for (const [label, testid, fraction, ariaLabel] of presets) {
       const b = pill(label, testid, () => setPreset(fraction));
       b.setAttribute('aria-label', ariaLabel);
+      if (label.length === 1) b.classList.add('dock-frac');
+      // All-in is also the A hotkey, which shoves directly: named in the tooltip, not as a keycap on a
+      // control that only sizes.
+      if (testid === 'preset-allin') b.title = 'All-in (A)';
       b.disabled = !heroTurn || !canRaise;
-      controls.appendChild(b);
+      presetGroup.appendChild(b);
     }
+    controls.appendChild(presetGroup);
+
+    controls.appendChild(dockSeparator());
 
     const raise = pill('Raise', 'btn-raise', () => {
       const amount = clamp(parseInt(slider.value, 10) || min, min, max);
       heroAct({ kind: legal.includes('raise') ? 'raise' : 'bet', amount });
     });
     raise.disabled = !heroTurn || !committed || !canRaise;
+    raise.appendChild(keycap('R'));
+    raise.setAttribute('aria-keyshortcuts', 'R');
+    // The R key raises to the minimum; this button raises to the slider's amount. Say so where it shows.
+    raise.title = `R raises to the minimum (${min})`;
     controls.appendChild(raise);
-
-    const statsToggle = pill('Stats', 'stats-toggle', () => toggleStatsSheet(stats));
-    controls.appendChild(statsToggle);
   }
 
   // ── keyboard (R3) ──────────────────────────────────────────────────
   function onKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && sheetKind === 'verdict') {
+      dismissVerdict();
+      return;
+    }
+    // Action hotkeys never reach a table that is behind a sheet.
+    if (sheetKind !== null) return;
     if (state.toAct !== 0 || state.winners !== null) return;
     const legal = legalActions(state);
     const key = e.key.toLowerCase();
@@ -963,6 +1220,8 @@ export function renderTable(opts: {
 
   // A restored coachedMode=true must arm the gate on the very first render, not only once the
   // toggle is clicked.
+  syncCoachSwitch();
+  syncCoachMount();
   syncPredictMount();
   advance();
 
@@ -1099,6 +1358,28 @@ function pill(label: string, testid: string, onClick: () => void): HTMLButtonEle
   b.textContent = label;
   b.addEventListener('click', onClick);
   return b;
+}
+
+const PAST: Record<ActionKind, string> = {
+  fold: 'folded',
+  check: 'checked',
+  call: 'called',
+  bet: 'bet',
+  raise: 'raised',
+  allin: 'went all-in',
+};
+
+/** The verdict sheet's context caption: "On the flop, you folded to 75". */
+function verdictContext(street: string, action: ActionKind, toCall: number): string {
+  const when = street === 'preflop' ? 'Preflop' : `On the ${street}`;
+  return `${when}, you ${PAST[action]}${toCall > 0 ? ` to ${toCall}` : ''}`;
+}
+
+function dockSeparator(): HTMLElement {
+  const sep = document.createElement('span');
+  sep.className = 'dock-sep';
+  sep.setAttribute('aria-hidden', 'true');
+  return sep;
 }
 
 function clamp(n: number, lo: number, hi: number): number {

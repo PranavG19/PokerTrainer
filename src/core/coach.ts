@@ -9,6 +9,12 @@ export interface Grade {
   evLossBb: number;
   message: string | null;
   principle: string | null;
+  /**
+   * On a priced spot (a bet to face) with a verdict, the two numbers the verdict turns on: the pot share
+   * the call needed and the share the hand had. The coach sheet draws them as a meter. Absent on an
+   * unpriced spot and on a silent (free) grade.
+   */
+  price?: { needed: number; had: number };
 }
 
 export function potOddsRequired(pot: number, toCall: number): number {
@@ -134,7 +140,9 @@ export function gradeDecision(input: {
   const message = severity === 'free' ? null : buildMessage(chosen, equity, required, pot, toCall, evLossBb);
   if (severity === 'free') principle = null;
 
-  return { severity, evLossBb, message, principle };
+  const grade: Grade = { severity, evLossBb, message, principle };
+  if (severity !== 'free' && toCall > 0) grade.price = { needed: required, had: equity };
+  return grade;
 }
 
 function classifySeverity(evLossBb: number): Severity {

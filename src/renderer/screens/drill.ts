@@ -1,6 +1,7 @@
 import '../styles-drill.css';
 
 import { text } from '../components/dom.js';
+import { keycap } from '../components/glyphs.js';
 
 import {
   COMMITTED_SPR,
@@ -296,15 +297,17 @@ function renderSidebar(opts: {
   panel.className = 'drill-side';
   panel.dataset.testid = 'drill-side';
 
-  panel.appendChild(text('div', 'stat-label', 'Drilling'));
+  const head = document.createElement('div');
+  head.className = 'drill-head';
+  head.appendChild(text('div', 'g-label', 'Drilling'));
 
   // The current kind is named in words, not only marked on a button: the selector could be
   // scrolled or missed, and "which question am I answering" must never be a guess.
-  const now = text('div', 'drill-now', KINDS[opts.kind].label);
+  const now = text('div', 'drill-now t-t2', KINDS[opts.kind].label);
   now.dataset.testid = 'drill-current-kind';
   now.dataset.kind = opts.kind;
-  panel.appendChild(now);
-  panel.appendChild(text('div', 'drill-now-asks', KINDS[opts.kind].asks));
+  head.appendChild(now);
+  head.appendChild(text('div', 'drill-now-asks g-sub', KINDS[opts.kind].asks));
 
   // T6/T7: the current scaffolding level for this kind, named so the fade is legible rather than a
   // silent shrinking of the panel. Rung 0 says the method is on; higher rungs say it is being withdrawn.
@@ -318,23 +321,32 @@ function renderSidebar(opts: {
   support.dataset.testid = 'drill-support';
   support.dataset.rung = String(opts.support.rung);
   support.dataset.support = opts.support.id;
-  panel.appendChild(support);
+  head.appendChild(support);
+  panel.appendChild(head);
 
-  panel.appendChild(renderKindSelector(opts.kind, opts.onSelect));
+  // ONE level-2 list: each kind is a picker row with this session's tally trailing it, and the
+  // "All kinds" total under a hairline. The tally used to be a second list repeating the kinds.
+  const section = document.createElement('div');
+  section.className = 'drill-kind-section';
+  const title = document.createElement('div');
+  title.className = 'drill-kind-title';
+  title.appendChild(text('span', 'g-label', 'Kind'));
+  title.appendChild(text('span', 'drill-kind-scope', 'this session'));
+  section.appendChild(title);
+  section.appendChild(renderKindSelector(opts.kind, opts.tallies, opts.onSelect));
+  panel.appendChild(section);
 
-  panel.appendChild(text('div', 'stat-label', 'This session'));
-  panel.appendChild(renderTallies(opts.tallies));
   panel.appendChild(
     text(
       'p',
-      'drill-note',
+      'drill-note g-caption',
       'The tally is this visit only — nothing here is written to disk, and leaving the tab clears it.',
     ),
   );
   panel.appendChild(
     text(
       'p',
-      'drill-note',
+      'drill-note g-caption',
       'Every problem is built from its seed, so the same seed is always the same problem.',
     ),
   );
@@ -342,71 +354,61 @@ function renderSidebar(opts: {
   return panel;
 }
 
+const tallyText = (t: Tally): string =>
+  t.attempted === 0 ? 'not tried' : `${t.correct} of ${t.attempted}`;
+
+/**
+ * The kind picker and the session tally in one list. Each row is the kind's button (drill-kind-btn,
+ * data-active) with its tally (drill-tally, data-attempted / data-correct) trailing inside it; the
+ * "All kinds" total (drill-tally-total) closes the list. The selected kind is a checkmark, not a
+ * fill, so this level-2 list never reads as the Train sub-rail beside it.
+ */
 function renderKindSelector(
   kind: DrillKind,
+  tallies: ReadonlyMap<DrillKind, Tally>,
   onSelect: (kind: DrillKind) => void,
 ): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'drill-kinds';
-  row.dataset.testid = 'drill-kinds';
-
-  for (const candidate of DRILL_KINDS) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'pill drill-kind-btn';
-    button.dataset.testid = 'drill-kind-btn';
-    button.dataset.kind = candidate;
-    button.dataset.active = String(candidate === kind);
-    button.textContent = KINDS[candidate].label;
-    button.addEventListener('click', () => onSelect(candidate));
-    row.appendChild(button);
-  }
-
-  return row;
-}
-
-function renderTallies(tallies: ReadonlyMap<DrillKind, Tally>): HTMLElement {
-  const list = document.createElement('ol');
-  list.className = 'drill-tallies';
+  const list = document.createElement('div');
+  list.className = 'drill-kinds';
+  list.dataset.testid = 'drill-kinds';
+  list.setAttribute('role', 'group');
+  list.setAttribute('aria-label', 'Kind');
 
   let attempted = 0;
   let correct = 0;
 
-  for (const kind of DRILL_KINDS) {
-    const tally = tallies.get(kind) ?? { attempted: 0, correct: 0 };
+  for (const candidate of DRILL_KINDS) {
+    const tally = tallies.get(candidate) ?? { attempted: 0, correct: 0 };
     attempted += tally.attempted;
     correct += tally.correct;
 
-    const row = document.createElement('li');
-    row.className = 'drill-tally-row';
-    row.dataset.testid = 'drill-tally';
-    row.dataset.kind = kind;
-    row.dataset.attempted = String(tally.attempted);
-    row.dataset.correct = String(tally.correct);
-    row.appendChild(text('span', 'drill-tally-label', KINDS[kind].label));
-    row.appendChild(
-      text(
-        'span',
-        'drill-tally-score',
-        tally.attempted === 0 ? 'not tried' : `${tally.correct} of ${tally.attempted}`,
-      ),
-    );
-    list.appendChild(row);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'drill-kind-btn';
+    button.dataset.testid = 'drill-kind-btn';
+    button.dataset.kind = candidate;
+    button.dataset.active = String(candidate === kind);
+    button.setAttribute('aria-pressed', String(candidate === kind));
+    button.appendChild(text('span', 'drill-kind-label', KINDS[candidate].label));
+
+    const score = text('span', 'drill-tally-score', tallyText(tally));
+    score.dataset.testid = 'drill-tally';
+    score.dataset.kind = candidate;
+    score.dataset.attempted = String(tally.attempted);
+    score.dataset.correct = String(tally.correct);
+    button.appendChild(score);
+
+    button.addEventListener('click', () => onSelect(candidate));
+    list.appendChild(button);
   }
 
-  const total = document.createElement('li');
-  total.className = 'drill-tally-row drill-tally-total';
+  const total = document.createElement('div');
+  total.className = 'drill-tally-total';
   total.dataset.testid = 'drill-tally-total';
   total.dataset.attempted = String(attempted);
   total.dataset.correct = String(correct);
   total.appendChild(text('span', 'drill-tally-label', 'All kinds'));
-  total.appendChild(
-    text(
-      'span',
-      'drill-tally-score',
-      attempted === 0 ? 'not tried' : `${correct} of ${attempted}`,
-    ),
-  );
+  total.appendChild(text('span', 'drill-tally-score', tallyText({ attempted, correct })));
   list.appendChild(total);
 
   return list;
@@ -449,7 +451,7 @@ function renderWork(opts: {
   panel.className = 'drill-work';
   panel.dataset.testid = 'drill-work';
 
-  const prompt = text('p', 'drill-prompt-text', opts.problem.prompt);
+  const prompt = text('p', 'drill-prompt-text t-t2', opts.problem.prompt);
   prompt.dataset.testid = 'drill-prompt';
   panel.appendChild(prompt);
 
@@ -463,9 +465,10 @@ function renderWork(opts: {
 
   const advance = document.createElement('button');
   advance.type = 'button';
-  advance.className = 'pill drill-next';
+  advance.className = 'pill primary drill-next';
   advance.dataset.testid = 'drill-next';
-  advance.textContent = 'Next problem — Enter';
+  advance.setAttribute('aria-keyshortcuts', 'Enter');
+  advance.append('Next problem', keycap('↩'));
   advance.addEventListener('click', opts.onNext);
   panel.appendChild(advance);
 
@@ -512,15 +515,16 @@ function renderAnswerRow(
 
   const send = document.createElement('button');
   send.type = 'button';
-  send.className = 'pill drill-commit';
+  send.className = 'pill primary drill-commit';
   send.dataset.testid = 'drill-commit';
-  send.textContent = 'Commit — Enter';
+  send.setAttribute('aria-keyshortcuts', 'Enter');
+  send.append('Commit', keycap('↩'));
   send.addEventListener('click', onCommit);
   wrap.appendChild(send);
 
   const hint = text(
     'p',
-    'drill-hint',
+    'drill-hint g-caption',
     unreadable
       ? 'That was not a number, so nothing was committed. Type digits — a decimal point is fine.'
       : unitKind === '%'
@@ -573,7 +577,12 @@ function renderVerdict(committed: Committed, rung: Rung): HTMLElement {
     return wrap;
   }
 
-  // Rung 0-1: the learner's number beside the right one, and the size of the miss.
+  // Rung 0-1: the size of the miss under the verdict line, then the learner's number beside the right
+  // one (the shared stat component; only a wrong value takes coral).
+  const gap = text('p', 'drill-gap g-sub', gapSentence(committed));
+  gap.dataset.testid = 'drill-gap';
+  wrap.appendChild(gap);
+
   const pair = document.createElement('div');
   pair.className = 'drill-pair';
 
@@ -584,10 +593,6 @@ function renderVerdict(committed: Committed, rung: Rung): HTMLElement {
     figure('drill-right', 'The answer', inUnit(committed.problem.kind, committed.problem.answer)),
   );
   wrap.appendChild(pair);
-
-  const gap = text('p', 'drill-gap', gapSentence(committed));
-  gap.dataset.testid = 'drill-gap';
-  wrap.appendChild(gap);
 
   return wrap;
 }
@@ -641,11 +646,11 @@ function gapSentence(committed: Committed): string {
 
 function figure(testid: string, label: string, value: string): HTMLElement {
   const cell = document.createElement('div');
-  cell.className = 'drill-figure';
-  const figureValue = text('div', 'drill-figure-value', value);
+  cell.className = 'drill-figure g-stat';
+  const figureValue = text('div', 'drill-figure-value t-stat g-num', value);
   figureValue.dataset.testid = testid;
   cell.appendChild(figureValue);
-  cell.appendChild(text('div', 'stat-label', label));
+  cell.appendChild(text('div', 'g-label', label));
   return cell;
 }
 
@@ -661,7 +666,7 @@ function renderMethod(problem: ArithmeticProblem): HTMLElement {
   wrap.className = 'drill-method';
   wrap.dataset.testid = 'drill-method';
 
-  wrap.appendChild(text('div', 'stat-label', 'The method, step by step'));
+  wrap.appendChild(text('div', 'g-label', 'The method, step by step'));
 
   const list = document.createElement('ol');
   list.className = 'drill-steps';

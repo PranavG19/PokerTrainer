@@ -1,101 +1,75 @@
-# Glass redesign: the app restyle, plus the design study behind it
+# Glass redesign, built: every screen as the mockup (draft — do not merge without review)
+
+Branch `glass-full-redesign` → `main`. Base `ddd4f27`.
 
 ## Summary
-**The app (`src/renderer/`) now ships the glass look with the `sports` table.** See DECISIONS.md, "The app
-restyle", for the details.
-- One coat over a pre-blurred backdrop, with glass only on what floats (the dock, the coach and predict
-  panels, the stats strip).
-- A titlebar nav that clears the inset traffic lights.
-- One button and selected-state system, bone cards, and opaque graphite grid cells.
-- The table: villains in scoreboard rows, placed by a unit-tested rule (`seatLayout.ts`). The pot is the
-  score, bets are pills, and the hero's seat is the hero plate with the turn wash. Compact tiers keep it
-  inside 900x640 in coached mode.
-- **Unchanged:** no dependency changes, and nothing outside `src/renderer/` changes apart from tests. The
-  state schema and the LAN protocol are untouched.
-- **Tests:**
-  - typecheck and unit tests (1802) pass, and the full e2e passes on 7edf964 (545, with 1 skipped as on
-    `main`).
-  - Two e2e changes:
-    - `interaction.spec`'s pot pin now asserts the pot figure is the largest on the table, instead of the
-      old 14px.
-    - `voice.spec` test 2 failed on `main` before this work. Its second verdict is hand 2, so it now accepts
-      any graded verdict.
-  - AA passes on 96 renders of the running app.
-  - An independent review was BLOCK, then PASS WITH NOTES after the fixes (see code-review.md).
+The previous restyle gave the app the glass tokens, materials and the `sports` table, but most screens kept
+their old layouts. This branch builds the mockup's layouts and components (`demo/glass/*.html`, rounds 3 and 5)
+in the real app. Every decision, and every spec change with its reason, is in `DECISIONS.md` ("The full
+redesign").
 
-The rest of this description covers the static mock under `demo/glass/` that led here.
-This is a static HTML/CSS mockup of a modern glass direction for Offsuit, built from real app screens and copy.
+- **Shared kit** (`styles-glass.css`, "Shared primitives"): text roles, the stat component, inset groups vs
+  hairline sections, segmented tracks with ONE sliding selected thumb (`components/thumb.ts`), switches,
+  keycaps, mini cards, the tertiary/large button ranks. SVG glyphs in `components/glyphs.ts`.
+- **Chrome:** tabs grouped play / study / you with short dividers and the sliding thumb; the spade mark and
+  wordmark; the hiddenInset traffic lights centred on the 44px bar (`trafficLightPosition`). The tab bar is
+  built once, so the thumb slides and a clicked tab keeps focus.
+- **Home:** neutral bankroll with a baseline mint/coral delta, the stat component for depth, Suggested next as
+  a hairline section (eyebrow 6px from its title), launch rows as one inset group, recent hands with mini
+  cards and U+2212 amounts, the planner as a flat hairline table with segmented controls and one bone Start.
+- **Table:** Coach as a real switch and Stats as a text button in the table's corner; the dock's
+  secondary/primary hierarchy with trailing keycaps, the filled slider, the preset group; the Win/Tie strip
+  becomes a corner readout; round-5 fixes (one green on the hero, dealer button off the cards, board nearer
+  the hero); empty board wells.
+- **Coached sheets:** the gate and the verdict are sheets over the table (focus moved in, the table dimmed and
+  inert, Close/Esc), with the severity glyph, a new price meter (`Grade.price`) and the commit lead-in; the
+  commit tray takes the dock's place until the hero commits. Every behaviour contract is kept (the 8s budget,
+  Enter-to-submit, the announcer, commit-before-feedback, the verdict cleared at the next decision).
+- **Every other screen** restyled with the kit: Learn, every Train drill, Charts (graphite cells, corner-notch
+  boundary, the 288px side column), Bank, Equity, Ranges, Dossier, Progress, Profile, Settings, Review,
+  Assessment, Career, Multiplayer.
+- **Repo setup:** `AGENTS.md` (commands, the glass token/stylesheet/colour-role conventions, "affected-tests is
+  for iteration only"), `CLAUDE.md` → `@AGENTS.md`, and `.claude/skills/verify-app/` (run once, green).
 
-- **Round 2's background** (the contoured desktop, the coat and the grain) is kept. Its coat blur never
-  rendered because of a stacking and blend bug, and now frosts at 18px.
-- **Round 3** rated each of 58 UI elements on an 11-category rubric. An independent rater scored round 2
-  first, and every element with a category under 8 was redesigned as a system:
-  - one type scale
-  - concentric radii
-  - one state ramp for every control
-  - primary, secondary and tertiary buttons
-  - a colour role map
-  - sliding selection
-  - a real switch
-  - lighter float glass (34% grey, blur 26 / saturate 175%, a gradient rim)
-- **Blind A/B re-scoring** by fresh raters ran for three iterations. The result is **7.5 → 7.9** (7.8
-  without Motion), and 36 of 58 elements still miss the target. SCORECARD.md lists the method's limits.
-- **Nothing under `src/` changes**, and no dependencies change.
+## Bugs found and fixed (each with a failing test first)
+- Equity showed its hidden villain inputs and grid in "Any two cards" mode (`grid-tools.spec` E1).
+- Spots labelled Check's hotkey "C" instead of K (`puzzle.spec` 0).
+- Learn: Enter on the lesson list re-clicked the persistent focused tab (`lesson.spec` 7).
+- Review findings: switching Coach on hid an uncoached verdict while the voice read on; a stale "hand plays
+  on" caption at handover; two primaries at handover (`coached-handover.spec` 4, 5).
 
-## Round 4: table surface
-- **What changed:** seven variants of the table surface only, switchable with `table.html?felt=green|midnight|glass|ink|scoreboard|sports|classic`. The gallery is `demo/glass/table-variants.html` and the side-by-side is `demo/glass/variants/compare-variants.jpg`. The default stays round-3 green.
-- **Reference:** a study of Apple Sports (official App Store screenshots, not committed).
-- **Result:** two blind ratings (SCORECARD-TABLE.md). `sports` leads (overall 7, fit 7.67); green trails on fit but reads as poker fastest. AA holds on every variant.
+## Spec changes (none weakens an assertion; details in DECISIONS.md)
+- `screens.spec`: U+2212 minus in hand nets; the bankroll's loss colour asserted on its delta.
+- `predict.spec`: the Coach switch's off state via `role="switch"` + `aria-checked`.
+- `layout.spec` 8: the made-hand float — every row on screen, inside the body, hit-testing to itself; no seat
+  stack covered.
+- `gate.spec` 5: the budget bar keeps draining under reduced motion (a functional timer).
+- `charts.spec` 4: the boundary's corner notch counts as its non-colour cue.
+- Added: `coached-handover.spec` 3–5, `grid-tools.spec`, `puzzle.spec` 0, `coach.test.ts` (`Grade.price`).
 
-## Refined glass and seat scaling
-- **Refined `glass`.** `?felt=glass` is now a smaller, real frosted slab that holds the pot and board, with frosted row-card seats on
-  its rim. It borrows the scoreboard numerals and the hero wash from `sports`. The round-4 version is kept as `?felt=glass-r4`.
-- **Seat counts.** A rule-based seat layout (`demo/glass/table-seats.js`, `?seats=4|6|9`): a ring for ovals and a scoreboard U for
-  `sports`. It covers collision-aware bet placement, three compaction tiers, and folded, busted and live-bettor states.
-- **What the real app supports:** solo is 4 seats and LAN is 2–6. 9-max is a stress case only.
-- **Verification:**
-  - Layout guard: 116/116 renders ok, including predict, gate, 5/7/8 seats and probes with every villain betting.
-  - AA: passes on every `glass` and `sports` render (minimum 4.93).
-  - `glass-r4` fails AA at 6 and 9 seats. It is a comparison variant only.
-- **Blind rating 3:** `sports` 8 (fit 8.17, scales 7.83), `glass` 7 (7.17 / 7.33), `glass-r4` 5 (7.33 / 6.33). The green glow
-  under the board lost both A/B pairs and is not adopted.
-- **Defaults are unchanged.** The default `table.html` (green, 4 seats) is unchanged; `table-seats.js` returns early for it.
-
-## Screens
-Each screen is captured at 900x640 and 1100x760 (DPR 2) in `demo/glass/screenshots/`:
-- `home`
-- `table`
-- `predict`
-- `gate`
-- `verdict`
-- `charts`
-- `drill`
-
-There is also `compare-<screen>.jpg` for each, showing the current app, round 2 and round 3.
-
-## How to open
-- `demo/glass/index.html` is the hub.
-- `demo/glass/scorecard.html` has the per-element before/after crops, scores, reasons and changes.
-- `SCORECARD.md` has the same content in text, with the rubric.
-- `demo/glass/compare.html?screen=<id>` is the side-by-side view.
+## Not built from the mockup
+- **The price line** ("75 to call, a 25% price") under the board: it would hand the learner the pot-odds
+  answer the drills ask for.
+- **A fully modal verdict sheet over the dock:** the dock stays live under the sheet, so Next hand at handover
+  and the next commit are never blocked (`coached-handover.spec` 1 pins that).
+- **The uncoached verdict as a sheet:** the mock defines sheets only in coached mode; uncoached it stays an
+  inline float with the same head and meter.
+- **Real macOS vibrancy and condensed numerals:** kept as the user decided (pre-blurred in-app backdrop; CSP
+  blocks the condensed face).
+- **A drawn multiplayer table:** multiplayer still lists seats as rows (now an inset group).
 
 ## Verification
-- **Contrast:** WCAG AA was measured on rendered pixels at DPR 2. There are 0 failures across 14 renders.
-- **Layout guard:** clean.
-- **Tests:**
-  - `npm run typecheck` passes.
-  - `npm test` passes (1796 tests).
-  - `npm run e2e` is blocked by a half-installed Electron in this checkout. This is environmental.
-- **Review:** an adversarial review returned BLOCK on four disclosure and code items, all fixed. See
-  `code-review.md`.
-- **Repo weight:** demo/glass carries about 40 MB of evidence images. Consider pruning before merge.
+- `npm run typecheck`: exit 0. `npm test`: 1804 passed.
+- `npm run e2e` (full): 551 passed, 0 failed, 1 skipped (the same opt-in live-tutor skip as on `main`).
+- AA contrast on the running app: 100 renders (every screen and table state in Glass and Obsidian, plus the
+  busted-seat showdown), 0 failures, minimum 4.75:1 (`tests/tmp/aa-fr.log`).
+- Screenshots of every screen at 900x640 and 1100x760 (`tests/tmp/app/fr-final/`); before / after / mockup
+  comparisons for Home, the table, the tray, the gate, the verdict and Charts (`tests/tmp/app/fr-compare/`).
+- Independent adversarial review: `code-review.md`.
 
-## Decisions for the reviewer
-See `FINDINGS.md` and `DECISIONS.md`. The headline items:
-- `sports` over the refined `glass` oval, and whether the table should ever go past 6 seats
-- the coat now really frosts
-- seats are type on the felt
-- the sheet dim level
-- flat sections vs cards
-- the chart boundary notch
-- Sure/Guess casing and the bankroll delta
+## Final test run
+On `2a69db7` (the last code commit; the commit after it changes only this file):
+- `npm run typecheck`: exit 0.
+- `npm test`: 86 files, 1804 passed.
+- `npm run e2e`: 551 passed, 1 skipped, exit 0, 40.0 min.
+- Screenshots that the e2e run rewrote under `screenshots/` were restored, not committed.

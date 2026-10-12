@@ -1,129 +1,151 @@
-/* The Progress surface (P1-P5). Palette from styles.css — no new colours. */
+/*
+ * The Progress surface (P1-P5), as the glass mockup. Two columns split by a hairline: the per-concept
+ * bars (P2, the primary surface, first in DOM order) on the left, scrolling on their own; the five
+ * numbers, the results graph, the error tags and the gates' footer on the right. Nothing is a card:
+ * the bars and the tags are informational lists, so they are flat hairline lists, and the five numbers
+ * are the shared stat component (value over the 12/500 label) on a hairline grid. The one primary on
+ * the screen is "Start an assessment block", in the five numbers' title row beside the metric it fills.
+ * No mint: a mastery bar and a chip line are not deltas.
+ */
 
 .progress-screen {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px 40px;
-  max-width: 560px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto auto 1fr;
+  align-content: start;
+  column-gap: 0;
+  row-gap: 20px;
+  max-width: 980px;
   margin: 0 auto;
-  /* The window minus the tab bar and .screen padding, so the sections below have a definite height to
-     distribute — same technique and same reason as .profile-screen. */
-  max-height: calc(100vh - 66px);
+  height: var(--screen-h);
+  /* A fallback only: the right column fits both documented sizes; the page itself never scrolls. */
   overflow-y: auto;
+}
+
+.progress-screen > * {
+  grid-column: 2;
+  min-width: 0;
+  padding-left: 24px;
 }
 
 .progress-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  flex: 0 0 auto;
+  gap: 6px;
 }
 
-/* P2's bars are the primary surface, so when there ARE bars they get the room and scroll internally
-   rather than pushing the five numbers off screen. Scoped to the populated case with :has(.kc-row): an
-   EMPTY kc-section (just the two-line "no evidence yet" state) must keep the section default
-   flex: 0 0 auto, or flexbox squeezes it below its own content height and its overflow-y paints a stray
-   scrollbar thumb over the heading (visible bug on a fresh profile). No bars → nothing to scroll. */
-#app .progress-screen > [data-testid='kc-section']:has(.kc-row) {
-  flex: 0 1 auto;
+/* P2: the bars take the whole left column and scroll inside it. */
+.progress-screen > [data-testid='kc-section'] {
+  grid-column: 1;
+  grid-row: 1 / -1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 24px 8px 0;
+  border-right: 1px solid var(--hair);
+  gap: 0;
+}
+.progress-screen > [data-testid='kc-section'] > .stat-label { margin-bottom: 6px; }
+
+/* Section titles: the shared 12/500 label, title case as written — never an uppercase eyebrow. */
+.progress-section > .stat-label,
+.progress-numbers > .stat-label {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
+/* ── P1: the five numbers ── */
 .progress-numbers {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-areas:
+    'title launch'
+    'graded ev'
+    'fluent sure'
+    'win win';
+  column-gap: 20px;
+  row-gap: 0;
+  padding-top: 4px;
 }
-
 .progress-numbers > .stat-label {
-  grid-column: 1 / -1;
+  grid-area: title;
+  align-self: center;
 }
-
-/* Section headings adopt the app's eyebrow idiom (.phase-label / .recommendation-heading), so
- * "What you know…" and "Five numbers" read as section markers instead of flattening into the metric
- * labels below them. Direct-child scope leaves the metric-label captions (nested in .progress-metric)
- * sentence-case; text-transform keeps textContent intact for e2e. One short line, no added height. */
-.progress-section > .stat-label,
-.progress-numbers > .stat-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-lo);
+.progress-start-assessment {
+  grid-area: launch;
+  justify-self: end;
+  align-self: center;
+  margin-bottom: 6px;
 }
+.progress-metric[data-metric='gradedDecisionsThisWeek'] { grid-area: graded; }
+.progress-metric[data-metric='assessmentEvLossBb100'] { grid-area: ev; }
+.progress-metric[data-metric='fluentCategories'] { grid-area: fluent; }
+.progress-metric[data-metric='sureWrongThisWeek'] { grid-area: sure; }
+.progress-metric[data-metric='winRateVsBots'] { grid-area: win; }
 
+/* A stat component on a hairline: value, label, then its target and sample captions. */
 .progress-metric {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--surface);
-  /* Lift the metric tiles together off the black so the grid reads as one cohesive data layer rather
-   * than disconnected flat patches. Uniform --elev-1 because these are peer readouts; no hue. Static,
-   * and the Progress screen scrolls internally, so no layout-height effect. */
-  box-shadow: var(--elev-1);
+  padding: 10px 0;
+  border-top: 1px solid var(--hair);
+  min-width: 0;
 }
-
-/* The one tile the learner ACTS on (start an assessment) must not sit flatter than the readouts around
- * it. The .pill base has no shadow, so once .progress-metric gained --elev-1 the actionable pill read as
- * recessed — an inverted hierarchy. --elev-2 lifts it one step FORWARD of the readouts: emphasis by
- * elevation, the sanctioned channel (grey white-over-black, no hue). Static value, so the .pill's existing
- * box-shadow transition never fires on a state and is already reduced-motion-guarded; focus-visible still
- * wins with --focus-ring. Progress self-scrolls, so no layout-height concern. */
-.progress-start-assessment {
-  box-shadow: var(--elev-2);
-}
-
-/* The gated fifth number spans the row: its withheld state carries a sentence, not a figure. */
-.progress-winrate {
-  grid-column: 1 / -1;
-}
+.progress-metric[data-metric='winRateVsBots'] { border-bottom: 1px solid var(--hair); }
 
 .progress-metric-value {
-  font-size: 20px;
-  font-weight: 300;
+  font-size: var(--t-t2);
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
-  color: var(--text-hi);
+  color: var(--ink-1);
+}
+.progress-metric > .stat-label {
+  margin-top: 2px;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 /* A withheld number must not look like a measured one. */
 .progress-metric[data-withheld='true'] .progress-metric-value {
-  font-size: 15px;
-  color: var(--text-lo);
+  font-size: var(--t-head);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 .progress-metric-target,
 .progress-metric-sample {
-  font-size: 11px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   line-height: 1.4;
+  font-variant-numeric: tabular-nums;
 }
 
+/* ── P2: one flat row per concept ── */
 .kc-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--surface);
-  /* P2 names the bars the primary surface, so they carry the same resting elevation as the metric
-     tiles (.progress-metric, --elev-1) instead of sitting flat behind the summary numbers. Shadow
-     only — no box change — so the internal scroll and the 900x640 fit are untouched. */
-  box-shadow: var(--elev-1);
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--hair);
 }
+.kc-row:last-child { border-bottom: 1px solid var(--hair); }
 
 .kc-label {
-  font-size: 13px;
-  color: var(--text-hi);
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
 }
 
 .kc-track {
   position: relative;
-  height: 8px;
-  border-radius: 4px;
-  background: var(--surface-hi);
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill-1);
   overflow: hidden;
 }
 
@@ -132,116 +154,110 @@
   left: 0;
   top: 0;
   height: 100%;
-  border-radius: 4px;
-  background: var(--mint);
+  border-radius: 3px;
+  background: var(--ink-3);
 }
 
-/* The credible interval, drawn over the bar so the two are not read as one quantity. */
+/* The credible interval, a lighter band drawn over the bar so the two are not read as one quantity. */
 .kc-ci {
   position: absolute;
   top: 0;
   height: 100%;
-  background: var(--edge);
+  background: var(--fill-3);
 }
 
 /* Frozen is not a failure and must not be styled as one — P5 routes it to a worked example. */
 .kc-row[data-status='frozen'] .kc-fill {
-  background: var(--text-lo);
+  background: var(--fill-3);
 }
 
 .kc-row[data-status='mastered'] .kc-fill {
-  background: var(--mint);
+  background: var(--ink-1);
 }
 
 .kc-caption {
-  font-size: 11px;
-  color: var(--text-lo);
-  line-height: 1.4;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  line-height: 1.45;
 }
 
+/* ── P3: the results graph (or its refusal and the route out), flat ── */
 .progress-graph {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--surface);
-  flex: 0 0 auto;
-  /* Same data layer as the metric tiles above it (.progress-metric, --elev-1): the graph slab sat
-     flat while the number tiles were lifted, so it read as recessed. Shadow only — no layout change. */
-  box-shadow: var(--elev-1);
 }
 
 .progress-series {
   width: 100%;
   height: 70px;
   display: block;
+  border-bottom: 1px solid var(--hair);
 }
 
 .progress-line-chip,
 .progress-line-ev {
   fill: none;
-  stroke-width: 2;
+  stroke-width: 1.5;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
 
 .progress-line-chip {
-  stroke: var(--mint);
+  stroke: var(--ink-1);
 }
 
 /* Dashed, so the divergence P3 calls the lesson is legible without colour alone carrying it. */
 .progress-line-ev {
-  stroke: var(--text-lo);
+  stroke: var(--ink-3);
   stroke-dasharray: 3 3;
 }
 
 .progress-graph-reason {
-  font-size: 12px;
-  color: var(--text-lo);
-  line-height: 1.45;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+  line-height: 1.5;
 }
 
 .progress-graph-route {
   align-self: flex-start;
-  padding: 5px 12px;
-  border: 1px solid var(--surface-hi);
-  border-radius: 999px;
-  background: none;
-  color: var(--text-lo);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  /* Ease the hover instead of snapping the colour, matching the app's tab/link idiom (--motion-fast
-     + --ease-out). Colour/border only — no reflow. Reduced-motion drops it (block at end of file). */
-  transition: color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
-.progress-graph-route:hover {
-  color: var(--text-hi);
-}
-
+/* ── G7: the error tags, a flat list ── */
 .tag-row {
-  font-size: 12px;
-  color: var(--text-hi);
+  font-size: var(--t-body);
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
-  /* Single-line data rows, so drop the per-row surface fill: a short list of error tags read as a stack
-   * of boxes on a screen already dense with slabs. The section gap carries the separation; colour, size
-   * and tabular alignment are untouched. A background is removed, not added — no new hue. */
-  padding: 5px 0;
+  padding: 6px 0;
+  border-top: 1px solid var(--hair);
 }
 
-.progress-empty,
+.progress-empty {
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
 .progress-footer {
-  font-size: 11px;
-  color: var(--text-lo);
-  line-height: 1.45;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  line-height: 1.5;
 }
 
-/* The only animated element on this screen is the route link's hover fade; honour a reduced-motion
-   preference by snapping it (the hover colour still changes, just without the transition). */
-@media (prefers-reduced-motion: reduce) {
-  .progress-graph-route {
-    transition: none;
-  }
+/* No bars yet: the left column would be an empty half-screen, so the surface is one column — the
+ * two-line "no evidence yet" state, then the numbers — and scrolls inside itself if it must. */
+.progress-screen:not(:has(.kc-row)) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
+  max-width: 600px;
+}
+.progress-screen:not(:has(.kc-row)) > * {
+  grid-column: 1;
+  padding-left: 0;
+}
+.progress-screen:not(:has(.kc-row)) > [data-testid='kc-section'] {
+  grid-row: auto;
+  border-right: 0;
+  padding: 4px 0 0;
+  overflow: visible;
 }

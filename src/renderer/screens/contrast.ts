@@ -25,6 +25,7 @@ import {
 } from '../../core/lexicon.js';
 import { renderCard, renderCardRow } from '../components/card.js';
 import { text } from '../components/dom.js';
+import { chevron } from '../components/glyphs.js';
 
 /**
  * THE REPAIR TAB — contrast-set remediation. PRODUCT-SPEC B6, S2, and G1's T2 row.
@@ -214,11 +215,11 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
   function heading(): HTMLElement {
     const header = document.createElement('div');
     header.className = 'repair-heading';
-    header.appendChild(text('div', 'repair-title', 'Repair'));
+    header.appendChild(text('div', 'repair-title t-t2', 'Repair'));
     header.appendChild(
       text(
         'div',
-        'repair-hint',
+        'repair-hint g-sub',
         'A leak worth 0.5 to 2 bb is corrected at the end of a block, not mid-hand: it fires a set of near-identical positions where exactly one variable moves, and it comes back on a spacing schedule.',
       ),
     );
@@ -227,21 +228,24 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
 
   function renderQueue(): HTMLElement {
     const list = document.createElement('div');
-    list.className = 'repair-queue';
+    // Every row opens a concept, so the queue is one inset group of rows.
+    list.className = 'repair-queue g-group';
     list.dataset.testid = 'repair-queue';
 
     for (const [index, item] of queue.entries()) {
       const row = document.createElement('button');
       row.type = 'button';
-      row.className = 'list-row repair-row';
+      row.className = 'repair-row g-row';
       row.dataset.testid = 'repair-row';
       row.dataset.conceptId = item.entry.conceptId;
       row.dataset.fired = String(item.firedBy !== null);
       row.dataset.selected = String(index === selected);
       row.addEventListener('click', () => selectConcept(index));
 
-      row.appendChild(text('span', 'repair-row-title', item.entry.title));
-      row.appendChild(text('span', 'repair-row-family', item.entry.nodeFamily));
+      const body = document.createElement('span');
+      body.className = 'repair-row-body';
+      body.appendChild(text('span', 'repair-row-title', item.entry.title));
+      body.appendChild(text('span', 'repair-row-family', item.entry.nodeFamily));
 
       const trigger = text(
         'span',
@@ -251,7 +255,9 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
           : `${item.firedBy.costBb.toFixed(1)} bb across ${item.firedBy.count} ${item.firedBy.count === 1 ? 'decision' : 'decisions'} · ${item.entry.repairs}`,
       );
       trigger.dataset.testid = 'repair-trigger';
-      row.appendChild(trigger);
+      body.appendChild(trigger);
+      row.appendChild(body);
+      row.appendChild(chevron());
       list.appendChild(row);
     }
     return list;
@@ -269,17 +275,17 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
 
     const back = document.createElement('button');
     back.type = 'button';
-    back.className = 'pill repair-back';
+    back.className = 'pill quiet sm repair-back';
     back.dataset.testid = 'repair-back';
     back.textContent = 'All repairs';
     back.addEventListener('click', showQueue);
     panel.appendChild(back);
 
-    const title = text('h1', 'repair-concept-title', item.entry.title);
+    const title = text('h1', 'repair-concept-title t-t2', item.entry.title);
     title.dataset.testid = 'repair-concept-title';
     panel.appendChild(title);
     panel.appendChild(
-      text('div', 'stat-label', `${item.entry.nodeFamily} · repairs ${item.entry.repairs}`),
+      text('div', 'stat-label g-label', `${item.entry.nodeFamily} · repairs ${item.entry.repairs}`),
     );
 
     const queued = text(
@@ -325,7 +331,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
     section.dataset.conceptId = conceptId;
     section.dataset.axis = flippingAxis;
 
-    section.appendChild(text('div', 'stat-label', 'Name the concept in your own words'));
+    section.appendChild(text('div', 'stat-label g-label', 'Name the concept in your own words'));
     section.appendChild(
       text(
         'p',
@@ -345,7 +351,8 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
 
     const submit = document.createElement('button');
     submit.type = 'button';
-    submit.className = 'pill lexicon-submit';
+    // The one committing action on a concept, so it is the bone primary.
+    submit.className = 'pill primary lexicon-submit';
     submit.dataset.testid = 'lexicon-submit';
     submit.textContent = 'Adopt this sentence';
     submit.addEventListener('click', () => commitSentence(conceptId, flippingAxis, box.value));
@@ -376,7 +383,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
     for (const offer of remediation.offers) {
       const available = offer.set !== null;
       const cell = document.createElement(available ? 'button' : 'div');
-      cell.className = available ? 'pill axis-offer' : 'axis-offer axis-offer-absent';
+      cell.className = available ? 'axis-offer' : 'axis-offer axis-offer-absent';
       cell.dataset.testid = 'axis-offer';
       cell.dataset.axis = offer.axis;
       cell.dataset.available = String(available);
@@ -429,7 +436,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
 
     const claim = text(
       'p',
-      'contrast-claim',
+      'contrast-claim t-head',
       `Only ${AXIS_LABELS[set.axis].toLowerCase()} moves across these ${set.variants.length + 1} positions. Everything else is held.`,
     );
     claim.dataset.testid = 'contrast-claim';
@@ -468,7 +475,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
 
     const label = text(
       'div',
-      'stat-label',
+      'stat-label g-label',
       role === 'base' ? 'The position you missed' : `${AXIS_LABELS[axis]} moved`,
     );
     card.appendChild(label);
@@ -546,7 +553,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
     section.dataset.testid = 'worked-example';
 
     section.appendChild(
-      text('div', 'stat-label', 'No one-variable neighbour exists here, so this is the worked example'),
+      text('div', 'stat-label g-label', 'No one-variable neighbour exists here, so this is the worked example'),
     );
 
     const steps = document.createElement('ol');
@@ -647,7 +654,7 @@ function renderLexiconHistory(history: readonly AcceptedSentence[]): HTMLElement
   // keeping the testids distinct stops a future cross-screen helper conflating the two.
   wrap.dataset.testid = 'lexicon-adopted';
   wrap.dataset.count = String(history.length);
-  wrap.appendChild(text('div', 'stat-label', 'Your sentences for this concept'));
+  wrap.appendChild(text('div', 'stat-label g-label', 'Your sentences for this concept'));
   for (const entry of history) {
     const row = text('p', 'lexicon-adopted-row', `“${entry.sentence}”`);
     row.dataset.testid = 'lexicon-adopted-row';
@@ -665,7 +672,7 @@ function group(label: string, cards: HTMLElement): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'contrast-group';
   wrap.appendChild(cards);
-  wrap.appendChild(text('div', 'stat-label', label));
+  wrap.appendChild(text('div', 'stat-label g-label', label));
   return wrap;
 }
 

@@ -479,3 +479,25 @@ describe('folding when checking was free', () => {
     expect(big.evLossBb).toBeGreaterThan(small.evLossBb);
   });
 });
+
+describe('gradeDecision price (the coach sheet meter)', () => {
+  const base = { board: ['Ks', '4d', '4c'], street: 'flop', stack: 4950, bb: 50, opponents: 1, seed: 7 } as const;
+
+  it('a priced verdict carries the needed and had pot shares the message quotes', () => {
+    // Folding a full house to a small bet: a serious, priced mistake.
+    const g = gradeDecision({ ...base, hole: ['Kh', 'Kd'], board: [...base.board], pot: 225, toCall: 75, chosen: 'fold' });
+    expect(g.severity).not.toBe('free');
+    expect(g.price).toBeDefined();
+    expect(g.price!.needed).toBeCloseTo(potOddsRequired(225, 75), 10);
+    expect(g.price!.had).toBeGreaterThan(g.price!.needed);
+    expect(g.message).toContain(`${Math.round(g.price!.needed * 100)}%`);
+  });
+
+  it('an unpriced spot or a silent grade has no price', () => {
+    const free = gradeDecision({ ...base, hole: ['Kh', 'Kd'], board: [...base.board], pot: 225, toCall: 75, chosen: 'call' });
+    expect(free.severity).toBe('free');
+    expect(free.price).toBeUndefined();
+    const unpriced = gradeDecision({ ...base, hole: ['Kh', 'Kd'], board: [...base.board], pot: 225, toCall: 0, chosen: 'fold' });
+    expect(unpriced.price).toBeUndefined();
+  });
+});

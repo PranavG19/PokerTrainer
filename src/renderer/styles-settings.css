@@ -1,27 +1,28 @@
 /*
- * Settings and privacy. Palette comes from styles.css — no new colours.
+ * Settings and privacy, as the glass mockup. One scrolling column of sections titled by the shared
+ * 12/500 label (title case, never an uppercase eyebrow). The privacy statement (the tutor, where
+ * anything goes, what is and is never sent, rejected answers) is informational, so it is flat: copy and
+ * hairline lists in the coat, no cards. The three settings that act — reading verdicts aloud, a sound
+ * on a mistake, the theme — are inset groups holding one row each: the note on the left, the control
+ * on the right. On/off settings are .g-switch switches (the track is mint when ON, the one colour role
+ * mint keeps here); the theme is a segmented control with the one sliding thumb.
  *
- * V2: mint is reserved for win% and the fluency gate, so nothing here is mint,
- * including the "tutor is live" state. Live vs off is carried by weight and
- * position (the state line is the largest thing in its section, first in the
- * flow), not by colour. Red appears once, on the delete control, which is the
- * one irreversible action in the app rather than a severity grade.
+ * Live vs off for the tutor is carried by weight and ink, not colour. Coral appears once, on the delete
+ * control, the one irreversible action in the app.
  *
- * The column scrolls: this screen is a document, and truncating a privacy
- * statement to fit 640px of window would be the one failure mode worth avoiding
- * above all others here.
+ * The column scrolls: this screen is a document, and truncating a privacy statement to fit 640px of
+ * window would be the one failure mode worth avoiding above all others here.
  */
 .settings-screen {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 16px 40px 32px;
-  max-width: 560px;
+  gap: 24px;
+  padding: 12px 20px 32px;
+  max-width: 600px;
   margin: 0 auto;
-  /* The window minus the tab bar and the .screen padding, matching the profile
-     column's budget, so the section below the fold is reachable by scrolling
-     instead of pushing the document itself into a scrollbar. */
-  max-height: calc(100vh - 66px);
+  /* The screen height under the title bar (the kit's --screen-h): the column scrolls itself, so the
+     document never grows a scrollbar. */
+  max-height: var(--screen-h);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -33,161 +34,160 @@
   flex: 0 0 auto;
 }
 
-/* Section heading in the app's eyebrow idiom (.phase-label / .recommendation-heading), matching Home
- * and Progress so every screen's section markers read alike. Direct-child scope; text-transform leaves
- * textContent intact for e2e. */
 .settings-section > .stat-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
+/* A flat block: the section's content in the coat. */
 .settings-block {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px 18px;
 }
 
 .settings-state {
-  font-size: 22px;
-  font-weight: 300;
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
 
 /* Off is the quieter of the two states — it is the absence of an activity. */
 .settings-state[data-live='false'] {
-  color: var(--text-lo);
+  color: var(--ink-2);
+  font-weight: 500;
 }
 
 .settings-copy {
-  font-size: 13px;
+  font-size: var(--t-body);
   line-height: 1.55;
-  color: var(--text-lo);
+  color: var(--ink-2);
+  max-width: 62ch;
 }
 
 .settings-note {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
+/* What is (never) sent: a flat hairline list. */
 .settings-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .settings-list li {
-  font-size: 13px;
+  font-size: var(--t-body);
   line-height: 1.5;
-  color: var(--text-hi);
-  padding-left: 14px;
-  position: relative;
+  color: var(--ink-1);
+  padding: 8px 0;
 }
+.settings-list li + li { border-top: 1px solid var(--hair); }
 
-.settings-list li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 8px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--text-lo);
-}
-
-/* ─── Egress allowlist ─── */
+/* ─── Egress allowlist: a flat list of hosts ─── */
 .settings-hosts {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .settings-host {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-  color: var(--text-hi);
-  background: var(--surface-hi);
-  border-radius: 8px;
-  padding: 8px 10px;
+  font-size: var(--t-foot);
+  color: var(--ink-1);
+  padding: 8px 0;
   word-break: break-all;
 }
+.settings-host + .settings-host { border-top: 1px solid var(--hair); }
 
 .settings-hosts-empty {
-  font-size: 13px;
+  font-size: var(--t-body);
   line-height: 1.5;
-  color: var(--text-lo);
+  color: var(--ink-1);
+  padding: 8px 0;
 }
 
-/* ─── The off switch ─── */
+/* ─── The tutor's switch: a verb button ("Turn the tutor off") and its note ─── */
 .settings-switch {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-start;
+  align-items: center;
+  gap: 12px;
 }
+.settings-tutor-toggle { flex: none; }
 
-.settings-toggle {
-  border: none;
-  border-radius: 999px;
-  padding: 9px 18px;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  background: var(--surface-hi);
-  color: var(--text-hi);
+/* ─── Settings that act: one inset group, one row — note left, control right ─── */
+.settings-rows {
+  gap: 0;
 }
-
-.settings-toggle:hover {
-  background: var(--card-face);
-  color: var(--ink);
+.settings-rows > .settings-switch {
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 8px 8px 8px 14px;
+}
+.settings-rows .settings-note {
+  order: -1;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+}
+.settings-toggle-switch,
+.settings-theme {
+  flex: none;
+}
+/* The switch's On/Off text sits before its track; the ON state reads in ink-1 (kit .g-switch). */
+.settings-toggle-switch {
+  min-width: 64px;
+  justify-content: flex-end;
 }
 
 /* ─── Guard diagnostics ─── */
 .settings-count {
-  font-size: 24px;
-  font-weight: 300;
-  color: var(--text-hi);
+  font-size: var(--t-t2);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
 }
 
 .settings-failures {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .settings-failure {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  background: var(--surface-hi);
-  border-radius: 10px;
-  padding: 9px 11px;
+  padding: 8px 0;
 }
+.settings-failure + .settings-failure { border-top: 1px solid var(--hair); }
 
 .settings-failure-head {
-  font-size: 12px;
-  color: var(--text-hi);
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
 }
 
 .settings-failure-why {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--text-lo);
+  font-size: var(--t-cap);
+  line-height: 1.5;
+  color: var(--ink-2);
   word-break: break-word;
 }
 
@@ -197,7 +197,7 @@
   flex-direction: column;
   gap: 10px;
   align-items: flex-start;
-  border-top: 1px solid var(--surface-hi);
+  border-top: 1px solid var(--hair);
   padding-top: 14px;
 }
 
@@ -205,47 +205,57 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
   width: 100%;
 }
 
 .settings-confirm-input {
-  border: 1px solid var(--surface-hi);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text-hi);
+  height: var(--h-ctl);
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  color: var(--ink-1);
   font: inherit;
-  font-size: 13px;
-  padding: 8px 10px;
+  font-size: var(--t-body);
+  padding: 0 10px;
   width: 100%;
 }
 
 .settings-confirm-input:focus {
-  outline: none;
-  border-color: var(--text-lo);
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 
+/* Serious: coral, on the secondary button geometry. */
 .settings-delete-button {
-  border: 1px solid var(--red);
-  border-radius: 999px;
+  height: var(--h-ctl);
+  padding: 0 14px;
+  border: 1px solid var(--coral);
+  border-radius: var(--r-ctl);
   background: transparent;
-  color: var(--red);
+  color: var(--coral);
   font: inherit;
-  font-size: 13px;
-  padding: 9px 18px;
+  font-size: var(--t-body);
+  font-weight: 500;
   cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
 .settings-delete-button:hover:not(:disabled) {
-  background: var(--red);
-  color: var(--text-hi);
+  background: var(--coral);
+  color: var(--ink-on-bone);
+}
+.settings-delete-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
 
-/* Disabled is the resting state: the gate is that this stays unclickable until
-   the phrase is typed, so it must read as unavailable rather than merely dim. */
+/* Disabled is the resting state: the gate is that this stays unclickable until the phrase is typed,
+   so it reads as unavailable — no fill, no edge, ink-3. */
 .settings-delete-button:disabled {
-  border-color: var(--surface-hi);
-  color: var(--text-lo);
+  border-color: var(--hair);
+  color: var(--ink-3);
   cursor: not-allowed;
 }

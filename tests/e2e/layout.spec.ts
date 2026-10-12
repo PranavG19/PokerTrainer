@@ -511,6 +511,23 @@ test.describe('layout', () => {
           foldBottom: fold.bottom,
           rows: document.querySelectorAll('.stats-cat').length,
           bodyClips: body.scrollHeight > body.clientHeight,
+          // Every made-hand row that is not reachable by scrolling the body must be on screen.
+          // ...and not clipped by the body or painted over: its centre hit-tests to the row itself.
+          // The open list floats over the table; it must not paint over any seat's stack.
+          stacksCovered: [...document.querySelectorAll<HTMLElement>('[data-testid="seat-stack"]')]
+            .filter((el) => {
+              const r = el.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              return hit === null || !(hit === el || el.contains(hit));
+            })
+            .map((el) => el.textContent),
+          rowsOnScreen: [...document.querySelectorAll('.stats-cat')].every((row) => {
+            const r = row.getBoundingClientRect();
+            const b = body.getBoundingClientRect();
+            if (r.top < 0 || r.bottom > window.innerHeight || r.top < b.top || r.bottom > b.bottom + 0.5) return false;
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return hit !== null && (hit === row || row.contains(hit));
+          }),
         };
       });
 
@@ -521,7 +538,13 @@ test.describe('layout', () => {
       expect(geo.foldBottom, 'the action pills stay on screen').toBeLessThanOrEqual(geo.innerHeight);
       // All the rows still exist — they are reachable by scrolling the sheet, not deleted.
       expect(geo.rows).toBeGreaterThan(0);
-      expect(geo.bodyClips, 'the sheet body is what scrolls').toBe(true);
+      // The list opens as a float in the table's corner (glass redesign) and fits at 900x640; were it
+      // ever taller, the body is what scrolls. Either way no row is lost below the fold.
+      expect(geo.stacksCovered, 'the open made-hand list covers a seat stack').toEqual([]);
+      expect(
+        geo.bodyClips || geo.rowsOnScreen,
+        'every made-hand row is on screen or reachable by scrolling the sheet body',
+      ).toBe(true);
     });
   });
 });

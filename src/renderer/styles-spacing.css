@@ -1,7 +1,8 @@
 /*
- * Spacing queue — a maintenance readout, so it is typeset as a table of facts rather than as a
- * call to action. V2: no mint anywhere, and no colour carries meaning; a refused invariant is told
- * apart from a held one by its wording, which is the only channel that survives a colour-blind read.
+ * Spacing queue (Train → Upkeep) — a maintenance readout, so it is typeset as flat hairline tables of
+ * facts, not cards and not a call to action: no container in the coat, no primary button. V2: no mint
+ * anywhere, and no colour carries meaning; a refused invariant is told apart from a held one by its
+ * wording and weight, the only channels that survive a colour-blind read.
  *
  * The column scrolls itself and is bounded by the same budget the lesson and profile columns use, so
  * the document never scrolls and the tab bar cannot leave a 640px viewport.
@@ -10,7 +11,7 @@
 .spacing-screen {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   max-width: 720px;
   margin: 0 auto;
   max-height: calc(100vh - 66px);
@@ -28,49 +29,59 @@
   gap: 8px;
 }
 
+/* The framing label is the screen's title: the 17/600 title3, so the readout has a head. */
+.spacing-framing > .stat-label {
+  font-size: var(--t-t3);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
 .spacing-note {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
 }
 
 .spacing-check {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
 .spacing-check[data-flat='false'],
 .spacing-check[data-rejected='false'] {
-  color: var(--text-hi);
+  color: var(--ink-1);
   font-weight: 500;
 }
 
 .spacing-empty {
-  font-size: 13px;
-  color: var(--text-lo);
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 12px 14px;
+  font-size: var(--t-body);
+  color: var(--ink-3);
+  padding: 10px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
+/* The two tables: hairline rows between a top and a bottom rule, tabular figures. */
 .wave-list,
 .due-rows {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .wave-row,
 .due-row {
   display: grid;
-  align-items: center;
-  gap: 10px;
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 13px;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 2px;
+  font-size: var(--t-body);
+  font-variant-numeric: tabular-nums;
 }
 
 .wave-row {
@@ -78,7 +89,7 @@
 }
 
 .due-row {
-  grid-template-columns: 1fr 96px 64px 88px 116px;
+  grid-template-columns: minmax(0, 1fr) 96px 64px 88px 116px;
 }
 
 .wave-row[data-mode='probe'] {
@@ -89,74 +100,99 @@
 .wave-day,
 .due-concept,
 .concept-id {
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
 
 .wave-reps,
 .wave-mode,
-.wave-gap,
 .due-wave,
 .due-reps,
-.due-mode,
-.due-overdue {
-  color: var(--text-lo);
+.due-mode {
+  color: var(--ink-2);
 }
 
+.wave-gap,
+.due-overdue {
+  color: var(--ink-3);
+}
+
+/* Every concept on record: a flat hairline row each, with its one (secondary) action. */
 .concept-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 12px 2px;
+  border-top: 1px solid var(--hair);
+}
+
+.concept-row:last-child {
+  border-bottom: 1px solid var(--hair);
 }
 
 .concept-head {
   display: grid;
-  grid-template-columns: 1fr 88px 160px;
-  gap: 10px;
-  align-items: center;
-  font-size: 13px;
+  grid-template-columns: minmax(0, 1fr) 88px 160px;
+  gap: 12px;
+  align-items: baseline;
+  font-size: var(--t-body);
+  font-variant-numeric: tabular-nums;
 }
 
-.concept-status,
+.concept-id {
+  font-weight: 500;
+}
+
+.concept-status {
+  color: var(--ink-2);
+}
+
 .concept-next {
-  color: var(--text-lo);
+  color: var(--ink-3);
 }
 
 .concept-reason {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
 .probe-miss {
   align-self: flex-start;
-  font-size: 13px;
-  padding: 6px 14px;
+  margin-top: 2px;
 }
 
 .miss-outcomes {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-top: 1px solid var(--surface-hi);
+  margin-top: 4px;
   padding-top: 8px;
+  border-top: 1px solid var(--hair);
 }
 
 .miss-gaps {
-  font-size: 12px;
-  color: var(--text-hi);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
 }
 
 .miss-outcome {
   display: grid;
-  grid-template-columns: 60px 168px 92px 1fr;
-  gap: 10px;
+  grid-template-columns: 60px 168px 92px minmax(0, 1fr);
+  gap: 12px;
   align-items: baseline;
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  line-height: 1.45;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .miss-index {
-  color: var(--text-hi);
+  color: var(--ink-1);
+}
+
+.miss-reopen,
+.miss-gap {
+  color: var(--ink-2);
 }

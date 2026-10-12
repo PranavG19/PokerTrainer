@@ -155,6 +155,9 @@ function createWindow(): void {
     minHeight: 640,
     backgroundColor: '#000000',
     titleBarStyle: 'hiddenInset',
+    // Centre the inset traffic lights (12px) on the renderer's 44px title bar (--nav-h in styles-glass.css),
+    // whose left padding leaves them room.
+    trafficLightPosition: { x: 16, y: 16 },
     show: false,
     webPreferences: {
       // .cjs: Electron's sandboxed preload requires CommonJS, but the package is "type": "module".

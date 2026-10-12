@@ -1,7 +1,8 @@
 /*
- * Lesson mode (the 'learn' tab). Palette and pill shapes come from styles.css — no new colours.
- * MINT is not used anywhere here: it belongs to win% and the fluency gate. Severity is not a
- * concept on this screen, so nothing needs colour to carry weight.
+ * Lesson mode (the 'learn' tab), in the drill mock's language (demo/glass/drill.html): a 22/600 title,
+ * a 17/600 question, the shared stat component for the position's facts, flat hairline sections for
+ * what is read, and an inset group only for the lesson list (every row opens). One bone primary:
+ * Commit. MINT is not used anywhere here, and severity is not a concept on this screen.
  *
  * The whole column scrolls itself rather than the document: a lesson's prose length is authored
  * content and a 640px viewport cannot bound it, so the tab bar has to stay put.
@@ -10,7 +11,7 @@
 .lesson-screen {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   max-width: 640px;
   margin: 0 auto;
   /* The window minus the chrome this column sits inside (tab bar + .screen padding), matching
@@ -25,7 +26,7 @@
 .lesson-list {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 22px;
 }
 
 .lesson-list-heading {
@@ -34,94 +35,70 @@
   gap: 4px;
 }
 
-.lesson-list-title {
-  font-size: 30px;
-  font-weight: 200;
-  letter-spacing: -0.5px;
-}
-
-.lesson-hint {
-  font-size: 12px;
-  color: var(--text-lo);
-}
-
 .phase-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
+/* Title case as authored ("Phase 0 · Rules"): no uppercase eyebrow. */
 .phase-label {
-  font-size: 11px;
-  color: var(--text-lo);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding-bottom: 2px;
+  padding-left: 2px;
 }
 
+/* A row of the inset group: the body column, then the chevron. */
 .lesson-row {
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+}
+
+.lesson-row-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
-  width: 100%;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--text-hi);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-out);
+  gap: 2px;
 }
 
-.lesson-row:hover {
-  background: var(--surface-hi);
-}
-
-/* The hover transition is disabled under reduced motion (transitions need the selector named locally
- * in the sheet that declares them). */
-@media (prefers-reduced-motion: reduce) {
-  .lesson-row {
-    transition: none;
-  }
-}
-
-/* Keyboard position only. Not a state, not progress: an outline, so it cannot read as a lock. */
+/* Keyboard position only. Not a state, not progress: the quiet secondary-list fill (fill-1, no
+ * shadow), so it cannot read as a lock or as the selected thumb. */
 .lesson-row[data-cursor='true'] {
-  background: var(--surface-hi);
-  outline: 1px solid var(--text-lo);
+  background: var(--fill-1);
 }
 
 .lesson-row-title {
-  font-size: 16px;
+  font-size: var(--t-head);
   font-weight: 500;
+  color: var(--ink-1);
 }
 
 .lesson-row-mechanism {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-2);
   line-height: 1.45;
 }
 
 .lesson-row-meta {
-  font-size: 11px;
-  color: var(--text-lo);
+  margin-top: 2px;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Advice reads quieter than the mechanism it advises on — position and weight, never colour. */
 .lesson-advice {
-  font-size: 11px;
-  font-style: italic;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
+  line-height: 1.45;
 }
 
 /* ─── Lesson view ─── */
 .lesson-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .lesson-header {
@@ -130,72 +107,70 @@
   gap: 10px;
 }
 
-.lesson-header .pill {
-  align-self: flex-start;
+/* One toolbar row: back on the left (a tertiary button), the stepper on the right. */
+.lesson-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lesson-bar .lesson-back {
+  margin-left: -10px;
 }
 
 .lesson-titles {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .lesson-title {
-  font-size: 28px;
-  font-weight: 200;
-  letter-spacing: -0.5px;
-  line-height: 1.15;
+  margin: 0;
 }
 
 .lesson-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .lesson-position {
-  font-size: 12px;
-  color: var(--text-lo);
+  min-width: 44px;
+  text-align: center;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
 .lesson-mechanism {
-  font-size: 15px;
-  font-weight: 300;
-  line-height: 1.6;
-  color: var(--text-hi);
+  font-size: var(--t-head);
+  line-height: 1.5;
+  color: var(--ink-1);
 }
 
-/* ─── Example position ─── */
+/* ─── Example position: a flat hairline section, not a card ─── */
 .example {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hair);
 }
 
 .example-tabs {
-  display: flex;
-  gap: 6px;
+  align-self: flex-start;
 }
 
-.example-tabs .pill {
-  padding: 4px 14px;
-  font-size: 13px;
-  background: var(--surface-hi);
-}
-
-.example-tabs .pill[data-selected='true'] {
-  background: var(--card-face);
-  color: var(--ink);
+html .example-tabs > button {
+  min-width: 34px;
+  font-variant-numeric: tabular-nums;
 }
 
 .spot {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .spot-cards {
@@ -208,7 +183,7 @@
 .spot-group {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .spot-hole,
@@ -220,56 +195,60 @@
 .spot .card {
   width: 46px;
   height: 64px;
-  border-radius: 10px;
+  border-radius: var(--r-card);
   padding: 6px 8px;
 }
 
 .spot .card-rank {
-  font-size: 20px;
+  font-size: var(--t-t2);
 }
 
 .spot .card-pip {
-  font-size: 13px;
+  font-size: var(--t-body);
 }
 
 .spot-noboard {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   align-self: center;
+  height: 64px;
+  display: flex;
+  align-items: center;
 }
 
+/* The shared stat component: a 15/500 value over the 12/500 label. */
 .spot-meta {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px 16px;
 }
 
 .spot-fact {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  min-width: 0;
 }
 
 .spot-fact-value {
-  font-size: 16px;
-  font-weight: 300;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--t-head);
+  font-weight: 500;
+  color: var(--ink-1);
 }
 
 .example-prompt {
-  font-size: 15px;
-  font-weight: 300;
-  line-height: 1.55;
+  margin: 0;
+  color: var(--ink-1);
 }
 
 /* ─── Commit and reveal ─── */
 .commit {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-start;
 }
 
+/* The field shared with the table's gate/predict boxes keeps its old generic look (those surfaces are
+ * not this screen's); the lesson and the tutor rail get the kit's field. */
 .lesson-input {
   width: 100%;
   resize: vertical;
@@ -287,62 +266,79 @@
   color: var(--text-lo);
 }
 
+.lesson-screen .lesson-input,
+.tutor-rail .lesson-input {
+  background: var(--fill-0);
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--r-ctl);
+  padding: 8px 10px;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-1);
+}
+
+.lesson-screen .lesson-input::placeholder,
+.tutor-rail .lesson-input::placeholder {
+  color: var(--ink-3);
+}
+
 .reveal {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-top: 1px solid var(--surface-hi);
-  padding-top: 12px;
+  gap: 6px;
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
+  animation: offsuit-surface-in var(--dur-3) var(--ease);
 }
 
 .reveal .stat-label:not(:first-child) {
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
 .reveal-answer {
-  font-size: 14px;
-  font-weight: 300;
-  line-height: 1.55;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-2);
 }
 
 .reveal-reasoning {
-  font-size: 15px;
-  font-weight: 300;
-  line-height: 1.6;
+  font-size: var(--t-head);
+  line-height: 1.55;
+  color: var(--ink-1);
 }
 
-/* ─── Lexicon (L1/L3) ─── */
+/* ─── Lexicon (L1/L3): a flat hairline section ─── */
 .lexicon {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-start;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px;
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
 }
 
 .lexicon-current {
-  font-size: 17px;
-  font-weight: 300;
+  font-size: var(--t-head);
   line-height: 1.5;
+  color: var(--ink-1);
 }
 
 .lexicon-current[data-present='false'] {
-  font-size: 14px;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-3);
 }
 
 .sentence-verdict {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   line-height: 1.5;
 }
 
 .lexicon-history {
   list-style: none;
   width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .lexicon-entry {
@@ -354,40 +350,44 @@
 
 .lexicon-entry-text {
   flex: 1;
-  font-size: 13px;
-  font-weight: 300;
+  font-size: var(--t-body);
   line-height: 1.5;
-  color: var(--text-lo);
+  color: var(--ink-2);
 }
 
 /* Weight and wording carry the verdict; the tag stays the same muted colour either way. */
 .lexicon-entry[data-accepted='true'] .lexicon-entry-text {
-  color: var(--text-hi);
+  color: var(--ink-1);
 }
 
+/* Sentence case from the lowercase tag text ("adopted" → "Adopted"); no uppercase eyebrow. */
 .lexicon-entry-tag {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-lo);
+  display: inline-block;
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   white-space: nowrap;
 }
 
+.lexicon-entry-tag::first-letter {
+  text-transform: uppercase;
+}
+
 .lexicon-empty {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   padding: 6px 0;
 }
 
 /* ─── Tutor rail ───
- * Mounted in the lesson column rather than floating beside it: at the documented 900px minimum
- * there is no room for a second column, and the rail is a conversation about the position directly
- * above it, so reading order and visual order agree.
+ * Mounted in the lesson column (and under the Spots puzzle) rather than floating beside it: at the
+ * documented 900px minimum there is no room for a second column, and the rail is a conversation about
+ * the position directly above it, so reading order and visual order agree. It sits in the coat as a
+ * flat hairline section — it does not float, so it gets no card of its own.
  *
  * No colour carries state. A held-back question, a failure and an answer differ by their wording
- * and by the source line under them; the only colour distinction is text-lo vs text-hi for
- * "supporting" vs "the answer", which is the same weight convention the lexicon uses. Nothing here
- * is ever disabled while a call is in flight — the composer keeps taking questions.
+ * and by the source line under them; the only distinction is ink-2 vs ink-1 for "supporting" vs "the
+ * answer", the same convention the lexicon uses. Nothing here is ever disabled while a call is in
+ * flight — the composer keeps taking questions.
  */
 .lesson-rail:empty {
   display: none;
@@ -397,32 +397,32 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px;
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
 }
 
 .tutor-rail-heading {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .tutor-rail-title {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
 }
 
 /* Provenance is never hidden and never abbreviated: the rail must not look live when it is not. */
 .tutor-rail-provenance {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   line-height: 1.5;
 }
 
 .tutor-rail-empty {
-  font-size: 12px;
-  color: var(--text-lo);
+  font-size: var(--t-foot);
+  color: var(--ink-3);
   line-height: 1.5;
 }
 
@@ -437,7 +437,7 @@
 .tutor-transcript {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   max-height: 240px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -455,32 +455,31 @@
   gap: 4px;
 }
 
-/* The learner's own words, indented and quieter — it is the question, not the teaching. */
+/* The learner's own words, indented behind a hairline and quieter — it is the question, not the
+ * teaching. */
 .tutor-turn[data-role='learner'] .tutor-turn-body {
-  font-size: 13px;
-  font-weight: 300;
-  color: var(--text-lo);
+  font-size: var(--t-body);
+  color: var(--ink-2);
   padding-left: 12px;
-  border-left: 2px solid var(--surface-hi);
+  border-left: 2px solid var(--hair-strong);
 }
 
 .tutor-turn-body {
-  font-size: 14px;
-  font-weight: 300;
-  line-height: 1.6;
-  color: var(--text-hi);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  color: var(--ink-1);
   white-space: pre-wrap;
 }
 
 /* Pending says so in words; the italic is a second cue, never the only one. */
 .tutor-turn[data-state='pending'] .tutor-turn-body {
   font-style: italic;
-  color: var(--text-lo);
+  color: var(--ink-2);
 }
 
 .tutor-turn-source {
-  font-size: 11px;
-  color: var(--text-lo);
+  font-size: var(--t-cap);
+  color: var(--ink-3);
   line-height: 1.45;
 }
 
@@ -494,6 +493,12 @@
 /* At the documented 900x640 minimum six meta cells do not fit on one row. */
 @media (max-width: 980px) {
   .spot-meta {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none;
   }
 }
