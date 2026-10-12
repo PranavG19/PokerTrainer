@@ -65,7 +65,7 @@ describe('migrate v1 → v2', () => {
   });
 
   it('keeps a progression already there when the version key was lost (it never resets)', () => {
-    const progression = { ...JSON.parse(JSON.stringify(defaultProgression())), lamp: { litDays: [19000] } };
+    const progression = { ...JSON.parse(JSON.stringify(defaultProgression())), streak: { countedDays: [19000] } };
     const r = migrate({ ...v1Profile(), progression });
     expect(r.state.progression).toBe(progression);
   });
@@ -80,7 +80,7 @@ describe('migrate v1 → v2', () => {
 
 describe('a newer profile', () => {
   it('is flagged tooNew and returned untouched', () => {
-    const v3 = { ...v1Profile(), schemaVersion: 3, progression: { lamp: { meaningChanged: true } } };
+    const v3 = { ...v1Profile(), schemaVersion: 3, progression: { streak: { meaningChanged: true } } };
     const r = migrate(v3);
     expect(r).toMatchObject({ from: 3, to: 3, tooNew: true });
     expect(r.state).toBe(v3);
@@ -97,15 +97,16 @@ describe('unknown keys', () => {
       progression: {
         ...progression,
         quests: [{ id: 'q1' }],
-        lamp: { ...progression.lamp, glow: 'amber', rhythm: { ...(progression.lamp.rhythm as object), weekendMode: true } },
+        streak: { ...progression.streak, glow: 'amber' },
+        personalization: { ...progression.personalization, pronounsNote: 'kept' },
       },
     };
     const saved = serialize(deserialize(JSON.parse(JSON.stringify(withFuture))));
     expect(saved.futureTop).toEqual({ a: 1 });
     const p = saved.progression as Record<string, Record<string, unknown>>;
     expect(p.quests).toEqual([{ id: 'q1' }]);
-    expect(p.lamp.glow).toBe('amber');
-    expect((p.lamp.rhythm as Record<string, unknown>).weekendMode).toBe(true);
+    expect(p.streak.glow).toBe('amber');
+    expect(p.personalization.pronounsNote).toBe('kept');
   });
 
   it('never resurrect a known value the parser replaced', () => {

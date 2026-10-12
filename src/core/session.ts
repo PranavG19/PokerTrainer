@@ -251,7 +251,7 @@ export interface SessionState {
    */
   savedRanges: SavedRange[];
   /**
-   * Schema v2: Lamp, Reps, Seals, cosmetics, Dee's memory, onboarding answers, milestones and the tier
+   * Schema v2: the daily streak, Reps, Seals, cosmetics, Dee's memory, onboarding answers, milestones and the tier
    * placeholder (progression/types.ts). Parsed section by section, so corrupt progression data falls
    * back to defaults without touching anything above.
    */

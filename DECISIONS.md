@@ -55,9 +55,14 @@ Living record. Each line is the current end state.
 - **Extensible vocabularies are persisted as strings** (tier, entitlements, cosmetic ids, onboarding
   answers, Dee's tone and frequency) and read through `effective*()` helpers. An older build keeps a newer
   build's value rather than resetting it.
-- **The Lamp model** follows the 2026-10-12 brief: lit and rested days, the weekly Rhythm (2–6 days, best
-  run), spare wicks (at most 2), and the boundary hour. A classic daily streak (vision D5) derives from
-  `litDays`, so either UI fits the same data.
+- **The streak is the classic daily streak (owner D5).** `progression.streak` holds the current run, the
+  best run, the last counted local day, the counted-day history (bounded) and the boundary hour. A day
+  counts with one finished session. A missed day resets the run (`currentStreakOn` reads 0 after a gap).
+  There are no rest days, no freezes and no spare wicks. Supersedes: the Lamp (lit and rested days, the
+  weekly Rhythm, spare wicks), because the owner chose the classic streak.
+- **Scope (owner D1: amend the spec fully).** The character, the streak, XP, trophies and earn-only
+  cosmetics are in scope. The tutor still never authors a number, and there are no trait insults. Nothing
+  in the schema changes for it.
 - **Local day = local time, turning at 4 am**, with the offset looked up per timestamp (DST-safe). Career's
   cadence uses it now. It was UTC.
 - **Units:** `bankroll` is `Chips`, and `Reps`/`Chalk` are separate brands with no converters, and the constructors refuse any branded number,

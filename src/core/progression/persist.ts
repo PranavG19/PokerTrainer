@@ -1,7 +1,7 @@
 /**
  * Defaults, validation and (de)serialisation for the `progression` namespace (types.ts).
  *
- * Tolerant like every parser in session.ts, and partitioned: each sub-namespace (lamp, reps, …) is
+ * Tolerant like every parser in session.ts, and partitioned: each sub-namespace (streak, reps, …) is
  * parsed on its own, so one corrupt section falls back to its defaults without touching the others or
  * the rest of the profile. Within a section a bad entry is dropped, a bad scalar takes its default,
  * and a count is clamped — never invented.
@@ -20,7 +20,7 @@ import {
   type CosmeticsState,
   type DeeMemory,
   type EntitlementsState,
-  type LampState,
+  type StreakState,
   type MilestonesState,
   type Personalization,
   type PracticeSchedule,
@@ -32,10 +32,8 @@ import {
   type SealsState,
 } from './types.js';
 
-/** Two years of days: the Lamp shows 30 and the Rhythm needs weeks, so this is generous. */
-export const MAX_LAMP_DAYS = 730;
-export const MAX_SPARE_WICKS = 2;
-export const MAX_WICK_WEEKS = 104;
+/** Two years of counted days: a calendar strip shows weeks, so this is generous. */
+export const MAX_STREAK_DAYS = 730;
 export const MAX_REP_AWARDS = 500;
 export const MAX_RECEIPTS = 500;
 export const MAX_REMEMBERED_SENTENCES = 100;
@@ -48,13 +46,7 @@ const MAX_LIST = 200;
 
 export function defaultProgression(): ProgressionState {
   return {
-    lamp: {
-      boundaryHour: DAY_BOUNDARY_HOUR,
-      litDays: [],
-      restedDays: [],
-      rhythm: { daysPerWeek: 3, weekStartsOn: 1, best: 0 },
-      spareWicks: { held: 0, spentOnWeeks: [] },
-    },
+    streak: { boundaryHour: DAY_BOUNDARY_HOUR, current: 0, best: 0, lastCountedDay: null, countedDays: [] },
     reps: { total: reps(0), awards: [] },
     seals: { earned: {} },
     cosmetics: {
@@ -90,13 +82,7 @@ export function defaultProgression(): ProgressionState {
  * whole by the parser above (scalars, lists and id-keyed maps), so nothing inside it is carried.
  */
 export const PROGRESSION_SHAPE = {
-  lamp: {
-    boundaryHour: true,
-    litDays: true,
-    restedDays: true,
-    rhythm: { daysPerWeek: true, weekStartsOn: true, best: true },
-    spareWicks: { held: true, spentOnWeeks: true },
-  },
+  streak: { boundaryHour: true, current: true, best: true, lastCountedDay: true, countedDays: true },
   reps: { total: true, awards: true },
   seals: { earned: true },
   cosmetics: {
@@ -129,7 +115,7 @@ export function parseProgression(raw: unknown): ProgressionState {
   const obj = asRecord(raw);
   const d = defaultProgression();
   return {
-    lamp: section(obj.lamp, d.lamp, parseLamp),
+    streak: section(obj.streak, d.streak, parseStreak),
     reps: section(obj.reps, d.reps, parseReps),
     seals: section(obj.seals, d.seals, parseSeals),
     cosmetics: section(obj.cosmetics, d.cosmetics, parseCosmetics),
@@ -155,25 +141,59 @@ function section<T>(raw: unknown, fallback: T, parse: (obj: Record<string, unkno
   }
 }
 
-function parseLamp(obj: Record<string, unknown>, d: LampState): LampState {
-  const rhythm = asRecord(obj.rhythm);
-  const wicks = asRecord(obj.spareWicks);
-  const litDays = dayList(obj.litDays, MAX_LAMP_DAYS);
-  const lit = new Set<number>(litDays);
+function parseStreak(obj: Record<string, unknown>, d: StreakState): StreakState {
+  const countedDays = dayList(obj.countedDays, MAX_STREAK_DAYS);
+  const newestLogged = countedDays.length > 0 ? countedDays[countedDays.length - 1] : null;
+  const stated = asDayKey(obj.lastCountedDay);
+  // The last counted day is at least the newest one in the history: a corrupt pointer cannot hide a day.
+  const lastCountedDay = stated === null ? newestLogged : newestLogged === null ? stated : (Math.max(stated, newestLogged) as DayKey);
+  // The run is never below what the history still shows ending on that day, and nothing runs before day one.
+  const logged = lastCountedDay === null ? 0 : runEndingOn(countedDays, lastCountedDay);
+  const current = lastCountedDay === null ? 0 : Math.max(nonNegativeInt(obj.current), logged, 1);
   return {
     boundaryHour: intIn(obj.boundaryHour, 0, 23, d.boundaryHour),
-    litDays,
-    // A day is lit or rested, never both; lit is the stronger fact.
-    restedDays: dayList(obj.restedDays, MAX_LAMP_DAYS).filter((day) => !lit.has(day)),
-    rhythm: {
-      daysPerWeek: intIn(rhythm.daysPerWeek, 2, 6, d.rhythm.daysPerWeek),
-      weekStartsOn: rhythm.weekStartsOn === 0 ? 0 : rhythm.weekStartsOn === 1 ? 1 : d.rhythm.weekStartsOn,
-      best: nonNegativeInt(rhythm.best),
-    },
-    spareWicks: {
-      held: Math.min(MAX_SPARE_WICKS, nonNegativeInt(wicks.held)),
-      spentOnWeeks: dayList(wicks.spentOnWeeks, MAX_WICK_WEEKS),
-    },
+    current,
+    best: Math.max(nonNegativeInt(obj.best), current),
+    lastCountedDay,
+    countedDays,
+  };
+}
+
+/** Consecutive days in an ascending, unique list ending exactly on `day` (0 if `day` is not in it). */
+function runEndingOn(days: readonly DayKey[], day: DayKey): number {
+  let i = days.length - 1;
+  while (i >= 0 && days[i] > day) i--;
+  let run = 0;
+  while (i >= 0 && days[i] === day - run) {
+    run++;
+    i--;
+  }
+  return run;
+}
+
+/**
+ * The streak as the learner should see it on `today`: the stored run if the last counted day was today or
+ * yesterday (today can still count), else 0, because a missed day resets it. The best run is untouched.
+ */
+export function currentStreakOn(streak: StreakState, today: DayKey): number {
+  if (streak.lastCountedDay === null) return 0;
+  return today - streak.lastCountedDay <= 1 ? streak.current : 0;
+}
+
+/**
+ * Count a finished session on `day`. Idempotent within a day; the next day extends the run; a gap starts a
+ * new run at 1. A day older than the last counted one (a clock moved back) changes nothing.
+ */
+export function countSession(streak: StreakState, day: DayKey): StreakState {
+  const last = streak.lastCountedDay;
+  if (last !== null && day <= last) return streak;
+  const current = last !== null && day - last === 1 ? streak.current + 1 : 1;
+  return {
+    ...streak,
+    current,
+    best: Math.max(streak.best, current),
+    lastCountedDay: day,
+    countedDays: [...streak.countedDays, day].slice(-MAX_STREAK_DAYS),
   };
 }
 

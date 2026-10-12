@@ -84,7 +84,9 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
   (v(N-1) in → every old field byte-identical, idempotent) and extend `store.test`. Older builds then open
   the profile read-only, by design.
 - Counts never mix: `Chips` (bankroll), `Reps`, `Chalk` are branded in `src/core/units.ts`; days are `DayKey`s
-  from `src/core/localDay.ts` (local time, the day turns at 4 am). Core takes a `DayKeyOf`; only the renderer
+  from `src/core/localDay.ts` (local time, the day turns at 4 am). The streak is the classic daily streak
+  (`progression.streak`, owner D5): a missed day resets it, with no rest days or freezes. Use `countSession`
+  and `currentStreakOn` in `progression/persist.ts`; never add a freeze or rest-day field. Core takes a `DayKeyOf`; only the renderer
   calls `systemDayKeyOf()`.
 
 ## Routing

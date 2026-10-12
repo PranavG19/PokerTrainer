@@ -138,7 +138,7 @@ test('progression and unknown keys survive a save and a relaunch', async () => {
       hands: [],
       stats: {},
       progression: {
-        lamp: { litDays: [20370, 20371], restedDays: [20372] },
+        streak: { current: 2, best: 9, lastCountedDay: 20371, countedDays: [20370, 20371] },
         personalization: { displayName: 'Sam', goals: ['home-game'] },
         cosmetics: { owned: ['felt-chalkboard'], equipped: { felt: 'felt-chalkboard' } },
         quests: [{ id: 'from-a-newer-v2-build' }],
@@ -157,8 +157,7 @@ test('progression and unknown keys survive a save and a relaunch', async () => {
     await causeASave(launched.page);
     await expect.poll(() => readState(dir).soundCues).toBe(false);
     const p = readState(dir).progression as Record<string, Record<string, unknown>>;
-    expect(p.lamp.litDays).toEqual([20370, 20371]);
-    expect(p.lamp.restedDays).toEqual([20372]);
+    expect(p.streak).toEqual({ boundaryHour: 4, current: 2, best: 9, lastCountedDay: 20371, countedDays: [20370, 20371] });
     expect(p.personalization.displayName).toBe('Sam');
     expect(p.cosmetics.equipped).toEqual({ felt: 'felt-chalkboard' });
     expect(p.quests).toEqual([{ id: 'from-a-newer-v2-build' }]);

@@ -17,7 +17,7 @@ import type { DayKey } from '../localDay.js';
 import type { Chalk, Reps } from '../units.js';
 
 export interface ProgressionState {
-  lamp: LampState;
+  streak: StreakState;
   reps: RepsState;
   seals: SealsState;
   cosmetics: CosmeticsState;
@@ -27,34 +27,22 @@ export interface ProgressionState {
   entitlements: EntitlementsState;
 }
 
-/** The Lamp: the habit loop built around the spacing schedule. Appointments kept, not time spent. */
-export interface LampState {
+/**
+ * The classic daily streak (owner D5): consecutive local days with at least one finished session. A missed
+ * day resets it; there are no rest days and no freezes. The best run is kept forever. Days are DayKeys, so
+ * they turn at the learner's own 4 am (localDay.ts).
+ */
+export interface StreakState {
   /** The local hour the learner's day turns over (localDay.ts DAY_BOUNDARY_HOUR by default). */
   boundaryHour: number;
-  /** Days with a finished session, ascending, unique, bounded by MAX_LAMP_DAYS. */
-  litDays: DayKey[];
-  /** Days with nothing due, so a gap holds the run instead of breaking it. Never also lit. */
-  restedDays: DayKey[];
-  rhythm: RhythmState;
-  spareWicks: SpareWicks;
-}
-
-/** The weekly Rhythm: how many study days a week count as a kept week, and the best run of kept weeks. */
-export interface RhythmState {
-  /** 2–6 days a week. */
-  daysPerWeek: number;
-  /** 0 = Sunday, 1 = Monday. */
-  weekStartsOn: 0 | 1;
-  /** The longest run of kept weeks ever. Only ever rises: a break never costs the record. */
+  /** The run as of `lastCountedDay`. Read it through `currentStreakOn`, which applies a missed day. */
+  current: number;
+  /** The longest run ever. Never below `current`; a reset never costs the record. */
   best: number;
-}
-
-/** Freezes, earned (one per two kept weeks) and spent automatically on a missed week. Never sold. */
-export interface SpareWicks {
-  /** 0..MAX_SPARE_WICKS. */
-  held: number;
-  /** The first day of each week a wick covered, ascending, unique, bounded. */
-  spentOnWeeks: DayKey[];
+  /** The most recent day that counted; null before the first finished session. */
+  lastCountedDay: DayKey | null;
+  /** Days that counted, ascending, unique, bounded by MAX_STREAK_DAYS (history for a calendar strip). */
+  countedDays: DayKey[];
 }
 
 export interface RepsState {

@@ -4,9 +4,10 @@ import {
   effectiveFrequency,
   effectiveTier,
   effectiveTone,
-  MAX_LAMP_DAYS,
   MAX_REP_AWARDS,
-  MAX_SPARE_WICKS,
+  MAX_STREAK_DAYS,
+  countSession,
+  currentStreakOn,
   parseProgression,
   serializeProgression,
 } from '../../src/core/progression/persist.js';
@@ -20,12 +21,12 @@ const day = (n: number) => n as DayKey;
 /** Every section populated with valid data. */
 function full(): ProgressionState {
   return {
-    lamp: {
+    streak: {
       boundaryHour: 5,
-      litDays: [day(19600), day(19601), day(19603)],
-      restedDays: [day(19602)],
-      rhythm: { daysPerWeek: 4, weekStartsOn: 0, best: 11 },
-      spareWicks: { held: 2, spentOnWeeks: [day(19590)] },
+      current: 2,
+      best: 11,
+      lastCountedDay: day(19603),
+      countedDays: [day(19600), day(19602), day(19603)],
     },
     reps: {
       total: reps(1240),
@@ -73,9 +74,8 @@ describe('progression defaults and round trip', () => {
   });
 
   it('a partial section keeps what it has and defaults the rest', () => {
-    const p = parseProgression({ lamp: { litDays: [19600] }, cosmetics: { owned: ['a'] } });
-    expect(p.lamp.litDays).toEqual([19600]);
-    expect(p.lamp.rhythm).toEqual(defaultProgression().lamp.rhythm);
+    const p = parseProgression({ streak: { countedDays: [19600] }, cosmetics: { owned: ['a'] } });
+    expect(p.streak).toEqual({ boundaryHour: 4, current: 1, best: 1, lastCountedDay: 19600, countedDays: [19600] });
     expect(p.cosmetics.owned).toEqual(['a']);
     expect(p.cosmetics.chalk).toEqual(defaultProgression().cosmetics.chalk);
   });
@@ -84,10 +84,10 @@ describe('progression defaults and round trip', () => {
 describe('corrupt progression falls back without losing anything else', () => {
   it('one corrupt section defaults; the other sections survive', () => {
     const raw = JSON.parse(JSON.stringify(serializeProgression(full()))) as Record<string, unknown>;
-    raw.lamp = 'not an object';
+    raw.streak = 'not an object';
     raw.cosmetics = [1, 2, 3];
     const p = parseProgression(raw);
-    expect(p.lamp).toEqual(defaultProgression().lamp);
+    expect(p.streak).toEqual(defaultProgression().streak);
     expect(p.cosmetics).toEqual(defaultProgression().cosmetics);
     expect(p.reps).toEqual(full().reps);
     expect(p.dee).toEqual(full().dee);
@@ -104,12 +104,14 @@ describe('corrupt progression falls back without losing anything else', () => {
 
   it('bad entries are dropped, bad scalars default, counts clamp', () => {
     const p = parseProgression({
-      lamp: {
+      streak: {
         boundaryHour: 99,
-        litDays: [19601, 19600, 19600, 'x', 1.5, null],
-        restedDays: [19600, 19605], // 19600 is also lit: lit wins
-        rhythm: { daysPerWeek: 9, weekStartsOn: 3, best: -4 },
-        spareWicks: { held: 7, spentOnWeeks: [] },
+        current: -3,
+        best: -4,
+        lastCountedDay: 19590, // older than the history: the history wins
+        countedDays: [19601, 19600, 19600, 'x', 1.5, null],
+        // Rest days and freezes are not part of the classic streak; a stray one is carried, never read.
+        restedDays: [19602],
       },
       reps: { total: 5, awards: [{ key: 'a', reps: 10, day: 1 }, { key: 'a', reps: 10, day: 1 }, { reps: 3, day: 1 }] },
       cosmetics: {
@@ -122,11 +124,8 @@ describe('corrupt progression falls back without losing anything else', () => {
       entitlements: { tier: 'pro-from-the-future', granted: ['x'] },
       dee: { personality: { tone: 'sardonic' } },
     });
-    expect(p.lamp.boundaryHour).toBe(4);
-    expect(p.lamp.litDays).toEqual([19600, 19601]);
-    expect(p.lamp.restedDays).toEqual([19605]);
-    expect(p.lamp.rhythm).toEqual({ daysPerWeek: 3, weekStartsOn: 1, best: 0 });
-    expect(p.lamp.spareWicks.held).toBe(MAX_SPARE_WICKS);
+    // The run is never below what the history shows, and best is never below the run.
+    expect(p.streak).toEqual({ boundaryHour: 4, current: 2, best: 2, lastCountedDay: 19601, countedDays: [19600, 19601] });
     // Duplicate award keys count once; lifetime is never below what the log shows.
     expect(p.reps.awards).toHaveLength(1);
     expect(p.reps.total).toBe(10);
@@ -145,11 +144,13 @@ describe('corrupt progression falls back without losing anything else', () => {
   });
 
   it('bounded lists keep the newest entries', () => {
-    const litDays = Array.from({ length: MAX_LAMP_DAYS + 10 }, (_, i) => 10_000 + i);
+    const countedDays = Array.from({ length: MAX_STREAK_DAYS + 10 }, (_, i) => 10_000 + i);
     const awards = Array.from({ length: MAX_REP_AWARDS + 5 }, (_, i) => ({ key: `k${i}`, reps: 1, day: 1 }));
-    const p = parseProgression({ lamp: { litDays }, reps: { total: 0, awards } });
-    expect(p.lamp.litDays).toHaveLength(MAX_LAMP_DAYS);
-    expect(p.lamp.litDays[0]).toBe(10_010);
+    const p = parseProgression({ streak: { countedDays, current: 5000 }, reps: { total: 0, awards } });
+    expect(p.streak.countedDays).toHaveLength(MAX_STREAK_DAYS);
+    expect(p.streak.countedDays[0]).toBe(10_010);
+    // A run longer than the bounded history is kept: the stored count is the record, not the list.
+    expect(p.streak.current).toBe(5000);
     expect(p.reps.awards).toHaveLength(MAX_REP_AWARDS);
     expect(p.reps.awards[0].key).toBe('k5');
   });
@@ -167,5 +168,41 @@ describe('progression rides in the profile', () => {
     const back = deserialize(JSON.parse(JSON.stringify(serialize(s))));
     expect(back.progression).toEqual(full());
     expect(back.bankroll).toBe(9100);
+  });
+});
+
+describe('the classic daily streak (owner D5)', () => {
+  const start = defaultProgression().streak;
+
+  it('counts consecutive local days, once per day', () => {
+    let s = countSession(start, day(100));
+    s = countSession(s, day(100)); // a second session the same day
+    s = countSession(s, day(101));
+    s = countSession(s, day(102));
+    expect(s).toMatchObject({ current: 3, best: 3, lastCountedDay: 102, countedDays: [100, 101, 102] });
+  });
+
+  it('a missed day resets the run to 1 on the next session; the best is kept; no freeze covers it', () => {
+    let s = countSession(countSession(countSession(start, day(100)), day(101)), day(102));
+    s = countSession(s, day(104)); // day 103 missed
+    expect(s).toMatchObject({ current: 1, best: 3, lastCountedDay: 104 });
+  });
+
+  it('reads as 0 once a whole day is missed, and still live on the day after the last one', () => {
+    const s = countSession(countSession(start, day(100)), day(101));
+    expect(currentStreakOn(s, day(101))).toBe(2);
+    expect(currentStreakOn(s, day(102))).toBe(2); // today can still count
+    expect(currentStreakOn(s, day(103))).toBe(0);
+    expect(s.best).toBe(2);
+    expect(currentStreakOn(start, day(5))).toBe(0);
+  });
+
+  it('a clock moved back changes nothing', () => {
+    const s = countSession(start, day(100));
+    expect(countSession(s, day(99))).toBe(s);
+  });
+
+  it('has no rest-day, Rhythm or freeze fields at all', () => {
+    expect(Object.keys(start).sort()).toEqual(['best', 'boundaryHour', 'countedDays', 'current', 'lastCountedDay']);
   });
 });

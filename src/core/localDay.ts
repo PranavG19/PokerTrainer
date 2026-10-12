@@ -1,8 +1,8 @@
 /**
  * The learner's day, as one integer.
  *
- * Practice days (the Career cadence, the Lamp, the Chalk daily cap) follow the learner's own night, not
- * UTC: bucketing by `Math.floor(ms / 86_400_000)` put a UTC−8 evening session on "tomorrow". The day also
+ * Practice days (the Career cadence, the daily streak, the Chalk daily cap) follow the learner's own
+ * night, not UTC: bucketing by `Math.floor(ms / 86_400_000)` put a UTC−8 evening session on "tomorrow". The day also
  * turns at 4 am local rather than midnight, so a session that runs past midnight still belongs to the
  * evening it started in.
  *
