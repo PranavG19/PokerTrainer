@@ -8,7 +8,7 @@ description: Prove a change in the running Offsuit Electron app — launch the b
 ## Launch
 - `npm run build` (writes `dist/`; e2e uses the same build). Then `node .claude/skills/verify-app/drive.mjs <outdir>`.
 - The script launches `dist/main/main.js` through Playwright's `_electron` with `--seed=42`, an isolated
-  `--user-data-dir` in the OS temp dir, and `OFFSUIT_E2E=1` (deterministic, window parked off-screen). No ports.
+  `--user-data-dir` in the OS temp dir, and `OFFSUIT_E2E=1 OFFSUIT_E2E_HIDDEN=1` (deterministic, window never shown). No ports.
 - Ready means Home has rendered: `[data-testid="home-screen"]`.
 
 ## Health check

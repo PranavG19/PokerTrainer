@@ -6,6 +6,32 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Test harness: hidden e2e and test tiers
+- **Hidden by default.** Under `OFFSUIT_E2E_HIDDEN=1`, which the helper sets on every launch, the window is created
+  `show: false` and never shown. It keeps `paintWhenInitiallyHidden` and gets `backgroundThrottling: false`, so
+  screenshots, geometry and rAF/timer-driven specs behave as if the window were in front.
+  - Supersedes: `showInactive()` plus parking off-screen. That still left a 40px sliver on screen (macOS clamps
+    the position).
+- **Accessory policy at module scope** for every e2e launch: `app.dock.hide()` (already there) plus an explicit
+  `setActivationPolicy('accessory')`, so the app never activates.
+- **Visible tier: show inactive, switch to the regular policy, move to ws12 by window id, then float it at
+  1100x760.** AeroSpace does not list windows of accessory-policy apps (measured: no row for the pid until the
+  policy flips). Switching to `regular` after `showInactive()` did not move focus (measured with
+  `scripts/focus-watch.sh`). Floating keeps AeroSpace's tiling from resizing the window the layout specs measure.
+  The cost is a ~100ms tile on the focused workspace before the move lands, and a Dock icon while that app runs.
+  The off-screen parking is gone: ws12 is not on screen, so there is nothing left to park away from.
+- **No spec needs the visible tier.** Keyboard, focus, layout, screenshot and voice specs all pass hidden;
+  Playwright drives input through CDP, which needs no OS focus.
+- **Tiers are npm scripts, not a new runner.** `test:smoke` is a declared spec list. `test:affected` is
+  `scripts/affected-tests.ts origin/main --run`, which already widens to the full suite on shared files.
+  `test:full` is typecheck + unit + e2e. No dependency was added; Node 26 runs the selector's .ts directly.
+- **The selector runs everything when it can attribute nothing.** Under `--run`, "no suite could be attributed"
+  now runs the full suite instead of exiting 0 with nothing run, so `test:affected` can't go green untested.
+- **Smoke set:** `navigation` (launch and every tab), `persistence`, `no-network` and `gameplay` (hands to
+  showdown), 33 tests. It is the cheapest set covering the five areas in the brief. Timings, measured under
+  heavy machine load, are in AGENTS.md.
+- `.gitignore` uses `node_modules` without the slash, so a symlinked `node_modules` in a worktree is ignored too.
+
 ## The full redesign (branch `glass-full-redesign`): the mockup, built
 The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old
 layouts. This branch builds the mock's layouts and components (`demo/glass/*.html`, rounds 3 and 5) in the

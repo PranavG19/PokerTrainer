@@ -9,7 +9,8 @@ fs.mkdirSync(out, { recursive: true });
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-verify-data-'));
 const app = await electron.launch({
   args: ['dist/main/main.js', '--seed=42', `--user-data-dir=${userData}`, '--no-sandbox'],
-  env: { ...process.env, OFFSUIT_E2E: '1' },
+  // Hidden: never shown, never focused (see AGENTS.md "Tests"). Strip ELECTRON_RUN_AS_NODE or Electron runs as Node.
+  env: { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'ELECTRON_RUN_AS_NODE')), OFFSUIT_E2E: '1', OFFSUIT_E2E_HIDDEN: '1' },
 });
 const errors = [];
 try {

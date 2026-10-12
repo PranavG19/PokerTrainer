@@ -1,69 +1,42 @@
-# Review: glass-full-redesign
-Verdict: PASS WITH NOTES
-Base: ddd4f277e68f5535f9940c219c74790b30508375  Head: 9e4f862 (first reviewed at 33feaab; this version covers e3b0334, baa8a4a and 9e4f862 as well)
+# Review: hidden e2e and test tiers
+Verdict: FAIL (two small act-on items; the runtime change itself is sound)
+Base: 2b28855 (origin/main)  Head: 2b28855 + uncommitted working tree (branch test-hidden-e2e-tiers), plus untracked scripts/focus-watch.sh
 
-## Re-verification (findings from the first review at 33feaab)
-- **Act on 1: switching Coach on hid an uncoached verdict while its narration kept running. FIXED.**
-  - The fix: in `syncCoachMount` (table.ts:447-449), a verdict that is already visible now opens the sheet instead of disappearing.
-  - Probe, seed 8 uncoached, Call then Fold, then Coach on: `data-sheet="verdict"`, `coach-message` visible inside the sheet, focus on the sheet. Esc then dismisses the verdict and focus lands on `next-hand`.
-  - New coached-handover.spec 5 pins this; it passes.
-- **Act on 2: the sheet caption said "plays on" after the action that ended the hand. FIXED.**
-  - The fix: `syncSheetCaption()` now also runs from `render()`.
-  - Probe: the caption is `""` at handover (both on the coached path and on the switched-on path) and "The hand plays on behind this sheet" on a mid-hand verdict.
-  - coached-handover.spec 4 pins this; it passes.
-- **Act on 3: two bone primaries at coached handover. FIXED.**
-  - The fix: while `data-sheet="verdict"`, `styles-glass.css` restyles Next hand as a secondary. Once the sheet closes (Esc, or Coach off), Next hand is bone again (probe: `rgb(244, 242, 236)` after Coach off).
-  - coached-handover.spec 4 asserts that the only bone button is `['coach-close']`; it passes.
-- **Consider: the Coach switch and Stats went inert under a sheet. FIXED.**
-  - The fix: `.table-corner-r` is skipped by `setStageInert` and sits above the scrim (z-index 6).
-  - Probe: the switch can be clicked mid-gate and with a verdict open.
-    - Coach off mid-gate: the gate stays open and moves inline, nothing stays inert, and the dock stays locked.
-    - Coach on again: the gate goes back into the sheet and the input is visible.
-    - The gate then resolves into the verdict sheet as before.
-  - The Stats float opened over either sheet does not overlap it (probe: float 86-157px, sheet 240-429px at 900x640).
-- **Consider: layout.spec 8's weaker check, and the stats float covering a seat stack. FIXED.**
-  - The float is now `position: static`, so it anchors to the corner's right edge.
-  - Probe: no seat stack is covered at 900x640 or 1100x760.
-  - The spec now hit-tests every row against the sheet body and also asserts that no seat stack is covered. That is stronger than the original assertion.
-- **Consider: the R keycap vs the slider amount. FIXED (documented).** Raise now has the tooltip "R raises to the minimum (N)", and the difference is recorded in DECISIONS.md.
-- **Consider: repeated raw `rgba(255,255,255,.6)` / `.5` focus rings in screen sheets. NOT FIXED.** It is optional and is carried below.
+## Re-verification (author fixes after the FAIL)
+- **1, `test:affected` green with nothing run: FIXED.** `scripts/affected-tests.ts` runs the full suite under `--run` when no suite is attributed (`runFullSuite()`).
+- **2, placeholder timings: FIXED.** AGENTS.md has the measured figures and the load they ran under.
+- **Visible-tier geometry: FIXED.** The off-screen parking is removed from `src/main/main.ts`; the helper floats the window on ws12 and restores 1100x760. `OFFSUIT_E2E_VISIBLE=1` on `layout` + `navigation`: 15/16 passed; the 16th (navigation:168) was a load timeout and passed on rerun. The focused workspace was unchanged (7 → 7), and Electron was never the focused app.
+- **Stale comments, env override order, AeroSpace server check: FIXED** (`main.ts` comments rewritten; `OFFSUIT_E2E_HIDDEN` is set after `opts.env`; the check runs `aerospace list-workspaces --focused`).
+- **"Supersedes:" line kept.** The project's record rules require it when a decision changes.
+- **Hidden full run:** 440 passed, 21 failed, 90 did not run, 1 skipped, in 1.3 h at load avg ~300. The 17 affected files then passed 167/170 on rerun, and the last 3 passed on their own. All are 60s load timeouts that pass on rerun. No Electron window appeared in 4754 + 1495 AeroSpace polls.
+- **Verdict after fixes: PASS WITH NOTES.** The note: timings were measured under heavy load.
+
+
+## Act on
+- scripts/affected-tests.ts:248-252 (code that already existed, but this diff makes it a Done gate). When no suite can be attributed, the script prints "running everything" and then calls `process.exit(0)` without running anything, even with `--run`. Failure scenario: a diff that touches only `DECISIONS.md`, `AGENTS.md`, `scripts/focus-watch.sh`, or a `src/` file the selector cannot link. `npm run test:affected` then runs typecheck, prints "running everything" and exits 0, so no unit or e2e test has run. AGENTS.md:16 names "tests, docs" as this tier's use, and AGENTS.md:71 lets that green exit satisfy Done. AGENTS.md:18-19 also says the script "falls back to the full suite by itself", but that is only true for `ALWAYS_FULL` files, not for this branch. Fix: under `shouldRun`, run `npm test -- --run` and `npm run e2e` in this branch (as the FULL SUITE branch does), or exit non-zero. You could also exit non-zero when `orphans.length > 0` under `--run`.
+- AGENTS.md:15-17 and DECISIONS.md:27. The tier table still has the placeholders `~SMOKE`, `~AFFECTED` and `~FULL`, and DECISIONS says "the timings are in AGENTS.md". An agent picking a tier gets no cost signal. The old "~45 min" figure was removed and nothing replaced it. Fix: fill in the measured times from the run in progress, or drop the column.
 
 ## Consider
-- The per-screen sheets (styles-charts, -chart-bank, -drill, -equity, -range-editor, …) repeat about 10 raw `rgba(255,255,255,.6)` / `.5` focus-ring outlines and a few `rgba(0,0,0,…)` shadows. That goes against "no orphan colours in screen sheets". Tradeoff: one `--focus-ring` token in styles-glass.css removes the duplicates, but it touches about 10 files for no visible change.
-- table.ts:937-943 (new in baa8a4a). Each empty board well is `role="img"` with the label "flop, to come", "turn, to come" or "river, to come". Preflop, a screen reader therefore reads three identical "flop, to come" images before any card. Tradeoff: making the wells `aria-hidden` (they are decorative; the street is already announced through the pot announcer) is quieter. Keeping them gives a sense of the board's shape.
+- src/main/main.ts:204-207 and 219-222 against the visible tier in tests/e2e/helpers.ts:113-146. In visible mode (`OFFSUIT_E2E_HIDDEN=0`), the main process still calls `moveOffScreen()` after `showInactive()` and on every `resize`. The helper then hands the window to AeroSpace, which tiles it on ws12 at the workspace's size. Scenario: `OFFSUIT_E2E_VISIBLE=1 npx playwright test layout`, the "compare the two modes" use AGENTS.md documents. The layout specs would measure AeroSpace's tile instead of 1100x760 / 900x640. Each AeroSpace resize also fires `resize`, so `setBounds(100000,100000)` fights the tiler. Not run here (no spec uses the visible tier and e2e was off-limits), so this is plausible, not demonstrated. Tradeoff: skipping the re-park when visible and floating the window (`aerospace layout floating --window-id <id>`) adds a few lines to a tier nobody uses yet. The alternative is to state in AGENTS.md that visible-tier geometry is not the documented size.
+- src/main/main.ts:194-203 and 116-126. The ready-to-show comment still says e2e uses `showInactive()` so the window "renders but never takes focus". Now the default never shows it, and `showInactive` is the visible tier only. The module-scope comment says the Dock hide "switches the process to an accessory activation policy", but the new line sets that policy explicitly anyway. Tradeoff: comments only; cheap to bring in line with DECISIONS.md:10-15.
+- tests/e2e/helpers.ts:47-59. `...opts.env` comes after `OFFSUIT_E2E_HIDDEN`, so a caller that passes `env: { OFFSUIT_E2E_HIDDEN: '1' }` with `visible: true` spins 10s and throws "the window was never shown". No spec does this today (only `OFFSUIT_SAY_BINARY` and tutor env are passed). Tradeoff: setting the HIDDEN key after `opts.env` keeps the two from disagreeing.
 
 ## Noted
-- With the settings corner no longer blurred during a gate, the win% (for example "81% Win") is readable while the gate asks "what range or price drives this?". This matches base ddd4f27, where the readout was also visible during a gate because the commitment is still in place, so it is not a regression. Withholding the readout while `gate !== null` would make the gate a stricter test.
-- Keyboard focus drops to `<body>` after a hero action in coached mode, because the dock is hidden or disabled while villains act. Base behaves the same (probed on both).
-- Pre-existing, outside the diff: `onKey` (table.ts) has no guard for text fields. Once committed, typing f, c, r or a in the tray's "Why?" field triggers that action.
-- DECISIONS.md cites `tests/tmp/e2e-red-review.log` and `tests/tmp/fr-gap.mjs` as evidence, but `tests/tmp/` is gitignored, so those references cannot be checked from the repo.
-- `attachThumb` never disconnects its observers. They are collected along with detached nodes, so there is no practical leak.
-- A verdict on a street where the hero acts again straight away opens and is dismissed in the same tick. Base cleared the inline verdict the same way.
+- helpers.ts:93-101: `aerospace --version` succeeds even if the AeroSpace server is not running. The later `list-windows` call then throws a raw execFileSync error instead of the friendly message.
+- AGENTS.md:27-29 and DECISIONS.md:22-23 ("all pass hidden", "No spec needs the visible tier") rest on the full run that is still in progress. Confirm it is green before committing.
+- DECISIONS.md:13-14: the "Supersedes:" sub-bullet is history, and the file says "edit the line, do not append history". Minor.
+- `.claude/` is in `isArtifact`, so the verify-app edits never count toward selection. That is expected.
+- code-review.md is a tracked file, so overwriting it with this review shows up in the working-tree diff.
 
 ## Dismissed
-- "Spec weakening" in gate.spec 5 (under reduced motion the timer bar's animation is now expected on). Proof: the change is declared in DECISIONS.md. The gate box's entrance animation is still asserted off, and the gate still fires, resolves and logs.
-- "Spec weakening" in charts.spec (the boundary may differ by `::after` content). Proof: styles-charts.css:298-311 draws a real 10px corner notch, which is a non-colour cue.
-- "Spec weakening" in screens.spec (bankroll colour). Proof: it now asserts more: the delta text, the delta colour matching the loss row, and the figure colour not matching it.
-- "Spec weakening" in coached-handover.spec 3 (the inert check now excludes `.table-corner-r`). Proof: the exclusion is the intended fix, and the same test now also trial-clicks the switch.
-- "The board wells break card queries." Proof: the wells carry no card testid. board-deal-in, allin, gameplay, deal-perf and theme specs pass (28/28).
-- "The bold verdict lead-in changes its text." Proof: `toHaveText('You committed to Fold, Sure')` still passes.
-- "Keycaps pollute accessible names or text oracles." Proof: `keycap()` is `aria-hidden`, and the specs that read `btn-call` text strip non-digits.
-- "Live regions go inert with the stage." Proof: the announcers are children of `root`, not of the stage.
+- Normal (non-e2e) launch behaviour changed. Proof: `paintWhenInitiallyHidden: true` is Electron's default. `backgroundThrottling: !isHidden` is `true` (the default) whenever `OFFSUIT_E2E` is unset, because `isHidden` requires `isE2E`. The dock and activation-policy block and the `if (isHidden) return` are both gated on e2e, so `mainWindow.show()` is unchanged for a person launching the app.
+- `setActivationPolicy('accessory')` before `ready` is unsafe. Proof: `app.dock.hide()` already ran at the same point and sets the same policy, so the new call only repeats it explicitly.
+- The smoke filters over-match or under-match. Proof: `npx playwright test --list navigation persistence no-network gameplay` lists "Total: 33 tests in 4 files": exactly those four specs, nothing else (no path segment of the worktree matches).
+- A spec bypasses the helper and launches visible. Proof: redesign-capture.spec.ts imports `_electron` but launches only through `launchApp` (lines 76, 98, 119). No other `electron.launch` exists in tests/ or scripts/.
+- The visible-tier poll races. Proof: it waits for `isVisible()` (set synchronously by `showInactive` in ready-to-show) before flipping the policy, then polls `list-windows` filtered by the main pid. Both loops are bounded at 10s and throw with a cause.
 
 ## Verification
-- All runs used a detached worktree at 9e4f862 (/tmp/fr-review2), never the main checkout or its `dist/`.
-- `npx tsc --noEmit -p tsconfig.json` exit 0, `npx vitest run` exit 0, and `npm run build` exit 0.
-- `npx playwright test` on coached-handover, gate, predict, layout, interaction and keyboard: exit 0, 70 passed.
-- `npx playwright test` on board-deal-in, allin, gameplay, deal-perf and theme: exit 0, 28 passed.
-- I did not run the full e2e suite, because the owner's run is in progress. In the first round, at 33feaab, all 11 tabs and the 8 Train modes fit 900x640 and 1100x760 without page overflow.
-- Electron probes at 9e4f862:
-  - Coach switched on over an uncoached verdict.
-  - Coach off and back on mid-gate.
-  - Coach off with a verdict open.
-  - Stats float over the gate and verdict sheets.
-  - Stats float against seat stacks at both sizes.
-  - Caption and primary-button state at handover.
-- What no test covers yet:
-  - Switching Coach off mid-gate or with a verdict open (probed only).
-  - The automatic dismissal at the next decision moving focus out of the sheet.
-  - The sheet that opens for a reason note alone on a free grade.
+- `npm run typecheck`: exit 0.
+- `node scripts/affected-tests.ts origin/main`: exit 0. It lists the 8 changed files (including the untracked focus-watch.sh) and reports FULL SUITE REQUIRED because of package.json, src/main/main.ts and tests/e2e/helpers.ts. On this branch `test:affected` therefore equals the full suite.
+- `npx playwright test --list <smoke filters>`: 33 tests in 4 files.
+- Not run: any e2e (a run is in progress and owns dist/), the visible tier, and `scripts/focus-watch.sh` (read only; it is executable and its POSIX `sh` is fine on macOS). Nothing tests that hidden mode takes no focus or that the visible tier lands on ws12. The evidence for both is the author's measurement.
