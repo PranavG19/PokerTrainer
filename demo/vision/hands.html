@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Your best hands</title>
+<link rel="stylesheet" href="vision.css" />
+<!-- Vision round 2, You · Hands: the reel of kept hands. One featured hand as a still on a miniature of the shipped
+     `sports` table (the decision that kept it, with its numbers), a filmstrip of the other kept hands, and the three
+     ways a hand gets kept. One bone primary: Replay.
+     Every personal line names its source (vision/personalization-sources.md):
+       the four kept hands … hands[] HandRecord (session.ts:66: hole, board, net, playedAt) with new `pinned` (kept hands survive MAX_HAND_LOG, session.ts:20)
+       the river decision … decisions[] DecisionRecord (session.ts:43: street, board, pot, toCall, action, verdict)
+       31% needed / 34% had … the grader's price and equity on that DecisionRecord (verdict), the same numbers as the "Price held" beat
+       "Sure" … DecisionRecord.prediction (new) over calibration (session.ts:149)
+       your reason … DecisionRecord.reason {text, category} (new), graded by gradeReason (reasonGrade.ts:143)
+       Bo, loose-aggressive … HandRecord.villain {name, archetype} (new), shown once the hand ends (jitter.ts)
+       "missed twice the week before" … leaks/leakCostBb (session.ts:130) over that week's hands[]
+       the 40 bb table … DEPTHS (standing.ts:38), careerRecord (career.ts:163) -->
+<style>
+  .hands { grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .feature { display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(0, 1fr); gap: 28px; min-height: 0; }
+
+  /* ── The still: a miniature of the shipped sports table (seat plates, condensed numerals, flat bet pill, the hero plate) ── */
+  .mt { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 18px 16px; min-height: 0;
+    background: radial-gradient(62% 58% at 50% 47%, oklch(0.06 0.01 262 / 0.42), transparent 72%), var(--stage-floor), var(--stage-pool), oklch(0.06 0.01 262 / 0.36); }
+  .mt .corner-l, .mt .corner-r { position: absolute; top: 14px; display: flex; gap: 8px; align-items: center; }
+  .mt .corner-l { left: 16px; } .mt .corner-r { right: 14px; }
+  .ms { gap: 9px; padding: 7px 12px 7px 7px; }   /* base + .live: vision.css mini sports table */
+  .ms .cards .card, .mhero .cards .card { --w: 32px; }
+  .ms .nm span { margin-left: 5px; font-weight: 500; color: var(--ink-2); }
+  .ms .t-score { font-size: 22px; }
+  .ms .q { font-size: var(--t-cap); color: var(--ink-2); white-space: nowrap; }
+  .mcenter { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .mpot .t-score { font-size: 46px; }
+  .mboard .card { --w: 40px; }
+  .mboard .card.new { box-shadow: inset 0 0 0 0.5px var(--bone-edge), var(--card-shadow), 0 0 0 1.5px oklch(1 0 0 / 0.55); }
+  .mprice { font-size: var(--t-foot); color: var(--ink-2); }
+  .mprice b { color: var(--ink-1); font-weight: 500; }
+  .mhero { padding: 9px 16px 9px 9px; }   /* base: vision.css mini sports table */
+  .mhero .cards .card { --w: 40px; }
+  .mhero .t-score { font-size: 28px; }
+  .mhero .dealer { position: absolute; left: -6px; bottom: -4px; width: 18px; height: 18px; font-size: 10px; animation: none; }
+
+  /* ── The decision beside the still ── */
+  .detail { gap: 0; min-height: 0; }
+  .detail > * { flex: none; }
+  .detail h2 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; margin-top: 4px; }
+  .detail .meta { margin-top: 2px; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; padding: 0; }
+  .facts > div { padding: 11px 14px; }
+  .facts > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); }
+  .facts .v { font-size: var(--t-t3); font-weight: 600; letter-spacing: -0.01em; }
+  .meter { margin-top: 14px; }
+  .reason { margin-top: 10px; padding: 11px 14px; }
+  .reason q { display: block; font-size: var(--t-body); color: var(--ink-1); font-weight: 500; line-height: 1.45; margin-top: 3px; }
+  .reason q::before { content: "“"; } .reason q::after { content: "”"; }
+  .go { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 16px; }
+  .go .caption { line-height: 1.35; }
+
+  /* ── The filmstrip of kept hands ── */
+  .reel { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .kh { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto 1fr; column-gap: 11px; row-gap: 1px; align-items: start; padding: 11px 12px 12px; text-align: left;
+    border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); transition: background-color var(--dur-1); }
+  .kh:hover { background: var(--fill-1); }
+  .kh:focus-visible { outline: 2px solid oklch(1 0 0 / 0.6); outline-offset: 2px; }
+  .kh[aria-pressed='true'] { background: var(--fill-2); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.30), var(--thumb-shadow); }
+  .kh .mini, .kh .depth-tok { grid-row: 1 / 4; margin-top: 1px; }
+  .kh b { font-size: var(--t-body); font-weight: 600; color: var(--ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kh .when { font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; }
+  .kh .d { grid-column: 3; grid-row: 1; font-size: var(--t-foot); font-weight: 600; white-space: nowrap; padding-top: 1px; }
+  .kh .when { grid-column: 2 / 4; }
+  .kh .why { grid-column: 2 / 4; margin-top: 5px; font-size: var(--t-foot); color: var(--ink-2); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  /* the 40 bb token: a drawn depth marker where a hand has no single pair of cards worth showing */
+  .depth-tok { width: 51px; height: 34px; border-radius: var(--r-xs); display: grid; place-items: center; background: oklch(0.06 0.01 262 / 0.5); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .depth-tok svg { width: 44px; height: 26px; }
+
+  /* ── How a hand gets kept ── */
+  .how { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 0 22px; align-items: start; padding-top: 14px; box-shadow: inset 0 0.5px 0 var(--hair-strong); }
+  .how h3 { font-size: var(--t-body); font-weight: 600; white-space: nowrap; padding-top: 1px; }
+  .how .w { display: flex; gap: 9px; align-items: flex-start; }
+  .how .w svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--ink-2); }
+  .how .w b { display: block; font-size: var(--t-foot); font-weight: 600; color: var(--ink-1); }
+  .how .w span { display: block; font-size: var(--t-foot); color: var(--ink-3); line-height: 1.4; }
+
+  @media (max-width: 1000px) {
+    .feature { gap: 20px; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+    .mt { padding: 12px 14px 14px; }
+    .ms .cards .card { --w: 28px; } .ms .t-score { font-size: 19px; } .ms .q { display: none; }
+    .mpot .t-score { font-size: 34px; } .mboard .card { --w: 31px; } .mboard { gap: 4px; }
+    .mhero .cards .card { --w: 31px; } .mhero .t-score { font-size: 22px; } .mhero { padding: 7px 12px 7px 7px; } .ms { padding: 6px 10px 6px 6px; } .ms .nm span { display: none; }
+    .mcenter { gap: 5px; } .mt { gap: 6px; }
+    .detail h2 { font-size: var(--t-t3); }
+    .facts { margin-top: 12px; } .facts > div { padding: 9px 11px; } .facts .v { font-size: var(--t-head); }
+    .reason { padding: 9px 12px; } .reason q { font-size: var(--t-foot); }
+    .go { padding-top: 12px; } .go .caption { display: none; }
+    .reel { gap: 8px; } .kh { padding: 9px 10px 10px; column-gap: 9px; } .kh .why { margin-top: 4px; }
+    .kh .mini .card { --w: 20px; } .kh .mini .card .rk { font-size: 11px; } .kh .mini .card .st { font-size: 11px; }
+    .depth-tok { width: 43px; height: 28px; } .depth-tok svg { width: 38px; height: 22px; }
+    .how { gap: 0 16px; padding-top: 10px; } .how .w span { display: none; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body data-tab="You" data-streak="23">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-price" viewBox="0 0 15 15"><path d="M2 10.5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M6 6.5v8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="10" cy="6" r="2.3" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="i-fold" viewBox="0 0 15 15"><rect x="2.5" y="3" width="6.5" height="9" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M11 5.5l2 2-2 2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-first" viewBox="0 0 15 15"><path d="M7.5 1.8l1.7 3.6 3.9.5-2.9 2.7.8 3.9-3.5-2-3.5 2 .8-3.9L1.9 5.9l3.9-.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+</svg>
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="vpage hands">
+      <header class="vtop"><h1>Your best hands</h1><div data-subnav="Hands"></div></header>
+
+      <section class="feature" aria-label="The Long Call, kept 11 October">
+        <figure class="stage mt" role="img" aria-label="The river decision, 11 October. Bo bet 450 into 550. Board 4 of spades, 4 of diamonds, king of diamonds, 9 of clubs, jack of spades. You held king of hearts, 2 of diamonds, and called.">
+          <div class="corner-l"><span class="caption num">River · 11 Oct</span></div>
+          <div class="corner-r"><span class="tag">Kept · Price held</span></div>
+
+          <div class="ms" aria-hidden="true">
+            <div class="cards tight"><div class="card red"><span class="rk">Q</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card"><span class="rk">J</span><span class="st">♣</span><span class="pip">♣</span></div></div>
+            <div><div class="nm">Bo<span>Loose-aggressive</span></div><div class="t-score num">4050</div></div>
+          </div>
+
+          <div class="mcenter" aria-hidden="true">
+            <span class="mbet num"><span>Bet</span>450</span>
+            <div class="mpot"><span class="lbl">Pot</span><span class="t-score num">550</span></div>
+            <div class="mboard">
+              <div class="card"><span class="rk">4</span><span class="st">♠</span><span class="pip">♠</span></div>
+              <div class="card red"><span class="rk">4</span><span class="st">♦</span><span class="pip">♦</span></div>
+              <div class="card red"><span class="rk">K</span><span class="st">♦</span><span class="pip">♦</span></div>
+              <div class="card"><span class="rk">9</span><span class="st">♣</span><span class="pip">♣</span></div>
+              <div class="card new"><span class="rk">J</span><span class="st">♠</span><span class="pip">♠</span></div>
+            </div>
+            <div class="mprice num"><b>450</b> to call, a <b>31%</b> price</div>
+          </div>
+
+          <div class="mhero" aria-hidden="true">
+            <div class="cards"><div class="card red"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div><div class="card red"><span class="rk">2</span><span class="st">♦</span><span class="pip">♦</span></div></div>
+            <div><div class="nm">You · button</div><div class="t-score num">4500</div><div class="stat">Called 450, Sure</div></div>
+            <span class="dealer">D</span>
+          </div>
+        </figure>
+
+        <div class="stack detail">
+          <span class="label">Kept hand 1 of 4 · against Bo</span>
+          <h2>The Long Call</h2>
+          <p class="caption meta">Saturday 11 Oct · two pair, kings and fours · you won <span class="num">1450</span></p>
+
+          <div class="tile facts">
+            <div><div class="v num">31%</div><div class="k">needed to call</div></div>
+            <div><div class="v num">34%</div><div class="k">you had</div></div>
+            <div><div class="v">Sure</div><div class="k">your call, right</div></div>
+          </div>
+          <div class="meter" style="--had:34%;--need:31%" role="img" aria-label="Needed 31% pot share, you had 34%">
+            <div class="bar"></div><div class="fill"></div><div class="gap"></div><div class="need" style="background: var(--ink-1)"></div>
+            <span class="lab" style="left:auto;right:calc(69% + 6px);transform:none">needed 31%</span><span class="lab" style="left:calc(34% + 6px);transform:none">you had 34%</span><span class="end" style="right:0">100%</span>
+          </div>
+          <div class="tile reason">
+            <span class="k">Your reason, graded right</span>
+            <q>31% price, and Bo bluffs his big river bets about half the time</q>
+          </div>
+          <p class="caption hide-sm" style="margin-top:10px">The river call you missed twice the week before. Three streets, one decision that mattered.</p>
+
+          <div class="go">
+            <button class="btn primary lg">Replay <span class="kbd">↩</span></button>
+            <span class="caption">Street by street, at your speed</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="stack" style="gap: 14px">
+        <section aria-label="Kept hands">
+          <div class="sec"><h2>Kept hands</h2><span class="caption">Kept hands stay past the 500-hand limit</span></div>
+          <div class="reel">
+            <button class="kh" aria-pressed="true">
+              <span class="mini"><span class="card red"><span class="rk">K</span><span class="st">♥</span></span><span class="card red"><span class="rk">2</span><span class="st">♦</span></span></span>
+              <b>The Long Call</b><span class="d num pos-num">+1450</span><span class="when">11 Oct · Price held</span>
+              <span class="why">Called Bo’s 450 at a 31% price, Sure</span>
+            </button>
+            <button class="kh">
+              <span class="mini"><span class="card"><span class="rk">7</span><span class="st">♠</span></span><span class="card red"><span class="rk">7</span><span class="st">♥</span></span></span>
+              <b>The Set Fold</b><span class="d k"></span><span class="when">4 Oct · A hard fold</span>
+              <span class="why">Let a set go to a check-raise all-in</span>
+            </button>
+            <button class="kh">
+              <span class="mini"><span class="card"><span class="rk">Q</span><span class="st">♣</span></span><span class="card"><span class="rk">J</span><span class="st">♣</span></span></span>
+              <b>The Squeeze</b><span class="d num pos-num">+22 bb</span><span class="when">26 Sep · A first</span>
+              <span class="why">3-bet over a call; took it preflop</span>
+            </button>
+            <button class="kh">
+              <span class="depth-tok" aria-hidden="true"><svg viewBox="0 0 44 26"><g fill="none" stroke-width="1.2"><ellipse cx="22" cy="13" rx="20" ry="10.5" stroke="oklch(1 0 0 / .16)" stroke-dasharray="2 2.5"/><ellipse cx="22" cy="13" rx="14" ry="7.2" stroke="oklch(1 0 0 / .32)"/><ellipse cx="22" cy="13" rx="8" ry="4" stroke="#F4F2EC"/></g><circle cx="30" cy="13" r="2.4" fill="#F4F2EC"/></svg></span>
+              <b>First certified hand</b><span class="d k"></span><span class="when">2 Sep · A first</span>
+              <span class="why">The block that certified 40 bb</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="how" aria-label="How a hand gets kept">
+          <h3>How a hand gets kept</h3>
+          <div class="w"><svg aria-hidden="true"><use href="#i-price"/></svg><div><b>Price held</b><span>A close call made Sure, for the right reason</span></div></div>
+          <div class="w"><svg aria-hidden="true"><use href="#i-fold"/></svg><div><b>A hard fold</b><span>A big hand let go when the grader says fold</span></div></div>
+          <div class="w"><svg aria-hidden="true"><use href="#i-first"/></svg><div><b>A first</b><span>Your first time: a squeeze, a certified table</span></div></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

@@ -4,6 +4,13 @@ A synthesis of the eight panel reports in [`panel/`](panel/) (product, learning 
 UX and motion, poker domain, architecture, skeptic). The mocks are in [`demo/vision/`](demo/vision/index.html).
 The pitch is in [PITCH.md](PITCH.md), the swarm plan in [BUILD-PLAN.md](BUILD-PLAN.md).
 
+> **Round 2 (current):** Dee's mark is now **Two lights**, a bone-ceramic dealer button with two engraved lights
+> ([comparison of five directions](demo/vision/dee-marks.html)). **Personalization** is a pillar (§3, Pillar 9),
+> and every mock is rebuilt on the shipped glass system and the `sports` table
+> ([gallery](demo/vision/index.html), [design brief](DESIGN-BRIEF.md)). The owner has decided D1 (amend fully),
+> D2 (a simple versioned profile, no migrations), D5 (a classic daily streak) and D14/D15 (grader first, then
+> the trial).
+>
 > **Owner decisions are marked ⚑ DECISION** throughout and collected in §7. Nothing here changes `src/`, the
 > spec, or the persisted profile until the owner signs them.
 
@@ -46,7 +53,7 @@ Tell's motion specs and Pip's venue framing are folded in. ⚑ DECISION D8 (the 
 
 | Character | What it is | Job | Builds on |
 |---|---|---|---|
-| **Dee** (lead) | The dealer button: a smoked-graphite glass disc with an engraved bone "D". Its only feature is the D's counter (the hole), which changes shape for each expression. No eyes, no beak, no limbs. | Speaks the coach's verdicts (it doesn't write them), asks the Interrogator's one question, greets, celebrates facts | `.dealer` badge in `styles.css` and the glass kit; `coach.ts` `Grade`; `coachPanel.ts`; `src/main/tutor/` |
+| **Dee** (lead) | The dealer button in bone ceramic, with two engraved lights. The lights carry every expression (shape, height, gap), and the posture adds tilt, lift and lying flat. There's no mouth, beak or limbs, and the rim tints only for serious (coral) or the gate (amber). | Speaks the coach's verdicts (it doesn't write them), asks the Interrogator's one question, greets, celebrates facts | `.dealer` badge in `styles.css` and the glass kit; `coach.ts` `Grade`; `coachPanel.ts`; `src/main/tutor/` |
 | **Folio** | A notebook | Keeps the learner's own rule sentences, quotes them back, inks reads once they pass the gate | `lexicon.ts` (`feedbackOpening`), `giftLedger.ts`, `reads.ts` gates |
 | **Tock** | An amber sand-glass | Runs the gate timer and the speed drills | `table.ts` GATE budget, `anomaly.ts` |
 | **Mirror** | An empty glass card frame | Shows how often Sure was right | `predict.ts`, `confidence.ts` |
@@ -64,8 +71,9 @@ Tell's motion specs and Pip's venue framing are folded in. ⚑ DECISION D8 (the 
 | `maniac` | Juniper Vale, pier pyrotechnician | The Fireworks Pier | Trap and call down. She is weather, not a role model. |
 | `tag-reg` | Ines Marlow, the metronome | The Observatory (final) | You win by *not* deviating |
 
-Art: see [character sheet](demo/vision/character.html), which shows one SVG rig in ten states (seated,
-hello, listening, rolling, wobble, on edge, price held, quoting, sitting out, engraving). Rivals are glass
+Art: see [Dee's mark directions](demo/vision/dee-marks.html), which shows one SVG rig in five directions and
+eight states (rest, listening, glance, thinking, price held, serious, the gate, asleep), and
+[Dee's settings](demo/vision/dee-settings.html) for the personality dial. Rivals are glass
 medallions carrying a keepsake glyph (wick, ticket, bookmark, punched ticket, fuse, tuning fork). Each stays
 masked until the learner beats its boss hand. This keeps the existing rule that an archetype is hidden until
 showdown (`jitter.ts`, `tableTalk.ts`).
@@ -195,9 +203,7 @@ needs a backend or new content pipelines. "Schema" means new persisted data, and
 
 | Feature | One line | Tier | Builds on | Schema |
 |---|---|---|---|---|
-| The Lamp | Lit days. Days with nothing due show as hollow "rested" rings and never break the run. | Core | `career.ts` `PracticeCadence` (`last30`, `currentRun`) | small |
-| Weekly Rhythm | You pick 2–6 days a week; the run is counted in kept weeks | Core | `career.ts` | small |
-| Spare wicks and Pause | Earned freezes (one per two kept weeks, at most two held) and a free 14-day pause; never sold | Core | — | small |
+| Daily streak | A classic daily streak: consecutive local days with a finished session, plus your best (owner D5) | Core | `career.ts` `PracticeCadence.currentRun`, `HandRecord.playedAt` | small (`streak {current, best, lastDay}`) |
 | Today's ring | Three goals (clear what is due, the one suggestion, one rule in your words) | Core | `recommend.ts` (one suggestion, N2) | none (derived) |
 | Reps and Notebooks | Effort points, never spent; they fill Notebook levels | Core | award ledger keyed per award | **yes** |
 | Seals | One per mastered concept, derived live from the schedule gate | Core | `schedule.ts` `gate()` | none (derived) |
@@ -216,6 +222,25 @@ needs a backend or new content pipelines. "Schema" means new persisted data, and
 | LLM flavour | Optional rewording of a scripted line, guarded | Moonshot | `src/main/tutor/` | none |
 | Voice | Dee read aloud by the system's speech voice, off by default | Moonshot | `src/main/speech.ts` | none |
 
+### Pillar 9 — Personalization (round 2: so people care)
+
+Every element is derived from data the app records, or would record under the approved profile format (D2). The
+`src` sources are in [`vision/personalization-sources.md`](vision/personalization-sources.md), and the one mock
+persona is in [`vision/persona.md`](vision/persona.md).
+
+| Feature | One line | Mock | Source |
+|---|---|---|---|
+| Onboarding that asks who you are | Venue, stakes, experience, goals, why you play and schedule, asked once; each question says what Dee uses it for | [onboarding](demo/vision/onboarding.html?step=1) | new `profile {…}` |
+| Dee remembers you | Quotes your rule sentences back at the moment they apply; names your leak, your rival and your kept hands | [table](demo/vision/table.html?state=mistake), [home](demo/vision/home.html) | `lexicon` (session.ts:200), `leaks/leakCostBb` (:130), new `rivals`, new `pinned` |
+| Tonight's plan from your leaks | Three items ranked by your costliest spot, what's due and your rival | [home](demo/vision/home.html) | `recommend()` (recommend.ts:219), `dueNow` (schedule.ts:243) |
+| Story and rivals from your leaks | The Long Orbit's chapters are reordered by `leakCostBb`; your rival is the regular who costs you most | [story](demo/vision/story.html), [rival](demo/vision/rival.html) | `leakCostBb`, new `rivals` from `HandRecord.villain` |
+| Style identity | One of four neutral archetypes (The Closer, The Anchor, The Pressure, The Explorer) from VPIP, PFR and aggression, with an 8-week trail | [style](demo/vision/style.html) | `HandRecord.vpip/pfr` (session.ts:72), derived from `decisions[]` |
+| Personal milestones | Named for a decision you made, e.g. the first time you folded a set correctly | [trophies](demo/vision/trophies.html), [milestone](demo/vision/milestone.html) | `decisions[]` + `evaluate.ts`, `careerRecord` milestones |
+| Weekly letter | Dee's letter from your week's numbers, using scripted templates and never generated text (PRODUCT-SPEC:283) | [letter](demo/vision/letter.html) | `hands[]`, `leaks`, `lexicon` |
+| Your best hands | A reel of kept hands: Price held, hard correct folds, firsts | [hands](demo/vision/hands.html) | `hands[]`, `decisions[]`, new `pinned` |
+| Dee's personality | A Dry, Warm or Blunt dial; the numbers never change, only the words around them | [dee settings](demo/vision/dee-settings.html) | new `dee {presence, voice, frequency}`, `spokenVerdicts` (:156) |
+| Customization as identity | Earned, paint-only card backs, table tints and Dee finishes, previewed on the real table | [locker](demo/vision/locker.html) | new `cosmetics` |
+
 ### Pillar 5 — Cosmetics and identity (earn-only, paint-only)
 
 | Feature | One line | Tier | Builds on | Schema |
@@ -225,7 +250,7 @@ needs a backend or new content pipelines. "Schema" means new persisted data, and
 | Tables | The existing felt variants as paint-only themes, plus Chalkboard and Ghost Rail | Core | `demo/glass/table-variants.css`, `theme.spec` | yes |
 | Chip sets | De-casino-fied: Clay, Slate & Bone, Wooden Tokens, Chalk Cubes | Bold | `--chip-a/b` tokens | yes |
 | Dee's rims and engravings | Rim finishes, an inlay per Seal, your sentence engraved | Core | dee rig | yes |
-| Celebrations | Quiet Underline, Lamp Brighten, Page Turn, Constellation Draw; at session end only | Bold | motion tokens | yes |
+| Celebrations | Quiet Underline, Light Sweep, Page Turn, Constellation Draw; at session end only | Bold | motion tokens | yes |
 | Themes | Glass and Obsidian today; Dusk and Library added | Bold | `store.ts` THEMES, `html[data-theme]` | yes |
 | Chalk | Earn-only cosmetic budget: 1 Chalk per Rep on a daily curve, at most 225 a day, fixed published prices, no sales | Bold | economy §4 | **yes**. ⚑ DECISION D4 |
 
@@ -298,17 +323,12 @@ About 165 Chalk for a 30-minute session. The whole catalogue costs about 34,000 
 so roughly 8–10 months at five sessions a week. That is speculation, from the economy model, not measured. (The
 economy report states a 300 cap, but its own curve tops out at 225, which is corrected here.)
 
-**Streak rules (the Lamp).**
-- A **counted day** needs one of: everything that was due, or at least 7 full-protocol decisions, or an
-  assessment.
-- A day with **nothing due** shows as *rested* and never breaks the run.
-- The **run is counted in weeks**. A week is kept when it meets the learner's own Rhythm (2–6 days).
-- Missed weeks are covered by **spare wicks**. Uncovered, the run ends quietly. The lifetime lit-day count
-  never resets, and Dee leads with what is due, never with the loss.
-- **Pause** gives 14 free days for holidays or illness.
-- Notifications are opt-in and never loss-framed. There are no late-night "save your streak" prompts:
-  sessions after a set hour show a gentle "the schedule will keep" note.
-- **Day boundary:** 4 am local time (fixes the UTC bug).
+**Streak rules (classic, owner D5).**
+- A **counted day** is a local day (rolling over at 4 am) with at least one finished session.
+- Miss a day and the streak starts again at 1. Your best is kept.
+- There are no freezes, repair or rest days in the build. The research's one-forgiven-miss finding (Gardner
+  2012, DESIGN-BRIEF P20) is a decision to evaluate, not built.
+- Copy is never loss-framed: Home says "finish one session and your streak goes to 24", never "don't lose it".
 
 **Cosmetic tiers.** Common (fixed Chalk), Uncommon (fixed Chalk), mastery-locked (Seals, Notebook level, or
 milestone), story keepsakes (boss hands), and seasonal (free track, then archived). All of them are visible
@@ -336,10 +356,9 @@ dark-pattern guidance; COPPA; future monetisation creep; mascot trade dress; pho
 - **Rendering:** inline SVG plus CSS plus the Web Animations API, transform and opacity only, no new
   dependency. Lottie is rejected (it needs `eval` under the CSP), and so are Rive (it needs WASM and a CSP
   change) and three.js (size, GPU cost and a gamey feel).
-- **Placement:** a **perch** in the title bar (Dee at 30 px, the Lamp count, today's ring) with no glass of
-  its own. Dee is never on the felt. On the table it sits on the coach sheet's rim or in the hand-end tray,
+- **Placement:** a **perch** in the title bar (Dee at 20 px plus the streak count) with no glass of its own. Dee is never on the felt. On the table it sits on the coach sheet's rim or in the hand-end tray,
   and floats stay at two or fewer.
-- **Colour roles:** the Lamp and the rings are white light plus `--chip-a`. Never mint, because a kept habit
+- **Colour roles:** the streak and the rings are white light plus `--chip-a`. Never mint, because a kept habit
   isn't "your turn" and mint is never a balance. Never amber, because amber is notable and the timer. Dee's
   rim uses role colours (amber notable, coral serious, one mint tick per Seal). New tokens: `--ring-track`,
   `--ring-fill`, `--lamp-on`, `--lamp-rest`, `--dee-*` sizes, `--ease-arc`, `--dur-4` 480 ms, `--dur-ring`
@@ -374,21 +393,21 @@ features would need a separate network spec, an opt-in, and changes to `no-netwo
 
 | # | Decision | Recommended default | What changes if overruled |
 |---|---|---|---|
-| **D1** | Write a **v2.2 spec amendment** that brings effort XP, a humane streak and earn-only cosmetics into scope, and reconcile the 2026-08-14 drift (code lifted the banned words; the spec still bans them). It also reverses v2.1's "never … cosmetics, or a shop" line. | Amend, scoped: rewards for process only; the vocabulary stays banned on coach surfaces | Without it, nothing in Pillars 3–5 can ship; the layer stays a mock |
-| **D2** | **Persisted profile schema change** (`schemaVersion`, a `progression` namespace, forward-only migration, a backup before migrating, read-only for newer profiles). Reserved for the owner. | Approve | Without it, the profile can't hold Reps or owned items; today an older build would silently wipe new fields |
+| **D1** ✔ owner: amend fully | Write a **v2.2 spec amendment** that brings effort XP, a humane streak and earn-only cosmetics into scope, and reconcile the 2026-08-14 drift (code lifted the banned words; the spec still bans them). It also reverses v2.1's "never … cosmetics, or a shop" line. | Amend, scoped: rewards for process only; the vocabulary stays banned on coach surfaces | Without it, nothing in Pillars 3–5 can ship; the layer stays a mock |
+| **D2** ✔ owner: approve, simple (no migrations; no prior users) | **Persisted profile schema change** (`schemaVersion`, a `progression` namespace, forward-only migration, a backup before migrating, read-only for newer profiles). Reserved for the owner. | Approve | Without it, the profile can't hold Reps or owned items; today an older build would silently wipe new fields |
 | **D3** | A **backend** for leagues, friends and sync | None; local and LAN only | A network spec, opt-in consent, a CSP and `no-network.spec` change, and ops on-call |
 | **D4** | **Chalk** (a spendable earn-only currency) vs **receipts only** | Receipts only in Wave 1; Chalk only if the trial shows no farming | With Chalk from day one: more grind risk, more economy tuning |
-| **D5** | **Streak unit** | The Lamp: lit days, a run in kept weeks, a chosen Rhythm, rested days | A daily streak fights flat spacing and raises streak anxiety |
+| **D5** ✔ owner: classic daily streak | **Streak unit** | Classic daily streak (was: the Lamp) | A daily streak fights flat spacing and raises streak anxiety |
 | **D6** | May Dee **acknowledge good play** ("Price held")? | Yes, as task feedback, rare and specific, close spots only | No: Dee is silent on every correct decision, and "Price held" is cut |
 | **D7** | Does Dee **speak in-hand**? | No: pose only, with words at the hand-end beat | Yes: it breaks the T4 word budget and the silence rule |
-| **D8** | **The mascot** | Dee (the button) | Tell (a chip; reads more like a casino), Pip (a human; costlier art and stronger personality risk) |
-| **D9** | **Navigation**: the nine-tab set (Home, Play, Learn, Story, Train, Study, Pro, Locker, Profile) vs the current 11. This is a synthesis proposal, not from a panel report. The mapping: Charts goes into Train; Bank, Equity, Ranges and Dossier into Study; Progress and Settings into Profile, with Settings also opening from the perch. | The new set, with nothing locked (N1) | Keep the 11; Story and Locker live under Learn and Profile |
+| **D8** | **The mascot** | Dee (the button), mark Two lights ([five directions](demo/vision/dee-marks.html)) | Tell (a chip; reads more like a casino), Pip (a human; costlier art and stronger personality risk) |
+| **D9** | **Navigation**: 7 tabs (Home, Play, Learn, Story, Train, Study, You) with a You sub-nav (Profile, Trophies, Style, Hands, Letters, Rivals, Locker, Dee) vs the current 11. Charts goes into Train; Bank, Equity, Ranges, Dossier and Pro into Study; Progress and Settings into You. | The new set, with nothing locked (N1) | Keep the 11; Story and You live under Learn and Profile |
 | **D10** | **Pro tools** on real-money hand histories, and bankroll framing | Import for review and counting stats only, no profit/loss, no gamification; bankroll in bb units, currency off | Scope creeps toward a tracker; responsible-gambling review needed |
 | **D11** | **18+ statement** and audience | Yes, in onboarding and About | Minors risk under several regimes |
 | **D12** | **LLM flavour** lines | Off by default; guarded; scripted fallback | Off entirely, or on by default (needs a cost and consent note) |
 | **D13** | A **second sound cue** (a ceramic clack at milestones) | Yes, behind the sound switch | Silent milestones |
-| **D14** | **Grader fixes gate the rewards** (Pillar 0 first) | Yes | Rewards would amplify grader noise (the skeptic's strongest objection) |
-| **D15** | **Run the trial** with kill criteria before Bold | Yes, four weeks on/off | Bold ships on faith |
+| **D14** ✔ owner: grader first | **Grader fixes gate the rewards** (Pillar 0 first) | Yes | Rewards would amplify grader noise (the skeptic's strongest objection) |
+| **D15** ✔ owner: then the trial | **Run the trial** with kill criteria before Bold | Yes, four weeks on/off | Bold ships on faith |
 | **D16** | **Daily Ticket** under 30 minutes (the spec bans sub-30-minute sessions) | Allow, as review rather than a "session" | The daily loop falls back to the 30-minute plan |
 | **D17** | **Rivals replace Ada, Bo and Cy** everywhere, or only in Story | Story and the Masquerade first | Live play keeps the anonymous regulars |
 | **D18** | A **second amendment for the other non-goals** that PRODUCT-SPEC:542 still lists: ICM, tournaments, hand-history import, bankroll management and leaderboards (Pillar 7 and the Ghost Rail) | Wave 2, after the trial: allow Pro tools (review-only on real-money imports) and the Ghost Rail (labelled bots and your past weeks, never other people) | Pro tools and the Ghost Rail are cut; Offsuit stays cash-game only |

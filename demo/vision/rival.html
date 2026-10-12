@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Rival: Bo</title>
+<link rel="stylesheet" href="vision.css" />
+<!-- Vision round 2 · You › Rivals: the dossier for Bo. A file, not a table: his token, the archetype and how you learned it,
+     your record against him, three plain readings with numbers, how to play him in YOUR rules, the hands, the next chapter.
+     Sources (vision/personalization-sources.md):
+       Bo, 38 hands, −14 bb, the net line … rivals[] {name, archetype, handsSeen, yourNetBb} (new, #6), from HandRecord.villain
+         (new) + hands[].net (session.ts:66); outcomes only, never stored reads, so R4 holds (reads.ts:156 still expires)
+       archetype revealed after the hand … jitter.ts (shown as "Unknown" in-hand), ArchetypeProfile (archetypes.ts:49)
+       river bets 2.1×, 44% bluffs, folds to check-raise 60% … aggregated over the 38 HandRecords' decisions[] (session.ts:43)
+         at showdown (new HandRecord.wentToShowdown), shown against the archetype's baseline
+       how to play him … your accepted sentences, lexicon (session.ts:200, AcceptedSentence lexicon.ts:62)
+       the hands … HandRecord pinned / last 500 (session.ts:20), filtered by villain
+       next chapter … Story chapters ordered by leakCostBb (session.ts:130): ch. 3, The River Room -->
+<style>
+  .rv { grid-template-columns: 296px minmax(0, 1fr); column-gap: 28px; }
+  .file { gap: 14px; }
+  .file .stage { height: 190px; display: grid; place-items: center; }
+  .file .stage svg.token { width: 118px; height: 118px; display: block; filter: drop-shadow(0 10px 14px oklch(0 0 0 / 0.5)); }
+  .file .stage .stamp { position: absolute; left: 14px; top: 12px; font-size: var(--t-cap); color: var(--ink-3); letter-spacing: 0.06em; }
+  .who h2 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; line-height: 1.15; }
+  .who .arch { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: var(--t-head); font-weight: 500; color: var(--ink-1); }
+  .who .arch .was { font-size: var(--t-foot); color: var(--ink-3); text-decoration: line-through; text-decoration-color: oklch(1 0 0 / 0.3); font-weight: 400; }
+  .who .caption { margin-top: 6px; }
+  .record { padding: 14px 16px 12px; }
+  .record .hd { display: flex; align-items: flex-end; gap: 10px; margin-top: 6px; }
+  .record .t-score { font-size: 54px; }
+  .record .hd .lbl { padding-bottom: 6px; }
+  .record .hd .lbl b { display: block; font-size: var(--t-body); font-weight: 600; }
+  .net { display: block; width: 100%; height: 76px; margin-top: 10px; overflow: visible; }
+  .net .ln { fill: none; stroke: var(--ring-fill); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .net .zero { stroke: oklch(1 0 0 / 0.22); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+  .net-k { display: flex; justify-content: space-between; margin-top: 4px; }
+
+  .reads { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .read { padding: 14px 16px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .read .v { font-size: var(--t-stat); font-weight: 500; letter-spacing: -0.01em; line-height: 1; }
+  .read p { font-size: var(--t-body); color: var(--ink-2); line-height: 1.4; }
+  .read p b { color: var(--ink-1); font-weight: 500; }
+  .read svg { display: block; width: 100%; height: 22px; overflow: visible; margin-top: 2px; }
+  .read svg .tr { fill: var(--ring-track); }
+  .read svg .fl { fill: var(--ring-fill); }
+  .read svg .tick { fill: var(--ink-3); }
+  .read svg text { font-size: var(--t-cap); fill: var(--ink-3); font-family: var(--font); }
+
+  .bars { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 5px 8px; margin-top: auto; padding-top: 4px; }
+  .bars span { font-size: var(--t-cap); color: var(--ink-3); }
+  .bars i, .bar1 { position: relative; display: block; height: 4px; border-radius: 2px; background: var(--ring-track); }
+  .bars i::after, .bar1 i { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); border-radius: 2px; background: oklch(1 0 0 / 0.38); }
+  .bars i.on::after, .bar1 i.on { background: var(--ring-fill); }
+  .bar1 { margin-top: auto; margin-bottom: 18px; }
+  .bar1 b { position: absolute; left: var(--at); top: -5px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--ink-1); box-shadow: 0 0 0 1.5px var(--desk-0); }
+  .bar1 span { position: absolute; left: var(--at); top: 12px; transform: translateX(-50%); font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; }
+  .others { display: grid; grid-template-columns: 1fr 1fr; }
+  .others > * + * { box-shadow: inset 0.5px 0 0 var(--hair-strong) !important; }
+  .others .row-btn { padding: 9px 14px; }
+  .others .t { display: block; font-size: var(--t-body); font-weight: 500; }
+  .others .num { font-size: var(--t-body); font-weight: 600; }
+  .mono { width: 28px; height: 28px; flex: none; display: block; }
+  .go { margin-top: auto; }
+  .lower { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; }
+  .rules .row-btn { align-items: flex-start; padding: 11px 14px; }
+  .rules q { display: block; font-family: var(--font-index); font-style: italic; font-size: var(--t-body); color: var(--ink-2); quotes: "“" "”"; }
+  .rules .t { display: block; font-size: var(--t-body); font-weight: 500; color: var(--ink-1); margin-top: 3px; line-height: 1.4; }
+  .rules .when { font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; padding-top: 2px; }
+  .hands .row { padding: 10px 14px; gap: 10px; }
+  .hands .t { display: block; font-size: var(--t-body); font-weight: 500; }
+  .hands .num { font-weight: 600; font-size: var(--t-body); white-space: nowrap; }
+  .go { display: flex; align-items: center; gap: 14px; }
+  .chapter { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0 2px; }
+  .chapter .t { font-size: var(--t-body); font-weight: 500; }
+  .right { gap: 18px; }
+
+  @media (max-width: 1000px) {
+    .rv { grid-template-columns: 236px minmax(0, 1fr); column-gap: 18px; }
+    .file { gap: 10px; }
+    .file .stage { height: 150px; }
+    .file .stage svg.token { width: 92px; height: 92px; }
+    .who h2 { font-size: var(--t-t3); } .who .arch { font-size: var(--t-body); }
+    .record .t-score { font-size: 42px; }
+    .net { height: 56px; }
+    .reads { gap: 8px; } .read { padding: 10px 12px; gap: 4px; } .read .v { font-size: var(--t-t2); } .read p { font-size: var(--t-foot); }
+    .lower { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; }
+    .hands .row { padding: 9px 10px; }
+    .rules .t { font-size: var(--t-foot); } .rules .when { display: none; }
+    .others { display: none; } .others-wrap { display: none; }
+    .rules .row-btn { padding: 8px 12px; }
+    .right { gap: 14px; }
+    .hide-sm { display: none !important; }
+  }
+</style>
+</head>
+<body data-tab="You" data-streak="23">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="chev" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="book" viewBox="0 0 15 15"><path d="M7.5 3.6C6 2.5 4 2.2 2 2.6v8.6c2-.4 4 0 5.5 1.1 1.5-1.1 3.5-1.5 5.5-1.1V2.6c-2-.4-4-.1-5.5 1Zm0 0v8.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+</svg>
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="vpage">
+      <div class="vtop"><h1>Rivals</h1><div data-subnav="Rivals"></div></div>
+
+      <div class="cols rv">
+        <!-- the file: who he is, how you know, where you stand -->
+        <section class="stack file" aria-label="Bo">
+          <div class="stage">
+            <span class="stamp">FILE · 3 REGULARS</span>
+            <!-- Bo's token: a graphite ceramic chip with bone edge inserts and an engraved monogram (drawn; not a face) -->
+            <svg class="token" viewBox="0 0 100 100" role="img" aria-label="Bo’s token: a graphite chip engraved Bo">
+              <defs>
+                <radialGradient id="g-face" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="#8A9097"/><stop offset=".55" stop-color="#6F767E"/><stop offset="1" stop-color="#4C5157"/></radialGradient>
+                <radialGradient id="g-in" cx="60%" cy="70%" r="70%"><stop offset="0" stop-color="#5C6269"/><stop offset="1" stop-color="#6F767E"/></radialGradient>
+              </defs>
+              <circle cx="50" cy="50" r="48" fill="url(#g-face)"/>
+              <g fill="#D9D4C8">
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(-4 50 50)"/>
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(41 50 50)"/>
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(86 50 50)"/>
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(131 50 50)"/>
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(176 50 50)"/>
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(221 50 50)"/>
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(266 50 50)"/>
+                <path d="M50 2a48 48 0 0 1 8.3.7l-1.6 9.4A38.5 38.5 0 0 0 50 11.5Z" transform="rotate(311 50 50)"/>
+              </g>
+              <circle cx="50" cy="50" r="34" fill="url(#g-in)"/>
+              <circle cx="50" cy="50" r="34" fill="none" stroke="#16181B" stroke-opacity=".35" stroke-width="1"/>
+              <circle cx="50" cy="50.8" r="34" fill="none" stroke="#FFFFFF" stroke-opacity=".18" stroke-width=".6"/>
+              <text x="50" y="60" text-anchor="middle" font-family="ui-serif, 'New York', Georgia, serif" font-size="27" font-weight="600" fill="#16181B" fill-opacity=".55">Bo</text>
+              <text x="50" y="59.2" text-anchor="middle" font-family="ui-serif, 'New York', Georgia, serif" font-size="27" font-weight="600" fill="#D9D4C8">Bo</text>
+              <circle cx="50" cy="50" r="48" fill="none" stroke="#000" stroke-opacity=".45" stroke-width=".9"/>
+              <path d="M17 30A37 37 0 0 1 46 13" fill="none" stroke="#FFFFFF" stroke-opacity=".28" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="who">
+            <h2>Bo</h2>
+            <div class="arch">Loose-aggressive <span class="was">Unknown</span></div>
+            <p class="caption">You saw it when your first hand with him ended, 2 Sep. Styles stay hidden until a hand is over.</p>
+          </div>
+          <div class="tile lit record" aria-label="Your record against Bo">
+            <span class="label">You against Bo · 38 hands</span>
+            <div class="hd"><span class="t-score num">−14</span><span class="lbl"><b>bb</b><span class="caption">+29 in the last one</span></span></div>
+            <svg class="net" viewBox="0 0 300 90" preserveAspectRatio="none" role="img" aria-label="Your net big blinds against Bo over 38 hands: down to −43, then +29 on the last hand, ending at −14">
+              <line class="zero" x1="0" y1="10.7" x2="300" y2="10.7"/>
+              <polyline class="ln" points="0.0,7.3 8.1,12.4 16.2,10.7 24.3,20.7 32.4,14.0 40.5,17.4 48.6,30.8 56.8,25.8 64.9,24.1 73.0,32.4 81.1,29.1 89.2,35.8 97.3,25.8 105.4,30.8 113.5,32.4 121.6,44.2 129.7,40.8 137.8,35.8 145.9,45.8 154.1,44.2 162.2,47.5 170.3,62.6 178.4,55.9 186.5,52.5 194.6,57.6 202.7,65.9 210.8,64.2 218.9,59.2 227.0,65.9 235.1,69.3 243.2,59.2 251.4,64.2 259.5,77.6 267.6,74.3 275.7,72.6 283.8,82.7 291.9,82.7 300.0,34.1"><title>Net bb by hand, low −43 at hand 36, −14 after hand 38</title></polyline>
+            </svg>
+            <div class="net-k"><span class="k">2 Sep</span><span class="k">0 is even · low −43</span><span class="k">11 Oct</span></div>
+          </div>
+        </section>
+
+        <section class="stack right" aria-label="How Bo plays and how you play him">
+          <div>
+            <div class="sec"><h2>How he plays</h2><span class="caption hide-sm">From 38 hands, against a typical player</span></div>
+            <div class="reads">
+              <div class="tile read">
+                <span class="v num">2.1×</span>
+                <p>He <b>bets the river</b> twice as often as a typical player.</p>
+                <div class="bars" aria-hidden="true"><span>typical</span><i style="--w:48%"></i><span>Bo</span><i class="on" style="--w:100%"></i></div>
+              </div>
+              <div class="tile read">
+                <span class="v num">44%</span>
+                <p>of his <b>big river bets</b> are bluffs. A pot-sized bet needs 33%.</p>
+                <div class="bar1" aria-hidden="true"><i class="on" style="--w:44%"></i><b style="--at:33%"></b><span style="--at:33%">needed 33%</span></div>
+              </div>
+              <div class="tile read">
+                <span class="v num">60%</span>
+                <p>of the time he <b>folds to a check-raise</b>.</p>
+                <div class="bar1" aria-hidden="true"><i class="on" style="--w:60%"></i><span style="--at:0%; transform:none">6 of your 10 check-raises</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lower">
+            <div>
+              <div class="sec"><h2>How to play him, in your rules</h2></div>
+              <div class="group rules">
+                <button class="row-btn"><span class="grow"><q>the price is the call over the pot after I call</q><span class="t">Call his big river bets with a hand that beats a bluff: 44% beats the 33% you need.</span></span><span class="when">3 Oct</span></button>
+                <button class="row-btn"><span class="grow"><q>bluff where my story is the river card</q><span class="t">Check-raise him when the card helps your story. He lets it go 60% of the time.</span></span><span class="when">27 Sep</span></button>
+              </div>
+            </div>
+            <div class="hands">
+              <div class="sec"><h2>Your hands with him</h2><span class="caption">3 of 38</span></div>
+              <div class="group">
+                <div class="row"><div class="mini"><div class="card red"><span class="rk">K</span><span class="st">♥</span></div><div class="card red"><span class="rk">2</span><span class="st">♦</span></div></div><span class="grow"><span class="t">The Long Call</span><span class="caption">11 Oct · river call, Sure</span></span><span class="num pos-num">+29 bb</span></div>
+                <div class="row"><div class="mini"><div class="card"><span class="rk">A</span><span class="st">♣</span></div><div class="card"><span class="rk">9</span><span class="st">♣</span></div></div><span class="grow"><span class="t">Folded the river</span><span class="caption">8 Oct · price was 29%</span></span><span class="num neg-num">−11 bb</span></div>
+                <div class="row"><div class="mini"><div class="card"><span class="rk">Q</span><span class="st">♠</span></div><div class="card red"><span class="rk">T</span><span class="st">♥</span></div></div><span class="grow"><span class="t">Called, he had it</span><span class="caption">3 Oct · right call, Guess</span></span><span class="num neg-num">−18 bb</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="others-wrap">
+            <div class="sec"><h2>Also at your table</h2></div>
+            <div class="group h others">
+              <button class="row-btn"><svg class="mono" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#D9D4C8"/><circle cx="14" cy="14" r="9" fill="none" stroke="#6F767E" stroke-opacity=".5"/><text x="14" y="18" text-anchor="middle" font-family="ui-serif, Georgia, serif" font-size="11" font-weight="600" fill="#16181B">Ad</text></svg><span class="grow"><span class="t">Ada</span><span class="caption">Tight-passive · 51 hands</span></span><span class="num pos-num">+6 bb</span><svg class="chev"><use href="#chev"/></svg></button>
+              <button class="row-btn"><svg class="mono" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#1C2026" stroke="#FFFFFF" stroke-opacity=".2"/><circle cx="14" cy="14" r="9" fill="none" stroke="#FFFFFF" stroke-opacity=".14"/><text x="14" y="18" text-anchor="middle" font-family="ui-serif, Georgia, serif" font-size="11" font-weight="600" fill="#D9D4C8">Cy</text></svg><span class="grow"><span class="t">Cy</span><span class="caption">Tight · 44 hands</span></span><span class="num pos-num">+2 bb</span><svg class="chev"><use href="#chev"/></svg></button>
+            </div>
+          </div>
+
+          <div class="go">
+            <div class="chapter"><span class="icon-tile"><svg><use href="#book"/></svg></span><span class="grow"><span class="t" style="display:block">Next: Chapter 3, The River Room</span><span class="caption">Bo’s room in the Story, because river calls cost you most</span></span></div>
+            <button class="btn primary lg">Play a hand against Bo <span class="kbd">↩</span></button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

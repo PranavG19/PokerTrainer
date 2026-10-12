@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Onboarding</title>
+<link rel="stylesheet" href="vision.css" />
+<!-- Vision round 2 Onboarding, ?step=1..4: four sheets over a receded first-run Home, one shared header (Dee, "Step n of 4",
+     Skip), one bone primary each, and a "Dee uses this to …" caption under every question (DESIGN-BRIEF P2, P3, P18, P19).
+     Every answer is written to the new versioned profile and is editable later in You › Profile (P2). Sources
+     (vision/personalization-sources.md):
+       "what should Dee call you" … profile.displayName (new, #9), optional, prefilled "Sam"
+       where you play, stakes, experience … profile.venue / profile.stakes / profile.experience (new, #9); stakes set the
+         table depth (DEPTHS standing.ts:38) and opponent mix (archetypes.ts:49)
+       goals (up to two), schedule … profile.goals[] / profile.days[] / profile.sessionMinutes (new, #9); goals order
+         recommend() (recommend.ts:219, recommender.preferred :63) and the Story chapters
+       Dee's voice … dee {presence, voice, frequency} (new, #11); verdict numbers come from the grader, never the dial (P9)
+       the first plan … assessments (session.ts:239, the first assessment block) + recommend() over an empty fadingLog -->
+<style>
+  .perch { visibility: hidden; }                    /* first run: no streak yet */
+  .recede { position: absolute; inset: 0; filter: blur(9px) brightness(0.55) saturate(0.7); transform: scale(0.985); pointer-events: none; }
+  .recede .home { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); column-gap: 40px; }
+  .scrim { animation: none; }
+
+  .ob { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100% - 48px)); max-height: calc(100% - 36px);
+    padding: 18px 26px 18px; display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+  .ob-head { display: flex; align-items: center; gap: 10px; height: var(--h-sm); }
+  .ob-head .who { font-size: var(--t-body); font-weight: 600; }
+  .ob-head .n { font-size: var(--t-foot); color: var(--ink-3); }
+  .ob-head .dots { display: flex; gap: 4px; margin-left: 8px; }
+  .ob-head .dots i { width: 22px; height: 3px; border-radius: 2px; background: var(--ring-track); }
+  .ob-head .dots i.on { background: var(--ring-fill); }
+  .ob-head .btn { margin-left: auto; }
+  .ob h1 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; line-height: 1.2; }
+  .ob .lede { margin-top: 4px; max-width: 60ch; }
+  .q { display: flex; flex-direction: column; gap: 8px; }
+  .q > .label { color: var(--ink-1); font-size: var(--t-body); font-weight: 600; }
+  .uses { font-size: var(--t-foot); color: var(--ink-3); line-height: 1.45; }
+  .uses b { color: var(--ink-2); font-weight: 500; }
+  .ob-foot { display: flex; align-items: center; gap: 10px; padding-top: 14px; box-shadow: inset 0 0.5px 0 var(--hair-strong); margin-top: auto; }
+  .ob-foot .caption { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; }
+  .ob-foot .caption svg { width: 10px; height: 12px; flex: none; }
+
+  /* step 1: Dee on a stage, a hand already dealt (P19) */
+  .s1 { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 26px; align-items: stretch; }
+  .s1 .stage { height: 280px; display: grid; place-items: center; }
+  .s1 .stage .dee { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); }
+  .s1 .stage .hand { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; gap: 6px; }
+  .s1 .stage .hand .card { --w: 40px; }
+  .s1 .stage .hand .card:first-child { transform: rotate(-5deg) translateY(2px); }
+  .s1 .stage .hand .card:last-child { transform: rotate(5deg) translateY(2px); }
+  .s1 .stage .tagline { position: absolute; left: 0; right: 0; top: 14px; text-align: center; font-size: var(--t-cap); color: var(--ink-3); letter-spacing: 0.04em; }
+  .s1 .copy { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
+  .facts { display: grid; gap: 10px; }
+  .facts div { display: flex; gap: 12px; align-items: baseline; font-size: var(--t-body); color: var(--ink-2); line-height: 1.45; }
+  .facts b { flex: none; width: 92px; color: var(--ink-1); font-weight: 600; }
+  .namefield { display: flex; align-items: center; gap: 10px; }
+  .namefield .field { width: 220px; }
+
+  /* step 2 + 3: choice tiles with drawn glyphs */
+  .choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .choice { min-height: 92px; }
+  .choice .gl { width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-1); margin-bottom: 4px; }
+  .choice .gl svg { width: 22px; height: 22px; }
+  .choice[aria-checked='false'] .gl { color: var(--ink-2); }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+
+  .days { display: flex; gap: 6px; align-items: flex-start; }
+  .day { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .day button { width: 32px; height: 32px; border-radius: 50%; font-size: var(--t-foot); font-weight: 600; color: var(--ink-2); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+    transition: background-color var(--dur-1); }
+  .day button:hover { background: var(--fill-1); }
+  .day button[aria-pressed='true'] { color: var(--ink-1); background: var(--fill-3); box-shadow: var(--thumb-shadow); }
+  .day button:focus-visible { outline: 2px solid oklch(1 0 0 / 0.6); outline-offset: 2px; }
+  .day small { font-size: var(--t-cap); color: var(--ink-3); height: 14px; }
+  .day small.game { color: var(--ink-1); font-weight: 500; }
+  .pick { font-size: var(--t-foot); color: var(--ink-3); font-weight: 400; margin-left: 6px; }
+
+  /* step 4: the promise */
+  .s4 { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; }
+  .summary { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; line-height: 1.3; }
+  .summary button { font: inherit; color: inherit; border-radius: var(--r-xs); padding: 0 2px; margin: 0 -2px; text-decoration: underline; text-decoration-color: oklch(1 0 0 / 0.28);
+    text-decoration-thickness: 1px; text-underline-offset: 5px; }
+  .summary button:hover { background: var(--fill-1); }
+  .promise { margin-top: 8px; font-size: var(--t-body); color: var(--ink-2); line-height: 1.5; }
+  .plan .row-btn { padding: 10px 12px; gap: 12px; }
+  .plan .n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: var(--t-foot); font-weight: 600; background: var(--fill-1); box-shadow: var(--top-light), inset 0 0 0 0.5px var(--hair-strong); }
+  .plan .t { display: block; font-size: var(--t-body); font-weight: 500; }
+  .plan .d { display: block; font-size: var(--t-foot); color: var(--ink-2); margin-top: 1px; }
+  .plan .min { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; }
+  .vrow { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding-top: 12px; box-shadow: inset 0 0.5px 0 var(--hair); }
+  .vrow .t { display: block; font-size: var(--t-body); font-weight: 500; }
+  .voices { display: flex; flex-direction: column; gap: 0; }
+  .voice { padding: 10px 12px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; font-size: var(--t-body); color: var(--ink-3); line-height: 1.45; }
+  .voice b { font-weight: 600; }
+  .voice .k { padding-top: 1px; }
+  .voice.on { color: var(--ink-1); background: var(--fill-1); }
+  .voice.on .k { color: var(--ink-1); font-weight: 600; }
+
+  @media (max-width: 1000px) {
+    .ob { padding: 14px 20px 14px; gap: 14px; width: calc(100% - 36px); }
+    .ob h1 { font-size: var(--t-t3); }
+    .s1 { grid-template-columns: 220px minmax(0, 1fr); gap: 20px; }
+    .s1 .stage { height: 250px; }
+    .choice { min-height: 84px; padding: 10px 12px; }
+    .choice span { font-size: var(--t-cap); }
+    .two { gap: 16px; }
+    .summary { font-size: var(--t-t3); }
+    .plan .d { display: none; }
+    .voice { padding: 8px 10px; font-size: var(--t-foot); }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body data-tab="Home">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="lock" viewBox="0 0 9 11"><rect x=".5" y="4.5" width="8" height="6" rx="1.6" fill="currentColor"/><path d="M2.3 4.6V3.2a2.2 2.2 0 0 1 4.4 0v1.4" fill="none" stroke="currentColor" stroke-width="1.1"/></symbol>
+</svg>
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <!-- the first-run Home, receded behind the sheet -->
+    <div class="recede" aria-hidden="true">
+      <div class="vpage cols home">
+        <section class="stack">
+          <p class="t-t3" style="padding-left:58px">Evening. Four questions, then the first hand is dealt.</p>
+          <div class="sec" style="margin-top:26px"><h2>Tonight’s 15 minutes</h2></div>
+          <div class="group"><div class="row-btn"><span class="t-head">Twelve hands at a home table</span></div><div class="row-btn"><span class="t-head">The price, in one line</span></div><div class="row-btn"><span class="t-head">Your first river call</span></div></div>
+          <div class="sec" style="margin-top:26px"><h2>Since you started</h2></div>
+          <div class="tile t-t2">0 · 0 · 0</div>
+        </section>
+        <aside class="stack"><div class="tile lit" style="height:190px"></div><div class="sec" style="margin-top:22px"><h2>This week</h2></div><div class="group" style="height:180px"></div></aside>
+      </div>
+    </div>
+    <div class="scrim" aria-hidden="true"></div>
+
+    <section class="ob float sheet-surface" role="dialog" aria-modal="true" aria-labelledby="ob-title">
+      <header class="ob-head" id="head"></header>
+
+      <!-- STEP 1 · meet Dee -->
+      <div data-step="1" hidden>
+        <div class="s1">
+          <div class="stage" role="img" aria-label="Dee, the dealer button, beside a dealt hand: king of hearts, two of diamonds">
+            <span class="tagline">THE DEALER BUTTON</span>
+            <span class="dee" data-pose="attentive" data-size="120"></span>
+            <div class="hand" aria-hidden="true">
+              <div class="card red"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div>
+              <div class="card red"><span class="rk">2</span><span class="st">♦</span><span class="pip">♦</span></div>
+            </div>
+          </div>
+          <div class="copy">
+            <div>
+              <h1 id="ob-title">I’m Dee. I sit at every table you play.</h1>
+              <p class="sub lede">I’m the dealer button: I go round the table every hand and I never play one. I don’t judge results. I grade the decision you made, and I say why in your own words.</p>
+            </div>
+            <div class="facts">
+              <div><b>In a hand</b>I stay quiet while you’re to act.</div>
+              <div><b>After it</b>One line: the price, what you had, your rule.</div>
+              <div><b>Each week</b>A short letter written from your numbers.</div>
+            </div>
+            <div class="q">
+              <label class="label" for="nm">What should I call you? <span class="pick">Optional</span></label>
+              <div class="namefield"><input class="field" id="nm" value="Sam" autocomplete="off" /></div>
+              <p class="uses">Dee uses this to <b>greet you on Home</b> and sign your letters. Leave it blank and Dee won’t use a name.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 · who you are at the table -->
+      <div data-step="2" hidden class="stack" style="gap:18px">
+        <div>
+          <h1 id="ob-title">Who you are at the table</h1>
+          <p class="sub lede">Three taps, so the first table looks like the one you sit at.</p>
+        </div>
+        <div class="q">
+          <span class="label" id="q-where">Where you play</span>
+          <div class="choices" role="radiogroup" aria-labelledby="q-where">
+            <button class="choice" role="radio" aria-checked="true"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M3.5 10.5 11 4l7.5 6.5M5.5 9v8.5h11V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.3 17.5v-4.2h3.4v4.2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></i><b>Home game</b><span>Friends, one table, a regular night</span></button>
+            <button class="choice" role="radio" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><rect x="3" y="4.5" width="16" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 18h6M11 15v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></i><b>Online</b><span>Fast tables, strangers, many hands</span></button>
+            <button class="choice" role="radio" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><ellipse cx="11" cy="15.5" rx="7" ry="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 15.5v-2.6c0-1.4 3.1-2.5 7-2.5s7 1.1 7 2.5v2.6M4 12.9v-2.6C4 8.9 7.1 7.8 11 7.8s7 1.1 7 2.5v2.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></i><b>Live casino</b><span>A dealer, a rake, nine seats</span></button>
+            <button class="choice" role="radio" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M11 6.5c-2-1.6-4.6-2-7.5-1.5v11.5c2.9-.5 5.5-.1 7.5 1.5 2-1.6 4.6-2 7.5-1.5V5c-2.9-.5-5.5-.1-7.5 1.5Zm0 0v11.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></i><b>Just learning</b><span>No game yet, starting clean</span></button>
+          </div>
+          <p class="uses">Dee uses this to <b>seat you with players like yours</b>: a home game sees more flops and fewer big folds.</p>
+        </div>
+        <div class="two">
+          <div class="q">
+            <span class="label" id="q-stakes">Stakes</span>
+            <div class="seg" role="radiogroup" aria-labelledby="q-stakes"><button role="radio" aria-checked="false">Free</button><button role="radio" aria-checked="true">$1/$2</button><button role="radio" aria-checked="false">$2/$5</button><button role="radio" aria-checked="false">$5/$10+</button></div>
+            <p class="uses">Dee uses this to <b>set the stacks</b>: $1/$2 at 100 bb deep. No money is involved here.</p>
+          </div>
+          <div class="q">
+            <span class="label" id="q-exp">Experience</span>
+            <div class="seg" role="radiogroup" aria-labelledby="q-exp"><button role="radio" aria-checked="false">New</button><button role="radio" aria-checked="true">A few years, never studied</button><button role="radio" aria-checked="false">I study</button></div>
+            <p class="uses">Dee uses this to <b>decide how much to explain</b>: a term like SPR gets one line the first time.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 · why you play, your goal, your schedule -->
+      <div data-step="3" hidden class="stack" style="gap:18px">
+        <div>
+          <h1 id="ob-title">What you want from it</h1>
+          <p class="sub lede">Your answers order every plan Dee makes. Nothing here is a test.</p>
+        </div>
+        <div class="q">
+          <span class="label" id="q-goal">Your goal <span class="pick">Pick up to two · 2 chosen</span></span>
+          <div class="choices" role="group" aria-labelledby="q-goal">
+            <button class="choice" role="checkbox" aria-checked="true"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M7 4.5h8v4a4 4 0 0 1-8 0zM11 12.5v3M8 18h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>Win my home game</b><span>Beat the regulars I sit with</span></button>
+            <button class="choice" role="checkbox" aria-checked="true"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="10" cy="10" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m14 14 4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></i><b>Understand why I lose</b><span>Find the spots that cost me</span></button>
+            <button class="choice" role="checkbox" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M4 16.5h4v-4h4v-4h4v-4M13.5 4.5H16V7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>Move up stakes</b><span>Be ready for a bigger game</span></button>
+            <button class="choice" role="checkbox" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M5 5h5v3.2a1.8 1.8 0 1 0 0 3.6V17H5zM10 8.2V5h7v12h-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></i><b>The puzzle</b><span>I like working hands out</span></button>
+          </div>
+          <p class="uses">Dee uses this to <b>pick tonight’s first drill and the order of the Story</b>: your costliest spot comes first.</p>
+        </div>
+        <div class="two">
+          <div class="q">
+            <span class="label" id="q-days">When you practise</span>
+            <div class="days" role="group" aria-labelledby="q-days">
+              <span class="day"><button aria-pressed="true" aria-label="Monday">M</button><small></small></span>
+              <span class="day"><button aria-pressed="true" aria-label="Tuesday">T</button><small></small></span>
+              <span class="day"><button aria-pressed="true" aria-label="Wednesday">W</button><small></small></span>
+              <span class="day"><button aria-pressed="true" aria-label="Thursday, game night">T</button><small class="game">game</small></span>
+              <span class="day"><button aria-pressed="true" aria-label="Friday">F</button><small></small></span>
+              <span class="day"><button aria-pressed="false" aria-label="Saturday">S</button><small></small></span>
+              <span class="day"><button aria-pressed="false" aria-label="Sunday">S</button><small></small></span>
+            </div>
+            <p class="uses">Dee uses this to <b>count your streak on these days</b> and to warm you up before Thursday.</p>
+          </div>
+          <div class="q">
+            <span class="label" id="q-len">A session is</span>
+            <div class="seg" role="radiogroup" aria-labelledby="q-len"><button role="radio" aria-checked="false">5 min</button><button role="radio" aria-checked="true">15 min</button><button role="radio" aria-checked="false">30 min</button><button role="radio" aria-checked="false">An hour</button></div>
+            <p class="uses">Dee uses this to <b>size each night’s plan</b>. Fifteen minutes is about 3 drills.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4 · Dee's promise -->
+      <div data-step="4" hidden>
+        <div class="s4">
+          <div class="stack" style="gap:16px">
+            <div>
+              <span class="label">Here’s what I heard</span>
+              <p class="summary" id="ob-title" style="margin-top:6px"><button>Thursday home game</button>, <button>$1/$2</button>, <button>weeknights</button>, <button>15 minutes</button>.</p>
+              <p class="promise">You want to win that game and see why you lose. So every night starts at the spot that costs you most, and the Thursday plan warms up the hands your table plays.</p>
+            </div>
+            <div class="q">
+              <span class="label">Your first night</span>
+              <div class="group plan" role="list">
+                <button class="row-btn" role="listitem"><span class="n">1</span><span class="grow"><span class="t">Twelve hands at a $1/$2 home table</span><span class="d">Sets your starting numbers</span></span><span class="min">7 min</span></button>
+                <button class="row-btn" role="listitem"><span class="n">2</span><span class="grow"><span class="t">The price, in one line</span><span class="d">You write the rule; Dee quotes it back later</span></span><span class="min">4 min</span></button>
+                <button class="row-btn" role="listitem"><span class="n">3</span><span class="grow"><span class="t">Your first river call</span><span class="d">Where home games are won and lost</span></span><span class="min">4 min</span></button>
+              </div>
+            </div>
+          </div>
+          <div class="q">
+            <span class="label" id="q-voice">How should I sound?</span>
+            <div class="seg" role="radiogroup" aria-labelledby="q-voice" id="voice"><button role="radio" aria-checked="false" data-v="0">Dry</button><button role="radio" aria-checked="true" data-v="1">Warm</button><button role="radio" aria-checked="false" data-v="2">Blunt</button></div>
+            <div class="group voices" aria-live="polite">
+              <p class="voice"><span class="k">Dry</span><span>Calling 75 into 225 needed <b>25%</b>. You had <b>74%</b>. The fold was the expensive part.</span></p>
+              <p class="voice on"><span class="k">Warm</span><span>That one needed <b>25%</b> and you had <b>74%</b>, so it was yours to call. You’ll see it again on day 2.</span></p>
+              <p class="voice"><span class="k">Blunt</span><span>Needed <b>25%</b>. Had <b>74%</b>. Call.</span></p>
+            </div>
+            <p class="uses">Dee uses this to <b>choose the words around a verdict</b>. The numbers and the grade never change with it.</p>
+            <div class="vrow"><span class="grow"><span class="t">Read verdicts aloud</span><span class="uses">Off. Dee never speaks while you’re to act.</span></span><button class="switch" role="switch" aria-checked="false" aria-label="Read verdicts aloud"><span class="track" aria-hidden="true"></span></button></div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="ob-foot">
+        <span class="caption"><svg aria-hidden="true"><use href="#lock"/></svg><span id="foot-cap">Every answer stays on this Mac. Change any of it later in You › Profile.</span></span>
+        <button class="btn quiet" id="back">Back</button>
+        <button class="btn primary" id="go">Continue <span class="kbd">↩</span></button>
+      </footer>
+    </section>
+  </main>
+</div>
+<script>
+  // Pick the step from ?step=1..4 before shell.js measures the segmented thumbs; build the shared header.
+  (() => {
+    const step = Math.min(4, Math.max(1, Number(new URLSearchParams(location.search).get('step')) || 1));
+    for (const s of document.querySelectorAll('[data-step]')) if (Number(s.dataset.step) !== step) s.remove(); else s.hidden = false;
+    // Dee appears once per screen: on step 1 Dee is on the stage, so the header carries the name only.
+    document.getElementById('head').innerHTML = (step === 1 ? '' : '<span class="dee" data-pose="attentive" data-size="28"></span>') +
+      `<span class="who">Dee</span><span class="n num">Step ${step} of 4</span>` +
+      `<span class="dots" aria-hidden="true">${[1, 2, 3, 4].map((i) => `<i class="${i <= step ? 'on' : ''}"></i>`).join('')}</span>` +
+      '<button class="btn sm quiet">Skip</button>';
+    if (step === 1) document.getElementById('back').remove();
+    if (step === 4) document.getElementById('go').innerHTML = 'Deal my first hand <span class="kbd">↩</span>';
+    // goal tiles: up to two; day chips toggle; the voice dial highlights its sentence.
+    const goals = document.querySelector('[aria-labelledby="q-goal"]');
+    goals?.addEventListener('click', (e) => { const b = e.target.closest('.choice'); if (!b) return; const on = b.getAttribute('aria-checked') === 'true';
+      if (!on && goals.querySelectorAll('[aria-checked="true"]').length >= 2) return; b.setAttribute('aria-checked', String(!on)); });
+    const where = document.querySelector('[aria-labelledby="q-where"]');
+    where?.addEventListener('click', (e) => { const b = e.target.closest('.choice'); if (!b) return; where.querySelectorAll('.choice').forEach((x) => x.setAttribute('aria-checked', String(x === b))); });
+    for (const d of document.querySelectorAll('.day button')) d.addEventListener('click', () => d.setAttribute('aria-pressed', String(d.getAttribute('aria-pressed') !== 'true')));
+    document.getElementById('voice')?.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return;
+      document.querySelectorAll('.voice').forEach((v, i) => v.classList.toggle('on', i === Number(b.dataset.v))); });
+  })();
+</script>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

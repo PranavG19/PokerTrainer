@@ -9,27 +9,60 @@ Living record. Each line is the current end state.
 ## The Back Room vision (branch `vision-panel`): design and mocks only
 A character, habit and identity layer, designed but not built. See `VISION.md`, `PITCH.md`, `BUILD-PLAN.md`,
 `panel/`, `demo/vision/`. Nothing under `src/` changed. Each line is the current end state.
-- **Mascot: Dee, the dealer button** (a glass disc whose engraved D's counter is the only expressive feature).
-  It was picked over Tell (a chip, which reads as casino) and Pip (a human dealer, with costlier art and a
-  stronger persona risk). It is original: no eyes, no beak, no bird.
-- **Dee adds no words in-hand.** It changes pose only and speaks at the hand-end beat. A `free` grade gets
-  nothing.
+- **Mascot: Dee, the dealer button, mark "Two lights"**: a bone-ceramic button with two engraved lights. The
+  lights carry every expression (shape, height, gap), and posture adds tilt, lift and lying flat. There's no
+  mouth, beak, brow or limbs. Rim tint appears only for serious (coral) or the gate (amber). Picked over four
+  other directions on `demo/vision/dee-marks.html` (the button with a jewel, Orbit, Pebble, the d). A blind rater
+  also ranked it first: 8 overall and 9 for feels personal (`vision/scores-marks.md`). Supersedes: the engraved-D
+  glass disc, because the owner rejected the D.
+- **Dee says nothing in-hand.** In-hand Dee is only the 20px title-bar perch, and its lights glance at the reason
+  you type. It speaks after the hand. A `free` grade gets nothing.
 - **"Price held"** is the one acknowledgement of good play. It is task feedback with the numbers, fires only on
   close spots called Sure and right with a mechanism reason, and never mentions the pot. It is owner decision
   D6.
-- **Streak = the Lamp:** lit days, with rested days (nothing due) that never break the run. The run is counted
-  in kept weeks against a learner-chosen Rhythm, with earned spare wicks and a free 14-day Pause. Days roll
-  over at 4 am local time.
+- **Streak = a classic daily streak** (owner D5): consecutive local days with at least one finished session,
+  resetting on a missed day, with no rest days or freezes. Days roll over at 4 am local time. Supersedes: the
+  Lamp (kept weeks, rested days, spare wicks), because the owner chose the classic streak.
+- **Spec scope** (owner D1): amended fully. Character, streak, XP, trophies and earn-only cosmetics are in
+  scope. Two rules still stand: the tutor never authors a number, and no trait insults.
+- **Profile format** (owner D2): one `schemaVersion` plus `profile`, `progression`, `rivals` and `cosmetics`
+  sections, with a backup on write. There is no migration code because there are no prior users. The new
+  fields are listed in `vision/personalization-sources.md`.
+- **Build order** (owner D14, D15): the grader is fixed first, then the four-week on/off trial.
 - **Reps** are effort and never spent. **Chalk** is the Bold-tier earn-only budget, shown in the mocks but
   recommended for after the trial (D4). **Seals** are derived from the schedule gate. Chips convert to
   nothing.
 - **Cosmetics are paint-only receipts.** Card faces, seat layout and stack display are never cosmetic.
-- **Lamp and ring colour = white light plus `--chip-a`.** Never mint (mint isn't a balance) and never amber
-  (amber is notable and the timer). Dee's rim uses role colours, and one mint tick marks each Seal.
+- **Streak and ring colour = white light plus `--chip-a`.** Never mint (mint isn't a balance) and never amber
+  (amber is notable and the timer).
 - **Celebrations** happen at session end only, capped at 1600 ms (`--dur-moment`). No confetti, coins, reels or
   gold.
-- **Vision mock shell:** `demo/vision/shell.js` is copied from the glass shell with a 9-tab set and Dee's
-  title-bar perch. `vision.css` links `demo/glass/glass.css` and adds only ring, lamp and Dee tokens.
+- **Vision shell:** 7 tabs (Home, Play, Learn, Story | Train, Study | You), with a You sub-nav (Profile,
+  Trophies, Style, Hands, Letters, Rivals, Locker, Dee). The perch is Dee at 20px plus the streak count in ink.
+  `vision.css` links `demo/glass/glass.css` and `table-variants.css` and adds stage, streak and ring tokens only.
+  Supersedes: the 9-tab strip, because it crowded the title bar.
+- **Every table mock uses the shipped `sports` table** (`html[data-felt='sports']`, `demo/glass/table-seats.js`).
+  Supersedes: the green oval.
+- **Personalization is a pillar.** Onboarding asks who you are (venue, stakes, experience, goals, why,
+  schedule) once, then the app does the rest (P10). Dee quotes your own rules, leaks, rivals and kept hands,
+  each naming its `src/core` source (`vision/personalization-sources.md`). Your style identity is one of four
+  neutral archetypes from VPIP, PFR and aggression. Dee's weekly letter is scripted templates filled from your
+  numbers, never generated.
+- **Round-1 regressions, each fixed in round 2:**
+  - **Dead vertical bands** (Home, Story). Content starts at the top of the coat.
+  - **The crude engraved D and a smile counter.** Replaced by the Two-lights mark.
+  - **The table blurred away on the green oval.** The table now uses `sports`.
+  - **Off-centre tab thumb**, which was measured before fonts loaded. It's re-placed after `fonts.ready`.
+  - **Glass speech bubbles in the coat**, which broke HIG content-layer rule P11. Dee's line is now type.
+  - **Competing bone buttons** (Profile, Locker). There's one bone primary per screen.
+  - **Placeholder art** (grey card-back squares, one masked circle repeated six times). Every object is drawn.
+  - **Equal weight everywhere** (12 Seals, 6 Keepsakes and 10 milestones at once on Profile). There's one hero
+    figure per screen.
+  - **Decorative colour** (amber and coral rims and mint ticks on ten Dee tiles). Rim tint is now only for
+    serious or the gate.
+  - **Generic, unpersonal copy.** Every line quotes your data.
+- **Round-1 mock files** are archived in `demo/vision/round1/html/` with their renders in `demo/vision/round1/*.png`.
+  The HTML is unstyled now that the shared kit changed; the PNGs are the record.
 - **Wave 0 (grader truth, tilt check, local day, schema guard, 18+ statement) gates all rewards.** This answers
   the skeptic's strongest objection.
 - **No backend.** Leagues are the offline Ghost Rail and a LAN Club; sync is profile export and import (D3).
@@ -708,14 +741,14 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
   - a serif index on the cards as the one typographic flourish.
 
 ## Decisions to evaluate
-- **Vision: the mascot is Dee (the button).** If overruled, Tell (a chip) or Pip (a human dealer); the rig,
-  poses and every vision mock are redrawn.
+- **Vision: Dee's mark is Two lights.** If overruled, pick another column on `demo/vision/dee-marks.html`; the rig
+  swaps in one place (`dee.js` `data-mark`) and every mock follows.
 - **Vision: "Price held" (Dee acknowledges a hard spot played right).** If overruled, Dee is silent on every
   correct decision, and the great-play table state is cut.
 - **Vision: receipts first, Chalk after the trial.** If overruled, Chalk ships in Wave 1, with more economy
   tuning and grind risk.
-- **Vision: the 9-tab navigation (Home, Play, Learn, Story, Train, Study, Pro, Locker, Profile).** If
-  overruled, keep the 11 tabs, and Story and Locker nest under Learn and Profile.
+- **Vision: 7 tabs plus a You sub-nav.** If overruled, keep the shipped 11 tabs, and Story and You nest under
+  Learn and Profile.
 - Seats move from the real top row to an oval, set as type on the rail rather than boxed. If overruled, keep the
   row: the cards and felt still carry the look.
 - Coach and Stats leave the action dock for the table's top-right corner. If overruled, the dock carries 11
@@ -735,9 +768,6 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
 - **Green glow under the board:** not adopted (it lost in both A/B pairs). If overruled, `&glow=1` is ready on either surface.
 
 ## Open questions
-- **Vision: is a v2.2 spec amendment (effort XP, a humane streak, earn-only cosmetics) approved, and is the
-  profile schema change (`schemaVersion` plus a `progression` namespace) approved?** Both are reserved for the
-  owner. Default taken: designed only, nothing built.
 - **Vision: is any backend acceptable?** Default taken: no; local and LAN only.
 - Can Electron get the real look? The mock fakes vibrancy with a CSS "desktop" (dune bands with contour
   lines). In the app this needs Foundry's `vibrancy: 'under-window'` plus a transparent window. Default taken:

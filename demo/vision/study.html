@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Study</title>
+<link rel="stylesheet" href="vision.css" />
+<!-- Vision round 2, Study: one calm screen that folds round 1's Pro tools (pro-import's hand-history leak finder and
+     pro-icm's push/fold study) together. Left: the leak finder over your imported hands, each leak with an honest
+     confidence band (a band that crosses zero is labelled "could be nothing yet"). Right: the push/fold chart at 10 bb
+     with ICM, a 13×13 grid drawn small, your last drill's misses ringed. One bone primary: Train river calls.
+     Sources (vision/personalization-sources.md):
+       imported hands … hand-history import (new; parsed into HandRecord shape, session.ts:66), kept local, never sent (no-network)
+       leak estimates and bands … reachWeightedLoss (rw.ts:157) per leak tag (DecisionRecord.errorTag, new; G7 tags progress.ts:30), with a bootstrap interval
+       "matches the trainer" … SessionStats.leaks/leakCostBb (session.ts:130): river calls 1.8 bb × 14; c-bet folds 68%
+       push/fold chart … chartMastery (session.ts:184) for your drill results; the ICM chart itself is a fixed table, not personal -->
+<style>
+  .study { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 36px; row-gap: 20px; align-content: stretch; }
+  .shead { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  .shead h1 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; }
+  .col { gap: 0; min-height: 0; }
+  .col > * { flex: none; }
+
+  /* leak finder */
+  .top { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: end; padding: 20px 20px 18px; }
+  .top .t-score { font-size: 64px; }
+  .top .t-score .unit { font-family: var(--font); font-stretch: 100%; }
+  .top .what b { display: block; font-size: var(--t-head); font-weight: 600; }
+  .top .what .caption { display: block; }
+  .agree { display: flex; align-items: center; gap: 7px; margin-top: 6px; font-size: var(--t-foot); color: var(--ink-2); }
+  .agree svg { width: 13px; height: 13px; flex: none; }
+  .forest { margin-top: 14px; padding: 6px 0 10px; }
+  .fr { display: grid; grid-template-columns: 168px minmax(0, 1fr) 112px; gap: 14px; align-items: center; padding: 14px 16px; }
+  .fr + .fr { box-shadow: inset 0 0.5px 0 var(--hair); }
+  .fr .n b { display: block; font-size: var(--t-body); font-weight: 500; white-space: nowrap; }
+  .fr .n span { font-size: var(--t-cap); color: var(--ink-3); }
+  .fr .plot { position: relative; height: 22px; }
+  .fr .plot .zero { position: absolute; left: var(--z); top: -9px; bottom: -9px; width: 1px; background: oklch(1 0 0 / 0.22); }
+  .fr .plot .band { position: absolute; top: 8px; height: 6px; border-radius: 3px; left: var(--lo); width: calc(var(--hi) - var(--lo)); background: oklch(1 0 0 / 0.30); }
+  .fr .plot .pt { position: absolute; top: 5px; left: var(--pt); width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: radial-gradient(circle at 40% 32%, #FFFFFF, var(--bone) 55%, var(--chip-a)); box-shadow: 0 1px 2px oklch(0 0 0 / 0.5); }
+  .fr.unsure .plot .band { background: repeating-linear-gradient(90deg, oklch(1 0 0 / 0.26) 0 4px, transparent 4px 7px); }
+  .fr.unsure .plot .pt { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+  .fr.unsure .n b { color: var(--ink-2); }
+  .fr .v { text-align: right; }
+  .fr .v b { display: block; font-size: var(--t-body); font-weight: 600; white-space: nowrap; }
+  .fr .v span { font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; }
+  .fr.axis { padding-top: 2px; padding-bottom: 0; box-shadow: none; }
+  .fr.axis .plot { height: 14px; }
+  .fr.axis .plot span { position: absolute; transform: translateX(-50%); font-size: var(--t-cap); color: var(--ink-3); }
+  .fine { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 18px; }
+  .fine .k { margin-right: 4px; }
+  .lgo { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 14px; }
+
+  /* push / fold */
+  .pf-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .pf { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: start; padding: 14px 16px; }
+  .grid13 { display: grid; grid-template-columns: 14px repeat(13, 21px); grid-template-rows: 14px repeat(13, 21px); gap: 2px; }
+  .grid13 .ax { font-size: var(--t-cap); color: var(--ink-3); display: grid; place-items: center; line-height: 1; }
+  .grid13 i { border-radius: 3px; background: oklch(0 0 0 / 0.28); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.06); }
+  .grid13 i.p { background: oklch(1 0 0 / 0.80); box-shadow: none; }
+  .grid13 i.e { background: repeating-linear-gradient(135deg, oklch(1 0 0 / 0.42) 0 2px, oklch(1 0 0 / 0.14) 2px 4px); box-shadow: none; }
+  .grid13 i.m { box-shadow: 0 0 0 1.5px var(--coral), inset 0 0 0 1px oklch(0 0 0 / 0.4); }
+  .key { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+  .key .r { display: flex; align-items: flex-start; gap: 8px; font-size: var(--t-foot); color: var(--ink-2); line-height: 1.35; }
+  .key .r i { margin-top: 1px; }
+  .key .r i { width: 13px; height: 13px; border-radius: 3px; flex: none; }
+  .key .r i.p { background: oklch(1 0 0 / 0.80); }
+  .key .r i.e { background: repeating-linear-gradient(135deg, oklch(1 0 0 / 0.42) 0 2px, oklch(1 0 0 / 0.14) 2px 4px); }
+  .key .r i.f { background: oklch(0 0 0 / 0.28); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.1); }
+  .key .r i.m { box-shadow: 0 0 0 1.5px var(--coral); }
+  .key .stat { margin-top: 6px; }
+  .key .stat .t-stat { display: block; }
+  .pf-note { margin-top: 12px; }
+  .drills { margin-top: 16px; padding: 12px 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: end; }
+  .drills .bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; align-items: end; height: 46px; }
+  .drills .bars span { position: relative; height: calc((var(--v) - 24) / 16 * 100%); border-radius: 3px 3px 1px 1px; background: oklch(1 0 0 / 0.20); }
+  .drills .bars span.now { background: oklch(1 0 0 / 0.80); }
+  .drills .bars b { position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -2px); font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); }
+  .drills .bars .now b { color: var(--ink-1); }
+  .pgo { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 14px; }
+
+  @media (max-width: 1000px) {
+    .study { column-gap: 22px; row-gap: 14px; }
+    .shead h1 { font-size: var(--t-t3); }
+    .top { padding: 12px 14px; gap: 14px; } .top .t-score { font-size: 50px; }
+    .forest { margin-top: 10px; } .fr { grid-template-columns: 146px minmax(0, 1fr) 106px; gap: 10px; padding: 7px 12px; } .fine .tag:last-child { display: none; } .drills { padding: 10px 12px; } .drills .bars { height: 34px; }
+    .fr .n b { font-size: var(--t-foot); white-space: normal; line-height: 1.3; } .fr .v b { font-size: var(--t-foot); }
+    .pf { grid-template-columns: auto; gap: 12px; padding: 12px; }
+    .grid13 { grid-template-columns: 12px repeat(13, 15px); grid-template-rows: 12px repeat(13, 15px); gap: 2px; }
+    .key { flex-direction: row; flex-wrap: wrap; gap: 6px 12px; } .key .stat { display: none; }
+    .pf-note, .lgo .caption, .shead .caption { display: none; }
+    .pf-head .seg button { padding: 0 8px; }
+  }
+</style>
+</head>
+<body data-tab="Study" data-streak="23">
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="vpage study">
+      <header class="shead"><h1>Study</h1><span class="caption">Your imported hands stay on this Mac</span></header>
+
+      <section class="stack col" aria-label="Leak finder">
+        <div class="sec"><h2>Leak finder</h2><span class="caption num">612 online hands · imported 10 Oct</span></div>
+        <div class="tile lit top">
+          <span class="t-score num">1.6<span class="unit">bb/100</span></span>
+          <div class="what">
+            <b>River calls against big bets</b>
+            <span class="caption num">Most likely between 0.9 and 2.4 bb/100</span>
+            <span class="agree"><svg viewBox="0 0 13 13" aria-hidden="true"><path d="M3 6.8l2.3 2.3L10 4.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Matches the trainer: 1.8 bb a time over 14 hands</span>
+          </div>
+        </div>
+
+        <div class="tile forest" role="img" aria-label="Four leaks with 80% ranges. River calls 1.6 (0.9 to 2.4). Folding to c-bets on dry boards 1.1 (0.4 to 1.9). Calling 3-bets out of position 0.7 (−0.3 to 1.8), could be nothing yet. Limping the button 0.3 (−0.6 to 1.2), could be nothing yet.">
+          <div class="fr" style="--z:25%;--lo:47.5%;--hi:85%;--pt:65%"><div class="n"><b>River calls, big bets</b><span>41 spots</span></div><div class="plot"><i class="zero"></i><i class="band"></i><i class="pt"></i></div><div class="v"><b class="num">1.6 bb/100</b><span>sure enough</span></div></div>
+          <div class="fr" style="--z:25%;--lo:35%;--hi:72.5%;--pt:52.5%"><div class="n"><b>Folding to c-bets, dry</b><span>63 spots · 68% folds</span></div><div class="plot"><i class="zero"></i><i class="band"></i><i class="pt"></i></div><div class="v"><b class="num">1.1 bb/100</b><span>sure enough</span></div></div>
+          <div class="fr unsure" style="--z:25%;--lo:17.5%;--hi:70%;--pt:42.5%"><div class="n"><b>Calling 3-bets out of position</b><span>22 spots</span></div><div class="plot"><i class="zero"></i><i class="band"></i><i class="pt"></i></div><div class="v"><b class="num">0.7 bb/100</b><span>could be nothing yet</span></div></div>
+          <div class="fr unsure" style="--z:25%;--lo:10%;--hi:55%;--pt:32.5%"><div class="n"><b>Limping the button</b><span>35 spots</span></div><div class="plot"><i class="zero"></i><i class="band"></i><i class="pt"></i></div><div class="v"><b class="num">0.3 bb/100</b><span>could be nothing yet</span></div></div>
+          <div class="fr axis" aria-hidden="true"><span></span><div class="plot"><span style="left:0">−1</span><span style="left:25%">0</span><span style="left:50%">1</span><span style="left:75%">2</span><span style="left:100%">3</span></div><span></span></div>
+        </div>
+        <p class="caption" style="margin-top:8px">Each bar is the range the cost most likely sits in, in bb/100. A bar that crosses zero needs more hands before it means anything.</p>
+        <div class="fine"><span class="k">Checked and fine</span><span class="tag">Opening the button</span><span class="tag">Big blind defence</span><span class="tag">Folding to river bets, 38%</span></div>
+
+        <div class="lgo">
+          <button class="btn primary lg">Train river calls <span class="kbd">↩</span></button>
+          <button class="btn quiet">Import more hands…</button>
+          <span class="caption">About 200 more hands would settle the bottom two</span>
+        </div>
+      </section>
+
+      <section class="stack col" aria-label="Push or fold">
+        <div class="pf-head">
+          <h2 class="t-head" style="font-weight:600">Push or fold</h2>
+          <div class="seg sm" role="radiogroup" aria-label="Stack"><button role="radio" aria-checked="false">6 bb</button><button role="radio" aria-checked="true">10 bb</button><button role="radio" aria-checked="false">15 bb</button></div>
+        </div>
+        <div class="tile pf">
+          <div class="grid13" id="grid" role="img" aria-label="Button push range at 10 big blinds with ICM, 6 players left, 3 paid. About 46% of hands. Your last drill missed K7 offsuit, Q9 offsuit and J8 suited."></div>
+          <div class="key">
+            <span class="r"><i class="p"></i>Push</span>
+            <span class="r"><i class="e"></i>Fold on the bubble</span>
+            <span class="r"><i class="f"></i>Fold</span>
+            <span class="r"><i class="m f"></i>Missed in your last drill</span>
+          </div>
+        </div>
+        <p class="caption pf-note">Button, 6 left, 3 paid. Suited above the line, offsuit below. On the bubble, the hatched hands go back to folds.</p>
+        <div class="tile drills" role="img" aria-label="Your last five drills of this chart: 29, 33, 34, 36 and 37 right of 40">
+          <div><span class="t-stat num" style="display:block">37<span class="unit">of 40</span></span><span class="k">right in your last drill, 9 Oct</span></div>
+          <div class="bars" aria-hidden="true"><span style="--v:29"><b class="num">29</b></span><span style="--v:33"><b class="num">33</b></span><span style="--v:34"><b class="num">34</b></span><span style="--v:36"><b class="num">36</b></span><span class="now" style="--v:37"><b class="num">37</b></span></div>
+        </div>
+        <div class="pgo">
+          <button class="btn">Drill this chart</button>
+          <span class="caption">40 hands, about 4 minutes</span>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+<script>
+  // The 13×13 push chart (button, 10 bb, ICM). Upper right = suited, lower left = offsuit, diagonal = pairs.
+  // Thresholds are the weakest kicker index pushed per high card (0 = A … 12 = 2); the last one in each family is the ICM edge.
+  const R = 'AKQJT98765432';
+  const SUITED = { 0: 12, 1: 12, 2: 10, 3: 8, 4: 8, 5: 8, 6: 8, 7: 9, 8: 9, 9: 10 };
+  const OFF = { 0: 12, 1: 9, 2: 6, 3: 6, 4: 6, 5: 6 };
+  const MISSED = new Set(['K7o', 'Q9o', 'J8s']);
+  const g = document.getElementById('grid');
+  let html = '<span></span>' + [...R].map((r) => `<span class="ax">${r}</span>`).join('');
+  for (let row = 0; row < 13; row++) {
+    html += `<span class="ax">${R[row]}</span>`;
+    for (let col = 0; col < 13; col++) {
+      let cls = '', name;
+      if (row === col) { cls = 'p'; name = R[row] + R[col]; }
+      else {
+        const s = col > row, hi = Math.min(row, col), lo = Math.max(row, col), t = (s ? SUITED : OFF)[hi];
+        name = R[hi] + R[lo] + (s ? 's' : 'o');
+        if (t !== undefined && lo <= t) cls = (lo === t && hi > 0) || (lo === t - 1 && hi === 1 && !s) ? 'e' : 'p';
+      }
+      if (MISSED.has(name)) cls += ' m';
+      html += `<i class="${cls}" title="${name}"></i>`;
+    }
+  }
+  g.innerHTML = html;
+</script>
+</body>
+</html>

@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Offsuit — The Back Room, vision mocks</title>
+<title>Offsuit — The Back Room, round 2</title>
 <link rel="stylesheet" href="vision.css" />
 <style>
   body { overflow: auto; }
   .hub { position: relative; z-index: 3; max-width: 1180px; margin: 0 auto; padding: 44px 28px 64px; display: flex; flex-direction: column; gap: 28px; }
   .intro { display: flex; gap: 22px; align-items: center; }
   .intro .dee svg { display: block; }
+  #groups { display: flex; flex-direction: column; gap: 6px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; }
   .tile { display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: inherit; border-radius: var(--r-group); padding: 10px; transition: background-color var(--dur-1); }
   .tile:hover { background: var(--fill-1); }
@@ -23,39 +24,61 @@
 <div class="shell" style="position:fixed"></div>
 <div class="hub">
   <div class="intro">
-    <span class="dee" data-pose="hello" data-size="120"></span>
+    <span class="dee" data-pose="pleased" data-size="112"></span>
     <div>
-      <h1 class="t-hero">The Back Room</h1>
-      <p class="sub" style="max-width:70ch;margin-top:10px">Offsuit with a teacher you can see. Dee is the dealer button: it has sat in every seat and never won a pot, so it only ever grades the decision.
-      Static mocks built on the glass system (demo/glass tokens and kit, linked, not copied). Every page is drawn at the app's two documented sizes, 1100×760 and 900×640, with no page scroll and no network.</p>
-      <p class="docs caption" style="margin-top:10px">Read with: <a href="../../VISION.md">VISION.md</a><a href="../../PITCH.md">PITCH.md</a><a href="../../BUILD-PLAN.md">BUILD-PLAN.md</a><a href="../../panel/">panel reports</a></p>
+      <h1 class="t-hero">The Back Room, round 2</h1>
+      <p class="sub" style="max-width:72ch;margin-top:10px">Offsuit with a teacher who knows you. Dee is the dealer button in bone ceramic, with two engraved lights:
+      it has sat at every table and never played a hand, so it only grades your decisions. Each mock is built on the shipped glass system and the <code>sports</code> table,
+      drawn at 1100×760 and 900×640 with no page scroll and no network. Every personal line names its source in <code>src/</code>.</p>
+      <p class="docs caption" style="margin-top:10px">Read with: <a href="../../DESIGN-BRIEF.md">DESIGN-BRIEF.md</a><a href="../../VISION.md">VISION.md</a><a href="../../vision/FINDINGS.md">FINDINGS.md</a><a href="../../vision/personalization-sources.md">data sources</a><a href="../../vision/persona.md">the persona</a><a href="../../vision/scores.md">scores</a><a href="../../vision/code-review.md">review</a><a href="round1/">round 1</a></p>
     </div>
   </div>
-  <div class="tiles" id="tiles"></div>
+  <div id="groups"></div>
 </div>
 <script src="shell.js"></script>
 <script src="dee.js"></script>
 <script>
-  const PAGES = [
-    ['character', '', 'Dee, the character sheet', 'One SVG rig, ten states. Only the counter, the tilt and the rim colour change.'],
-    ['home', '', 'Home', 'Dee greets with what is due; the Lamp, today’s ring and Ticket, quests, the Ghost Rail, the story strip.'],
-    ['table', 'state=mistake', 'Table: a serious mistake', 'Dee perches on the verdict sheet and changes pose only; its one line comes at the hand-end beat.'],
-    ['table', 'state=great', 'Table: a hard spot played right', 'Silent during the hand; after it, “Price held” with the numbers, never the pot.'],
-    ['lesson', '', 'A lesson with Dee', 'Pot odds as a price: Dee asks, you commit, a wrong answer gets a question back.'],
-    ['celebrate', '', 'Thirty lit days', 'A session-end moment: the ring closes, a mastery inlay shimmers once, the copy is facts.'],
-    ['locker', '', 'The Locker', 'Earn-only cosmetics with visible paths. No random drops, no sales, no chips.'],
-    ['story', '', 'The Long Orbit', 'The campaign map is a table from above; six venues, six rivals masked until beaten.'],
-    ['profile', '', 'Profile and trophy room', 'Seals, keepsakes, milestones, and decisions-not-results.'],
-    ['pro-import', '', 'Pro: hand-history leak finder', 'Parsed on this Mac. Counted with confidence bands; real-money hands earn nothing.'],
-    ['pro-icm', '', 'Pro: ICM and push/fold', 'Bubble factor, chip EV against ICM, a graphite push grid, and one line from Dee.'],
+  const GROUPS = [
+    ['Dee', [
+      ['dee-marks', '', 'Dee’s mark: five directions', 'Two lights (recommended), the button, Orbit, Pebble and the d, at hero, 64, 24 and 16px, with eight expressions each.', 'mark only'],
+      ['dee-settings', '', 'Dee’s settings', 'The personality dial (Dry, Warm, Blunt): the numbers stay the same and only the words change. Voice, frequency, and what Dee remembers.', 'new dee {…}, spokenVerdicts session.ts:156'],
+    ]],
+    ['Getting to know you', [
+      ['onboarding', 'step=1', 'Onboarding 1: meet Dee', 'Who Dee is and what to call you.', 'new profile.displayName'],
+      ['onboarding', 'step=2', 'Onboarding 2: at the table', 'Where you play, stakes, experience.', 'new profile.venue/stakes/experience'],
+      ['onboarding', 'step=3', 'Onboarding 3: why you play', 'Goals and your schedule.', 'new profile.goals/days'],
+      ['onboarding', 'step=4', 'Onboarding 4: Dee’s promise', 'Your answers become the first plan and Dee’s voice.', 'recommend.ts:219 + profile'],
+    ]],
+    ['Playing', [
+      ['home', '', 'Home', 'Dee’s line, tonight’s plan from your leaks, and the daily streak.', 'leaks session.ts:130, dueNow schedule.ts:243, new streak'],
+      ['table', 'state=live', 'Table: commit first', 'The sports table, coached. Dee says nothing in-hand; from the perch, its lights glance at the reason you type.', 'predict.ts, table.ts'],
+      ['table', 'state=mistake', 'Table: a serious mistake', 'The verdict, with your own rule quoted back at the moment it applies.', 'lexicon session.ts:200, leaks :130'],
+      ['table', 'state=great', 'Table: Price held', 'A close river call made Sure for the right reason. It becomes a kept hand.', 'decisions session.ts:43, new pinned'],
+      ['milestone', '', 'A milestone moment', 'The first time you folded a set correctly: one lit object, one sentence, under 1.6 s.', 'decisions[] + evaluate.ts'],
+      ['lesson', '', 'A lesson with Dee', 'Dialogue that builds on your own rule; a wrong answer gets a question back.', 'lexicon, lessons/'],
+      ['story', '', 'The Long Orbit, at depth', 'Chapters reordered by your leaks; Bo’s room comes third because river calls cost you most.', 'leakCostBb, standing.ts'],
+      ['study', '', 'Study', 'The leak finder with honest confidence bands, and push/fold study.', 'rw.ts:157, imports'],
+    ]],
+    ['You', [
+      ['profile', '', 'Profile', 'Who you are at the table, your progress story and your rules.', 'profile, careerRecord career.ts:163'],
+      ['trophies', '', 'Trophy room', 'Six earned objects, each named for a decision, and four next ones shown in advance.', 'careerRecord milestones, decisions[]'],
+      ['style', '', 'Your style', 'The Closer: four numbers, the style map, and an eight-week trail.', 'vpip/pfr session.ts:72, decisions[]'],
+      ['hands', '', 'Your best hands', 'Kept hands replayed on the sports table.', 'hands[] session.ts:66, new pinned'],
+      ['letter', '', 'Dee’s weekly letter', 'Week 6, written from your numbers by templates.', 'hands[], leaks, lexicon'],
+      ['rival', '', 'Rival: Bo', 'Bo’s dossier: your record against him, his tendencies and how to play him.', 'new rivals[], gifts session.ts:175'],
+      ['locker', '', 'The Locker', 'Earned card backs, table tints and Dee finishes, previewed on the real table.', 'new cosmetics'],
+    ]],
   ];
-  const tiles = document.getElementById('tiles');
-  for (const [p, q, title, sub] of PAGES) {
-    const tag = q ? '-' + q.split('=')[1] : '';
-    const href = `${p}.html${q ? '?' + q : ''}`;
-    tiles.insertAdjacentHTML('beforeend', `<div class="tile"><a href="${href}"><img src="screenshots/${p}${tag}-1100x760.png" alt="${title} at 1100 by 760" loading="lazy" /></a>
-      <a href="${href}" class="t-head" style="color:var(--ink-1);text-decoration:none">${title}</a><span class="caption">${sub}</span>
-      <span class="sizes"><a href="screenshots/${p}${tag}-1100x760.png">1100×760</a><a href="screenshots/${p}${tag}-900x640.png">900×640</a></span></div>`);
+  const root = document.getElementById('groups');
+  for (const [g, pages] of GROUPS) {
+    root.insertAdjacentHTML('beforeend', `<h2 class="t-t3" style="margin:8px 0 12px">${g}</h2><div class="tiles">${pages.map(([p, q, title, sub, src]) => {
+      const tag = q ? '-' + q.replace('=', '').replace(/^state/, '') : '';
+      const href = `${p}.html${q ? '?' + q : ''}`;
+      return `<div class="tile"><a href="${href}"><img src="screenshots/${p}${tag}-1100x760.png" alt="${title} at 1100 by 760" loading="lazy" /></a>
+        <a href="${href}" class="t-head" style="color:var(--ink-1);text-decoration:none">${title}</a><span class="caption">${sub}</span>
+        <span class="caption" style="color:var(--ink-3)">Source: ${src}</span>
+        <span class="sizes"><a href="screenshots/${p}${tag}-1100x760.png">1100×760</a><a href="screenshots/${p}${tag}-900x640.png">900×640</a></span></div>`;
+    }).join('')}</div>`);
   }
 </script>
 </body>

@@ -3,237 +3,242 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Offsuit — Profile</title>
+<title>Offsuit — You · Profile</title>
 <link rel="stylesheet" href="vision.css" />
-<!--
-  Vision mock: the profile / trophy room (panel/economy-designer.md §3.2, §6.3; panel/character-designer.md §6).
-  Everything here is effort or mastery: Notebook levels from Reps, the Lamp, Seals derived from the schedule gate,
-  keepsakes from clean boss hands, milestones that are facts. No bankroll, no chips won, no percentile.
-  The "decisions not results" block shows assessment EV loss and calibration. One primary: the due rep.
-  Mock numbers only; nothing is real data.
--->
+<!-- Vision round 2, You · Profile: a person's page, not a stats wall (DESIGN-BRIEF P6, P21). One hero: who you are and
+     what you're playing for (your name and goal). Everything you told Dee is editable here (P2, P5).
+     Every personal line names its source (vision/personalization-sources.md):
+       Sam, the goal, venue, stakes, schedule, why … profile {displayName, goals[], venue, stakes, days[], why} (new, onboarding)
+       member since 31 Aug, 412 hands …              HandRecord.playedAt (session.ts:80), hands[] (session.ts:66, last 500)
+       1,240 graded decisions …                      careerRecord (career.ts:163) over HandRecord.decisions (session.ts:43)
+       The Closer, VPIP 24, PFR 17 …                 HandRecord.vpip/pfr (session.ts:72), aggression derived from decisions[]
+       EV loss 9.4 → 4.1 by week …                   assessments (session.ts:239), assessmentBlock.ts, reachWeightedLoss (rw.ts:157)
+       Sure 81% vs the 85% mark …                    calibration (session.ts:149), sureAccuracy (predict.ts:112)
+       rules in your words (3 of 12) …               lexicon: AcceptedSentence (lexicon.ts:62, session.ts:200)
+       7 of 12 concepts, 40/75 certified, 100 … 3/5  fadingLog → conceptStatesFromLog (schedule.ts:334), standing() (standing.ts:226), DEPTHS (standing.ts:38)
+       streak 23, best 31 …                          streak {current, best} (new, local day) from HandRecord.playedAt
+       Dee's line (river calls) …                    SessionStats.leaks/leakCostBb (session.ts:130), scripted template -->
 <style>
-  .prof { display: flex; flex-direction: column; gap: 22px; height: 100%; max-width: 1040px; margin: 0 auto; }
-  /* identity row */
-  .id-row { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) 360px; gap: 18px 22px; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--hair); }
-  .avatar { position: relative; width: 72px; height: 72px; display: grid; place-items: center; border-radius: 50%;
-    background: radial-gradient(60% 60% at 50% 40%, oklch(1 0 0 / .06), transparent 70%);
-    box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--bone) 55%, transparent), 0 0 0 4px var(--fill-0); }
-  .avatar .dee svg { display: block; margin: -10px; }
-  .who { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .who .name { display: flex; align-items: baseline; gap: 10px; }
-  .nb { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; max-width: 420px; }
-  .nb .label { color: var(--ink-1); }
-  .bar { height: 4px; border-radius: 2px; background: var(--fill-1); overflow: hidden; }
-  .bar i { display: block; height: 100%; border-radius: 2px; background: var(--ink-1); }
-  .nb .spec { white-space: nowrap; }
-  .lampbox { display: flex; flex-direction: column; gap: 8px; }
-  .lampbox .sec-title { margin: 0; }
-  .lamp-legend { display: flex; gap: 14px; flex-wrap: wrap; }
-  .lamp-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-cap); color: var(--ink-3); }
-  .lamp-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--lamp-on); }
-  .lamp-legend i.r { background: transparent; box-shadow: inset 0 0 0 1.2px var(--lamp-rest); }
+  .prof { grid-template-rows: auto auto minmax(0, 1fr); row-gap: 22px; }
+  .prof .vtop .lock { margin-left: auto; }
 
-  .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
-  .cols > .col { gap: 22px; }
-  .cols .col > * { flex: none; }
-  .sec-title .t-head { font-weight: 600; }
+  /* Identity: your chip, your name, your goal. The one hero. */
+  .id { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 20px; }
+  .me { width: 76px; height: 76px; display: block; filter: drop-shadow(0 10px 14px oklch(0 0 0 / 0.45)); }
+  .who { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .who .nm { display: flex; align-items: baseline; gap: 10px; }
+  .who h1 { font-size: var(--t-hero); font-weight: 650; letter-spacing: -0.02em; line-height: 1.05; }
+  .goal { font-size: var(--t-t3); font-weight: 500; color: var(--ink-1); letter-spacing: -0.005em; }
+  .goal q { quotes: "“" "”"; }
+  .goal .label { margin-right: 8px; font-size: var(--t-foot); color: var(--ink-3); font-weight: 500; }
+  .id-act { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .id-act .caption { white-space: nowrap; }
 
-  /* Seals: twelve concept inlays */
-  .seals { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px 6px; }
-  .seal { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
-  .seal svg { display: block; }
-  .seal .nm { font-size: var(--t-cap); line-height: 1.25; color: var(--ink-2); }
-  .seal.on .nm { color: var(--ink-1); }
-  .seal .st { font-size: var(--t-cap); line-height: 1; color: var(--ink-3); }
-  .seal.due .st { color: var(--ink-1); }
+  .body { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); column-gap: 36px; align-content: start; }
+  .body > .stack + .stack { gap: 0; }
 
-  /* decisions, not results */
-  .dnr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; }
-  .dnr > div { padding: 14px 0 12px; display: flex; flex-direction: column; gap: 8px; }
-  .dnr > div + div { padding-left: 18px; margin-left: 0; border-left: 1px solid var(--hair); }
-  .dnr > div:first-child { padding-right: 18px; }
-  .fig { display: flex; align-items: baseline; gap: 8px; }
-  .fig .t-stat { font-size: var(--t-stat); }
-  .fig .unit { font-size: var(--t-foot); color: var(--ink-2); }
-  .evbars { display: flex; align-items: flex-end; gap: 6px; height: 50px; }
-  .evbars span { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; justify-content: flex-end; }
-  .evbars b { display: block; width: 100%; height: calc(var(--v) * 3.4px); border-radius: 3px 3px 1px 1px; background: var(--fill-2); }
-  .evbars span:last-child b { background: var(--ink-1); }
-  .evbars em { font-style: normal; font-size: var(--t-cap); color: var(--ink-3); line-height: 1; }
-  .cal { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; }
-  .cal .k { font-size: var(--t-cap); font-weight: 600; letter-spacing: .04em; color: var(--ink-2); }
-  .cal .v { font-size: var(--t-foot); color: var(--ink-2); white-space: nowrap; }
-  .cal .v b { color: var(--ink-1); font-weight: 600; }
-  .track { position: relative; height: 6px; border-radius: 3px; background: var(--fill-1); }
-  .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ink-2); }
-  .track.sure i { background: var(--ink-1); }
-  .track .tgt { position: absolute; top: -3px; width: 1.5px; height: 12px; border-radius: 1px; background: var(--ink-3); }
+  /* Your game: everything onboarding asked, each a row you can change */
+  .facts .row-btn { padding: 10px 14px; gap: 14px; }
+  .facts .k2 { width: 104px; flex: none; font-size: var(--t-foot); color: var(--ink-3); }
+  .facts .v { display: block; font-size: var(--t-body); font-weight: 500; color: var(--ink-1); }
+  .facts .d { display: block; font-size: var(--t-foot); color: var(--ink-2); margin-top: 1px; }
+  .facts .ed { font-size: var(--t-foot); color: var(--ink-3); }
 
-  /* keepsake shelf */
-  .shelf { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 14px 4px 12px; border-radius: var(--r-group);
-    background: linear-gradient(180deg, transparent 62%, var(--fill-0) 62%); box-shadow: inset 0 -1px 0 var(--hair-strong); }
-  .ks { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0; }
-  .ks .nm { font-size: var(--t-foot); font-weight: 500; color: var(--ink-1); line-height: 1.2; }
-  .ks .from { font-size: var(--t-cap); color: var(--ink-3); line-height: 1.3; }
-  .ks.locked .nm { color: var(--ink-3); font-weight: 400; }
-  .ks.locked .rival { opacity: .75; }
+  /* Rules in your words: your sentences as type, quoted */
+  .rules { padding: 2px 16px; }
+  .rules > div { padding: 10px 0; display: flex; gap: 12px; align-items: baseline; }
+  .rules q { flex: 1; min-width: 0; font-size: var(--t-head); font-weight: 500; line-height: 1.35; color: var(--ink-1); letter-spacing: -0.005em; quotes: "“" "”"; }
+  .rules .when { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; text-align: right; }
+  .rules .when b { display: block; color: var(--ink-2); font-weight: 500; }
 
-  /* milestones: facts, never praise */
-  .ms { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 0; font-size: var(--t-body); }
-  .ms .chk { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; background: var(--chip-a); color: var(--ink-on-bone); }
-  .ms .chk svg { width: 9px; height: 9px; }
-  .ms.todo .chk { background: transparent; box-shadow: inset 0 0 0 1.2px var(--hair-strong); }
-  .ms.todo .lbl { color: var(--ink-2); }
-  .ms .meta { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; }
-  .ms.todo .meta { color: var(--ink-2); }
-  .foot-note { margin-top: auto; }
+  /* Your style, as the pass you can open */
+  .pass { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 14px 10px 10px; border-radius: var(--r-group); text-align: left;
+    background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); transition: background-color var(--dur-1); margin-bottom: 16px; }
+  .pass:hover { background: var(--fill-1); } .pass:active { background: var(--fill-2); }
+  .pass:focus-visible { outline: 2px solid oklch(1 0 0 / 0.6); outline-offset: 2px; }
+  .pass svg.mini-pass { width: 40px; height: 52px; display: block; filter: drop-shadow(0 4px 6px oklch(0 0 0 / 0.45)); }
+  .pass .t { display: block; font-size: var(--t-head); font-weight: 600; }
+  .pass .caption { display: block; }
+  .pass .nums { font-size: var(--t-foot); color: var(--ink-2); white-space: nowrap; margin-right: 6px; }
+
+  /* Getting better: one line, one bar */
+  .story { padding: 14px 16px 12px; }
+  .story .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .show-sm { display: none; }
+  .story .big { white-space: nowrap; font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.01em; }
+  .story .big .from { color: var(--ink-3); font-weight: 500; }
+  .story .big .unit { margin-left: 4px; }
+  .chart { position: relative; height: 78px; margin: 14px 6px 22px 24px; }
+  .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .chart .grid line { stroke: var(--hair); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .chart .area { fill: oklch(1 0 0 / 0.05); }
+  .chart .ln { fill: none; stroke: var(--ink-1); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+  .chart .pt { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--ink-1); box-shadow: 0 0 0 2px var(--desk-0); }
+  .chart .pt.end { width: 10px; height: 10px; margin: -5px 0 0 -5px; background: var(--bone); }
+  .chart .lb { position: absolute; font-size: var(--t-cap); color: var(--ink-2); font-weight: 600; transform: translate(-50%, -150%); white-space: nowrap; }
+  .chart .ax { position: absolute; top: calc(100% + 5px); font-size: var(--t-cap); color: var(--ink-3); transform: translateX(-50%); white-space: nowrap; }
+  .chart .yl { position: absolute; left: -24px; font-size: var(--t-cap); color: var(--ink-3); transform: translateY(-50%); }
+  .chart .hit { position: absolute; top: 0; bottom: 0; width: 18%; transform: translateX(-50%); }
+  .chart .hit:hover { background: linear-gradient(var(--hair), var(--hair)) center / 1px 100% no-repeat; }
+  .cal { display: flex; align-items: center; gap: 14px; padding-top: 11px; box-shadow: inset 0 0.5px 0 var(--hair-strong); }
+  .cal .v { font-size: var(--t-head); font-weight: 600; white-space: nowrap; }
+  .cal .k { white-space: nowrap; }
+  .bar { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--ring-track); }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--ring-fill); }
+  .bar .mark { position: absolute; top: -5px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--ink-1); }
+  .bar .ml { position: absolute; top: 12px; font-size: var(--t-cap); color: var(--ink-3); transform: translateX(-50%); white-space: nowrap; }
+
+  .dee-line.sm { gap: 10px; margin-top: 12px; align-items: center; }
+  .dee-line.sm .say { font-size: var(--t-body); color: var(--ink-2); max-width: none; }
+  .dee-line.sm .say b { color: var(--ink-1); font-weight: 500; }
+
+  /* Mastery, depth, habit: three columns, each a figure and its small drawing */
+  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 0; }
+  .three > div { padding: 12px 14px; min-width: 0; }
+  .three > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); }
+  .three .v { font-size: var(--t-t3); font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+  .three .v small { font-size: var(--t-foot); color: var(--ink-3); font-weight: 500; margin-left: 3px; }
+  .three .k { margin-top: 1px; white-space: nowrap; }
+  .dots { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-top: 10px; max-width: 120px; }
+  .dots i { aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.18); }
+  .dots i.on { background: radial-gradient(circle at 40% 32%, oklch(1 0 0), var(--chip-a) 70%); box-shadow: inset 0 0 0 0.5px oklch(0 0 0 / 0.3); }
+  .ladder { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 10px; }
+  .ladder i { height: 6px; border-radius: 2px; background: var(--ring-track); position: relative; overflow: hidden; }
+  .ladder i.on { background: var(--ring-fill); }
+  .ladder i.part::after { content: ""; position: absolute; inset: 0 40% 0 0; background: oklch(1 0 0 / 0.42); }
+  .ladder-k { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 4px; font-size: var(--t-cap); color: var(--ink-3); }
+  .run { position: relative; height: 6px; margin-top: 10px; border-radius: 2px; background: var(--ring-track); }
+  .run i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(23 / 31 * 100%); border-radius: 2px; background: var(--ring-fill); }
 
   @media (max-width: 1000px) {
-    .prof { gap: 16px; }
-    .id-row { grid-template-columns: auto minmax(0, 1fr) 316px; gap: 16px; padding-bottom: 14px; }
-    .avatar { width: 60px; height: 60px; } .avatar .dee svg { width: 78px; height: 78px; }
-    .who .name .t-t2 { font-size: var(--t-t3); }
-    .nb { grid-template-columns: auto minmax(0, 1fr); }
-    .nb .spec.total { display: none; }
-    .cols { gap: 22px; }
-    .cols > .col { gap: 14px; }
-    .seals { gap: 9px 4px; }
-    .seal svg { width: 30px; height: 30px; }
-    .dnr > div { padding: 10px 0 8px; gap: 6px; }
-    .evbars { height: 34px; } .evbars b { height: calc(var(--v) * 2.4px); } .chalk { display: none; }
-    .fig .t-stat { font-size: var(--t-t2); }
-    .shelf { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 6px; padding: 10px 4px 8px; background: none; }
-    .ks { flex-direction: row; text-align: left; gap: 8px; }
-    .ks .rival svg { width: 32px; height: 32px; }
-    .ms { padding: 4px 0; }
-    .ms.x { display: none; }
-    .foot-note { display: none; }
+    .id { gap: 14px; } .me { width: 58px; height: 58px; }
+    .who h1 { font-size: var(--t-stat); } .goal { font-size: var(--t-head); }
+    .id-act .caption, .hide-sm { display: none; }
+    .body { column-gap: 22px; }
+    .facts .row-btn { padding: 7px 12px; } .show-sm { display: inline; } .facts .d { font-size: var(--t-cap); } .facts .k2 { width: 96px; white-space: nowrap; }
+    .rules > div { padding: 8px 0; } .rules q { font-size: var(--t-body); } .dots { margin-top: 8px; } .ladder, .run { margin-top: 8px; }
+    .pass { margin-bottom: 14px; padding: 8px 12px 8px 8px; } .pass svg.mini-pass { width: 36px; height: 47px; } .pass .nums { display: none; }
+    .story { padding: 12px 14px 10px; } .chart { height: 56px; margin-top: 12px; margin-bottom: 20px; } .story .caption { font-size: var(--t-cap); }
+    .prof { row-gap: 16px; } .pass { margin-bottom: 12px; } .story .big { font-size: var(--t-t3); }
+    .dee-line.sm { display: none; }
+    .three > div { padding: 10px 11px; } .three .v { font-size: var(--t-head); }
   }
 </style>
 </head>
-<body data-tab="Profile">
+<body data-tab="You" data-streak="23">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="tick" viewBox="0 0 10 10"><path d="M2 5.2l2 2 4-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="lock" viewBox="0 0 9 11"><rect x=".8" y="4.6" width="7.4" height="5.6" rx="1.4" fill="currentColor"/><path d="M2.4 4.6V3.2a2.1 2.1 0 0 1 4.2 0v1.4" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="chev" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <div class="shell">
   <nav data-nav></nav>
   <main class="main">
-    <div class="page">
-      <div class="prof">
-        <header class="id-row">
-          <div class="avatar" title="Dee, bone enamel rim"><span class="dee" data-pose="hello" data-size="92" data-label="Your Dee, bone enamel rim"></span></div>
-          <div class="who">
-            <div class="name"><span class="t-t2">Rowan Ellis</span><span class="caption">Bone enamel rim · from 4 assessments</span></div>
-            <div class="nb">
-              <span class="label">Notebook 8</span>
-              <div class="bar" role="meter" aria-label="Notebook 8" aria-valuenow="630" aria-valuemax="1000"><i style="width:63%"></i></div>
-              <span class="spec num total">4,830 Reps in all</span>
-            </div>
-            <span class="spec num">630 of 1,000 Reps to fill this Notebook · Reps are never spent<span class="chalk"> · 1,240 Chalk for the Locker</span></span>
-          </div>
-          <div class="lampbox">
-            <div class="sec-title"><span class="label" style="color:var(--ink-1)">The Lamp</span><span class="spec num">23 lit in the last 30 days</span></div>
-            <div class="lamp" id="lamp" aria-label="Last 30 days: 23 lit, 7 rested"></div>
-            <div class="lamp-legend"><span><i></i>Lit</span><span><i class="r"></i>Rested</span><span class="num">Rhythm 4 days a week · 2 spare wicks</span></div>
-          </div>
-        </header>
+    <div class="vpage prof">
+      <div class="vtop">
+        <div class="row vcap"><h1>Profile</h1><span class="lock"><svg viewBox="0 0 9 11" aria-hidden="true"><rect x=".75" y="4.5" width="7.5" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2.4 4.5V3a2.1 2.1 0 0 1 4.2 0v1.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>Everything here stays on this Mac</span></div>
+        <div data-subnav="Profile"></div>
+      </div>
 
-        <div class="cols">
-          <div class="col">
-            <section>
-              <div class="sec-title"><span class="t-head">Seals <span class="spec num" style="font-weight:400;margin-left:6px">7 of 12</span></span>
-                <button class="btn primary sm">Refresh Blockers<span class="kbd">R</span></button></div>
-              <div class="seals" id="seals"></div>
-            </section>
-            <section>
-              <div class="sec-title" style="margin-bottom:0"><span class="t-head">Decisions, not results</span><span class="spec">Graded on decisions only</span></div>
-              <div class="dnr sect">
-                <div>
-                  <span class="label">Assessment EV loss</span>
-                  <div class="fig"><span class="t-stat num">4.1</span><span class="unit">bb per 100 decisions</span></div>
-                  <div class="evbars" id="evbars" aria-label="Six assessment blocks: 9.4, 7.8, 8.1, 6.0, 5.2, 4.1"></div>
-                  <span class="spec num"><span class="pos-num">−5.3</span> since block 1 · lower is better</span>
-                </div>
-                <div>
-                  <span class="label">Calibration</span>
-                  <div class="fig"><span class="t-stat num">81%</span><span class="unit">of SURE calls right</span></div>
-                  <div class="cal">
-                    <span class="k">SURE</span><div class="track sure"><i style="width:81%"></i><span class="tgt" style="left:85%"></span></div><span class="v num"><b>118</b> of 146</span>
-                    <span class="k">GUESS</span><div class="track"><i style="width:52%"></i></div><span class="v num"><b>61</b> of 117</span>
-                  </div>
-                  <span class="spec">The mark is 85%: sure should mean sure.</span>
-                </div>
-              </div>
-            </section>
-            <p class="caption foot-note">No chips, no bankroll and no comparison with anyone else live on this page.</p>
-          </div>
-
-          <div class="col">
-            <section>
-              <div class="sec-title"><span class="t-head">Keepsakes</span><span class="spec">One per clean boss hand · opens its replay</span></div>
-              <div class="shelf">
-                <div class="ks"><span class="rival" data-glyph="wick" data-size="42" data-label="Wren's lamp wick"></span><span><span class="nm">Lamp wick</span><span class="from" style="display:block">Wren · Lighthouse</span></span></div>
-                <div class="ks"><span class="rival" data-glyph="ticket" data-size="42" data-label="Barnaby's toll ticket"></span><span><span class="nm">Toll ticket</span><span class="from" style="display:block">Barnaby · Toll Road Diner</span></span></div>
-                <div class="ks locked"><span class="rival" data-glyph="bookmark" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Library boss hand</span></span></div>
-                <div class="ks locked"><span class="rival" data-glyph="punch" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Night Train boss hand</span></span></div>
-                <div class="ks locked"><span class="rival" data-glyph="fuse" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Fireworks Pier boss hand</span></span></div>
-                <div class="ks locked"><span class="rival" data-glyph="fork" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Observatory boss hand</span></span></div>
-              </div>
-            </section>
-            <section>
-              <div class="sec-title" style="margin-bottom:2px"><span class="t-head">Milestones</span><span class="spec num">6 of 10</span></div>
-              <div class="flat">
-                <div class="ms"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Certified the 75bb table</span><span class="meta">6 Oct</span></div>
-                <div class="ms"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Mastered 5 concepts</span><span class="meta">14 Sep</span></div>
-                <div class="ms"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Ten of your own sentences accepted</span><span class="meta">9 Sep</span></div>
-                <div class="ms x"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Certified the 40bb table</span><span class="meta">2 Sep</span></div>
-                <div class="ms x"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Completed an assessment block</span><span class="meta">9 Aug</span></div>
-                <div class="ms x"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Solved a puzzle with no mistakes</span><span class="meta">3 Aug</span></div>
-                <div class="ms todo"><span class="chk"></span><span class="lbl">Solved 5 puzzles clean</span><span class="meta num">3 of 5</span></div>
-                <div class="ms todo"><span class="chk"></span><span class="lbl">Sure means sure: 85%+ over 100 sure calls</span><span class="meta num">81% now</span></div>
-                <div class="ms todo"><span class="chk"></span><span class="lbl">Twelve weeks of your own rhythm</span><span class="meta num">9 of 12</span></div>
-                <div class="ms todo"><span class="chk"></span><span class="lbl">Mastered 12 concepts</span><span class="meta num">7 of 12</span></div>
-              </div>
-            </section>
-          </div>
+      <header class="id">
+        <!-- Your chip: graphite ceramic with bone edge inserts, your initial engraved. -->
+        <svg class="me" viewBox="0 0 100 100" role="img" aria-label="Your chip, a graphite ceramic chip engraved S">
+          <defs>
+            <radialGradient id="mc" cx="36%" cy="28%" r="80%"><stop offset="0" stop-color="#8A9198"/><stop offset=".45" stop-color="#4A5057"/><stop offset="1" stop-color="#16181B"/></radialGradient>
+            <radialGradient id="mf" cx="40%" cy="30%" r="75%"><stop offset="0" stop-color="#6F767E"/><stop offset="1" stop-color="#2A2F35"/></radialGradient>
+          </defs>
+          <circle cx="50" cy="50" r="48" fill="url(#mc)"/>
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#D9D4C8" stroke-width="6" stroke-dasharray="14 32.08" stroke-dashoffset="7"/>
+          <circle cx="50" cy="50" r="34" fill="url(#mf)"/>
+          <circle cx="50" cy="50" r="34" fill="none" stroke="#16181B" stroke-opacity=".7" stroke-width="1"/>
+          <circle cx="50" cy="50.8" r="34" fill="none" stroke="#FFFFFF" stroke-opacity=".18" stroke-width=".6"/>
+          <text x="50" y="62" text-anchor="middle" font-family="ui-serif, 'New York', Georgia, serif" font-size="34" font-weight="600" fill="#F4F2EC">S</text>
+          <path d="M18 32A35 35 0 0 1 48 8" fill="none" stroke="#FFFFFF" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="50" cy="50" r="48" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1"/>
+        </svg>
+        <div class="who">
+          <div class="nm"><h1>Sam</h1><span class="caption">what Dee calls you</span></div>
+          <p class="goal"><span class="label">Playing for</span><q>Win my Thursday home game</q></p>
+          <p class="caption">Member since 31 Aug · 412 hands · 1,240 graded decisions<span class="hide-sm"> · also: understand why you lose</span></p>
         </div>
+        <div class="id-act">
+          <button class="btn primary">Practise for Thursday <span class="kbd">↩</span></button>
+          <span class="caption">Tonight’s plan is built from this goal</span>
+        </div>
+      </header>
+
+      <div class="cols body">
+        <section class="stack" aria-label="Your game and your rules">
+          <div class="sec"><h2>Your game</h2><span class="caption">From onboarding · change anything</span></div>
+          <div class="group facts" role="list">
+            <button class="row-btn" role="listitem"><span class="k2">Where you play</span><span class="grow"><span class="v">Home game</span><span class="d">Some online too</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
+            <button class="row-btn" role="listitem"><span class="k2">Stakes</span><span class="grow"><span class="v num">$1/$2, 100 bb deep</span><span class="d">Dee sizes every spot to this</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
+            <button class="row-btn" role="listitem"><span class="k2">Schedule</span><span class="grow"><span class="v">Weeknights, 15 minutes</span><span class="d">The game itself is Thursday</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
+            <button class="row-btn" role="listitem"><span class="k2">Why you play</span><span class="grow"><span class="v">The friends, and the puzzle</span><span class="d">A few years in, never studied</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
+          </div>
+
+          <div class="sec" style="margin-top: 22px"><h2>Rules in your words</h2><span class="caption">3 of 12 · <button class="btn quiet sm" style="height:22px;padding:0 6px">See all 12</button></span></div>
+          <div class="tile rules flat">
+            <div><q>the price is the call over the pot after I call</q><span class="when">Pot odds · 3 Oct</span></div>
+            <div><q>bluff where my story is the river card</q><span class="when">Bluffing · 27 Sep</span></div>
+            <div><q>a small SPR means the flop decides the hand</q><span class="when">SPR · 19 Sep</span></div>
+          </div>
+        </section>
+
+        <section class="stack" aria-label="Your style and your progress">
+          <button class="pass" aria-label="Your style: The Closer. Open Style.">
+            <svg class="mini-pass" viewBox="0 0 46 60" aria-hidden="true">
+              <defs><linearGradient id="pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3A4047"/><stop offset="1" stop-color="#16181B"/></linearGradient></defs>
+              <rect x=".5" y=".5" width="45" height="59" rx="6" fill="url(#pg)" stroke="#FFFFFF" stroke-opacity=".2"/>
+              <g transform="translate(23 22)"><circle r="10" fill="none" stroke="#FFFFFF" stroke-opacity=".3"/><path d="M0 0V-10A10 10 0 0 0 -10 0Z" fill="#F4F2EC"/><path d="M-10 0H10M0 -10V10" stroke="#FFFFFF" stroke-opacity=".3" stroke-width=".7"/></g>
+              <rect x="8" y="40" width="30" height="3" rx="1.5" fill="#F4F2EC" fill-opacity=".85"/><rect x="8" y="47" width="20" height="2.5" rx="1.25" fill="#FFFFFF" fill-opacity=".3"/>
+            </svg>
+            <span><span class="t">The Closer</span><span class="caption">Your style: selective, and you take the lead</span></span>
+            <span class="row" style="gap:8px"><span class="nums num">VPIP 24 · PFR 17</span><svg class="chev"><use href="#chev"/></svg></span>
+          </button>
+
+                    <div class="tile story">
+            <div class="top">
+              <span class="big num"><span class="from">9.4 →</span> 4.1<span class="unit">bb/100</span></span>
+              <span class="caption"><span class="hide-sm">EV loss by week since 31 Aug · lower is better</span><span class="show-sm">EV loss by week, lower is better</span></span>
+            </div>
+            <div class="chart" role="img" aria-label="EV loss by week: week 1 9.4, week 2 8.1, week 3 7.0, week 4 6.2, week 5 4.9, week 6 4.1 bb per 100">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <g class="grid"><line x1="0" y1="0" x2="100" y2="0"/><line x1="0" y1="50" x2="100" y2="50"/><line x1="0" y1="100" x2="100" y2="100"/></g>
+                <path class="area" d="M0 6 L20 19 L40 30 L60 38 L80 51 L100 59 L100 100 L0 100Z"/>
+                <path class="ln" d="M0 6 L20 19 L40 30 L60 38 L80 51 L100 59"/>
+              </svg>
+              <span class="yl num" style="top:0">10</span><span class="yl num" style="top:50%">5</span><span class="yl num" style="top:100%">0</span>
+              <span class="pt end" style="left:0;top:6%"></span><span class="pt" style="left:20%;top:19%"></span><span class="pt" style="left:40%;top:30%"></span>
+              <span class="pt" style="left:60%;top:38%"></span><span class="pt" style="left:80%;top:51%"></span><span class="pt end" style="left:100%;top:59%"></span>
+              <span class="lb num" style="left:100%;top:59%">4.1</span>
+              <span class="ax" style="left:0">Wk 1</span><span class="ax" style="left:20%">2</span><span class="ax" style="left:40%">3</span><span class="ax" style="left:60%">4</span><span class="ax" style="left:80%">5</span><span class="ax" style="left:100%">Wk 6</span>
+              <span class="hit" style="left:0" title="Week 1: 9.4 bb/100"></span><span class="hit" style="left:20%" title="Week 2: 8.1 bb/100"></span><span class="hit" style="left:40%" title="Week 3: 7.0 bb/100"></span>
+              <span class="hit" style="left:60%" title="Week 4: 6.2 bb/100"></span><span class="hit" style="left:80%" title="Week 5: 4.9 bb/100"></span><span class="hit" style="left:100%" title="Week 6: 4.1 bb/100"></span>
+            </div>
+            <div class="cal">
+              <span><span class="v num">81%</span> <span class="k">of Sure calls right</span></span>
+              <span class="bar" role="img" aria-label="81% of Sure calls right, 118 of 146; the mark is 85%"><i style="width:81%"></i><span class="mark" style="left:85%"></span></span>
+              <span class="k num">mark 85%</span>
+            </div>
+            <div class="dee-line sm">
+              <span class="dee" data-pose="attentive" data-size="24"></span>
+              <p class="say">Less than half what it was. <b>River calls</b> are most of what’s left, 1.8&nbsp;bb a&nbsp;time.</p>
+            </div>
+          </div>
+
+          <div class="sec" style="margin-top: 18px"><h2>What you’ve built</h2><span class="caption">Concepts, depth, habit</span></div>
+          <div class="tile three">
+            <div><div class="v num">7<small>of 12</small></div><div class="k">concepts mastered</div>
+              <div class="dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
+            <div><div class="v num">75 bb<small>certified</small></div><div class="k">100 bb: 3 of 5 blocks</div>
+              <div class="ladder" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="part"></i></div><div class="ladder-k num" aria-hidden="true"><span>40</span><span>75</span><span>100</span></div></div>
+            <div><div class="v num">23<small>days</small></div><div class="k">streak, best 31</div>
+              <div class="run" aria-hidden="true"><i></i></div></div>
+          </div>
+        </section>
       </div>
     </div>
   </main>
 </div>
-<script>
-  // The Lamp: 30 days, oldest first. r = rested (nothing was due), o = lit. Today is the last dot.
-  const days = 'oooroooroooorooroooorooooroooo';
-  document.getElementById('lamp').innerHTML = [...days].map((d, i) => `<i class="${d === 'o' ? 'on' : 'rest'}${i === 29 ? ' today' : ''}"></i>`).join('');
-
-  // Seals: s = sealed, d = sealed but faded (its spaced rep is due), a number = spacing waves done of 4.
-  const SEALS = [['Pot odds', 's'], ['Opening ranges', 's'], ['3-bet ranges', 3], ['Board texture', 's'], ['C-bet sizing', 's'], ['Blockers', 'd'],
-    ['Bluff-catching', 's'], ['Value sizing', 's'], ['Defence freq.', 2], ['Implied odds', 's'], ['Check-raise', 1], ['Push/fold', 0]];
-  const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
-  const disc = (i, state) => {
-    const sealed = state === 's' || state === 'd';
-    const id = 'sg' + i;
-    if (sealed) return `<svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true"><defs><radialGradient id="${id}" cx="35%" cy="25%" r="85%"><stop offset="0" stop-color="oklch(0.44 0.006 262)"/><stop offset="1" stop-color="oklch(0.17 0.006 262)"/></radialGradient></defs>
-      <circle cx="18" cy="18" r="17" fill="url(#${id})"/><circle cx="18" cy="18" r="17" fill="none" stroke="${state === 'd' ? 'var(--ink-2)' : 'oklch(1 0 0 / .26)'}" stroke-width="${state === 'd' ? 1.4 : 1}" ${state === 'd' ? 'stroke-dasharray="3 2.4"' : ''}/>
-      <circle cx="18" cy="18" r="13.5" fill="none" stroke="oklch(1 0 0 / .1)"/>
-      <text x="18" y="22.2" text-anchor="middle" font-family="ui-serif, Georgia, serif" font-size="${ROMAN[i].length > 2 ? 9 : 11}" font-weight="600" fill="var(--bone)" opacity="${state === 'd' ? .6 : 1}">${ROMAN[i]}</text></svg>`;
-    const w = state, c = 2 * Math.PI * 15;
-    return `<svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="var(--fill-0)" stroke="oklch(1 0 0 / .12)" stroke-width="2"/>
-      ${w ? `<circle cx="18" cy="18" r="15" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-dasharray="${(c * w / 4 - 3).toFixed(1)} ${c}" transform="rotate(-90 18 18)"/>` : ''}
-      <text x="18" y="22" text-anchor="middle" font-family="ui-serif, Georgia, serif" font-size="${ROMAN[i].length > 2 ? 8.5 : 10}" font-weight="500" fill="var(--ink-3)">${ROMAN[i]}</text></svg>`;
-  };
-  document.getElementById('seals').innerHTML = SEALS.map(([nm, st], i) => {
-    const cls = st === 's' ? 'on' : st === 'd' ? 'on due' : '';
-    const tag = st === 's' ? 'Sealed' : st === 'd' ? 'Rep due' : st === 0 ? 'Not started' : `Wave ${st} of 4`;
-    return `<div class="seal ${cls}">${disc(i, st)}<span class="nm">${nm}</span><span class="st">${tag}</span></div>`;
-  }).join('');
-
-  // Assessment EV loss, bb per 100 decisions, six blocks (lower is better).
-  const EV = [9.4, 7.8, 8.1, 6.0, 5.2, 4.1];
-  document.getElementById('evbars').innerHTML = EV.map((v, i) => `<span><b style="--v:${v}"></b><em class="num">${i + 1}</em></span>`).join('');
-</script>
 <script src="shell.js"></script>
 <script src="dee.js"></script>
 </body>

@@ -12,7 +12,7 @@ const only = process.argv.slice(2);
 const pages = readdirSync(here).filter((f) => f.endsWith('.html') && f !== 'index.html').map((f) => f.replace('.html', ''))
   .filter((p) => !only.length || only.includes(p));
 // Pages with states: name -> list of query strings.
-const STATES = { table: ['state=mistake', 'state=great'], lesson: ['', ], celebrate: ['', ] };
+const STATES = { table: ['state=live', 'state=mistake', 'state=great'], onboarding: ['step=1', 'step=2', 'step=3', 'step=4'], 'dee-marks': ['', 'blind=1'] };
 // The main checkout's Playwright expects an older browser build than the one cached; point it at the cached shell.
 const browser = await chromium.launch({ executablePath: process.env.HOME + '/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell' });
 const problems = [];
@@ -28,7 +28,7 @@ for (const p of pages) {
       await page.waitForTimeout(1600);
       const over = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight, iw: innerWidth, ih: innerHeight }));
       if (over.sw > over.iw || over.sh > over.ih) problems.push(`${p}?${q} ${w}x${h}: page scrolls ${over.sw}x${over.sh}`);
-      const name = `${p}${q ? '-' + q.split('=')[1] : ''}-${w}x${h}.png`;
+      const name = `${p}${q ? '-' + q.replace('=', '') .replace(/^step/, 'step').replace(/^state/, '').replace(/^blind1$/, 'blind') : ''}-${w}x${h}.png`;
       await page.screenshot({ path: join(here, 'screenshots', name) });
       await ctx.close();
       console.log('shot', name);

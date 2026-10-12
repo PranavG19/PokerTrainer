@@ -3,99 +3,160 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Offsuit — a lesson with Dee</title>
+<title>Offsuit — Lesson: what his bluffs are worth</title>
 <link rel="stylesheet" href="vision.css" />
-<!--
-  Vision mock: "Pot odds as a price", example 2 (src/core/lessons/content/pot-odds-as-a-price.ts, half-pot-turn:
-  A♣4♣ on Q♣9♦3♣8♠, pot 300 after a 100 bet). The lesson becomes a dialogue: Dee asks (Interrogator first),
-  the learner commits before any reasoning shows (G5), a wrong commit gets a question back, not the answer,
-  and the price is taught as a natural frequency ("1 time in 4"), as the lesson file insists.
-  The learner's own sentence comes at the end and goes into Folio (lexicon.ts). Dee's lines are scripted
-  (src/core/cast line banks, proposed); the optional model only rewords them through the existing guard.
--->
+<!-- Vision round 2, Learn: a lesson as a dialogue with Dee. Dee asks, you commit; a wrong answer gets a question back,
+     never a correction. It quotes your own rule and builds the next one on it. A drawn pot-odds diagram (the verdict
+     meter's language). One bone primary: Commit. Dee's mark appears once (the opening line); later turns are type.
+     Sources (vision/personalization-sources.md):
+       your rule … lexicon AcceptedSentence (session.ts:200, lexicon.ts:62), "the price is the call over the pot after I call", 3 Oct, pot odds
+       building on it … feedbackOpening (lexicon.ts:303) style: the next sentence offered for acceptance as rule 13 (lexicon)
+       Bo bluffs 44% of big river bets … rivals[] (new) from HandRecord.villain (new) over decisions[] (session.ts:43)
+       the spot (450 into 550) … The Long Call, your kept hand (hands[] pinned, new), replayed as the lesson's example
+       lesson 2 of 3 in The River Room … chapter order from leakCostBb (session.ts:130); concept states (schedule.ts:334)
+       Sure / Guess … calibration (session.ts:149), DecisionRecord.prediction (new) -->
 <style>
-  .lesson { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; height: 100%; max-width: 1040px; margin: 0 auto; }
-  .thread-col { display: flex; flex-direction: column; min-height: 0; gap: 14px; }
-  .lhead { display: flex; align-items: center; gap: 12px; }
-  .steps { display: flex; gap: 4px; margin-left: auto; }
-  .steps i { width: 26px; height: 4px; border-radius: 2px; background: var(--fill-2); }
-  .steps i.on { background: var(--ink-1); }
-  .thread { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; justify-content: flex-end; overflow: hidden; }
-  .msg { display: flex; gap: 10px; align-items: flex-end; }
-  .msg .dee svg { display: block; margin: -6px -6px -8px; }
-  .msg .bubble { font-size: var(--t-body); padding: 10px 13px; }
-  .msg .bubble::before { top: auto; bottom: 12px; }
-  .msg.past { opacity: 0.62; }
-  .msg.me { justify-content: flex-end; }
-  .msg.me .bubble { background: var(--fill-2); }
-  .msg.me .bubble::before { display: none; }
-  .msg .ghost-dee { width: 40px; flex: none; }
-  .commit-bar { padding: 12px 14px; display: grid; gap: 10px; }
-  .commit-bar .q { font-size: var(--t-head); font-weight: 600; }
-  .commit-bar .row { justify-content: space-between; }
-  .spot { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-  .spot-cards { display: flex; gap: 18px; align-items: flex-end; }
-  .spot-cards .card { --w: 46px; }
-  .spot-cards .hole .card { --w: 50px; }
-  .price-viz { display: grid; gap: 8px; }
-  .blocks { display: flex; gap: 4px; height: 30px; }
-  .blocks i { flex: 1; border-radius: var(--r-xs); background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong); display: grid; place-items: center; font-style: normal; font-size: var(--t-cap); color: var(--ink-2); }
-  .blocks i.pay { background: var(--bone); color: var(--ink-on-bone); font-weight: 600; box-shadow: none; }
-  .folio { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; }
-  .folio svg { flex: none; }
-  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: var(--t-body); }
-  .kv span:nth-child(odd) { color: var(--ink-3); }
+  .lesson { grid-template-columns: minmax(0, 1.42fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 36px; row-gap: 20px; align-content: stretch; }
+  .lhead { grid-column: 1 / -1; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+  .lhead h1 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; margin-top: 2px; }
+  .steps { display: flex; align-items: center; gap: 6px; }
+  .steps i { width: 22px; height: 4px; border-radius: 2px; background: var(--ring-track); }
+  .steps i.on { background: var(--ring-fill); }
+  .steps .caption { margin-left: 6px; }
+
+  /* the dialogue: Dee's turns are type in the coat; yours are the answers you committed */
+  .thread { gap: 18px; min-height: 0; }
+  .thread > * { flex: none; }
+  .dee-turn { padding-left: 58px; }
+  .dee-turn .who, .you .who { display: block; font-size: var(--t-cap); color: var(--ink-3); margin-bottom: 3px; }
+  .dee-turn p, .thread .dee-line .say { font-size: var(--t-t3); font-weight: 500; line-height: 1.42; color: var(--ink-1); max-width: 52ch; }
+  .thread .dee-line .say q { font-weight: 600; }
+  .thread .dee-line { gap: 18px; }
+  .you { align-self: flex-end; max-width: 72%; padding: 9px 14px 10px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .you p { font-size: var(--t-head); color: var(--ink-1); font-weight: 500; }
+  .you .who { display: flex; justify-content: space-between; gap: 12px; }
+  .you .mark { font-weight: 600; }
+  .you .mark.no { color: var(--coral); }
+  .you .mark.yes { color: var(--ink-2); }
+  .ask { padding-left: 58px; display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
+  .opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .opts .choice b { padding-right: 18px; }
+  .commit { display: flex; align-items: center; gap: 12px; }
+  .commit .caption { margin-left: auto; }
+
+  /* the side: your rule, the drawn price, what this lesson adds */
+  .side { gap: 14px; min-height: 0; }
+  .side > * { flex: none; }
+  .rule { padding: 16px 18px; }
+  .rule q { display: block; font-size: var(--t-t3); font-weight: 600; line-height: 1.32; letter-spacing: -0.005em; margin-top: 6px; }
+  .rule q::before { content: "“"; } .rule q::after { content: "”"; }
+  .rule .caption { margin-top: 8px; }
+  .dia { margin-top: 0; padding: 14px 16px 12px; flex: 1 1 auto !important; display: flex; flex-direction: column; justify-content: center; }
+  .potbar { display: flex; height: 34px; border-radius: var(--r-xs); overflow: hidden; margin-top: 10px; box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .potbar span { display: grid; place-items: center; font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); }
+  .potbar .a { width: 37.9%; background: oklch(1 0 0 / 0.06); }
+  .potbar .b { width: 31.05%; background: oklch(1 0 0 / 0.13); box-shadow: inset 0.5px 0 0 var(--hair-strong); }
+  .potbar .c { width: 31.05%; background: var(--bone); color: var(--ink-on-bone); }
+  .potkey { display: grid; grid-template-columns: 37.9% 31.05% 31.05%; margin-top: 5px; font-size: var(--t-cap); color: var(--ink-3); }
+  .potkey span:last-child { color: var(--ink-1); font-weight: 500; }
+  .eq { margin-top: 14px; font-size: var(--t-head); color: var(--ink-2); }
+  .eq b { color: var(--ink-1); font-weight: 600; }
+  .meter2 { position: relative; height: 40px; margin-top: 12px; }
+  .meter2 .bar { position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: var(--ring-track); }
+  .meter2 .fill { position: absolute; left: 0; top: 8px; height: 4px; width: 44%; border-radius: 2px; background: oklch(1 0 0 / 0.34); }
+  .meter2 .gap { position: absolute; top: 8px; height: 4px; left: 31%; width: 13%; background: oklch(1 0 0 / 0.82); }
+  .meter2 .tick { position: absolute; top: 2px; width: 2px; height: 16px; margin-left: -1px; border-radius: 1px; background: var(--ink-1); }
+  .meter2 .lab { position: absolute; top: 22px; font-size: var(--t-cap); color: var(--ink-2); white-space: nowrap; }
+  .adds { margin-top: 0; padding: 12px 16px; }
+  .adds p { margin-top: 4px; font-size: var(--t-body); color: var(--ink-1); line-height: 1.45; }
+  .adds p .old { color: var(--ink-3); }
+  .from { margin-top: 0; display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+  .from .t { font-size: var(--t-body); font-weight: 500; }
+
   @media (max-width: 1000px) {
-    .lesson { gap: 20px; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
-    .msg.old { display: none; }
-    .spot-cards .card { --w: 38px; } .spot-cards .hole .card { --w: 42px; }
-    .hide-sm { display: none !important; }
-    .spot { gap: 12px; }
+    .lesson { column-gap: 22px; row-gap: 14px; }
+    .lhead h1 { font-size: var(--t-t3); } .steps .caption { display: none; }
+    .thread { gap: 10px; }
+    .dee-turn, .ask { padding-left: 50px; }
+    .dee-turn p, .thread .dee-line .say { font-size: var(--t-head); } .you p { font-size: var(--t-body); }
+    .thread .dee-line { gap: 14px; } .thread .dee-line .dee svg { width: 36px; height: 36px; }
+    .you { padding: 7px 12px 8px; max-width: 80%; } .you p { font-size: var(--t-foot); }
+    .opts .choice { padding: 9px 11px; } .opts .choice span { display: none; }
+    .commit .caption { display: none; }
+    .rule { padding: 12px 14px; } .rule q { font-size: var(--t-head); }
+    .dia { padding: 11px 13px 9px; } .potbar { height: 28px; } .eq { font-size: var(--t-body); margin-top: 10px; } .adds { padding: 10px 13px; } .adds p { font-size: var(--t-foot); }
+    .hide-sm { display: none; }
   }
 </style>
 </head>
-<body data-tab="Learn" data-lit="23" data-ring="2">
+<body data-tab="Learn" data-streak="23">
 <div class="shell">
   <nav data-nav></nav>
   <main class="main">
-    <div class="page">
-      <div class="lesson">
-        <section class="thread-col">
-          <div class="lhead"><span class="t-t3">Pot odds as a price</span><span class="caption">Example 2 of 3</span><span class="steps" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span></div>
-          <div class="thread" role="log" aria-label="Lesson dialogue">
-            <div class="msg past old"><span class="dee" data-pose="seated" data-size="40" aria-hidden="true"></span><p class="bubble"><span class="who">Dee</span>A half-pot bet makes the pot 300 on the turn. Before the cards: what frequency does calling have to beat?</p></div>
-            <div class="msg me past old"><p class="bubble">1 time in 3 · <b>Sure</b></p></div>
-            <div class="msg past"><span class="dee" data-pose="thinking" data-size="40" aria-hidden="true"></span><p class="bubble"><span class="who">Dee</span>Count what the call can win, not what is in front of you. You pay 100. How much comes back if you win?</p></div>
-            <div class="msg me past"><p class="bubble">400: the 300 out there and my 100</p></div>
-            <div class="msg"><span class="dee" data-pose="hello" data-size="40" aria-hidden="true"></span><p class="bubble"><span class="who">Dee</span><b>100 into a final pot of 400: 1 time in 4.</b> Risk 100 to win the 300 out there, so 3 to 1. The pot was right and the price one step off; that is the usual slip. Now the cards. Nine clubs on one card: more often than 1 in 4, or less?</p></div>
-          </div>
-          <div class="commit-bar float">
-            <div class="q">Commit first</div>
-            <div class="row">
-              <div class="seg" role="radiogroup" aria-label="More or less often"><button role="radio" aria-checked="false">More often</button><button role="radio" aria-checked="true">Less often</button></div>
-              <div class="seg" role="radiogroup" aria-label="Confidence"><button role="radio" aria-checked="false">Sure</button><button role="radio" aria-checked="true">Guess</button></div>
-              <button class="btn primary">Commit <span class="kbd">↩</span></button>
-            </div>
-          </div>
-        </section>
+    <div class="vpage lesson">
+      <header class="lhead">
+        <div><span class="label">The River Room · lesson 2 of 3</span><h1>What his bluffs are worth</h1></div>
+        <div class="steps" aria-label="Question 3 of 4"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><span class="caption">3 of 4</span></div>
+      </header>
 
-        <section class="spot">
-          <div class="spot-cards">
-            <div class="hole"><div class="label" style="margin-bottom:6px">You · button</div><div class="cards"><div class="card"><span class="rk">A</span><span class="st">♣</span><span class="pip">♣</span></div><div class="card"><span class="rk">4</span><span class="st">♣</span><span class="pip">♣</span></div></div></div>
-            <div><div class="label" style="margin-bottom:6px">Turn</div><div class="cards tight"><div class="card"><span class="rk">Q</span><span class="st">♣</span><span class="pip">♣</span></div><div class="card red"><span class="rk">9</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card"><span class="rk">3</span><span class="st">♣</span><span class="pip">♣</span></div><div class="card"><span class="rk">8</span><span class="st">♠</span><span class="pip">♠</span></div></div></div>
+      <section class="stack thread" aria-label="The lesson, with Dee">
+        <div class="dee-line">
+          <span class="dee" data-pose="attentive" data-size="40"></span>
+          <p class="say">Your rule, from 3 October: <q>the price is the call over the pot after I call.</q> Bo bets 450 into 550. What’s your price?</p>
+        </div>
+
+        <div class="you"><span class="who"><span>You</span><span class="mark no">Not yet</span></span><p>450 over 1000, so 45%</p></div>
+
+        <div class="dee-turn"><span class="who">Dee</span><p>Say your rule again, slowly. After you call, what’s in the pot?</p></div>
+
+        <div class="you"><span class="who"><span>You</span><span class="mark yes">✓</span></span><p>550, his 450 and my 450: 1450</p></div>
+
+        <div class="dee-turn"><span class="who">Dee</span><p>So 450 over 1450: <b class="num">31%</b>. Now the new part. Bo bluffs <b class="num">44%</b> of his big river bets. With a hand that only beats a bluff, is this a call?</p></div>
+
+        <div class="ask">
+          <div class="opts" role="radiogroup" aria-label="Your answer">
+            <button class="choice" role="radio" aria-checked="true"><b>Call</b><span>He bluffs more often than the price</span></button>
+            <button class="choice" role="radio" aria-checked="false"><b>Fold</b><span>Two pair is too thin here</span></button>
+            <button class="choice" role="radio" aria-checked="false"><b>Raise</b><span>Make him fold the better hands</span></button>
           </div>
-          <div class="kv num"><span>Pot after the bet</span><span>300</span><span>To call</span><span>100</span><span>Stacks</span><span>1,500 each · 20 bb blinds</span></div>
-          <div class="price-viz sect" style="padding:14px 0">
-            <div class="row"><span class="label">The price, drawn</span><span class="caption" style="margin-left:auto">Your 100 is 1 of 4 blocks in the final pot</span></div>
-            <div class="blocks" aria-label="You pay one part in four"><i class="pay">your 100</i><i>bet 100</i><i>pot 100</i><i>pot 100</i></div>
-            <p class="caption">Read the price off the pot before reading the cards.</p>
+          <div class="commit">
+            <div class="seg" role="radiogroup" aria-label="How sure"><button role="radio" aria-checked="true">Sure</button><button role="radio" aria-checked="false">Guess</button></div>
+            <button class="btn primary">Commit <span class="kbd">↩</span></button>
+            <span class="caption">A wrong answer gets a question back, not a grade</span>
           </div>
-          <div class="folio">
-            <span class="dee" data-pose="quoting" data-size="44" aria-hidden="true"></span>
-            <div><div class="t-head">Folio</div><p class="caption">At the end you write the rule in your own words. Folio keeps it, and Dee quotes it back to you before its own words.</p></div>
+        </div>
+      </section>
+
+      <aside class="stack side" aria-label="Your rule and the price">
+        <div class="tile lit rule">
+          <span class="k">Your rule · rule 9 of 12</span>
+          <q>the price is the call over the pot after I call</q>
+          <p class="caption">In your words, 3 Oct · pot odds · used in 14 hands since</p>
+        </div>
+
+        <div class="tile dia" role="img" aria-label="The pot after you call is 1450: 550 before the bet, Bo’s 450 and your 450. Your call is 31% of it. Bo bluffs 44% of the time, above the 31% price.">
+          <span class="k">The pot after you call · <span class="num">1450</span></span>
+          <div class="potbar" aria-hidden="true"><span class="a num">550</span><span class="b num">450</span><span class="c num">450</span></div>
+          <div class="potkey" aria-hidden="true"><span>before the bet</span><span>Bo’s bet</span><span>your call</span></div>
+          <p class="eq num">450 ÷ 1450 = <b>31%</b>, your price</p>
+          <div class="meter2" aria-hidden="true">
+            <div class="bar"></div><div class="fill"></div><div class="gap"></div>
+            <div class="tick" style="left:31%"></div>
+            <span class="lab" style="right:calc(69% + 6px)">price 31%</span><span class="lab" style="left:calc(44% + 6px)">Bo bluffs 44%</span>
           </div>
-        </section>
-      </div>
+        </div>
+
+        <div class="tile adds">
+          <span class="k">What this lesson adds to your rule</span>
+          <p><span class="old">The price is the call over the pot after I call,</span> and I call when he bluffs more often than that.</p>
+          <p class="caption hide-sm" style="margin-top:6px">Yours to accept as rule 13 when the lesson ends</p>
+        </div>
+
+        <div class="tile from">
+          <span class="mini" aria-label="King of hearts, 2 of diamonds"><span class="card red"><span class="rk">K</span><span class="st">♥</span></span><span class="card red"><span class="rk">2</span><span class="st">♦</span></span></span>
+          <div class="grow"><div class="t">This spot is your kept hand</div><div class="caption">The Long Call, 11 Oct: you called it Sure</div></div>
+        </div>
+      </aside>
     </div>
   </main>
 </div>

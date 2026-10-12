@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Dee’s letter, week 6</title>
+<link rel="stylesheet" href="vision.css" />
+<!-- Vision round 2 · You › Letters: Dee's weekly letter, week 6. The one long-form surface, so the letter body (and only the
+     body) is set in the serif --font-index as a deliberate flourish. The letter is scripted templates filled from the
+     numbers below, never generated prose (PRODUCT-SPEC:283–285). Sources (vision/personalization-sources.md):
+       "Sam" … profile.displayName (new, #9)
+       9 river calls vs Bo, 6 right, 5 with a reason … hands[].decisions (session.ts:43) filtered by street + villain (new
+         HandRecord.villain) + DecisionRecord.reason (new, #3b)
+       fold to big river bets 61% → 38% … derived from decisions[] (#5, new lifetime counters in SessionStats), per week
+       fold to c-bets on dry boards 68% … SessionStats.leaks/leakCostBb (session.ts:130), DecisionRecord.errorTag (new, #2)
+       the hand of the week … HandRecord pinned (new, #1): The Long Call, 11 Oct
+       "next week starts with" … recommend() (recommend.ts:219) over leakCostBb
+       earlier letters … one stored letter per week: {week, numbers, templateIds} (new), never the generated text -->
+<style>
+  .lt { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); column-gap: 32px; }
+  .letter { padding: 22px 28px 0; display: flex; flex-direction: column; }
+  .letter .dateline { display: flex; align-items: baseline; gap: 10px; }
+  .letter .dateline .caption { margin-left: auto; }
+  .prose { font-family: var(--font-index); font-size: var(--t-t3); line-height: 1.58; color: var(--ink-1); letter-spacing: 0.002em; max-width: 60ch; margin-top: 14px; }
+  .prose p + p { margin-top: 10px; }
+  .prose b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .prose .hello { font-size: var(--t-t2); font-weight: 600; }
+  .ps { font-family: var(--font-index); font-style: italic; font-size: var(--t-head); line-height: 1.5; color: var(--ink-2); max-width: 60ch; margin-top: 14px; }
+  .sign { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-family: var(--font-index); font-style: italic; font-size: var(--t-t3); color: var(--ink-2); }
+  .letter-foot { margin-top: auto !important; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); margin: 20px -28px 0; box-shadow: inset 0 0.5px 0 var(--hair-strong); }
+  .letter-foot > div { padding: 14px 18px 16px 28px; display: flex; flex-direction: column; gap: 8px; }
+  .letter-foot > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); padding-left: 18px; padding-right: 22px; }
+  .hand { display: flex; align-items: center; gap: 10px; }
+  .hand .on { color: var(--ink-3); font-size: var(--t-foot); }
+  .hand-t { display: flex; align-items: flex-end; gap: 8px; }
+  .hand-t b { display: block; }
+  .hand-t .caption { display: block; }
+  .hand-t b { font-size: var(--t-body); font-weight: 600; }
+  .hand-t .num { margin-left: auto; font-weight: 600; font-size: var(--t-body); }
+  .next b { display: block; font-size: var(--t-head); font-weight: 600; line-height: 1.3; }
+  .next .btn { align-self: flex-start; margin-top: 4px; }
+  .made { margin-top: 10px; display: flex; align-items: center; gap: 6px; }
+  .made svg { width: 12px; height: 12px; flex: none; }
+
+  .nums { display: flex; flex-direction: column; gap: 10px; }
+  .fig { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 14px; padding: 14px 16px; }
+  .fig .label { grid-column: 1 / -1; }
+  .fig .v { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; }
+  .fig .v small { font-size: var(--t-body); font-weight: 500; color: var(--ink-2); margin-left: 6px; letter-spacing: 0; }
+  .fig .caption { grid-column: 1; }
+  .fig svg { grid-row: 2 / span 2; grid-column: 2; display: block; overflow: visible; }
+  .fig.hero .t-score { font-size: 60px; }
+  .fig.hero .t-score small { font-family: var(--font); font-size: var(--t-head); font-weight: 500; color: var(--ink-2); margin-left: 6px; font-stretch: 100%; }
+  .spark .ln { fill: none; stroke: var(--ring-fill); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .spark .base { stroke: var(--ring-track); stroke-width: 1; }
+  .spark .pt { fill: var(--ink-1); }
+  .spark .pt0 { fill: var(--desk-0); stroke: var(--ink-2); stroke-width: 1.5; }
+  .spark text { font-size: var(--t-cap); fill: var(--ink-3); font-family: var(--font); }
+  .spark .hit { fill: transparent; }
+  .dots circle.right { fill: var(--ink-1); }
+  .dots circle.wrong { fill: none; stroke: var(--ink-3); stroke-width: 1.4; }
+  .dots circle.why { fill: none; stroke: var(--ink-1); stroke-width: 1.2; }
+
+  .past .row-btn { padding: 10px 14px; }
+  .past .wk { width: 30px; flex: none; font-size: var(--t-foot); font-weight: 600; color: var(--ink-2); }
+  .past .t { display: block; font-size: var(--t-body); font-weight: 500; }
+  .past .caption { display: block; }
+
+  @media (max-width: 1000px) {
+    .lt { column-gap: 20px; }
+    .letter { padding: 16px 20px 0; }
+    .prose { font-size: var(--t-head); line-height: 1.55; margin-top: 10px; }
+    .prose .hello { font-size: var(--t-t3); }
+    .prose p + p { margin-top: 8px; }
+    .ps { font-family: var(--font-index); font-style: italic; font-size: var(--t-head); line-height: 1.5; color: var(--ink-2); max-width: 60ch; margin-top: 14px; }
+  .sign { margin-top: 8px; font-size: var(--t-head); }
+    .letter-foot { margin: 14px -20px 0; grid-template-columns: 1fr 1fr; }
+    .letter-foot > div { padding: 12px 14px 14px 20px; }
+    .letter-foot > div + div { padding-left: 14px; padding-right: 16px; }
+    .hand .bd { display: none; }
+    .next b { font-size: var(--t-body); }
+    .fig { padding: 10px 14px; }
+    .fig.hero .t-score { font-size: 46px; }
+    .fig .v { font-size: var(--t-t3); }
+    .fig .caption.more { display: none; }
+    .past .row-btn { padding: 8px 12px; }
+    .past .caption { display: none; }
+    .hide-sm { display: none !important; }
+  }
+</style>
+</head>
+<body data-tab="You" data-streak="23">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="chev" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="tpl" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M3.8 4.5h4.4M3.8 6.5h4.4M3.8 8.5h2.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></symbol>
+</svg>
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="vpage">
+      <div class="vtop"><h1>Letters</h1><div data-subnav="Letters"></div></div>
+
+      <div class="cols lt">
+        <article class="tile lit letter" aria-labelledby="lt-title">
+          <div class="dateline"><span class="label" id="lt-title">Week 6 · 6–12 October</span><span class="caption">Sunday evening</span></div>
+          <div class="prose">
+            <p class="hello">Sam,</p>
+            <p>You called Bo’s big river bets <b>9</b> times this week. <b>Six</b> were right, and you said why <b>five</b> times.</p>
+            <p>Your fold to big river bets went from <b>61%</b> to <b>38%</b>, which is where the price says it should be. That’s your rule from 3 October doing the work.</p>
+            <p>The one that still costs you: folding to c-bets on dry boards, <b>68%</b>. Next week starts there.</p>
+          </div>
+          <div class="sign"><span class="dee" data-pose="pleased" data-size="26"></span>— Dee</div>
+          <p class="ps hide-sm">P.S. Your rule from 3 October, in your words: “the price is the call over the pot after I call.” You gave it as your reason five times this week.</p>
+
+          <div class="letter-foot">
+            <div>
+              <span class="label">Hand of the week</span>
+              <div class="hand">
+                <div class="mini" aria-label="You: king of hearts, two of diamonds"><div class="card red"><span class="rk">K</span><span class="st">♥</span></div><div class="card red"><span class="rk">2</span><span class="st">♦</span></div></div>
+                <span class="on bd">on</span>
+                <div class="mini bd" aria-label="Board: 4 of spades, 4 of diamonds, king of diamonds, 9 of clubs, jack of spades"><div class="card"><span class="rk">4</span><span class="st">♠</span></div><div class="card red"><span class="rk">4</span><span class="st">♦</span></div><div class="card red"><span class="rk">K</span><span class="st">♦</span></div><div class="card"><span class="rk">9</span><span class="st">♣</span></div><div class="card"><span class="rk">J</span><span class="st">♠</span></div></div>
+              </div>
+              <div class="hand-t"><span class="grow"><b>The Long Call</b><span class="caption">Called Bo’s 450 at a 31% price, Sure</span></span><span class="num pos-num">+1450</span></div>
+            </div>
+            <div class="next">
+              <span class="label">Next week starts with</span>
+              <b>Folding to c-bets on dry boards</b>
+              <button class="btn primary sm">Start with c-bets</button>
+            </div>
+          </div>
+        </article>
+
+        <aside class="stack" aria-label="The week in numbers and earlier letters">
+          <div class="sec"><h2>The week in three numbers</h2><span class="caption hide-sm">Weeks 1–6</span></div>
+          <div class="nums">
+            <div class="tile lit fig hero">
+              <span class="label">Fold to big river bets</span>
+              <span class="t-score num">38%<small>was 61%</small></span>
+              <span class="caption more">Where the price says it should be</span>
+              <svg class="spark" width="128" height="56" viewBox="0 0 128 56" role="img" aria-label="Fold to big river bets by week: 61, 59, 55, 49, 44, 38 percent">
+                <line class="base" x1="0" y1="52" x2="128" y2="52"/>
+                <polyline class="ln" points="6,8 29,11 52,17 75,26 98,34 121,43"/>
+                <circle class="pt0" cx="6" cy="8" r="3"/><circle class="pt" cx="121" cy="43" r="4"/>
+                <g class="hit"><circle cx="6" cy="8" r="9"><title>Week 1: 61%</title></circle><circle cx="29" cy="11" r="9"><title>Week 2: 59%</title></circle><circle cx="52" cy="17" r="9"><title>Week 3: 55%</title></circle><circle cx="75" cy="26" r="9"><title>Week 4: 49%</title></circle><circle cx="98" cy="34" r="9"><title>Week 5: 44%</title></circle><circle cx="121" cy="43" r="9"><title>Week 6: 38%</title></circle></g>
+              </svg>
+            </div>
+            <div class="tile fig">
+              <span class="label">River calls against Bo</span>
+              <span class="v num">6 of 9 <small>right</small></span>
+              <span class="caption">Ringed: you said why (5)</span>
+              <svg class="dots" width="136" height="30" viewBox="0 0 136 30" role="img" aria-label="9 river calls: 6 right, 5 of them with a reason; 3 not right"><circle class="right" cx="7" cy="15" r="3.6"/><circle class="why" cx="7" cy="15" r="6.2"/><circle class="right" cx="21" cy="15" r="3.6"/><circle class="why" cx="21" cy="15" r="6.2"/><circle class="right" cx="35" cy="15" r="3.6"/><circle class="why" cx="35" cy="15" r="6.2"/><circle class="right" cx="49" cy="15" r="3.6"/><circle class="why" cx="49" cy="15" r="6.2"/><circle class="right" cx="63" cy="15" r="3.6"/><circle class="why" cx="63" cy="15" r="6.2"/><circle class="right" cx="77" cy="15" r="3.6"/><circle class="wrong" cx="97" cy="15" r="3.6"/><circle class="wrong" cx="111" cy="15" r="3.6"/><circle class="wrong" cx="125" cy="15" r="3.6"/></svg>
+            </div>
+            <div class="tile fig">
+              <span class="label">Fold to c-bets, dry boards</span>
+              <span class="v num">68% <small>hasn’t moved</small></span>
+              <span class="caption">Your costliest spot now</span>
+              <svg class="spark" width="128" height="34" viewBox="0 0 128 34" role="img" aria-label="Fold to c-bets on dry boards by week: 71, 70, 70, 69, 68, 68 percent">
+                <line class="base" x1="0" y1="30" x2="128" y2="30"/>
+                <polyline class="ln" points="6,10 29,11.5 52,11.5 75,13 98,14.5 121,14.5"/>
+                <circle class="pt0" cx="6" cy="10" r="3"/><circle class="pt" cx="121" cy="14.5" r="4"/>
+                <g class="hit"><circle cx="6" cy="10" r="9"><title>Week 1: 71%</title></circle><circle cx="29" cy="11.5" r="9"><title>Week 2: 70%</title></circle><circle cx="52" cy="11.5" r="9"><title>Week 3: 70%</title></circle><circle cx="75" cy="13" r="9"><title>Week 4: 69%</title></circle><circle cx="98" cy="14.5" r="9"><title>Week 5: 68%</title></circle><circle cx="121" cy="14.5" r="9"><title>Week 6: 68%</title></circle></g>
+              </svg>
+            </div>
+          </div>
+
+          <div class="sec" style="margin-top: 20px"><h2>Earlier letters</h2></div>
+          <div class="group past">
+            <button class="row-btn"><span class="wk num">Wk 5</span><span class="grow"><span class="t">The set you folded</span><span class="caption">29 Sep – 5 Oct · first correct set fold</span></span><svg class="chev"><use href="#chev"/></svg></button>
+            <button class="row-btn"><span class="wk num">Wk 4</span><span class="grow"><span class="t">The squeeze from the button</span><span class="caption">22–28 Sep · Q♣J♣ 3-bet, +22 bb</span></span><svg class="chev"><use href="#chev"/></svg></button>
+            <button class="row-btn"><span class="wk num">Wk 3</span><span class="grow"><span class="t">When the flop decides the hand</span><span class="caption">15–21 Sep · your SPR rule, 19 Sep</span></span><svg class="chev"><use href="#chev"/></svg></button>
+          </div>
+          <p class="caption made"><svg aria-hidden="true"><use href="#tpl"/></svg>Written from your numbers by templates, not generated.</p>
+        </aside>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

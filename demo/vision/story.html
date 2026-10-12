@@ -5,94 +5,220 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Offsuit — The Long Orbit</title>
 <link rel="stylesheet" href="vision.css" />
-<!--
-  Vision mock: the story campaign (panel/character-designer.md §3–4). The map is a table seen from above: six
-  venues sit where the seats would, and Dee travels round them clockwise the way the button does. Each venue's
-  rival is one archetype from src/core/archetypes.ts, masked until you beat their boss hand (the existing rule
-  that a villain's archetype stays hidden until the hand ends, jitter.ts / tableTalk.ts). Chapters teach real
-  lessons from src/core/lessons/content and end in a boss puzzle (puzzleScenarios.ts). Nothing is locked:
-  any venue can be opened (PRODUCT-SPEC N1); the orbit is a recommended order, not a gate.
--->
+<!-- Vision round 2, Story: "The Long Orbit" at depth. Six venues round the dealer button's path, REORDERED by your leaks
+     (chapter 3, The River Room, is Bo's room because river calls are your costliest leak; The Ferry Deck moved up for c-bets).
+     At the heart of the orbit: the depth rings (40 / 75 / 100 bb) and how far you've certified. Right: the current chapter.
+     One bone primary: Continue. Dee appears once (the line in the chapter). Sources (vision/personalization-sources.md):
+       chapter order … SessionStats.leaks/leakCostBb (session.ts:130) via recommend() (recommend.ts:219): river calls 1.8 bb × 14, c-bets 68%
+       depth rings … DEPTHS (standing.ts:38), standing() (standing.ts:226), the 100 bb blocks from assessmentBlock.ts (3 of 5)
+       lesson status … conceptStatesFromLog (schedule.ts:334) over fadingLog (session.ts:208); puzzleProgress (session.ts:192)
+       Bo and his numbers … rivals[] (new) from HandRecord.villain (new): river bets 2.1× average, bluffs 44% of big river bets
+       "9 big river calls, 6 right" … this week's decisions[] (session.ts:43), the same numbers as Dee's letter, week 6 -->
 <style>
-  .story { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 28px; height: 100%; max-width: 1060px; margin: 0 auto; align-items: center; }
-  .map { position: relative; width: 100%; aspect-ratio: 1.42; }
-  .map svg.orbit { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .venue { position: absolute; transform: translate(-50%, -22px); display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; width: 150px; }
-  .venue .rival svg { display: block; }
-  .venue .t-head { font-size: var(--t-body); font-weight: 600; line-height: 1.2; }
-  .venue .caption { line-height: 1.25; }
-  .venue.cleared .rival { filter: none; }
-  .venue.now .rival { box-shadow: 0 0 0 2px var(--desk-0), 0 0 0 3.5px oklch(1 0 0 / 0.6); border-radius: 50%; }
-  .seal { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-cap); color: var(--ink-2); }
-  .seal i { width: 7px; height: 7px; border-radius: 50%; background: var(--chip-a); }
-  .map .hub { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-  .map .hub .t-t2 { letter-spacing: -0.01em; }
-  .map .dee-on { position: absolute; transform: translate(-50%, -50%); }
-  .map .dee-on svg { display: block; }
-  .chapter { display: flex; flex-direction: column; gap: 14px; }
-  .ch-head { display: flex; align-items: center; gap: 12px; }
-  .ch-head .rival svg { display: block; }
-  .flat .lrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: var(--t-body); }
-  .flat .lrow .n { width: 18px; color: var(--ink-3); font-size: var(--t-foot); }
-  .flat .lrow .st { margin-left: auto; font-size: var(--t-foot); color: var(--ink-3); }
-  .flat .lrow.done .st { color: var(--ink-2); }
-  .boss { padding: 12px 14px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); display: flex; flex-direction: column; gap: 8px; }
-  .boss .mini .card { --w: 22px; }
+  .story { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-content: stretch; column-gap: 32px; }
+  .orbit { position: relative; min-height: 0; }
+  .orbit > svg.path { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .orbit .cap { position: absolute; left: 18px; top: 14px; }
+  .orbit .cap b { display: block; font-size: var(--t-head); font-weight: 600; }
+
+  /* the heart: depth rings */
+  .hub { position: absolute; left: 50%; top: 49%; transform: translate(-50%, -50%); width: 176px; height: 176px; display: grid; place-items: center; }
+  .hub svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .hub .in { position: relative; text-align: center; }
+  .hub .in .t-score { font-size: 30px; display: block; }
+  .hub .in .k { display: block; margin-top: 0; font-size: var(--t-cap); }
+  .depth-cap { position: absolute; left: 50%; top: calc(49% + 96px); transform: translateX(-50%); white-space: nowrap; }
+  .ring-lab { font-family: var(--font); font-size: 11px; font-weight: 600; fill: var(--ink-2); paint-order: stroke; stroke: oklch(0.11 0.01 262); stroke-width: 5px; stroke-linejoin: round; }
+
+  /* venues */
+  .venue { position: absolute; transform: translate(-50%, -36px); display: flex; flex-direction: column; align-items: center; gap: 6px; width: 150px; text-align: center; }
+  .venue .art { width: 72px; height: 72px; border-radius: 18px; display: grid; place-items: center; flex: none;
+    background: radial-gradient(80% 70% at 50% 30%, oklch(1 0 0 / 0.07), transparent 70%), oklch(0.13 0.01 262 / 0.92);
+    box-shadow: inset 0 0 0 0.5px var(--hair-strong), inset 0 1px 0 oklch(1 0 0 / 0.07), 0 10px 22px -12px oklch(0 0 0 / 0.8); }
+  .venue .art svg { width: 56px; height: 56px; }
+  .venue b { font-size: var(--t-foot); font-weight: 600; color: var(--ink-1); white-space: nowrap; }
+  .venue .s { font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; margin-top: -4px; }
+  .venue.done .s::before { content: "✓ "; color: var(--ink-2); }
+  .venue.locked .art svg { opacity: 0.45; }
+  .venue.locked b { color: var(--ink-2); }
+  .venue.here { transform: translate(-50%, -48px); }
+  .venue.here .art { width: 96px; height: 96px; border-radius: 22px; background: radial-gradient(80% 70% at 50% 28%, oklch(1 0 0 / 0.13), transparent 72%), oklch(0.16 0.01 262 / 0.95);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.30), inset 0 1px 0 oklch(1 0 0 / 0.16), 0 0 0 5px oklch(1 0 0 / 0.05), 0 16px 30px -12px oklch(0 0 0 / 0.85); }
+  .venue.here .art svg { width: 76px; height: 76px; }
+  .venue.here b { font-size: var(--t-body); }
+  .venue.here .s { color: var(--ink-2); }
+
+  /* the chapter */
+  .ch { gap: 0; min-height: 0; }
+  .ch > * { flex: none; }
+  .ch h2 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; margin-top: 3px; }
+  .ch .built { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ch .built .tag b { color: var(--ink-1); font-weight: 600; }
+  .ch .sub { margin-top: 12px; max-width: 56ch; }
+  .ch .dee-line { margin-top: 14px; }
+  .ch .dee-line .say { font-size: var(--t-head); }
+  .lessons { margin-top: 16px; }
+  .lessons .row-btn { padding: 10px 14px; }
+  .lessons .n { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.18); }
+  .lessons .done .n { background: var(--fill-2); color: var(--ink-1); box-shadow: none; }
+  .lessons .next .n { background: var(--fill-3); color: var(--ink-1); box-shadow: var(--thumb-shadow); }
+  .lessons .t { font-size: var(--t-body); font-weight: 500; }
+  .lessons .done .t { color: var(--ink-2); }
+  .lessons .st { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; }
+  .lessons .next .st { color: var(--ink-1); font-weight: 500; }
+  .boss { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 12px 14px; }
+  .boss .hand { display: flex; align-items: center; gap: 8px; }
+  .boss .hand .on { font-size: var(--t-cap); color: var(--ink-3); }
+  .boss .caption { grid-column: 1 / -1; }
+  .go { display: flex; gap: 12px; align-items: center; margin-top: auto; padding-top: 14px; }
+  .order { margin-top: 12px; padding: 4px 0; }
+  .order .r { display: grid; grid-template-columns: 128px minmax(0, 1fr) 84px 34px; gap: 12px; align-items: center; padding: 5px 14px; }
+  .order .r.head { display: block; padding-bottom: 2px; }
+  .order .w { font-size: var(--t-foot); color: var(--ink-1); white-space: nowrap; }
+  .order .bar { height: 4px; border-radius: 2px; background: var(--ring-track); overflow: hidden; }
+  .order .bar i { display: block; height: 100%; border-radius: 2px; background: var(--ring-fill); }
+  .order .v { font-size: var(--t-foot); color: var(--ink-2); text-align: right; white-space: nowrap; }
+  .order .c { font-size: var(--t-cap); color: var(--ink-3); text-align: right; white-space: nowrap; }
+
   @media (max-width: 1000px) {
-    .story { gap: 18px; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
-    .venue { width: 120px; transform: translate(-50%, -17px); } .venue .rival svg { width: 34px; height: 34px; } .venue .caption { display: none; }
-    .map .hub .sub { display: none; }
-    .chapter { gap: 10px; } .flat .lrow { padding: 7px 0; } .boss .support-cap { display: none; }
-    .ch-quote { display: none; }
+    .story { column-gap: 20px; }
+    .hub { width: 146px; height: 146px; } .depth-cap { top: calc(49% + 80px); } .hub .in .t-score { font-size: 24px; }
+    .venue { width: 120px; transform: translate(-50%, -28px); } .venue .art { width: 56px; height: 56px; border-radius: 14px; } .venue .art svg { width: 44px; height: 44px; }
+    .venue.here { transform: translate(-50%, -38px); } .venue.here .art { width: 76px; height: 76px; border-radius: 18px; } .venue.here .art svg { width: 60px; height: 60px; }
+    .ch h2 { font-size: var(--t-t3); } .ch .sub { display: none; } .ch .dee-line .by { display: none; } .boss .caption { display: none; } .order { margin-top: 10px; } .order .r { padding: 5px 12px; grid-template-columns: 116px minmax(0, 1fr) 78px 30px; gap: 10px; } .ch .dee-line { margin-top: 12px; } .ch .dee-line .say { font-size: var(--t-body); }
+    .ch .dee-line .dee svg { width: 34px; height: 34px; }
+    .lessons { margin-top: 12px; } .lessons .row-btn { padding: 8px 12px; } .boss { padding: 10px 12px; margin-top: 10px; }
+    .go .caption { display: none; }
+    .orbit .cap .caption { display: none; }
   }
 </style>
 </head>
-<body data-tab="Story" data-lit="23" data-ring="2">
+<body data-tab="Story" data-streak="23">
 <div class="shell">
   <nav data-nav></nav>
   <main class="main">
-    <div class="page">
-      <div class="story">
-        <section class="map" aria-label="The Long Orbit, six venues">
-          <svg class="orbit" viewBox="0 0 142 100" preserveAspectRatio="none" aria-hidden="true">
-            <defs><linearGradient id="arcfill" x1="0" x2="1"><stop offset="0" stop-color="var(--chip-a)" stop-opacity=".9"/><stop offset="1" stop-color="var(--chip-a)" stop-opacity=".5"/></linearGradient></defs>
-            <ellipse cx="71" cy="50" rx="58" ry="36" fill="oklch(1 0 0 / .02)" stroke="oklch(1 0 0 / .10)" stroke-width=".35"/>
-            <ellipse cx="71" cy="50" rx="50" ry="29" fill="none" stroke="oklch(1 0 0 / .05)" stroke-width=".3" stroke-dasharray="1 1.6"/>
-            <!-- travelled arc: Lighthouse → Toll Road Diner → Library (clockwise from bottom-left) -->
-            <path d="M 20.77 68 A 58 36 0 0 1 71 14" fill="none" stroke="url(#arcfill)" stroke-width=".7" stroke-linecap="round"/>
+    <div class="vpage cols story">
+      <section class="stage orbit" id="orbit" aria-label="The Long Orbit: six chapters, ordered by your leaks">
+        <div class="cap"><b>The Long Orbit</b><span class="caption">Ordered by what costs you most</span></div>
+        <svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <mask id="gaps" maskUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120"><rect x="-10" y="-10" width="120" height="120" fill="#FFFFFF"/><g id="holes" fill="#000000"></g></mask>
+          <g mask="url(#gaps)"><ellipse cx="50" cy="47" rx="37" ry="35" fill="none" stroke="#FFFFFF" stroke-opacity=".13" stroke-width="1.2" stroke-dasharray="1 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+          <path id="travelled" fill="none" stroke="#F4F2EC" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round" vector-effect="non-scaling-stroke"/></g>
+        </svg>
+
+        <div class="hub" role="img" aria-label="Depth: 40 bb and 75 bb certified, 100 bb at 3 of 5 blocks">
+          <svg viewBox="0 0 190 190" aria-hidden="true">
+            <g transform="rotate(-90 95 95)" fill="none" stroke-width="3">
+              <circle cx="95" cy="95" r="88" stroke="#FFFFFF" stroke-opacity=".12" stroke-dasharray="516.9 36" stroke-dashoffset="-18"/>
+              <circle cx="95" cy="95" r="88" stroke="#F4F2EC" stroke-linecap="round" stroke-dasharray="0 19 310 300"/>
+              <circle cx="95" cy="95" r="68" stroke="#D9D4C8" stroke-opacity=".62" stroke-dasharray="403.3 24" stroke-dashoffset="-12"/>
+              <circle cx="95" cy="95" r="48" stroke="#D9D4C8" stroke-opacity=".42" stroke-dasharray="281.6 20" stroke-dashoffset="-10"/>
+            </g>
+            <circle cx="95" cy="95" r="34" fill="oklch(0.08 0.01 262 / .55)"/>
+            <text class="ring-lab" x="95" y="11" text-anchor="middle">100</text>
+            <text class="ring-lab" x="95" y="31" text-anchor="middle">75</text>
+            <text class="ring-lab" x="95" y="51" text-anchor="middle">40</text>
           </svg>
-          <div class="hub"><span class="label">The Long Orbit</span><span class="t-t2">Chapter 3 of 6</span><span class="sub" style="max-width:24ch">After the Kitchen Table: six venues, six regulars.</span></div>
+          <div class="in"><span class="t-score num">75</span><span class="k">bb</span></div>
+        </div>
+        <p class="caption depth-cap">100 bb: 3 of 5 blocks</p>
+      </section>
 
-          <div class="venue cleared" style="left:14.7%;top:68%"><span class="rival" data-glyph="wick" data-size="44" data-label="Wren Holloway"></span><span class="t-head">The Lighthouse</span><span class="caption">Wren · plays too tight</span><span class="seal"><i></i>Sealed</span></div>
-          <div class="venue cleared" style="left:14.7%;top:32%"><span class="rival" data-glyph="ticket" data-size="44" data-label="Barnaby Tull"></span><span class="t-head">The Toll Road Diner</span><span class="caption">Barnaby · calls too much</span><span class="seal"><i></i>Sealed</span></div>
-          <div class="venue now" style="left:50%;top:14%"><span class="rival" data-glyph="bookmark" data-size="44" data-masked data-label="Masked: The Library's regular"></span><span class="t-head">The Library</span><span class="caption">Masked until the hand ends</span></div>
-          <div class="venue" style="left:85.3%;top:32%"><span class="rival" data-glyph="punch" data-size="44" data-masked data-label="Masked rival"></span><span class="t-head">The Night Train</span><span class="caption">Facing a 3-bet</span></div>
-          <div class="venue" style="left:85.3%;top:68%"><span class="rival" data-glyph="fuse" data-size="44" data-masked data-label="Masked rival"></span><span class="t-head">The Fireworks Pier</span><span class="caption">Trap the big swings</span></div>
-          <div class="venue" style="left:50%;top:86%"><span class="rival" data-glyph="fork" data-size="44" data-masked data-label="Masked rival"></span><span class="t-head">The Observatory</span><span class="caption">The last regular</span></div>
-          <span class="dee-on" style="left:67.2%;top:17.4%"><span class="dee" data-pose="thinking" data-size="54" aria-hidden="true"></span></span>
-        </section>
+      <section class="stack ch" aria-label="Chapter 3, The River Room">
+        <span class="label">Chapter 3 of 6 · moved up from 5</span>
+        <h2>The River Room</h2>
+        <div class="built"><span class="tag">Built from your leak: <b>river calls, 1.8 bb a time</b></span></div>
+        <p class="sub">A low room over the water, where the last card lands. Bo runs the game here and bets the river 2.1 times as often as anyone.</p>
 
-        <section class="chapter">
-          <div class="ch-head"><span class="rival" data-glyph="bookmark" data-size="48" data-masked data-label="Masked rival"></span>
-            <div><div class="label">Chapter 3</div><div class="t-t2">The Library</div></div></div>
-          <p class="sub ch-quote">A reading room after hours. One regular folds almost everything to a big bet and has never once said why. Find out what that costs them.</p>
-          <div class="flat sect">
-            <div class="lrow done"><span class="n num">1</span>Alpha: the bluff price<span class="st">Done</span></div>
-            <div class="lrow done"><span class="n num">2</span>SPR sets the plan<span class="st">Done</span></div>
-            <div class="lrow"><span class="n num">3</span>Small blind: raise or fold<span class="st">12 min</span></div>
+        <div class="dee-line">
+          <span class="dee" data-pose="attentive" data-size="40"></span>
+          <p class="say">You called his big river bets 9 times this week and six were right. This room is about the other three.
+            <span class="by">Dee · from this week’s river decisions against Bo</span></p>
+        </div>
+
+        <div class="group lessons" role="list">
+          <button class="row-btn done" role="listitem"><span class="n">✓</span><span class="grow t">The price after you call</span><span class="st">Done 3 Oct</span></button>
+          <button class="row-btn next" role="listitem"><span class="n">2</span><span class="grow t">What his bluffs are worth</span><span class="st">Next · 6 min</span></button>
+          <button class="row-btn" role="listitem"><span class="n">3</span><span class="grow t">When the river pairs the board</span><span class="st">8 min</span></button>
+        </div>
+
+        <div class="tile boss">
+          <div><span class="k">The room’s last hand · Bo · 100 bb deep</span></div>
+          <span class="k">after lesson 3</span>
+          <div class="hand" aria-label="You hold ace of clubs, jack of diamonds. Board: ace of hearts, 8 of spades, 3 of clubs, 10 of diamonds, 2 of spades">
+            <span class="mini"><span class="card"><span class="rk">A</span><span class="st">♣</span></span><span class="card red"><span class="rk">J</span><span class="st">♦</span></span></span>
+            <span class="on">on</span>
+            <span class="mini"><span class="card red"><span class="rk">A</span><span class="st">♥</span></span><span class="card"><span class="rk">8</span><span class="st">♠</span></span><span class="card"><span class="rk">3</span><span class="st">♣</span></span><span class="card red"><span class="rk">T</span><span class="st">♦</span></span><span class="card"><span class="rk">2</span><span class="st">♠</span></span></span>
           </div>
-          <div class="boss">
-            <div class="row"><span class="label">The regular’s hand</span><span class="caption" style="margin-left:auto">River · 100 bb deep</span></div>
-            <div class="row"><span class="mini"><span class="card"><span class="rk">7</span><span class="st">♠</span></span><span class="card"><span class="rk">6</span><span class="st">♠</span></span></span><span class="caption">on</span><span class="mini"><span class="card"><span class="rk">K</span><span class="st">♣</span></span><span class="card red"><span class="rk">Q</span><span class="st">♦</span></span><span class="card"><span class="rk">8</span><span class="st">♠</span></span><span class="card"><span class="rk">2</span><span class="st">♣</span></span><span class="card red"><span class="rk">3</span><span class="st">♥</span></span></span></div>
-            <p class="caption support-cap">Missed draw, checked to you. The price of a pot-size bluff is 1 time in 2. How often must they fold?</p>
-          </div>
-          <div class="row"><button class="btn primary lg">Play the regular’s hand</button><button class="btn quiet">Lesson 3 first</button></div>
-        </section>
-      </div>
+          <span></span>
+          <p class="caption">Bo bets 600 into 700 on the river. You’ll know the price before you see it.</p>
+        </div>
+
+        <div class="tile order" aria-label="Why this order">
+          <div class="r head"><span class="k">Why this order: your leaks, costliest first</span></div>
+          <div class="r"><span class="w">River calls</span><span class="bar"><i style="width:100%"></i></span><span class="v num">1.8 bb × 14</span><span class="c">Ch 3</span></div>
+          <div class="r"><span class="w">Folding to c-bets</span><span class="bar"><i style="width:62%"></i></span><span class="v num">68% folds</span><span class="c">Ch 4</span></div>
+          <div class="r"><span class="w">Bluffing rivers</span><span class="bar"><i style="width:30%"></i></span><span class="v num">0.5 bb × 9</span><span class="c">Ch 5</span></div>
+        </div>
+
+        <div class="go">
+          <button class="btn primary lg">Continue: lesson 2 <span class="kbd">↩</span></button>
+          <span class="caption">About 6 minutes</span>
+        </div>
+      </section>
     </div>
   </main>
 </div>
 <script src="shell.js"></script>
 <script src="dee.js"></script>
+<script>
+  // Venue art, drawn (viewBox 0 0 56 56): bone line on a dark tile, each a different place. Materials from the bone/chip tokens.
+  const L = 'fill="none" stroke="#F4F2EC" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"';
+  const S = 'fill="none" stroke="#D9D4C8" stroke-opacity=".45" stroke-width="1" stroke-linecap="round"';
+  const ART = {
+    // 1 The Kitchen Table: a pendant lamp over a round table, its pool of light.
+    kitchen: `<path ${S} d="M28 4v12"/><path ${L} d="M20 22c0-5 3.6-7 8-7s8 2 8 7z"/><ellipse cx="28" cy="40" rx="17" ry="4" fill="#F4F2EC" fill-opacity=".08"/><path ${L} d="M11 40h34M16 40v10M40 40v10"/><path ${S} d="M22 24l-6 14M34 24l6 14"/>`,
+    // 2 The Night Train: a carriage window, the line of lamps going by.
+    train: `<rect x="9" y="12" width="38" height="26" rx="6" ${L}/><path ${S} d="M9 25h38"/><g fill="#F4F2EC"><circle cx="17" cy="19" r="1.2" fill-opacity=".8"/><circle cx="26" cy="19" r="1.2" fill-opacity=".5"/><circle cx="35" cy="19" r="1.2" fill-opacity=".3"/></g><path ${S} d="M6 44h10M20 44h22M46 44h4"/><path ${L} d="M14 32h10"/>`,
+    // 3 The River Room: a lamp-lit arch over moving water.
+    river: `<path ${L} d="M6 30h44"/><path ${L} d="M12 30c0-9 7-15 16-15s16 6 16 15"/><path ${S} d="M20 30c0-5 3.5-8 8-8s8 3 8 8"/><path ${L} d="M44 15v-6"/><circle cx="44" cy="8" r="2.2" fill="#F4F2EC"/>
+      <path ${S} d="M8 38c4-2 8 2 12 0s8 2 12 0 8 2 12 0"/><path ${S} d="M12 45c4-2 8 2 12 0s8 2 12 0 6 2 8 1" stroke-opacity=".3"/><path d="M26 38c1.3-.7 2.7.7 4 0" stroke="#F4F2EC" stroke-width="1.4" fill="none" stroke-linecap="round"/>`,
+    // 4 The Ferry Deck: a ferry on flat water, its deck boards.
+    ferry: `<path ${L} d="M8 34h40l-5 8H13z"/><path ${L} d="M16 34v-8h20v8M22 26v-6h6v6"/><path ${S} d="M19 30h14"/><path ${S} d="M28 20v-6M31 12c2-1 4 0 6-1"/><path ${S} d="M6 47h12M24 47h26" stroke-opacity=".3"/>`,
+    // 5 The Lighthouse: a tower and the beam it sends out over the water.
+    light: `<path ${L} d="M24 46l2-26h4l2 26z"/><path ${L} d="M23 20h10M25 16h6v4h-6z"/><path d="M31 18l19-6v12z" fill="#F4F2EC" fill-opacity=".12"/><path ${S} d="M25 32h6M24.5 39h7"/><path ${S} d="M8 48c6-2 12 2 18 0s14 2 22 0"/>`,
+    // 6 The Observatory: a dome with its slit open and three stars.
+    obs: `<path ${L} d="M12 40c0-10 7-17 16-17s16 7 16 17z"/><path ${L} d="M10 40h36v6H10z"/><path ${L} d="M26 23.2 28 40M30 23.2 28 40" stroke-opacity=".7"/><path ${S} d="M34 22l8-10"/><g fill="#F4F2EC"><circle cx="44" cy="9" r="1.3"/><circle cx="15" cy="12" r="1"/><circle cx="24" cy="7" r=".8" fill-opacity=".6"/></g>`,
+  };
+  // [key, chapter, name, status, class, angle on the orbit (deg, clockwise from 3 o'clock)]
+  const CH = [
+    ['kitchen', 1, 'The Kitchen Table', 'Certified 40 bb', 'done', 150],
+    ['train', 2, 'The Night Train', 'SPR · done', 'done', 210],
+    ['river', 3, 'The River Room', 'You’re here · Bo’s room', 'here', 270],
+    ['ferry', 4, 'The Ferry Deck', 'Up from 6 · c-bets', '', 330],
+    ['light', 5, 'The Lighthouse', 'Bluffing', 'locked', 30],
+    ['obs', 6, 'The Observatory', '100 bb, the last room', 'locked', 90],
+  ];
+  const orbit = document.getElementById('orbit'), CX = 50, CY = 47, RX = 37, RY = 35;
+  const pt = (deg) => [CX + RX * Math.cos(deg * Math.PI / 180), CY + RY * Math.sin(deg * Math.PI / 180)];
+  for (const [k, n, name, s, cls, deg] of CH) {
+    const [x, y] = pt(deg), el = document.createElement('div');
+    el.className = 'venue ' + cls; el.style.left = x + '%'; el.style.top = y + '%';
+    el.setAttribute('role', 'img'); el.setAttribute('aria-label', `Chapter ${n}, ${name}. ${s}`);
+    el.innerHTML = `<span class="art"><svg viewBox="0 0 56 56" aria-hidden="true">${ART[k]}</svg></span><b>${n} · ${name}</b><span class="s">${s}</span>`;
+    orbit.append(el);
+  }
+  // The button's path so far: chapter 1 to chapter 3, clockwise.
+  const [x1, y1] = pt(150), [x3, y3] = pt(270);
+  document.getElementById('travelled').setAttribute('d', `M${x1} ${y1} A${RX} ${RY} 0 0 1 ${x3} ${y3}`);
+  // The path breaks behind each venue's label, so no line runs through the type.
+  const holes = document.getElementById('holes');
+  const cut = () => {
+    const o = orbit.getBoundingClientRect();
+    holes.innerHTML = [...orbit.querySelectorAll('.venue b, .venue .s')].map((t) => { const r = t.getBoundingClientRect(), pad = 4;
+      return `<rect x="${(r.left - o.left - pad) / o.width * 100}" y="${(r.top - o.top - 2) / o.height * 100}" width="${(r.width + pad * 2) / o.width * 100}" height="${(r.height + 4) / o.height * 100}"/>`; }).join('');
+  };
+  cut(); document.fonts?.ready.then(cut); addEventListener('resize', cut);
+</script>
 </body>
 </html>

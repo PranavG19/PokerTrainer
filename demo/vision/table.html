@@ -3,20 +3,25 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Offsuit — the table with Dee</title>
+<title>Offsuit — Table, with Dee</title>
 <link rel="stylesheet" href="vision.css" />
 <link rel="stylesheet" href="table-dee.css" />
 <!--
-  Vision mock: the round-3 glass table (demo/glass/table.html, same hand and copy) with Dee coaching. Two states:
-    ?state=mistake — hero folded K♥2♦ (two pair) to a 25% price: the engine's serious verdict, word for word
-                     (coach.ts buildMessage). Dee hops onto the sheet's rim, On-edge pose, coral rim, and adds NO
-                     words (panel/character-designer.md §5 in-hand rule): the hand plays on behind the sheet, so
-                     this is pose only. Dee's one line waits for the hand-end beat.
-    ?state=great   — same flop, hero holds 7♦6♦ (a flush draw, ~33% vs Bo's betting range) facing the 25% price:
-                     a CLOSE spot. Hero committed Call · Sure with a price reason. The grade is free, so the coach
-                     is silent during the hand. At the hand-end beat Dee shows "Price held" with the numbers.
-                     Bo wins the pot, on purpose: the beat is about the decision, never the result.
-                     No reps pop up (no per-item XP). The equity figure is illustrative, not computed.
+  VISION ROUND 2: the shipped `sports` table with Dee. States: ?state=live (coached: the commit tray, Dee's lights glance at
+  the reason you're typing, from the perch; Dee says nothing in-hand), ?state=mistake (the verdict, with Dee perched on the
+  sheet's rim and one personal line that quotes YOUR rule back), ?state=great ("Price held": the hand-end beat).
+  Personal lines come from: lexicon (session.ts:200, your accepted sentences), leaks/leakCostBb (session.ts:130),
+  hands[].decisions (session.ts:43). Below: the shipped glass table markup, unchanged.
+  One hand, four states (mock-only; pick with ?state=):
+    live     — flop, hero to act, coach off, action dock live (default)
+    predict  — coach on: the commit tray takes the dock's place until hero commits
+    gate     — hero folded (a serious mistake), so the verdict is withheld behind the one-line mechanism prompt
+    verdict  — after the gate: the coach verdict and the prediction result
+  Hand: blinds 25/50, hero on the button. Cy (UTG) folds, hero limps 50, Ada (SB) completes, Bo (BB) checks.
+  Flop 4♠ 4♦ K♦: Ada checks, Bo bets 75. Pot 225, 75 to call (25% price). Hero K♥ 2♦ = two pair.
+  Real copy: predictPanel.ts, predict.ts predictResultText, coach.ts buildMessage, confidence.ts, table.ts GATE,
+  coachPanel.ts, tableTalk.ts (the engine's pick: IN_HAND_LINES[action][(seat.id + board.length) % 6]), jitter.ts (archetype hidden as "Unknown" until the hand ends).
+  Material: the window is one coat; only the dock/tray and one sheet are glass (round 3: thinner floats with a light rim).
 -->
 </head>
 <body data-tab="Play">
@@ -72,8 +77,8 @@
 
       <div class="hero-plate act" id="hero" role="group" aria-label="You, button, to act">
         <div class="cards">
-          <div class="card red" style="--i:4;--fy:-160px"><span class="rk">7</span><span class="st">♦</span><span class="pip">♦</span></div>
-          <div class="card red" style="--i:8;--fy:-160px"><span class="rk">6</span><span class="st">♦</span><span class="pip">♦</span></div>
+          <div class="card red" style="--i:4;--fy:-160px"><span class="rk">2</span><span class="st">♦</span><span class="pip">♦</span></div>
+          <div class="card red" style="--i:8;--fy:-160px"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div>
         </div>
         <div class="who">
           <div class="name">You</div>
@@ -83,19 +88,61 @@
         <span class="dealer" style="left:-4px;bottom:2px" role="img" aria-label="dealer button">D</span>
       </div>
 
-      <div class="dock float" id="dock" role="toolbar" aria-label="Your action" hidden>
+      <!-- Commit tray (predict state). All four actions stay enabled even when one is illegal (predictPanel.ts). -->
+      <div class="tray float" id="tray" hidden>
+        <div class="q">Commit first: which action, and how sure are you?</div>
+        <div class="row">
+          <div class="seg" role="radiogroup" aria-label="Predicted action">
+            <button role="radio" aria-checked="true">Fold</button><button role="radio" aria-checked="false">Check</button><button role="radio" aria-checked="false">Call</button><button role="radio" aria-checked="false">Raise</button>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Confidence">
+            <button role="radio" aria-checked="false">Sure</button><button role="radio" aria-checked="false">Guess</button>
+          </div>
+          <input class="field" type="text" placeholder="Why? (optional — graded separately)" aria-label="Why (optional)" value="25% price, two pair is ahead of most of Bo’s bets" />
+        </div>
+      </div>
+
+      <div class="dock float" id="dock" role="toolbar" aria-label="Your action">
         <button class="btn">Fold <span class="kbd">F</span></button>
         <button class="btn" disabled>Check</button>
         <button class="btn">Call <span class="num">75</span> <span class="kbd">C</span></button>
         <span class="sep"></span>
+        <label class="slider"><input class="range" type="range" min="150" max="4950" step="25" value="150" data-out="#amt" aria-label="Raise amount" /><span class="amount num" id="amt">150</span></label>
+        <div class="seg sm" role="group" aria-label="Bet size">
+          <button aria-label="Bet half pot"><span class="frac">½</span></button><button aria-label="Bet three-quarter pot"><span class="frac">¾</span></button><button aria-label="Bet pot">Pot</button><button aria-label="Bet all-in" title="All-in (A)">All-in</button>
+        </div>
+        <span class="sep"></span>
         <button class="btn primary">Raise <span class="kbd">R</span></button>
       </div>
 
-      <!-- Mistake: the engine's verdict sheet; Dee perches on its rim and changes pose only. -->
+      <!-- Gate (table.ts GATE: one prompt, two attempts, one 8 s budget). -->
+      <div id="gate" hidden>
+        <div class="scrim"></div>
+        <section class="sheet float sheet-surface" role="dialog" aria-modal="true" aria-labelledby="gprompt" tabindex="-1">
+          <div class="sheet-head"><span class="label">Coach</span><span class="ctx">Attempt 1 of 2</span></div>
+          <p class="verdict" id="gprompt">In one line: what range or price drives this?</p>
+          <div class="budget" role="progressbar" aria-label="Time to answer" aria-valuemin="0" aria-valuemax="8" aria-valuenow="5"><i></i></div>
+          <div class="gate-row">
+            <input class="field" type="text" placeholder="One line — name the range or the price." aria-labelledby="gprompt" />
+            <button class="btn primary">Submit <span class="kbd">↩</span></button>
+          </div>
+          <p class="caption">The verdict appears when you answer, use both attempts, or the bar runs out.</p>
+        </section>
+      </div>
+
+      <!-- "Price held": the hand-end beat. One float in the dock's slot; Dee hops once with arc eyes (P16). -->
+      <section class="beat-tray float" id="beat" hidden role="status" aria-label="Hand over">
+        <span class="dee" data-pose="pleased" data-size="44"></span>
+        <div class="beat-body">
+          <p class="t-head"><b>Price held.</b> 31% needed, you had 34%, and you called it Sure for the right reason.</p>
+          <p class="caption">That’s the river call you missed twice last week. It goes in your hands as a kept hand.</p>
+        </div>
+        <div class="beat-actions"><button class="btn quiet sm">Replay</button><button class="btn primary">Next hand <span class="kbd">↩</span></button></div>
+      </section>
+
       <div id="verdict" hidden>
         <div class="scrim"></div>
-        <section class="sheet float sheet-surface has-dee" role="dialog" aria-modal="true" aria-labelledby="vmsg" tabindex="-1">
-          <span class="dee perched" data-pose="serious" data-size="74" data-label="Dee, on edge"></span>
+        <section class="sheet float sheet-surface" role="dialog" aria-modal="true" aria-labelledby="vmsg" tabindex="-1">
           <div class="sheet-head"><span class="sev serious"><svg aria-hidden="true"><use href="#warn"/></svg>Serious</span><span class="ctx">On the flop, you folded to 75</span></div>
           <div class="grp">
             <p class="verdict" id="vmsg" data-testid="coach-message">Folding with 74% pot share when only 25% was needed costs ~2.9&nbsp;bb.</p>
@@ -109,6 +156,11 @@
           <div class="grp">
             <div class="commit">You committed to <b>Fold</b>, <b>Sure</b></div>
             <p class="result" data-testid="predict-result">You were SURE about fold and it was a mistake — study this one.</p>
+            <div class="yours">
+              <span class="dee perched-dee" data-pose="serious" data-size="28"></span>
+              <div><p class="mine">Your rule, from 3 October: <q>the price is the call over the pot after I call.</q> Here that’s 75 over 300, so 25%. You had 74%.</p>
+              <p class="caption">The third pot-odds fold this month. This spot comes back on day 2 and day 7.</p></div>
+            </div>
           </div>
           <div class="sheet-foot">
             <span class="caption">Ada and Bo play the hand out behind this sheet</span>
@@ -116,49 +168,45 @@
           </div>
         </section>
       </div>
-
-      <!-- Great: silence during the hand; at the hand-end beat, one small float with the numbers. -->
-      <div id="great" hidden>
-        <section class="tray float beat-tray" role="status" aria-label="Dee, after the hand">
-          <span class="dee" data-pose="glint" data-size="60" data-label="Dee, price held"></span>
-          <div class="beat-body">
-            <p class="t-head">Price held. 25% needed, 33% had: a close one.</p>
-            <p class="caption">You said <b>Sure</b> and your reason named the price. Bo’s kings held, and the call was still right.</p>
-            <div class="mirror"><span class="tag">Sure and right · 9 of last 11</span><span class="tag">pot odds · due again day 21</span></div>
-          </div>
-          <div class="beat-actions"><button class="btn quiet">Replay</button><button class="btn primary">Next hand <span class="kbd">N</span></button></div>
-        </section>
-      </div>
-      </div>
     </section>
   </main>
 </div>
 <script src="shell.js"></script>
+<script>
+  const state = new URLSearchParams(location.search).get('state') || 'live';
+  document.documentElement.dataset.felt = 'sports';   // the shipped table (DECISIONS.md: the user chose sports)
+  if (state === 'live') document.body.dataset.perch = 'glance';   // Dee's lights go to what you're typing, from the perch only
+</script>
+<script src="../glass/table-seats.js"></script>
 <script src="dee.js"></script>
 <script>
-  const state = new URLSearchParams(location.search).get('state') || 'mistake';
   const $ = (id) => document.getElementById(id);
-  $('coachBtn').setAttribute('aria-checked', 'true');
+  $('coachBtn').setAttribute('aria-checked', 'true');   // the vision mocks show coached mode
+  if (state === 'live') { $('tray').hidden = false; $('dock').hidden = true; $('stage').classList.add('predicting'); }
+  if (window.layoutSeats) window.layoutSeats();
+  if (state === 'great') {
+    $('dock').hidden = true; $('beat').hidden = false; $('stage').classList.add('beat-open');
+    // The river: Bo bets 450 into 550 (31% price); hero calls with two pair and wins. Bo's archetype shows once the hand ends (jitter.ts).
+    $('hero').classList.remove('act'); $('heroStatus').textContent = 'Called 450, won 1450'; document.querySelector('#hero .stackval').textContent = '5950';
+    const wells = document.querySelectorAll('.board .card.well');
+    wells[0].outerHTML = '<div class="card"><span class="rk">9</span><span class="st">♣</span><span class="pip">♣</span></div>';
+    wells[1].outerHTML = '<div class="card"><span class="rk">J</span><span class="st">♠</span><span class="pip">♠</span></div>';
+    document.querySelector('.pot .val').textContent = '1450';
+    document.querySelector('.price').innerHTML = 'River · Bo bet <b>450</b> into 550, a <b>31%</b> price';
+    document.querySelectorAll('.bet').forEach((b) => b.remove());
+    const bo = [...document.querySelectorAll('.seat')].find((el) => el.querySelector('.name')?.firstChild?.textContent === 'Bo');
+    bo.querySelector('.cards').innerHTML = '<div class="card red"><span class="rk">Q</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card"><span class="rk">J</span><span class="st">♣</span><span class="pip">♣</span></div>';
+    bo.querySelector('.arch').textContent = 'Loose-aggressive'; bo.querySelector('.stackval').textContent = '4050'; bo.querySelector('.quip').textContent = 'Nice call.';
+  }
   if (state === 'mistake') {
-    $('verdict').hidden = false;
-    $('stage').classList.add('sheet-open');
+    const sheet = $('verdict');
+    sheet.hidden = false; $('dock').hidden = true; $('stage').classList.add('sheet-open');
     $('hero').classList.remove('act'); $('hero').classList.add('folded'); $('heroStatus').textContent = 'Folded';
     const behind = [...$('stage').children].filter((el) => el.id !== 'verdict').concat(document.querySelector('[data-nav]'));
     for (const el of behind) { el.inert = true; el.setAttribute('aria-hidden', 'true'); }
-  } else {
-    $('great').hidden = false; $('stage').classList.add('beat-open');
-    $('hero').classList.remove('act'); $('heroStatus').textContent = 'Called 75';
-    // the turn and river came; the wells fill
-    const wells = document.querySelectorAll('.board .card.well');
-    wells[0].outerHTML = '<div class="card"><span class="rk">9</span><span class="st">♣</span><span class="pip">♣</span></div>';
-    wells[1].outerHTML = '<div class="card"><span class="rk">2</span><span class="st">♣</span><span class="pip">♣</span></div>';
-    document.querySelector('.price').textContent = 'River · Bo shows K♣ Q♠';
-    document.querySelector('#hero .stackval').textContent = '4875';
-    document.querySelector('.bet-bo')?.remove();
-    document.querySelector('.pot .val').textContent = '375';
-    for (const q of document.querySelectorAll('.quip')) q.remove();
+    sheet.querySelector('.sheet').focus();
   }
+  if (window.layoutSeats) window.layoutSeats();
 </script>
-
 </body>
 </html>

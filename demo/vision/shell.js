@@ -1,27 +1,27 @@
-// Vision mock shell (copied from demo/glass/shell.js): adds the new tab set and Dee's perch in the title bar.
-// Mock-only shell: the window chrome (traffic lights, wordmark, the real 11 tabs from src/renderer/main.ts TABS),
+// Vision mock shell, round 2 (copied from demo/glass/shell.js). Changes: a 7-tab vision set, Dee's perch with the daily
+// streak at the right of the title bar, and the tab thumb re-placed after fonts load (round 1's thumb sat off-centre
+// because it was measured before the perch and the web font settled).
+// Mock-only shell: the window chrome (traffic lights, wordmark, the tabs),
 // the simulated desktop behind the coat, the grain layer, segmented/switch behaviour and the slider fill.
 // No app logic. ?still=1 freezes the gate drain for captures.
 (() => {
   const params = new URLSearchParams(location.search);
   if (params.get('still') === '1') document.documentElement.classList.add('still');
 
-  // Vision tab set (VISION.md D9, a synthesis proposal): Charts folds into Train; Bank, Equity, Ranges and Dossier into
-  // Study; Progress and Settings into Profile (Settings also opens from the perch). Nothing is locked (N1).
-  const GROUPS = [['Home', 'Play', 'Learn', 'Story'], ['Train', 'Study', 'Pro'], ['Locker', 'Profile']];
+  // Vision tabs: play / study / you. Charts folds into Train; Bank, Equity, Ranges, Dossier and Pro into Study;
+  // Progress, Profile, Trophies, Locker, Letters and Settings into You (its own segmented sub-nav). Nothing is locked.
+  const GROUPS = [['Home', 'Play', 'Learn', 'Story'], ['Train', 'Study'], ['You']];
   const active = document.body.dataset.tab;
   const nav = document.querySelector('[data-nav]');
-  // Dee's perch (panel/ux-motion-designer.md §3): a transparent title-bar button with the Lamp count and today's ring.
-  // The ring's three arcs are today's three goals; filled arcs are neutral light (never mint, never amber).
-  function perch() {
-    const lit = Number(document.body.dataset.lit || 23), done = Number(document.body.dataset.ring || 2);
-    const arcs = [0, 1, 2].map((i) => { const a0 = -90 + i * 120 + 4, a1 = a0 + 112, r = 7.5, p = (a) => [9 + r * Math.cos(a * Math.PI / 180), 9 + r * Math.sin(a * Math.PI / 180)].map((n) => n.toFixed(2)).join(' ');
-      return `<path d="M${p(a0)} A${r} ${r} 0 0 1 ${p(a1)}" fill="none" stroke="${i < done ? 'var(--ring-fill)' : 'var(--ring-track)'}" stroke-width="2.4" stroke-linecap="round"/>`; }).join('');
-    return `<button class="perch" aria-label="Dee. ${lit} lit days. Today ${done} of 3."><span class="dee" data-pose="seated" data-size="30" data-token="--dee-perch"></span>` +
-      `<span class="lamp-count num"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M3.2 1h3.6M5 1v1.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><rect x="2" y="2.6" width="6" height="7.2" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="5" cy="6.2" r="1.5" fill="currentColor"/><path d="M2.6 11h4.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>${lit}</span>` +
-      `<svg class="ring" viewBox="0 0 18 18" aria-hidden="true">${arcs}</svg></button>`;
-  }
   const SPADE = '<svg viewBox="0 0 14 14" aria-hidden="true"><path fill="currentColor" d="M7 .8C5.4 3 1.6 5.2 1.6 8.1c0 1.6 1.2 2.7 2.6 2.7.9 0 1.6-.4 2.1-1-.2 1.3-.7 2.3-1.6 3.4h4.6c-.9-1.1-1.4-2.1-1.6-3.4.5.6 1.2 1 2.1 1 1.4 0 2.6-1.1 2.6-2.7C12.4 5.2 8.6 3 7 .8Z"/></svg>';
+  // Dee's perch: Dee at 20px, then today's streak. A transparent title-bar button (no glass of its own). The streak glyph is
+  // a short stack of buttons (one per kept day), never a flame; the count is ink, never mint (mint is not a balance).
+  function perch() {
+    const n = Number(document.body.dataset.streak || 23), today = document.body.dataset.today !== 'open';
+    return `<button class="perch" aria-label="Dee. ${n}-day streak${today ? ', today kept' : ', today not yet played'}.">` +
+      `<span class="dee" data-mark="${document.body.dataset.mark || 'face'}" data-pose="${document.body.dataset.perch || 'rest'}" data-size="20"></span>` +
+      `<span class="streak num${today ? '' : ' open'}"><svg viewBox="0 0 12 12" aria-hidden="true"><ellipse cx="6" cy="9.2" rx="4.6" ry="1.8"/><ellipse cx="6" cy="6.2" rx="4.6" ry="1.8"/><ellipse cx="6" cy="3.2" rx="4.6" ry="1.8"/></svg>${n}</span></button>`;
+  }
   if (nav) {
     nav.className = 'nav';
     nav.setAttribute('aria-label', 'Sections');
@@ -33,9 +33,16 @@
     // One shared selected thumb that slides between tabs (no slide under reduced motion: transition is 1ms).
     const tabs = nav.querySelector('.tabs'), thumb = nav.querySelector('.tab-thumb');
     const place = (btn) => { if (!btn) { thumb.style.display = 'none'; return; } thumb.style.left = btn.offsetLeft + 'px'; thumb.style.width = btn.offsetWidth + 'px'; };
-    place(tabs.querySelector('[aria-current]'));
+    const settle = () => place(tabs.querySelector('[aria-current]'));
+    settle(); requestAnimationFrame(settle); document.fonts?.ready.then(settle); new ResizeObserver(settle).observe(tabs);
     tabs.addEventListener('click', (e) => { const b = e.target.closest('.tab'); if (!b) return; tabs.querySelector('[aria-current]')?.removeAttribute('aria-current'); b.setAttribute('aria-current', 'page'); place(b); });
     addEventListener('resize', () => place(tabs.querySelector('[aria-current]')));
+  }
+  // The You sub-nav: <div data-subnav="Profile"></div> becomes a segmented control (one sliding thumb, below).
+  const SUB = ['Profile', 'Trophies', 'Style', 'Hands', 'Letters', 'Rivals', 'Locker', 'Dee'];
+  for (const el of document.querySelectorAll('[data-subnav]')) {
+    el.className = 'seg subnav'; el.setAttribute('role', 'radiogroup'); el.setAttribute('aria-label', 'You');
+    el.innerHTML = SUB.map((t) => `<button role="radio" aria-checked="${t === el.dataset.subnav}">${t}</button>`).join('');
   }
   // Grain sits on its own top layer (on .shell::after it disabled the coat's backdrop-filter).
   const grain = document.createElement('div'); grain.className = 'grain'; grain.setAttribute('aria-hidden', 'true'); document.body.append(grain);

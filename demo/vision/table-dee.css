@@ -1,27 +1,22 @@
-/* Vision mock: Dee at the table. Dee is never on the felt; it perches on the coach sheet's top rim (one interrupt),
- * and the hand-end beat is a small float at the top right, clear of the felt's centre and the dock.
- * Floats on this screen stay ≤ 2: the sheet (or the beat float) plus the dock. */
-.has-dee { overflow: visible; padding-top: 26px; }
-.dee.perched { position: absolute; top: -50px; left: 18px; z-index: 2; pointer-events: none; }
-.dee.perched svg { display: block; }
-.has-dee .sheet-head { padding-left: 64px; }
-.beat { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong);
-  animation: reveal var(--dur-3) var(--ease) both; animation-delay: 600ms; }
-.beat .dee svg { display: block; margin: -6px; }
-.beat p { font-size: var(--t-body); color: var(--ink-2); line-height: 1.45; }
-.beat p b { color: var(--ink-1); font-weight: 600; }
-.beat-tray { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px 12px 8px; animation: rise var(--dur-4) var(--ease-arc) both; }
-.beat-tray .dee svg { display: block; margin: -8px -4px; }
-.beat-actions { display: flex; gap: 6px; align-self: center; }
-.beat-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.beat-body .caption b { color: var(--ink-1); font-weight: 500; }
-.mirror { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-@keyframes beat-in { from { opacity: 0; transform: translateY(-6px) scale(0.98); } }
-@media (max-width: 1000px) {
-  .beat-tray .dee svg { width: 48px; height: 48px; }
-  .beat-tray .mirror .tag + .tag { display: none; }
-  .sheet { padding-bottom: 12px; gap: 12px; }
-  .meter { height: 30px; }
-}
-.beat-open .hero-plate { bottom: 138px; }
-@media (max-width: 1000px) { .beat-open .hero-plate { bottom: 122px; } .beat-open .center { top: 40%; } }
+/* Vision mock, round 2: Dee at the shipped `sports` table. Dee is never on the felt and says nothing in-hand.
+ * In-hand it is only the 20px perch in the title bar (its lights glance at the reason you type). After a mistake it sits
+ * on the verdict sheet beside YOUR rule, quoted back; after a hard spot played right, the hand-end beat takes the dock's
+ * slot. Floats on this screen stay at most two: the sheet or the beat, plus nothing else (the dock hides). */
+.yours { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+.yours .dee { margin-top: 1px; }
+.mine { font-size: var(--t-body); line-height: 1.5; color: var(--ink-2); }
+.mine q { color: var(--ink-1); font-weight: 500; }
+.yours .caption { margin-top: 4px; }
+
+.beat-tray { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(720px, calc(100% - 32px)); display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center; gap: 14px; padding: 12px 14px 12px 12px; animation: rise var(--dur-4) var(--ease-arc) both; }
+.beat-tray .t-head { font-weight: 400; color: var(--ink-1); line-height: 1.4; }
+.beat-tray .t-head b { font-weight: 600; }
+.beat-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.beat-actions { display: flex; gap: 6px; }
+.beat-tray .dee { animation: hop var(--dur-3) var(--ease-spring) both; animation-delay: 380ms; }
+@keyframes hop { 40% { transform: translateY(-6px); } }
+html[data-felt='sports'] .beat-open .hero-plate { bottom: 104px; }
+html[data-felt='sports'] .beat-open .center { top: 43%; }
+@media (max-width: 1000px) { .beat-tray .caption { display: none; } html[data-felt='sports'] .beat-open .hero-plate { bottom: 90px; } .sheet .yours .caption { display: none; } }
+@media (prefers-reduced-motion: reduce) { .beat-tray .dee { animation: none; } }

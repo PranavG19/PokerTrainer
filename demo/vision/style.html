@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — You · Style</title>
+<link rel="stylesheet" href="vision.css" />
+<!-- Vision round 2, You · Style: your style as a card you'd keep, like a Wallet pass (DESIGN-BRIEF P6: the archetype is the
+     hero). The name describes how you play, never who you are: neutral, earned names, the numbers beside them, recomputed
+     weekly, never an insult (G7, BANNED_PHRASINGS progress.ts:448). The map says where you sit, where you started and what
+     would move you. One bone primary: save the card (it stays on this Mac).
+     Every personal number names its source (vision/personalization-sources.md):
+       VPIP 24%, PFR 17% …              HandRecord.vpip/pfr (session.ts:72), stats.vpipHands/pfrHands (session.ts:127)
+       aggression 2.1, fold to river 38% (was 61%) … derived from HandRecord.decisions[] (session.ts:43: street, action, toCall),
+                                         lifetime counters in SessionStats (new)
+       "take the lead" = PFR ÷ VPIP (71%) and the 6-week trail … the same, bucketed by HandRecord.playedAt (session.ts:80) week
+       quadrant axes …                  the opponents' ArchetypeProfile axes (archetypes.ts:49), applied to you, in neutral names
+       Sam, since 31 Aug, 412 hands …   profile.displayName (new), hands[] (last 500) -->
+<style>
+  .stylep { grid-template-rows: auto minmax(0, 1fr); }
+  .sp { grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.22fr); grid-template-rows: minmax(0, 1fr); column-gap: 30px; min-height: 0; }
+
+  /* The card on its stage */
+  .stage.card-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 18px; min-height: 0; }
+  .pass-wrap { filter: drop-shadow(0 22px 26px oklch(0 0 0 / 0.55)) drop-shadow(0 2px 4px oklch(0 0 0 / 0.4)); }
+  .pass { --notch: 58px; position: relative; width: 306px; height: 440px; border-radius: var(--r-sheet); padding: 18px 20px 0; display: flex; flex-direction: column; overflow: hidden;
+    background: radial-gradient(90% 60% at 18% 0%, oklch(1 0 0 / 0.10), transparent 60%), linear-gradient(160deg, oklch(0.31 0.01 262), oklch(0.2 0.01 262) 55%, oklch(0.15 0.01 262));
+    box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.24), inset 0 1px 0 oklch(1 0 0 / 0.28);
+    -webkit-mask: radial-gradient(circle 9px at 0 calc(100% - var(--notch)), transparent 96%, black), radial-gradient(circle 9px at 100% calc(100% - var(--notch)), transparent 96%, black);
+    -webkit-mask-composite: source-in; mask-composite: intersect; }
+  .pass-art { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .pass > :not(.pass-art) { position: relative; }
+  .pass-top { display: flex; justify-content: space-between; align-items: center; font-size: var(--t-cap); color: var(--ink-2); font-weight: 600; letter-spacing: 0.02em; }
+  .pass-top .b { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-1); font-size: var(--t-foot); letter-spacing: -0.005em; }
+  .pass-top .b svg { width: 11px; height: 11px; }
+  .pass-emblem { margin-top: 30px; width: 58px; height: 58px; }
+  .pass-k { margin-top: 16px; font-size: var(--t-foot); color: var(--ink-3); font-weight: 500; }
+  .pass-name { font-size: var(--t-hero); font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; margin-top: 2px; }
+  .pass-sub { margin-top: 6px; font-size: var(--t-body); color: var(--ink-2); }
+  .pass-nums { margin-top: auto; margin-bottom: 18px; display: grid; grid-template-columns: 1fr 1fr; row-gap: 12px; column-gap: 14px; }
+  .pass-nums dt { font-size: var(--t-cap); color: var(--ink-3); font-weight: 500; }
+  .pass-nums dd { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
+  .pass-nums dd small { font-size: var(--t-cap); color: var(--ink-3); font-weight: 500; margin-left: 4px; letter-spacing: 0; }
+  .pass-foot { height: var(--notch); flex: none; margin: 0 -6px; padding: 0 6px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: linear-gradient(90deg, var(--hair-strong) 50%, transparent 0) top left / 6px 1px repeat-x; font-size: var(--t-foot); color: var(--ink-2); }
+  .pass-foot b { color: var(--ink-1); font-weight: 600; }
+  .stage-act { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  /* The style map */
+  .mapcol { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .map { position: relative; flex: 1 1 250px; min-height: 170px; max-height: 280px; margin-left: 22px; border-radius: var(--r-group); overflow: visible;
+    background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .map .q { position: absolute; width: 50%; height: 50%; padding: 10px 12px; font-size: var(--t-foot); font-weight: 600; color: var(--ink-3); }
+  .map .q.tl { left: 0; top: 0; background: oklch(1 0 0 / 0.045); border-radius: var(--r-group) 0 0 0; color: var(--ink-1); }
+  .map .q.tr { right: 0; top: 0; text-align: right; } .map .q.bl { left: 0; bottom: 0; display: flex; align-items: flex-end; } .map .q.br { right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: flex-end; }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .map .axis { stroke: var(--hair-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .map .trail { fill: none; stroke: oklch(1 0 0 / 0.42); stroke-width: 1.5; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+  .map .w { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--desk-0); box-shadow: inset 0 0 0 1.5px oklch(1 0 0 / var(--o, 0.5)); }
+  .map .me { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: radial-gradient(circle at 40% 32%, oklch(1 0 0), var(--bone) 70%);
+    box-shadow: 0 0 0 3px var(--desk-0), 0 0 0 4px oklch(1 0 0 / 0.5), 0 4px 10px oklch(0 0 0 / 0.5); }
+  .map .ml { position: absolute; font-size: var(--t-foot); white-space: nowrap; }
+  .map .ml b { display: block; color: var(--ink-1); font-weight: 600; }
+  .map .ml span { color: var(--ink-2); }
+  .map .sl { position: absolute; font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; }
+  .yax { position: absolute; left: -22px; top: 0; bottom: 0; width: 16px; display: flex; align-items: center; justify-content: center; }
+  .yax span { transform: rotate(-90deg); white-space: nowrap; font-size: var(--t-cap); color: var(--ink-3); }
+  .xax { display: flex; justify-content: space-between; margin: 6px 0 0 22px; font-size: var(--t-cap); color: var(--ink-3); }
+  .xax b { color: var(--ink-2); font-weight: 500; }
+
+  .quads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .quads .tile { padding: 11px 13px; }
+  .quads h3 { font-size: var(--t-body); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .quads p { font-size: var(--t-foot); color: var(--ink-2); line-height: 1.45; margin-top: 3px; }
+  .quads .chg { color: var(--ink-3); margin-top: 4px; }
+  .quads .chg b { color: var(--ink-2); font-weight: 500; }
+
+  @media (max-width: 1000px) {
+    .sp { grid-template-columns: minmax(250px, 0.8fr) minmax(0, 1.2fr); column-gap: 18px; }
+    .stage.card-stage { gap: 12px; padding: 12px; }
+    .pass { --notch: 46px; width: 238px; height: 352px; padding: 14px 16px 0; }
+    .pass-emblem { margin-top: 16px; width: 46px; height: 46px; } .pass-k { margin-top: 10px; } .pass-name { font-size: var(--t-stat); }
+    .pass-nums { row-gap: 8px; margin-bottom: 12px; } .pass-nums dd { font-size: var(--t-t3); }
+    .stage-act .caption { display: none; }
+    .map { flex-basis: 190px; min-height: 150px; } .quads { margin-top: 10px; gap: 6px; } .quads .tile { padding: 8px 10px; }
+    .quads p { font-size: var(--t-cap); } .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body data-tab="You" data-streak="23">
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="vpage stylep">
+      <div class="vtop">
+        <div class="row vcap"><h1>Your style</h1><span class="caption">Recomputed every Sunday from your last 500 hands</span></div>
+        <div data-subnav="Style"></div>
+      </div>
+
+      <div class="cols sp">
+        <section class="stage card-stage" aria-label="Your style card">
+          <div class="pass-wrap">
+            <article class="pass" aria-label="Your style card. The Closer: selective, and you take the lead. VPIP 24%, PFR 17%, aggression 2.1, fold to a river bet 38%, was 61%. Sam, since 31 August, 412 hands.">
+              <svg class="pass-art" viewBox="0 0 290 410" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <g fill="none" stroke="#FFFFFF" stroke-opacity=".055" stroke-width=".8">
+                  <path d="M-10 120C60 90 120 150 190 118S270 70 310 96"/><path d="M-10 134C60 104 120 164 190 132S270 84 310 110"/><path d="M-10 148C60 118 120 178 190 146S270 98 310 124"/>
+                  <path d="M-10 162C60 132 120 192 190 160S270 112 310 138"/><path d="M-10 176C60 146 120 206 190 174S270 126 310 152"/><path d="M-10 190C60 160 120 220 190 188S270 140 310 166"/>
+                  <path d="M-10 204C60 174 120 234 190 202S270 154 310 180"/><path d="M-10 218C60 188 120 248 190 216S270 168 310 194"/>
+                </g>
+                <circle cx="236" cy="96" r="70" fill="none" stroke="#FFFFFF" stroke-opacity=".05"/><circle cx="236" cy="96" r="52" fill="none" stroke="#FFFFFF" stroke-opacity=".05"/>
+              </svg>
+              <div class="pass-top"><span class="b"><svg viewBox="0 0 14 14" aria-hidden="true"><path fill="currentColor" d="M7 .8C5.4 3 1.6 5.2 1.6 8.1c0 1.6 1.2 2.7 2.6 2.7.9 0 1.6-.4 2.1-1-.2 1.3-.7 2.3-1.6 3.4h4.6c-.9-1.1-1.4-2.1-1.6-3.4.5.6 1.2 1 2.1 1 1.4 0 2.6-1.1 2.6-2.7C12.4 5.2 8.6 3 7 .8Z"/></svg>Offsuit</span><span>STYLE · WEEK 6</span></div>
+              <!-- The emblem: the map in miniature, your quadrant cast in bone -->
+              <svg class="pass-emblem" viewBox="0 0 60 60" aria-hidden="true">
+                <defs><radialGradient id="eb" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#F4F2EC"/><stop offset="1" stop-color="#C9C3B6"/></radialGradient></defs>
+                <circle cx="30" cy="30" r="27" fill="#FFFFFF" fill-opacity=".04" stroke="#FFFFFF" stroke-opacity=".28"/>
+                <path d="M30 30V3A27 27 0 0 0 3 30Z" fill="url(#eb)"/>
+                <path d="M3 30H57M30 3V57" stroke="#FFFFFF" stroke-opacity=".28" stroke-width=".8"/>
+                <circle cx="20" cy="20" r="3" fill="#16181B"/>
+              </svg>
+              <div class="pass-k">You play as</div>
+              <h1 class="pass-name">The Closer</h1>
+              <p class="pass-sub">Selective, and you take the lead.</p>
+              <dl class="pass-nums num">
+                <div><dt>Hands you play</dt><dd>24%<small>VPIP</small></dd></div>
+                <div><dt>You raise first</dt><dd>17%<small>PFR</small></dd></div>
+                <div><dt>Aggression</dt><dd>2.1<small>AF</small></dd></div>
+                <div><dt>Fold to a river bet</dt><dd>38%<small>was 61%</small></dd></div>
+              </dl>
+              <div class="pass-foot"><span><b>Sam</b> · since 31 Aug</span><span class="num">412 hands</span></div>
+            </article>
+          </div>
+          <div class="stage-act">
+            <button class="btn primary">Save card image <span class="kbd">⌘S</span></button>
+            <span class="caption">Saved to this Mac. Nothing is sent anywhere.</span>
+          </div>
+        </section>
+
+        <section class="mapcol" aria-label="Where you sit">
+          <div class="sec"><h2>Where you sit</h2><span class="caption">Your 6 weeks so far · the trail keeps 8</span></div>
+          <div class="map" role="img" aria-label="Style map. Across: how many hands you play. Up: how often you take the lead. You started on 31 August in The Explorer (34% of hands, 41% lead) and moved each week to The Closer, now 24% of hands and 71% lead.">
+            <span class="q tl">The Closer</span><span class="q tr">The Pressure</span><span class="q bl">The Anchor</span><span class="q br">The Explorer</span>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <line class="axis" x1="50" y1="0" x2="50" y2="100"/><line class="axis" x1="0" y1="50" x2="100" y2="50"/>
+              <path class="trail" d="M76.9 88 L69.2 76 L61.5 64 L53.8 54 L46.2 42 L42.3 34 L38.5 28"/>
+            </svg>
+            <span class="w" style="left:76.9%;top:88%;--o:.3" title="Week 1 (31 Aug): 34% of hands, 41% lead"></span>
+            <span class="w" style="left:69.2%;top:76%;--o:.38" title="Week 2: 32%, 47%"></span>
+            <span class="w" style="left:61.5%;top:64%;--o:.46" title="Week 3: 30%, 53%"></span>
+            <span class="w" style="left:53.8%;top:54%;--o:.54" title="Week 4: 28%, 58%"></span>
+            <span class="w" style="left:46.2%;top:42%;--o:.62" title="Week 5: 26%, 64%"></span>
+            <span class="w" style="left:42.3%;top:34%;--o:.7" title="Week 6: 25%, 68%"></span>
+            <span class="me" style="left:38.5%;top:28%" title="Now: 24% of hands, 71% lead"></span>
+            <span class="ml num" style="left:calc(38.5% - 18px);top:28%;transform:translate(-100%, -50%);text-align:right"><b>You, now</b><span>24% of hands · lead 71%</span></span>
+            <span class="sl" style="left:calc(76.9% - 10px);top:88%;transform:translate(-100%, -50%)">31 Aug, week 1</span>
+            <div class="yax"><span>Take the lead  →</span></div>
+          </div>
+          <div class="xax"><span>Fewer hands</span><b>Hands you play</b><span>More hands</span></div>
+
+          <div class="quads">
+            <div class="tile lit"><h3>The Closer <span class="tag">You</span></h3>
+              <p>You play fewer hands, and when you’re in, you’re usually the one betting. Your bets mean something.</p>
+              <p class="chg"><b>What changes it:</b> playing over 27% of hands, or letting others lead.</p></div>
+            <div class="tile"><h3>The Pressure</h3>
+              <p>Many hands, and you take the lead in most. Others have to guess.</p>
+              <p class="chg">You’d move here by playing over 27% of hands.</p></div>
+            <div class="tile"><h3>The Anchor</h3>
+              <p>Few hands, and you let others bet into you. Patient and hard to push around.</p>
+              <p class="chg">You’d move here by calling more than you raise.</p></div>
+            <div class="tile"><h3>The Explorer</h3>
+              <p>Many hands, and you let the board come to you. Where you started in week 1.</p>
+              <p class="chg">You’d move here by playing wider and raising less.</p></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

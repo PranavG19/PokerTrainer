@@ -1,127 +1,155 @@
-// Mock-only: Dee, the dealer button (panel/character-designer.md §1, §7), as one SVG rig.
-// A smoked-graphite glass disc with an engraved bone "D". Its only feature is the D's counter (the hole in the
-// letter): every expression is a new counter shape, a transform and a rim colour. No eyes, no beak, no limbs.
-// Rim colours follow the role map: neutral at rest, amber = notable / the gate, coral = serious,
-// one mint shimmer only for a mastery inlay (a real positive delta). Never mint as decoration.
-// Usage: <span class="dee" data-pose="seated" data-size="120"></span>, hydrated on load; or Dee.svg(pose, size).
+// Mock-only: Dee, round 2. One rig, five mark directions (demo/vision/dee-marks.html compares them).
+//   face     — recommended: a bone-ceramic dealer button with two engraved lights. Expression lives in the two lights
+//              (shape, height, gap) and the posture (tilt, lift, lying flat). No mouth, no beak, no brow, no limbs.
+//   button   — the object alone: the same ceramic button with a smoked-glass jewel; expression is posture + glint.
+//   orbit    — an abstract glyph: the button's path round the table, a ring with one bead.
+//   pebble   — a soft character: a domed smoked-glass pebble with one bone visor of light.
+//   monogram — a product mark: a lowercase d whose bowl is the button, on a glass tile.
+// Rim colour follows the role map: hairline at rest, amber = the gate / notable, coral = serious. Never mint.
+// Usage: <span class="dee" data-mark="face" data-pose="rest" data-size="64"></span> (hydrated on load), or Dee.svg(mark, pose, size).
 (() => {
-  // Counter shapes, in the 100×100 face space. The D's outer edge is fixed; only this changes.
-  const COUNTER = {
-    neutral: '<path d="M45 37h6c8.4 0 14 5.6 14 13s-5.6 13-14 13h-6z"/>',
-    tall: '<ellipse cx="53" cy="50" rx="6.4" ry="13.5"/>',
-    brow: '<path d="M44 51c3-9 18-11 22-1-6-3-15-3-22 1z"/>',
-    bar: '<rect x="44" y="47" width="22" height="6" rx="3"/>',
-    hook: '<path d="M47 43c0-5 4-8 8-8s8 3 8 7.5c0 4-3 5.6-5.4 7-1.6 1-2.1 2-2.1 3.6v1.6" fill="none" stroke-width="5" stroke-linecap="round"/><circle cx="55.6" cy="62.6" r="2.9"/>',
-    quote: '<path d="M46 44a4 4 0 1 1 3.6 5.8c-.4 3-1.8 5-4.2 6.2 1-2 1.3-3.6 1.2-5.4A4 4 0 0 1 46 44zM57 44a4 4 0 1 1 3.6 5.8c-.4 3-1.8 5-4.2 6.2 1-2 1.3-3.6 1.2-5.4A4 4 0 0 1 57 44z"/>',
-    lids: '<path d="M44 52c6 5 16 5 22 0-2 7-7 10-11 10s-9-3-11-10z"/>',
-    smile: '<path d="M44 47c4 12 18 12 22 0-6 5-16 5-22 0z"/>',
-    wide: '<path d="M45 35h6.5c9 0 15.5 6.4 15.5 15s-6.5 15-15.5 15H45z"/>',
-  };
-  // pose → transform of the disc, squash (3/4 view), side-band offset, counter, rim, extras.
-  const POSES = {
-    seated:   { rot: 0,   sx: 1,    sy: 0.46, band: [0, 9],  counter: 'neutral', rim: 'rest' },
-    hello:    { rot: -14, sx: 0.97, sy: 0.97, band: [5, 3],  counter: 'smile',   rim: 'rest', lift: true },
-    listening:{ rot: -20, sx: 0.93, sy: 0.93, band: [6, 3],  counter: 'tall',    rim: 'amber-arc', lift: true },
-    wobble:   { rot: 12,  sx: 0.96, sy: 0.9,  band: [-4, 5], counter: 'brow',    rim: 'amber', lift: true },
-    serious:  { rot: 0,   sx: 1,    sy: 1,    band: [6, 0],  counter: 'bar',     rim: 'coral', edge: true },
-    thinking: { rot: -28, sx: 0.95, sy: 0.95, band: [6, 2],  counter: 'hook',    rim: 'rest', roll: true, lift: true },
-    quoting:  { rot: 6,   sx: 0.97, sy: 0.97, band: [5, 2],  counter: 'quote',   rim: 'rest', folio: true, lift: true },
-    resting:  { rot: 0,   sx: 1,    sy: 0.42, band: [0, 8],  counter: 'lids',    rim: 'rest', dim: true, lamp: true },
-    glint:    { rot: -6,  sx: 0.98, sy: 0.98, band: [5, 2],  counter: 'smile',   rim: 'bright', sparkle: true, lift: true },
-    engraving:{ rot: -10, sx: 0.98, sy: 0.98, band: [6, 3],  counter: 'wide',    rim: 'rest', inlay: true, lift: true },
-  };
-  const RIM = { rest: 'oklch(1 0 0 / .26)', bright: 'oklch(1 0 0 / .62)', amber: '#E6B866', 'amber-arc': '#E6B866', coral: '#F08A7A' };
   let uid = 0;
+  const RIM = { amber: '#E6B866', coral: '#F08A7A' };
+  const INK = '#1C1F24', BONE = '#F4F2EC';
 
-  function face(id, p) {
-    const rim = RIM[p.rim];
-    const coloured = p.rim === 'amber' || p.rim === 'coral' || p.rim === 'amber-arc';
-    const arc = p.rim === 'amber-arc' ? ' stroke-dasharray="190 400" stroke-dashoffset="-40"' : '';
-    // the rim inlays: twelve engraved ticks; one lit mint on mastery
-    const ticks = Array.from({ length: 12 }, (_, i) => {
-      const a = (i / 12) * Math.PI * 2 - Math.PI / 2, x1 = 50 + Math.cos(a) * 44.5, y1 = 50 + Math.sin(a) * 44.5, x2 = 50 + Math.cos(a) * 47.5, y2 = 50 + Math.sin(a) * 47.5;
-      const lit = p.inlay && i < 7;
-      const now = p.inlay && i === 6;
-      return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${now ? '#3DDC97' : lit ? '#F4F2EC' : 'oklch(1 0 0 / .14)'}" stroke-width="${now ? 3.4 : 1.8}" stroke-linecap="round"${now ? ` filter="url(#${id}-glow)"` : ''}/>`;
-    }).join('');
-    return `
-      <circle cx="50" cy="50" r="49" fill="url(#${id}-body)"/>
-      <circle cx="50" cy="50" r="49" fill="url(#${id}-depth)"/>
-      <ellipse cx="38" cy="28" rx="30" ry="17" fill="url(#${id}-spec)" transform="rotate(-24 38 28)"/>
-      <circle cx="50" cy="50" r="41.5" fill="none" stroke="oklch(1 0 0 / .07)" stroke-width="1"/>
-      ${ticks}
-      <g opacity="${p.dim ? 0.55 : 1}">
-        <path d="M33.5 25.5h18.5c15 0 26 10.6 26 24.5s-11 24.5-26 24.5H33.5z" fill="oklch(0 0 0 / .55)" transform="translate(0 1.2)"/>
-        <path d="M33.5 25.5h18.5c15 0 26 10.6 26 24.5s-11 24.5-26 24.5H33.5z" fill="url(#${id}-bone)"/>
-        <g fill="url(#${id}-body)" stroke="url(#${id}-body)">${COUNTER[p.counter]}</g>
-        <g fill="none" stroke="oklch(0 0 0 / .35)" stroke-width="1" transform="translate(0 -.6)" opacity=".7">${COUNTER[p.counter].replace(/fill="none" /, '')}</g>
-      </g>
-      <circle cx="50" cy="50" r="49" fill="none" stroke="${rim}" stroke-width="${coloured ? 2.2 : 1.1}"${arc}${coloured ? ` filter="url(#${id}-glow)"` : ''}/>
-      <path d="M14 34a40 40 0 0 1 30-26" fill="none" stroke="oklch(1 0 0 / .45)" stroke-width="1.2" stroke-linecap="round"/>`;
+  function defs(id) {
+    return `<defs>
+      <radialGradient id="${id}-c" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".38" stop-color="#F3F0E8"/><stop offset=".82" stop-color="#DAD5C9"/><stop offset="1" stop-color="#BEB8AB"/></radialGradient>
+      <radialGradient id="${id}-cs" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#F1EEE7"/><stop offset=".6" stop-color="#D9D4C8"/><stop offset="1" stop-color="#B5AFA2"/></radialGradient>
+      <linearGradient id="${id}-bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/><stop offset=".5" stop-color="#E4E0D6" stop-opacity=".15"/><stop offset="1" stop-color="#8E897E" stop-opacity=".9"/></linearGradient>
+      <radialGradient id="${id}-dish" cx="62%" cy="68%" r="72%"><stop offset=".72" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#9C978B" stop-opacity=".38"/></radialGradient>
+      <linearGradient id="${id}-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9C3B6"/><stop offset="1" stop-color="#8F897D"/></linearGradient>
+      <radialGradient id="${id}-jewel" cx="40%" cy="32%" r="70%"><stop offset="0" stop-color="#5B626C"/><stop offset=".55" stop-color="#252A31"/><stop offset="1" stop-color="#0E1013"/></radialGradient>
+      <radialGradient id="${id}-glass" cx="36%" cy="24%" r="85%"><stop offset="0" stop-color="#6C7480"/><stop offset=".5" stop-color="#2A3038"/><stop offset="1" stop-color="#101318"/></radialGradient>
+      <filter id="${id}-sh" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="2.6"/></filter>
+    </defs>`;
   }
 
-  function svg(pose = 'seated', size = 120, label) {
-    const p = POSES[pose] || POSES.seated;
-    const id = `dee${++uid}`;
-    const cx = 80, cy = p.lift ? 72 : 80;
-    const [bx, by] = p.band;
-    const R = 50;
-    const extras = [];
-    // contact shadow: soft for floating poses, sharp for standing on edge
-    const shadow = p.edge
-      ? `<ellipse cx="${cx + 3}" cy="${cy + R + 3}" rx="38" ry="4.5" fill="oklch(0 0 0 / .55)" filter="url(#${id}-soft)"/>`
-      : `<ellipse cx="${cx}" cy="${p.sy < 0.6 ? cy + 32 : 146}" rx="${p.sy < 0.6 ? 54 : 34}" ry="${p.sy < 0.6 ? 10 : 6}" fill="oklch(0 0 0 / ${p.sy < 0.6 ? 0.45 : 0.28})" filter="url(#${id}-blur)"/>`;
-    if (p.roll) extras.push(`<g stroke="oklch(1 0 0 / .16)" stroke-width="2" stroke-linecap="round"><path d="M10 66h16M4 80h20M12 94h14"/></g>`);
-    if (p.sparkle) extras.push(`<path d="M128 26l2.2 6.3 6.3 2.2-6.3 2.2-2.2 6.3-2.2-6.3-6.3-2.2 6.3-2.2z" fill="#FFFFFF" opacity=".9"/><path d="M140 52l1.2 3.4 3.4 1.2-3.4 1.2-1.2 3.4-1.2-3.4-3.4-1.2 3.4-1.2z" fill="#FFFFFF" opacity=".6"/>`);
-    if (p.folio) extras.push(`<g transform="translate(118 64) rotate(10)"><rect width="30" height="40" rx="3" fill="#2A2F37" stroke="oklch(1 0 0 / .18)"/><rect x="3" y="3" width="24" height="34" rx="2" fill="#F4F2EC"/><path d="M7 11h16M7 16h14M7 21h16M7 26h10" stroke="#9AA0A8" stroke-width="1.4" stroke-linecap="round"/></g>`);
-    if (p.lamp) extras.push(`<g transform="translate(140 96)"><circle r="11" fill="oklch(0.96 0.03 85 / .16)" filter="url(#${id}-blur)"/><circle r="3.4" fill="#F4F2EC"/><path d="M-4 9h8" stroke="oklch(1 0 0 / .3)" stroke-width="2" stroke-linecap="round"/></g>`);
-    const sxR = R * p.sx, syR = R * p.sy;
-    // the side band: the disc's thickness, a darker copy of the outline offset behind the face
-    const band = `<ellipse cx="${bx}" cy="${by}" rx="${sxR}" ry="${syR}" fill="#0E1013"/>
-      <ellipse cx="${bx}" cy="${by}" rx="${sxR}" ry="${syR}" fill="none" stroke="oklch(1 0 0 / .10)" stroke-width="1"/>
-      ${p.sy < 0.6 ? `<rect x="${-sxR}" y="0" width="${sxR * 2}" height="${by}" fill="#0E1013"/>` : ''}`;
-    return `<svg viewBox="0 0 160 160" width="${size}" height="${size}" role="img" aria-label="${label || `Dee, ${pose}`}" class="dee-svg dee-${pose}">
-      <defs>
-        <radialGradient id="${id}-body" cx="36%" cy="28%" r="80%" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#4C535C"/><stop offset=".55" stop-color="#262A30"/><stop offset="1" stop-color="#15171B"/></radialGradient>
-        <radialGradient id="${id}-depth" cx="50%" cy="50%" r="50%"><stop offset=".78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
-        <radialGradient id="${id}-spec"><stop offset="0" stop-color="#FFF" stop-opacity=".22"/><stop offset="1" stop-color="#FFF" stop-opacity="0"/></radialGradient>
-        <linearGradient id="${id}-bone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".5" stop-color="#F4F2EC"/><stop offset="1" stop-color="#DCD8CE"/></linearGradient>
-        <filter id="${id}-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <filter id="${id}-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
-        <filter id="${id}-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4"/></filter>
-      </defs>
-      ${shadow}
-      ${extras.join('')}
-      <g transform="translate(${cx} ${cy}) rotate(${p.rot})">
-        ${band}
-        <g transform="scale(${p.sx} ${p.sy}) translate(-50 -50)">${face(id, p)}</g>
-      </g>
-    </svg>`;
-  }
-
-  // Rival medallions (panel/character-designer.md §3): glass tokens with a keepsake glyph, masked until beaten.
-  const KEEPSAKE = {
-    wick: '<path d="M0-9c3 4 4 6 4 8.5a4 4 0 0 1-8 0C-4-3-3-5 0-9z" fill="currentColor"/><path d="M0 4v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    ticket: '<path d="M-9-6h18v3.5a2.5 2.5 0 0 0 0 5V6H-9V2.5a2.5 2.5 0 0 0 0-5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M-2-6v12" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.6 1.6"/>',
-    bookmark: '<path d="M-5-9h10v18l-5-4-5 4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
-    punch: '<rect x="-9" y="-6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="-3" cy="0" r="1.6" fill="currentColor"/><circle cx="3" cy="0" r="1.6" fill="currentColor"/>',
-    fuse: '<path d="M-8 6c4-1 6-4 6-8s3-6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M6-10l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" fill="currentColor"/>',
-    fork: '<path d="M-4-9v8a4 4 0 0 0 8 0v-8M0 3v7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  // The two engraved lights: [cx, cy, w, h] per eye, or 'arc' (the eyes smile; there is still no mouth).
+  const EYES = {
+    rest:      [[39, 47, 7, 13], [61, 47, 7, 13]],
+    attentive: [[39, 45, 7.6, 15.5], [61, 45, 7.6, 15.5]],
+    blink:     [[39, 50, 8, 2.6], [61, 50, 8, 2.6]],
+    glance:    [[55, 48, 6.6, 12], [75, 48, 6.6, 12]],
+    thinking:  [[41, 39, 6.6, 11], [63, 40.5, 9, 3.6]],
+    curious:   [[39, 47, 6.4, 12.5], [61, 48.5, 6.4, 8]],
+    pleased:   'arc',
+    serious:   [[39, 49, 7.4, 7], [61, 49, 7.4, 7]],
+    notable:   [[39, 47, 6.4, 10], [61, 47, 6.4, 10]],
+    asleep:    [[39, 54, 8, 2.2], [61, 54, 8, 2.2]],
+    proud:     'arc',
   };
-  function rival(glyph, size = 44, masked = false, label = '') {
-    const id = `rv${++uid}`;
-    return `<svg viewBox="-24 -24 48 48" width="${size}" height="${size}" role="img" aria-label="${label}" class="rival-svg">
-      <defs><radialGradient id="${id}" cx="35%" cy="25%" r="85%"><stop offset="0" stop-color="${masked ? '#3A3F47' : '#565D67'}"/><stop offset="1" stop-color="#16181C"/></radialGradient></defs>
-      <circle r="22" fill="url(#${id})"/><circle r="22" fill="none" stroke="oklch(1 0 0 / .22)"/><circle r="17.5" fill="none" stroke="oklch(1 0 0 / .08)"/>
-      <path d="M-15-9a18 18 0 0 1 14-10" fill="none" stroke="oklch(1 0 0 / .4)" stroke-linecap="round"/>
-      <g color="${masked ? 'oklch(1 0 0 / .38)' : '#F4F2EC'}">${masked ? '<path d="M-10-2c3-3 7-3 10 0 3-3 7-3 10 0-1 4-4 6-6 6-2 0-3-1.6-4-3-1 1.4-2 3-4 3-2 0-5-2-6-6z" fill="currentColor"/>' : KEEPSAKE[glyph]}</g>
-    </svg>`;
+  // Posture: rotation (deg), lift (in 100-space), lying flat (3/4 view), rim role, a light sweep across the bevel.
+  const POSTURE = {
+    rest: {}, attentive: { rot: -10, lift: -3 }, blink: {}, glance: { rot: 6 }, thinking: { rot: -4, lift: -2 }, curious: { rot: 9 },
+    pleased: { rot: -4, lift: -5 }, serious: { rim: 'coral' }, notable: { rot: 3, rim: 'amber' }, asleep: { flat: true }, proud: { rot: -6, lift: -7, sweep: true },
+  };
+
+  function eyes(pose, small) {
+    const e = EYES[pose] || EYES.rest;
+    if (e === 'arc') {
+      const w = small ? 5.2 : 3.6;
+      return [39, 61].map((x) => `<path d="M${x - 6.5} 51.5 Q${x} ${small ? 40 : 42} ${x + 6.5} 51.5" fill="none" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="${w}" stroke-linecap="round" transform="translate(0 .8)"/><path d="M${x - 6.5} 51.5 Q${x} ${small ? 40 : 42} ${x + 6.5} 51.5" fill="none" stroke="${INK}" stroke-width="${w}" stroke-linecap="round"/>`).join('');
+    }
+    return e.map(([cx, cy, w, h]) => {
+      const W = small ? w * 1.55 : w, H = small ? Math.max(h * 1.25, 4) : h, r = Math.min(W, H) / 2;
+      const glint = !small && H > 6 ? `<circle cx="${(cx - W * 0.14).toFixed(2)}" cy="${(cy - H * 0.27).toFixed(2)}" r="${Math.min(1.25, W * 0.18).toFixed(2)}" fill="#FFFFFF" fill-opacity=".6"/>` : '';
+      // engraved: a light lip below the cut, then the ink fill
+      return (small ? '' : `<rect x="${cx - W / 2}" y="${cy - H / 2 + 0.8}" width="${W}" height="${H}" rx="${r}" fill="#FFFFFF" fill-opacity=".75"/>`) +
+        `<rect x="${cx - W / 2}" y="${cy - H / 2}" width="${W}" height="${H}" rx="${r}" fill="${INK}"/>` + glint;
+    }).join('');
   }
 
-  function hydrate(root = document) {
-    for (const el of root.querySelectorAll('.dee[data-pose]')) el.innerHTML = svg(el.dataset.pose, Number(el.dataset.size || 120), el.dataset.label);
-    for (const el of root.querySelectorAll('.rival[data-glyph]')) el.innerHTML = rival(el.dataset.glyph, Number(el.dataset.size || 44), el.hasAttribute('data-masked'), el.dataset.label || '');
+  function ceramic(id, size, p, inner) {
+    const small = size < 30, tiny = size < 20;
+    const rim = p.rim ? `<circle cx="50" cy="50" r="48.4" fill="none" stroke="${RIM[p.rim]}" stroke-width="${tiny ? 6 : small ? 4.5 : 2.6}" ${p.rim === 'amber' && !small ? 'stroke-dasharray="160 400" stroke-dashoffset="-30" stroke-linecap="round"' : ''}/>` : '';
+    const micro = size >= 96 ? `<path id="${id}-tp" d="M50 50 m-42.6 0 a42.6 42.6 0 1 1 85.2 0 a42.6 42.6 0 1 1 -85.2 0" fill="none"/>
+      <text font-family="-apple-system, 'SF Pro Text', sans-serif" font-size="4.1" font-weight="600" letter-spacing="2.4" fill="#8D877B" fill-opacity=".8"><textPath href="#${id}-tp" textLength="262" lengthAdjust="spacing">DEALER · DEALER · DEALER · DEALER · DEALER · DEALER ·</textPath></text>` : '';
+    const sweep = p.sweep && !small ? `<path d="M19 30 A35 35 0 0 1 58 13" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"/>` : '';
+    return `
+      ${small || p.flat ? '' : `<ellipse cx="50" cy="${97 - (p.lift || 0)}" rx="34" ry="3.6" fill="#000" fill-opacity=".6" filter="url(#${id}-sh)"/>`}
+      <g transform="translate(0 ${p.lift || 0}) rotate(${p.rot || 0} 50 50)">
+      <circle cx="50" cy="50" r="49" fill="url(#${id}-c${small ? 's' : ''})"/>
+      ${tiny ? '' : `<circle cx="50" cy="50" r="48" fill="none" stroke="url(#${id}-bev)" stroke-width="2.2"/>`}
+      ${small ? `<circle cx="50" cy="50" r="${tiny ? 34 : 36}" fill="none" stroke="#8D877B" stroke-opacity=".75" stroke-width="${tiny ? 5 : 3.4}"/>` : `<circle cx="50" cy="50" r="37.5" fill="url(#${id}-dish)"/><circle cx="50" cy="50" r="37.5" fill="none" stroke="#9A9488" stroke-opacity=".5" stroke-width=".8"/><circle cx="50" cy="50.9" r="37.5" fill="none" stroke="#FFFFFF" stroke-opacity=".75" stroke-width=".6"/>`}
+      ${micro}${inner}${sweep}
+      <circle cx="50" cy="50" r="49" fill="none" stroke="#000" stroke-opacity="${tiny ? 0.5 : 0.4}" stroke-width="${tiny ? 3.2 : 0.9}"/>
+      ${rim}</g>`;
   }
-  window.Dee = { svg, rival, hydrate, POSES: Object.keys(POSES) };
+
+  function frame(size, id, body, flat) {
+    // Lying flat: the disc squashes into a 3/4 view and shows its edge (the side band).
+    const g = flat ? `<ellipse cx="50" cy="83" rx="50" ry="10" fill="#000" fill-opacity=".55" filter="url(#${id}-sh)"/><g transform="translate(0 44) scale(1 .44)"><path d="M1 50 v20 a49 49 0 0 0 98 0 v-20" fill="url(#${id}-side)"/>${body}</g>` : body;
+    return `<svg width="${size}" height="${size}" viewBox="-3 -6 106 110" aria-hidden="true" style="overflow:visible;display:block">${defs(id)}${g}</svg>`;
+  }
+
+  const MARKS = {
+    face(pose, size) {
+      const id = `d${++uid}`, p = POSTURE[pose] || {};
+      return frame(size, id, ceramic(id, size, p, eyes(pose, size < 30)), p.flat);
+    },
+    button(pose, size) {
+      const id = `d${++uid}`, p = POSTURE[pose] || {};
+      const gl = { attentive: [46, 44], thinking: [55, 43], glance: [56, 47], curious: [44, 51], pleased: [45, 42], proud: [45, 42], serious: [50, 50], notable: [53, 46], asleep: [50, 54] }[pose] || [46, 45];
+      const r = size < 30 ? 15 : 11, lit = pose === 'asleep' ? 0.2 : pose === 'serious' ? 0.3 : 0.92;
+      const inner = (size < 30 ? '' : `<circle cx="50" cy="50.8" r="${r + 1.2}" fill="#FFFFFF" fill-opacity=".8"/>`) + `<circle cx="50" cy="50" r="${r}" fill="url(#${id}-jewel)"/>` +
+        (size >= 30 ? `<ellipse cx="${gl[0]}" cy="${gl[1]}" rx="3.8" ry="2.4" fill="#FFFFFF" fill-opacity="${lit}" transform="rotate(-24 ${gl[0]} ${gl[1]})"/>` : '');
+      return frame(size, id, ceramic(id, size, p, inner), p.flat);
+    },
+    orbit(pose, size) {
+      // the bead's angle on the ring (deg, 0 = 3 o'clock), how much ring is drawn, a lift, a rim role, dimmed
+      const S = { attentive: [-90, 300], thinking: [-20, 250], glance: [-10, 300], curious: [-135, 300], pleased: [-90, 320, 1], proud: [-90, 330, 1], notable: [-45, 300, 0, 'amber'], asleep: [90, 300, 0, 0, 1], blink: [-45, 300] }[pose] || [-45, 300];
+      const [deg, sweep, lift, role, dim] = S, small = size < 30;
+      const sw = small ? 14 : 9, R = 36, a = deg * Math.PI / 180, bx = 50 + R * Math.cos(a), by = 50 + R * Math.sin(a) - (lift ? 10 : 0);
+      const gap = 360 - sweep, a0 = (deg + gap / 2) * Math.PI / 180, a1 = (deg + gap / 2 + sweep) * Math.PI / 180;
+      const P = (t) => `${(50 + R * Math.cos(t)).toFixed(2)} ${(50 + R * Math.sin(t)).toFixed(2)}`;
+      const stroke = role ? RIM[role] : BONE, op = dim ? 0.4 : 1;
+      if (pose === 'serious') return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true" style="display:block"><circle cx="50" cy="50" r="${R}" fill="none" stroke="${RIM.coral}" stroke-width="${sw}"/><circle cx="50" cy="50" r="${small ? 12 : 9}" fill="${BONE}"/></svg>`;
+      return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true" style="display:block">
+        <path d="M${P(a0)} A${R} ${R} 0 ${sweep > 180 ? 1 : 0} 1 ${P(a1)}" fill="none" stroke="${stroke}" stroke-opacity="${op}" stroke-width="${sw}" stroke-linecap="round"/>
+        <circle cx="${bx.toFixed(2)}" cy="${by.toFixed(2)}" r="${small ? 12 : 9}" fill="${BONE}" fill-opacity="${op}"/>
+        ${small ? '' : `<circle cx="${(bx - 2.6).toFixed(2)}" cy="${(by - 2.8).toFixed(2)}" r="2.6" fill="#FFFFFF" fill-opacity="${op}"/>`}</svg>`;
+    },
+    pebble(pose, size) {
+      const id = `d${++uid}`, p = POSTURE[pose] || {}, small = size < 30;
+      const V = { attentive: [50, 44, 36, 11], thinking: [55, 41, 28, 8], glance: [57, 47, 30, 9], curious: [50, 46, 34, 9, 8], pleased: 'arc', proud: 'arc', serious: [50, 50, 34, 4], notable: [50, 46, 34, 7], asleep: [50, 58, 30, 2.6], blink: [50, 48, 34, 3] }[pose] || [50, 46, 34, 9];
+      const path = 'M50 6C80 6 95 20 95 53S79 95 50 95 5 85 5 53 20 6 50 6Z';
+      let light;
+      if (V === 'arc') light = `<path d="M31 52 Q50 35 69 52" fill="none" stroke="${BONE}" stroke-width="${small ? 12 : 8}" stroke-linecap="round"/>`;
+      else {
+        const h = small ? Math.max(V[3], 9) : V[3], t = V[4] ? ` transform="rotate(${V[4]} 50 46)"` : '';
+        light = `<rect x="${V[0] - V[2] / 2}" y="${V[1] - h / 2}" width="${V[2]}" height="${h}" rx="${h / 2}" fill="${BONE}"${t}/>` +
+          (small ? '' : `<rect x="${V[0] - V[2] / 2 + 3}" y="${V[1] - h / 2 + 0.8}" width="${(V[2] * 0.42).toFixed(1)}" height="${Math.max(1, h * 0.28).toFixed(1)}" rx=".8" fill="#FFFFFF" fill-opacity=".9"${t}/>`);
+      }
+      const rim = p.rim ? `<path d="${path}" fill="none" stroke="${RIM[p.rim]}" stroke-width="${small ? 6 : 2.6}"/>` : '';
+      const body = `${small ? '' : `<ellipse cx="50" cy="${97 - (p.lift || 0)}" rx="32" ry="3.6" fill="#000" fill-opacity=".6" filter="url(#${id}-sh)"/>`}
+        <g transform="translate(0 ${p.lift || 0}) rotate(${p.rot || 0} 50 50)">
+        <path d="${path}" fill="url(#${id}-glass)"/>
+        <path d="${path}" fill="none" stroke="#FFFFFF" stroke-opacity="${small ? 0.4 : 0.24}" stroke-width="${small ? 3 : 1}"/>
+        ${small ? '' : '<path d="M21 28C29 14 43 11 57 12" fill="none" stroke="#FFFFFF" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/>'}
+        ${light}${rim}</g>`;
+      return frame(size, id, body, false);
+    },
+    monogram(pose, size) {
+      const id = `d${++uid}`, small = size < 30;
+      const role = pose === 'serious' ? RIM.coral : pose === 'notable' ? RIM.amber : null;
+      const tile = small ? '' : `<rect x="2" y="2" width="96" height="96" rx="23" fill="url(#${id}-glass)"/><rect x="2.5" y="2.5" width="95" height="95" rx="22.5" fill="none" stroke="#FFFFFF" stroke-opacity=".22"/>
+        <path d="M13 24C17 13 27 8 39 8" fill="none" stroke="#FFFFFF" stroke-opacity=".38" stroke-width="1.6" stroke-linecap="round"/>`;
+      const s = small ? 1.1 : 0.74, o = small ? -5 : 13;
+      const counter = pose === 'pleased' || pose === 'proud' ? 11 : pose === 'asleep' ? 3.5 : 8;
+      const mark = `<g transform="translate(${o} ${o}) scale(${s})"><circle cx="42" cy="58" r="26" fill="${BONE}"/><rect x="58" y="12" width="10" height="72" rx="5" fill="${BONE}"/>
+        <circle cx="42" cy="58" r="${counter}" fill="${small ? '#16181B' : '#272C34'}"/>${role ? `<circle cx="42" cy="58" r="31" fill="none" stroke="${role}" stroke-width="2.6"/>` : ''}</g>`;
+      return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true" style="display:block">${defs(id)}${tile}${mark}</svg>`;
+    },
+  };
+
+  const svg = (mark, pose = 'rest', size = 64) => (MARKS[mark] || MARKS.face)(pose, size);
+  function hydrate(root = document) {
+    for (const el of root.querySelectorAll('.dee[data-pose]:not([data-done])')) {
+      el.innerHTML = svg(el.dataset.mark || 'face', el.dataset.pose, Number(el.dataset.size || 64));
+      el.dataset.done = '1';
+    }
+  }
+  window.Dee = { svg, hydrate, MARKS: Object.keys(MARKS), POSES: Object.keys(POSTURE) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => hydrate()); else hydrate();
 })();
