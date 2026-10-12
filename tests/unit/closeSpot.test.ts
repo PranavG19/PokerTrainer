@@ -76,7 +76,8 @@ describe('a close spot in the grader', () => {
     expect(g.message).toMatch(/^Close spot:/);
     expect(g.message).not.toMatch(/bb/);
     expect(g.message).not.toMatch(/% equity/);
-    expect(g.price?.needed).toBeCloseTo(1 / 3, 10);
+    expect(g.message).toContain('33% pot share');
+    expect(g.price).toBeUndefined(); // two near shares would overprint on the meter
   });
 
   it('marks the other side of the same spot close and played right (estimate 0)', () => {

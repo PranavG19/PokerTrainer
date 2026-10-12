@@ -203,7 +203,9 @@ export function gradeDecision(input: {
       close: true,
       estimateLossBb: evLossBb,
     };
-    if (grade.message !== null && toCall > 0) grade.price = { needed: required, had: equity };
+    // No price meter: a close spot's two shares sit within a few points by construction, so the meter's
+    // "needed" and "had" labels would overprint each other (measured at 31% vs 26%), and the message
+    // already quotes both numbers.
     return grade;
   }
 
