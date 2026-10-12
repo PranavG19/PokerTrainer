@@ -132,7 +132,9 @@ export function renderCoachPanel(onGateSubmit: () => void = () => {}): HTMLEleme
 }
 
 export function showGrade(el: HTMLElement, grade: Grade): void {
-  if (grade.severity === 'free' || grade.message === null) {
+  // A message is the only thing that speaks. A free grade has none; a close grade carries one only when
+  // the point estimate alone would have spoken, so the panel opens for it, neutral and without a figure.
+  if (grade.message === null || (grade.severity === 'free' && grade.close !== true)) {
     clearCoach(el);
     return;
   }
@@ -141,15 +143,19 @@ export function showGrade(el: HTMLElement, grade: Grade): void {
   const principle = el.querySelector<HTMLElement>('.coach-principle');
   if (!message || !principle) return;
 
-  el.dataset.severity = grade.severity;
+  const close = grade.close === true;
+  el.dataset.severity = close ? 'close' : grade.severity;
   el.hidden = false;
   message.textContent = grade.message;
   const sevWord = el.querySelector<HTMLElement>('.coach-sev > span');
-  if (sevWord) sevWord.textContent = grade.severity === 'serious' ? 'Serious' : 'Notable';
+  if (sevWord) sevWord.textContent = close ? 'Close' : grade.severity === 'serious' ? 'Serious' : 'Notable';
   paintMeter(el, grade.price);
-  principle.textContent = grade.principle
-    ? `${grade.principle} · ${grade.evLossBb.toFixed(1)} bb`
-    : `${grade.evLossBb.toFixed(1)} bb`;
+  // No bb figure on a close spot: the band says the grader cannot resolve it that finely.
+  principle.textContent = close
+    ? 'inside the margin'
+    : grade.principle
+      ? `${grade.principle} · ${grade.evLossBb.toFixed(1)} bb`
+      : `${grade.evLossBb.toFixed(1)} bb`;
 }
 
 /**

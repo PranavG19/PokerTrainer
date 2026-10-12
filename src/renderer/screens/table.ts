@@ -11,8 +11,7 @@ import {
   startHand,
 } from '../../core/table.js';
 import type { Grade, Severity } from '../../core/coach.js';
-import { gradeDecision } from '../../core/coach.js';
-import { VILLAIN_BETTING_RANGE } from '../../core/preflop.js';
+import { gradeSpot } from '../../core/gradeSpot.js';
 import {
   ARCHETYPE_EXPLOITS,
   ARCHETYPE_NAMES,
@@ -776,24 +775,12 @@ export function renderTable(opts: {
    *  gate and revealed later without re-running the seeded Monte Carlo (a re-grade is a different
    *  number). */
   function computeHeroGrade(chosen: ActionKind, betSize?: number): Grade {
-    const hero = heroSeat();
-    const toCall = Math.max(0, state.currentBet - hero.committed);
-    const opponents = state.seats.filter((s) => !s.folded && s.id !== hero.id).length;
-    return gradeDecision({
-      hole: hero.hole,
-      board: state.board,
-      street: state.street,
-      pot: state.pot,
-      toCall,
-      stack: hero.stack,
-      bb: state.bb,
-      chosen,
+    // gradeSpot reads the state the way every grader caller does: the charts preflop, and facing a bet
+    // the aggressor's range from its session profile (the jittered truth for this table, O3).
+    return gradeSpot(state, chosen, {
       betSize,
-      opponents: Math.max(1, opponents),
       seed: opts.seed + state.handNumber,
-      // Facing a bet/raise, grade hero vs the aggressor's modelled range (CONSOLIDATED #1) rather than
-      // vs two random cards. On an unpriced spot the coach ignores this and stays on the random field.
-      villainRange: toCall > 0 ? VILLAIN_BETTING_RANGE : undefined,
+      modelFor: (seat) => seatProfile.get(seat) ?? null,
     });
   }
 
@@ -814,7 +801,9 @@ export function renderTable(opts: {
       });
       showReasonNote(coach, adjusted);
     }
-    adviceShown = grade.message !== null && grade.severity !== 'free';
+    // Exactly showGrade's condition: a verdict speaks when it carries a message (a close spot can, a free
+    // one never does).
+    adviceShown = grade.message !== null && (grade.severity !== 'free' || grade.close === true);
     // Exactly the condition showGrade paints under, so narration and the panel can never disagree
     // about whether there is a verdict — one call per verdict shown, none for a silent grade.
     if (adviceShown) opts.onVerdict?.(grade.message);

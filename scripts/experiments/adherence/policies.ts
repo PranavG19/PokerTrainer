@@ -74,6 +74,12 @@ export interface DecisionTrace {
   anyClose: boolean;
   /** The verdict on the action actually played. */
   chosenVerdict: string;
+  /**
+   * Distinct action classes at the graded minimum, with bet, raise and all-in as ONE class. The grader
+   * never sees a size, so a raise tying an all-in is one opinion, not a tie; this separates "cannot pick
+   * between fold and call" from that artifact.
+   */
+  tiedClasses: number;
 }
 
 /** The verdict word for one grade: severity, except a close spot reads 'close'. */
@@ -150,6 +156,7 @@ function adherent(preference: readonly ActionKind[]): Policy {
       aggressionLegal: AGGRESSIVE.some((k) => legal.includes(k)),
       aggressionAtMin: AGGRESSIVE.some((k) => tied.includes(k)),
       verdicts: legal.map((k) => verdicts.get(k)!),
+      tiedClasses: new Set(tied.map((k) => (AGGRESSIVE.includes(k) ? 'aggr' : k))).size,
       anyClose: [...verdicts.values()].includes('close'),
       chosenVerdict: verdicts.get(chosen)!,
     });
@@ -201,6 +208,7 @@ const tagPlusGrader: Policy = (state, ctx) => {
         aggressionLegal: AGGRESSIVE.some((k) => legal.includes(k)),
         aggressionAtMin: AGGRESSIVE.includes(kind),
         verdicts: [],
+        tiedClasses: 1,
         anyClose: false,
         chosenVerdict: 'free',
       });

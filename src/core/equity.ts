@@ -192,6 +192,84 @@ export function equityVsRange(
 }
 
 /**
+ * A villain range with a weight per concrete two-card hand: the shape `villainRanges.ts` builds from an
+ * archetype. A weight is a likelihood (how often this hand takes the action faced), not a 0/1 flag, so a
+ * hand the archetype bets one time in five counts one fifth as much as a hand it always bets.
+ */
+export interface WeightedRange {
+  readonly hands: readonly (readonly [Card, Card])[];
+  readonly weights: ArrayLike<number>;
+}
+
+/**
+ * Monte Carlo equity vs a WEIGHTED range, heads-up. The weighted sibling of `equityVsRange`: hands that
+ * collide with hero's cards or the board are dropped (card removal), the rest are drawn in proportion to
+ * their weight, and the runout is dealt from what remains. Deterministic given seed. An empty or fully
+ * blocked range falls back to one random opponent, the same honest floor `equityVsRange` uses.
+ */
+export function equityVsWeightedRange(
+  hole: Card[],
+  board: Card[],
+  range: WeightedRange,
+  iterations = 2000,
+  seed = 1,
+): EquityResult {
+  const dead = new Set<string>(hole.concat(board));
+  const live: (readonly [Card, Card])[] = [];
+  const cumulative: number[] = [];
+  let total = 0;
+  for (let i = 0; i < range.hands.length; i++) {
+    const w = range.weights[i];
+    const hand = range.hands[i];
+    if (!(w > 0) || dead.has(hand[0]) || dead.has(hand[1])) continue;
+    total += w;
+    live.push(hand);
+    cumulative.push(total);
+  }
+  if (live.length === 0) return equityVsRandom(hole, board, 1, iterations, seed);
+
+  const deck = freshDeck().filter((c) => !dead.has(c));
+  const rng: Rng = mulberry32(seed);
+  const need = 5 - board.length;
+  let wins = 0;
+  let ties = 0;
+  let losses = 0;
+  const catCounts: number[] = new Array(9).fill(0);
+
+  for (let i = 0; i < iterations; i++) {
+    const target = rng() * total;
+    let lo = 0;
+    let hi = cumulative.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cumulative[mid] > target) hi = mid;
+      else lo = mid + 1;
+    }
+    const opp = live[lo];
+    const pool = deck.filter((c) => c !== opp[0] && c !== opp[1]);
+    for (let k = 0; k < need && k < pool.length; k++) {
+      const jj = k + Math.floor(rng() * (pool.length - k));
+      const tmp = pool[k];
+      pool[k] = pool[jj];
+      pool[jj] = tmp;
+    }
+    const runout = board.concat(pool.slice(0, need));
+    const heroVal = evaluate(hole.concat(runout));
+    catCounts[heroVal.category]++;
+    const oppVal = evaluate([opp[0], opp[1]].concat(runout));
+    if (heroVal.score > oppVal.score) wins++;
+    else if (heroVal.score === oppVal.score) ties++;
+    else losses++;
+  }
+
+  const categoryChances: Record<string, number> = {};
+  for (let c = 0; c <= 8; c++) {
+    categoryChances[CATEGORY_NAMES[c as HandCategory]] = catCounts[c] / iterations;
+  }
+  return { win: wins / iterations, tie: ties / iterations, lose: losses / iterations, categoryChances, iterations };
+}
+
+/**
  * Exact heads-up equity via full enumeration of remaining board cards.
  * Both hero and opponent hole cards are known.
  */

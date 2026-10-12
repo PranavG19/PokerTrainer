@@ -1268,6 +1268,13 @@ html .table-screen .stats-sheet[data-open='true'] .stats-body {
 .coach[data-severity='serious'] .coach-sev {
   color: var(--coral);
 }
+/* A close spot is neither a mistake nor praise: neutral ink, no warning glyph, no state hue. */
+.coach[data-severity='close'] .coach-sev {
+  color: var(--ink-2);
+}
+.coach[data-severity='close'] .coach-sev .g-warn {
+  display: none;
+}
 .coach-sev .g-warn {
   width: 13px;
   height: 13px;

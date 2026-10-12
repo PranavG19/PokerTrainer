@@ -27,8 +27,8 @@ export function marginalReport(results: readonly MatchResult[]): string[] {
 function merge(into: GraderStats, from: GraderStats | undefined): void {
   if (!from) return;
   for (const [street, row] of Object.entries(from.byStreet)) {
-    const acc = (into.byStreet[street] ??= { decisions: 0, allFree: 0, silent: 0, close: 0, tied: 0, decisive: 0 });
-    for (const k of Object.keys(row) as (keyof StreetOpinion)[]) acc[k] += row[k];
+    const acc = (into.byStreet[street] ??= { decisions: 0, allFree: 0, silent: 0, close: 0, tied: 0, decisive: 0, tiedClass: 0 });
+    for (const k of Object.keys(row) as (keyof StreetOpinion)[]) acc[k] += row[k] ?? 0;
   }
   for (const [v, n] of Object.entries(from.verdictsAllActions)) into.verdictsAllActions[v] = (into.verdictsAllActions[v] ?? 0) + n;
   for (const [v, n] of Object.entries(from.verdictsChosen)) into.verdictsChosen[v] = (into.verdictsChosen[v] ?? 0) + n;
@@ -41,25 +41,26 @@ const VERDICTS = ['free', 'close', 'notable', 'serious'];
 export function graderReport(results: readonly MatchResult[]): string[] {
   const out: string[] = ['\n== GRADER OPINION (adherent policies; every legal action graded at every decision) =='];
   out.push('allFree = every action < 0.5bb; silent = allFree and nothing flagged close; close = some action');
-  out.push('inside the close band; tied = >1 action at the minimum; decisive = unique minimum and some action charged.');
+  out.push('inside the close band; tied = >1 action at the minimum; tiedCls = >1 action class at the minimum (bet,');
+  out.push('raise and all-in one class: the grader never sees a size); decisive = unique minimum and some action charged.');
   for (const policy of ['adherent-passive', 'adherent-aggro'] as PolicyName[]) {
     const stats = emptyGraderStats();
     for (const r of results) if (r.policy === policy) merge(stats, r.graderStats);
-    const total: StreetOpinion = { decisions: 0, allFree: 0, silent: 0, close: 0, tied: 0, decisive: 0 };
+    const total: StreetOpinion = { decisions: 0, allFree: 0, silent: 0, close: 0, tied: 0, decisive: 0, tiedClass: 0 };
     out.push(`\n${policy}`);
-    out.push(`  ${'street'.padEnd(8)} ${'decisions'.padStart(9)} ${'allFree'.padStart(7)} ${'silent'.padStart(7)} ${'close'.padStart(7)} ${'tied'.padStart(7)} ${'decisive'.padStart(8)}`);
+    out.push(`  ${'street'.padEnd(8)} ${'decisions'.padStart(9)} ${'allFree'.padStart(7)} ${'silent'.padStart(7)} ${'close'.padStart(7)} ${'tied'.padStart(7)} ${'tiedCls'.padStart(7)} ${'decisive'.padStart(8)}`);
     for (const street of STREETS) {
       const row = stats.byStreet[street];
       if (!row) continue;
       for (const k of Object.keys(total) as (keyof StreetOpinion)[]) total[k] += row[k];
       out.push(
         `  ${street.padEnd(8)} ${String(row.decisions).padStart(9)} ${pct(row.allFree, row.decisions).padStart(7)} ${pct(row.silent, row.decisions).padStart(7)} ` +
-          `${pct(row.close, row.decisions).padStart(7)} ${pct(row.tied, row.decisions).padStart(7)} ${pct(row.decisive, row.decisions).padStart(8)}`,
+          `${pct(row.close, row.decisions).padStart(7)} ${pct(row.tied, row.decisions).padStart(7)} ${pct(row.tiedClass ?? 0, row.decisions).padStart(7)} ${pct(row.decisive, row.decisions).padStart(8)}`,
       );
     }
     out.push(
       `  ${'ALL'.padEnd(8)} ${String(total.decisions).padStart(9)} ${pct(total.allFree, total.decisions).padStart(7)} ${pct(total.silent, total.decisions).padStart(7)} ` +
-        `${pct(total.close, total.decisions).padStart(7)} ${pct(total.tied, total.decisions).padStart(7)} ${pct(total.decisive, total.decisions).padStart(8)}`,
+        `${pct(total.close, total.decisions).padStart(7)} ${pct(total.tied, total.decisions).padStart(7)} ${pct(total.tiedClass, total.decisions).padStart(7)} ${pct(total.decisive, total.decisions).padStart(8)}`,
     );
     const hist = (h: Record<string, number>): string => {
       const n = Object.values(h).reduce((a, b) => a + b, 0);

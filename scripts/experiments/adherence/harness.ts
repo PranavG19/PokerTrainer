@@ -85,6 +85,8 @@ export interface StreetOpinion {
   tied: number;
   /** A unique best action and at least one action called a mistake. */
   decisive: number;
+  /** More than one action CLASS at the minimum (bet/raise/all-in counted as one). */
+  tiedClass: number;
 }
 
 export interface GraderStats {
@@ -101,13 +103,14 @@ export function emptyGraderStats(): GraderStats {
 
 export function foldTrace(stats: GraderStats, t: DecisionTrace): void {
   if (t.verdicts.length === 0) return; // a veto-arm trace: only the switch was recorded
-  const row = (stats.byStreet[t.street] ??= { decisions: 0, allFree: 0, silent: 0, close: 0, tied: 0, decisive: 0 });
+  const row = (stats.byStreet[t.street] ??= { decisions: 0, allFree: 0, silent: 0, close: 0, tied: 0, decisive: 0, tiedClass: 0 });
   row.decisions++;
   if (t.allFree) row.allFree++;
   if (t.allFree && !t.anyClose) row.silent++;
   if (t.anyClose) row.close++;
   if (t.tiedAtMin > 1) row.tied++;
   if (t.tiedAtMin === 1 && !t.allFree) row.decisive++;
+  if (t.tiedClasses > 1) row.tiedClass++;
   for (const v of t.verdicts) stats.verdictsAllActions[v] = (stats.verdictsAllActions[v] ?? 0) + 1;
   stats.verdictsChosen[t.chosenVerdict] = (stats.verdictsChosen[t.chosenVerdict] ?? 0) + 1;
 }
