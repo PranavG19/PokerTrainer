@@ -260,6 +260,38 @@ describe('T4 check 3 — number provenance', () => {
   });
 });
 
+describe('T4 check 3 — number provenance covers spelled-out numbers', () => {
+  // A numeral written as words used to bypass provenance entirely: the digit regex never saw it.
+  it('rejects "Seven fifty big blind" when 750 is not in the payload', () => {
+    const result = checkTutorOutput(
+      { text: 'Seven fifty big blind is the price here.', kind: 'correction' },
+      strategyRequest,
+    );
+    expect(result.violations).toEqual([{ check: 'number-provenance', detail: 'seven fifty (750)' }]);
+  });
+
+  it('rejects a compound or unit-bearing number word absent from the payload', () => {
+    const details = (text: string): string[] =>
+      checkTutorOutput({ text, kind: 'correction' }, strategyRequest).violations.map((v) => v.detail);
+    expect(details('Calling costs twenty five percent of the range.')).toEqual(['twenty five (25)']);
+    expect(details('The line gains three big blinds.')).toEqual(['three (3)']);
+    expect(details('Bet two thousand into it.')).toEqual(['two thousand (2000)']);
+    expect(details('Range wins seven point five more.')).toEqual(['seven point five (7.5)']);
+  });
+
+  it('permits a spelled-out number whose value is in the payload', () => {
+    // Payload: pot 5, stacks 100, bet EV 2, equity 61.
+    const ok = (text: string): boolean => checkTutorOutput({ text, kind: 'correction' }, strategyRequest).ok;
+    expect(ok('The pot is five big blinds with one hundred behind.')).toBe(true);
+    expect(ok('Sixty-one percent equity favours the bet.')).toBe(true);
+  });
+
+  it('structural counting words with no quantity unit are prose, not claims', () => {
+    // "two hole cards", "one seat", "three chunks" describe the game, not an engine number.
+    expect(checks('Range advantage with two hole cards, one seat from the button, in two days.')).toEqual([]);
+  });
+});
+
 describe('T4 check 4 — no leading second-person pronoun (a proxy, not the full property)', () => {
   for (const opener of ['You', 'you', 'Your', 'Yours', 'Yourself', "You're", '  You']) {
     it(`flags a leading "${opener.trim()}"`, () => {
