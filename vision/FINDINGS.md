@@ -1,62 +1,37 @@
-# FINDINGS — The Back Room (character, habit and identity vision)
+# FINDINGS — The Back Room, round 2
 
 ## Outcome
-- **The design:** Offsuit gets a visible teacher, Dee the dealer button. Dee is a glass disc whose engraved D
-  changes shape to show expressions. Around Dee sit a humane habit loop (the Lamp: lit days, rest days that
-  never break the run, weekly Rhythm, earned spare wicks), effort points that are never spent (Reps), Seals
-  for mastery, earn-only paint-only cosmetics, a six-rival campaign (The Long Orbit), and pro tools. It is
-  local-first, with no money, no randomness and nothing locked.
-- **Order:** Wave 0 fixes the grader, adds the tilt check and the schema guard first. Wave 1 ships Dee, the
-  Lamp and receipt cosmetics behind a four-week on/off trial with kill criteria. Story, Chalk and Pro follow
-  only if the trial passes.
-- **Status:** design and mocks only. Nothing under `src/` changed, nothing was installed, nothing was pushed.
-  The mocks render at both window sizes with no console errors, no network and no page scroll.
+- **Dee is now "Two lights":** a bone-ceramic dealer button with two engraved lights that carry every expression.
+  It was picked from five drawn directions, and a truly blind rater also ranked it first (8/10, 9 for feeling personal).
+- **A personalization layer.** It asks who you are once. Dee then quotes your own rules, leaks, rival and kept
+  hands, and every line names its `src` source. 22 mocks render on the shipped `sports` table and glass system
+  at both window sizes.
+- **Blind scores, round 1 → round 2:** 6.88 → 7.90 overall, feels personal 7.0 → 9.1, premium 7.0 → 8.2. The
+  re-score after fixes is in `scores.md`. Design and mocks only: nothing under `src/` changed, nothing was
+  installed, nothing was pushed.
 
 ## Decisions to evaluate
-- **Mascot = Dee (the button).** If overruled: Tell (a chip) or Pip (a human dealer), and the rig and every
-  mock are redrawn.
-- **"Price held":** Dee acknowledges a hard spot played right, with the numbers, on close spots only. If
-  overruled: Dee is silent on every correct decision.
-- **Dee adds no words in-hand** (pose only; one line at the hand-end beat). If overruled: it breaks the coach's
-  word budget and the silence rule.
-- **Receipts first, Chalk (an earn-only currency) after the trial.** If overruled: Chalk in Wave 1, with
-  more grind risk.
-- **Streak = the Lamp, counted in kept weeks against a chosen Rhythm.** If overruled: a daily streak, which
-  fights the spacing schedule.
-- **A 9-tab navigation** (Home, Play, Learn, Story, Train, Study, Pro, Locker, Profile). If overruled: keep
-  the 11 tabs, with Story and Locker nested.
-- **Lamp and ring colour = white light plus chip tone,** never mint or amber. If overruled: a new "habit"
-  hue token (lilac was proposed).
-- **The daily Ticket is under 30 minutes** (the spec bans sub-30-minute sessions). If overruled: the daily
-  loop is the 30-minute plan.
+- **Dee's mark is Two lights.** If overruled, pick another column on `dee-marks.html`: one `data-mark` swap redraws every mock.
+- **Persistent regulars.** Each named regular keeps one archetype, and their dossier counts only showdowns. If overruled, rivals become per-session reads and the Rival and "Bo's room" screens go.
+- **7 tabs plus a You sub-nav** (Profile, Trophies, Style, Hands, Letters, Rivals, Locker, Dee). If overruled, the shipped 11 tabs stay and You nests under Profile.
+- **Style identity is one of four neutral archetypes** (The Closer, Anchor, Pressure, Explorer) from VPIP, PFR and aggression. If overruled, Style shows the numbers with no name.
+- **Dee's default voice is Warm, speaking "After notable hands".** If overruled, the default is Dry or Mistakes only; copy changes, numbers don't.
+- **The weekly letter is scripted templates filled from your numbers, never generated.** If overruled, an LLM rewords it, which needs a spec change (the tutor never sees bulk history).
+- **The classic streak has no freeze, as you chose.** The research (Gardner 2012) says one forgiven miss doesn't hurt a habit; if you want one, it's a one-line rule plus a perch state.
 
 ## Open questions
-- **A v2.2 spec amendment** bringing effort XP, a humane streak and cosmetics into scope, and reconciling the
-  2026-08-14 code-versus-spec drift. Reserved for the owner. Default taken: designed only.
-- **The persisted profile schema change** (`schemaVersion` plus a `progression` namespace). Reserved for the
-  owner. Default taken: not made. Note that the current `deserialize` already drops unknown keys.
-- **Any backend** for global leagues, friends or sync. Default taken: none (Ghost Rail, LAN Club, profile
-  export).
-- **Do the grader fixes gate the rewards?** Default taken: yes (Wave 0 exit criterion).
-- **An 18+ statement.** Default taken: yes, proposed.
-- **Pro import of real-money hands.** Default taken: review and counting stats only, no profit/loss, earns
-  nothing.
-- **A second amendment for the other non-goals** (ICM, hand-history import, leaderboards), which gates Pro
-  tools and the Ghost Rail. Default taken: Wave 2, after the trial.
-- **LLM flavour for Dee's lines.** Default taken: off by default; guarded; scripted fallback.
+- **Chalk** (a spendable earn-only currency) vs receipts only (D4). Default taken: receipts only; round 2 shows no currency.
+- **Does "amend fully" also cover hand-history import and ICM** (D18)? Default taken: yes, so Study shows both.
+- **The table mocks reuse the shipped 100 bb demo hand,** though the persona is certified at 75 bb (`standing.ts` sets the stack by earned depth). Default taken: keep the shipped hand.
+- **Any backend** (leagues, sync; D3). Default taken: none.
+- **Environment:** a Homebrew `simdjson` upgrade broke `/opt/homebrew` node mid-task. Default taken: render with the existing mise node 24 and install nothing. Your main checkout's `npm` scripts will hit the same break.
 
 ## Alternatives rejected
-- A daily reset-to-zero streak, which would fight flat spacing and add streak anxiety.
-- Loot boxes, random drops or bought currency, for gambling adjacency.
-- Global leagues at launch, which would break no-network.
-- Lottie, Rive or 3D for the character, which need CSP changes or new dependencies.
+- **The button (a ceramic button with a jewel eye):** the best craft, but one eye reads as watching and has little range (6/10).
+- **Pebble (a glass dome with a visor):** fits the glass best, but it isn't the button and reads as a minus sign at 16px (5–6/10).
+- **Orbit (a ring and bead):** crisp, but reads as a loading spinner (5/10).
 
 ## Evidence
-- Synthesis: `VISION.md` (the cast, interaction model, feature list by pillar, economy, the D1–D18
-  decisions), `PITCH.md`, `BUILD-PLAN.md`.
-- Panel: `product-strategist.md`, `learning-scientist.md`, `character-designer.md`, `economy-designer.md`,
-  `ux-motion-designer.md`, `poker-domain-expert.md`, `technical-architect.md`, `skeptic.md`.
-- Review: `code-review.md`.
-- Mocks: `index.html` (the gallery), `gallery.png`, and `character-`, `home-`, `table-mistake-`,
-  `table-great-`, `lesson-`, `celebrate-`, `locker-`, `story-`, `profile-`, `pro-import-` and `pro-icm-`
-  at `1100x760.png` and `900x640.png`.
+- **Design:** `DESIGN-BRIEF.md` (the FitPRD principles, P1–P21, each with its source), `fitprd-sources.md` (the research files used), `DESIGN.md` (implementer detail), `persona.md`, `personalization-sources.md`.
+- **Mocks:** `dee-marks-*.png` (comparison and blind), plus every screen at both sizes: `home`, `table-live/mistake/great`, `onboarding-step1…4`, `profile`, `trophies`, `style`, `hands`, `letter`, `rival`, `dee-settings`, `locker`, `milestone`, `story`, `lesson`, `study`. `gallery.png` shows the index.
+- **Scores and review:** `scores.md`, `scores-raw.md`, `scores-raw-2.md`, `scores-marks.md` and `scores-marks-captioned.md` for the scores; `code-review.md` for both review passes; `DECISIONS.md` for the decision record.

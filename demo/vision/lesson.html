@@ -11,7 +11,7 @@
      Sources (vision/personalization-sources.md):
        your rule … lexicon AcceptedSentence (session.ts:200, lexicon.ts:62), "the price is the call over the pot after I call", 3 Oct, pot odds
        building on it … feedbackOpening (lexicon.ts:303) style: the next sentence offered for acceptance as rule 13 (lexicon)
-       Bo's 4 of 9 shown bluffs … rivals[] (new, showdown counts only) from HandRecord.villain (new) over decisions[] (session.ts:43)
+       Bo's 5 of 12 shown bluffs … rivals[] (new, showdown counts only) from HandRecord.villain (new) over decisions[] (session.ts:43)
        the spot (450 into 550) … The Long Call, your kept hand (hands[] pinned, new), replayed as the lesson's example
        lesson 2 of 3 in The River Room … chapter order from leakCostBb (session.ts:130); concept states (schedule.ts:334)
        Sure / Guess … calibration (session.ts:149), DecisionRecord.prediction (new) -->
@@ -61,9 +61,20 @@
   .potkey span:last-child { color: var(--ink-1); font-weight: 500; }
   .eq { margin-top: 14px; font-size: var(--t-head); color: var(--ink-2); }
   .eq b { color: var(--ink-1); font-weight: 600; }
-  .meter2 { position: relative; height: 40px; margin-top: 12px; }
+  .pm { margin-top: 10px; }
+  /* Price meter: each label centred on its own mark. The price label sits above its tick, the other below the bar's end. */
+  .pm { position: relative; height: 50px; }
+  .pm .bar { position: absolute; left: 0; right: 0; top: 23px; height: 4px; border-radius: 2px; background: var(--ring-track); }
+  .pm .fill { position: absolute; left: 0; top: 23px; height: 4px; width: var(--b); border-radius: 2px; background: oklch(1 0 0 / 0.34); }
+  .pm .gap { position: absolute; top: 23px; height: 4px; left: var(--a); width: calc(var(--b) - var(--a)); background: oklch(1 0 0 / 0.82); }
+  .pm .tick { position: absolute; top: 15px; left: var(--a); width: 2px; height: 8px; margin-left: -1px; border-radius: 1px; background: var(--ink-1); }
+  .pm .cap { position: absolute; top: 30px; left: var(--b); width: 2px; height: 6px; margin-left: -1px; border-radius: 1px; background: oklch(1 0 0 / 0.82); }
+  .pm .la, .pm .lb { position: absolute; font-size: var(--t-cap); white-space: nowrap; transform: translateX(-50%); }
+  .pm .la { top: 0; left: clamp(40px, var(--a), calc(100% - 40px)); color: var(--ink-1); font-weight: 500; }
+  .pm .lb { top: 36px; left: clamp(60px, var(--b), calc(100% - 60px)); color: var(--ink-2); }
+
   .meter2 .bar { position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: var(--ring-track); }
-  .meter2 .fill { position: absolute; left: 0; top: 8px; height: 4px; width: 44%; border-radius: 2px; background: oklch(1 0 0 / 0.34); }
+  .meter2 .fill { position: absolute; left: 0; top: 8px; height: 4px; width: 42%; border-radius: 2px; background: oklch(1 0 0 / 0.34); }
   .meter2 .gap { position: absolute; top: 8px; height: 4px; left: 31%; width: 13%; background: oklch(1 0 0 / 0.82); }
   .meter2 .tick { position: absolute; top: 2px; width: 2px; height: 16px; margin-left: -1px; border-radius: 1px; background: var(--ink-1); }
   .meter2 .lab { position: absolute; top: 22px; font-size: var(--t-cap); color: var(--ink-2); white-space: nowrap; }
@@ -71,7 +82,7 @@
   .adds p { margin-top: 4px; font-size: var(--t-body); color: var(--ink-1); line-height: 1.45; }
   .adds p .old { color: var(--ink-3); }
   .bo { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
-  .bo .caption { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bo .caption { line-height: 1.4; }
   .bo .t, .from .t { font-size: var(--t-body); font-weight: 500; }
   .avatar { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--t-cap); font-weight: 700; color: var(--ink-1);
     background: radial-gradient(circle at 40% 30%, oklch(1 0 0 / 0.20), oklch(1 0 0 / 0.06)); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
@@ -117,7 +128,7 @@
 
         <div class="you"><span class="who"><span>You</span><span class="mark yes">✓</span></span><p>550, his 450 and my 450: 1450</p></div>
 
-        <div class="dee-turn"><span class="who">Dee</span><p>So 450 over 1450: <b class="num">31%</b>. Now the new part. Of Bo’s big river bets you’ve seen at showdown, <b class="num">4 of 9</b> were bluffs, about 44%. With a hand that only beats a bluff, is this a call?</p></div>
+        <div class="dee-turn"><span class="who">Dee</span><p>So 450 over 1450: <b class="num">31%</b>. Now the new part. Of Bo’s big river bets you’ve seen at showdown, <b class="num">5 of 12</b> were bluffs, about 42%. With a hand that only beats a bluff, is this a call?</p></div>
 
         <div class="ask">
           <div class="opts" role="radiogroup" aria-label="Your answer">
@@ -126,7 +137,7 @@
             <button class="choice" role="radio" aria-checked="false"><b>Raise</b><span>Make him fold the better hands</span></button>
           </div>
           <div class="commit">
-            <input class="field why" type="text" placeholder="Why? One line, in your words" aria-label="Why (optional)" value="Bluffs 44%, price 31%" />
+            <input class="field why" type="text" placeholder="Why? One line, in your words" aria-label="Why (optional)" value="Bluffs about 42%, price 31%" />
             <div class="seg" role="radiogroup" aria-label="How sure"><button role="radio" aria-checked="true">Sure</button><button role="radio" aria-checked="false">Guess</button></div>
             <button class="btn primary">Commit <span class="kbd">↩</span></button>
           </div>
@@ -146,16 +157,15 @@
           <div class="potbar" aria-hidden="true"><span class="a num">550</span><span class="b num">450</span><span class="c num">450</span></div>
           <div class="potkey" aria-hidden="true"><span>before the bet</span><span>Bo’s bet</span><span>your call</span></div>
           <p class="eq num">450 ÷ 1450 = <b>31%</b>, your price</p>
-          <div class="meter2" aria-hidden="true">
-            <div class="bar"></div><div class="fill"></div><div class="gap"></div>
-            <div class="tick" style="left:31%"></div>
-            <span class="lab" style="right:calc(69% + 6px)">price 31%</span><span class="lab" style="left:calc(44% + 6px)">Bo showed bluffs 4 of 9</span>
+          <div class="pm" style="--a:31%;--b:42%" aria-hidden="true">
+            <div class="bar"></div><div class="fill"></div><div class="gap"></div><div class="tick"></div><div class="cap"></div>
+            <span class="la">price 31%</span><span class="lb">Bo bluffed 5 of 12, about 42%</span>
           </div>
         </div>
 
         <div class="tile bo">
           <span class="avatar" aria-hidden="true">Bo</span>
-          <div class="grow"><div class="t">Bo on the river</div><div class="caption num">River bet in 21 of 38 hands · 4 of 9 shown were bluffs</div></div>
+          <div class="grow"><div class="t">Bo on the river</div><div class="caption num">5 of 12 big river bets he showed were bluffs</div></div>
         </div>
 
         <div class="tile adds">

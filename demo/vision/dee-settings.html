@@ -44,6 +44,9 @@
   .hush { display: flex; gap: 8px; align-items: center; font-size: var(--t-foot); color: var(--ink-2); }
   .hush svg { width: 14px; height: 14px; flex: none; color: var(--ink-2); }
   .hush b { color: var(--ink-1); font-weight: 500; }
+  .voicepick[aria-disabled='true'] { pointer-events: none; box-shadow: inset 0 0 0 0.5px var(--hair); background: transparent; }
+  .voicepick[aria-disabled='true'] button, .voicepick[aria-disabled='true'] button[aria-checked='true'] { color: var(--ink-3); font-weight: 400; }
+  .voicepick[aria-disabled='true'] .thumb { background: var(--fill-1); box-shadow: none; }
   .mem .row { padding: 7px 10px 7px 14px; gap: 12px; }
   .mem .n { width: 22px; flex: none; font-size: var(--t-head); font-weight: 600; text-align: right; }
   .mem .t { display: block; font-size: var(--t-body); font-weight: 500; }
@@ -58,7 +61,7 @@
     .opt { padding: 8px 12px; }
     .opt .caption.more, .hush .more { display: none; }
     .freq { padding: 8px 12px 10px; gap: 8px; }
-    .freq .choice { padding: 8px 10px; } .freq .choice span { display: none; }
+    .freq .choice { padding: 8px 32px 8px 10px; } .freq .choice span { display: none; }
     .mem .row { padding: 6px 8px 6px 12px; }
     .mem .caption { display: none; }
     .sec { margin-bottom: 8px; }
@@ -116,8 +119,8 @@
                 <p class="hush"><svg aria-hidden="true"><use href="#hush"/></svg><span><b>Dee never talks while you’re to act.</b><span class="more"> The words wait until the hand is over.</span></span></p>
               </div>
               <div class="opt"><span class="grow"><span class="t">Read verdicts aloud</span><span class="caption more">Off. Uses the Mac’s voice, after the hand only</span></span>
-                <div class="seg sm" role="radiogroup" aria-label="Voice"><button role="radio" aria-checked="true">Low</button><button role="radio" aria-checked="false">Clear</button></div>
-                <button class="switch" role="switch" aria-checked="false" aria-label="Read verdicts aloud"><span class="track" aria-hidden="true"></span></button></div>
+                <div class="seg sm voicepick" role="radiogroup" aria-label="Voice (turn on Read verdicts aloud to choose)" aria-disabled="true" id="voicepick"><button role="radio" aria-checked="true" aria-disabled="true" tabindex="-1">Low</button><button role="radio" aria-checked="false" aria-disabled="true" tabindex="-1">Clear</button></div>
+                <button class="switch" role="switch" aria-checked="false" aria-label="Read verdicts aloud" id="aloud"><span class="track" aria-hidden="true"></span></button></div>
               <div class="opt"><span class="grow"><span class="t">Celebrations</span><span class="caption more">A hop with smiling eyes when a hard spot goes right. No sound</span></span>
                 <button class="switch" role="switch" aria-checked="true" aria-label="Celebrations"><span class="track" aria-hidden="true"></span></button></div>
               <div class="opt"><span class="grow"><span class="t">Character</span><span class="caption more">Off shows a plain dealer button: no eyes, same words</span></span>
@@ -128,7 +131,7 @@
           <div>
             <div class="sec"><h2>What Dee remembers</h2><span class="caption">On this Mac · Forget stops Dee quoting it</span></div>
             <div class="group mem">
-              <div class="row"><span class="n num">12</span><span class="grow"><span class="t">Your rules</span><span class="caption">Latest: <q>the price is the call over the pot after I call</q></span></span><button class="btn sm quiet">Forget…</button></div>
+              <div class="row"><span class="n num">12</span><span class="grow"><span class="t">Your rules</span><span class="caption">Most quoted: <q>the price is the call over the pot after I call</q></span></span><button class="btn sm quiet">Forget…</button></div>
               <div class="row"><span class="n num">2</span><span class="grow"><span class="t">Leaks</span><span class="caption">River calls, 1.8 bb a time · c-bet folds, 68%</span></span><button class="btn sm quiet">Forget…</button></div>
               <div class="row"><span class="n num">3</span><span class="grow"><span class="t">Rivals</span><span class="caption">Bo, Ada and Cy, from 133 hands</span></span><button class="btn sm quiet">Forget…</button></div>
               <div class="row"><span class="n num">4</span><span class="grow"><span class="t">Kept hands</span><span class="caption">The Long Call, The Set Fold, The Squeeze …</span></span><button class="btn sm quiet">Forget…</button></div>
@@ -169,6 +172,9 @@
     document.getElementById('moods').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; mood = b.dataset.pose; show(); });
     const freq = document.querySelector('[aria-labelledby="q-freq"]');
     freq.addEventListener('click', (e) => { const b = e.target.closest('.choice'); if (!b) return; freq.querySelectorAll('.choice').forEach((x) => x.setAttribute('aria-checked', String(x === b))); });
+    const aloud = document.getElementById('aloud'), pick = document.getElementById('voicepick');
+    aloud.addEventListener('click', () => requestAnimationFrame(() => { const off = aloud.getAttribute('aria-checked') !== 'true';
+      pick.setAttribute('aria-disabled', String(off)); pick.querySelectorAll('button').forEach((b) => { b.setAttribute('aria-disabled', String(off)); b.tabIndex = off ? -1 : 0; }); }));
     addEventListener('load', show);
   })();
 </script>

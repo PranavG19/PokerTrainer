@@ -21,9 +21,10 @@ html[data-felt='sports'] .beat-open .center { top: 43%; }
 @media (max-width: 1000px) { .beat-tray .caption { display: none; } html[data-felt='sports'] .beat-open .hero-plate { bottom: 90px; } .sheet .yours .caption { display: none; } }
 @media (prefers-reduced-motion: reduce) { .beat-tray .dee { animation: none; } }
 
-/* Round-2 rater fixes: the commit tray gets its one bone primary (the shipped tray commits on Enter; the mock shows the key),
- * the hero clears the tray by 16px, and the hand-end beat reserves its own height at 1100 so it never covers the hero's cards. */
-.tray .commit-btn { flex: none; }
+/* Round-2 fixes: the tray has no Commit button, as shipped (predictPanel.ts commits once both halves are picked; the dock's
+ * primary is Raise), so a caption says so. The hero clears the tray, and the hand-end beat reserves its own height. */
+.tray .q { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.commit-cap { font-weight: 400; }
 html[data-felt='sports'] .predicting .hero-plate { bottom: 122px; }
 html[data-felt='sports'] .beat-open .hero-plate { bottom: 128px; }
 html[data-felt='sports'] .beat-open .center { top: 41%; }

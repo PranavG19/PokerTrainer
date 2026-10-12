@@ -43,8 +43,44 @@ rated separately in [`scores-marks.md`](scores-marks.md).
 - **Study (7.31 vs 7.62):** bone push cells, a second CTA and a dead band.
 - **Milestone (7.92 vs 8.00):** glossy 3D trophy, within noise.
 
-Both were reworked against the rater's reasons. The fix status ("→ fixed") is from the author. The confirmation is the second review pass in
-[`code-review.md`](code-review.md), not a re-score.
+Both were reworked against the rater's reasons.
+
+## Re-score after the fixes (a second, stricter blind rater; `scores-raw-2.md`)
+All 20 round-2 screens were re-rated in shuffled order with no round-1 pairs, by a new rater after the rater and review fixes (commit 5d8436f).
+| | hier | type | color | material | space | consist | states | motion | a11y | craft | apple | **personal** | **premium** | **mean** |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Round 2 after fixes | 7.9 | 7.4 | 7.9 | 7.7 | 6.8 | 7.7 | 7.5 | 7.0 | 7.8 | 6.9 | 7.7 | **8.9** | **8.0** | **7.61** |
+
+- **Calibration.** This rater is stricter, so read the numbers with that in mind. It scored motion 7 everywhere ("no evidence in a still"). It marked down
+  the condensed display numerals, which are the shipped `sports` table's face and which you chose. It also marked down the table screens for having
+  no felt zone, which is likewise the shipped `sports` surface. Screens that barely changed moved by about ±0.3: Onboarding 1 went 8.15 → 8.23 and
+  Letters 8.23 → 7.77. So the overall 7.90 → 7.61 is mostly rater offset, not regression.
+- **Per screen (mean · personal · premium):**
+  - Onboarding 1: 8.23 · 10 · 9
+  - Milestone: 8.00 · 9 · 9
+  - Onboarding 2 and Onboarding 4: 7.85 · 9 · 8
+  - Profile: 7.85 · 9 · 8
+  - Home, Lesson, Style, Trophies and Onboarding 3: 7.77 · 9 · 8
+  - Letters: 7.77 · 10 · 9
+  - Dee: 7.69 · 10 · 8
+  - Table, mistake: 7.69 · 8 · 8
+  - Hands: 7.62 · 9 · 8
+  - Story: 7.46 · 9 · 8
+  - Locker: 7.23 · 9 · 8
+  - Table, great: 7.15 · 8 · 7
+  - Rival: 7.08 · 9 · 7
+  - Table, live: 7.00 · 7 · 7
+  - Study: 6.92 · 8 · 7
+- **Fixed after this re-score (author; confirmed only by the gallery re-render, not re-scored):**
+  - meter labels anchored to their ticks;
+  - the 900px truncations and the check overlap;
+  - the read-aloud choice disabled when off;
+  - a single selected tile in Locker;
+  - the hyphen break on the Trophy shelf;
+  - the dead columns;
+  - the table's +750 net and the seats revealed at hand end.
+- **Not changed, on purpose:** the condensed numerals and the no-felt surface (the shipped `sports` table), and motion (stills can't show it).
+  Study stays the weakest screen because it is the densest. It is a candidate for splitting into two screens at port time.
 
 ## Dee mark directions (blind, `scores-marks.md`)
 | Direction | 16px | 64px | expression | original | glass fit | craft | personal | **overall** |

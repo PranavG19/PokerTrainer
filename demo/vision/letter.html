@@ -18,7 +18,7 @@
        earlier letters … one stored letter per week: {week, numbers, templateIds} (new), never the generated text -->
 <style>
   .lt { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); column-gap: 32px; }
-  .letter { padding: 22px 28px 0; display: flex; flex-direction: column; }
+  .letter { padding: 22px 28px 0; display: flex; flex-direction: column; justify-content: space-between; }   /* spare height spreads evenly between the letter's parts */
   .letter .dateline { display: flex; align-items: baseline; gap: 10px; }
   .letter .dateline .caption { margin-left: auto; }
   .prose { font-family: var(--font-index); font-size: var(--t-t3); line-height: 1.64; color: var(--ink-1); letter-spacing: 0.002em; max-width: 60ch; margin-top: 14px; }
@@ -27,7 +27,7 @@
   .prose .hello { font-size: var(--t-t2); font-weight: 600; }
   .ps { font-family: var(--font-index); font-style: italic; font-size: var(--t-head); line-height: 1.55; color: var(--ink-2); max-width: 60ch; margin-top: 18px; }
   .sign { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-family: var(--font-index); font-style: italic; font-size: var(--t-t3); color: var(--ink-2); }
-  .letter-foot { margin-top: auto !important; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); margin: 20px -28px 0; box-shadow: inset 0 0.5px 0 var(--hair-strong); }
+  .letter-foot { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); margin: 20px -28px 0; box-shadow: inset 0 0.5px 0 var(--hair-strong); }
   .letter-foot > div { padding: 14px 18px 16px 28px; display: flex; flex-direction: column; gap: 8px; }
   .letter-foot > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); padding-left: 18px; padding-right: 22px; }
   .hand { display: flex; align-items: center; gap: 10px; }
@@ -167,7 +167,7 @@
           <div class="sec" style="margin-top: 20px"><h2>Earlier letters</h2></div>
           <div class="group past">
             <button class="row-btn"><span class="wk num">Wk 5</span><span class="grow"><span class="t">The set you folded</span><span class="caption">29 Sep – 5 Oct · first correct set fold</span></span><svg class="chev"><use href="#chev"/></svg></button>
-            <button class="row-btn"><span class="wk num">Wk 4</span><span class="grow"><span class="t">The squeeze from the button</span><span class="caption">22–28 Sep · Q♣J♣ 3-bet, +22 bb</span></span><svg class="chev"><use href="#chev"/></svg></button>
+            <button class="row-btn"><span class="wk num">Wk 4</span><span class="grow"><span class="t">The squeeze from the button</span><span class="caption">22–28 Sep · Q♣J♣ 3-bet, +8 bb</span></span><svg class="chev"><use href="#chev"/></svg></button>
             <button class="row-btn"><span class="wk num">Wk 3</span><span class="grow"><span class="t">When the flop decides the hand</span><span class="caption">15–21 Sep · your SPR rule, 19 Sep</span></span><svg class="chev"><use href="#chev"/></svg></button>
           </div>
           <p class="caption made"><svg aria-hidden="true"><use href="#tpl"/></svg>Written from your numbers by templates, not generated.</p>

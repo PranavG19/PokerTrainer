@@ -10,9 +10,9 @@
      At the heart of the orbit: the depth rings (40 / 75 / 125 bb, the next rungs of DEPTHS 0/40/75/125/200) and how far you've certified. Right: the current chapter.
      One bone primary: Continue. Dee appears once (the line in the chapter). Sources (vision/personalization-sources.md):
        chapter order … SessionStats.leaks/leakCostBb (session.ts:130) via recommend() (recommend.ts:219), ranked by total bb lost: river calls 25 bb (1.8 × 14), c-bet folds 13 bb (0.6 × 22)
-       depth rings … DEPTHS (standing.ts:38), standing() (standing.ts:226), 125 bb progress from masteryGate (standing.ts): 7 of 8 concepts through the gate
+       depth rings … DEPTHS (standing.ts:38), standing() (standing.ts:226), 125 bb progress from masteryGate (standing.ts): 7 of 8 concepts, puzzles done through the gate
        lesson status … conceptStatesFromLog (schedule.ts:334) over fadingLog (session.ts:208); puzzleProgress (session.ts:192)
-       Bo and his numbers … rivals[] (new) from HandRecord.villain (new): river bet in 21 of 38 hands, 4 of 9 shown big river bets were bluffs (showdown counts only)
+       Bo and his numbers … rivals[] (new) from HandRecord.villain (new): river bet in 21 of 38 hands, 5 of 12 shown big river bets were bluffs (showdown counts only)
        "9 big river calls, 6 right" … this week's decisions[] (session.ts:43), the same numbers as Dee's letter, week 6 -->
 <style>
   .story { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-content: stretch; column-gap: 32px; }
@@ -57,11 +57,11 @@
   .ch h2 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; margin-top: 3px; }
   .ch .built { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .ch .built .tag b { color: var(--ink-1); font-weight: 600; }
-  .ch .sub { margin-top: 12px; max-width: 56ch; }
-  .ch .dee-line { margin-top: 14px; }
+  .ch .sub { margin-top: 16px; max-width: 56ch; }
+  .ch .dee-line { margin-top: 24px; }
   .ch .dee-line .say { font-size: var(--t-head); }
-  .lessons { margin-top: 16px; }
-  .lessons .row-btn { padding: 13px 14px; }
+  .lessons { margin-top: 24px; }
+  .lessons .row-btn { padding: 15px 14px; }
   .lessons .n { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.18); }
   .lessons .done .n { background: var(--fill-2); color: var(--ink-1); box-shadow: none; }
   .lessons .next .n { background: var(--fill-3); color: var(--ink-1); box-shadow: var(--thumb-shadow); }
@@ -69,12 +69,12 @@
   .lessons .done .t { color: var(--ink-2); }
   .lessons .st { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; }
   .lessons .next .st { color: var(--ink-1); font-weight: 500; }
-  .boss { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 12px 14px; }
+  .boss { margin-top: 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 15px 16px; }
   .boss .hand { display: flex; align-items: center; gap: 8px; }
   .boss .hand .on { font-size: var(--t-cap); color: var(--ink-3); }
   .boss .caption { grid-column: 1 / -1; }
   .go { display: flex; gap: 12px; align-items: center; margin-top: auto; padding-top: 14px; padding-bottom: 8px; }
-  .order { margin-top: 12px; display: flex; align-items: baseline; gap: 14px; white-space: nowrap; font-size: var(--t-foot); color: var(--ink-2); }
+  .order { margin-top: 18px; display: flex; align-items: baseline; gap: 14px; white-space: nowrap; font-size: var(--t-foot); color: var(--ink-2); }
   .order b { color: var(--ink-1); font-weight: 600; margin-right: 3px; }
   .order .x { color: var(--ink-3); }
 
@@ -104,7 +104,7 @@
           <path id="travelled" fill="none" stroke="#F4F2EC" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round" vector-effect="non-scaling-stroke"/></g>
         </svg>
 
-        <div class="hub" role="img" aria-label="Depth: 40 bb and 75 bb certified, 125 bb at 7 of 8 concepts">
+        <div class="hub" role="img" aria-label="Depth: 40 bb and 75 bb certified, 125 bb at 7 of 8 concepts, puzzles done">
           <svg viewBox="0 0 190 190" aria-hidden="true">
             <g transform="rotate(-90 95 95)" fill="none" stroke-width="3">
               <circle cx="95" cy="95" r="88" stroke="#FFFFFF" stroke-opacity=".12"/>
@@ -116,14 +116,14 @@
           </svg>
           <div class="in"><span class="t-score num">75</span><span class="k">bb</span></div>
         </div>
-        <div class="depth-key" aria-hidden="true"><span class="k" style="margin-bottom:1px">Depth certified</span><span><i style="--o:.42"></i>40 bb ✓</span><span><i style="--o:.62"></i>75 bb ✓</span><span><i class="part"></i>125 bb · 7 of 8 concepts</span></div>
+        <div class="depth-key" aria-hidden="true"><span class="k" style="margin-bottom:1px">Depth certified</span><span><i style="--o:.42"></i>40 bb ✓</span><span><i style="--o:.62"></i>75 bb ✓</span><span><i class="part"></i>125 bb · 7 of 8 concepts, puzzles done</span></div>
       </section>
 
       <section class="stack ch" aria-label="Chapter 3, The River Room">
         <span class="label">Chapter 3 of 6 · moved up from 5</span>
         <h2>The River Room</h2>
         <div class="built"><span class="tag">Built from your leak: <b>river calls, 1.8 bb a time</b></span></div>
-        <p class="sub">A low room over the water, where the last card lands. Bo runs the game here and bets the river in more than half his hands. Of the big river bets he’s shown you, 4 of 9 were bluffs.</p>
+        <p class="sub">A low room over the water, where the last card lands. Bo runs the game here and bets the river in more than half his hands. Of the big river bets he’s shown you, 5 of 12 were bluffs.</p>
 
         <div class="dee-line">
           <span class="dee" data-pose="attentive" data-size="40"></span>
@@ -138,7 +138,7 @@
         </div>
 
         <div class="tile boss">
-          <div><span class="k">The room’s last hand · Bo · 125 bb deep</span></div>
+          <div><span class="k">The room’s last hand · Bo · 75 bb deep</span></div>
           <span class="k">after lesson 3</span>
           <div class="hand" aria-label="You hold ace of clubs, jack of diamonds. Board: ace of hearts, 8 of spades, 3 of clubs, 10 of diamonds, 2 of spades">
             <span class="mini"><span class="card"><span class="rk">A</span><span class="st">♣</span></span><span class="card red"><span class="rk">J</span><span class="st">♦</span></span></span>

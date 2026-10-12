@@ -17,7 +17,7 @@
        Forty Deep, Seventy-Five Deep …    standing() (standing.ts:226), DEPTHS (standing.ts:38), careerRecord (career.ts:163)
        One-Twenty-Five Deep, 7 of 8 …    standing() masteryGate (standing.ts:226: masteredKcCount ≥ 8 for 125 bb), DEPTHS 0/40/75/125/200 (standing.ts:38)
        Twelve Rules …                     lexicon (session.ts:200, AcceptedSentence lexicon.ts:62)
-       Three Weeks, Thirty-One 23/31 …    streak {current, best} (new, local day) from HandRecord.playedAt (session.ts:80)
+       Three Weeks, Thirty Days 23/30 …    streak {current, best} (new, local day) from HandRecord.playedAt (session.ts:80)
        Sure Means Sure 81% …              sureAccuracy (predict.ts:112), CareerRecord.sureAccuracy (career.ts:85)
        Rival Turned, −14 bb vs Bo …       rivals[] {name, yourNetBb} (new), from HandRecord.villain + net
        Dee's note ("missed twice") …      the week's hands[].decisions river calls, scripted template (PRODUCT-SPEC:283) -->
@@ -232,7 +232,7 @@
   <!-- Next trophies, drawn in outline: their shape is known in advance -->
   <symbol id="n-125" viewBox="0 0 30 34"><path d="M10 7H19V32H10ZM19 7L23 3.5V28.5L19 32M10 7L14 3.5H23" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M11.5 12.5H17.5" stroke="currentColor" stroke-width="1.1"/></symbol>
   <symbol id="n-sure" viewBox="0 0 30 34"><ellipse cx="15" cy="15" rx="10" ry="11" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M10.5 15.2l3 3 6-6.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 27H22L23.5 31.5H6.5Z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></symbol>
-  <symbol id="n-thirtyone" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="1.1"><ellipse cx="15" cy="10" rx="10" ry="3"/><path d="M5 10v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4M5 17v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4M5 24v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4"/></g></symbol>
+  <symbol id="n-thirty" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="1.1"><ellipse cx="15" cy="10" rx="10" ry="3"/><path d="M5 10v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4M5 17v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4M5 24v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4"/></g></symbol>
   <symbol id="n-rival" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="1.1"><circle cx="11.5" cy="15" r="8"/><circle cx="18.5" cy="15" r="8"/><path d="M7 27H23L24.5 31.5H5.5Z" stroke-linejoin="round"/></g></symbol>
   <symbol id="chev" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
@@ -258,7 +258,7 @@
             <button aria-pressed="true"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-longcall"/></svg></span><span class="n">The Long Call</span><span class="dt">11 Oct</span></button>
             <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-twelve"/></svg></span><span class="n">Twelve Rules</span><span class="dt">9 Oct</span></button>
             <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-threeweeks"/></svg></span><span class="n">Three Weeks</span><span class="dt">10 Oct</span></button>
-            <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-seventyfive"/></svg></span><span class="n">Seventy-Five Deep</span><span class="dt">6 Oct</span></button>
+            <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-seventyfive"/></svg></span><span class="n">Seventy&#8209;Five Deep</span><span class="dt">6 Oct</span></button>
             <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-setfold"/></svg></span><span class="n">The Set Fold</span><span class="dt">4 Oct</span></button>
             <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-forty"/></svg></span><span class="n">Forty Deep</span><span class="dt">2 Sep</span></button>
           </div>
@@ -289,12 +289,12 @@
           <section class="next" aria-label="Next four trophies">
             <div class="sec"><h2>Next four</h2><span class="caption">What each records, and how close you are</span></div>
             <div class="tile flat">
-              <div class="r"><svg aria-hidden="true"><use href="#n-125"/></svg><span><span class="t">One-Twenty-Five Deep</span><span class="d">Certify the 125 bb table</span></span>
-                <span class="p"><span class="caption num">7 of 8 concepts</span><span class="meter-sm"><i style="width:87.5%"></i></span></span></div>
+              <div class="r"><svg aria-hidden="true"><use href="#n-125"/></svg><span><span class="t">One-Twenty-Five Deep</span><span class="d">7 of 8 concepts, puzzles done</span></span>
+                <span class="p"><span class="caption num">1 concept to go</span><span class="meter-sm"><i style="width:87.5%"></i></span></span></div>
               <div class="r"><svg aria-hidden="true"><use href="#n-sure"/></svg><span><span class="t">Sure Means Sure</span><span class="d">85% right over 100 Sure calls</span></span>
                 <span class="p"><span class="caption num">81% of 85%</span><span class="meter-sm"><i style="width:95%"></i></span></span></div>
-              <div class="r"><svg aria-hidden="true"><use href="#n-thirtyone"/></svg><span><span class="t">Thirty-One</span><span class="d">Beat your best streak</span></span>
-                <span class="p"><span class="caption num">23 of 31 days</span><span class="meter-sm"><i style="width:74%"></i></span></span></div>
+              <div class="r"><svg aria-hidden="true"><use href="#n-thirty"/></svg><span><span class="t">Thirty Days</span><span class="d">A 30-day streak</span></span>
+                <span class="p"><span class="caption num">23 of 30 days</span><span class="meter-sm"><i style="width:77%"></i></span></span></div>
               <div class="r"><svg aria-hidden="true"><use href="#n-rival"/></svg><span><span class="t">Rival Turned</span><span class="d">Win back the 14 bb from Bo</span></span>
                 <span class="p"><span class="caption num">−14 bb to go</span><span class="meter-sm"><i style="width:0"></i></span></span></div>
             </div>

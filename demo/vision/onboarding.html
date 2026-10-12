@@ -99,6 +99,11 @@
   .plan .min { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; }
   .vrow { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding-top: 12px; box-shadow: inset 0 0.5px 0 var(--hair); }
   .vrow .t { display: block; font-size: var(--t-body); font-weight: 500; }
+  .s4 > .q { gap: 8px; }
+  .promise-list { margin-top: auto; padding-top: 12px; box-shadow: inset 0 0.5px 0 var(--hair); display: flex; flex-direction: column; gap: 5px; }
+  .promise-list .label { margin-bottom: 2px; }
+  .promise-list p { display: flex; align-items: center; gap: 8px; font-size: var(--t-body); color: var(--ink-1); }
+  .promise-list svg { width: 14px; height: 14px; flex: none; color: var(--ink-2); }
   .voices { display: flex; flex-direction: column; gap: 0; }
   .voice { position: relative; width: 100%; text-align: left; padding: 10px 34px 10px 12px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; font-size: var(--t-body); color: var(--ink-2); line-height: 1.45;
     transition: background-color var(--dur-1); }
@@ -122,7 +127,7 @@
     .summary { font-size: var(--t-t3); }
     .plan .d { display: none; }
     .voice { padding: 8px 32px 8px 10px; font-size: var(--t-foot); } .voice[aria-checked='true']::after { top: 9px; right: 10px; }
-    .hide-sm { display: none; }
+    .hide-sm { display: none; } .promise-list { padding-top: 8px; gap: 3px; } .promise-list p { font-size: var(--t-foot); }
   }
 </style>
 </head>
@@ -201,7 +206,7 @@
           <div class="q">
             <span class="label" id="q-stakes">Stakes</span>
             <div class="seg" role="radiogroup" aria-labelledby="q-stakes"><button role="radio" aria-checked="false">Free</button><button role="radio" aria-checked="true">$1/$2</button><button role="radio" aria-checked="false">$2/$5</button><button role="radio" aria-checked="false">$5/$10+</button></div>
-            <p class="uses">Dee uses this to <b>set the stacks</b>: $1/$2 at 100 bb deep. No money is involved here.</p>
+            <p class="uses">Dee uses this to <b>talk in your game’s money</b>: $1/$2. Stack depth comes from the tables you certify. No money is involved here.</p>
           </div>
           <div class="q">
             <span class="label" id="q-exp">Experience</span>
@@ -243,7 +248,7 @@
           </div>
           <div class="q">
             <span class="label" id="q-len">A session is</span>
-            <div class="seg" role="radiogroup" aria-labelledby="q-len"><button role="radio" aria-checked="true">30 min</button><button role="radio" aria-checked="false">45 min</button><button role="radio" aria-checked="false">An hour</button></div>
+            <div class="seg" role="radiogroup" aria-labelledby="q-len"><button role="radio" aria-checked="true">30 min</button><button role="radio" aria-checked="false">50 min</button></div>
             <p class="uses">Dee uses this to <b>size each night’s plan</b>. Thirty minutes is the shortest full session.</p>
           </div>
         </div>
@@ -276,7 +281,13 @@
               <button class="voice" role="radio" aria-checked="false"><span class="k">Blunt</span><span>Needed <b>25%</b>. Had <b>74%</b>. Call.</span></button>
             </div>
             <p class="uses">Dee uses this to <b>choose the words around a verdict</b>. The numbers and the grade never change with it.</p>
-            <div class="vrow"><span class="grow"><span class="t">Read verdicts aloud</span><span class="uses">Off. Dee never speaks while you’re to act.</span></span><button class="switch" role="switch" aria-checked="false" aria-label="Read verdicts aloud"><span class="track" aria-hidden="true"></span></button></div>
+            <div class="vrow"><span class="grow"><span class="t">Read verdicts aloud</span><span class="uses">Off. When on, Dee reads the verdict once the hand ends.</span></span><button class="switch" role="switch" aria-checked="false" aria-label="Read verdicts aloud"><span class="track" aria-hidden="true"></span></button></div>
+            <div class="promise-list" aria-label="Dee’s promise">
+              <span class="label">What I promise</span>
+              <p><svg aria-hidden="true" viewBox="0 0 14 14"><path d="M3.5 7.3l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>I never talk while you’re to act.</p>
+              <p><svg aria-hidden="true" viewBox="0 0 14 14"><path d="M3.5 7.3l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>I quote your rules back in your words.</p>
+              <p class="hide-sm"><svg aria-hidden="true" viewBox="0 0 14 14"><path d="M3.5 7.3l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>You can turn the character off any time.</p>
+            </div>
           </div>
         </div>
       </div>

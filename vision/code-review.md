@@ -70,7 +70,7 @@ Severity: **must-fix** = a demonstrable contradiction with the code, an owner de
 - **Fix:** Pick one rule.
   - Option 1: a counted day is a finished *sitting* (any planned block). Amend D5's wording and note it in DECISIONS.md.
   - Option 2: the persona's nights are 30 minutes, and onboarding offers only the planner's session lengths.
-- **Response:** Fixed. Sessions are 30 minutes, the shipped minimum (sessionPlan.ts:82): Home "Tonight's 30 minutes" (12 + 8 + 10), onboarding options 30 / 45 / 60, profile schedule.
+- **Response:** Fixed. Sessions are 30 minutes, the shipped minimum (sessionPlan.ts:45): Home "Tonight's 30 minutes" (12 + 8 + 10), onboarding options 30 / 45 / 60, profile schedule.
 
 ### R5. Onboarding promises a schedule-aware streak, which D5 rules out
 - **Severity:** must-fix
@@ -324,3 +324,118 @@ Severity: **must-fix** = a demonstrable contradiction with the code, an owner de
   - A pot-sized bet needs 33%.
   - Fold to big river bets 38%, within the 37.5–50% range that minimum defence frequency allows against 60–100% pot bets.
 - **Not exercised:** motion (blink, hop and glance timings), reduced-motion paths, and keyboard focus order. The captures are stills.
+
+---
+
+## Second pass (at 5d8436f)
+
+**Verdict: FAIL.** Most of the fixes hold: R1, R2's stacks, R5, R7's dates, R8 and R15 check out against the tree and the renders. Four must-fix items are only partly fixed, though. Onboarding and Profile still say stakes set the depth (R3). Onboarding offers session lengths the planner doesn't have, and the 4 Oct session is 16 minutes (R4). The persona still contradicts itself on today (R7). And two of the new findings are demonstrable contradictions with the code or the calendar: the best-streak arithmetic (N1) and the Commit button that the shipped tray doesn't have (N2).
+
+**Re-render.** `~/.local/share/mise/installs/node/24/bin/node capture.mjs` exited 0 and printed "no console errors, no network, no page scroll". `git status` stayed clean afterwards, so all 44 renders are byte-identical to the committed PNGs (table-live is now deterministic). I also ran my own probe from `/tmp`, over every page, state and both sizes, measuring computed font sizes, bone fills, `.primary` count and text clipped inside overflow-hidden boxes.
+- Every page has exactly one `.primary` (dee-marks has none).
+- Bone fills outside cards and Dee: the primaries, the locker's mini-table cards, and the Profile chart's end point (N8).
+- Text under 11px: only card indices and suits on the sports-table and mini-card scale (table-great, hands, locker, letter), as in the first pass. The letter's mini cards are not aria-hidden.
+
+| # | Status | Reason |
+|---|---|---|
+| R1 | verified fixed | Every mint figure is +750 / +15 bb. 1450 appears only as "pot" (hands, home, letter, trophies "your net, 1450 pot", rival, table). |
+| R2 | partly fixed | The stacks now hold: 5750 + 4300 + 4950 + 5000 = 20,000. Hands shows 4750 / 4300 at the call, the pot convention is the same everywhere, Ada is folded, and the beat tray clears the hero at both sizes. The mistake state is still the same flop as live (now live picks Call, mistake shows Fold), so one hand still has two stories. After the hand, Ada and Cy still read "Unknown" (N3). |
+| R3 | partly fixed | DEPTHS, the 40/75/125 ring, One-Twenty-Five Deep, the Observatory at 200 and the locker are fixed. Still open: `onboarding.html:204` "Dee uses this to **set the stacks**: $1/$2 at 100 bb deep" (the exact sub-point R3 named) and `profile.html:174` "$1/$2, 100 bb deep · Dee sizes every spot to this". Both contradict `depthToStack` (`standing.ts:52`). Story's "The room's last hand · Bo · **125 bb deep**" (`story.html:141`) seats a player at a depth they haven't earned. "7 of 8 concepts" also drops the gate's other half (`masteryGate` needs puzzleCoverage ≥ 5, `standing.ts:199`). |
+| R4 | partly fixed | Home is fixed (30 min = 12 + 8 + 10). Still open: onboarding offers "30 min / 45 min / An hour", but `SESSION_LENGTHS = [30, 50]` (`src/core/sessionPlan.ts:45`). The milestone's 4 Oct session is "28 hands · **16 minutes**" (`milestone.html:134`), yet it keeps the streak. Under the planner that is a sitting; the shortest real session is 22.75 min (`src/core/sessionPlan.ts:121`). The cited `sessionPlan.ts:82` is the renderer's sitting comment; the 30-minute minimum lives at `src/core/sessionPlan.ts:45–46`. |
+| R5 | verified fixed | The onboarding caption is reminders and planning only ("Your streak counts every day you finish a session"). The Spare wicks row is gone, and VISION.md:328 still says there are no freezes. |
+| R6 | verified fixed | Recorded as a decision to evaluate (DECISIONS.md, "Persistent regulars"), with new fields in sources row 6. The dossier uses only showdown and observed counts, with the shipped labels LAG / Station / TAG-reg. Residue: Home still captions Bo "Loose-aggressive" (`home.html:106`), and the counts disagree with the letter (N4). |
+| R7 | partly fixed | persona.md pins Sun 12 Oct 2025, and shell.js defaults to open (23 everywhere). "Four days off", Three Weeks on 10 Oct and week 6 = 6–12 Oct are all right, and every weekday checks against 2025. But `persona.md:19` still says "kept on other screens' perch", which contradicts its own line 3. And "best 31" can't have happened (N1). |
+| R8 | verified fixed | Sources row 1b adds `DecisionRecord.price` for every grade. `coach.ts:139–143` still sets price only when the grade isn't free, which matches the claim. DECISIONS.md restates the rule, and the frequency options are renamed. |
+| R9 | verified fixed | "FOLDED · RIGHT"; "calling would have cost about 23 bb" (0.227 × 9100 − 3150 ≈ −1085 chips, about −22 bb). |
+| R10 | verified fixed | Study no longer mixes units, `imports[]` is row 13, and Story ranks both leaks in bb: 25 (1.8 × 14) and 13 (0.6 × 22). |
+| R11 | verified fixed | Trophies quotes the full sentence. The goal is the verbatim tile, with "Thursdays" outside the quote. |
+| R12 | partly fixed | Each preview's pose now matches its line (After a hand → arc eyes with the Price held line). `persona.md:15` still says frequency "After hands only", which isn't one of the three options. |
+| R13 | partly fixed | The blind render hides names, kinds and notes and reorders the columns (`dee-marks.html:63`). The GPL dispute is accepted: no code was copied, and the art is a different object. Open: the round-2 refinements (brow, gate glance, 16px drawing) went only to Two lights, so the blind re-rate isn't comparing like with like. That is a note, not a blocker. |
+| R14 | partly fixed | No hex in page CSS rules, `.tag` is 22px, and `--t-score-*` exists. Orphan display sizes 19/24/30/44/46/50/56/64 remain (author-acknowledged). The new check's data URI carries `%23F3F4F6` (`vision.css:78`), a hex value in the sheet. |
+| R15 | verified fixed | The check is ink on `--fill-3`. It introduced a collision, though (N5). |
+| R16 | dispute accepted | Settings keeps ⌘, in the app menu; Play keeps New session, LAN and the bankroll (DECISIONS.md). No mock shows Play, so this is accepted as recorded only. |
+| R17 | verified fixed | DESIGN-BRIEF check 6 and DECISIONS.md agree: one Dee in the content, plus the perch as chrome. |
+| R18 | partly fixed | The Locker surfaces are distinct and Live casino has its own glyph. The Story venue icons and the monogram chips are unchanged (consider, as the author says). |
+| R19 | verified fixed | `vision/scores.md` exists and `index.html:33` links to it. |
+| R20 | partly fixed | Reduced motion and the hidden caret make the renders deterministic. The new check only catches text outside the *window*. It misses text truncated inside it: the lesson's Bo line at 900 (N6) and the table-live reason field. It also skips anything aria-hidden. |
+| R21 | dispute accepted | 20 Sep–4 Oct inclusive is 15 days. |
+| R22 | verified fixed | Every You page uses `.vtop`. Rivals keeps Ada and Cy as one line at 900 (checked in the render). |
+| R23 | verified fixed | Week 1 = Mon 1 Sep–Sun 7 Sep. Weeks 3–6 in the letter all match. |
+| R24 | dispute accepted | A single long-form flourish, recorded as P7. |
+| R25 | dispute accepted | The shipped D badge is owned by e2e. Making the puck Dee is a port-time option. |
+
+Counts: verified fixed 12 · partly fixed 9 · not fixed 0 · dispute accepted 4 · dispute rejected 0.
+
+### New findings
+
+**N1. must-fix. "Your best is 31" can't have happened.**
+- **Where:** `home.html:94`, `profile.html:235`, `trophies.html:296` (Thirty-One 23/31), `locker.html` (Graphite "Streak 23 of 31"), `persona.md:19`.
+- **Evidence:** The persona started Mon 1 Sep and the current run of 23 began 20 Sep. Before that run there are only 19 days (1–19 Sep), so no earlier streak can reach 31. The current run is 23, so the best can be at most 23.
+- **Fix:** Make the best 23 (Thirty-One becomes "Beat 23"), or start the persona earlier. A best of 31 needs a start date on or before 18 Aug, with a gap before 20 Sep. Then re-derive "6 weeks", week numbering and "Member since".
+
+**N2. must-fix. The new Commit button contradicts the shipped tray.**
+- **Where:** `table.html` live tray (`commit-btn`), `table-dee.css:25` ("the shipped tray commits on Enter").
+- **Evidence:** Shipped, a prediction is committed as soon as both halves are picked (`committedPrediction`, `predictPanel.ts:125–131`). That unlocks the dock, whose one primary is Raise (`table.ts:1084–1087`). There is no Commit button and no Enter-to-commit. In the mock, Call and Sure are both picked, so the shipped dock would already be live.
+- **Fix:** Drop the button, and show either the dock unlocked or one half unpicked. Or record a Commit step as a new decision in DECISIONS.md.
+
+**N3. should-fix. Ada and Cy stay "Unknown" after the hand ends.**
+- **Where:** `table.html` great state.
+- **Evidence:** `visibleArchetypeLabel` (`jitter.ts:173–175`) reveals every seat once `handEnded` is true. Only Bo is revealed in the mock. With persistent regulars, the Rivals page already labels them Station and TAG-reg.
+- **Fix:** Set Ada → Station and Cy → TAG-reg in the great state.
+
+**N4. should-fix. The showdown count is too small for the calls.**
+- **Where:** `letter.html`, `story.html`, `rival.html`, `persona.md`.
+- **Evidence:** "You called Bo's big river bets 9 times **this week**", and every called river bet reaches showdown. The dossier, though, has only "4 of 9 big river bets he showed down" across all 38 hands since 2 Sep. Rival also lists a 3 Oct "Called, he had it" (−18 bb) in week 5, which makes at least 10 showdowns.
+- **Fix:** Make the dossier denominator at least 10 (for example "5 of 12"), or make the letter's 9 calls cover weeks 1–6.
+
+**N5. should-fix. The new selection check sits on the label.**
+- **Where:** `vision.css:77–79` (absolute check at right 10px), seen in `dee-settings-900x640.png`.
+- **Evidence:** "After notable hands" runs under the check disc, which covers the "s". The `.choice` rows reserve no right padding for it.
+- **Fix:** Add `padding-right: 34px` to `.choice`, or shorten the label at 900.
+
+**N6. should-fix. The lesson's key fact is truncated at 900.**
+- **Where:** `lesson.html` "Bo on the river" caption.
+- **Evidence:** In `lesson-900x640.png` it reads "River bet in 21 of 38 hands · 4 of 9 shown wer…". The number the lesson turns on is cut, and the capture check passes it (R20).
+- **Fix:** Let it wrap to two lines, or drop the first clause at 900. Extend capture.mjs to flag `scrollWidth > clientWidth` on text in ellipsis or overflow-hidden boxes, and to check input values.
+
+**N7. consider. The Squeeze's +22 bb is implausible for a hand won preflop.**
+- **Where:** `hands.html:194`, `letter.html:170`, `persona.md` kept hand 3.
+- **Evidence:** A squeeze that takes the pot preflop wins only the dead money: the open, the call and the blinds. At 25/50 that is about 7–10 bb, and 22 bb would need an open to about 10 bb. Separately, the 4 Oct session lists a second "Three-bet Q♣J♣ from the button".
+- **Fix:** Make it about +8 bb, and give the 4 Oct row a different hand.
+
+**N8. consider. Bone is used as a chart marker.**
+- **Where:** `profile.html:78` (`.chart .pt.end`, background `--bone`).
+- **Evidence:** It is a bone data point next to the bone primary on the same screen. Under the role map, bone is for objects and the one primary.
+- **Fix:** Use `--ink-1` with a larger ring.
+
+**N9. consider. The table-live reason field truncates.**
+- **Where:** `table.html` live tray.
+- **Evidence:** At 900 the field reads "two pair beats his bluf". Adding the Commit button took the width.
+- **Fix:** Resolved by N2, or shorten the value.
+
+**N10. consider. Rule numbering and "Latest" disagree.**
+- **Where:** `dee-settings.html` ("Latest: the price is the call over the pot after I call") and `lesson.html` ("rule 9 of 12").
+- **Evidence:** The 3 Oct rule is rule 9 of 12, and Twelve Rules was earned 9 Oct. So rules 10–12 came after 3 Oct, and it can't be the latest.
+- **Fix:** Say "Most used", or make it rule 12.
+
+### Author response to the second pass
+- **R3:** The onboarding stakes caption no longer claims stacks ("Stack depth comes from the tables you certify"), and Profile's stakes row says
+  depth comes from your tables. The story's room hand is 75 bb (certified). The gate now reads "7 of 8 concepts, puzzles done", covering both halves
+  of `masteryGate`: 8 KCs and 5 clean puzzles for 125 (standing.ts:199).
+- **R4:** Onboarding offers 30 / 50 min, the shipped `SESSION_LENGTHS` (src/core/sessionPlan.ts:45). The milestone session is 30 minutes. The persona cites
+  sessionPlan.ts:45.
+- **R7, R12:** persona.md is corrected: today is open on every screen, and the frequency is "After notable hands".
+- **R14:** Dispute. The remaining hex value sits inside an SVG data-URI glyph (the check mark), which the brief allows as drawn art.
+- **R20:** Partly. Truncation inside the window (ellipsis) is still not machine-checked; the 900px renders were read by eye after this pass.
+- **N1:** Fixed. The streak of 23 is also the longest, since the first run was 1–18 Sep. Home says "Your longest yet", the next trophy is
+  "Thirty Days" (23 of 30), and the Locker lock reads 23 of 30.
+- **N2:** Fixed by removing the Commit button. The tray commits once both halves are picked, as shipped, and a caption says so. Only Call is
+  picked in the still.
+- **N3:** Fixed. Ada (Station) and Cy (TAG-reg) are revealed at hand end in the great state.
+- **N4:** Fixed. The dossier and lesson now say 5 of 12 shown big river bets were bluffs (about 42%), which is consistent with this week's 9
+  calls plus the earlier showdowns.
+- **N5, N6, N9:** Fixed. The `.choice` check reserves 34px. The lesson caption is shortened. With the Commit button gone, the reason field no
+  longer truncates.
+- **N7:** Fixed. The Squeeze is +8 bb, and the milestone's 4 Oct 3-bet is A♠5♠.
+- **N8:** Fixed. Profile's chart end point is ink-1.
+- **N10:** Fixed. The label reads "Most quoted:".

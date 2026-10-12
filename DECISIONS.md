@@ -29,7 +29,7 @@ A character, habit and identity layer, designed but not built. See `VISION.md`, 
   Reads still expire per session (R4).
 - **The mock's day** is Sun 12 Oct 2025, evening, not yet played. The streak is 23, and the table hand is the
   shipped demo's 100 bb hand. Depth uses `standing.ts` DEPTHS (40 and 75 certified, 125 next). Sessions are 30
-  minutes (the shipped minimum, `sessionPlan.ts:82`).
+  minutes (the shipped minimum, `sessionPlan.ts:45`).
 - **Settings and Play with friends keep their shipped homes:** Settings in the macOS app menu (⌘,), and New session,
   Play with friends and the bankroll on Play. You › Dee holds only Dee's settings.
 - **"Price held"** is the one acknowledgement of good play. It is task feedback with the numbers, fires only on

@@ -77,6 +77,7 @@
   .drills .bars span.now { background: oklch(1 0 0 / 0.80); }
   .drills .bars b { position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -2px); font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); }
   .drills .bars .now b { color: var(--ink-1); }
+  .hover-note { display: none; margin-top: -4px; font-size: var(--t-cap); }
   .pgo { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 14px; }
 
   @media (max-width: 1000px) {
@@ -86,7 +87,7 @@
     .forest { margin-top: 10px; } .fr { grid-template-columns: 146px minmax(0, 1fr) 106px; gap: 10px; padding: 7px 12px; } .fine .tag:last-child { display: none; } .drills { padding: 10px 12px; } .drills .bars { height: 34px; }
     .fr .n b { font-size: var(--t-foot); white-space: normal; line-height: 1.3; } .fr .v b { font-size: var(--t-foot); }
     .pf { grid-template-columns: auto; gap: 12px; padding: 12px; }
-    .grid13 { grid-template-columns: 12px repeat(13, 19px); grid-template-rows: 12px repeat(13, 18px); gap: 2px; } .grid13 i { font-size: 0; } .pf-head .caption { font-size: var(--t-cap); } .pf-head .wide { display: none; }
+    .grid13 { grid-template-columns: 12px repeat(13, 19px); grid-template-rows: 12px repeat(13, 18px); gap: 2px; } .grid13 i { font-size: 0; } .pf-head .caption { font-size: var(--t-cap); } .pf-head .wide { display: none; } .hover-note { display: block; }
     .key { gap: 10px; } .key .r { font-size: var(--t-cap); }
     .pf-note, .lgo .caption, .shead .caption { display: none; }
     .pf-head .seg button { padding: 0 8px; }
@@ -107,7 +108,7 @@
           <div class="what">
             <b>River calls against big bets</b>
             <span class="caption num">Most likely between 0.9 and 2.4 bb/100</span>
-            <span class="agree"><svg viewBox="0 0 13 13" aria-hidden="true"><path d="M3 6.8l2.3 2.3L10 4.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Agrees with the trainer: your costliest spot there too</span>
+            <span class="agree"><svg viewBox="0 0 13 13" aria-hidden="true"><path d="M3 6.8l2.3 2.3L10 4.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Also your costliest spot in the trainer</span>
           </div>
         </div>
 
@@ -141,6 +142,7 @@
             <span class="r"><i class="f"></i>Fold</span>
             <span class="r"><i class="m f"></i>Missed last drill</span>
           </div>
+          <p class="caption hover-note">Labels hidden at this size. Hover a cell for the hand.</p>
         </div>
         <div class="tile drills" role="img" aria-label="Your last five drills of this chart: 29, 33, 34, 36 and 37 right of 40">
           <div><span class="t-stat num" style="display:block">37<span class="unit">of 40</span></span><span class="k">right in your last drill, 9 Oct</span></div>

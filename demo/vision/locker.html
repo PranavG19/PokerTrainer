@@ -12,8 +12,8 @@
      One bone primary: Use this back. Sources (vision/personalization-sources.md):
        what is unlocked … trophies (fixed list, persona.md), each from decisions[] (session.ts:43), lexicon (session.ts:200),
                           streak {current, best} (new), DEPTHS/standing() (standing.ts:38, :226), careerRecord (career.ts:163)
-       locks and progress … One-Twenty-Five Deep: the 125 bb tier (DEPTHS 0/40/75/125/200, standing.ts:38), masteryGate 7 of 8 concepts (standing.ts:226); Sure Means Sure: sureAccuracy (predict.ts:112), 81% of 118/146;
-                          Thirty-One: streak.best 31, current 23; Rival Turned: rivals[].yourNetBb −14 (new)
+       locks and progress … One-Twenty-Five Deep: the 125 bb tier (DEPTHS 0/40/75/125/200, standing.ts:38), masteryGate 7 of 8 concepts, puzzles done (standing.ts:226); Sure Means Sure: sureAccuracy (predict.ts:112), 81% of 118/146;
+                          Thirty Days: streak.current 23 of 30; Rival Turned: rivals[].yourNetBb −14 (new)
        what you wear now … cosmetics {back, felt, deeFinish} (new, device settings offsuit-settings.json, store.ts:21) -->
 <style>
   .locker { grid-template-rows: auto minmax(0, 1fr); height: 100%; }
@@ -69,7 +69,7 @@
   .bk .by { font-size: var(--t-cap); color: var(--ink-3); line-height: 1.25; white-space: nowrap; }
   .bk.locked .art { opacity: 0.38; filter: saturate(0.4); }
   .bk.locked b { color: var(--ink-2); }
-  .bk .inuse { position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-1); }
+  .bk .by .iu { color: var(--ink-1); font-weight: 600; }
   .bk .meter-sm { width: 70%; margin-top: 1px; }
   .row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .sf { align-items: stretch; text-align: left; padding: 8px 8px 9px; }
@@ -175,7 +175,7 @@
           <div class="row3" role="radiogroup" aria-label="Dee’s finish" id="finishes">
             <button class="bk df" role="radio" aria-checked="true" data-finish="bone"><span class="ring" data-finish="bone"></span><span class="t"><b>Bone</b><span class="by">Day one</span></span></button>
             <button class="bk df" role="radio" aria-checked="false" data-finish="smoked"><span class="ring" data-finish="smoked"></span><span class="t"><b>Smoked</b><span class="by">Three Weeks</span></span></button>
-            <button class="bk df locked" role="radio" aria-checked="false" aria-disabled="true" data-finish="graphite"><span class="ring" data-finish="graphite"></span><span class="t"><b>Graphite</b><span class="lock"><svg aria-hidden="true"><use href="#lock"/></svg>Streak 23 of 31</span></span></button>
+            <button class="bk df locked" role="radio" aria-checked="false" aria-disabled="true" data-finish="graphite"><span class="ring" data-finish="graphite"></span><span class="t"><b>Graphite</b><span class="lock"><svg aria-hidden="true"><use href="#lock"/></svg>Streak 23 of 30</span></span></button>
           </div>
 
           <p class="caption rule-note">Paint only: faces, seats and numbers never change. Nothing is sold, nothing is random.</p>
@@ -223,13 +223,13 @@
     ['lattice', 'Button lattice', 'Three Weeks', 'From Three Weeks: 21 days in a row, 9 Oct'],
     ['seal', 'The seal', 'Forty Deep', 'From Forty Deep: the 40 bb table certified, 2 Sep'],
     ['crease', 'The crease', 'The Set Fold', 'From The Set Fold: you folded a set of sevens, right, 4 Oct'],
-    ['depth', 'Depth rings', '125 bb · 7 of 8', 'One-Twenty-Five Deep: certify the 125 bb table. 7 of 8 concepts through the gate', 'locked', 87.5],
+    ['depth', 'Depth rings', '125 bb · 7 of 8', 'One-Twenty-Five Deep: certify the 125 bb table. 7 of 8 concepts, puzzles done through the gate', 'locked', 87.5],
     ['sure', 'Calibration', '81% of 85%', 'Sure Means Sure: 85% right over 100 Sure calls. You are at 81%', 'locked', 81 / 85 * 100],
   ];
   const backs = document.getElementById('backs');
   backs.innerHTML = BACKS.map(([k, name, by, long, flag, pct]) => `<button class="bk${flag === 'locked' ? ' locked' : ''}" role="radio" aria-checked="${k === 'river'}" data-k="${k}"${flag === 'locked' ? ' aria-disabled="true"' : ''} aria-label="${name}. ${long}">` +
-    `${flag === 'inuse' ? '<span class="inuse" title="In use"></span>' : ''}<span class="art">${ART[k]}</span><b>${name}</b>` +
-    (flag === 'locked' ? `<span class="lock"><svg aria-hidden="true"><use href="#lock"/></svg>${by}</span><span class="meter-sm"><i style="width:${pct}%"></i></span>` : `<span class="by">${by}${flag === 'inuse' ? ' · in use' : ''}</span>`) + '</button>').join('');
+    `<span class="art">${ART[k]}</span><b>${name}</b>` +
+    (flag === 'locked' ? `<span class="lock"><svg aria-hidden="true"><use href="#lock"/></svg>${by}</span><span class="meter-sm"><i style="width:${pct}%"></i></span>` : `<span class="by">${flag === 'inuse' ? '<span class="iu">In use</span> · ' : ''}${by}</span>`) + '</button>').join('');
 
   const pv = document.getElementById('pv'), chName = document.getElementById('chName'), chBy = document.getElementById('chBy'), use = document.getElementById('use');
   const paint = (k) => { for (const c of pv.querySelectorAll('.card.back')) c.innerHTML = ART[k]; };

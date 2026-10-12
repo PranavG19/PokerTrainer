@@ -16,7 +16,7 @@
        Sure 81% vs the 85% mark …                    calibration (session.ts:149), sureAccuracy (predict.ts:112)
        rules in your words (3 of 12) …               lexicon: AcceptedSentence (lexicon.ts:62, session.ts:200)
        7 of 12 concepts, 40/75 certified, 125 … 7/8  fadingLog → conceptStatesFromLog (schedule.ts:334), standing() (standing.ts:226), DEPTHS (standing.ts:38)
-       streak 23, best 31 …                          streak {current, best} (new, local day) from HandRecord.playedAt
+       streak 23, also the best …                          streak {current, best} (new, local day) from HandRecord.playedAt
        Dee's line (river calls) …                    SessionStats.leaks/leakCostBb (session.ts:130), scripted template -->
 <style>
   .prof { grid-template-rows: auto auto minmax(0, 1fr); row-gap: 22px; }
@@ -75,7 +75,7 @@
   .chart .area { fill: oklch(1 0 0 / 0.05); }
   .chart .ln { fill: none; stroke: var(--ink-1); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
   .chart .pt { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--ink-1); box-shadow: 0 0 0 2px var(--desk-0); }
-  .chart .pt.end { width: 10px; height: 10px; margin: -5px 0 0 -5px; background: var(--bone); }
+  .chart .pt.end { width: 10px; height: 10px; margin: -5px 0 0 -5px; background: var(--ink-1); }
   .chart .lb { position: absolute; font-size: var(--t-cap); color: var(--ink-2); font-weight: 600; transform: translate(-50%, -150%); white-space: nowrap; }
   .chart .ax { position: absolute; top: calc(100% + 5px); font-size: var(--t-cap); color: var(--ink-3); transform: translateX(-50%); white-space: nowrap; }
   .chart .yl { position: absolute; left: -24px; font-size: var(--t-cap); color: var(--ink-3); transform: translateY(-50%); }
@@ -109,7 +109,7 @@
   .ladder i.part::after { content: ""; position: absolute; inset: 0 12.5% 0 0; background: oklch(1 0 0 / 0.42); }
   .ladder-k { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 4px; font-size: var(--t-cap); color: var(--ink-3); }
   .run { position: relative; height: 6px; margin-top: 10px; border-radius: var(--r-xs); background: var(--ring-track); }
-  .run i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(23 / 31 * 100%); border-radius: var(--r-xs); background: var(--ring-fill); }
+  .run i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(23 / 30 * 100%); border-radius: var(--r-xs); background: var(--ring-fill); }
 
   @media (max-width: 1000px) {
     .id { gap: 14px; } .me { width: 58px; height: 58px; }
@@ -171,7 +171,7 @@
           <div class="sec"><h2>Your game</h2><span class="caption">From onboarding · change anything</span></div>
           <div class="group facts" role="list">
             <button class="row-btn" role="listitem"><span class="k2">Where you play</span><span class="grow"><span class="v">Home game</span><span class="d">Some online too</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
-            <button class="row-btn" role="listitem"><span class="k2">Stakes</span><span class="grow"><span class="v num">$1/$2, 100 bb deep</span><span class="d">Dee sizes every spot to this</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
+            <button class="row-btn" role="listitem"><span class="k2">Stakes</span><span class="grow"><span class="v num">$1/$2</span><span class="d">Dee talks in your game’s money; depth comes from your tables</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
             <button class="row-btn" role="listitem"><span class="k2">Schedule</span><span class="grow"><span class="v">Weeknights, 30 minutes</span><span class="d">The game itself is Thursday</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
             <button class="row-btn" role="listitem"><span class="k2">Why you play</span><span class="grow"><span class="v">The friends, and the puzzle</span><span class="d">A few years in, never studied</span></span><span class="ed">Edit</span><svg class="chev"><use href="#chev"/></svg></button>
           </div>
@@ -232,7 +232,7 @@
               <div class="dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
             <div><div class="v num">75 bb<small>certified</small></div><div class="k">125 bb: 7 of 8<span class="hide-sm"> concepts</span></div>
               <div class="ladder" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="part"></i></div><div class="ladder-k num" aria-hidden="true"><span>40</span><span>75</span><span>125</span></div></div>
-            <div><div class="v num">23<small>days</small></div><div class="k">streak, best 31</div>
+            <div><div class="v num">23<small>days</small></div><div class="k">streak, your longest</div>
               <div class="run" aria-hidden="true"><i></i></div></div>
           </div>
         </section>

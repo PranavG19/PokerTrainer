@@ -51,8 +51,17 @@
   .facts > div { padding: 11px 14px; }
   .facts > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); }
   .facts .v { font-size: var(--t-t3); font-weight: 600; letter-spacing: -0.01em; }
-  .meter { margin-top: 14px; }
-  .meter .need { top: -3px; height: 8px; border-radius: 1px 1px 0 0; }   /* the price tick sits above the bar, never across it */
+  .pm { margin-top: 12px; }
+  /* Price meter: each label centred on its own mark. The price label sits above its tick, the other below the bar's end. */
+  .pm { position: relative; height: 50px; }
+  .pm .bar { position: absolute; left: 0; right: 0; top: 23px; height: 4px; border-radius: 2px; background: var(--ring-track); }
+  .pm .fill { position: absolute; left: 0; top: 23px; height: 4px; width: var(--b); border-radius: 2px; background: oklch(1 0 0 / 0.34); }
+  .pm .gap { position: absolute; top: 23px; height: 4px; left: var(--a); width: calc(var(--b) - var(--a)); background: oklch(1 0 0 / 0.82); }
+  .pm .tick { position: absolute; top: 15px; left: var(--a); width: 2px; height: 8px; margin-left: -1px; border-radius: 1px; background: var(--ink-1); }
+  .pm .cap { position: absolute; top: 30px; left: var(--b); width: 2px; height: 6px; margin-left: -1px; border-radius: 1px; background: oklch(1 0 0 / 0.82); }
+  .pm .la, .pm .lb { position: absolute; font-size: var(--t-cap); white-space: nowrap; transform: translateX(-50%); }
+  .pm .la { top: 0; left: clamp(40px, var(--a), calc(100% - 40px)); color: var(--ink-1); font-weight: 500; }
+  .pm .lb { top: 36px; left: clamp(60px, var(--b), calc(100% - 60px)); color: var(--ink-2); }
   .reason { margin-top: 10px; padding: 11px 14px; }
   .reason q { display: block; font-size: var(--t-body); color: var(--ink-1); font-weight: 500; line-height: 1.45; margin-top: 3px; }
   .reason q::before { content: "“"; } .reason q::after { content: "”"; }
@@ -158,9 +167,9 @@
             <div><div class="v num">34%</div><div class="k">you had</div></div>
             <div><div class="v">Sure</div><div class="k">your call, right</div></div>
           </div>
-          <div class="meter" style="--had:34%;--need:31%" role="img" aria-label="Needed 31% pot share, you had 34%">
-            <div class="bar"></div><div class="fill"></div><div class="gap"></div><div class="need" style="background: var(--ink-1)"></div>
-            <span class="lab" style="left:auto;right:calc(69% + 6px);transform:none">needed 31%</span><span class="lab" style="left:calc(34% + 6px);transform:none">you had 34%</span><span class="end" style="right:0">100%</span>
+          <div class="pm" style="--a:31%;--b:34%" role="img" aria-label="Needed 31% pot share, you had 34%">
+            <div class="bar"></div><div class="fill"></div><div class="gap"></div><div class="tick"></div><div class="cap"></div>
+            <span class="la">needed 31%</span><span class="lb">you had 34%</span>
           </div>
           <div class="tile reason">
             <span class="k">Your reason, graded right</span>
@@ -191,7 +200,7 @@
             </button>
             <button class="kh">
               <span class="mini"><span class="card"><span class="rk">Q</span><span class="st">♣</span></span><span class="card"><span class="rk">J</span><span class="st">♣</span></span></span>
-              <b>The Squeeze</b><span class="d num pos-num">+22 bb</span><span class="when">26 Sep · A first</span>
+              <b>The Squeeze</b><span class="d num pos-num">+8 bb</span><span class="when">26 Sep · A first</span>
               <span class="why">3-bet over a call; took it preflop</span>
             </button>
             <button class="kh">
