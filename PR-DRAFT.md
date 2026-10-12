@@ -60,7 +60,7 @@ redesign").
 
 ## Verification
 - `npm run typecheck`: exit 0. `npm test`: 1804 passed.
-- `npm run e2e` (full): see "Final test run" below.
+- `npm run e2e` (full): 551 passed, 0 failed, 1 skipped (the same opt-in live-tutor skip as on `main`).
 - AA contrast on the running app: 100 renders (every screen and table state in Glass and Obsidian, plus the
   busted-seat showdown), 0 failures, minimum 4.75:1 (`tests/tmp/aa-fr.log`).
 - Screenshots of every screen at 900x640 and 1100x760 (`tests/tmp/app/fr-final/`); before / after / mockup
@@ -68,4 +68,8 @@ redesign").
 - Independent adversarial review: `code-review.md`.
 
 ## Final test run
-(filled in below)
+On `2a69db7` (the last code commit; the commit after it changes only this file):
+- `npm run typecheck`: exit 0.
+- `npm test`: 86 files, 1804 passed.
+- `npm run e2e`: 551 passed, 1 skipped, exit 0, 40.0 min.
+- Screenshots that the e2e run rewrote under `screenshots/` were restored, not committed.
