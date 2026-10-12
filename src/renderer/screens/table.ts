@@ -930,11 +930,11 @@ export function renderTable(opts: {
     prevBoardLen = state.board.length;
     // The streets still to come are drawn as empty inset wells, so the board keeps its five-card shape.
     // Not cards: they carry no card testid, so every card query is unchanged.
-    for (let i = state.board.length; i < 5; i++) {
+    for (let n = state.board.length; n < 5; n++) {
       const well = document.createElement('div');
       well.className = 'card-well';
-      well.setAttribute('role', 'img');
-      well.setAttribute('aria-label', `${i < 3 ? 'flop' : i === 3 ? 'turn' : 'river'}, to come`);
+      // Decoration: a screen reader already hears the street from the pot announcer.
+      well.setAttribute('aria-hidden', 'true');
       row.appendChild(well);
     }
     boardWrap.replaceChildren(row);
