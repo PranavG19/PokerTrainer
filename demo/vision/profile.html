@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Profile</title>
+<link rel="stylesheet" href="vision.css" />
+<!--
+  Vision mock: the profile / trophy room (panel/economy-designer.md §3.2, §6.3; panel/character-designer.md §6).
+  Everything here is effort or mastery: Notebook levels from Reps, the Lamp, Seals derived from the schedule gate,
+  keepsakes from clean boss hands, milestones that are facts. No bankroll, no chips won, no percentile.
+  The "decisions not results" block shows assessment EV loss and calibration. One primary: the due rep.
+  Mock numbers only; nothing is real data.
+-->
+<style>
+  .prof { display: flex; flex-direction: column; gap: 22px; height: 100%; max-width: 1040px; margin: 0 auto; }
+  /* identity row */
+  .id-row { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) 360px; gap: 18px 22px; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--hair); }
+  .avatar { position: relative; width: 72px; height: 72px; display: grid; place-items: center; border-radius: 50%;
+    background: radial-gradient(60% 60% at 50% 40%, oklch(1 0 0 / .06), transparent 70%);
+    box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--bone) 55%, transparent), 0 0 0 4px var(--fill-0); }
+  .avatar .dee svg { display: block; margin: -10px; }
+  .who { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .who .name { display: flex; align-items: baseline; gap: 10px; }
+  .nb { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; max-width: 420px; }
+  .nb .label { color: var(--ink-1); }
+  .bar { height: 4px; border-radius: 2px; background: var(--fill-1); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 2px; background: var(--ink-1); }
+  .nb .spec { white-space: nowrap; }
+  .lampbox { display: flex; flex-direction: column; gap: 8px; }
+  .lampbox .sec-title { margin: 0; }
+  .lamp-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+  .lamp-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-cap); color: var(--ink-3); }
+  .lamp-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--lamp-on); }
+  .lamp-legend i.r { background: transparent; box-shadow: inset 0 0 0 1.2px var(--lamp-rest); }
+
+  .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+  .cols > .col { gap: 22px; }
+  .cols .col > * { flex: none; }
+  .sec-title .t-head { font-weight: 600; }
+
+  /* Seals: twelve concept inlays */
+  .seals { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px 6px; }
+  .seal { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+  .seal svg { display: block; }
+  .seal .nm { font-size: var(--t-cap); line-height: 1.25; color: var(--ink-2); }
+  .seal.on .nm { color: var(--ink-1); }
+  .seal .st { font-size: var(--t-cap); line-height: 1; color: var(--ink-3); }
+  .seal.due .st { color: var(--ink-1); }
+
+  /* decisions, not results */
+  .dnr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; }
+  .dnr > div { padding: 14px 0 12px; display: flex; flex-direction: column; gap: 8px; }
+  .dnr > div + div { padding-left: 18px; margin-left: 0; border-left: 1px solid var(--hair); }
+  .dnr > div:first-child { padding-right: 18px; }
+  .fig { display: flex; align-items: baseline; gap: 8px; }
+  .fig .t-stat { font-size: var(--t-stat); }
+  .fig .unit { font-size: var(--t-foot); color: var(--ink-2); }
+  .evbars { display: flex; align-items: flex-end; gap: 6px; height: 50px; }
+  .evbars span { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; justify-content: flex-end; }
+  .evbars b { display: block; width: 100%; height: calc(var(--v) * 3.4px); border-radius: 3px 3px 1px 1px; background: var(--fill-2); }
+  .evbars span:last-child b { background: var(--ink-1); }
+  .evbars em { font-style: normal; font-size: var(--t-cap); color: var(--ink-3); line-height: 1; }
+  .cal { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; }
+  .cal .k { font-size: var(--t-cap); font-weight: 600; letter-spacing: .04em; color: var(--ink-2); }
+  .cal .v { font-size: var(--t-foot); color: var(--ink-2); white-space: nowrap; }
+  .cal .v b { color: var(--ink-1); font-weight: 600; }
+  .track { position: relative; height: 6px; border-radius: 3px; background: var(--fill-1); }
+  .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ink-2); }
+  .track.sure i { background: var(--ink-1); }
+  .track .tgt { position: absolute; top: -3px; width: 1.5px; height: 12px; border-radius: 1px; background: var(--ink-3); }
+
+  /* keepsake shelf */
+  .shelf { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 14px 4px 12px; border-radius: var(--r-group);
+    background: linear-gradient(180deg, transparent 62%, var(--fill-0) 62%); box-shadow: inset 0 -1px 0 var(--hair-strong); }
+  .ks { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0; }
+  .ks .nm { font-size: var(--t-foot); font-weight: 500; color: var(--ink-1); line-height: 1.2; }
+  .ks .from { font-size: var(--t-cap); color: var(--ink-3); line-height: 1.3; }
+  .ks.locked .nm { color: var(--ink-3); font-weight: 400; }
+  .ks.locked .rival { opacity: .75; }
+
+  /* milestones: facts, never praise */
+  .ms { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 0; font-size: var(--t-body); }
+  .ms .chk { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; background: var(--chip-a); color: var(--ink-on-bone); }
+  .ms .chk svg { width: 9px; height: 9px; }
+  .ms.todo .chk { background: transparent; box-shadow: inset 0 0 0 1.2px var(--hair-strong); }
+  .ms.todo .lbl { color: var(--ink-2); }
+  .ms .meta { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; }
+  .ms.todo .meta { color: var(--ink-2); }
+  .foot-note { margin-top: auto; }
+
+  @media (max-width: 1000px) {
+    .prof { gap: 16px; }
+    .id-row { grid-template-columns: auto minmax(0, 1fr) 316px; gap: 16px; padding-bottom: 14px; }
+    .avatar { width: 60px; height: 60px; } .avatar .dee svg { width: 78px; height: 78px; }
+    .who .name .t-t2 { font-size: var(--t-t3); }
+    .nb { grid-template-columns: auto minmax(0, 1fr); }
+    .nb .spec.total { display: none; }
+    .cols { gap: 22px; }
+    .cols > .col { gap: 14px; }
+    .seals { gap: 9px 4px; }
+    .seal svg { width: 30px; height: 30px; }
+    .dnr > div { padding: 10px 0 8px; gap: 6px; }
+    .evbars { height: 34px; } .evbars b { height: calc(var(--v) * 2.4px); } .chalk { display: none; }
+    .fig .t-stat { font-size: var(--t-t2); }
+    .shelf { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 6px; padding: 10px 4px 8px; background: none; }
+    .ks { flex-direction: row; text-align: left; gap: 8px; }
+    .ks .rival svg { width: 32px; height: 32px; }
+    .ms { padding: 4px 0; }
+    .ms.x { display: none; }
+    .foot-note { display: none; }
+  }
+</style>
+</head>
+<body data-tab="Profile">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="tick" viewBox="0 0 10 10"><path d="M2 5.2l2 2 4-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="lock" viewBox="0 0 9 11"><rect x=".8" y="4.6" width="7.4" height="5.6" rx="1.4" fill="currentColor"/><path d="M2.4 4.6V3.2a2.1 2.1 0 0 1 4.2 0v1.4" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+</svg>
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="page">
+      <div class="prof">
+        <header class="id-row">
+          <div class="avatar" title="Dee, bone enamel rim"><span class="dee" data-pose="hello" data-size="92" data-label="Your Dee, bone enamel rim"></span></div>
+          <div class="who">
+            <div class="name"><span class="t-t2">Rowan Ellis</span><span class="caption">Bone enamel rim · from 4 assessments</span></div>
+            <div class="nb">
+              <span class="label">Notebook 8</span>
+              <div class="bar" role="meter" aria-label="Notebook 8" aria-valuenow="630" aria-valuemax="1000"><i style="width:63%"></i></div>
+              <span class="spec num total">4,830 Reps in all</span>
+            </div>
+            <span class="spec num">630 of 1,000 Reps to fill this Notebook · Reps are never spent<span class="chalk"> · 1,240 Chalk for the Locker</span></span>
+          </div>
+          <div class="lampbox">
+            <div class="sec-title"><span class="label" style="color:var(--ink-1)">The Lamp</span><span class="spec num">23 lit in the last 30 days</span></div>
+            <div class="lamp" id="lamp" aria-label="Last 30 days: 23 lit, 7 rested"></div>
+            <div class="lamp-legend"><span><i></i>Lit</span><span><i class="r"></i>Rested</span><span class="num">Rhythm 4 days a week · 2 spare wicks</span></div>
+          </div>
+        </header>
+
+        <div class="cols">
+          <div class="col">
+            <section>
+              <div class="sec-title"><span class="t-head">Seals <span class="spec num" style="font-weight:400;margin-left:6px">7 of 12</span></span>
+                <button class="btn primary sm">Refresh Blockers<span class="kbd">R</span></button></div>
+              <div class="seals" id="seals"></div>
+            </section>
+            <section>
+              <div class="sec-title" style="margin-bottom:0"><span class="t-head">Decisions, not results</span><span class="spec">Graded on decisions only</span></div>
+              <div class="dnr sect">
+                <div>
+                  <span class="label">Assessment EV loss</span>
+                  <div class="fig"><span class="t-stat num">4.1</span><span class="unit">bb per 100 decisions</span></div>
+                  <div class="evbars" id="evbars" aria-label="Six assessment blocks: 9.4, 7.8, 8.1, 6.0, 5.2, 4.1"></div>
+                  <span class="spec num"><span class="pos-num">−5.3</span> since block 1 · lower is better</span>
+                </div>
+                <div>
+                  <span class="label">Calibration</span>
+                  <div class="fig"><span class="t-stat num">81%</span><span class="unit">of SURE calls right</span></div>
+                  <div class="cal">
+                    <span class="k">SURE</span><div class="track sure"><i style="width:81%"></i><span class="tgt" style="left:85%"></span></div><span class="v num"><b>118</b> of 146</span>
+                    <span class="k">GUESS</span><div class="track"><i style="width:52%"></i></div><span class="v num"><b>61</b> of 117</span>
+                  </div>
+                  <span class="spec">The mark is 85%: sure should mean sure.</span>
+                </div>
+              </div>
+            </section>
+            <p class="caption foot-note">No chips, no bankroll and no comparison with anyone else live on this page.</p>
+          </div>
+
+          <div class="col">
+            <section>
+              <div class="sec-title"><span class="t-head">Keepsakes</span><span class="spec">One per clean boss hand · opens its replay</span></div>
+              <div class="shelf">
+                <div class="ks"><span class="rival" data-glyph="wick" data-size="42" data-label="Wren's lamp wick"></span><span><span class="nm">Lamp wick</span><span class="from" style="display:block">Wren · Lighthouse</span></span></div>
+                <div class="ks"><span class="rival" data-glyph="ticket" data-size="42" data-label="Barnaby's toll ticket"></span><span><span class="nm">Toll ticket</span><span class="from" style="display:block">Barnaby · Toll Road Diner</span></span></div>
+                <div class="ks locked"><span class="rival" data-glyph="bookmark" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Library boss hand</span></span></div>
+                <div class="ks locked"><span class="rival" data-glyph="punch" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Night Train boss hand</span></span></div>
+                <div class="ks locked"><span class="rival" data-glyph="fuse" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Fireworks Pier boss hand</span></span></div>
+                <div class="ks locked"><span class="rival" data-glyph="fork" data-size="42" data-masked data-label="Locked keepsake"></span><span><span class="nm"><svg width="8" height="10" style="vertical-align:-1px;margin-right:4px"><use href="#lock"/></svg>Locked</span><span class="from" style="display:block">Observatory boss hand</span></span></div>
+              </div>
+            </section>
+            <section>
+              <div class="sec-title" style="margin-bottom:2px"><span class="t-head">Milestones</span><span class="spec num">6 of 10</span></div>
+              <div class="flat">
+                <div class="ms"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Certified the 75bb table</span><span class="meta">6 Oct</span></div>
+                <div class="ms"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Mastered 5 concepts</span><span class="meta">14 Sep</span></div>
+                <div class="ms"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Ten of your own sentences accepted</span><span class="meta">9 Sep</span></div>
+                <div class="ms x"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Certified the 40bb table</span><span class="meta">2 Sep</span></div>
+                <div class="ms x"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Completed an assessment block</span><span class="meta">9 Aug</span></div>
+                <div class="ms x"><span class="chk"><svg><use href="#tick"/></svg></span><span class="lbl">Solved a puzzle with no mistakes</span><span class="meta">3 Aug</span></div>
+                <div class="ms todo"><span class="chk"></span><span class="lbl">Solved 5 puzzles clean</span><span class="meta num">3 of 5</span></div>
+                <div class="ms todo"><span class="chk"></span><span class="lbl">Sure means sure: 85%+ over 100 sure calls</span><span class="meta num">81% now</span></div>
+                <div class="ms todo"><span class="chk"></span><span class="lbl">Twelve weeks of your own rhythm</span><span class="meta num">9 of 12</span></div>
+                <div class="ms todo"><span class="chk"></span><span class="lbl">Mastered 12 concepts</span><span class="meta num">7 of 12</span></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  // The Lamp: 30 days, oldest first. r = rested (nothing was due), o = lit. Today is the last dot.
+  const days = 'oooroooroooorooroooorooooroooo';
+  document.getElementById('lamp').innerHTML = [...days].map((d, i) => `<i class="${d === 'o' ? 'on' : 'rest'}${i === 29 ? ' today' : ''}"></i>`).join('');
+
+  // Seals: s = sealed, d = sealed but faded (its spaced rep is due), a number = spacing waves done of 4.
+  const SEALS = [['Pot odds', 's'], ['Opening ranges', 's'], ['3-bet ranges', 3], ['Board texture', 's'], ['C-bet sizing', 's'], ['Blockers', 'd'],
+    ['Bluff-catching', 's'], ['Value sizing', 's'], ['Defence freq.', 2], ['Implied odds', 's'], ['Check-raise', 1], ['Push/fold', 0]];
+  const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+  const disc = (i, state) => {
+    const sealed = state === 's' || state === 'd';
+    const id = 'sg' + i;
+    if (sealed) return `<svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true"><defs><radialGradient id="${id}" cx="35%" cy="25%" r="85%"><stop offset="0" stop-color="oklch(0.44 0.006 262)"/><stop offset="1" stop-color="oklch(0.17 0.006 262)"/></radialGradient></defs>
+      <circle cx="18" cy="18" r="17" fill="url(#${id})"/><circle cx="18" cy="18" r="17" fill="none" stroke="${state === 'd' ? 'var(--ink-2)' : 'oklch(1 0 0 / .26)'}" stroke-width="${state === 'd' ? 1.4 : 1}" ${state === 'd' ? 'stroke-dasharray="3 2.4"' : ''}/>
+      <circle cx="18" cy="18" r="13.5" fill="none" stroke="oklch(1 0 0 / .1)"/>
+      <text x="18" y="22.2" text-anchor="middle" font-family="ui-serif, Georgia, serif" font-size="${ROMAN[i].length > 2 ? 9 : 11}" font-weight="600" fill="var(--bone)" opacity="${state === 'd' ? .6 : 1}">${ROMAN[i]}</text></svg>`;
+    const w = state, c = 2 * Math.PI * 15;
+    return `<svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="var(--fill-0)" stroke="oklch(1 0 0 / .12)" stroke-width="2"/>
+      ${w ? `<circle cx="18" cy="18" r="15" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-dasharray="${(c * w / 4 - 3).toFixed(1)} ${c}" transform="rotate(-90 18 18)"/>` : ''}
+      <text x="18" y="22" text-anchor="middle" font-family="ui-serif, Georgia, serif" font-size="${ROMAN[i].length > 2 ? 8.5 : 10}" font-weight="500" fill="var(--ink-3)">${ROMAN[i]}</text></svg>`;
+  };
+  document.getElementById('seals').innerHTML = SEALS.map(([nm, st], i) => {
+    const cls = st === 's' ? 'on' : st === 'd' ? 'on due' : '';
+    const tag = st === 's' ? 'Sealed' : st === 'd' ? 'Rep due' : st === 0 ? 'Not started' : `Wave ${st} of 4`;
+    return `<div class="seal ${cls}">${disc(i, st)}<span class="nm">${nm}</span><span class="st">${tag}</span></div>`;
+  }).join('');
+
+  // Assessment EV loss, bb per 100 decisions, six blocks (lower is better).
+  const EV = [9.4, 7.8, 8.1, 6.0, 5.2, 4.1];
+  document.getElementById('evbars').innerHTML = EV.map((v, i) => `<span><b style="--v:${v}"></b><em class="num">${i + 1}</em></span>`).join('');
+</script>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

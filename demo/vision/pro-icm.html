@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Pro, ICM and push/fold</title>
+<link rel="stylesheet" href="vision.css" />
+<!--
+  Vision mock: ICM / push-fold study (panel/poker-domain-expert.md §4.2). A four-left, three-paid bubble.
+  Payouts are prize-pool percentages, never money. ICM is Malmuth-Harville over the stacks shown (the ICM % and
+  bubble factors are computed from them, blinds ignored for the bubble factor). The 13×13 grid is opaque graphite
+  (charts.html cells): the ICM push range is the lighter fill, never green; hatched cells push in chip EV only.
+  Dee says one line. One primary: drill this spot. Mock numbers only; nothing is real data.
+-->
+<style>
+  .icm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; height: 100%; max-width: 1060px; margin: 0 auto; }
+  .left { display: flex; flex-direction: column; gap: 18px; min-height: 0; min-width: 0; }
+  .left > * { flex: none; }
+  .spot-h .sub { margin-top: 4px; }
+  .pays { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pays .tag b { color: var(--ink-1); font-weight: 600; margin-left: 4px; }
+  .pays .tag.bub { box-shadow: inset 0 0 0 0.5px var(--hair); background: transparent; color: var(--ink-3); }
+
+  .st-head, .srow { display: grid; grid-template-columns: minmax(0, 1fr) 64px 108px 74px; gap: 12px; align-items: center; }
+  .st-head { padding: 0 0 6px; font-size: var(--t-cap); color: var(--ink-3); font-weight: 500; }
+  .st-head span:not(:first-child), .srow > :not(:first-child) { text-align: right; }
+  .srow { padding: 8px 0; font-size: var(--t-body); }
+  .srow .sname { display: flex; flex-direction: column; min-width: 0; }
+  .srow .sname b { font-weight: 600; }
+  .srow .sname span { font-size: var(--t-cap); color: var(--ink-3); }
+  .srow.you .sname b::after { content: "You"; margin-left: 8px; font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); }
+  .srow .stk { color: var(--ink-2); }
+  .srow .stk b { color: var(--ink-1); font-weight: 500; }
+  .ev { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .ev .nums { font-size: var(--t-foot); color: var(--ink-3); white-space: nowrap; }
+  .ev .nums b { color: var(--ink-1); font-weight: 600; font-size: var(--t-body); }
+  .ev .bars { position: relative; width: 100%; height: 6px; }
+  .ev .bars i { position: absolute; right: 0; height: 2px; border-radius: 1px; }
+  .ev .bars .c { top: 0; background: var(--fill-3); }
+  .ev .bars .m { top: 4px; background: var(--ink-1); }
+  .srow .bf { font-weight: 600; }
+  .srow .bf span { display: block; font-size: var(--t-cap); font-weight: 400; color: var(--ink-3); }
+
+  .pick { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: center; padding: 12px 0; }
+  .pick .mini .card { --w: 26px; }
+  .pick .k { display: flex; flex-direction: column; gap: 1px; }
+  .pick .k .v { font-size: var(--t-t3); font-weight: 600; letter-spacing: -0.01em; }
+  .acts { display: flex; gap: 8px; align-items: center; margin-top: auto; }
+
+  .right { display: flex; flex-direction: column; gap: 12px; min-height: 0; --g: calc(100vh - 48px - 48px - 46px); }
+  .g-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: var(--g); height: 34px; }
+  .legend { display: flex; gap: 12px; font-size: var(--t-cap); color: var(--ink-2); align-items: center; white-space: nowrap; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.14); }
+  .sw-push { background: oklch(1 0 0 / 0.30); }
+  .sw-chip { background: repeating-linear-gradient(135deg, oklch(1 0 0 / 0.16) 0 1.5px, oklch(1 0 0 / 0.04) 1.5px 4px); }
+  .sw-fold { background: oklch(1 0 0 / 0.035); }
+  /* opaque graphite base: the coat's wallpaper must not tint the data into a heatmap */
+  .grid { width: var(--g); height: var(--g); display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(13, 1fr); gap: 2px; padding: 3px;
+    border-radius: var(--r-ctl); background: var(--surface); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .cell { position: relative; border-radius: var(--r-xs); display: grid; place-items: center; font-size: var(--t-cap); font-weight: 500; color: var(--ink-3); background: oklch(1 0 0 / 0.035); font-variant-numeric: tabular-nums; }
+  .cell.push { background: oklch(1 0 0 / 0.30); color: var(--ink-1); }
+  .cell.chip { background: repeating-linear-gradient(135deg, oklch(1 0 0 / 0.14) 0 1.5px, oklch(1 0 0 / 0.04) 1.5px 4px); color: var(--ink-2); }
+  .cell.sel { box-shadow: 0 0 0 1.5px var(--ink-1), 0 0 0 3.5px oklch(0.16 0.01 262); z-index: 1; color: var(--ink-1); }
+
+  @media (max-width: 1000px) {
+    .icm { gap: 20px; }
+    .left { gap: 12px; }
+    .spot-h .t-t2 { font-size: var(--t-t3); }
+    .spot-h .sub { font-size: var(--t-foot); }
+    .st-head, .srow { grid-template-columns: minmax(0, 1fr) 56px 100px 70px; gap: 8px; }
+    .tcap { display: none; }
+    .srow { padding: 5px 0; }
+    .pick { padding: 8px 0; gap: 12px; }
+    .pick .k .v { font-size: var(--t-head); }
+    .say .bubble { font-size: var(--t-body); padding: 8px 11px; }
+    .say .dee svg { width: 40px; height: 40px; }
+    .right { gap: 10px; --g: calc(100vh - 48px - 48px - 40px); }
+    .legend .opt { display: none; }
+    .cell { font-size: 10px; }
+  }
+</style>
+</head>
+<body data-tab="Pro">
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="page">
+      <div class="icm">
+        <section class="left">
+          <div class="spot-h">
+            <div class="t-t2">Final-table bubble</div>
+            <p class="sub">Four left, three paid. Blinds 400/800, ante 100. Folded to you on the button with 13 bb.</p>
+          </div>
+          <div class="pays" aria-label="Payouts as a share of the prize pool">
+            <span class="tag">1st<b class="num">50%</b></span><span class="tag">2nd<b class="num">30%</b></span><span class="tag">3rd<b class="num">20%</b></span><span class="tag bub">4th<b class="num" style="color:var(--ink-3)">0%</b></span><span class="spec">the bubble</span>
+          </div>
+
+          <div>
+            <div class="st-head"><span>Seat</span><span>Stack</span><span>Chips · ICM</span><span style="white-space:nowrap">Bubble factor</span></div>
+            <div class="flat sect">
+              <div class="srow"><span class="sname"><b>CO</b><span>folded</span></span><span class="stk num"><b>27.0</b> bb</span>
+                <span class="ev"><span class="nums num">45.0 · <b>35.4%</b></span><span class="bars"><i class="c" style="width:100%"></i><i class="m" style="width:78.7%"></i></span></span><span class="bf num">2.54<span>needs 72%</span></span></div>
+              <div class="srow you"><span class="sname"><b>BTN</b><span>to act</span></span><span class="stk num"><b>13.0</b> bb</span>
+                <span class="ev"><span class="nums num">21.7 · <b>25.0%</b></span><span class="bars"><i class="c" style="width:48.2%"></i><i class="m" style="width:55.6%"></i></span></span><span class="bf num" style="color:var(--ink-3)">—</span></div>
+              <div class="srow"><span class="sname"><b>SB</b><span>short stack</span></span><span class="stk num"><b>6.0</b> bb</span>
+                <span class="ev"><span class="nums num">10.0 · <b>13.6%</b></span><span class="bars"><i class="c" style="width:22.2%"></i><i class="m" style="width:30.2%"></i></span></span><span class="bf num">1.19<span>needs 54%</span></span></div>
+              <div class="srow"><span class="sname"><b>BB</b><span>covers you</span></span><span class="stk num"><b>14.0</b> bb</span>
+                <span class="ev"><span class="nums num">23.3 · <b>26.1%</b></span><span class="bars"><i class="c" style="width:51.8%"></i><i class="m" style="width:58%"></i></span></span><span class="bf num">2.10<span>needs 68%</span></span></div>
+            </div>
+            <p class="spec tcap" style="margin-top:6px">Chips % against ICM % of the prize pool. Bubble factor: you against that seat, all in.</p>
+          </div>
+
+          <div class="pick sect">
+            <span class="mini"><span class="card"><span class="rk">K</span><span class="st">♠</span></span><span class="card red"><span class="rk">9</span><span class="st">♦</span></span></span>
+            <span class="k"><span class="spec">Chip EV, shove</span><span class="v num pos-num">+0.4 bb</span></span>
+            <span class="k"><span class="spec">ICM, shove</span><span class="v num neg-num">−0.5% of pool</span></span>
+          </div>
+
+          <div class="say">
+            <span class="dee" data-pose="thinking" data-size="48"></span>
+            <p class="bubble sm">Against the big blind, your bubble factor is <b>2.1</b>: a stack-off needs <b>68%</b>, not 50%. K9o goes back in the muck.</p>
+          </div>
+
+          <div class="acts"><button class="btn primary">Drill this spot<span class="kbd">D</span></button><button class="btn quiet">Change stacks</button></div>
+        </section>
+
+        <section class="right">
+          <div class="g-head">
+            <div class="seg sm" role="radiogroup" aria-label="Model"><button role="radio" aria-checked="true">ICM</button><button role="radio" aria-checked="false">Chip EV</button></div>
+            <div class="legend"><span><i class="sw-push"></i>Push <span class="num" style="color:var(--ink-3)">22.8%</span></span><span><i class="sw-chip"></i>Chip EV only<span class="opt num" style="color:var(--ink-3)"> +9.4%</span></span><span><i class="sw-fold"></i>Fold</span></div>
+          </div>
+          <div class="grid" id="grid" role="grid" aria-label="Button push range at 13 bb, ICM"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  // Button shove, 13 bb, folded to you, 4 left / 3 paid. ICM-adjusted push set (22.8% of hands) and the extra
+  // hands a chip-EV model would also shove (+9.4%). Mock study-pack data, not a live solve.
+  const R = 'AKQJT98765432';
+  const PUSH = new Set(['A2s', 'A3s', 'A4s', 'A5s', 'A6s', 'A7s', 'A8s', 'A9s', 'ATs', 'AJs', 'AQs', 'AKs', 'A7o', 'A8o', 'A9o', 'ATo', 'AJo', 'AQo', 'AKo',
+    'K8s', 'K9s', 'KTs', 'KJs', 'KQs', 'KTo', 'KJo', 'KQo', 'Q9s', 'QTs', 'QJs', 'QJo', 'J9s', 'JTs', 'T9s']);
+  const CHIP = new Set(['A2o', 'A3o', 'A4o', 'A5o', 'A6o', 'K5s', 'K6s', 'K7s', 'K9o', 'Q8s', 'QTo', 'J8s', 'T8s', '98s', 'JTo']);
+  let html = '';
+  for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
+    const h = i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + 's' : R[j] + R[i] + 'o';
+    const cls = i === j || PUSH.has(h) ? 'push' : CHIP.has(h) ? 'chip' : '';
+    html += `<span class="cell ${cls}${h === 'K9o' ? ' sel' : ''}" role="gridcell">${h}</span>`;
+  }
+  document.getElementById('grid').innerHTML = html;
+</script>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

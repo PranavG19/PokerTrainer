@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — The Back Room, vision mocks</title>
+<link rel="stylesheet" href="vision.css" />
+<style>
+  body { overflow: auto; }
+  .hub { position: relative; z-index: 3; max-width: 1180px; margin: 0 auto; padding: 44px 28px 64px; display: flex; flex-direction: column; gap: 28px; }
+  .intro { display: flex; gap: 22px; align-items: center; }
+  .intro .dee svg { display: block; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; }
+  .tile { display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: inherit; border-radius: var(--r-group); padding: 10px; transition: background-color var(--dur-1); }
+  .tile:hover { background: var(--fill-1); }
+  .tile img { width: 100%; aspect-ratio: 1100 / 760; object-fit: cover; border-radius: var(--r-ctl); box-shadow: 0 0 0 0.5px var(--hair-strong), 0 12px 30px -12px oklch(0 0 0 / 0.7); display: block; }
+  .tile .sizes { display: flex; gap: 10px; font-size: var(--t-foot); }
+  .tile .sizes a { color: var(--ink-2); }
+  .docs a { color: var(--ink-1); margin-right: 14px; }
+</style>
+</head>
+<body>
+<div class="shell" style="position:fixed"></div>
+<div class="hub">
+  <div class="intro">
+    <span class="dee" data-pose="hello" data-size="120"></span>
+    <div>
+      <h1 class="t-hero">The Back Room</h1>
+      <p class="sub" style="max-width:70ch;margin-top:10px">Offsuit with a teacher you can see. Dee is the dealer button: it has sat in every seat and never won a pot, so it only ever grades the decision.
+      Static mocks built on the glass system (demo/glass tokens and kit, linked, not copied). Every page is drawn at the app's two documented sizes, 1100×760 and 900×640, with no page scroll and no network.</p>
+      <p class="docs caption" style="margin-top:10px">Read with: <a href="../../VISION.md">VISION.md</a><a href="../../PITCH.md">PITCH.md</a><a href="../../BUILD-PLAN.md">BUILD-PLAN.md</a><a href="../../panel/">panel reports</a></p>
+    </div>
+  </div>
+  <div class="tiles" id="tiles"></div>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+<script>
+  const PAGES = [
+    ['character', '', 'Dee, the character sheet', 'One SVG rig, ten states. Only the counter, the tilt and the rim colour change.'],
+    ['home', '', 'Home', 'Dee greets with what is due; the Lamp, today’s ring and Ticket, quests, the Ghost Rail, the story strip.'],
+    ['table', 'state=mistake', 'Table: a serious mistake', 'Dee perches on the verdict sheet and changes pose only; its one line comes at the hand-end beat.'],
+    ['table', 'state=great', 'Table: a hard spot played right', 'Silent during the hand; after it, “Price held” with the numbers, never the pot.'],
+    ['lesson', '', 'A lesson with Dee', 'Pot odds as a price: Dee asks, you commit, a wrong answer gets a question back.'],
+    ['celebrate', '', 'Thirty lit days', 'A session-end moment: the ring closes, a mastery inlay shimmers once, the copy is facts.'],
+    ['locker', '', 'The Locker', 'Earn-only cosmetics with visible paths. No random drops, no sales, no chips.'],
+    ['story', '', 'The Long Orbit', 'The campaign map is a table from above; six venues, six rivals masked until beaten.'],
+    ['profile', '', 'Profile and trophy room', 'Seals, keepsakes, milestones, and decisions-not-results.'],
+    ['pro-import', '', 'Pro: hand-history leak finder', 'Parsed on this Mac. Counted with confidence bands; real-money hands earn nothing.'],
+    ['pro-icm', '', 'Pro: ICM and push/fold', 'Bubble factor, chip EV against ICM, a graphite push grid, and one line from Dee.'],
+  ];
+  const tiles = document.getElementById('tiles');
+  for (const [p, q, title, sub] of PAGES) {
+    const tag = q ? '-' + q.split('=')[1] : '';
+    const href = `${p}.html${q ? '?' + q : ''}`;
+    tiles.insertAdjacentHTML('beforeend', `<div class="tile"><a href="${href}"><img src="screenshots/${p}${tag}-1100x760.png" alt="${title} at 1100 by 760" loading="lazy" /></a>
+      <a href="${href}" class="t-head" style="color:var(--ink-1);text-decoration:none">${title}</a><span class="caption">${sub}</span>
+      <span class="sizes"><a href="screenshots/${p}${tag}-1100x760.png">1100×760</a><a href="screenshots/${p}${tag}-900x640.png">900×640</a></span></div>`);
+  }
+</script>
+</body>
+</html>
