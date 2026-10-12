@@ -1,0 +1,95 @@
+/* Offsuit · Vision mocks — the character, progress and cosmetics layer on top of the glass system.
+ * Everything here composes demo/glass (tokens.css + glass.css, linked, not copied). New tokens are the minimum
+ * the panel proposed (panel/ux-motion-designer.md §5, §7, §11); each hue keeps its one meaning:
+ *   Lamp / lit days … white light + chip-a (a kept habit is not "your turn", so never mint; not a severity, so never amber)
+ *   Reps / Chalk    … ink only; Chalk is a cosmetic budget, never a balance in mint
+ *   mint            … still only your turn, a positive delta, an ON switch, and one mastered-concept tick on Dee's rim
+ * Mock-only; nothing here ships. */
+@import url('../glass/glass.css');
+
+:root {
+  --ring-track: oklch(1 0 0 / 0.14);
+  --ring-fill: var(--chip-a);
+  --ring-gleam: var(--text-hi);
+  --lamp-on: var(--chip-a);
+  --lamp-rest: oklch(1 0 0 / 0.30);
+  --rim-sw-a: oklch(0.50 0.015 255); --rim-sw-b: oklch(0.22 0.01 255);
+  --dee-sm: 24px; --dee-md: 44px; --dee-lg: 96px; --dee-xl: 128px;
+  --ease-arc: cubic-bezier(0.45, 0, 0.2, 1);
+  --dur-4: 480ms; --dur-ring: 900ms; --dur-moment: 1600ms;
+}
+
+/* ── Perch: Dee + the Lamp count + today's ring, at the right of the title bar. No glass of its own. ── */
+.perch { flex: none; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 2px; border-radius: var(--r-ctl);
+  transition: background-color var(--dur-1); }
+.perch:hover { background: var(--fill-1); }
+.perch .dee svg { display: block; margin: -2px -4px; }
+.lamp-count { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-body); font-weight: 600; color: var(--ink-1); }
+.lamp-count svg { width: 9px; height: 11px; color: var(--lamp-on); }
+.perch .ring { width: 18px; height: 18px; display: block; }
+@media (max-width: 1040px) { .nav-spacer { display: none; } }
+
+/* ── Shared layout bits ── */
+.sec-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 12px; }
+.sect { border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.flat > * + * { border-top: 1px solid var(--hair); }
+.col { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
+.row { display: flex; align-items: center; gap: 12px; }
+.grow { flex: 1; min-width: 0; }
+.tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--r-xs); font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong); white-space: nowrap; }
+.tag.notable { color: var(--amber); } .tag.serious { color: var(--coral); }
+.spec { font-size: var(--t-cap); color: var(--ink-3); }
+
+/* ── Dee's line: a speech card in the coat. The text is real DOM text; the art is aria-hidden in the app. ── */
+.say { position: relative; display: flex; gap: 12px; align-items: flex-start; }
+.say .dee { flex: none; }
+.bubble { position: relative; padding: 11px 14px; border-radius: var(--r-group); background: var(--fill-1); box-shadow: var(--top-light), inset 0 0 0 0.5px var(--hair-strong);
+  font-size: var(--t-head); line-height: 1.45; color: var(--ink-1); max-width: 52ch; }
+.bubble::before { content: ""; position: absolute; left: -5px; top: 18px; width: 10px; height: 10px; transform: rotate(45deg); background: inherit;
+  box-shadow: inset 0.5px -0.5px 0 0 var(--hair-strong); clip-path: polygon(0 0, 0 100%, 100% 100%); }
+.bubble .who { display: block; font-size: var(--t-cap); font-weight: 600; color: var(--ink-3); letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 3px; }
+.bubble b { font-weight: 600; }
+.bubble.sm { font-size: var(--t-body); padding: 9px 12px; }
+@keyframes say-in { from { opacity: 0; transform: translateY(4px) scale(0.985); } }
+.bubble { animation: say-in var(--dur-3) var(--ease) both; }
+
+/* ── The Lamp: 30 dots, lit / rested (hollow ring) / unlit. A rested day is part of the plan, never a gap. ── */
+.lamp { display: grid; grid-template-columns: repeat(30, 1fr); gap: 4px; }
+.lamp i { aspect-ratio: 1; border-radius: 50%; background: var(--fill-1); }
+.lamp i.on { background: var(--lamp-on); box-shadow: 0 0 6px oklch(0.92 0.02 85 / 0.35); }
+.lamp i.rest { background: transparent; box-shadow: inset 0 0 0 1.2px var(--lamp-rest); }
+.lamp i.today { box-shadow: 0 0 0 2px var(--desk-0), 0 0 0 3px oklch(1 0 0 / 0.55); }
+
+/* ── Rings (Apple-Fitness-like, one hue: chip-a light on a hairline track) ── */
+.rings { position: relative; flex: none; }
+.rings svg { display: block; }
+
+/* ── Quests: an actionable list → .group rows ── */
+.quest { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; width: 100%; text-align: left; }
+.quest .chk { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--hair-strong); display: grid; place-items: center; }
+.quest.done .chk { background: var(--chip-a); box-shadow: none; color: var(--ink-on-bone); }
+.quest.done .t-head { color: var(--ink-2); }
+.quest .meter-sm { height: 3px; border-radius: 2px; background: var(--fill-1); margin-top: 6px; overflow: hidden; }
+.quest .meter-sm i { display: block; height: 100%; background: var(--ink-1); border-radius: 2px; }
+.quest .reward { font-size: var(--t-foot); color: var(--ink-2); white-space: nowrap; }
+
+/* ── Rivals ── */
+.rivals-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.rv { display: flex; align-items: center; gap: 8px; font-size: var(--t-body); }
+.rv b { display: block; font-weight: 600; line-height: 1.2; }
+.rv .caption { display: block; line-height: 1.3; }
+.rival svg { display: block; }
+
+/* ── Card backs and felts as cosmetic swatches (paint only: same box, same radius, same shadow) ── */
+.cback { --w: 52px; width: var(--w); height: calc(var(--w) * 1.4); border-radius: var(--r-card); position: relative; flex: none; background: var(--back-a);
+  box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.16), inset 0 0 0 3px var(--back-a), inset 0 0 0 3.5px oklch(1 0 0 / 0.12), var(--card-shadow); overflow: hidden; }
+.cback::after { content: ""; position: absolute; inset: 0; background: var(--pat); }
+.felt-sw { width: 100%; aspect-ratio: 1.7; border-radius: 50% / 47%; background: radial-gradient(46% 50% at 50% 40%, var(--lamp), transparent 70%), radial-gradient(75% 80% at 50% 45%, var(--fa), var(--fb) 60%, var(--fc));
+  box-shadow: 0 0 0 5px var(--rail-a), 0 0 0 5.5px oklch(1 0 0 / 0.1), inset 0 6px 14px -4px oklch(0 0 0 / 0.7); }
+
+/* ── Locked state: visible path, never a mystery ── */
+.lock { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-cap); color: var(--ink-3); }
+.lock svg { width: 9px; height: 11px; }
+
+/* reduced motion: the bubble and moments swap in */
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }

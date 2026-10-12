@@ -6,6 +6,34 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## The Back Room vision (branch `vision-panel`): design and mocks only
+A character, habit and identity layer, designed but not built. See `VISION.md`, `PITCH.md`, `BUILD-PLAN.md`,
+`panel/`, `demo/vision/`. Nothing under `src/` changed. Each line is the current end state.
+- **Mascot: Dee, the dealer button** (a glass disc whose engraved D's counter is the only expressive feature).
+  It was picked over Tell (a chip, which reads as casino) and Pip (a human dealer, with costlier art and a
+  stronger persona risk). It is original: no eyes, no beak, no bird.
+- **Dee adds no words in-hand.** It changes pose only and speaks at the hand-end beat. A `free` grade gets
+  nothing.
+- **"Price held"** is the one acknowledgement of good play. It is task feedback with the numbers, fires only on
+  close spots called Sure and right with a mechanism reason, and never mentions the pot. It is owner decision
+  D6.
+- **Streak = the Lamp:** lit days, with rested days (nothing due) that never break the run. The run is counted
+  in kept weeks against a learner-chosen Rhythm, with earned spare wicks and a free 14-day Pause. Days roll
+  over at 4 am local time.
+- **Reps** are effort and never spent. **Chalk** is the Bold-tier earn-only budget, shown in the mocks but
+  recommended for after the trial (D4). **Seals** are derived from the schedule gate. Chips convert to
+  nothing.
+- **Cosmetics are paint-only receipts.** Card faces, seat layout and stack display are never cosmetic.
+- **Lamp and ring colour = white light plus `--chip-a`.** Never mint (mint isn't a balance) and never amber
+  (amber is notable and the timer). Dee's rim uses role colours, and one mint tick marks each Seal.
+- **Celebrations** happen at session end only, capped at 1600 ms (`--dur-moment`). No confetti, coins, reels or
+  gold.
+- **Vision mock shell:** `demo/vision/shell.js` is copied from the glass shell with a 9-tab set and Dee's
+  title-bar perch. `vision.css` links `demo/glass/glass.css` and adds only ring, lamp and Dee tokens.
+- **Wave 0 (grader truth, tilt check, local day, schema guard, 18+ statement) gates all rewards.** This answers
+  the skeptic's strongest objection.
+- **No backend.** Leagues are the offline Ghost Rail and a LAN Club; sync is profile export and import (D3).
+
 ## The full redesign (branch `glass-full-redesign`): the mockup, built
 The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old
 layouts. This branch builds the mock's layouts and components (`demo/glass/*.html`, rounds 3 and 5) in the
@@ -677,6 +705,14 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
   - a serif index on the cards as the one typographic flourish.
 
 ## Decisions to evaluate
+- **Vision: the mascot is Dee (the button).** If overruled, Tell (a chip) or Pip (a human dealer); the rig,
+  poses and every vision mock are redrawn.
+- **Vision: "Price held" (Dee acknowledges a hard spot played right).** If overruled, Dee is silent on every
+  correct decision, and the great-play table state is cut.
+- **Vision: receipts first, Chalk after the trial.** If overruled, Chalk ships in Wave 1, with more economy
+  tuning and grind risk.
+- **Vision: the 9-tab navigation (Home, Play, Learn, Story, Train, Study, Pro, Locker, Profile).** If
+  overruled, keep the 11 tabs, and Story and Locker nest under Learn and Profile.
 - Seats move from the real top row to an oval, set as type on the rail rather than boxed. If overruled, keep the
   row: the cards and felt still carry the look.
 - Coach and Stats leave the action dock for the table's top-right corner. If overruled, the dock carries 11
@@ -696,6 +732,10 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
 - **Green glow under the board:** not adopted (it lost in both A/B pairs). If overruled, `&glow=1` is ready on either surface.
 
 ## Open questions
+- **Vision: is a v2.2 spec amendment (effort XP, a humane streak, earn-only cosmetics) approved, and is the
+  profile schema change (`schemaVersion` plus a `progression` namespace) approved?** Both are reserved for the
+  owner. Default taken: designed only, nothing built.
+- **Vision: is any backend acceptable?** Default taken: no; local and LAN only.
 - Can Electron get the real look? The mock fakes vibrancy with a CSS "desktop" (dune bands with contour
   lines). In the app this needs Foundry's `vibrancy: 'under-window'` plus a transparent window. Default taken:
   the mock simulates it, and porting needs that main-process change.

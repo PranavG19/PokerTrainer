@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Dee, character sheet</title>
+<link rel="stylesheet" href="vision.css" />
+<!--
+  Vision mock: the character sheet for Dee, the dealer button (panel/character-designer.md §1, §7).
+  One SVG rig (dee.js): disc + engraved D + counter + rim. Every expression changes only the counter shape,
+  the transform and the rim colour. Rim colours are role colours: amber = notable / gate, coral = serious,
+  one mint tick = a mastered concept (a real positive delta). Original art; no eyes, no beak, no limbs.
+-->
+<style>
+  .sheet-page { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; height: 100%; max-width: 1040px; margin: 0 auto; }
+  .bio { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .hero-dee { display: grid; place-items: center; height: 210px; border-radius: var(--r-group); background: radial-gradient(60% 60% at 50% 45%, oklch(1 0 0 / .05), transparent 70%); }
+  .poses { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-content: start; }
+  .pose { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 10px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .pose .label { color: var(--ink-1); }
+  .pose .caption { text-align: center; line-height: 1.35; }
+  .dee svg { display: block; }
+  .rules { display: flex; flex-direction: column; gap: 6px; }
+  .rules li { list-style: none; font-size: var(--t-foot); color: var(--ink-2); display: flex; gap: 8px; line-height: 1.45; }
+  .rules li::before { content: ""; flex: none; width: 4px; height: 4px; margin-top: 7px; border-radius: 50%; background: var(--ink-3); }
+  .right { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+  .swatches { display: flex; gap: 14px; flex-wrap: wrap; }
+  .sw { display: flex; align-items: center; gap: 7px; font-size: var(--t-foot); color: var(--ink-2); }
+  .sw i { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / .3); }
+  .rivals-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
+  @media (max-width: 1000px) {
+    .sheet-page { grid-template-columns: 236px minmax(0, 1fr); gap: 20px; }
+    .hero-dee { height: 150px; } .hero-dee .dee svg { width: 130px; height: 130px; }
+    .poses { gap: 8px; } .pose { padding: 6px 4px 8px; } .pose .dee svg { width: 76px; height: 76px; }
+    .pose .caption { display: none; }
+    .rules li:nth-child(n+5) { display: none; }
+  }
+</style>
+</head>
+<body data-tab="Home">
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="page">
+      <div class="sheet-page">
+        <section class="bio">
+          <div class="hero-dee"><span class="dee" data-pose="hello" data-size="170"></span></div>
+          <div>
+            <div class="t-t2">Dee</div>
+            <p class="sub" style="margin-top:4px">The dealer button. It has sat in every seat and never won a pot, so it only ever grades the decision.</p>
+          </div>
+          <ul class="rules">
+            <li>Speaks after you commit, never before.</li>
+            <li>Silent when a decision cost nothing.</li>
+            <li>Names the price, never the person.</li>
+            <li>Counts time in hands, not missed days.</li>
+            <li>Your sentence outranks its own.</li>
+            <li>Never talks about luck, chips won, or “one more hand”.</li>
+          </ul>
+        </section>
+        <section class="right">
+          <div class="sec-title" style="margin:0"><span class="t-t3">One rig, ten states</span><span class="caption">Only the counter, the tilt and the rim change</span></div>
+          <div class="poses">
+            <div class="pose"><span class="dee" data-pose="seated" data-size="96"></span><span class="label">Seated</span><span class="caption">Idle; every free grade</span></div>
+            <div class="pose"><span class="dee" data-pose="hello" data-size="96"></span><span class="label">Hello</span><span class="caption">Greeting on Home</span></div>
+            <div class="pose"><span class="dee" data-pose="listening" data-size="96"></span><span class="label">Listening</span><span class="caption">Gate open; amber timer arc</span></div>
+            <div class="pose"><span class="dee" data-pose="thinking" data-size="96"></span><span class="label">Rolling</span><span class="caption">Asks one question</span></div>
+            <div class="pose"><span class="dee" data-pose="wobble" data-size="96"></span><span class="label">Wobble</span><span class="caption">Notable, 0.5–2 bb</span></div>
+            <div class="pose"><span class="dee" data-pose="serious" data-size="96"></span><span class="label">On edge</span><span class="caption">Serious, ≥ 2 bb</span></div>
+            <div class="pose"><span class="dee" data-pose="glint" data-size="96"></span><span class="label">Price held</span><span class="caption">A hard spot played right</span></div>
+            <div class="pose"><span class="dee" data-pose="quoting" data-size="96"></span><span class="label">Quoting</span><span class="caption">Reads your sentence back</span></div>
+            <div class="pose"><span class="dee" data-pose="resting" data-size="96"></span><span class="label">Sitting out</span><span class="caption">Rest day; the tilt break</span></div>
+            <div class="pose"><span class="dee" data-pose="engraving" data-size="96"></span><span class="label">Engraving</span><span class="caption">A concept mastered</span></div>
+          </div>
+          <div class="sec-title" style="margin:4px 0 0"><span class="label">Rim colours are role colours</span></div>
+          <div class="swatches">
+            <span class="sw"><i style="background:oklch(1 0 0 / .3)"></i>Hairline: at rest</span>
+            <span class="sw"><i style="background:var(--amber)"></i>Amber: notable, the gate</span>
+            <span class="sw"><i style="background:var(--coral)"></i>Coral: serious</span>
+            <span class="sw"><i style="background:var(--mint)"></i>Mint: one tick per mastered concept</span>
+            <span class="sw"><i style="background:var(--bone)"></i>Bone: the engraved D</span>
+          </div>
+          <div class="sec-title" style="margin:4px 0 0"><span class="label">The rivals, masked until you beat their hand</span></div>
+          <div class="rivals-row">
+            <span class="rv"><span class="rival" data-glyph="wick" data-size="40" data-label="Wren Holloway"></span><span><b>Wren</b><span class="caption">The Lighthouse</span></span></span>
+            <span class="rv"><span class="rival" data-glyph="ticket" data-size="40" data-label="Barnaby Tull"></span><span><b>Barnaby</b><span class="caption">The Toll Road Diner</span></span></span>
+            <span class="rv"><span class="rival" data-glyph="bookmark" data-size="40" data-label="Percival Hush"></span><span><b>Percival</b><span class="caption">The Library</span></span></span>
+            <span class="rv"><span class="rival" data-glyph="punch" data-size="40" data-masked data-label="Masked rival"></span><span><b>?</b><span class="caption">The Night Train</span></span></span>
+            <span class="rv"><span class="rival" data-glyph="fuse" data-size="40" data-masked data-label="Masked rival"></span><span><b>?</b><span class="caption">The Fireworks Pier</span></span></span>
+            <span class="rv"><span class="rival" data-glyph="fork" data-size="40" data-masked data-label="Masked rival"></span><span><b>?</b><span class="caption">The Observatory</span></span></span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

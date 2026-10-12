@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — Home with Dee</title>
+<link rel="stylesheet" href="vision.css" />
+<!--
+  Vision mock: Home. Dee greets with what is due (never with what was missed), the Lamp shows lit and rested
+  days, today's ring has three goals, the daily Ticket is the one primary. Quests: quest 1 IS the recommender's
+  one suggestion (PRODUCT-SPEC N2: one suggestion, never a queue). The Ghost Rail is an offline league against
+  your own past weeks and labelled fictional characters. Builds on: home.ts, recommend.ts, career.ts
+  (PracticeCadence last30/currentRun), schedule.ts (dueNow), standing.ts, sessionPlan.ts. Numbers are mock-only.
+-->
+<style>
+  .home { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 32px; height: 100%; align-items: center; max-width: 1020px; margin: 0 auto; }
+  .greet { display: flex; gap: 14px; align-items: flex-start; }
+  .greet .dee svg { display: block; margin: -10px -8px -14px -10px; }
+  .greet .bubble { margin-top: 10px; }
+  .lamp-block { display: flex; flex-direction: column; gap: 10px; padding: 16px 0; }
+  .lamp-head { display: flex; align-items: baseline; gap: 10px; }
+  .lamp-head .t-stat { line-height: 1; }
+  .lamp-foot { display: flex; gap: 18px; flex-wrap: wrap; }
+  .lamp-foot span { font-size: var(--t-foot); color: var(--ink-2); display: inline-flex; gap: 6px; align-items: center; }
+  .lamp-foot i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .ticket { display: flex; align-items: center; gap: 16px; }
+  .ticket .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .ticket-parts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .ghost { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; align-items: end; height: 74px; }
+  .ghost .lane { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: var(--t-cap); color: var(--ink-3); text-align: center; }
+  .ghost .bar { width: 100%; border-radius: 4px 4px 2px 2px; background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .ghost .me .bar { background: var(--chip-a); box-shadow: none; }
+  .ghost .me { color: var(--ink-1); font-weight: 600; }
+  .orbit { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  .orbit .steps { display: flex; gap: 4px; margin-top: 6px; }
+  .orbit .steps i { width: 22px; height: 4px; border-radius: 2px; background: var(--fill-2); }
+  .orbit .steps i.on { background: var(--ink-1); }
+  .nb { display: flex; align-items: center; gap: 12px; }
+  .nb .track { flex: 1; height: 4px; border-radius: 2px; background: var(--fill-1); overflow: hidden; }
+  .nb .track i { display: block; height: 100%; width: 63%; background: var(--ink-1); border-radius: 2px; }
+  @media (max-width: 1000px) {
+    .home { gap: 22px; }
+    .greet .dee svg { width: 76px; height: 76px; }
+    .bubble { font-size: var(--t-body); }
+    .lamp-block { padding: 12px 0; gap: 8px; }
+    .quest { padding: 8px 12px; }
+    .quest .caption.desc { display: none; }
+    .ghost { height: 56px; }
+    .hide-sm { display: none !important; }
+    .col { gap: 14px; }
+  }
+</style>
+</head>
+<body data-tab="Home" data-lit="23" data-ring="1">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="chev" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="tick" viewBox="0 0 12 12"><path d="M2.5 6.3l2.4 2.4 4.6-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <div class="page">
+      <div class="home">
+        <div class="col">
+          <div class="greet">
+            <span class="dee" data-pose="hello" data-size="104" data-label="Dee"></span>
+            <p class="bubble"><span class="who">Dee</span>Four concepts are due, and the two days off helped the spacing. <b>River calls</b> first: that is where the price slipped last week.</p>
+          </div>
+
+          <section class="lamp-block sect" aria-label="The Lamp">
+            <div class="lamp-head"><span class="t-stat num">23</span><span class="t-head">lit days</span><span class="caption" style="margin-left:auto">Rhythm 3 of 4 this week</span></div>
+            <div class="lamp" aria-hidden="true">
+              <i class="on"></i><i class="on"></i><i class="rest"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="rest"></i><i class="rest"></i><i class="on"></i><i class="on"></i>
+              <i class="on"></i><i class="rest"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="rest"></i><i class="on"></i><i class="on"></i><i class="rest"></i>
+              <i class="on"></i><i class="on"></i><i class="on"></i><i class="rest"></i><i class="on"></i><i class="on"></i><i class="rest"></i><i class="rest"></i><i class="on"></i><i class="today"></i>
+            </div>
+            <div class="lamp-foot"><span><i style="background:var(--lamp-on)"></i>Lit</span><span><i style="box-shadow:inset 0 0 0 1.2px var(--lamp-rest)"></i>Rested: nothing was due, so the run holds</span><span class="hide-sm">2 spare wicks</span></div>
+          </section>
+
+          <section class="ticket">
+            <div class="rings" aria-label="Today, 1 of 3 goals">
+              <svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true">
+                <circle cx="28" cy="28" r="23" fill="none" stroke="var(--ring-track)" stroke-width="6"/>
+                <circle cx="28" cy="28" r="23" fill="none" stroke="var(--ring-fill)" stroke-width="6" stroke-linecap="round" stroke-dasharray="44 145" transform="rotate(-88 28 28)"/>
+                <circle cx="28" cy="28" r="23" fill="none" stroke="var(--ring-track)" stroke-width="6" stroke-dasharray="0 49 44 145" transform="rotate(-88 28 28)" opacity="0"/>
+              </svg>
+            </div>
+            <div class="body">
+              <span class="t-t3">Today’s Ticket</span>
+              <span class="caption">12 minutes. Everything due, one perception drill, three spots from your costliest leak.</span>
+              <div class="ticket-parts hide-sm"><span class="tag">4 due reps</span><span class="tag">Read the board · 2 min</span><span class="tag">3 river calls</span></div>
+            </div>
+            <button class="btn primary lg">Start <span class="kbd">↩</span></button>
+          </section>
+
+          <section class="hide-sm">
+            <div class="nb"><span class="label">Notebook 8</span><span class="track"><i></i></span><span class="caption num">630 / 1,000 reps</span></div>
+          </section>
+        </div>
+
+        <div class="col">
+          <section>
+            <div class="sec-title"><span class="label">Today</span><span class="caption">Resets at 4 am, your time</span></div>
+            <div class="group">
+              <button class="quest"><span class="chk" aria-hidden="true"></span><span><span class="t-head">Clear what is due</span><span class="caption desc" style="display:block">Pot odds, SPR, and two board-texture reps</span><span class="meter-sm"><i style="width:50%"></i></span></span><span class="reward num">2 / 4</span></button>
+              <button class="quest"><span class="chk" aria-hidden="true"></span><span><span class="t-head">Review call on the river</span><span class="caption desc" style="display:block">The one suggestion: 1.8 bb a time across 14 hands</span></span><svg class="chev" aria-hidden="true"><use href="#chev"/></svg></button>
+              <button class="quest done"><span class="chk" aria-hidden="true"><svg width="12" height="12"><use href="#tick"/></svg></span><span><span class="t-head">Write one rule in your words</span><span class="caption desc" style="display:block">Folio kept it: “the price is the call over the pot after I call”</span></span><span class="reward">Kept</span></button>
+            </div>
+          </section>
+
+          <section>
+            <div class="sec-title"><span class="label">Ghost Rail · Seven</span><span class="caption">Your weeks, and three labelled bots</span></div>
+            <div class="ghost" role="img" aria-label="This week you are second of six on the Seven rail, by reps from reasoned study">
+              <div class="lane"><span class="bar" style="height:46px"></span>Night owl · bot</div>
+              <div class="lane me"><span class="bar" style="height:40px"></span>You</div>
+              <div class="lane"><span class="bar" style="height:33px"></span>Last week</div>
+              <div class="lane"><span class="bar" style="height:28px"></span>Early bird · bot</div>
+              <div class="lane"><span class="bar" style="height:22px"></span>Sunday · bot</div>
+              <div class="lane"><span class="bar" style="height:16px"></span>Your best</div>
+            </div>
+            <p class="caption hide-sm" style="margin-top:8px">Counted by reasoned reps, never chips or results. No one drops a rail.</p>
+          </section>
+
+          <section>
+            <div class="group">
+              <button class="orbit row-btn" style="padding:12px 14px">
+                <span class="rival" data-glyph="bookmark" data-size="40" data-masked data-label="The Library’s regular, masked"></span>
+                <span class="grow"><span class="t-head" style="display:block">The Long Orbit · The Library</span><span class="caption">Next: the Library’s regular, still masked. Lesson 3, then their hand.</span><span class="steps" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></span>
+                <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

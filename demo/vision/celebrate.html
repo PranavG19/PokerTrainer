@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offsuit — a milestone moment</title>
+<link rel="stylesheet" href="vision.css" />
+<!--
+  Vision mock: the 30-lit-day milestone, shown at SESSION END (never on a verdict or a hand result).
+  One moment sheet over a receded Home: the ring closes (900ms draw, then a 600ms white gleam), Dee turns to
+  show its rim and a new inlay takes one mint shimmer (a real positive delta: pot odds just sealed), and the copy
+  is factual: what the 30 days held, in decisions, not chips. Capped at --dur-moment 1600ms; under reduced
+  motion it simply appears. Avoided on purpose: confetti, coin showers, count-up tickers, gold, "one more".
+  The unlock is deterministic and was visible in the Locker before it was earned.
+-->
+<style>
+  .behind { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 3; border: 0; pointer-events: none; filter: blur(14px) brightness(0.32) saturate(0.7); }
+  .behind .ghost-col { position: absolute; left: 6%; top: 8%; width: 40%; height: 70%; border-radius: var(--r-group); background: var(--fill-1); }
+  .behind .ghost-col.r { left: 54%; }
+  .moment { position: fixed; z-index: 5; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 40px)); padding: 26px 26px 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
+    animation: m-in var(--dur-4) var(--ease-arc) both; }
+  @keyframes m-in { from { opacity: 0; transform: translate(-50%, -46%) scale(0.98); } }
+  .stage { position: relative; width: 210px; height: 190px; display: grid; place-items: center; }
+  .stage .big-ring { position: absolute; inset: 0; margin: auto; }
+  .big-ring circle.fill { stroke-dasharray: 597; stroke-dashoffset: 597; animation: draw var(--dur-ring) var(--ease) 200ms forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .gleam { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(closest-side, oklch(1 0 0 / 0.16), transparent 70%); opacity: 0; animation: gleam 600ms var(--ease) 1000ms forwards; }
+  @keyframes gleam { 50% { opacity: 1; } to { opacity: 0.5; } }
+  .stage .dee { position: relative; z-index: 1; }
+  .stage .dee svg { display: block; }
+  .still .big-ring circle.fill { animation: none; stroke-dashoffset: 0; }
+  .still .gleam { animation: none; opacity: 0.5; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; padding: 12px 0; }
+  .facts > div { display: flex; flex-direction: column; gap: 2px; }
+  .facts > div + div { border-left: 1px solid var(--hair); }
+  .facts .t-t3 { font-weight: 600; }
+  .unlock { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); text-align: left; }
+  .unlock .sw-rim { width: 34px; height: 34px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 28%, var(--rim-sw-a), var(--rim-sw-b) 70%); box-shadow: inset 0 0 0 2px oklch(0.85 0.03 230 / 0.55), 0 2px 6px oklch(0 0 0 / 0.5); }
+  .foot { display: flex; gap: 8px; width: 100%; justify-content: flex-end; align-items: center; }
+  .foot .caption { margin-right: auto; }
+  @media (max-width: 1000px) {
+    .stage { width: 170px; height: 150px; } .stage .big-ring { width: 160px; height: 160px; } .stage .dee svg { width: 156px; height: 156px; }
+    .moment { gap: 10px; padding: 20px 22px 14px; }
+  }
+</style>
+</head>
+<body data-tab="Home" data-lit="30" data-ring="3">
+<div class="shell">
+  <nav data-nav></nav>
+  <main class="main">
+    <iframe class="behind" src="home.html?still=1&amp;embed=1" title="" aria-hidden="true" tabindex="-1"></iframe>
+    <div class="scrim" style="position:fixed;z-index:4"></div>
+    <section class="moment float sheet-surface" role="dialog" aria-modal="true" aria-labelledby="mt">
+      <div class="stage" aria-hidden="true">
+        <span class="gleam"></span>
+        <svg class="big-ring" viewBox="0 0 210 210" width="200" height="200">
+          <circle cx="105" cy="105" r="95" fill="none" stroke="var(--ring-track)" stroke-width="7"/>
+          <circle class="fill" cx="105" cy="105" r="95" fill="none" stroke="var(--ring-fill)" stroke-width="7" stroke-linecap="round" transform="rotate(-90 105 105)"/>
+        </svg>
+        <span class="dee" data-pose="engraving" data-size="196"></span>
+      </div>
+      <div>
+        <div class="t-t2" id="mt">Thirty lit days</div>
+        <p class="sub" style="margin-top:6px">Across six kept weeks, with nine rest days the schedule asked for in between. The run held.</p>
+      </div>
+      <div class="facts sect">
+        <div><span class="t-t3 num">412</span><span class="caption">graded decisions</span></div>
+        <div><span class="t-t3 num">61</span><span class="caption">reps back on time</span></div>
+        <div><span class="t-t3 num">7 / 12</span><span class="caption">concepts sealed</span></div>
+      </div>
+      <div class="unlock">
+        <span class="sw-rim" aria-hidden="true"></span>
+        <span class="grow"><span class="t-head" style="display:block">Lighthouse rim for Dee</span><span class="caption">Earned at 30 lit days. It was on the Locker’s path all along.</span></span>
+      </div>
+      <div class="foot">
+        <span class="caption">Session ended · 34 min</span>
+        <button class="btn">Put it on</button>
+        <button class="btn primary">Done <span class="kbd">↩</span></button>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="dee.js"></script>
+</body>
+</html>

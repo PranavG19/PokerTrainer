@@ -1,0 +1,27 @@
+/* Vision mock: Dee at the table. Dee is never on the felt; it perches on the coach sheet's top rim (one interrupt),
+ * and the hand-end beat is a small float at the top right, clear of the felt's centre and the dock.
+ * Floats on this screen stay ≤ 2: the sheet (or the beat float) plus the dock. */
+.has-dee { overflow: visible; padding-top: 26px; }
+.dee.perched { position: absolute; top: -50px; left: 18px; z-index: 2; pointer-events: none; }
+.dee.perched svg { display: block; }
+.has-dee .sheet-head { padding-left: 64px; }
+.beat { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  animation: reveal var(--dur-3) var(--ease) both; animation-delay: 600ms; }
+.beat .dee svg { display: block; margin: -6px; }
+.beat p { font-size: var(--t-body); color: var(--ink-2); line-height: 1.45; }
+.beat p b { color: var(--ink-1); font-weight: 600; }
+.beat-tray { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px 12px 8px; animation: rise var(--dur-4) var(--ease-arc) both; }
+.beat-tray .dee svg { display: block; margin: -8px -4px; }
+.beat-actions { display: flex; gap: 6px; align-self: center; }
+.beat-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.beat-body .caption b { color: var(--ink-1); font-weight: 500; }
+.mirror { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+@keyframes beat-in { from { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+@media (max-width: 1000px) {
+  .beat-tray .dee svg { width: 48px; height: 48px; }
+  .beat-tray .mirror .tag + .tag { display: none; }
+  .sheet { padding-bottom: 12px; gap: 12px; }
+  .meter { height: 30px; }
+}
+.beat-open .hero-plate { bottom: 138px; }
+@media (max-width: 1000px) { .beat-open .hero-plate { bottom: 122px; } .beat-open .center { top: 40%; } }
