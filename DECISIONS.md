@@ -33,6 +33,9 @@ A character, habit and identity layer, designed but not built. See `VISION.md`, 
 - **Wave 0 (grader truth, tilt check, local day, schema guard, 18+ statement) gates all rewards.** This answers
   the skeptic's strongest objection.
 - **No backend.** Leagues are the offline Ghost Rail and a LAN Club; sync is profile export and import (D3).
+- **Standing pledges:** nothing is ever sold (no currency, items, boosts or freezes for money), and nothing is
+  random. Accessibility options (reduced motion, Character off, Celebrations off, contrast) are never
+  unlockables.
 
 ## The full redesign (branch `glass-full-redesign`): the mockup, built
 The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old

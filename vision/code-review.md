@@ -232,3 +232,43 @@ story, celebrate, lesson, pro-import and pro-icm; 1100x760 for table-great).
   reading capture.mjs and the existing screenshots.
 - Untested: nav fit of the nine-tab set at 900px with the real app's tab widths, and whether the 900x640 mocks
   clip inside overflow:hidden containers (capture can't see this).
+
+## Response (author, after the review)
+
+Every Act-on finding was fixed in the docs and mocks, and the mocks were re-rendered at both sizes (capture
+prints no console errors, no network, no page scroll).
+- R1: the great-play state is now a close spot. Hero holds 7♦6♦ (a flush draw), 25% needed, 33% had (an
+  illustrative figure), and Bo wins the pot, so the beat is about the decision. VISION's "Price held" rule now
+  says it fires on a `free` grade that was close.
+- R2: Dee's line was removed from the in-hand sheet (pose only), and so was "Write it".
+- R3: added D18 (the other non-goals: ICM, HH import, bankroll, leaderboards). Pro (2.10) and the Ghost Rail
+  (2.5) now wait for D18 and the trial, consistent with PITCH §5.
+- R4: added WPs 1.11 Ticket, 1.12 Folio, 1.13 Profile and 1.14 Navigation. Socratic interrupts and fading
+  ride in 1.6 and 1.4. Range-vs-range, Ghost Rail and export are re-tiered to Bold.
+- R5: fixed the `renderer/screens/table.ts` path; added owners for coach.ts, settings.ts, home.ts and the
+  table.ts sequence; 1.3 now depends on 0.6 and H; rewrote the critical path; added a decision → package
+  table.
+- R6: D9 is labelled a synthesis proposal, with the full old-tab mapping; shell.js comment updated.
+- R7: the Ghost Rail uses labelled bots, not rivals. The Library's regular stays masked on Home, Story and
+  Locker, and Profile shows that keepsake as locked.
+- R8: the flame was replaced with a lantern glyph.
+- R9: the "Rep due" seal is neutral ink, not amber.
+- R10: the celebration copy separates lit days from rest days.
+- R11: the import screen no longer shows any win rate or currency switch.
+- R12: the Chalk cap is corrected to 225 a day; the catalogue estimate is now about 8–10 months.
+- R13: citations carry the source's confidence tag; Lester is credited for liking and Schroeder 2013
+  (recalled) for learning; the v2.1 "never … cosmetics, or a shop" line is quoted and its reversal stated.
+- R14: hex literals replaced with tokens (`--rim-sw-a/b`, `--rail-a`, `--chip-a`, `--text-hi`); the
+  Locker's `data:` URL removed. Not done: capture.mjs still cannot detect `data:` URLs inherited from
+  demo/glass (the glass card back and grain use them, as in the shipped mocks).
+- R15: the Story hub reads "After the Kitchen Table: six venues"; the name is "The Library" everywhere; the
+  Notebook state matches (8, 630/1,000).
+- R16: reworded to "100 into a final pot of 400: 1 time in 4. Risk 100 to win the 300 out there, so 3 to 1."
+  The original phrasing was the repo lesson's own (`pot-odds-as-a-price.ts`), and the frequency was right.
+- R17: Dealer's Pick is rejected, so "nothing is random" stays absolute.
+- Consider, done: the Experiment-1 clause; "2–4 days"; lesson pose no longer glint; Dee removed from the
+  Locker felt preview; a `--dee-perch` token; 2.1 depends on 2.2; a suggested Wave-0 target; no-sale and
+  accessibility pledges recorded.
+- Consider, not done: dimming `--chip-a` for the Lamp (left for art direction); in-container clipping
+  assertions in capture.mjs (screens were inspected by eye at both sizes); the Ticket-as-free-roam framing
+  (noted under D16 as a possible way to avoid a spec change).

@@ -17,7 +17,7 @@
     const lit = Number(document.body.dataset.lit || 23), done = Number(document.body.dataset.ring || 2);
     const arcs = [0, 1, 2].map((i) => { const a0 = -90 + i * 120 + 4, a1 = a0 + 112, r = 7.5, p = (a) => [9 + r * Math.cos(a * Math.PI / 180), 9 + r * Math.sin(a * Math.PI / 180)].map((n) => n.toFixed(2)).join(' ');
       return `<path d="M${p(a0)} A${r} ${r} 0 0 1 ${p(a1)}" fill="none" stroke="${i < done ? 'var(--ring-fill)' : 'var(--ring-track)'}" stroke-width="2.4" stroke-linecap="round"/>`; }).join('');
-    return `<button class="perch" aria-label="Dee. ${lit} lit days. Today ${done} of 3."><span class="dee" data-pose="seated" data-size="30"></span>` +
+    return `<button class="perch" aria-label="Dee. ${lit} lit days. Today ${done} of 3."><span class="dee" data-pose="seated" data-size="30" data-token="--dee-perch"></span>` +
       `<span class="lamp-count num"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M3.2 1h3.6M5 1v1.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><rect x="2" y="2.6" width="6" height="7.2" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="5" cy="6.2" r="1.5" fill="currentColor"/><path d="M2.6 11h4.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>${lit}</span>` +
       `<svg class="ring" viewBox="0 0 18 18" aria-hidden="true">${arcs}</svg></button>`;
   }

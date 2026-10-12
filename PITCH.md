@@ -58,7 +58,8 @@ that refuses to reward results. **[speculation, product-strategist §5]**
 ## 2. Answering the skeptic, strongest first
 
 **1. "You'll be celebrating a noisy grader."** This is the strongest objection, and it is correct about
-today. Experiment 1 found ties on 47.7% of decisions. The grader uses one villain range everywhere, barely
+today. In Experiment 1, the grader had no opinion on 39.3% of decisions, and the policies tied on 47.7% (70.1%
+in another population). The grader uses one villain range everywhere, barely
 grades preflop, and applies hard bb thresholds with no noise band. **[repo]**
 **Answer:**
 - **Wave 0 fixes the grader before any reward exists:** a close-spot band, preflop grading from the charts,
@@ -175,7 +176,7 @@ hearts, loss-framed warnings, leaderboards, and an owl-like mascot.
   setup, not measured]**. This panel is one session's work: eight reports of about 45,000 words, and eleven
   mock screens at two sizes. **[repo]**
 - **So the cost is no longer the code. It is decisions, taste and evidence.** The plan front-loads exactly
-  those: 18 decisions, one art direction, one trial. If the trial fails, the loss is about two days of agent
+  those: 18 decisions, one art direction, one trial. If the trial fails, the loss is about 2–4 days of agent
   time and one schema change that was worth making anyway.
 
 ---

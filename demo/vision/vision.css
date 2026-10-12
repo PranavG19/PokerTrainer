@@ -14,6 +14,7 @@
   --lamp-on: var(--chip-a);
   --lamp-rest: oklch(1 0 0 / 0.30);
   --rim-sw-a: oklch(0.50 0.015 255); --rim-sw-b: oklch(0.22 0.01 255);
+  --dee-perch: 30px;   /* the title-bar perch: the disc reads at 24px inside a 30px box */
   --dee-sm: 24px; --dee-md: 44px; --dee-lg: 96px; --dee-xl: 128px;
   --ease-arc: cubic-bezier(0.45, 0, 0.2, 1);
   --dur-4: 480ms; --dur-ring: 900ms; --dur-moment: 1600ms;

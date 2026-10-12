@@ -27,7 +27,7 @@
   .ticket .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .ticket-parts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
   .ghost { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; align-items: end; height: 74px; }
-  .ghost .lane { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: var(--t-cap); color: var(--ink-3); text-align: center; }
+  .ghost .lane { white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: var(--t-cap); color: var(--ink-3); text-align: center; }
   .ghost .bar { width: 100%; border-radius: 4px 4px 2px 2px; background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
   .ghost .me .bar { background: var(--chip-a); box-shadow: none; }
   .ghost .me { color: var(--ink-1); font-weight: 600; }
@@ -111,11 +111,11 @@
           <section>
             <div class="sec-title"><span class="label">Ghost Rail · Seven</span><span class="caption">Your weeks, and three labelled bots</span></div>
             <div class="ghost" role="img" aria-label="This week you are second of six on the Seven rail, by reps from reasoned study">
-              <div class="lane"><span class="bar" style="height:46px"></span>Night owl · bot</div>
+              <div class="lane"><span class="bar" style="height:46px"></span>Owl (bot)</div>
               <div class="lane me"><span class="bar" style="height:40px"></span>You</div>
               <div class="lane"><span class="bar" style="height:33px"></span>Last week</div>
-              <div class="lane"><span class="bar" style="height:28px"></span>Early bird · bot</div>
-              <div class="lane"><span class="bar" style="height:22px"></span>Sunday · bot</div>
+              <div class="lane"><span class="bar" style="height:28px"></span>Lark (bot)</div>
+              <div class="lane"><span class="bar" style="height:22px"></span>Sunday (bot)</div>
               <div class="lane"><span class="bar" style="height:16px"></span>Your best</div>
             </div>
             <p class="caption hide-sm" style="margin-top:8px">Counted by reasoned reps, never chips or results. No one drops a rail.</p>

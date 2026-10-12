@@ -55,7 +55,9 @@ pace.
 | **0.8** | 18+ and audience statement in onboarding and About | D11 | T `screens/settings.ts`, `screens/home.ts` (first run) | e2e assertion in `navigation.spec` | 0.5 |
 
 **Wave 0 exit criteria:** the tie and no-opinion rates from 0.7 are reported, and the owner judges the grader
-fit to drive rewards. If it is not fit, rewards wait; the character can still ship pose-only.
+fit to drive rewards. This is a judgement call. A suggested pre-registered target, written now: no opinion on
+under 20% of decisions, and no severity flip from re-seeding the Monte Carlo on a fixed spot set
+**[speculation; the owner sets the real numbers]**. If it is not fit, rewards wait; the character can still ship pose-only.
 
 ---
 
@@ -92,7 +94,7 @@ two working days of wall-clock**, plus integration. Integration is about five in
 
 | WP | Package | Depends on | Files | Tests | Agent-h |
 |---|---|---|---|---|---|
-| **2.1** | The Long Orbit: chapter types, runner, map screen, the Kitchen Table plus 6 rival chapters, boss hands, keepsakes | 1.1, 1.2, 1.5, 0.4, D17 | N `core/campaign/*`, `screens/story.ts`; T `core/tableTalk.ts` (rival hook), `screens/table.ts` | unit: every chapter's lessons exist and boss puzzles validate; e2e `story.spec` (any chapter can be opened) | 8 |
+| **2.1** | The Long Orbit: chapter types, runner, map screen, the Kitchen Table plus 6 rival chapters, boss hands, keepsakes | 1.1, 1.2, 1.5, 0.4, 2.2, D17 | N `core/campaign/*`, `screens/story.ts`; T `core/tableTalk.ts` (rival hook), `screens/table.ts` | unit: every chapter's lessons exist and boss puzzles validate; e2e `story.spec` (any chapter can be opened) | 8 |
 | **2.2** | Rivals: six rival banks, medallion art, showdown banks, session-drawn profiles | 1.1, 0.4 | N `core/cast/banks/rival-*.ts`, `renderer/art/rivals.ts` | `cast-lint`; unit: no in-hand archetype flavour (the `tableTalk` invariant) | 4 |
 | **2.3** | The Masquerade epilogue | 2.1, 2.2 | T `core/reads.ts` (read-only use), `screens/story.ts` | unit: the Folio ink gate at 20 hands | 3 |
 | **2.4** | Teach Dee (contrast sets played from your sentences) | 1.1, 1.6 | N `core/teachDee.ts`; T `screens/contrast.ts` | unit: repair detection | 4 |

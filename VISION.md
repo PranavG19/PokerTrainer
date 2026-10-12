@@ -314,6 +314,9 @@ economy report states a 300 cap, but its own curve tops out at 225, which is cor
 milestone), story keepsakes (boss hands), and seasonal (free track, then archived). All of them are visible
 in advance with their rule or price. **Card faces, seat layout and stack display are never cosmetic.**
 
+**Standing pledges** (recorded in DECISIONS.md): nothing is ever sold, and accessibility options are never
+unlockables.
+
 **Forbidden mechanics:** any randomness in rewards, including an owned-item shuffle (the economy panel's "Dealer's Pick" is rejected so that "nothing is random" stays absolute); hearts or lives; streak wagers; double-XP events; per-item XP pop-ups; speed bonuses
 outside perception drills; leaderboards against other people; celebrating or commiserating pots; sales,
 timers, bundles; chips as currency.
