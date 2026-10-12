@@ -916,6 +916,15 @@ export function renderTable(opts: {
       if (state.winners === null) potAnnouncer.textContent = `Pot ${state.pot}`;
     }
     prevBoardLen = state.board.length;
+    // The streets still to come are drawn as empty inset wells, so the board keeps its five-card shape.
+    // Not cards: they carry no card testid, so every card query is unchanged.
+    for (let i = state.board.length; i < 5; i++) {
+      const well = document.createElement('div');
+      well.className = 'card-well';
+      well.setAttribute('role', 'img');
+      well.setAttribute('aria-label', `${i < 3 ? 'flop' : i === 3 ? 'turn' : 'river'}, to come`);
+      row.appendChild(well);
+    }
     boardWrap.replaceChildren(row);
 
     const hero = heroSeat();

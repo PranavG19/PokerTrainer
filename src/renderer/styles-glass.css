@@ -943,6 +943,15 @@ select {
 .table-screen .board-wrap {
   min-height: 72px;
 }
+/* An empty street: a 1px-edged inset well the size of a board card. */
+.table-screen .board-wrap .card-well {
+  flex: none;
+  width: 52px;
+  height: 72px;
+  border-radius: var(--r-card);
+  background: rgba(0, 0, 0, 0.24);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.45), inset 0 -0.5px 0 rgba(255, 255, 255, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
 
 /* The hero plate: the hero's seat holds the big cards, name and stack. Your turn is the to-act ring
  * plus one faint mint wash; there is no mint text, so green appears once. */
@@ -1135,7 +1144,8 @@ html .g-seg > button:disabled {
   .table-screen .pot { flex-direction: row; align-items: baseline; gap: 6px; }
   .pot-value { font-size: 26px; }
   .table-screen .table-centre { top: 42%; }
-  .table-screen .table-centre .card { width: 44px; height: 62px; }
+  .table-screen .table-centre .card,
+  .table-screen .board-wrap .card-well { width: 44px; height: 62px; }
   .table-screen .board-wrap { min-height: 62px; }
   .table-screen .hero-cards .card { width: 40px; height: 56px; }
   .table-screen .hero-wrap .seat-stack { font-size: 22px; }
