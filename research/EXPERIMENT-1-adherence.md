@@ -2,6 +2,9 @@
 
 PRODUCT-SPEC Open question #1, run as a measurement.
 
+> **Re-run after the Wave 0 grader fixes:** [EXPERIMENT-1b.md](EXPERIMENT-1b.md) (close band, charts
+> preflop, villain ranges). The harness there grades the way the live table does.
+
 ---
 
 ## SCOPE CORRECTION — READ THIS FIRST
