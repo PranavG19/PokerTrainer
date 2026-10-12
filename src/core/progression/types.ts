@@ -33,13 +33,16 @@ export interface ProgressionState {
  * they turn at the learner's own 4 am (localDay.ts).
  */
 export interface StreakState {
-  /** The local hour the learner's day turns over (localDay.ts DAY_BOUNDARY_HOUR by default). */
+  /**
+   * The local hour the learner's day turns over (localDay.ts DAY_BOUNDARY_HOUR by default). Stored so a
+   * later setting can change it; whoever counts sessions passes it to `systemDayKeyOf(boundaryHour)`.
+   */
   boundaryHour: number;
   /** The run as of `lastCountedDay`. Read it through `currentStreakOn`, which applies a missed day. */
   current: number;
   /** The longest run ever. Never below `current`; a reset never costs the record. */
   best: number;
-  /** The most recent day that counted; null before the first finished session. */
+  /** The most recent day that counted (always the newest in `countedDays`); null before the first. */
   lastCountedDay: DayKey | null;
   /** Days that counted, ascending, unique, bounded by MAX_STREAK_DAYS (history for a calendar strip). */
   countedDays: DayKey[];

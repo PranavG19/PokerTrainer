@@ -35,7 +35,7 @@ Living record. Each line is the current end state.
 ## Profile schema v2 (branch `feat/profile-schema-v2`)
 
 - **Version key:** `schemaVersion`; absent or garbage = v1, any number above `SCHEMA_VERSION` = newer.
-- **Migration v1 → v2 adds defaults only.** It does not seed the Lamp, Reps or milestones from the logs.
+- **Migration v1 → v2 adds defaults only.** It does not seed the streak, Reps or milestones from the logs.
   Those features backfill from `hands`/`assessments` when they land. Seeding now would be untested logic
   with no reader.
 - **The snapshot is `offsuit-state.json.pre-v2`**, a copy of the file actually read (live or the backup
@@ -58,6 +58,9 @@ Living record. Each line is the current end state.
 - **The streak is the classic daily streak (owner D5).** `progression.streak` holds the current run, the
   best run, the last counted local day, the counted-day history (bounded) and the boundary hour. A day
   counts with one finished session. A missed day resets the run (`currentStreakOn` reads 0 after a gap).
+  The history is the source of truth: the parser derives the run and last day from it. A session dated
+  before the last counted day is a clock correction: later days are dropped and the run recomputed, so a
+  fast clock can never freeze the streak. The best run is a record and is kept.
   There are no rest days, no freezes and no spare wicks. Supersedes: the Lamp (lit and rested days, the
   weekly Rhythm, spare wicks), because the owner chose the classic streak.
 - **Scope (owner D1: amend the spec fully).** The character, the streak, XP, trophies and earn-only

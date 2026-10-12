@@ -146,10 +146,10 @@ describe('corrupt progression falls back without losing anything else', () => {
   it('bounded lists keep the newest entries', () => {
     const countedDays = Array.from({ length: MAX_STREAK_DAYS + 10 }, (_, i) => 10_000 + i);
     const awards = Array.from({ length: MAX_REP_AWARDS + 5 }, (_, i) => ({ key: `k${i}`, reps: 1, day: 1 }));
-    const p = parseProgression({ streak: { countedDays, current: 5000 }, reps: { total: 0, awards } });
+    const p = parseProgression({ streak: { countedDays, current: 5000, lastCountedDay: 10_739 }, reps: { total: 0, awards } });
     expect(p.streak.countedDays).toHaveLength(MAX_STREAK_DAYS);
     expect(p.streak.countedDays[0]).toBe(10_010);
-    // A run longer than the bounded history is kept: the stored count is the record, not the list.
+    // A run that fills the whole bounded history may really be longer, so the stored count is believed.
     expect(p.streak.current).toBe(5000);
     expect(p.reps.awards).toHaveLength(MAX_REP_AWARDS);
     expect(p.reps.awards[0].key).toBe('k5');
@@ -197,9 +197,39 @@ describe('the classic daily streak (owner D5)', () => {
     expect(currentStreakOn(start, day(5))).toBe(0);
   });
 
-  it('a clock moved back changes nothing', () => {
-    const s = countSession(start, day(100));
-    expect(countSession(s, day(99))).toBe(s);
+  it('a clock that ran fast cannot freeze the streak: the next real session corrects it', () => {
+    // Saved while the clock read day 20000; the real days are 19800 onwards.
+    let s = countSession(countSession(start, day(19998)), day(20000));
+    s = countSession(s, day(19800));
+    expect(s).toMatchObject({ current: 1, lastCountedDay: 19800, countedDays: [19800] });
+    expect(currentStreakOn(s, day(19800))).toBe(1);
+    for (let d = 19801; d <= 19804; d++) s = countSession(s, day(d));
+    expect(s.current).toBe(5);
+    s = countSession(s, day(19806)); // a missed day still resets
+    expect(s.current).toBe(1);
+  });
+
+  it('a clock moved back onto an earlier counted day recomputes the run up to that day', () => {
+    let s = start;
+    for (const d of [100, 101, 102, 103]) s = countSession(s, day(d));
+    s = countSession(s, day(101));
+    expect(s).toMatchObject({ current: 2, lastCountedDay: 101, countedDays: [100, 101] });
+  });
+
+  it('a last counted day in the future reads as 0, not as a live run', () => {
+    const s = countSession(start, day(200));
+    expect(currentStreakOn(s, day(150))).toBe(0);
+  });
+
+  it('the parser takes the run from the history, never from a count that disagrees with it', () => {
+    const parse = (streak: Record<string, unknown>) => parseProgression({ streak }).streak;
+    // A run across a gap: the real run ending on 102 is 1.
+    expect(parse({ current: 50, lastCountedDay: 102, countedDays: [100, 102] })).toMatchObject({ current: 1, lastCountedDay: 102 });
+    // A run with no history behind it: nothing to count.
+    expect(parse({ current: 1e9, best: 1e9, lastCountedDay: 5, countedDays: [] })).toMatchObject({ current: 0, lastCountedDay: null });
+    expect(parse({ best: 1e9 }).best).toBe(36_500);
+    // A run cut short of the history, with a last day the history does not hold.
+    expect(parse({ current: 1, lastCountedDay: 104, countedDays: [101, 102, 103] })).toMatchObject({ current: 3, best: 3, lastCountedDay: 103 });
   });
 
   it('has no rest-day, Rhythm or freeze fields at all', () => {

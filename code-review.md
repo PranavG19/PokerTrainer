@@ -1,5 +1,5 @@
 # Review: feat/profile-schema-v2
-Verdict: PASS WITH NOTES (re-review at ba7ba94; the original review at 8af212d was CHANGES REQUESTED)
+Verdict: CHANGES REQUESTED (streak change at c2a44f7; the profile-schema work was PASS WITH NOTES at ba7ba94)
 Base: 2b28855 (merge-base with origin/main)  Head: 8af212d. I reviewed d635155 and 21278db in full. 8af212d (AGENTS.md, DECISIONS.md, profile-schema.spec) landed while I was reviewing, and I read it too.
 
 I found no way for the on-disk profile to be lost or overwritten by the paths this branch adds. The two blocking items are about a guarantee the branch states but does not keep: one is about telling the learner when saving has stopped, the other is the claimed unit isolation.
@@ -99,3 +99,41 @@ Both blocking items are fixed, and I have no new blocking findings. I tested the
 | Final rename fails after rotation | Not changed: rare (the temp is already written on the same volume); the live file stays intact. |
 | DST test does not use a real timezone | Fixed: `systemDayKeyOf` is tested under TZ=America/Los_Angeles across 2023-11-05. |
 | Drift test misses a legacy key that is read but not listed | Not changed: every key deserialize reads is also written by serialize, which the test covers. |
+
+## Streak change (c2a44f7)
+Verdict for this commit: **CHANGES REQUESTED**. The streak parser is meant to repair corrupt data, but when the stored fields disagree with the history it trusts the stored values. The counter can also freeze the streak for good. I verified every example below with scratch tests in /tmp/hd3 (an extract of c2a44f7).
+
+### Act on
+- **persist.ts:144-153 `parseStreak`. A corrupt stored value can invent a run or cut one, which breaks invariants (1) and (4).**
+  - **It invents a run across a gap.** `{current:50, lastCountedDay:100, countedDays:[100,102]}` parses to `current:50`, `lastCountedDay:102`. The history shows a gap, so the true run is 1. The stored `current` belonged to the old pointer (100) but is applied to the new one (102).
+  - **It invents a run with no history.** `{current:1e9, lastCountedDay:5, countedDays:[]}` parses to `current:1e9`, `best:1e9`.
+  - **It cuts a run when the pointer is ahead of the history.** `{current:1, lastCountedDay:104, countedDays:[101,102,103]}` parses to `current:1`, `lastCountedDay:104`. That is below the history's trailing run of 3, and day 104 is not in the history. `countSession` always writes both fields together, so a pointer outside the history can only come from corruption.
+  - Fix: treat the history as the source of truth.
+    - `lastCountedDay` = the newest counted day when the history is non-empty. The stated pointer is used only when the history is empty, and then `current` is 1.
+    - `current` = `runEndingOn(countedDays, lastCountedDay)`.
+    - Raise `current` to the stored value only when `stated === lastCountedDay` and the run reaches the start of a full history (`logged === countedDays.length === MAX_STREAK_DAYS`). That is the only case where the true run can be longer than the log, and it keeps the existing "current: 5000 over a full history" test passing.
+    - Add the three cases above as tests.
+- **persist.ts:184-197 `countSession` / `currentStreakOn`. A `lastCountedDay` in the future freezes the streak, which breaks rule (2).**
+  - If the clock was ahead when a session was counted (or the pointer is corrupt) and is then corrected, `countSession` ignores every real day until that future day arrives.
+  - Meanwhile `currentStreakOn` shows the stored run every day, because `today - last <= 1` is true for any negative gap.
+  - Probe: last day 20000 with current 5, then sessions on days 19800-19804. Each day leaves current at 5 and shows 5, so the learner gets neither the reset for missed days nor credit for sessions.
+  - The "changes nothing" rule is right for a small backward step (flying west can move the DayKey back one), not for a large one.
+  - Fix: in `countSession`, when `day < last - 1`, treat it as a clock correction. Drop counted days after `day`, recompute the run with `runEndingOn`, then count `day`. In `currentStreakOn`, return `current` only when the gap is 0 or 1, and treat a gap of -1 or less as "pointer not trusted". Whether the future days are kept or dropped is the owner's call, but the streak must not stop counting. Add a test that moves the clock back.
+
+### Checked and fine
+- **best >= current** holds on every path, including parse, `countSession`, and the 800-day run kept past the 730-day history.
+- **The pointer is never older than the newest counted day** (`Math.max`).
+- **A null pointer with no history** reads as 0. Negative, float and non-integer days are dropped or floored, and duplicates collapse.
+- **Same day twice** is a no-op. **The next day** adds 1. **A gap** starts again at 1, and `currentStreakOn` reads 0 after a missed day. **The bounded history** keeps the newest 730 days while `current` and `best` keep counting.
+- **Shape:** `PROGRESSION_SHAPE.streak` lists exactly the five fields, and the drift test passes. A stray `restedDays` or freeze field is carried untouched and never read. A `progression.lamp` written by an earlier commit on this branch would be carried forever as an unknown key, but no build with `lamp` ever shipped (origin/main has no `progression`), so no migration is needed.
+
+### Consider / Noted
+- **DECISIONS.md:12 still says the migration "does not seed the Lamp".** Edit that line to say the streak.
+- **The new AGENTS.md streak line runs past the file's wrap width.**
+- **`streak.boundaryHour` is stored but nothing reads it.** Day keys come from `systemDayKeyOf()` with the default hour. If the hour ever becomes a setting, the stored history needs re-keying.
+
+### Verification
+- `tsc -p tsconfig.json`: exit 0.
+- progression, profileSchema, store and localDay tests: 49 of 49 pass.
+- The scratch probes above.
+- Not run: e2e (the profile-schema.spec fixture was updated in this commit).

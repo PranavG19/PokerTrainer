@@ -141,19 +141,26 @@ function section<T>(raw: unknown, fallback: T, parse: (obj: Record<string, unkno
   }
 }
 
+/** No run or record is longer than a century of days; anything above is corruption. */
+const MAX_RUN = 36_500;
+
+/**
+ * The counted-day history is the source of truth. The last counted day is the newest day in it, and the
+ * run is the history's trailing run. A stored `current` is believed only where the history cannot speak:
+ * when the run fills the whole bounded history (so it may really be longer) and the stored last day
+ * agrees. So a corrupt count can neither invent a run across a gap nor cut a real one short.
+ */
 function parseStreak(obj: Record<string, unknown>, d: StreakState): StreakState {
   const countedDays = dayList(obj.countedDays, MAX_STREAK_DAYS);
-  const newestLogged = countedDays.length > 0 ? countedDays[countedDays.length - 1] : null;
-  const stated = asDayKey(obj.lastCountedDay);
-  // The last counted day is at least the newest one in the history: a corrupt pointer cannot hide a day.
-  const lastCountedDay = stated === null ? newestLogged : newestLogged === null ? stated : (Math.max(stated, newestLogged) as DayKey);
-  // The run is never below what the history still shows ending on that day, and nothing runs before day one.
+  const lastCountedDay = countedDays.length > 0 ? countedDays[countedDays.length - 1] : null;
   const logged = lastCountedDay === null ? 0 : runEndingOn(countedDays, lastCountedDay);
-  const current = lastCountedDay === null ? 0 : Math.max(nonNegativeInt(obj.current), logged, 1);
+  const historyIsFullRun = logged === MAX_STREAK_DAYS && asDayKey(obj.lastCountedDay) === lastCountedDay;
+  const current = historyIsFullRun ? Math.min(MAX_RUN, Math.max(logged, nonNegativeInt(obj.current))) : logged;
   return {
     boundaryHour: intIn(obj.boundaryHour, 0, 23, d.boundaryHour),
     current,
-    best: Math.max(nonNegativeInt(obj.best), current),
+    // The record may predate the bounded history, so it is kept as stored, but never below the run.
+    best: Math.max(current, Math.min(MAX_RUN, nonNegativeInt(obj.best))),
     lastCountedDay,
     countedDays,
   };
@@ -173,20 +180,36 @@ function runEndingOn(days: readonly DayKey[], day: DayKey): number {
 
 /**
  * The streak as the learner should see it on `today`: the stored run if the last counted day was today or
- * yesterday (today can still count), else 0, because a missed day resets it. The best run is untouched.
+ * yesterday (today can still count), else 0, because a missed day resets it. A last day in the future
+ * (a clock that ran fast) reads 0 too, until a session corrects it. The best run is untouched.
  */
 export function currentStreakOn(streak: StreakState, today: DayKey): number {
   if (streak.lastCountedDay === null) return 0;
-  return today - streak.lastCountedDay <= 1 ? streak.current : 0;
+  const gap = today - streak.lastCountedDay;
+  return gap === 0 || gap === 1 ? streak.current : 0;
 }
 
 /**
- * Count a finished session on `day`. Idempotent within a day; the next day extends the run; a gap starts a
- * new run at 1. A day older than the last counted one (a clock moved back) changes nothing.
+ * Count a finished session on `day`. The same day again changes nothing; the next day extends the run;
+ * a gap starts a new run at 1. A day before the last counted one means the clock was wrong (it ran fast,
+ * or the saved day is corrupt): the counted days after `day` are dropped and the run recomputed from the
+ * history before `day` counts, so a bad clock can never freeze the streak. The best run is a record and
+ * is kept.
  */
 export function countSession(streak: StreakState, day: DayKey): StreakState {
   const last = streak.lastCountedDay;
-  if (last !== null && day <= last) return streak;
+  if (last !== null && day === last) return streak;
+  if (last !== null && day < last) {
+    const kept = streak.countedDays.filter((d) => d <= day);
+    const newest = kept.length > 0 ? kept[kept.length - 1] : null;
+    const corrected: StreakState = {
+      ...streak,
+      countedDays: kept,
+      lastCountedDay: newest,
+      current: newest === null ? 0 : runEndingOn(kept, newest),
+    };
+    return newest === day ? corrected : countSession(corrected, day);
+  }
   const current = last !== null && day - last === 1 ? streak.current + 1 : 1;
   return {
     ...streak,
