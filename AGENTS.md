@@ -86,8 +86,8 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
 - Counts never mix: `Chips` (bankroll), `Reps`, `Chalk` are branded in `src/core/units.ts`; days are `DayKey`s
   from `src/core/localDay.ts` (local time, the day turns at 4 am). The streak is the classic daily
   streak (`progression.streak`, owner D5): a missed day resets it, with no rest days or freezes. Go
-  through `countSession` and `currentStreakOn` (`progression/persist.ts`); never add a freeze field. Core takes a `DayKeyOf`; only the renderer
-  calls `systemDayKeyOf()`.
+  through `countSession` and `currentStreakOn` (`progression/persist.ts`); never add a freeze field.
+  Core takes a `DayKeyOf`; only the renderer calls `systemDayKeyOf()`.
 
 ## Routing
 - `DECISIONS.md` is the living decision record; edit the line, do not append history.

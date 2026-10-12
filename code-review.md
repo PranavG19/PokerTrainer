@@ -1,5 +1,5 @@
 # Review: feat/profile-schema-v2
-Verdict: CHANGES REQUESTED (streak change at c2a44f7; the profile-schema work was PASS WITH NOTES at ba7ba94)
+Verdict: PASS WITH NOTES (streak blockers fixed at ef9bfc6; was CHANGES REQUESTED at c2a44f7)
 Base: 2b28855 (merge-base with origin/main)  Head: 8af212d. I reviewed d635155 and 21278db in full. 8af212d (AGENTS.md, DECISIONS.md, profile-schema.spec) landed while I was reviewing, and I read it too.
 
 I found no way for the on-disk profile to be lost or overwritten by the paths this branch adds. The two blocking items are about a guarantee the branch states but does not keep: one is about telling the learner when saving has stopped, the other is the claimed unit isolation.
@@ -137,3 +137,34 @@ Verdict for this commit: **CHANGES REQUESTED**. The streak parser is meant to re
 - progression, profileSchema, store and localDay tests: 49 of 49 pass.
 - The scratch probes above.
 - Not run: e2e (the profile-schema.spec fixture was updated in this commit).
+
+### Re-check at ef9bfc6
+Both streak blockers are fixed, and I found no new blockers. I re-ran my probes on an extract of ef9bfc6 in /tmp/hd4.
+
+- **(1) The parser no longer invents or cuts runs.**
+  - Run across a gap: `[100,102]` with a stored current of 50 now gives current 1 on day 102.
+  - Pointer ahead of the history: `[101,102,103]` with a pointer of 104 now gives current 3 on day 103.
+  - Stored 1e9 with no history now gives current 0 and no last day.
+  - A full 1000-day run still parses as 1000, because the trailing run fills all 730 days and the stored pointer agrees.
+- **(2) A fast clock no longer freezes the streak.** With a last day of 20000, the streak reads 0 on day 19800. Sessions on 19800, 19801 and 19802 then give 1, 2 and 3. Best stays at 5.
+
+**Consider (not blocking):**
+- **A one-day step back erases the day just counted** (persist.ts:202-212). Count days 96-100, then a session on day 99. This happens when flying west lands a late session before the 4 am turnover. Day 100 is dropped, the run becomes 4 on day 99, and the streak reads 0 on day 101 unless another session counts day 100. Fix: treat a step of exactly one day back as a no-op, and correct only when `day < last - 1`.
+- **A clock correction during a run longer than 730 days cuts it to the history.** A 1000-day run corrected by 5 days becomes 726 instead of 995. Fix: when the kept history still has a full trailing run, keep `current - (last - newest)`. This is rare.
+- **A corrupt `best` becomes a 100-year record.** `best: 1e9` with an empty history parses to 36,500. When `countedDays.length < MAX_STREAK_DAYS` the history is complete, so best could be capped at the longest run in the history.
+- **Nit:** AGENTS.md line 63 is still past the wrap width, because "Core takes a `DayKeyOf`; only the renderer" stays on the long line.
+
+**Docs:** DECISIONS.md now says "streak" and describes the history-first rule and the clock correction. The `boundaryHour` documentation in types.ts reads correctly.
+
+**Verification:**
+- `tsc -p tsconfig.json`: exit 0.
+- progression, profileSchema, store, localDay and units tests: 55 of 55 pass.
+- Not run: e2e.
+
+## Author response to the streak re-check
+| Note | Outcome |
+|---|---|
+| One day back drops a counted day | Fixed: a one-day step back is ignored; only a larger gap corrects the clock. Test: "one day back (a westward flight before 4 am)". |
+| A run over 730 days is cut by a clock correction | Not changed: it needs both a 2-year run and a clock error, and the best run is kept. |
+| A corrupt best reads as 36,500 | Not changed: capping best by the history would cut a real record whenever the history itself is damaged. Losing a record is worse than an implausible one. |
+| AGENTS.md line width | Fixed. |

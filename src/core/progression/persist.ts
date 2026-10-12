@@ -191,14 +191,16 @@ export function currentStreakOn(streak: StreakState, today: DayKey): number {
 
 /**
  * Count a finished session on `day`. The same day again changes nothing; the next day extends the run;
- * a gap starts a new run at 1. A day before the last counted one means the clock was wrong (it ran fast,
- * or the saved day is corrupt): the counted days after `day` are dropped and the run recomputed from the
+ * a gap starts a new run at 1. One day back changes nothing (travel or DST around the 4 am turn). More
+ * than one day before the last counted one means the clock was wrong (it ran fast, or the day is corrupt): the counted days after `day` are dropped and the run recomputed from the
  * history before `day` counts, so a bad clock can never freeze the streak. The best run is a record and
  * is kept.
  */
 export function countSession(streak: StreakState, day: DayKey): StreakState {
   const last = streak.lastCountedDay;
-  if (last !== null && day === last) return streak;
+  // One day back is the 4 am turn seen from a westward flight or a DST change, not a wrong clock: the
+  // session belongs to a day already counted, so nothing changes.
+  if (last !== null && (day === last || day === last - 1)) return streak;
   if (last !== null && day < last) {
     const kept = streak.countedDays.filter((d) => d <= day);
     const newest = kept.length > 0 ? kept[kept.length - 1] : null;

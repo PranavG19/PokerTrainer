@@ -216,6 +216,13 @@ describe('the classic daily streak (owner D5)', () => {
     expect(s).toMatchObject({ current: 2, lastCountedDay: 101, countedDays: [100, 101] });
   });
 
+  it('one day back (a westward flight before 4 am) keeps the run and the counted day', () => {
+    let s = start;
+    for (const d of [96, 97, 98, 99, 100]) s = countSession(s, day(d));
+    expect(countSession(s, day(99))).toBe(s);
+    expect(currentStreakOn(s, day(101))).toBe(5);
+  });
+
   it('a last counted day in the future reads as 0, not as a live run', () => {
     const s = countSession(start, day(200));
     expect(currentStreakOn(s, day(150))).toBe(0);
