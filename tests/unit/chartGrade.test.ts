@@ -94,9 +94,15 @@ describe('defence and 3-bet fixtures', () => {
     expect(chartAction(bbVsBtn, '72o')).toBe('fold');
   });
 
-  it('folding aces to an open is serious; a call with trash is capped at half the price', () => {
+  it('folding aces to an open is serious; a call with trash is capped at a quarter of the price', () => {
     expect(chartVerdict(bbVsBtn, ['As', 'Ah'], 'fold', 3.4, 1.4).lossBb).toBeGreaterThan(2);
-    expect(chartVerdict(bbVsBtn, ['7s', '2h'], 'call', 3.4, 1.4).lossBb).toBeCloseTo(0.7, 10);
+    expect(chartVerdict(bbVsBtn, ['7s', '2h'], 'call', 3.4, 1.4).lossBb).toBeCloseTo(0.35, 10);
+  });
+
+  it('folding a 4-bet hand beside a fold cell is a mistake, not a mixed cell', () => {
+    const v = chartVerdict({ kind: '3bet', opener: 'CO' }, ['As', 'Kh'], 'fold', 11, 5.5);
+    expect(v.close).toBe(false);
+    expect(v.lossBb).toBeGreaterThan(2);
   });
 
   it('grades a hand beside the edge of its row as close', () => {
@@ -109,7 +115,7 @@ describe('defence and 3-bet fixtures', () => {
     const btn: ChartSpot = { kind: '3bet', opener: 'BTN' };
     expect(chartVerdict(btn, ['As', 'Ah'], 'fold', 11, 5.5).lossBb).toBeGreaterThan(2);
     expect(chartVerdict(btn, ['7s', '2h'], 'fold', 11, 5.5).lossBb).toBe(0);
-    expect(chartVerdict(btn, ['7s', '2h'], 'call', 11, 5.5).lossBb).toBeGreaterThan(2);
+    expect(chartVerdict(btn, ['7s', '2h'], 'call', 11, 5.5).lossBb).toBeGreaterThan(1);
   });
 });
 
@@ -209,5 +215,59 @@ describe('chart spots are read from the betting', () => {
       chart: { kind: 'rfi', position: 'CO' },
     });
     expect(g).toEqual(direct);
+  });
+});
+
+/**
+ * Review fixes (code-review-grader.md, act-on 1 and 4). The charts are 100bb standard-size ranges, so a
+ * shove, an outsized open or a short stack must not be graded from them: facing a CO shove the old code
+ * charged calling with aces as "the BB chart raises AA" (18.7bb, serious).
+ */
+describe('chart spots only where the charts apply', () => {
+  it('a shove, an outsized open or a short stack is not a chart spot', () => {
+    let shove = dealt();
+    shove = applyAction(shove, { kind: 'allin' });
+    shove = applyAction(shove, { kind: 'fold' });
+    shove = applyAction(shove, { kind: 'fold' });
+    expect(chartSpotFor(shove)).toBeNull();
+
+    let big = dealt();
+    big = applyAction(big, { kind: 'raise', amount: 1500 }); // a 30bb open
+    big = applyAction(big, { kind: 'fold' });
+    big = applyAction(big, { kind: 'fold' });
+    expect(chartSpotFor(big)).toBeNull();
+
+    const short = dealt();
+    short.seats[3].stack = 400; // 8bb behind
+    expect(chartSpotFor(short)).toBeNull();
+  });
+
+  it('calling a shove with aces is not charged', () => {
+    let s = dealt();
+    s = applyAction(s, { kind: 'allin' });
+    s = applyAction(s, { kind: 'fold' });
+    s = applyAction(s, { kind: 'fold' });
+    s.seats[s.toAct].hole = ['As', 'Ah'];
+    expect(gradeSpot(s, 'call', { seed: 1, modelFor: () => null }).severity).toBe('free');
+  });
+
+  it('a close 3-bet-response cell names its chart in plain words', () => {
+    const g = gradeDecision({
+      hole: ['Js', 'Jh'],
+      board: [],
+      street: 'preflop',
+      pot: 550,
+      toCall: 275,
+      stack: 4875,
+      bb: 50,
+      chosen: 'call',
+      opponents: 1,
+      seed: 1,
+      chart: { kind: '3bet', opener: 'CO' },
+    });
+    expect(g.close).toBe(true);
+    expect(g.message).toBe(
+      'Close spot: JJ sits on the edge of the chart facing a 3-bet after a CO open, where both choices are played. Either choice holds up.',
+    );
   });
 });

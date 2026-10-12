@@ -291,8 +291,16 @@ function chartMessage(
 }
 
 function closeChartMessage(spot: ChartSpot, combo: Combo): string {
-  const where = spotPhrase(spot).replace(/^The /, 'the ');
-  return `Close spot: ${combo} sits on the edge of ${where.startsWith('the ') ? where : `the chart (${where.toLowerCase()})`}, where both choices are played. Either choice holds up.`;
+  return `Close spot: ${combo} sits on the edge of ${chartName(spot)}, where both choices are played. Either choice holds up.`;
+}
+
+/** The chart, named as the object of a sentence. */
+function chartName(spot: ChartSpot): string {
+  if (spot.kind === 'rfi') return `the ${spot.position} opening chart`;
+  if (spot.kind === 'defend') {
+    return `the ${spotLabel(spot)} chart against a ${spot.spot.split('-vs-')[1].toUpperCase()} open`;
+  }
+  return `the chart facing a 3-bet after a ${spot.opener} open`;
 }
 
 function classifySeverity(evLossBb: number): Severity {

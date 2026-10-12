@@ -295,10 +295,10 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
 - **Charts are standard, not archetype-adjusted.** Defending against a nit's open is graded as against a
   standard open. See Open questions.
 - **Cost model, stated:** too loose = 27 · pot(bb) · d², d the share of all hands outside hero's region, capped
-  at 2/3 of the unopened pot (1bb) or half the price facing a raise; too tight = value · share, value 2.7 pots
+  at 2/3 of the unopened pot (1bb) or a quarter of the price facing a raise (calling a 3-bet with 77 off the CO chart ≈ 1.4bb, notable, not serious); too tight = value · share, value 2.7 pots
   unopened (4bb) or 1 pot raised, share decaying by e every 4% of hands from the top to 0 at the edge;
   flatting a re-raise hand is a fifth of folding it; a limp is half the nearer mistake. Folding aces first
-  in ≈ 3.8bb from any seat, opening 72o = 1bb (notable), a hand 10% outside the CO chart ≈ 0.3bb (silent).
+  in ≈ 3.8bb from any seat, opening 72o = 1bb (notable), a hand 10% of all hands outside the CO chart ≈ 0.4bb (silent).
 - **Mixed cells are close:** RFI uses the authored `BOUNDARY_COMBOS`; defence and 3-bet spots use row
   adjacency (a neighbour one kicker or one pair away takes the other action).
 - **Chart and close verdicts carry no price meter** (a close spot's two shares overprint on the meter; the message quotes both) and use the principle `position` (RFI) or `ranges`.

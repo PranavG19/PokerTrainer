@@ -99,6 +99,19 @@ const startedAt = Date.now();
 let done = 0;
 
 async function execCell(cell: Cell): Promise<MatchResult> {
+  // A cell is deterministic, so a retry after a transient spawn or file error (EPERM was seen on a
+  // loaded shared machine) reproduces exactly the same result.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await execCellOnce(cell);
+    } catch (err) {
+      if (attempt >= 3) throw err;
+      process.stderr.write(`retrying ${cell.path} after: ${String(err).split('\n')[0]}\n`);
+    }
+  }
+}
+
+async function execCellOnce(cell: Cell): Promise<MatchResult> {
   await run('./node_modules/.bin/vite-node', [
     'scripts/experiments/adherence/cell.ts',
     cell.policy,

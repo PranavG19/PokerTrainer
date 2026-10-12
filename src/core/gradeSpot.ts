@@ -56,6 +56,9 @@ export function chartSeats(state: TableState): (ChartSeat | null)[] {
 interface PreflopAction {
   seat: number;
   kind: 'fold' | 'check' | 'call' | 'raise';
+  /** For a raise: the total it raised to. */
+  to?: number;
+  allIn?: boolean;
 }
 
 /** The voluntary preflop actions so far, in order, read from the log (the blinds are posts, not actions). */
@@ -68,7 +71,7 @@ function preflopActions(state: TableState): PreflopAction[] | null {
   const out: PreflopAction[] = [];
   let toMatch = state.bb;
   for (const line of state.log) {
-    if (line.includes(' posts ')) continue;
+    if (/ posts (SB|BB) \d+$/.test(line)) continue;
     const m = /^(.*) (folds|checks|calls \d+|bets \d+|raises to \d+|all-in \d+)$/.exec(line);
     if (!m) continue;
     const seat = bySeat.get(m[1]);
@@ -79,16 +82,23 @@ function preflopActions(state: TableState): PreflopAction[] | null {
     else if (verb.startsWith('calls')) out.push({ seat, kind: 'call' });
     else {
       const amount = Number(verb.slice(verb.lastIndexOf(' ') + 1));
+      const allIn = verb.startsWith('all-in');
       // An all-in that does not lift the bet is a call for less.
-      if (verb.startsWith('all-in') && amount <= toMatch) out.push({ seat, kind: 'call' });
+      if (allIn && amount <= toMatch) out.push({ seat, kind: 'call', allIn });
       else {
         toMatch = Math.max(toMatch, amount);
-        out.push({ seat, kind: 'raise' });
+        out.push({ seat, kind: 'raise', to: amount, allIn });
       }
     }
   }
   return out;
 }
+
+/** Below this many big blinds (hero or a raiser) the 100bb charts do not apply. */
+export const MIN_CHART_DEPTH_BB = 40;
+/** An open larger than this, or a 3-bet larger than the next, is not the standard size the charts assume. */
+export const MAX_OPEN_BB = 5;
+export const MAX_THREEBET_BB = 15;
 
 /** The chart spot hero is in preflop, or null when the betting is not one the charts cover. */
 export function chartSpotFor(state: TableState): ChartSpot | null {
@@ -101,6 +111,16 @@ export function chartSpotFor(state: TableState): ChartSpot | null {
   if (hero === null || actions === null) return null;
   const raises = actions.filter((a) => a.kind === 'raise');
   const calls = actions.filter((a) => a.kind === 'call');
+
+  // The charts are 100bb, standard-size ranges. A shove, an outsized raise or a short stack is a
+  // different game (push/fold), so those spots fall back to the pot-odds model, which does see price.
+  const bb = state.bb;
+  const depthBb = (seatId: number): number => (state.seats[seatId].stack + state.seats[seatId].committed) / bb;
+  if (!(bb > 0) || depthBb(heroId) < MIN_CHART_DEPTH_BB) return null;
+  if (actions.some((a) => a.allIn)) return null;
+  if (raises.some((a) => depthBb(a.seat) < MIN_CHART_DEPTH_BB)) return null;
+  if (raises[0] && raises[0].to! > MAX_OPEN_BB * bb) return null;
+  if (raises[1] && raises[1].to! > MAX_THREEBET_BB * bb) return null;
 
   if (raises.length === 0 && calls.length === 0) {
     return hero === 'BB' ? null : { kind: 'rfi', position: hero };
@@ -148,18 +168,25 @@ export function gradeSpot(state: TableState, chosen: ActionKind, opts: GradeSpot
   const model = aggressor !== null && aggressor !== hero.id ? opts.modelFor(aggressor) : null;
   if (model === null) return gradeDecision({ ...base, villainRange: VILLAIN_BETTING_RANGE });
 
-  // A raise over a bet when hero had already put chips in this street; otherwise a bet into hero.
-  const facing = state.street === 'preflop' || hero.committed > 0 ? 'raise' : 'bet';
-  const potBefore = state.pot - toCall;
+  // Bet or raise, from the aggressor's own last line: the engine logs "bets" into no bet and "raises to"
+  // over one. An all-in over an earlier bet on this street (someone else already has chips in) is a raise.
+  const villain = state.seats[aggressor!];
+  const last = [...state.log].reverse().find((l) => l.startsWith(`${villain.name} `)) ?? '';
+  const othersIn = state.seats.some((s) => s.id !== villain.id && s.committed > 0);
+  const facing: 'bet' | 'raise' =
+    state.street === 'preflop' || last.includes(' raises to ') || (last.includes(' all-in ') && othersIn)
+      ? 'raise'
+      : 'bet';
+  // Size is read only for a postflop bet into no bet: the bots bet a fraction of the pot before it, so
+  // that fraction is the aggressor's chips this street over the pot without this street's chips. A raise
+  // is sized against the bet it raises (currentBet + pot fraction), which this view cannot recover, so a
+  // raise is modelled at the archetype's own size rather than at a mis-measured one.
+  const streetChips = state.seats.reduce((sum, s) => sum + s.committed, 0);
+  const potBefore = state.pot - streetChips;
+  const potFraction =
+    state.street !== 'preflop' && facing === 'bet' && potBefore > 0 ? villain.committed / potBefore : undefined;
   return gradeDecision({
     ...base,
-    villainHands: villainRange({
-      model,
-      board: state.board,
-      facing,
-      // Preflop raise sizes are not pot fractions in the archetypes' sense, so only postflop reads size.
-      potFraction: state.street !== 'preflop' && potBefore > 0 ? toCall / potBefore : undefined,
-      livePlayers: opponents + 1,
-    }),
+    villainHands: villainRange({ model, board: state.board, facing, potFraction, livePlayers: opponents + 1 }),
   });
 }

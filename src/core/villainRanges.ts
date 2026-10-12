@@ -138,7 +138,7 @@ function computeStrengthTable(board: readonly Card[]): StrengthTable {
       live.push(h);
     }
     // Pot share vs one random live hand = (hands beaten + half the ties) / (other hands). Card removal
-    // between the two hands is ignored: it moves a strength by well under the step width.
+    // between the two hands is ignored: measured at up to 1.45 points on the river, half the step width.
     const sorted = live.map((h) => scores[h]).sort((x, y) => x - y);
     const n = sorted.length;
     for (const h of live) {

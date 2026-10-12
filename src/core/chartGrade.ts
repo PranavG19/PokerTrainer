@@ -24,7 +24,7 @@
  *     the region of hero's action, in share of all hands, and loss = K * pot(bb) * d^2. Quadratic because
  *     the published RFI EV curves are flat near the edge (a marginal open is worth hundredths of a big
  *     blind either way). K = 27 per pot-bb. Capped: unopened at 2/3 of the pot (1bb), because fold equity
- *     floors the loss of opening trash; facing a raise at half the price, because the hand's equity
+ *     floors the loss of opening trash; facing a raise at a quarter of the price, because the hand's equity
  *     realises the rest.
  *   - TOO TIGHT (folding, or flatting, what the chart plays): loss = value * share, where value is what
  *     the best hand gives up by folding (2.7 pots unopened, i.e. 4bb, the order of published EVs for
@@ -38,7 +38,8 @@
  * MIXED CELLS ARE CLOSE. The charts are purified: where a published range mixes, preflop.ts rounds the
  * cell to all-in or all-out. So the cells beside a chart edge are graded close, not wrong: in RFI spots,
  * the authored BOUNDARY_COMBOS for the seat; in defence and 3-bet spots, a hand whose neighbour in its
- * row (one kicker up or down, or the next pair) takes a different action, when hero took that action.
+ * row (one kicker up or down, or the next pair) takes a different action one region over (3-bet/call or
+ * call/fold), when hero took that action.
  */
 import { RANKS, type Card, type Rank } from './cards.js';
 import {
@@ -74,7 +75,7 @@ export function chartMove(action: 'fold' | 'check' | 'call' | 'bet' | 'raise' | 
 
 export const CHART_K = 27;
 export const CAP_LOOSE_POTS = 2 / 3;
-export const CAP_LOOSE_CALL = 0.5;
+export const CAP_LOOSE_CALL = 0.25;
 /** What folding the best hand gives up, in pots: 4bb of an unopened 1.5bb pot; one pot once raised. */
 export const TIGHT_VALUE_UNOPENED_POTS = 2.7;
 export const TIGHT_VALUE_RAISED_POTS = 1;
@@ -202,6 +203,10 @@ export function isMixedCell(spot: ChartSpot, combo: Combo, move: ChartMove): boo
   if (spot.kind === 'rfi') return BOUNDARY_COMBOS[spot.position].includes(combo) && move !== 'call';
   const own = chartAction(spot, combo);
   if (own === move) return false;
+  // Only one region over: a published solve mixes 3-bet with call, or call with fold, at an edge. A hand
+  // the chart re-raises beside one it folds (AKo beside AQo facing a CO 3-bet) is not a mixed cell, so
+  // folding it is a real mistake, not a close one.
+  if (Math.abs(STRENGTH_OF[own] - STRENGTH_OF[move]) !== 1) return false;
   return rowNeighbours(combo).some((n) => chartAction(spot, n) === move);
 }
 
@@ -238,7 +243,7 @@ export function chartVerdict(
   const pot = Math.max(0, potBb);
   let lossBb: number;
   if (looser) {
-    // Facing a raise, a wrong continue loses at most about half of what it puts in (the hand's equity
+    // Facing a raise, a wrong continue loses at most about a quarter of what it puts in (the hand's equity
     // realises the rest); unopened, the open's loss is floored by fold equity at 2/3 of the pot.
     const d = chartDistance(spot, combo, move);
     const cap = spot.kind === 'rfi' ? pot * CAP_LOOSE_POTS : CAP_LOOSE_CALL * Math.max(0, toCallBb);

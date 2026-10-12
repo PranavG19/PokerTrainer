@@ -191,3 +191,52 @@ describe('gradeSpot models the aggressor from its seat', () => {
     expect(viaSpot).toEqual(direct);
   });
 });
+
+/**
+ * Review fixes (code-review-grader.md, act-on 2 and 3): multiway, a raise over someone else's bet was
+ * modelled as a bet because hero had no chips in; and a raise's size was measured as toCall over the
+ * pot, which is not how the bots size a raise, so a bot raising at its own size shifted the value line.
+ */
+describe('bet or raise, and the size read', () => {
+  function multiwayRaise(): TableState {
+    let s = startHand(
+      createTable({
+        seats: [0, 1, 2, 3].map((i) => ({ name: `P${i}`, stack: 5000, isHero: i === 0 })),
+        sb: 25,
+        bb: 50,
+        seed: 21,
+      }),
+    );
+    s = applyAction(s, { kind: 'call' }); // seat 3 limps
+    s = applyAction(s, { kind: 'call' }); // hero (button) calls
+    s = applyAction(s, { kind: 'call' }); // SB completes
+    s = applyAction(s, { kind: 'check' }); // BB checks
+    s = applyAction(s, { kind: 'bet', amount: 100 }); // SB bets
+    s = applyAction(s, { kind: 'raise', amount: 300 }); // BB raises
+    s = applyAction(s, { kind: 'fold' }); // seat 3 folds
+    expect(s.toAct).toBe(0);
+    expect(s.seats[0].committed).toBe(0);
+    return s;
+  }
+
+  it('grades a multiway raise as a raise, at the archetype\'s own size', () => {
+    const s = multiwayRaise();
+    const lag = ARCHETYPE_PROFILES.lag;
+    const hero = s.seats[0];
+    const viaSpot = gradeSpot(s, 'call', { seed: 1, modelFor: () => lag });
+    const expected = gradeDecision({
+      hole: hero.hole,
+      board: s.board,
+      street: s.street,
+      pot: s.pot,
+      toCall: s.currentBet,
+      stack: hero.stack,
+      bb: 50,
+      chosen: 'call',
+      opponents: 2,
+      seed: 1,
+      villainHands: villainRange({ model: lag, board: s.board, facing: 'raise', livePlayers: 3 }),
+    });
+    expect(viaSpot).toEqual(expected);
+  });
+});
