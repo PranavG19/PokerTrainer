@@ -12,8 +12,10 @@ import type { Rng } from '../../../src/core/rng.js';
 import type { Action, ActionKind, TableState } from '../../../src/core/table.js';
 import { legalActions, minRaiseTo, maxRaiseTo } from '../../../src/core/table.js';
 import { decideActionAs } from '../../../src/core/ai.js';
-import { gradeDecision } from '../../../src/core/coach.js';
+import type { Grade } from '../../../src/core/coach.js';
 import { equityVsRandom } from '../../../src/core/equity.js';
+import type { Archetype } from '../../../src/core/ai.js';
+import { gradeHero } from './grade.js';
 
 export type PolicyName =
   | 'adherent-passive'
@@ -66,6 +68,17 @@ export interface DecisionTrace {
   /** Whether an aggressive action was available at all, and whether it was in the tied minimum. */
   aggressionLegal: boolean;
   aggressionAtMin: boolean;
+  /** Per legal action: 'free' | 'close' | 'notable' | 'serious' ('close' only once the grader has the band). */
+  verdicts: string[];
+  /** Some legal action was graded inside the close band. */
+  anyClose: boolean;
+  /** The verdict on the action actually played. */
+  chosenVerdict: string;
+}
+
+/** The verdict word for one grade: severity, except a close spot reads 'close'. */
+export function verdictOf(grade: Grade): string {
+  return (grade as { close?: boolean }).close === true ? 'close' : grade.severity;
 }
 
 export interface PolicyContext {
@@ -73,6 +86,8 @@ export interface PolicyContext {
   /** Grader seed. Mirrors the renderer's `opts.seed + state.handNumber` so the coach behaves as shipped. */
   graderSeed: number;
   trace: DecisionTrace[];
+  /** Archetype per seat (null for the hero), so the grader can model the aggressor as the shipped table does. */
+  archetypes: readonly (Archetype | null)[];
 }
 
 export type Policy = (state: TableState, ctx: PolicyContext) => Action;
@@ -112,25 +127,13 @@ const AGGRESSIVE: readonly ActionKind[] = ['bet', 'raise', 'allin'];
 function adherent(preference: readonly ActionKind[]): Policy {
   return (state, ctx) => {
     const legal = legalActions(state);
-    const hero = state.seats[state.toAct];
-    const toCall = Math.max(0, state.currentBet - hero.committed);
-    const opponents = state.seats.filter((s) => !s.folded && s.id !== hero.id).length;
 
     const losses = new Map<ActionKind, number>();
+    const verdicts = new Map<ActionKind, string>();
     for (const kind of legal) {
-      const grade = gradeDecision({
-        hole: hero.hole,
-        board: state.board,
-        street: state.street,
-        pot: state.pot,
-        toCall,
-        stack: hero.stack,
-        bb: state.bb,
-        chosen: kind,
-        opponents: Math.max(1, opponents),
-        seed: ctx.graderSeed,
-      });
+      const grade = gradeHero(state, kind, ctx);
       losses.set(kind, grade.evLossBb);
+      verdicts.set(kind, verdictOf(grade));
     }
 
     const minLoss = Math.min(...losses.values());
@@ -146,6 +149,9 @@ function adherent(preference: readonly ActionKind[]): Policy {
       chosen,
       aggressionLegal: AGGRESSIVE.some((k) => legal.includes(k)),
       aggressionAtMin: AGGRESSIVE.some((k) => tied.includes(k)),
+      verdicts: legal.map((k) => verdicts.get(k)!),
+      anyClose: [...verdicts.values()].includes('close'),
+      chosenVerdict: verdicts.get(chosen)!,
     });
 
     return toAction(state, chosen);
@@ -172,22 +178,7 @@ const tagBaseline: Policy = (state, ctx) => decideActionAs('tag', state, state.t
  */
 const tagPlusGrader: Policy = (state, ctx) => {
   const intended = decideActionAs('tag', state, state.toAct, ctx.rng);
-  const hero = state.seats[state.toAct];
-  const toCall = Math.max(0, state.currentBet - hero.committed);
-  const opponents = state.seats.filter((s) => !s.folded && s.id !== hero.id).length;
-  const grade = (chosen: ActionKind): number =>
-    gradeDecision({
-      hole: hero.hole,
-      board: state.board,
-      street: state.street,
-      pot: state.pot,
-      toCall,
-      stack: hero.stack,
-      bb: state.bb,
-      chosen,
-      opponents: Math.max(1, opponents),
-      seed: ctx.graderSeed,
-    }).evLossBb;
+  const grade = (chosen: ActionKind): number => gradeHero(state, chosen, ctx).evLossBb;
 
   const intendedLoss = grade(intended.kind);
   if (intendedLoss < 0.5) return intended; // coach silent: play as intended
@@ -209,6 +200,9 @@ const tagPlusGrader: Policy = (state, ctx) => {
         chosen: kind,
         aggressionLegal: AGGRESSIVE.some((k) => legal.includes(k)),
         aggressionAtMin: AGGRESSIVE.includes(kind),
+        verdicts: [],
+        anyClose: false,
+        chosenVerdict: 'free',
       });
       return toAction(state, kind);
     }
