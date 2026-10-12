@@ -500,6 +500,7 @@ html .g-seg > button:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6)
   height: 18px;
   padding: 0 4px;
   border-radius: var(--r-xs);
+  font-family: inherit;   /* <kbd> otherwise falls back to the UA monospace face */
   font-size: var(--t-cap);
   font-weight: 500;
   font-style: normal;
