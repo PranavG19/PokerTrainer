@@ -34,8 +34,8 @@
     thinking:  [[41, 39, 6.6, 11], [63, 40.5, 9, 3.6]],
     curious:   [[39, 47, 6.4, 12.5], [61, 48.5, 6.4, 8]],
     pleased:   'arc',
-    serious:   [[39, 49, 7.4, 7], [61, 49, 7.4, 7]],
-    notable:   [[39, 47, 6.4, 10], [61, 47, 6.4, 10]],
+    serious:   'brow',
+    notable:   [[42, 42, 6.6, 11], [64, 42, 6.6, 11]],
     asleep:    [[39, 54, 8, 2.2], [61, 54, 8, 2.2]],
     proud:     'arc',
   };
@@ -45,14 +45,21 @@
     pleased: { rot: -4, lift: -5 }, serious: { rim: 'coral' }, notable: { rot: 3, rim: 'amber' }, asleep: { flat: true }, proud: { rot: -6, lift: -7, sweep: true },
   };
 
-  function eyes(pose, small) {
+  function eyes(pose, small, tiny) {
     const e = EYES[pose] || EYES.rest;
+    if (e === 'brow') {   // serious: the tops of both lights cut flat and slanting inward, a frown made only of the lights
+      const s = small ? 1.5 : 1;
+      return [[39, 1], [61, -1]].map(([x, dir]) => { const w = 7.6 * s / 2, top = 45, low = 47.5, bot = 54.5 + (small ? 1 : 0);
+        const tl = dir > 0 ? top : low, tr = dir > 0 ? low : top;
+        const d = `M${x - w} ${tl} L${x + w} ${tr} L${x + w} ${bot - w} Q${x + w} ${bot} ${x} ${bot} Q${x - w} ${bot} ${x - w} ${bot - w} Z`;
+        return (small ? '' : `<path d="${d}" fill="#FFFFFF" fill-opacity=".7" transform="translate(0 .8)"/>`) + `<path d="${d}" fill="${INK}"/>`; }).join('');
+    }
     if (e === 'arc') {
       const w = small ? 5.2 : 3.6;
       return [39, 61].map((x) => `<path d="M${x - 6.5} 51.5 Q${x} ${small ? 40 : 42} ${x + 6.5} 51.5" fill="none" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="${w}" stroke-linecap="round" transform="translate(0 .8)"/><path d="M${x - 6.5} 51.5 Q${x} ${small ? 40 : 42} ${x + 6.5} 51.5" fill="none" stroke="${INK}" stroke-width="${w}" stroke-linecap="round"/>`).join('');
     }
     return e.map(([cx, cy, w, h]) => {
-      const W = small ? w * 1.55 : w, H = small ? Math.max(h * 1.25, 4) : h, r = Math.min(W, H) / 2;
+      const k = tiny ? 1.9 : 1.55, W = small ? w * k : w, H = small ? Math.max(h * (tiny ? 1.35 : 1.25), 4.5) : h, r = Math.min(W, H) / 2;
       const glint = !small && H > 6 ? `<circle cx="${(cx - W * 0.14).toFixed(2)}" cy="${(cy - H * 0.27).toFixed(2)}" r="${Math.min(1.25, W * 0.18).toFixed(2)}" fill="#FFFFFF" fill-opacity=".6"/>` : '';
       // engraved: a light lip below the cut, then the ink fill
       return (small ? '' : `<rect x="${cx - W / 2}" y="${cy - H / 2 + 0.8}" width="${W}" height="${H}" rx="${r}" fill="#FFFFFF" fill-opacity=".75"/>`) +
@@ -63,7 +70,7 @@
   function ceramic(id, size, p, inner) {
     const small = size < 30, tiny = size < 20;
     const rim = p.rim ? `<circle cx="50" cy="50" r="48.4" fill="none" stroke="${RIM[p.rim]}" stroke-width="${tiny ? 6 : small ? 4.5 : 2.6}" ${p.rim === 'amber' && !small ? 'stroke-dasharray="160 400" stroke-dashoffset="-30" stroke-linecap="round"' : ''}/>` : '';
-    const micro = size >= 96 ? `<path id="${id}-tp" d="M50 50 m-42.6 0 a42.6 42.6 0 1 1 85.2 0 a42.6 42.6 0 1 1 -85.2 0" fill="none"/>
+    const micro = size >= 80 ? `<path id="${id}-tp" d="M50 50 m-42.6 0 a42.6 42.6 0 1 1 85.2 0 a42.6 42.6 0 1 1 -85.2 0" fill="none"/>
       <text font-family="-apple-system, 'SF Pro Text', sans-serif" font-size="4.1" font-weight="600" letter-spacing="2.4" fill="#8D877B" fill-opacity=".8"><textPath href="#${id}-tp" textLength="262" lengthAdjust="spacing">DEALER · DEALER · DEALER · DEALER · DEALER · DEALER ·</textPath></text>` : '';
     const sweep = p.sweep && !small ? `<path d="M19 30 A35 35 0 0 1 58 13" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"/>` : '';
     return `
@@ -71,9 +78,9 @@
       <g transform="translate(0 ${p.lift || 0}) rotate(${p.rot || 0} 50 50)">
       <circle cx="50" cy="50" r="49" fill="url(#${id}-c${small ? 's' : ''})"/>
       ${tiny ? '' : `<circle cx="50" cy="50" r="48" fill="none" stroke="url(#${id}-bev)" stroke-width="2.2"/>`}
-      ${small ? `<circle cx="50" cy="50" r="${tiny ? 34 : 36}" fill="none" stroke="#8D877B" stroke-opacity=".75" stroke-width="${tiny ? 5 : 3.4}"/>` : `<circle cx="50" cy="50" r="37.5" fill="url(#${id}-dish)"/><circle cx="50" cy="50" r="37.5" fill="none" stroke="#9A9488" stroke-opacity=".5" stroke-width=".8"/><circle cx="50" cy="50.9" r="37.5" fill="none" stroke="#FFFFFF" stroke-opacity=".75" stroke-width=".6"/>`}
+      ${tiny ? '' : small ? `<circle cx="50" cy="50" r="36" fill="none" stroke="#8D877B" stroke-opacity=".75" stroke-width="3.4"/>` : `<circle cx="50" cy="50" r="37.5" fill="url(#${id}-dish)"/><circle cx="50" cy="50" r="37.5" fill="none" stroke="#9A9488" stroke-opacity=".5" stroke-width=".8"/><circle cx="50" cy="50.9" r="37.5" fill="none" stroke="#FFFFFF" stroke-opacity=".75" stroke-width=".6"/>`}
       ${micro}${inner}${sweep}
-      <circle cx="50" cy="50" r="49" fill="none" stroke="#000" stroke-opacity="${tiny ? 0.5 : 0.4}" stroke-width="${tiny ? 3.2 : 0.9}"/>
+      <circle cx="50" cy="50" r="${tiny ? 47 : 49}" fill="none" stroke="${tiny ? '#7A7468' : '#000'}" stroke-opacity="${tiny ? 1 : 0.4}" stroke-width="${tiny ? 6 : 0.9}"/>
       ${rim}</g>`;
   }
 
@@ -86,7 +93,7 @@
   const MARKS = {
     face(pose, size) {
       const id = `d${++uid}`, p = POSTURE[pose] || {};
-      return frame(size, id, ceramic(id, size, p, eyes(pose, size < 30)), p.flat);
+      return frame(size, id, ceramic(id, size, p, eyes(pose, size < 30, size < 20)), p.flat);
     },
     button(pose, size) {
       const id = `d${++uid}`, p = POSTURE[pose] || {};

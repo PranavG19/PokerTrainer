@@ -1,0 +1,59 @@
+# Scores — The Back Room, round 1 vs round 2 (blind)
+
+**Method.** An independent rater that did not design this scored PNG renders (2× DPR, both window sizes) blind. It used the round-3 rubric in
+[`SCORECARD.md`](../SCORECARD.md), with 11 categories, plus **personal** (feels personal) and **premium**. There were 10 round-1/round-2 pairs,
+labelled A/B in random order per pair, and 10 round-2-only screens. Raw scores and every reason under 8 are in
+[`scores-raw.md`](scores-raw.md). The key (which side was which) was kept from the rater and applied afterwards. The Dee mark directions were
+rated separately in [`scores-marks.md`](scores-marks.md).
+
+**Limits.**
+- The rater could tell the two rounds apart by their toolbar (it said so). That makes the comparison unblinded in practice, though not by label.
+- Motion and states were inferred from stills.
+- One rater, one pass: noise was about ±0.15 per element in the round-3 study.
+
+## Summary
+| | hier | type | color | material | space | consist | states | motion | a11y | craft | apple | **personal** | **premium** | **mean** |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Round 1 (10 screens) | 6.7 | 7.4 | 7.5 | 7.2 | 6.0 | 6.3 | 7.1 | 7.0 | 7.4 | 6.1 | 6.8 | **7.0** | **7.0** | **6.88** |
+| Round 2, same 10 screens | 7.9 | 7.9 | 7.8 | 7.9 | 7.0 | 8.0 | 8.0 | 8.0 | 7.8 | 7.6 | 7.8 | **8.9** | **8.0** | **7.89** |
+| Round 2, all 20 screens | 8.0 | 8.0 | 7.8 | 7.9 | 7.2 | 7.8 | 7.8 | 8.0 | 7.8 | 7.5 | 7.8 | **9.1** | **8.2** | **7.90** |
+
+## Per screen (mean · personal · premium)
+| Screen | Round 1 | Round 2 |
+|---|---|---|
+| Home | 6.38 · 8 · 6 | **8.00** · 9 · 8 |
+| Table, serious mistake | 6.92 · 6 · 7 | **8.15** · 9 · 8 |
+| Table, Price held | 6.92 · 8 · 7 | 7.77 · 9 · 8 → fixed (beat overlap) |
+| Profile | 6.62 · 7 · 7 | **8.00** · 9 · 8 |
+| Locker | 6.38 · 7 · 6 | 7.92 · 9 · 8 → fixed |
+| Story | 6.69 · 6 · 7 | 7.92 · 9 · 8 → fixed |
+| Lesson | 6.62 · 7 · 7 | 7.92 · 9 · 8 → fixed |
+| Celebration → Milestone | **8.00** · 8 · 8 | 7.92 · 9 · 8 → fixed |
+| Pro import → Study | **7.62** · 7 · 8 | 7.31 · 8 · 7 → fixed |
+| Character sheet → Dee settings | 6.69 · 6 · 7 | **8.00** · 9 · 9 |
+| Onboarding 1 / 2 / 3 / 4 | — | 8.15 / 7.85 / 7.46 / 8.15 → 2 and 3 fixed |
+| Trophy room | — | 7.85 · 9 · 8 → fixed |
+| Style | — | 8.15 · 10 · 9 |
+| Best hands | — | 7.92 · 9 · 8 → fixed |
+| Letter | — | **8.23** · 10 · 9 |
+| Rival | — | 8.15 · 10 · 9 |
+| Table, commit tray | — | 7.23 · 8 · 7 → fixed (bone Commit, hero clearance) |
+
+**Two screens scored lower than round 1:**
+- **Study (7.31 vs 7.62):** bone push cells, a second CTA and a dead band.
+- **Milestone (7.92 vs 8.00):** glossy 3D trophy, within noise.
+
+Both were reworked against the rater's reasons. The fix status ("→ fixed") is from the author. The confirmation is the second review pass in
+[`code-review.md`](code-review.md), not a re-score.
+
+## Dee mark directions (blind, `scores-marks.md`)
+| Direction | 16px | 64px | expression | original | glass fit | craft | personal | **overall** |
+|---|---|---|---|---|---|---|---|---|
+| **Two lights** (recommended) | 8 | 9 | 7 | 6 | 8 | 8 | 9 | **8** |
+| The button (jewel) | 6 | 8 | 4 | 6 | 8 | 9 | 4 | 6 |
+| Orbit | 7 | 8 | 5 | 4 | 7 | 7 | 3 | 5 |
+| Pebble | 5 | 7 | 5 | 4 | 7 | 7 | 6 | 5 |
+| The d | 8 | 8 | 2 | 4 | 7 | 7 | 2 | 4 |
+
+The rater's biggest fix for Two lights was to make rest, listening, glance and thinking distinct, plus a button cue at every size and a darker
+bone when small. All three were applied (see [`DESIGN.md`](DESIGN.md)).

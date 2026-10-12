@@ -1,274 +1,326 @@
-# Review: vision-panel (The Back Room: design, pitch and mocks)
-Verdict: FAIL (17 Act-on findings remain; most are cheap text or mock fixes, but R1–R7 are real contradictions an owner would act on)
-Base: glass-full-redesign dc4a9b8  Head: vision-panel working tree (uncommitted: VISION.md, PITCH.md, BUILD-PLAN.md, panel/, demo/vision/, DECISIONS.md diff)
+# Review: vision-panel, round 2 (design and mocks only)
 
-This is a design-and-pitch review, so there is no compile step. I tried to prove each artifact wrong
-against the repo, the spec, the panel reports and the rendered mocks. I checked every [repo] claim against
-the files, and every cited effect size against research/TEACHING-METHOD.md and panel/learning-scientist.md.
-I looked at 12 of the 22 screenshots (both sizes for home, table and character; 900x640 for profile, locker,
-story, celebrate, lesson, pro-import and pro-icm; 1100x760 for table-great).
+**Verdict: FAIL.** Eight must-fix findings remain. The visual system is close to `demo/glass`, and the capture is clean. The failures are in the numbers and the data story: the pot is reported as winnings, the chip stacks don't add up, the 100 bb depth tier doesn't exist, 15 minutes isn't a session, the streak rule contradicts owner decision D5, the rival "reads" have no possible source, the dates contradict each other, and the free-grade prices aren't recorded. Each of these is a claim the build would have to break a rule or invent data to honour.
 
-## Act on
+Base: 575253f  Head: b2ad85b (`git show --stat HEAD`: 106 files, nothing under `src/`)
 
-- **R1. VISION.md:95, demo/vision/table.html:124-133, DECISIONS.md (vision "Price held" line).** "Price held"
-  is defined to fire *only if the spot was close*. Its canonical example, and the whole great-play mock, is
-  "25% needed, 74% had". That is a 49-point margin, the opposite of close. The mock's own comment says "the
-  grade is free". If you build to the mock, the rare beat fires on easy calls and becomes generic praise, which
-  breaks G3 and D6. Fix: change the example and the mock to a genuinely close spot (e.g. "33% needed, 36% had",
-  inside the close-spot band from WP 0.2). Or rewrite the rule as "the spot was hard" with a stated metric,
-  and use that same metric in VISION:95, D6, DECISIONS and BUILD-PLAN 1.4.
+**Scope note.** This review covers the committed HEAD. While I was reviewing (around 16:09–16:12), someone else changed the working tree: 54 tracked files in `demo/vision/*.html` and their screenshots, plus new untracked `vision/DESIGN.md`, `vision/scores.md` and `vision/scores-raw.md`. I didn't write any of those; my capture ran on a copy in `/tmp/rv`. Some findings may already be fixed in that tree (for example R19, since `vision/scores.md` now exists). Check each one against the tip before closing it.
 
-- **R2. demo/vision/table.html:112-115 (table-mistake screenshots).** VISION:92 ("adds no words in-hand"), D7
-  and DECISIONS ("Dee adds no words in-hand… speaks at the hand-end beat") all say Dee is silent in-hand. But
-  the serious-verdict sheet puts Dee's line ("Price first. Folio has a page open…") inside the in-hand sheet,
-  and the sheet's own caption reads "Ada and Bo play the hand out behind this sheet". So the hand is not over.
-  The sheet also reaches four chunks (verdict, principle/meter, commit result, Dee line) against the T4
-  three-chunk budget. Fix: remove the `.beat` from the sheet. Show the Folio prompt in the hand-end tray after
-  the hand resolves, as the great state does. Or change D7 and say so.
+Severity: **must-fix** = a demonstrable contradiction with the code, an owner decision, the spec or poker arithmetic. **should-fix** = a defect a careful reader will hit. **consider** = a judgment call.
 
-- **R3. VISION.md:372 (D1), PITCH.md:183,193, BUILD-PLAN.md:93,119.** PRODUCT-SPEC:542 lists more as out of
-  scope than XP, streaks and cosmetics. It also excludes "leaderboards", "Tournaments and ICM", "Importing
-  hand histories from real sites" and "Bankroll management". D1 as written amends only "effort XP, a humane
-  streak and earn-only cosmetics" (technical-architect.md:17 listed ICM, tournaments and HH import
-  explicitly). Pillar 7 and the Ghost Rail league therefore ship against unamended non-goals. Separately,
-  BUILD-PLAN:119 starts 2.10 (Pro core) "at once", while PITCH:193 says "Not yet: … Pro tools", to come only
-  after the trial passes. Fix: widen D1, or add a D18, to cover ICM/tournaments, HH import, bankroll and the
-  league framing. Then either move 2.10 out of the "start at once" list or change PITCH §5 to match.
+---
 
-- **R4. BUILD-PLAN.md:59-76 vs VISION.md §3.** Several **Core** features have no work package: Today's
-  Ticket (VISION:175; 1.5 only adds an "entry"), Folio the Rulebook (VISION:176), Socratic interrupts
-  (VISION:178), Fading per concept (VISION:180), the Profile "Decisions, not results" block (VISION:203; no WP
-  touches `screens/profile.ts`), range-vs-range equity (VISION:249), and the D9 navigation change. Two
-  further Core items are scheduled in Wave 2: Ghost Rail (VISION:235 vs 2.5) and profile export/import
-  (VISION:239 vs 2.8). A swarm run from this plan would not ship the Core it promises. Fix: add WPs for the
-  missing Core features, or re-tier them as Bold in VISION. Move 2.5 and 2.8 into Wave 1, or re-tier them.
+## Must-fix
 
-- **R5. BUILD-PLAN.md:16-25, 46-52, 65, 116.** There are dependency and hotspot defects:
-  (a) WP 0.4 says "T `core/table.ts:589`", but the call site is `src/renderer/screens/table.ts:589`
-  (`src/core/table.ts` exists, so the agent will edit the wrong file).
-  (b) `screens/table.ts` is touched by 0.4, 0.5, 1.4, 2.1 and 2.12, but the owner table names only 1.4 then
-  2.1. Wave 0 runs 0.4 and 0.5 in parallel on it.
-  (c) `core/coach.ts` is touched in parallel by 0.2 and 0.3 and has no owner. The same goes for
-  `screens/settings.ts` (0.8 and 1.8) and `screens/home.ts` (0.8 and 1.5).
-  (d) 1.3 (Lamp, Rhythm) depends on "F types" only. It needs 0.6 (the local-day fix) and H (its own tests use
-  `OFFSUIT_NOW`).
-  (e) The critical path "F → 1.3 → 1.5 → 1.4" contradicts the table, where 1.4 depends on neither 1.3 nor 1.5.
-  (f) D1 (which VISION:372 says gates Pillars 3–5), D5, D6, D7, D9, D13 and D16 are not in any WP's "Depends
-  on" column. D13 (the second sound cue) and D16 (the Ticket) have no WP at all.
-  Fix: correct the path; add `core/coach.ts`, `screens/settings.ts` and `screens/home.ts` to the owner table
-  with a sequence; make `screens/table.ts` owned 0.4 → 0.5 → 1.4 → 2.1 → 2.12; add 0.6, H and D5 to 1.3 and D1
-  to 1.3, 1.5, 1.7 and 1.10; redraw the critical path from the table.
+### R1. The pot is shown as winnings, in mint, across five screens
+- **Severity:** must-fix
+- **Where:** `demo/vision/home.html:114`, `hands.html:184`, `trophies.html:276`, `letter.html:124` (the "+1450" in the hand-of-the-week row), `rival.html` "Your hands with him" (+29 bb), `vision/persona.md` (Kept hands 1)
+- **Evidence:**
+  - The Long Call shows **+1450** (mint) on Home, Hands, Letters and Trophies, and **+29 bb** on Rivals. 1450 is the final pot (550 + 450 + 450), not the hero's net.
+  - Using the hand line in `table.html`'s own comment (limp 50, call 75 on the flop, pot 550 before the river), the hero put in 50 + 75 + 125 + 450 = 700. The net is +750, which is +15 bb.
+  - `trophies-1100x760.png` labels it "+1450 **the pot**" in mint. Mint is for positive deltas only (AGENTS.md role map), and a pot is not a delta.
+  - It also breaks VISION.md:298 and VISION.md:320: nothing is earned from chips, pots or a correct verdict. The trophy names the decision, then headlines the pot.
+- **Fix:**
+  - Use the net (+750 / +15 bb) wherever a delta is shown, or drop the chip figure from kept-hand rows and trophies.
+  - Trophies show only the decision numbers (price 31%, had 34%, Sure).
+  - Fix persona.md first, so every screen inherits the change.
+- **Response:** Fixed. Every mint figure for The Long Call is the net, +750 (+15 bb); the pot 1450 is labelled as the pot (home, hands, letter, trophies "your net, of a 1450 pot", rival +15 bb, table "won the 1450 pot"). persona.md records the stacks.
 
-- **R6. VISION.md:380 (D9), DECISIONS.md (9-tab line), demo/vision/shell.js:2,9-10.** The nine-tab set (Home,
-  Play, Learn, Story, Train, Study, Pro, Locker, Profile) is not proposed by any panel report.
-  technical-architect.md:119,478 recommends *no* new tabs without a nav-fit measurement. The set drops 7 of the
-  real 11 (`src/renderer/main.ts:204-216`: Charts, Bank, Equity, Ranges, Dossier, Progress, **Settings**)
-  without saying where they go. Home is not a tab today. Settings is where the Character and Celebrations
-  switches live (VISION:261, WP 1.8). Progress has an asserted five-metric contract, and `navigation.spec`
-  pins every tab. shell.js:2 and :9 still say "the real 11 tabs" above a 9-tab array. Fix: add a mapping
-  table (old tab → new home) to D9, keep Settings reachable, cite the source as "synthesis" and not the panel,
-  and add the nav WP from R4. Correct the shell.js comments.
+### R2. The Long Call's stacks don't add up, and the three table states contradict each other
+- **Severity:** must-fix
+- **Where:** `demo/vision/table.html:191`, `table.html:200`, `hands.html:128` and the hero plate below it
+- **Evidence:**
+  - **Wrong totals.** `table-great-*.png` shows the hero at 5950 and Bo at 4050, with Ada 4950 and Cy 5000. That totals 19,950, so 50 chips have vanished. The correct end stacks are hero 5750 and Bo 4300.
+  - **Impossible stacks before the call.** `hands-1100x760.png` shows the hero at 4500 after calling 450, which means only 50 went in before the river. That can't build a 550 pot with Bo at 4050 (Bo would need 500 in before the river).
+  - **Two pot conventions.** `table-live` shows Pot 225 *including* Bo's 75 bet (75/300 = 25%). Hands shows Pot 550 *excluding* the 450 bet (450/1450 = 31%).
+  - **Ada.** In the great state Ada's cards are drawn live, but she must have folded on the flop for the pot to be 550.
+  - **One hand, three stories.** The live state pre-selects **Fold** in the commit tray (`table.html` tray, `aria-checked="true"` on Fold) while the typed reason argues for a call. The mistake state is the same flop folded. The great state is the same hand called on the river.
+  - **Overlap at 1100.** In `table-great-1100x760.png` the beat tray covers the bottom of the hero plate and half the D button. The 900px render is clear.
+- **Fix:**
+  - Hero ends at 5750, Bo at 4300.
+  - Hands shows the hero at 4300 after the call and Bo at 4300 after the bet.
+  - Use one pot convention: pot including bets, as the shipped table does.
+  - Fold Ada's cards in the great state.
+  - Make the mistake state a different hand, or leave the live tray uncommitted.
+  - Raise the hero plate when `.beat-open` is set at 1100x760.
+- **Response:** Fixed. Table great: you 5750, Bo 4300 (LAG), Ada folded, Cy 5000 (sums to 20,000; commented in table.html). Hands still is the moment of the call: you 4750 "To call 450", Bo 4300, pot 550 with the Bet 450 pill, the same convention as the table. The beat tray reserves its height at both sizes (table-dee.css).
 
-- **R7. demo/vision/home.html:112-114; profile.html:179; locker.html:117; home.html:128; story.html;
-  VISION.md:67-69,235.** The rival masking rule is broken, and the mocks disagree about progress. Home's
-  Ghost Rail lists Ines, Wren and Barnaby as the league "regulars". VISION:235 says the regulars are labelled
-  fictional characters "Deuce to Ace". Ines is the final boss, masked as "?" on the character sheet, so the Home
-  mock unmasks her before she is beaten. That contradicts "each stays masked until the learner beats its boss
-  hand". Percival is beaten on Profile (Bookmark keepsake earned), but his hand is "Next" on Home and Story,
-  and the Locker's "Library rim" is still locked behind "Beat Percival's hand". Fix: use non-rival fictional
-  regulars on the Rail, and make the progress state of all mocks agree (Percival unbeaten, so remove the
-  Bookmark keepsake, or beaten everywhere).
+### R3. The 100 bb depth and "3 of 5 blocks" don't exist in the code
+- **Severity:** must-fix
+- **Where:** `vision/persona.md:27` and `:44`, `profile.html:232`, `story.html:106`, `:140`, `:194`, `trophies.html:289–290`, `locker.html:168`, `:223`, `onboarding.html:204`
+- **Evidence:**
+  - **The ladder.** `src/core/standing.ts:38` is `DEPTHS = [0, 40, 75, 125, 200]`. There's no 100 tier.
+  - **Certification.** It is `min(playGate, masteryGate)` (`standing.ts:226`). The 125 tier needs `masteredKcCount >= 8 && puzzleCoverage >= 5` (`standing.ts masteryGate`). `assessmentBlock.ts` is the 30-spot assessment, not a five-block certification.
+  - **The persona's real next step.** At 7 of 12 concepts, it's "125 bb: 7 of 8 concepts". The mocks instead have "The Hundred", "Depth rings 3 of 5 blocks", "Umber: Certify 100 bb", "The Observatory, 100 bb" and a 40/75/100 ring.
+  - **Table size.** `depthToStack` seats an earned depth at depth × bb. A player certified at 75 sits at 3750 chips, not the 5000 drawn on every table mock.
+  - **Onboarding.** Its "set the stacks: $1/$2 at 100 bb deep" claims stakes set the stack, which contradicts the standing ratchet.
+- **Fix:**
+  - Rename the trophy and the cosmetic to the 125 tier, with "7 of 8 concepts · 3 of 5 puzzles" progress from `masteryGate`.
+  - Ring 40/75/125.
+  - Either draw the tables at the earned depth, or state that the vision changes the depth ladder and add it to `personalization-sources.md` as a new rule.
+- **Response:** Fixed. Depth follows standing.ts DEPTHS: 40 and 75 certified, 125 next at "7 of 8 concepts" through the gate (profile, trophies One-Twenty-Five Deep, story rings 40/75/125, Observatory 200 bb, locker locks). Known limit: the table hand is the shipped demo's 100 bb hand (5000 at 25/50); recorded in DECISIONS.md and persona.md.
 
-- **R8. demo/vision/shell.js:20 (the `.lamp-count` glyph, every screen's title bar).** The Lamp count's icon is a
-  flame (a teardrop on a base line). panel/ux-motion-designer.md:326 rules this out explicitly: "No flame. A
-  flame is Duolingo's loss-aversion signature". Economy risk 16 (trade dress) and PITCH:160 claim the
-  Duolingo-specific parts are rejected. A number with a flame in the title bar is the most recognisable piece
-  of Duolingo's streak UI. Fix: use the chip-stack glyph the UX designer specified, or a lamp *body* with no
-  flame, and add the rule to DECISIONS.
+### R4. "Tonight's 15 minutes" can never count toward the streak
+- **Severity:** must-fix
+- **Where:** `home.html:65` and `:72` ("Finish one session and your streak goes to 24"), `onboarding.html` step 3 ("A session is 5 / 15 / 30 min / An hour"), `vision/persona.md` (Schedule: weeknights, 15 minutes)
+- **Evidence:**
+  - The shipped planner says 15 minutes is "a sitting, not a session" (`src/renderer/screens/sessionPlan.ts:82` and `:251`, spec S2a; also `demo/glass/screenshots/home-1100x760.jpg`, "15 min · not a session").
+  - D5 counts a day only with "at least one finished session" (DECISIONS.md, VISION.md streak rules).
+  - So the persona's whole habit loop never increments the streak. A 5-minute "session" is offered as well.
+- **Fix:** Pick one rule.
+  - Option 1: a counted day is a finished *sitting* (any planned block). Amend D5's wording and note it in DECISIONS.md.
+  - Option 2: the persona's nights are 30 minutes, and onboarding offers only the planner's session lengths.
+- **Response:** Fixed. Sessions are 30 minutes, the shipped minimum (sessionPlan.ts:82): Home "Tonight's 30 minutes" (12 + 8 + 10), onboarding options 30 / 45 / 60, profile schedule.
 
-- **R9. demo/vision/profile.html:49,219 (Seal VI "Blockers · Rep due").** Amber is used for a due review
-  (dashed amber ring and amber label). The role map reserves amber for notable severity and the gate timer.
-  VISION §5:337-338 itself refuses amber for habit states for exactly this reason. Fix: show a due seal with
-  `--ink-2` text and a `--lamp-rest`-style hollow ring. Keep amber out of Profile.
+### R5. Onboarding promises a schedule-aware streak, which D5 rules out
+- **Severity:** must-fix
+- **Where:** `onboarding.html:242`, `VISION.md:305`
+- **Evidence:**
+  - Step 3 says "Dee uses this to **count your streak on these days**" (Mon–Fri selected). D5 is a classic daily streak with no rest days (VISION.md:327–331).
+  - The persona's schedule is Mon–Fri, yet Home's week strip shows Saturday kept and a 23-day run. Under the onboarding rule that streak would be impossible, and under D5 the onboarding copy is false.
+  - VISION.md:305 still lists **Spare wicks: Freezes … cover a missed week** in the currency table. That contradicts VISION.md:329 ("no freezes, repair or rest days").
+- **Fix:**
+  - Change the caption to "Dee uses this to plan your nights and warm you up before Thursday".
+  - Delete the Spare wicks row, or mark it superseded by D5.
+- **Response:** Fixed. Onboarding: days are for reminders and planning; "Your streak counts every day you finish a session, any day of the week." VISION.md's Spare wicks row is removed.
 
-- **R10. demo/vision/celebrate.html:64.** "Thirty lit days. Nine of them were rest days the schedule asked for.
-  They count." This counts rested days as lit days. VISION:196 and 299-305, the Home and Profile legends ("Lit"
-  vs "Rested") and the Lamp CSS all keep them distinct: a rest day *preserves the run* but is not a lit day.
-  Counting rests as lit inflates the lifetime count with days of no practice, which is the hollow metric the
-  design claims to avoid. Fix: "Thirty lit days, and nine rest days the schedule asked for kept the run
-  going", or define "lit" to include rests everywhere and say so in D5.
+### R6. The Rivals data can't exist as described
+- **Severity:** must-fix
+- **Where:** `rival.html:14`, `:167–179`, `:205–206`; `lesson.html:14`; `story.html:15`, `:125`; `onboarding.html:198`; `vision/personalization-sources.md` row 6
+- **Evidence:**
+  - **Bo isn't a person.** He's a seat name (`src/renderer/screens/table.ts:89`, `SEAT_NAMES`). His archetype is re-drawn every session by a seeded 3-of-6 shuffle (`table.ts:83–88`). "Bo, loose-aggressive, 38 hands since 2 Sep, −14 bb" needs a new binding that fixes each name to an archetype across sessions. Row 6 doesn't list it.
+  - **His tendencies have no source.** "Bets the river 2.1×", "44% of his big river bets are bluffs" and "folds to a check-raise 60%" are cited as "aggregated over the 38 HandRecords' decisions[]". `DecisionRecord` (`session.ts:43`) stores the hero's own action, pot and toCall only. It has no villain actions and no villain holdings.
+  - **The bluff share would leak the engine.** It needs Bo's cards in hands that never reached showdown, which only the engine knows. Publishing it leaks the bot's strategy.
+  - **It's a persistent read.** Row 6 says rivals[] "records outcomes, not reads, so R4 holds". The Rivals page, the River Room lesson ("Bo bluffs 44%") and the Story are cross-session reads, which R4 (PRODUCT-SPEC.md:396) expires at session end.
+  - **Labels.** The shipped labels are `LAG`, `Nit`, `Station`, `TAG-reg`, `Over-folder` and `Maniac` (`archetypes.ts:106–131`). "Loose-aggressive" is only a description, and "Tight-passive" (Ada) and "Tight" (Cy) aren't archetypes at all.
+  - **Onboarding seating.** "Dee uses this to seat you with players like yours" (`onboarding.html:198`) implies venue-weighted seating. That's an engine change with no new-field row.
+- **Fix:**
+  - Add new rows: `seats {name → archetype}` fixed per profile, and `HandRecord.villainActions[]`.
+  - Show only what the hero could observe, such as "showed down a bluff 4 of 9 river bets you saw", or move the tendencies onto the archetype's published exploit text (`ARCHETYPE_EXPLOITS`).
+  - Use the shipped labels.
+  - Either amend R4 explicitly as an owner decision, or keep only the outcome fields (handsSeen, yourNetBb).
+- **Response:** Fixed by design change, recorded as a decision to evaluate. NEW persistent regulars (one archetype per named regular; today table.ts:83–89 re-deals per session). The dossier counts only what Bo showed at showdown (river bet 21 of 38, 4 of 9 shown big river bets were bluffs, folded to 6 of 10 check-raises), never engine truth; reads still expire per session (R4). Shipped labels LAG / Station / TAG-reg. Lesson and story copy now use the same showdown counts.
 
-- **R11. demo/vision/pro-import.html:120-121.** The import screen shows "Net, all hands −1.9 bb/100" and
-  "All-in adjusted −0.6 bb/100". D10 (VISION:381) recommends "counting stats only, no profit/loss", and the same
-  screen's notice says "results are never scored". Fix: remove both rows (or put them behind D10 as an
-  explicit overrule). Keep the counting stats.
+### R7. The dates and the streak contradict each other
+- **Severity:** must-fix
+- **Where:** `home.html:49` and `:61`, `shell.js:23` (`data-today` defaults to kept), `hands.html:154`, `letter.html:105`, `vision/persona.md`
+- **Evidence:**
+  - **Same screen.** Home says "Thursday's game is in **two days**" while its week strip marks today as **S** (Sunday). Sunday to Thursday is four days.
+  - **The year.** The mocks use the 2025 calendar ("Saturday 11 Oct", "Saturday 4 October"). This repo's date is 2026, when 11 Oct is a Sunday. persona.md never states the year or today's date.
+  - **The streak.** Home shows 23 with today **open**, so the run covers 20 Sep–11 Oct. Every other page shows 23 with today **kept** on the same Sunday ("Sunday evening" on the letter). Both can't be true.
+  - The Three Weeks trophy (21 days, 9 Oct) only fits the kept reading, which would make Home's count 24.
+- **Fix:**
+  - Pin persona.md to "today = Sun 12 Oct 2025, evening, today not yet played".
+  - Home says "in four days".
+  - Set `data-today="open"` on every page, or show 24 kept everywhere.
+  - Re-derive Three Weeks from the chosen day 1.
+- **Response:** Fixed. persona.md pins Sun 12 Oct 2025, evening, today open; shell.js defaults the perch to open on every page (23); Home says "four days off"; Three Weeks is 10 Oct (day 21 of a run from 20 Sep); start date Mon 1 Sep.
 
-- **R12. VISION.md:228,277 (and panel/economy-designer.md:67,160-165).** The Chalk curve (1.0 per Rep up to
-  150 Reps, 0.5 up to 300, 0 after) earns at most 150 + 75 = **225** Chalk a day. So the stated "300 a day"
-  cap can never bind, and "most learners hit the 300 cap at about 2 sessions" (economy) is arithmetically
-  false. The "7–9 months" catalogue estimate (VISION:296) inherits whichever figure the model used. The error
-  comes from the panel, but the synthesis repeats it. Fix: either make the cap 225, or change the bands (e.g.
-  1.0 to 200, 0.5 to 400). Then recompute the months estimate and label it [speculation] as it is now.
+### R8. The Price held and Set Fold numbers aren't recorded for free grades
+- **Severity:** must-fix
+- **Where:** `table.html` beat tray ("31% needed, you had 34%"), `hands.html` facts, `trophies.html:276`, `milestone.html:182`, `vision/personalization-sources.md`
+- **Evidence:**
+  - **No price on free grades.** `src/core/coach.ts:139–144` sets `grade.price = {needed, had}` only when `severity !== 'free'`, and leaves the message null for free.
+  - A correct call (every Price held) and the correct set fold are both free (`classifySeverity` < 0.5 bb). So "you had 34%" and "needed 35%, your set had 22%" aren't stored in `DecisionRecord.verdict`. The sources table doesn't list this as a new field.
+  - **Conflicting rules.** DECISIONS.md says "A `free` grade gets nothing". Yet Price held, The Set Fold trophy with its Dee line, and dee-settings' "Every hand: one line once the hand ends" (`dee-settings.html:110`) all speak on free grades.
+- **Fix:**
+  - Add a new field, `Grade.price` recorded for free grades too (no message), to `personalization-sources.md`.
+  - Restate the rule: "a free grade gets nothing in-hand; Price held and session-end trophies are the only exceptions".
+  - Rename "Every hand" to "After notable hands".
+- **Response:** Fixed. New field `DecisionRecord.price {needed, had}` for every grade, listed in personalization-sources.md row 1b. DECISIONS.md restates the rule: a free grade gets nothing in-hand; Price held and session-end trophies are the only words for one. Dee frequency is "After notable hands" / "Mistakes only" / "After sessions only".
 
-- **R13. PITCH.md:3-5,47-48,30-31,151,153,95-96.** Citation labelling overclaims.
-  (a) The preamble says the citations "were checked by the panel's learning scientist". The panel tags them
-  [confident] or [recalled], not verified.
-  (b) PITCH:47-48 attributes "effects on learning are small" to "Lester et al. 1997 and follow-ups". Lester
-  1997 is the persona-effect paper. The small-learning-effect finding is Schroeder, Adesope & Gilbert 2013, which
-  learning-scientist.md:102-103 marks [recalled].
-  (c) Dunlosky et al. 2013 is [recalled] in TEACHING-METHOD.md:840. Lally 2010, Deci-Koestner-Ryan 1999 and
-  Lester 1997 are only [confident] in the panel (learning-scientist.md:85,102,160). All of them are printed as
-  bare **[evidence]**.
-  (d) PITCH:95-96 cites the v2.1 amendment as precedent ("the reward for climbing is a deeper game") but
-  leaves out the rest of that sentence, "never chips-for-power, cosmetics, or a shop" (PRODUCT-SPEC:544). To
-  a skeptical owner that reads as selective quotation.
-  Fix: carry the source's confidence grade into the label ([evidence, recalled] and so on); cite Schroeder et
-  al. 2013 for the small effect; quote v2.1 in full and say the cosmetics ban is what D1 overturns.
+---
 
-- **R14. demo/vision/vision.css:13,87; locker.html:34,48; celebrate.html:38; story.html:58;
-  capture.mjs:26.** There are hex literals in page CSS outside the documented dee.js art: `#15171A`
-  (felt-swatch rail), `#5B6470`/`#1E2228` (rim swatches, twice), `#D9D4C8` (story arc, which is literally
-  `--chip-a`), and `--ring-gleam: #FFFFFF` (should alias `--text-hi`). AGENTS.md says "No hex literals". Also,
-  locker.html:34 draws the Plain Bone back as a `data:image/svg+xml` URL. The app CSP (`default-src 'self'`,
-  index.html:5) blocks that, as VISION:260 itself notes. capture.mjs:26 exempts `data:` from its network
-  check, so this can't be caught. Fix: replace the literals with tokens (`var(--chip-a)`, a `--rail` token,
-  rim tokens in vision.css), draw the back as inline SVG, and have capture.mjs flag `data:` URLs in
-  stylesheets.
+## Should-fix
 
-- **R15. demo/vision/story.html:56,64; index.html:47; home.html:97 vs profile.html:130-134.** The mocks are
-  inconsistent with VISION. The Story map says "Chapter 3 of 6" and "six venues", and the Kitchen Table
-  (chapter 0) is missing. VISION:140 says seven venues, and BUILD-PLAN 2.1 says "7 chapters". The venue is
-  "The Library" in every mock but "The Quiet Library" in VISION:60. Home shows "Notebook 7 · 1,920 / 3,000
-  reps", while Profile shows "Notebook 8 · 630 of 1,000 Reps". Fix: add the Kitchen Table node ("Chapter 3 of
-  7", or number from 0), settle on one venue name, and use one Notebook state everywhere.
+### R9. The Set Fold copy says "for free", but the fold was right by about 23 bb
+- **Severity:** should-fix
+- **Where:** `milestone.html:182`, the trophy plaque "FOLDED · FREE" (`trophies.html:155`, `milestone.html:117`), `hands.html` "A hard fold"
+- **Evidence:**
+  - The arithmetic checks out: 3150 / (5950 + 3150) = 34.6%, and 10 outs gives about 22.7%.
+  - "The grader said fold, for free" reads as "it didn't matter". In fact calling had an EV of 0.22 × 9100 − 3150 ≈ −1150 chips, about −23 bb. "Free" is the grader's internal severity name, not user copy.
+- **Fix:** Say "Folding was right: calling would have cost about 23 bb on average". That's an EV statement, not a G10 outcome counterfactual. Drop "FREE" from the plaque.
+- **Response:** Fixed. The Set Fold plaque reads FOLDED · RIGHT; copy "The grader said fold: calling would have cost about 23 bb."
 
-- **R16. demo/vision/lesson.html:70,89.** This is a pot-odds teaching error in the lesson that teaches pot
-  odds. "100 to win 400: 1 time in 4" is the classic misstatement: you risk 100 to win 300, and your 100 is
-  one quarter of the 400 final pot. "1 block paid, 4 blocks won" has the same error (3 blocks won, out of 4
-  total). Fix: "You pay 100 into a pot that will be 400: you need to win 1 time in 4." Also change the caption
-  to "1 block paid, 3 won · 1 of 4 is yours".
+### R10. Study compares bb/100 with bb-per-spot, and two data sources are untraced
+- **Severity:** should-fix
+- **Where:** `study.html:110`, `story.html` "Why this order"
+- **Evidence:**
+  - "1.6 bb/100 … ✓ Matches the trainer: 1.8 bb a time over 14 hands" compares a rate per 100 hands with a cost per spot. They aren't the same unit, so "matches" means nothing.
+  - The imported 612 online hands and the leak-finder bands have no row in `personalization-sources.md`.
+  - The Story's "costliest first" bars rank c-bets by "68% folds", a frequency, against bb costs for the other two rows.
+- **Fix:**
+  - Compare like with like: the trainer's reach-weighted bb/100 (`rw.ts:157`), against 1.6.
+  - Add an `imports[]` row as a new field.
+  - Show `leakCostBb` for all three Story rows.
+- **Response:** Fixed. Study: "Agrees with the trainer: your costliest spot there too" (no unit mixing); imports[] listed as a new source (D18). Story ranks both leaks in total bb (25 bb, 13 bb).
 
-- **R17. VISION.md:20, PITCH.md:107, Locker copy vs VISION.md:229.** "Nothing is ever bought, and nothing is
-  random" contradicts Dealer's Pick, "the only randomness". The economy panel's D7 asked the owner to decide
-  this. The synthesis dropped it from the decision list but kept the feature. Fix: cut Dealer's Pick, or
-  qualify the claim ("nothing you earn or win is random") and restore the decision as D18.
+### R11. Dee misquotes the player's own rule
+- **Severity:** should-fix
+- **Where:** `trophies.html:280`
+- **Evidence:**
+  - "This time you said why: 'the price is the call over the pot.'" The accepted sentence is "the price is the call over the pot after I call" (persona.md; quoted in full on four other screens).
+  - Dee's credibility rests on quoting `AcceptedSentence` verbatim.
+  - Related: Profile quotes the goal as "Win my Thursday home game", but the onboarding tile the player picked says "Win my home game".
+- **Fix:** Quote the full sentence. Show the goal as picked, plus "Thursday" from `profile.days`.
+- **Response:** Fixed. Trophies quotes the rule verbatim; the goal is the verbatim tile "Win my home game" with "Thursdays" outside the quote (profile, onboarding).
+
+### R12. The Dee settings preview pairs a mistake line with a pleased face
+- **Severity:** should-fix
+- **Where:** `dee-settings.html:91`, `:145`
+- **Evidence:**
+  - "Preview a moment: **After a hand**" is selected and Dee shows arc (pleased) eyes. The line is the folded-74% *mistake* verdict ("That one needed 25% and you had 74%, so it was yours to call").
+  - The persona's frequency "After hands only" doesn't match any of the three options.
+- **Fix:** Pair "After a hand" with a Price held line and "A mistake" with the serious pose. Align persona.md with the option names.
+- **Response:** Fixed. Each preview moment's pose matches its line (After a hand → pleased + Price held; A mistake → serious; At rest; Idle → asleep).
+
+### R13. The Two-lights mark is lifted from the studied GPL mascot, and the blind test wasn't blind
+- **Severity:** should-fix
+- **Where:** `dee.js`, `dee-marks.html`, `vision/scores-marks.md`
+- **Evidence:**
+  - **Too close to the source.** The studied GPL-3.0 `NotchMascotView.swift` (lines 20–24, 47 and 313, and its left/right eye layers) is a face that is two eyes only: no mouth, expression in the eyes, a hop with smiling eyes, eyes that go to typed text, and sleepy after rest. Two lights reproduces that whole vocabulary, and DESIGN-BRIEF P16 maps it one to one. That's "studied" in name only.
+  - **Generic.** The rater gave Originality 6/10: "a very common kawaii face … could be anyone's".
+  - **Not blind.** `dee-marks-blind-*.png` keeps the author's evaluative captions ("a great icon but a weak character", "the most craft and the least warmth"), and the rater confirms "the render's own card captions were visible". The ranking was primed.
+- **Fix:**
+  - Give Dee a signature the source lacks and keep it at 24 and 16px: chip-edge inserts or a rim notch, the rater's own suggestion.
+  - Make the eye shapes Dee's own (engraved slots, not capsules).
+  - Re-run the blind rating with neutral captions (material and size only).
+- **Response:** Partly fixed, partly disputed. The blind test now hides every caption and note (dee-marks.html?blind=1); a truly blind re-rate still ranked Two lights first, 8 overall, originality 7 (vision/scores-marks.md; the captioned first rating is kept as scores-marks-captioned.md). On the GPL point: the behaviours (glance at typing, arc-eye hop, sleepy) are common companion idioms studied, not copied; the art (a bone dealer button with engraved lights and a DEALER rim) and every line of dee.js are original. Recorded in DECISIONS.md. The re-rater's fix (make the face belong to the button) is partly applied: Serious is now a brow cut into the lights, The gate looks up at the timer, DEALER shows from 80px, and 16px has its own drawing.
+
+### R14. Token drift: hex values, orphan sizes and sub-11px text
+- **Severity:** should-fix
+- **Where:**
+  - Hex in page CSS: `study.html:40` (#FFFFFF), `locker.html:87` (#FFFFFF), `locker.html:89` (#4C5157, a new hue), `vision.css` `.week .d.kept i` (#FFFFFF)
+  - Orphan font sizes: 19, 24, 30, 42, 44, 46, 50, 54, 56, 60, 64 and 76px (e.g. `hands.html:89`, `locker.html:39`/`:99`/`:101`, `letter.html:52`/`:83`, `rival.html:31`/`:84`, `story.html:28`/`:85`, `study.html:26`/`:85`, `home.html:27`/`:43`, `milestone.html:32`/`:83`, `vision.css:112`)
+  - Orphan radii: 1, 2, 3, 5, 7, 16, 18 and 22px (`locker.html:67`/`:76`, `study.html:39`, `story.html:35`/`:45`/`:87`, `vision.css:119`)
+  - Off-scale height: `.tag` 20px
+  - Text under 11px: 10px in `hands.html:43` and `locker.html:145` (both aria-hidden "D")
+- **Evidence:** AGENTS.md says tokens only, with no hex and no orphan sizes in screen sheets. The display numerals copy the sports table's literals (`table-variants.css:98`/`:102`/`:113`), but each page invents its own.
+- **Fix:**
+  - Add `--t-score-sm/md/lg/xl` tokens (e.g. 26 / 34 / 60 / 76) in `vision.css` with a role, and map every display figure to one.
+  - Use `--r-xs` for meters and `--r-dock` / `--r-sheet` for the mini plates.
+  - Move the remaining hex values into tokens.
+- **Response:** Mostly fixed. No hex in page CSS (study, locker, vision.css .week use tokens); no text under 11px; .tag is 22px; small radii use --r-xs. Added --t-score-sm/md/lg/xl and moved rival, letter and milestone figures onto them. Not done: the remaining per-object display numeral sizes (hands, locker, story, home 76px) and a few plate radii; deferred to the port, where the numeral tokens get one role each.
+
+### R15. Bone is used as a selection mark
+- **Severity:** should-fix
+- **Where:** `vision.css` `.choice[aria-checked='true']::after`, which affects onboarding steps 2–3, `dee-settings.html` and `lesson.html`
+- **Evidence:** The selected-choice check is a bone disc, next to the bone primary on the same screen (e.g. `onboarding-step3-1100x760.png`: two bone checks plus bone Continue). The role map keeps bone for physical objects and the one primary action. The kit's selection treatment is the thumb.
+- **Fix:** Use an ink-1 check on `--fill-3`, or drop the check and rely on the thumb treatment.
+- **Response:** Fixed. The .choice check is an ink check on --fill-3 (vision.css); onboarding day chips and voice rows use the same.
+
+### R16. Shipped destinations are lost from the shell
+- **Severity:** should-fix
+- **Where:** `shell.js:12`, `shell.js:42`
+- **Evidence:**
+  - The comment says Settings folds into You, but `SUB` omits it. Theme, sound cues and the tutor switch (`store.ts:65`, `:109`) have no home.
+  - Play with friends (LAN, a launcher on the shipped Home) appears nowhere.
+  - Charts, Bank, Equity, Ranges and Dossier fold into Train or Study, but no mock shows where.
+  - The bankroll headline (shipped and e2e-pinned) is gone from Home.
+- **Fix:** Add Settings to the You sub-nav (or document where each lives), and show one Play or Study mock with the folded tools listed.
+- **Response:** Fixed in the record: Settings keeps its macOS home (app menu, ⌘,); New session, Play with friends and the bankroll stay on Play; You › Dee holds only Dee's settings (DECISIONS.md).
+
+### R17. "Dee appears at most once per screen" fails on most pages
+- **Severity:** should-fix
+- **Where:** DESIGN-BRIEF.md check 6; `shell.js` perch
+- **Evidence:** The 20px perch Dee is in the title bar of every page. Home, Story, Lesson, Trophies, Letters, Profile, Hands and Rivals also draw Dee in the content (e.g. `home-1100x760.png`: two Dees).
+- **Fix:** Reword the check to "one speaking Dee per screen; the perch doesn't count", or show only the streak in the perch where Dee speaks in the content.
+- **Response:** Rule restated: Dee appears once in the content, plus the 20px perch, which is chrome (DESIGN-BRIEF.md check 6, DECISIONS.md).
+
+### R18. Placeholder-grade art in a few places
+- **Severity:** should-fix
+- **Where:** `locker-1100x760.png`, Story chapter icons, Rival monograms, the stacked-ellipse glyph
+- **Evidence:**
+  - **Locker.** The three Table surface swatches (Graphite, Night ink, Umber) are near-black bars you can't tell apart, against P7 ("felt swatches drawn as the sports surface").
+  - **Story.** The chapter icons are generic thin-line pictograms. The Night Train reads as a credit card or bus.
+  - **Rivals.** Ada, Bo and Cy are serif monograms on chips.
+  - **One glyph, three meanings.** The three-ellipse stack is the streak (perch), "Live casino" (onboarding step 2) and the Thirty-One trophy.
+- **Fix:**
+  - Render each swatch as a mini sports table with its tint visible.
+  - Draw the chapter venues as scenes at tile size.
+  - Give each regular a drawn chip design.
+  - Keep the stack glyph for the streak only.
+- **Response:** Fixed for the Locker surfaces (each a small lit-zone preview with distinct dark tints) and the Live casino glyph (its own drawn table edge). The streak stack glyph is kept for the Thirty-One streak trophy on purpose (same meaning). Story venue icons and monogram avatars are unchanged (consider).
+
+### R19. Broken link on the gallery
+- **Severity:** should-fix
+- **Where:** `demo/vision/index.html:33`
+- **Evidence:** The "scores" link points to `../../vision/scores.md`. The file is `vision/scores-marks.md`.
+- **Fix:** Point the link at `vision/scores-marks.md`.
+- **Response:** Fixed: vision/scores.md exists and is linked.
+
+---
 
 ## Consider
 
-- **PITCH.md:60.** "Experiment 1 found ties on 47.7% of decisions." That is the `adherent-passive` policy's
-  rate (research/EXPERIMENT-1-adherence.md:200). Another population in the same file ties on 70.1% (line
-  243). The more damning number for the argument is "no opinion on 39.3%". Tradeoff: one more clause for
-  precision.
-- **vision.css:14,26-27,58,69; home.html (Ghost Rail "You" bar); lesson.html ("pay 100" block).** `--chip-a`
-  (#D9D4C8) is almost bone (#F4F2EC). Lamp dots, ring arcs, done checks, the solid "You" bar and the bone
-  price block all sit beside the one bone primary, which dilutes "bone = cards and the ONE primary action".
-  The UX panel justified chip-a as "bone's family". Tradeoff: a dimmer `--lamp-on` keeps the warmth without
-  competing with Start.
-- **VISION.md:334, shell.js:19.** The perch Dee is 30 px, an orphan size. The tokens are `--dee-sm` 24 and
-  `--dee-md` 44. Pick one and use the token.
-- **locker.html:51-55.** The Locker preview puts Dee on the felt swatch, while VISION:334 says "Dee is never on
-  the felt". It's only a preview, but it's the image people will copy.
-- **capture.mjs:29-30.** It checks root scroll only. It cannot see inner clipping, primary counts, hex or
-  float counts. At 900x640 the character sheet silently drops its pose captions and two of the six "never"
-  bullets (luck, "one more hand"). Tradeoff: a few `page.evaluate` assertions would make the "fits both
-  sizes" claim evidence rather than inspection.
-- **BUILD-PLAN.md:54.** The Wave 0 exit criterion ("the owner judges the grader fit") has no threshold written
-  in advance, unlike the trial's pre-registered kill criteria (PITCH:73-84). Tradeoff: name target tie and
-  no-opinion rates now, or say explicitly that it is a judgement call.
-- **PITCH.md:175-176.** "If the trial fails, the loss is about two days of agent time." The plan's own
-  estimate is 1–2 days of package work plus 1–2 days of integration (BUILD-PLAN:74-76), plus four weeks of
-  the owner's calendar. Say "2–4 days".
-- **VISION §7.** The economy panel's D8 (accessibility options free forever) and D9 (a permanent no-sale
-  DECISIONS line, which skeptic.md:236 also demands) were dropped from the 17 decisions without a note. The
-  no-sale rule appears as prose but is not recorded in DECISIONS.md. Tradeoff: these are cheap, binding
-  pledges that answer skeptic objection 5.
-- **BUILD-PLAN 2.1/2.2.** Story's boss hands and map medallions need the rival banks and art from 2.2, but
-  2.1 does not depend on 2.2.
-- **lesson.html:70.** Dee uses the `glint` (Price held) pose on a correction. Reserve glint for its one beat.
-- **D16 / VISION:175.** PRODUCT-SPEC:171 already frames short sittings as free-roam "practice, not a session".
-  Framing the Ticket that way may avoid a spec change entirely.
+### R20. The capture check is weaker than its message
+- **Severity:** consider
+- **Where:** `demo/vision/capture.mjs`
+- **Evidence:**
+  - It checks only `documentElement` scroll, but `.vpage` is `overflow: hidden`, so clipped content would still pass. My own probe found none.
+  - `table-live` renders differently between runs (pixel diff box 425,1072 to 1793,1493 at 2x). The tray or input caret hasn't settled at 1600 ms.
+- **Fix:** Add an inner-overflow check (text boxes beyond the `.vpage` bounds), and set `caret-color: transparent` under `html.still`.
+- **Response:** Fixed. capture.mjs also fails on any visible text box outside the window and renders with reduced motion, so table-live is deterministic; caret hidden under html.still.
 
-## Noted (verified true)
+### R21. The milestone perch reads 15 on Sat 4 Oct
+- **Severity:** consider
+- **Where:** `milestone.html:91`
+- **Evidence:** With day 1 = 19 Sep, 4 Oct is day 16. At session end the day has just been kept, so the perch should read 16.
+- **Fix:** Use 16, after R7 is resolved.
+- **Response:** Disputed with the arithmetic: with today open, the run of 23 is 20 Sep–11 Oct, so on Sat 4 Oct the streak is 15 (20 Sep–4 Oct inclusive). The perch keeps 15.
 
-- Experiment 1's 47.7% tie and 39.3% no-opinion rates (EXPERIMENT-1:200-204). The UTC `dayIndex` is at
-  `career.ts:103`. `deserialize` builds an explicit object, so unknown keys are dropped (`session.ts:569+`).
-  `VILLAIN_BETTING_RANGE` is used at `screens/table.ts:589` and `assessmentBlock.ts:212`.
-  `DISPLAY_ITERATIONS = 2000`. `DEPTHS` exists. The schedule gaps are 0, 1-2, 7, 21 and 30-45. seatLayout is
-  tested to 8 villains. TEACHING-METHOD:485 bans layout and card-art changes. The reason grader scores 82/100.
-  The tilt proxy matches PRODUCT-SPEC:450 and is not built.
-- PR-DRAFT.md: 551 e2e passed, 1804 unit. The glass branch is 24 commits, 74 files, +6588/−3724. The panel
-  totals 44,992 words. Wave 1 sums to 37 agent-hours and Wave 2 to 54. The economy panel lists 20
-  regulatory risks. skeptic.md:151 says about 65 decisions were raised. The vocabulary ban was lifted on
-  2026-08-14 in code (`progress.ts:443`, `guard.ts:78`) with no DECISIONS or spec entry.
-- Van der Kleij 0.05/0.49, Karpicke & Roediger 2007, Chi 1989 and Kluger & DeNisi 1996 are in
-  TEACHING-METHOD as [verified].
-- The ICM mock is correct. Malmuth-Harville for 27/13/6/14 bb at 50/30/20 gives 35.4/25.0/13.6/26.1%. The
-  bubble factors map to the stated required equities (BF/(1+BF)). The leak-finder band for 101/142 (64–77%) is
-  right.
-- LLM flavour reuses the existing opt-in tutor egress. With no credentials there is no call, so the claim at
-  VISION:109 holds.
-- One bone primary per visible state on every mock. `.group` is used only for actionable lists (quests,
-  chapter row, leak listbox). There are at most two floats on the table states. Mint appears only on the
-  Coach switch, positive deltas (−5.3 EV loss, +0.4 bb) and the Seal-tick legend.
+### R22. The You sub-pages have inconsistent headers
+- **Severity:** consider
+- **Where:** the You pages
+- **Evidence:**
+  - Profile, Trophies and Style carry a caption beside the h1. Hands, Letters, Rivals, Locker and Dee have none.
+  - At 900px, Rivals drops "Also at your table" entirely.
+- **Fix:** Give every sub-page a caption, or none, and keep a one-line Ada / Cy row at 900px.
+- **Response:** Fixed. Every You sub-page uses .vtop (h1 + optional caption left, sub-nav right); Rivals keeps Ada and Cy as one compact line at 900.
 
-## Dismissed
+### R23. The letter's week numbering is off by one
+- **Severity:** consider
+- **Where:** `letter.html:105`
+- **Evidence:** "Week 6 · 6–12 October" makes week 1 = 1–7 Sep, but the persona started 31 Aug.
+- **Fix:** Week 6 = 5–11 Oct, or start the count at the first Monday and say so.
+- **Response:** Checked: week 1 is Mon 1 Sep–Sun 7 Sep (start date moved to 1 Sep), so week 6 = 6–12 Oct and the earlier letters' ranges match.
 
-- **Dee resembles Duolingo's owl or another mascot.** Proof: dee.js:1-4 and the character sheet show a disc
-  with an engraved D, no eyes, no beak, no limbs and no green. The "smile" counter is the closest thing to a
-  face and is not bird-like. (The flame glyph is a separate issue, R8.)
-- **The card backs copy existing art.** Proof: the locker.html:33-41 patterns are original gradients and a
-  spade mark, with no Bicycle or KEM motifs.
-- **The mocks make remote requests.** Proof: the only URL in the mocks is the SVG `xmlns` string inside a
-  `data:` URL (locker.html:34). That is not a request, though the `data:` URL itself is R14. There are no
-  fonts, CDNs or `@font-face`. vision.css imports the local `../glass/glass.css`.
+### R24. The card-index serif is used for body text
+- **Severity:** consider
+- **Where:** `letter.html:24–29`, `rival.html:67`, `dee-settings.html:48`
+- **Evidence:** `--font-index` is the card-index serif, but it sets the letter body and quoted rules.
+- **Fix:** Add a `--font-voice` token with that role, or keep the letter in `--font`.
+- **Response:** Kept on purpose: the letter is the one long-form place, and the card-index serif is its single flourish (DESIGN-BRIEF P7).
+
+### R25. The table's dealer puck still says "D"
+- **Severity:** consider
+- **Where:** `table.html` hero plate `.dealer`, plus the Hands and Locker previews
+- **Evidence:** The owner rejected the D for Dee, and Dee "is the dealer button" (P4). Every table still draws a "D" puck beside Dee.
+- **Fix:** Draw the table's button as Dee at rest. With Character off, use a plain bone button with no letter.
+- **Response:** Kept: the in-hand puck stays the shipped "D" badge (e2e and the shipped table own it); Dee never sits on the felt. Making the puck Dee is a port-time option.
+
+---
 
 ## Verification
-
-- Ran read-only greps and reads over VISION, PITCH, BUILD-PLAN, DECISIONS (git diff), PRODUCT-SPEC, the
-  research files, panel/*.md, demo/vision/*, src/core/{career,session,equity,standing,schedule}.ts,
-  src/renderer/main.ts, screens/table.ts, assessmentBlock.ts, index.html and PR-DRAFT.md. Ran `git rev-list` and
-  `git diff --shortstat` for the glass branch numbers. Ran a Python Malmuth-Harville check of the ICM mock.
-- Did not re-run capture.mjs (no installs or browser launches). The network and scroll claims rest on
-  reading capture.mjs and the existing screenshots.
-- Untested: nav fit of the nine-tab set at 900px with the real app's tab widths, and whether the 900x640 mocks
-  clip inside overflow:hidden containers (capture can't see this).
-
-## Response (author, after the review)
-
-Every Act-on finding was fixed in the docs and mocks, and the mocks were re-rendered at both sizes (capture
-prints no console errors, no network, no page scroll).
-- R1: the great-play state is now a close spot. Hero holds 7♦6♦ (a flush draw), 25% needed, 33% had (an
-  illustrative figure), and Bo wins the pot, so the beat is about the decision. VISION's "Price held" rule now
-  says it fires on a `free` grade that was close.
-- R2: Dee's line was removed from the in-hand sheet (pose only), and so was "Write it".
-- R3: added D18 (the other non-goals: ICM, HH import, bankroll, leaderboards). Pro (2.10) and the Ghost Rail
-  (2.5) now wait for D18 and the trial, consistent with PITCH §5.
-- R4: added WPs 1.11 Ticket, 1.12 Folio, 1.13 Profile and 1.14 Navigation. Socratic interrupts and fading
-  ride in 1.6 and 1.4. Range-vs-range, Ghost Rail and export are re-tiered to Bold.
-- R5: fixed the `renderer/screens/table.ts` path; added owners for coach.ts, settings.ts, home.ts and the
-  table.ts sequence; 1.3 now depends on 0.6 and H; rewrote the critical path; added a decision → package
-  table.
-- R6: D9 is labelled a synthesis proposal, with the full old-tab mapping; shell.js comment updated.
-- R7: the Ghost Rail uses labelled bots, not rivals. The Library's regular stays masked on Home, Story and
-  Locker, and Profile shows that keepsake as locked.
-- R8: the flame was replaced with a lantern glyph.
-- R9: the "Rep due" seal is neutral ink, not amber.
-- R10: the celebration copy separates lit days from rest days.
-- R11: the import screen no longer shows any win rate or currency switch.
-- R12: the Chalk cap is corrected to 225 a day; the catalogue estimate is now about 8–10 months.
-- R13: citations carry the source's confidence tag; Lester is credited for liking and Schroeder 2013
-  (recalled) for learning; the v2.1 "never … cosmetics, or a shop" line is quoted and its reversal stated.
-- R14: hex literals replaced with tokens (`--rim-sw-a/b`, `--rail-a`, `--chip-a`, `--text-hi`); the
-  Locker's `data:` URL removed. Not done: capture.mjs still cannot detect `data:` URLs inherited from
-  demo/glass (the glass card back and grain use them, as in the shipped mocks).
-- R15: the Story hub reads "After the Kitchen Table: six venues"; the name is "The Library" everywhere; the
-  Notebook state matches (8, 630/1,000).
-- R16: reworded to "100 into a final pot of 400: 1 time in 4. Risk 100 to win the 300 out there, so 3 to 1."
-  The original phrasing was the repo lesson's own (`pot-odds-as-a-price.ts`), and the frequency was right.
-- R17: Dealer's Pick is rejected, so "nothing is random" stays absolute.
-- Consider, done: the Experiment-1 clause; "2–4 days"; lesson pose no longer glint; Dee removed from the
-  Locker felt preview; a `--dee-perch` token; 2.1 depends on 2.2; a suggested Wave-0 target; no-sale and
-  accessibility pledges recorded.
-- Consider, not done: dimming `--chip-a` for the Lamp (left for art direction); in-container clipping
-  assertions in capture.mjs (screens were inspected by eye at both sizes); the Ticket-as-free-roam framing
-  (noted under D16 as a possible way to avoid a spec change).
+- **Capture.** Ran `node capture.mjs` against a copy of `demo/vision` and `demo/glass` in `/tmp/rv`, so the tracked PNGs weren't overwritten. Exit 0, and the script printed "no console errors, no network, no page scroll".
+  - 42 of 44 renders are byte-identical to the committed ones. Only `table-live-*` differs (R20).
+- **Layout probe.** A Playwright probe over every page, state and both window sizes found:
+  - no clipped text in any overflow-hidden container and no text off-screen;
+  - one `.primary` per page (none on table-live, which matches the shipped dock);
+  - at most one backdrop-filter float per page.
+- **Accessibility.**
+  - Every Dee SVG is `aria-hidden`; the perch button has an aria-label; the lesson diagram is `role="img"` with a label.
+  - Controls are buttons, switches or radios.
+  - The only text under 11px is Bo's revealed seat-card index in table-great (10.8px rank, 6.6px suit), which comes from the shipped seat-card scale.
+- **Sources.** All 49 file:line symbols cited in `personalization-sources.md` exist at the cited lines. The problem is what several of them are claimed to support (R3, R6, R8).
+- **Poker arithmetic that checks out:**
+  - Flop price 75 / 300 = 25%.
+  - EV of the flop call: 0.74 × 300 − 75 = 147 chips = 2.9 bb.
+  - River price 450 / 1450 = 31%.
+  - K♥2♦ (kings and fours, J kicker) beats Q♦J♣ (jacks and fours) on 4♠4♦K♦9♣J♠.
+  - Set fold: 3150 / 9100 = 34.6%; 10 outs ≈ 22.7%.
+  - Lesson's wrong answer: 450 / 1000 = 45%.
+  - Story's last hand: 600 / 1900 = 31.6%.
+  - A pot-sized bet needs 33%.
+  - Fold to big river bets 38%, within the 37.5–50% range that minimum defence frequency allows against 60–100% pot bets.
+- **Not exercised:** motion (blink, hop and glance timings), reduced-motion paths, and keyboard focus order. The captures are stills.

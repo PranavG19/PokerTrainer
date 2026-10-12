@@ -37,4 +37,4 @@ as made for *this* player. Sources are the FitPRD research (read-only), ranked i
 3. There's one bone primary per screen and one hero figure.
 4. Every object is drawn, not a placeholder.
 5. Every personalized line names its data source (see the source line under each mock and `vision/personalization-sources.md`).
-6. Dee appears at most once per screen. It's silent in-hand.
+6. Dee appears at most once in the content, plus the 20px title-bar perch (chrome). It's silent in-hand.

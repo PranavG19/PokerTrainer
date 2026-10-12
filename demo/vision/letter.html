@@ -21,16 +21,17 @@
   .letter { padding: 22px 28px 0; display: flex; flex-direction: column; }
   .letter .dateline { display: flex; align-items: baseline; gap: 10px; }
   .letter .dateline .caption { margin-left: auto; }
-  .prose { font-family: var(--font-index); font-size: var(--t-t3); line-height: 1.58; color: var(--ink-1); letter-spacing: 0.002em; max-width: 60ch; margin-top: 14px; }
-  .prose p + p { margin-top: 10px; }
+  .prose { font-family: var(--font-index); font-size: var(--t-t3); line-height: 1.64; color: var(--ink-1); letter-spacing: 0.002em; max-width: 60ch; margin-top: 14px; }
+  .prose p + p { margin-top: 14px; }
   .prose b { font-weight: 600; font-variant-numeric: tabular-nums; }
   .prose .hello { font-size: var(--t-t2); font-weight: 600; }
-  .ps { font-family: var(--font-index); font-style: italic; font-size: var(--t-head); line-height: 1.5; color: var(--ink-2); max-width: 60ch; margin-top: 14px; }
-  .sign { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-family: var(--font-index); font-style: italic; font-size: var(--t-t3); color: var(--ink-2); }
+  .ps { font-family: var(--font-index); font-style: italic; font-size: var(--t-head); line-height: 1.55; color: var(--ink-2); max-width: 60ch; margin-top: 18px; }
+  .sign { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-family: var(--font-index); font-style: italic; font-size: var(--t-t3); color: var(--ink-2); }
   .letter-foot { margin-top: auto !important; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); margin: 20px -28px 0; box-shadow: inset 0 0.5px 0 var(--hair-strong); }
   .letter-foot > div { padding: 14px 18px 16px 28px; display: flex; flex-direction: column; gap: 8px; }
   .letter-foot > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); padding-left: 18px; padding-right: 22px; }
   .hand { display: flex; align-items: center; gap: 10px; }
+  .hand .card { --w: 36px; }
   .hand .on { color: var(--ink-3); font-size: var(--t-foot); }
   .hand-t { display: flex; align-items: flex-end; gap: 8px; }
   .hand-t b { display: block; }
@@ -49,7 +50,7 @@
   .fig .v small { font-size: var(--t-body); font-weight: 500; color: var(--ink-2); margin-left: 6px; letter-spacing: 0; }
   .fig .caption { grid-column: 1; }
   .fig svg { grid-row: 2 / span 2; grid-column: 2; display: block; overflow: visible; }
-  .fig.hero .t-score { font-size: 60px; }
+  .fig.hero .t-score { font-size: var(--t-score-lg); }
   .fig.hero .t-score small { font-family: var(--font); font-size: var(--t-head); font-weight: 500; color: var(--ink-2); margin-left: 6px; font-stretch: 100%; }
   .spark .ln { fill: none; stroke: var(--ring-fill); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .spark .base { stroke: var(--ring-track); stroke-width: 1; }
@@ -72,15 +73,15 @@
     .prose { font-size: var(--t-head); line-height: 1.55; margin-top: 10px; }
     .prose .hello { font-size: var(--t-t3); }
     .prose p + p { margin-top: 8px; }
-    .ps { font-family: var(--font-index); font-style: italic; font-size: var(--t-head); line-height: 1.5; color: var(--ink-2); max-width: 60ch; margin-top: 14px; }
+    .ps { font-family: var(--font-index); font-style: italic; font-size: var(--t-head); line-height: 1.55; color: var(--ink-2); max-width: 60ch; margin-top: 18px; }
   .sign { margin-top: 8px; font-size: var(--t-head); }
     .letter-foot { margin: 14px -20px 0; grid-template-columns: 1fr 1fr; }
     .letter-foot > div { padding: 12px 14px 14px 20px; }
     .letter-foot > div + div { padding-left: 14px; padding-right: 16px; }
-    .hand .bd { display: none; }
+    .hand .bd { display: none; } .hand .card { --w: 30px; }
     .next b { font-size: var(--t-body); }
     .fig { padding: 10px 14px; }
-    .fig.hero .t-score { font-size: 46px; }
+    .fig.hero .t-score { font-size: var(--t-score-md); }
     .fig .v { font-size: var(--t-t3); }
     .fig .caption.more { display: none; }
     .past .row-btn { padding: 8px 12px; }
@@ -116,11 +117,11 @@
             <div>
               <span class="label">Hand of the week</span>
               <div class="hand">
-                <div class="mini" aria-label="You: king of hearts, two of diamonds"><div class="card red"><span class="rk">K</span><span class="st">♥</span></div><div class="card red"><span class="rk">2</span><span class="st">♦</span></div></div>
+                <div class="cards tight hole" aria-label="You: king of hearts, two of diamonds"><div class="card red"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div><div class="card red"><span class="rk">2</span><span class="st">♦</span><span class="pip">♦</span></div></div>
                 <span class="on bd">on</span>
-                <div class="mini bd" aria-label="Board: 4 of spades, 4 of diamonds, king of diamonds, 9 of clubs, jack of spades"><div class="card"><span class="rk">4</span><span class="st">♠</span></div><div class="card red"><span class="rk">4</span><span class="st">♦</span></div><div class="card red"><span class="rk">K</span><span class="st">♦</span></div><div class="card"><span class="rk">9</span><span class="st">♣</span></div><div class="card"><span class="rk">J</span><span class="st">♠</span></div></div>
+                <div class="cards tight bd" aria-label="Board: 4 of spades, 4 of diamonds, king of diamonds, 9 of clubs, jack of spades"><div class="card"><span class="rk">4</span><span class="st">♠</span><span class="pip">♠</span></div><div class="card red"><span class="rk">4</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card red"><span class="rk">K</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card"><span class="rk">9</span><span class="st">♣</span><span class="pip">♣</span></div><div class="card"><span class="rk">J</span><span class="st">♠</span><span class="pip">♠</span></div></div>
               </div>
-              <div class="hand-t"><span class="grow"><b>The Long Call</b><span class="caption">Called Bo’s 450 at a 31% price, Sure</span></span><span class="num pos-num">+1450</span></div>
+              <div class="hand-t"><span class="grow"><b>The Long Call</b><span class="caption">Called Bo’s 450 at a 31% price, Sure</span></span><span class="num pos-num">+750</span></div>
             </div>
             <div class="next">
               <span class="label">Next week starts with</span>

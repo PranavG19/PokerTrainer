@@ -20,3 +20,11 @@ html[data-felt='sports'] .beat-open .hero-plate { bottom: 104px; }
 html[data-felt='sports'] .beat-open .center { top: 43%; }
 @media (max-width: 1000px) { .beat-tray .caption { display: none; } html[data-felt='sports'] .beat-open .hero-plate { bottom: 90px; } .sheet .yours .caption { display: none; } }
 @media (prefers-reduced-motion: reduce) { .beat-tray .dee { animation: none; } }
+
+/* Round-2 rater fixes: the commit tray gets its one bone primary (the shipped tray commits on Enter; the mock shows the key),
+ * the hero clears the tray by 16px, and the hand-end beat reserves its own height at 1100 so it never covers the hero's cards. */
+.tray .commit-btn { flex: none; }
+html[data-felt='sports'] .predicting .hero-plate { bottom: 122px; }
+html[data-felt='sports'] .beat-open .hero-plate { bottom: 128px; }
+html[data-felt='sports'] .beat-open .center { top: 41%; }
+@media (max-width: 1000px) { html[data-felt='sports'] .beat-open .hero-plate { bottom: 104px; } html[data-felt='sports'] .predicting .hero-plate { bottom: 118px; } }

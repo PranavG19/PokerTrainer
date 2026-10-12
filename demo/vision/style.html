@@ -15,7 +15,7 @@
                                          lifetime counters in SessionStats (new)
        "take the lead" = PFR ÷ VPIP (71%) and the 6-week trail … the same, bucketed by HandRecord.playedAt (session.ts:80) week
        quadrant axes …                  the opponents' ArchetypeProfile axes (archetypes.ts:49), applied to you, in neutral names
-       Sam, since 31 Aug, 412 hands …   profile.displayName (new), hands[] (last 500) -->
+       Sam, since 1 Sep, 412 hands …   profile.displayName (new), hands[] (last 500) -->
 <style>
   .stylep { grid-template-rows: auto minmax(0, 1fr); }
   .sp { grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.22fr); grid-template-rows: minmax(0, 1fr); column-gap: 30px; min-height: 0; }
@@ -71,8 +71,8 @@
   .quads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
   .quads .tile { padding: 11px 13px; }
   .quads h3 { font-size: var(--t-body); font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .quads p { font-size: var(--t-foot); color: var(--ink-2); line-height: 1.45; margin-top: 3px; }
-  .quads .chg { color: var(--ink-3); margin-top: 4px; }
+  .quads p { font-size: var(--t-foot); color: var(--ink-2); line-height: 1.45; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .quads .chg { color: var(--ink-3); margin-top: 1px; }
   .quads .chg b { color: var(--ink-2); font-weight: 500; }
 
   @media (max-width: 1000px) {
@@ -82,7 +82,7 @@
     .pass-emblem { margin-top: 16px; width: 46px; height: 46px; } .pass-k { margin-top: 10px; } .pass-name { font-size: var(--t-stat); }
     .pass-nums { row-gap: 8px; margin-bottom: 12px; } .pass-nums dd { font-size: var(--t-t3); }
     .stage-act .caption { display: none; }
-    .map { flex-basis: 190px; min-height: 150px; } .quads { margin-top: 10px; gap: 6px; } .quads .tile { padding: 8px 10px; }
+    .map { flex-basis: 180px; min-height: 150px; max-height: 196px; } .quads { margin-top: 10px; gap: 6px; } .quads .tile { padding: 8px 10px; }
     .quads p { font-size: var(--t-cap); } .hide-sm { display: none; }
   }
 </style>
@@ -100,7 +100,7 @@
       <div class="cols sp">
         <section class="stage card-stage" aria-label="Your style card">
           <div class="pass-wrap">
-            <article class="pass" aria-label="Your style card. The Closer: selective, and you take the lead. VPIP 24%, PFR 17%, aggression 2.1, fold to a river bet 38%, was 61%. Sam, since 31 August, 412 hands.">
+            <article class="pass" aria-label="Your style card. The Closer: selective, and you take the lead. VPIP 24%, PFR 17%, aggression 2.1, fold to a river bet 38%, was 61%. Sam, since 1 September, 412 hands.">
               <svg class="pass-art" viewBox="0 0 290 410" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
                 <g fill="none" stroke="#FFFFFF" stroke-opacity=".055" stroke-width=".8">
                   <path d="M-10 120C60 90 120 150 190 118S270 70 310 96"/><path d="M-10 134C60 104 120 164 190 132S270 84 310 110"/><path d="M-10 148C60 118 120 178 190 146S270 98 310 124"/>
@@ -127,7 +127,7 @@
                 <div><dt>Aggression</dt><dd>2.1<small>AF</small></dd></div>
                 <div><dt>Fold to a river bet</dt><dd>38%<small>was 61%</small></dd></div>
               </dl>
-              <div class="pass-foot"><span><b>Sam</b> · since 31 Aug</span><span class="num">412 hands</span></div>
+              <div class="pass-foot"><span><b>Sam</b> · since 1 Sep</span><span class="num">412 hands</span></div>
             </article>
           </div>
           <div class="stage-act">
@@ -138,13 +138,13 @@
 
         <section class="mapcol" aria-label="Where you sit">
           <div class="sec"><h2>Where you sit</h2><span class="caption">Your 6 weeks so far · the trail keeps 8</span></div>
-          <div class="map" role="img" aria-label="Style map. Across: how many hands you play. Up: how often you take the lead. You started on 31 August in The Explorer (34% of hands, 41% lead) and moved each week to The Closer, now 24% of hands and 71% lead.">
+          <div class="map" role="img" aria-label="Style map. Across: how many hands you play. Up: how often you take the lead. You started on 1 September in The Explorer (34% of hands, 41% lead) and moved each week to The Closer, now 24% of hands and 71% lead.">
             <span class="q tl">The Closer</span><span class="q tr">The Pressure</span><span class="q bl">The Anchor</span><span class="q br">The Explorer</span>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               <line class="axis" x1="50" y1="0" x2="50" y2="100"/><line class="axis" x1="0" y1="50" x2="100" y2="50"/>
               <path class="trail" d="M76.9 88 L69.2 76 L61.5 64 L53.8 54 L46.2 42 L42.3 34 L38.5 28"/>
             </svg>
-            <span class="w" style="left:76.9%;top:88%;--o:.3" title="Week 1 (31 Aug): 34% of hands, 41% lead"></span>
+            <span class="w" style="left:76.9%;top:88%;--o:.3" title="Week 1 (1 Sep): 34% of hands, 41% lead"></span>
             <span class="w" style="left:69.2%;top:76%;--o:.38" title="Week 2: 32%, 47%"></span>
             <span class="w" style="left:61.5%;top:64%;--o:.46" title="Week 3: 30%, 53%"></span>
             <span class="w" style="left:53.8%;top:54%;--o:.54" title="Week 4: 28%, 58%"></span>
@@ -152,24 +152,24 @@
             <span class="w" style="left:42.3%;top:34%;--o:.7" title="Week 6: 25%, 68%"></span>
             <span class="me" style="left:38.5%;top:28%" title="Now: 24% of hands, 71% lead"></span>
             <span class="ml num" style="left:calc(38.5% - 18px);top:28%;transform:translate(-100%, -50%);text-align:right"><b>You, now</b><span>24% of hands · lead 71%</span></span>
-            <span class="sl" style="left:calc(76.9% - 10px);top:88%;transform:translate(-100%, -50%)">31 Aug, week 1</span>
+            <span class="sl" style="left:calc(76.9% - 10px);top:88%;transform:translate(-100%, -50%)">1 Sep, week 1</span>
             <div class="yax"><span>Take the lead  →</span></div>
           </div>
           <div class="xax"><span>Fewer hands</span><b>Hands you play</b><span>More hands</span></div>
 
           <div class="quads">
             <div class="tile lit"><h3>The Closer <span class="tag">You</span></h3>
-              <p>You play fewer hands, and when you’re in, you’re usually the one betting. Your bets mean something.</p>
-              <p class="chg"><b>What changes it:</b> playing over 27% of hands, or letting others lead.</p></div>
+              <p>Fewer hands, and you do the betting.</p>
+              <p class="chg">Moves if you play over 27%, or lead less.</p></div>
             <div class="tile"><h3>The Pressure</h3>
-              <p>Many hands, and you take the lead in most. Others have to guess.</p>
-              <p class="chg">You’d move here by playing over 27% of hands.</p></div>
+              <p>Many hands, and you lead most of them.</p>
+              <p class="chg">Play over 27% of hands to move here.</p></div>
             <div class="tile"><h3>The Anchor</h3>
-              <p>Few hands, and you let others bet into you. Patient and hard to push around.</p>
-              <p class="chg">You’d move here by calling more than you raise.</p></div>
+              <p>Few hands, and others bet into you.</p>
+              <p class="chg">Call more than you raise to move here.</p></div>
             <div class="tile"><h3>The Explorer</h3>
-              <p>Many hands, and you let the board come to you. Where you started in week 1.</p>
-              <p class="chg">You’d move here by playing wider and raising less.</p></div>
+              <p>Many hands; the board comes to you.</p>
+              <p class="chg">Where you started, in week 1.</p></div>
           </div>
         </section>
       </div>

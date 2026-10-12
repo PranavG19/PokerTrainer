@@ -73,7 +73,7 @@
         <figure><span class="navchip">${S('rest', 16)}23</span><figcaption>16</figcaption></figure>
       </div>
       <div class="expr">${POSES.map(([p, l]) => `<span role="img" aria-label="${l}">${S(p, innerWidth < 1000 ? 28 : 36)}</span>`).join('')}</div>
-      <p class="note">${blind ? d.note.replace(/^<b>[^<]*<\/b>/, (m) => m) : d.note}</p>
+      ${blind ? '' : `<p class="note">${d.note}</p>`}
     </section>`;
   }).join('');
 </script>

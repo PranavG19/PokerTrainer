@@ -93,12 +93,13 @@
         <div class="q">Commit first: which action, and how sure are you?</div>
         <div class="row">
           <div class="seg" role="radiogroup" aria-label="Predicted action">
-            <button role="radio" aria-checked="true">Fold</button><button role="radio" aria-checked="false">Check</button><button role="radio" aria-checked="false">Call</button><button role="radio" aria-checked="false">Raise</button>
+            <button role="radio" aria-checked="false">Fold</button><button role="radio" aria-checked="false">Check</button><button role="radio" aria-checked="true">Call</button><button role="radio" aria-checked="false">Raise</button>
           </div>
           <div class="seg" role="radiogroup" aria-label="Confidence">
-            <button role="radio" aria-checked="false">Sure</button><button role="radio" aria-checked="false">Guess</button>
+            <button role="radio" aria-checked="true">Sure</button><button role="radio" aria-checked="false">Guess</button>
           </div>
-          <input class="field" type="text" placeholder="Why? (optional — graded separately)" aria-label="Why (optional)" value="25% price, two pair is ahead of most of Bo’s bets" />
+          <input class="field" type="text" placeholder="Why? (optional — graded separately)" aria-label="Why (optional)" value="25% price, two pair beats his bluffs" />
+          <button class="btn primary sm commit-btn">Commit <span class="kbd">↩</span></button>
         </div>
       </div>
 
@@ -187,7 +188,7 @@
   if (state === 'great') {
     $('dock').hidden = true; $('beat').hidden = false; $('stage').classList.add('beat-open');
     // The river: Bo bets 450 into 550 (31% price); hero calls with two pair and wins. Bo's archetype shows once the hand ends (jitter.ts).
-    $('hero').classList.remove('act'); $('heroStatus').textContent = 'Called 450, won 1450'; document.querySelector('#hero .stackval').textContent = '5950';
+    $('hero').classList.remove('act'); $('heroStatus').textContent = 'Called 450, won the 1450 pot'; document.querySelector('#hero .stackval').textContent = '5750';
     const wells = document.querySelectorAll('.board .card.well');
     wells[0].outerHTML = '<div class="card"><span class="rk">9</span><span class="st">♣</span><span class="pip">♣</span></div>';
     wells[1].outerHTML = '<div class="card"><span class="rk">J</span><span class="st">♠</span><span class="pip">♠</span></div>';
@@ -196,7 +197,10 @@
     document.querySelectorAll('.bet').forEach((b) => b.remove());
     const bo = [...document.querySelectorAll('.seat')].find((el) => el.querySelector('.name')?.firstChild?.textContent === 'Bo');
     bo.querySelector('.cards').innerHTML = '<div class="card red"><span class="rk">Q</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card"><span class="rk">J</span><span class="st">♣</span><span class="pip">♣</span></div>';
-    bo.querySelector('.arch').textContent = 'Loose-aggressive'; bo.querySelector('.stackval').textContent = '4050'; bo.querySelector('.quip').textContent = 'Nice call.';
+    bo.querySelector('.arch').textContent = 'LAG'; bo.querySelector('.stackval').textContent = '4300';
+    // Ada limped, then folded the flop; Cy folded preflop. Chips: 5750 + 4300 + 4950 + 5000 = 20,000.
+    const ada = [...document.querySelectorAll('.seat')].find((el) => el.querySelector('.name')?.firstChild?.textContent === 'Ada');
+    if (ada) { ada.classList.add('folded'); ada.querySelector('.quip').textContent = 'I’m out.'; } bo.querySelector('.quip').textContent = 'Nice call.';
   }
   if (state === 'mistake') {
     const sheet = $('verdict');

@@ -17,7 +17,8 @@
        Dee's voice … dee {presence, voice, frequency} (new, #11); verdict numbers come from the grader, never the dial (P9)
        the first plan … assessments (session.ts:239, the first assessment block) + recommend() over an empty fadingLog -->
 <style>
-  .perch { visibility: hidden; }                    /* first run: no streak yet */
+  .perch { visibility: hidden; }
+  .nav { opacity: 0.3; pointer-events: none; }   /* the toolbar recedes and is inert while the sheet is up */                    /* first run: no streak yet */
   .recede { position: absolute; inset: 0; filter: blur(9px) brightness(0.55) saturate(0.7); transform: scale(0.985); pointer-events: none; }
   .recede .home { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); column-gap: 40px; }
   .scrim { animation: none; }
@@ -28,12 +29,13 @@
   .ob-head .who { font-size: var(--t-body); font-weight: 600; }
   .ob-head .n { font-size: var(--t-foot); color: var(--ink-3); }
   .ob-head .dots { display: flex; gap: 4px; margin-left: 8px; }
-  .ob-head .dots i { width: 22px; height: 3px; border-radius: 2px; background: var(--ring-track); }
+  .ob-head .dots i { width: 22px; height: 3px; border-radius: var(--r-xs); background: var(--ring-track); }
   .ob-head .dots i.on { background: var(--ring-fill); }
   .ob-head .btn { margin-left: auto; }
   .ob h1 { font-size: var(--t-t2); font-weight: 600; letter-spacing: -0.008em; line-height: 1.2; }
   .ob .lede { margin-top: 4px; max-width: 60ch; }
   .q { display: flex; flex-direction: column; gap: 8px; }
+  .q > .seg { align-self: flex-start; }
   .q > .label { color: var(--ink-1); font-size: var(--t-body); font-weight: 600; }
   .uses { font-size: var(--t-foot); color: var(--ink-3); line-height: 1.45; }
   .uses b { color: var(--ink-2); font-weight: 500; }
@@ -65,15 +67,22 @@
   .choice[aria-checked='false'] .gl { color: var(--ink-2); }
   .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
 
-  .days { display: flex; gap: 6px; align-items: flex-start; }
+  .days { display: flex; gap: 8px; align-items: flex-start; }
   .day { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .day button { width: 32px; height: 32px; border-radius: 50%; font-size: var(--t-foot); font-weight: 600; color: var(--ink-2); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong);
     transition: background-color var(--dur-1); }
   .day button:hover { background: var(--fill-1); }
-  .day button[aria-pressed='true'] { color: var(--ink-1); background: var(--fill-3); box-shadow: var(--thumb-shadow); }
+  .day button { position: relative; }
+  .day button[aria-pressed='true'] { color: var(--ink-1); background: var(--fill-3); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.34), var(--thumb-shadow); }
+  .day button[aria-pressed='true']::after { content: ""; position: absolute; right: -3px; top: -3px; width: 13px; height: 13px; border-radius: 50%; box-shadow: 0 0 0 1.5px oklch(0.27 0.008 262), inset 0 0 0 0.5px var(--hair-strong); backdrop-filter: none;
+    background: var(--fill-3) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.5 8.2l2.3 2.3 4.7-5' fill='none' stroke='%23F3F4F6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/13px no-repeat; }
   .day button:focus-visible { outline: 2px solid oklch(1 0 0 / 0.6); outline-offset: 2px; }
-  .day small { font-size: var(--t-cap); color: var(--ink-3); height: 14px; }
-  .day small.game { color: var(--ink-1); font-weight: 500; }
+  .day.game { position: relative; }
+  .day .gn { position: absolute; top: 38px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 6px; border-radius: var(--r-xs);
+    font-size: var(--t-cap); font-weight: 600; color: var(--ink-1); background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong); white-space: nowrap; }
+  .day .gn::before { content: ""; position: absolute; top: -4px; left: 50%; margin-left: -4px; border: 4px solid transparent; border-top: 0; border-bottom-color: oklch(1 0 0 / 0.16); }
+  .day .gn svg { width: 9px; height: 9px; }
+  .days { padding-bottom: 24px; }
   .pick { font-size: var(--t-foot); color: var(--ink-3); font-weight: 400; margin-left: 6px; }
 
   /* step 4: the promise */
@@ -91,11 +100,16 @@
   .vrow { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding-top: 12px; box-shadow: inset 0 0.5px 0 var(--hair); }
   .vrow .t { display: block; font-size: var(--t-body); font-weight: 500; }
   .voices { display: flex; flex-direction: column; gap: 0; }
-  .voice { padding: 10px 12px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; font-size: var(--t-body); color: var(--ink-3); line-height: 1.45; }
+  .voice { position: relative; width: 100%; text-align: left; padding: 10px 34px 10px 12px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; font-size: var(--t-body); color: var(--ink-2); line-height: 1.45;
+    transition: background-color var(--dur-1); }
+  .voice:hover { background: var(--fill-0); }
+  .voice:focus-visible { outline: 2px solid oklch(1 0 0 / 0.6); outline-offset: -3px; }
   .voice b { font-weight: 600; }
-  .voice .k { padding-top: 1px; }
-  .voice.on { color: var(--ink-1); background: var(--fill-1); }
-  .voice.on .k { color: var(--ink-1); font-weight: 600; }
+  .voice .k { padding-top: 1px; font-weight: 500; }
+  .voice[aria-checked='true'] { color: var(--ink-1); background: var(--fill-1); }
+  .voice[aria-checked='true'] .k { font-weight: 600; }
+  .voice[aria-checked='true']::after { content: ""; position: absolute; right: 12px; top: 12px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--fill-3) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.5 8.2l2.3 2.3 4.7-5' fill='none' stroke='%23F3F4F6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/16px no-repeat; }
 
   @media (max-width: 1000px) {
     .ob { padding: 14px 20px 14px; gap: 14px; width: calc(100% - 36px); }
@@ -107,7 +121,7 @@
     .two { gap: 16px; }
     .summary { font-size: var(--t-t3); }
     .plan .d { display: none; }
-    .voice { padding: 8px 10px; font-size: var(--t-foot); }
+    .voice { padding: 8px 32px 8px 10px; font-size: var(--t-foot); } .voice[aria-checked='true']::after { top: 9px; right: 10px; }
     .hide-sm { display: none; }
   }
 </style>
@@ -124,7 +138,7 @@
       <div class="vpage cols home">
         <section class="stack">
           <p class="t-t3" style="padding-left:58px">Evening. Four questions, then the first hand is dealt.</p>
-          <div class="sec" style="margin-top:26px"><h2>Tonight’s 15 minutes</h2></div>
+          <div class="sec" style="margin-top:26px"><h2>Tonight’s 30 minutes</h2></div>
           <div class="group"><div class="row-btn"><span class="t-head">Twelve hands at a home table</span></div><div class="row-btn"><span class="t-head">The price, in one line</span></div><div class="row-btn"><span class="t-head">Your first river call</span></div></div>
           <div class="sec" style="margin-top:26px"><h2>Since you started</h2></div>
           <div class="tile t-t2">0 · 0 · 0</div>
@@ -178,10 +192,10 @@
           <div class="choices" role="radiogroup" aria-labelledby="q-where">
             <button class="choice" role="radio" aria-checked="true"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M3.5 10.5 11 4l7.5 6.5M5.5 9v8.5h11V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.3 17.5v-4.2h3.4v4.2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></i><b>Home game</b><span>Friends, one table, a regular night</span></button>
             <button class="choice" role="radio" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><rect x="3" y="4.5" width="16" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 18h6M11 15v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></i><b>Online</b><span>Fast tables, strangers, many hands</span></button>
-            <button class="choice" role="radio" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><ellipse cx="11" cy="15.5" rx="7" ry="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 15.5v-2.6c0-1.4 3.1-2.5 7-2.5s7 1.1 7 2.5v2.6M4 12.9v-2.6C4 8.9 7.1 7.8 11 7.8s7 1.1 7 2.5v2.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></i><b>Live casino</b><span>A dealer, a rake, nine seats</span></button>
+            <button class="choice" role="radio" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M2 5.5h18v3.5a9 7.5 0 0 1-18 0Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.5 9.5a5.5 4 0 0 0 11 0" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="1.6 1.6"/><rect x="8.3" y="2.6" width="5.4" height="4.6" rx=".8" transform="rotate(-8 11 5)" fill="var(--float-sheet)" stroke="currentColor" stroke-width="1.2"/></svg></i><b>Live casino</b><span>A dealer, a rake, nine seats</span></button>
             <button class="choice" role="radio" aria-checked="false"><i class="gl"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M11 6.5c-2-1.6-4.6-2-7.5-1.5v11.5c2.9-.5 5.5-.1 7.5 1.5 2-1.6 4.6-2 7.5-1.5V5c-2.9-.5-5.5-.1-7.5 1.5Zm0 0v11.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></i><b>Just learning</b><span>No game yet, starting clean</span></button>
           </div>
-          <p class="uses">Dee uses this to <b>seat you with players like yours</b>: a home game sees more flops and fewer big folds.</p>
+          <p class="uses">Dee uses this to <b>choose which spots your plan drills first</b>: home games see more flops and more calls.</p>
         </div>
         <div class="two">
           <div class="q">
@@ -217,20 +231,20 @@
           <div class="q">
             <span class="label" id="q-days">When you practise</span>
             <div class="days" role="group" aria-labelledby="q-days">
-              <span class="day"><button aria-pressed="true" aria-label="Monday">M</button><small></small></span>
-              <span class="day"><button aria-pressed="true" aria-label="Tuesday">T</button><small></small></span>
-              <span class="day"><button aria-pressed="true" aria-label="Wednesday">W</button><small></small></span>
-              <span class="day"><button aria-pressed="true" aria-label="Thursday, game night">T</button><small class="game">game</small></span>
-              <span class="day"><button aria-pressed="true" aria-label="Friday">F</button><small></small></span>
-              <span class="day"><button aria-pressed="false" aria-label="Saturday">S</button><small></small></span>
-              <span class="day"><button aria-pressed="false" aria-label="Sunday">S</button><small></small></span>
+              <span class="day"><button aria-pressed="true" aria-label="Monday">M</button></span>
+              <span class="day"><button aria-pressed="true" aria-label="Tuesday">T</button></span>
+              <span class="day"><button aria-pressed="true" aria-label="Wednesday">W</button></span>
+              <span class="day game"><button aria-pressed="true" aria-label="Thursday, game night">T</button><span class="gn"><svg viewBox="0 0 14 14" aria-hidden="true"><path fill="currentColor" d="M7 .8C5.4 3 1.6 5.2 1.6 8.1c0 1.6 1.2 2.7 2.6 2.7.9 0 1.6-.4 2.1-1-.2 1.3-.7 2.3-1.6 3.4h4.6c-.9-1.1-1.4-2.1-1.6-3.4.5.6 1.2 1 2.1 1 1.4 0 2.6-1.1 2.6-2.7C12.4 5.2 8.6 3 7 .8Z"/></svg>Game night</span></span>
+              <span class="day"><button aria-pressed="true" aria-label="Friday">F</button></span>
+              <span class="day"><button aria-pressed="false" aria-label="Saturday">S</button></span>
+              <span class="day"><button aria-pressed="false" aria-label="Sunday">S</button></span>
             </div>
-            <p class="uses">Dee uses this to <b>count your streak on these days</b> and to warm you up before Thursday.</p>
+            <p class="uses">Dee uses this to <b>remind you and plan your nights</b>, and to warm you up before Thursday. Your streak counts every day you finish a session, any day of the week.</p>
           </div>
           <div class="q">
             <span class="label" id="q-len">A session is</span>
-            <div class="seg" role="radiogroup" aria-labelledby="q-len"><button role="radio" aria-checked="false">5 min</button><button role="radio" aria-checked="true">15 min</button><button role="radio" aria-checked="false">30 min</button><button role="radio" aria-checked="false">An hour</button></div>
-            <p class="uses">Dee uses this to <b>size each night’s plan</b>. Fifteen minutes is about 3 drills.</p>
+            <div class="seg" role="radiogroup" aria-labelledby="q-len"><button role="radio" aria-checked="true">30 min</button><button role="radio" aria-checked="false">45 min</button><button role="radio" aria-checked="false">An hour</button></div>
+            <p class="uses">Dee uses this to <b>size each night’s plan</b>. Thirty minutes is the shortest full session.</p>
           </div>
         </div>
       </div>
@@ -241,25 +255,25 @@
           <div class="stack" style="gap:16px">
             <div>
               <span class="label">Here’s what I heard</span>
-              <p class="summary" id="ob-title" style="margin-top:6px"><button>Thursday home game</button>, <button>$1/$2</button>, <button>weeknights</button>, <button>15 minutes</button>.</p>
-              <p class="promise">You want to win that game and see why you lose. So every night starts at the spot that costs you most, and the Thursday plan warms up the hands your table plays.</p>
+              <p class="summary" id="ob-title" style="margin-top:6px"><button>Home game</button> on <button>Thursdays</button>, <button>$1/$2</button>, <button>weeknights</button>, <button>30 minutes</button>.</p>
+              <p class="uses" style="margin-top:4px">Built from where you play, your stakes and your schedule. Tap any part to change it.</p>
+              <p class="promise">You picked <b>Win my home game</b> and <b>Understand why I lose</b>. So every night starts at the spot that costs you most, and Wednesday warms up the hands your table plays.</p>
             </div>
             <div class="q">
               <span class="label">Your first night</span>
               <div class="group plan" role="list">
-                <button class="row-btn" role="listitem"><span class="n">1</span><span class="grow"><span class="t">Twelve hands at a $1/$2 home table</span><span class="d">Sets your starting numbers</span></span><span class="min">7 min</span></button>
-                <button class="row-btn" role="listitem"><span class="n">2</span><span class="grow"><span class="t">The price, in one line</span><span class="d">You write the rule; Dee quotes it back later</span></span><span class="min">4 min</span></button>
-                <button class="row-btn" role="listitem"><span class="n">3</span><span class="grow"><span class="t">Your first river call</span><span class="d">Where home games are won and lost</span></span><span class="min">4 min</span></button>
+                <button class="row-btn" role="listitem"><span class="n">1</span><span class="grow"><span class="t">Twelve hands at a $1/$2 home table</span><span class="d">Sets your starting numbers</span></span><span class="min">12 min</span></button>
+                <button class="row-btn" role="listitem"><span class="n">2</span><span class="grow"><span class="t">The price, in one line</span><span class="d">You write the rule; Dee quotes it back later</span></span><span class="min">8 min</span></button>
+                <button class="row-btn" role="listitem"><span class="n">3</span><span class="grow"><span class="t">Your first river call</span><span class="d">Where home games are won and lost</span></span><span class="min">10 min</span></button>
               </div>
             </div>
           </div>
           <div class="q">
             <span class="label" id="q-voice">How should I sound?</span>
-            <div class="seg" role="radiogroup" aria-labelledby="q-voice" id="voice"><button role="radio" aria-checked="false" data-v="0">Dry</button><button role="radio" aria-checked="true" data-v="1">Warm</button><button role="radio" aria-checked="false" data-v="2">Blunt</button></div>
-            <div class="group voices" aria-live="polite">
-              <p class="voice"><span class="k">Dry</span><span>Calling 75 into 225 needed <b>25%</b>. You had <b>74%</b>. The fold was the expensive part.</span></p>
-              <p class="voice on"><span class="k">Warm</span><span>That one needed <b>25%</b> and you had <b>74%</b>, so it was yours to call. You’ll see it again on day 2.</span></p>
-              <p class="voice"><span class="k">Blunt</span><span>Needed <b>25%</b>. Had <b>74%</b>. Call.</span></p>
+            <div class="group voices" role="radiogroup" aria-labelledby="q-voice" id="voice">
+              <button class="voice" role="radio" aria-checked="false"><span class="k">Dry</span><span>Calling 75 into 225 needed <b>25%</b>. You had <b>74%</b>. The fold was the expensive part.</span></button>
+              <button class="voice" role="radio" aria-checked="true"><span class="k">Warm</span><span>That one needed <b>25%</b> and you had <b>74%</b>, so it was yours to call. You’ll see it again on day 2.</span></button>
+              <button class="voice" role="radio" aria-checked="false"><span class="k">Blunt</span><span>Needed <b>25%</b>. Had <b>74%</b>. Call.</span></button>
             </div>
             <p class="uses">Dee uses this to <b>choose the words around a verdict</b>. The numbers and the grade never change with it.</p>
             <div class="vrow"><span class="grow"><span class="t">Read verdicts aloud</span><span class="uses">Off. Dee never speaks while you’re to act.</span></span><button class="switch" role="switch" aria-checked="false" aria-label="Read verdicts aloud"><span class="track" aria-hidden="true"></span></button></div>
@@ -278,6 +292,7 @@
 <script>
   // Pick the step from ?step=1..4 before shell.js measures the segmented thumbs; build the shared header.
   (() => {
+    document.querySelector('[data-nav]').setAttribute('inert', '');
     const step = Math.min(4, Math.max(1, Number(new URLSearchParams(location.search).get('step')) || 1));
     for (const s of document.querySelectorAll('[data-step]')) if (Number(s.dataset.step) !== step) s.remove(); else s.hidden = false;
     // Dee appears once per screen: on step 1 Dee is on the stage, so the header carries the name only.
@@ -294,8 +309,8 @@
     const where = document.querySelector('[aria-labelledby="q-where"]');
     where?.addEventListener('click', (e) => { const b = e.target.closest('.choice'); if (!b) return; where.querySelectorAll('.choice').forEach((x) => x.setAttribute('aria-checked', String(x === b))); });
     for (const d of document.querySelectorAll('.day button')) d.addEventListener('click', () => d.setAttribute('aria-pressed', String(d.getAttribute('aria-pressed') !== 'true')));
-    document.getElementById('voice')?.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return;
-      document.querySelectorAll('.voice').forEach((v, i) => v.classList.toggle('on', i === Number(b.dataset.v))); });
+    document.getElementById('voice')?.addEventListener('click', (e) => { const b = e.target.closest('.voice'); if (!b) return;
+      document.querySelectorAll('.voice').forEach((v) => v.setAttribute('aria-checked', String(v === b))); });
   })();
 </script>
 <script src="shell.js"></script>

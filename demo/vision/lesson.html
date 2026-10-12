@@ -11,7 +11,7 @@
      Sources (vision/personalization-sources.md):
        your rule … lexicon AcceptedSentence (session.ts:200, lexicon.ts:62), "the price is the call over the pot after I call", 3 Oct, pot odds
        building on it … feedbackOpening (lexicon.ts:303) style: the next sentence offered for acceptance as rule 13 (lexicon)
-       Bo bluffs 44% of big river bets … rivals[] (new) from HandRecord.villain (new) over decisions[] (session.ts:43)
+       Bo's 4 of 9 shown bluffs … rivals[] (new, showdown counts only) from HandRecord.villain (new) over decisions[] (session.ts:43)
        the spot (450 into 550) … The Long Call, your kept hand (hands[] pinned, new), replayed as the lesson's example
        lesson 2 of 3 in The River Room … chapter order from leakCostBb (session.ts:130); concept states (schedule.ts:334)
        Sure / Guess … calibration (session.ts:149), DecisionRecord.prediction (new) -->
@@ -25,7 +25,7 @@
   .steps .caption { margin-left: 6px; }
 
   /* the dialogue: Dee's turns are type in the coat; yours are the answers you committed */
-  .thread { gap: 18px; min-height: 0; }
+  .thread { gap: 20px; min-height: 0; }
   .thread > * { flex: none; }
   .dee-turn { padding-left: 58px; }
   .dee-turn .who, .you .who { display: block; font-size: var(--t-cap); color: var(--ink-3); margin-bottom: 3px; }
@@ -42,21 +42,21 @@
   .opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .opts .choice b { padding-right: 18px; }
   .commit { display: flex; align-items: center; gap: 12px; }
-  .commit .caption { margin-left: auto; }
+  .ask > .caption { margin-top: -4px; }
 
   /* the side: your rule, the drawn price, what this lesson adds */
   .side { gap: 14px; min-height: 0; }
   .side > * { flex: none; }
-  .rule { padding: 16px 18px; }
+  .rule { padding: 14px 18px; }
   .rule q { display: block; font-size: var(--t-t3); font-weight: 600; line-height: 1.32; letter-spacing: -0.005em; margin-top: 6px; }
   .rule q::before { content: "“"; } .rule q::after { content: "”"; }
   .rule .caption { margin-top: 8px; }
-  .dia { margin-top: 0; padding: 14px 16px 12px; flex: 1 1 auto !important; display: flex; flex-direction: column; justify-content: center; }
+  .dia { margin-top: 0; padding: 14px 16px 12px; }
   .potbar { display: flex; height: 34px; border-radius: var(--r-xs); overflow: hidden; margin-top: 10px; box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
   .potbar span { display: grid; place-items: center; font-size: var(--t-cap); font-weight: 600; color: var(--ink-2); }
   .potbar .a { width: 37.9%; background: oklch(1 0 0 / 0.06); }
   .potbar .b { width: 31.05%; background: oklch(1 0 0 / 0.13); box-shadow: inset 0.5px 0 0 var(--hair-strong); }
-  .potbar .c { width: 31.05%; background: var(--bone); color: var(--ink-on-bone); }
+  .potbar .c { width: 31.05%; background: var(--fill-3); color: var(--ink-1); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.34); }
   .potkey { display: grid; grid-template-columns: 37.9% 31.05% 31.05%; margin-top: 5px; font-size: var(--t-cap); color: var(--ink-3); }
   .potkey span:last-child { color: var(--ink-1); font-weight: 500; }
   .eq { margin-top: 14px; font-size: var(--t-head); color: var(--ink-2); }
@@ -70,7 +70,13 @@
   .adds { margin-top: 0; padding: 12px 16px; }
   .adds p { margin-top: 4px; font-size: var(--t-body); color: var(--ink-1); line-height: 1.45; }
   .adds p .old { color: var(--ink-3); }
-  .from { margin-top: 0; display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+  .bo { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+  .bo .caption { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bo .t, .from .t { font-size: var(--t-body); font-weight: 500; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--t-cap); font-weight: 700; color: var(--ink-1);
+    background: radial-gradient(circle at 40% 30%, oklch(1 0 0 / 0.20), oklch(1 0 0 / 0.06)); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+  .why { flex: 1; height: var(--h-sm); }
+  .from { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
   .from .t { font-size: var(--t-body); font-weight: 500; }
 
   @media (max-width: 1000px) {
@@ -83,7 +89,7 @@
     .you { padding: 7px 12px 8px; max-width: 80%; } .you p { font-size: var(--t-foot); }
     .opts .choice { padding: 9px 11px; } .opts .choice span { display: none; }
     .commit .caption { display: none; }
-    .rule { padding: 12px 14px; } .rule q { font-size: var(--t-head); }
+    .rule { padding: 12px 14px; } .from { display: none; } .rule q { font-size: var(--t-head); }
     .dia { padding: 11px 13px 9px; } .potbar { height: 28px; } .eq { font-size: var(--t-body); margin-top: 10px; } .adds { padding: 10px 13px; } .adds p { font-size: var(--t-foot); }
     .hide-sm { display: none; }
   }
@@ -111,7 +117,7 @@
 
         <div class="you"><span class="who"><span>You</span><span class="mark yes">✓</span></span><p>550, his 450 and my 450: 1450</p></div>
 
-        <div class="dee-turn"><span class="who">Dee</span><p>So 450 over 1450: <b class="num">31%</b>. Now the new part. Bo bluffs <b class="num">44%</b> of his big river bets. With a hand that only beats a bluff, is this a call?</p></div>
+        <div class="dee-turn"><span class="who">Dee</span><p>So 450 over 1450: <b class="num">31%</b>. Now the new part. Of Bo’s big river bets you’ve seen at showdown, <b class="num">4 of 9</b> were bluffs, about 44%. With a hand that only beats a bluff, is this a call?</p></div>
 
         <div class="ask">
           <div class="opts" role="radiogroup" aria-label="Your answer">
@@ -120,10 +126,11 @@
             <button class="choice" role="radio" aria-checked="false"><b>Raise</b><span>Make him fold the better hands</span></button>
           </div>
           <div class="commit">
+            <input class="field why" type="text" placeholder="Why? One line, in your words" aria-label="Why (optional)" value="Bluffs 44%, price 31%" />
             <div class="seg" role="radiogroup" aria-label="How sure"><button role="radio" aria-checked="true">Sure</button><button role="radio" aria-checked="false">Guess</button></div>
             <button class="btn primary">Commit <span class="kbd">↩</span></button>
-            <span class="caption">A wrong answer gets a question back, not a grade</span>
           </div>
+          <p class="caption hide-sm">A wrong answer gets a question back, not a grade. Your reason is graded separately.</p>
         </div>
       </section>
 
@@ -142,8 +149,13 @@
           <div class="meter2" aria-hidden="true">
             <div class="bar"></div><div class="fill"></div><div class="gap"></div>
             <div class="tick" style="left:31%"></div>
-            <span class="lab" style="right:calc(69% + 6px)">price 31%</span><span class="lab" style="left:calc(44% + 6px)">Bo bluffs 44%</span>
+            <span class="lab" style="right:calc(69% + 6px)">price 31%</span><span class="lab" style="left:calc(44% + 6px)">Bo showed bluffs 4 of 9</span>
           </div>
+        </div>
+
+        <div class="tile bo">
+          <span class="avatar" aria-hidden="true">Bo</span>
+          <div class="grow"><div class="t">Bo on the river</div><div class="caption num">River bet in 21 of 38 hands · 4 of 9 shown were bluffs</div></div>
         </div>
 
         <div class="tile adds">

@@ -16,7 +16,22 @@ A character, habit and identity layer, designed but not built. See `VISION.md`, 
   also ranked it first: 8 overall and 9 for feels personal (`vision/scores-marks.md`). Supersedes: the engraved-D
   glass disc, because the owner rejected the D.
 - **Dee says nothing in-hand.** In-hand Dee is only the 20px title-bar perch, and its lights glance at the reason
-  you type. It speaks after the hand. A `free` grade gets nothing.
+  you type. A `free` grade gets nothing in-hand. The only words for a free grade come at the hand end: Price held,
+  and a trophy at session end. Both need the new `DecisionRecord.price`, because `coach.ts` stores no price on free
+  grades. Dee's frequency options are "After notable hands" (default), "Mistakes only" and "After sessions only".
+- **Dee appears once in the content, plus the 20px perch.** The perch is chrome, like the wordmark.
+- **The Two-lights behaviour borrows idioms, not code.** It glances at what you type, hops with arc eyes, and
+  lies flat when idle. These were studied in the GPL mascot (DESIGN-BRIEF P16) and are common companion idioms.
+  The art (a bone dealer button with engraved lights), the rig and every line of `dee.js` are original. No GPL
+  code was copied.
+- **Persistent regulars** (new): each named regular keeps one archetype across sessions, unlike today's per-session
+  re-deal (`table.ts:83–89`). A rival's dossier counts only what they showed at showdown, never engine truth.
+  Reads still expire per session (R4).
+- **The mock's day** is Sun 12 Oct 2025, evening, not yet played. The streak is 23, and the table hand is the
+  shipped demo's 100 bb hand. Depth uses `standing.ts` DEPTHS (40 and 75 certified, 125 next). Sessions are 30
+  minutes (the shipped minimum, `sessionPlan.ts:82`).
+- **Settings and Play with friends keep their shipped homes:** Settings in the macOS app menu (⌘,), and New session,
+  Play with friends and the bankroll on Play. You › Dee holds only Dee's settings.
 - **"Price held"** is the one acknowledgement of good play. It is task feedback with the numbers, fires only on
   close spots called Sure and right with a mechanism reason, and never mentions the pot. It is owner decision
   D6.
@@ -741,6 +756,8 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
   - a serif index on the cards as the one typographic flourish.
 
 ## Decisions to evaluate
+- **Vision: persistent regulars** (one archetype per named regular, a showdown-only dossier). If overruled, Rivals
+  become per-session reads only, and the rival dossier and the story's "Bo's room" are cut.
 - **Vision: Dee's mark is Two lights.** If overruled, pick another column on `demo/vision/dee-marks.html`; the rig
   swaps in one place (`dee.js` `data-mark`) and every mock follows.
 - **Vision: "Price held" (Dee acknowledges a hard spot played right).** If overruled, Dee is silent on every

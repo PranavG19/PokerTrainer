@@ -40,7 +40,7 @@
   .mhero { padding: 9px 16px 9px 9px; }   /* base: vision.css mini sports table */
   .mhero .cards .card { --w: 40px; }
   .mhero .t-score { font-size: 28px; }
-  .mhero .dealer { position: absolute; left: -6px; bottom: -4px; width: 18px; height: 18px; font-size: 10px; animation: none; }
+  .mhero .dealer { position: absolute; left: -6px; bottom: -4px; width: 20px; height: 20px; font-size: var(--t-cap); animation: none; }
 
   /* ── The decision beside the still ── */
   .detail { gap: 0; min-height: 0; }
@@ -52,6 +52,7 @@
   .facts > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); }
   .facts .v { font-size: var(--t-t3); font-weight: 600; letter-spacing: -0.01em; }
   .meter { margin-top: 14px; }
+  .meter .need { top: -3px; height: 8px; border-radius: 1px 1px 0 0; }   /* the price tick sits above the bar, never across it */
   .reason { margin-top: 10px; padding: 11px 14px; }
   .reason q { display: block; font-size: var(--t-body); color: var(--ink-1); font-weight: 500; line-height: 1.45; margin-top: 3px; }
   .reason q::before { content: "“"; } .reason q::after { content: "”"; }
@@ -73,7 +74,9 @@
   .kh .why { grid-column: 2 / 4; margin-top: 5px; font-size: var(--t-foot); color: var(--ink-2); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   /* the 40 bb token: a drawn depth marker where a hand has no single pair of cards worth showing */
   .depth-tok { width: 51px; height: 34px; border-radius: var(--r-xs); display: grid; place-items: center; background: oklch(0.06 0.01 262 / 0.5); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
-  .depth-tok svg { width: 44px; height: 26px; }
+  .depth-tok { position: relative; }
+  .depth-tok svg { width: 51px; height: 34px; }
+  .depth-tok .t-score { position: absolute; left: 46%; top: 50%; transform: translate(-50%, -46%); font-size: 15px; color: var(--ink-1); line-height: 1; }
 
   /* ── How a hand gets kept ── */
   .how { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 0 22px; align-items: start; padding-top: 14px; box-shadow: inset 0 0.5px 0 var(--hair-strong); }
@@ -96,7 +99,8 @@
     .go { padding-top: 12px; } .go .caption { display: none; }
     .reel { gap: 8px; } .kh { padding: 9px 10px 10px; column-gap: 9px; } .kh .why { margin-top: 4px; }
     .kh .mini .card { --w: 20px; } .kh .mini .card .rk { font-size: 11px; } .kh .mini .card .st { font-size: 11px; }
-    .depth-tok { width: 43px; height: 28px; } .depth-tok svg { width: 38px; height: 22px; }
+    .depth-tok { width: 43px; height: 29px; } .depth-tok svg { width: 43px; height: 29px; } .depth-tok .t-score { font-size: 13px; }
+    .vpage.hands { padding-bottom: 30px; }
     .how { gap: 0 16px; padding-top: 10px; } .how .w span { display: none; }
     .hide-sm { display: none; }
   }
@@ -121,7 +125,7 @@
 
           <div class="ms" aria-hidden="true">
             <div class="cards tight"><div class="card red"><span class="rk">Q</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card"><span class="rk">J</span><span class="st">♣</span><span class="pip">♣</span></div></div>
-            <div><div class="nm">Bo<span>Loose-aggressive</span></div><div class="t-score num">4050</div></div>
+            <div><div class="nm">Bo<span>LAG</span></div><div class="t-score num">4300</div></div>
           </div>
 
           <div class="mcenter" aria-hidden="true">
@@ -139,7 +143,7 @@
 
           <div class="mhero" aria-hidden="true">
             <div class="cards"><div class="card red"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div><div class="card red"><span class="rk">2</span><span class="st">♦</span><span class="pip">♦</span></div></div>
-            <div><div class="nm">You · button</div><div class="t-score num">4500</div><div class="stat">Called 450, Sure</div></div>
+            <div><div class="nm">You · button</div><div class="t-score num">4750</div><div class="stat">To call 450</div></div>
             <span class="dealer">D</span>
           </div>
         </figure>
@@ -147,7 +151,7 @@
         <div class="stack detail">
           <span class="label">Kept hand 1 of 4 · against Bo</span>
           <h2>The Long Call</h2>
-          <p class="caption meta">Saturday 11 Oct · two pair, kings and fours · you won <span class="num">1450</span></p>
+          <p class="caption meta">Sat 11 Oct · two pair, kings and fours · pot <span class="num">1450</span>, you net <span class="num">+750</span></p>
 
           <div class="tile facts">
             <div><div class="v num">31%</div><div class="k">needed to call</div></div>
@@ -177,7 +181,7 @@
           <div class="reel">
             <button class="kh" aria-pressed="true">
               <span class="mini"><span class="card red"><span class="rk">K</span><span class="st">♥</span></span><span class="card red"><span class="rk">2</span><span class="st">♦</span></span></span>
-              <b>The Long Call</b><span class="d num pos-num">+1450</span><span class="when">11 Oct · Price held</span>
+              <b>The Long Call</b><span class="d num pos-num">+750</span><span class="when">11 Oct · Price held</span>
               <span class="why">Called Bo’s 450 at a 31% price, Sure</span>
             </button>
             <button class="kh">
@@ -191,9 +195,9 @@
               <span class="why">3-bet over a call; took it preflop</span>
             </button>
             <button class="kh">
-              <span class="depth-tok" aria-hidden="true"><svg viewBox="0 0 44 26"><g fill="none" stroke-width="1.2"><ellipse cx="22" cy="13" rx="20" ry="10.5" stroke="oklch(1 0 0 / .16)" stroke-dasharray="2 2.5"/><ellipse cx="22" cy="13" rx="14" ry="7.2" stroke="oklch(1 0 0 / .32)"/><ellipse cx="22" cy="13" rx="8" ry="4" stroke="#F4F2EC"/></g><circle cx="30" cy="13" r="2.4" fill="#F4F2EC"/></svg></span>
+              <span class="depth-tok" aria-hidden="true"><svg viewBox="0 0 51 34"><rect x="3" y="4" width="45" height="26" rx="9" fill="oklch(0.06 0.01 262 / .6)" stroke="oklch(1 0 0 / .22)" stroke-width=".8"/><rect x="18" y="6.5" width="15" height="4" rx="2" fill="oklch(1 0 0 / .14)"/><rect x="18" y="23.5" width="15" height="4" rx="2" fill="oklch(1 0 0 / .14)"/><circle cx="42" cy="9" r="6" fill="#F4F2EC"/><path d="M39.4 9.1l1.8 1.8 3.4-3.6" fill="none" stroke="#15171A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t-score num">40</span></span>
               <b>First certified hand</b><span class="d k"></span><span class="when">2 Sep · A first</span>
-              <span class="why">The block that certified 40 bb</span>
+              <span class="why">Certified the 40 bb table</span>
             </button>
           </div>
         </section>

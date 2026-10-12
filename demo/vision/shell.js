@@ -17,7 +17,8 @@
   // Dee's perch: Dee at 20px, then today's streak. A transparent title-bar button (no glass of its own). The streak glyph is
   // a short stack of buttons (one per kept day), never a flame; the count is ink, never mint (mint is not a balance).
   function perch() {
-    const n = Number(document.body.dataset.streak || 23), today = document.body.dataset.today !== 'open';
+    // The mock's day is Sun 12 Oct 2025, evening, not yet played (vision/persona.md), so today is open unless a page says kept.
+    const n = Number(document.body.dataset.streak || 23), today = document.body.dataset.today === 'kept';
     return `<button class="perch" aria-label="Dee. ${n}-day streak${today ? ', today kept' : ', today not yet played'}.">` +
       `<span class="dee" data-mark="${document.body.dataset.mark || 'face'}" data-pose="${document.body.dataset.perch || 'rest'}" data-size="20"></span>` +
       `<span class="streak num${today ? '' : ' open'}"><svg viewBox="0 0 12 12" aria-hidden="true"><ellipse cx="6" cy="9.2" rx="4.6" ry="1.8"/><ellipse cx="6" cy="6.2" rx="4.6" ry="1.8"/><ellipse cx="6" cy="3.2" rx="4.6" ry="1.8"/></svg>${n}</span></button>`;

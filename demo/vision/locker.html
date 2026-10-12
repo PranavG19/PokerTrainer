@@ -12,7 +12,7 @@
      One bone primary: Use this back. Sources (vision/personalization-sources.md):
        what is unlocked … trophies (fixed list, persona.md), each from decisions[] (session.ts:43), lexicon (session.ts:200),
                           streak {current, best} (new), DEPTHS/standing() (standing.ts:38, :226), careerRecord (career.ts:163)
-       locks and progress … The Hundred: 3 of 5 assessment blocks (assessmentBlock.ts); Sure Means Sure: sureAccuracy (predict.ts:112), 81% of 118/146;
+       locks and progress … One-Twenty-Five Deep: the 125 bb tier (DEPTHS 0/40/75/125/200, standing.ts:38), masteryGate 7 of 8 concepts (standing.ts:226); Sure Means Sure: sureAccuracy (predict.ts:112), 81% of 118/146;
                           Thirty-One: streak.best 31, current 23; Rival Turned: rivals[].yourNetBb −14 (new)
        what you wear now … cosmetics {back, felt, deeFinish} (new, device settings offsuit-settings.json, store.ts:21) -->
 <style>
@@ -25,8 +25,8 @@
   .stage.pv { --zone: oklch(0.06 0.01 262 / 0.42); flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; padding: 14px 16px 12px;
     background: radial-gradient(62% 58% at 50% 45%, var(--zone), transparent 74%), var(--stage-floor), var(--stage-pool), oklch(0.06 0.01 262 / 0.36);
     transition: background var(--dur-3) var(--ease); }
-  .pv[data-surface='ink'] { --zone: oklch(0.10 0.035 255 / 0.62); }
-  .pv[data-surface='umber'] { --zone: oklch(0.11 0.025 60 / 0.55); }
+  .pv[data-surface='ink'] { --zone: oklch(0.17 0.05 255 / 0.75); }
+  .pv[data-surface='umber'] { --zone: oklch(0.18 0.035 60 / 0.72); }
   .pv .seats { width: 100%; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; }
   .ms.side { margin-top: 62px; justify-self: start; }
   .ms.side.r { justify-self: end; flex-direction: row-reverse; padding: 6px 6px 6px 11px; text-align: right; }
@@ -73,24 +73,28 @@
   .bk .meter-sm { width: 70%; margin-top: 1px; }
   .row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .sf { align-items: stretch; text-align: left; padding: 8px 8px 9px; }
-  .sf .sw { position: relative; height: 34px; border-radius: 7px; overflow: hidden; background: radial-gradient(70% 90% at 50% 45%, var(--zone), transparent 85%), oklch(0.06 0.01 262 / 0.5);
+  .sf .sw { position: relative; height: 40px; border-radius: 7px; overflow: hidden; background: radial-gradient(60% 85% at 50% 50%, var(--zone), oklch(0.08 0.008 262) 92%);
     box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
-  .sf .sw::before, .sf .sw::after { content: ""; position: absolute; top: 9px; height: 15px; border-radius: 4px; background: oklch(1 0 0 / 0.06); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12); }
-  .sf .sw::before { left: 8px; width: 28%; } .sf .sw::after { right: 8px; width: 18%; }
+  .sf .sw::before, .sf .sw::after { content: ""; position: absolute; top: 13px; height: 14px; border-radius: 4px; background: oklch(1 0 0 / 0.06); box-shadow: inset 0 0 0 0.5px oklch(1 0 0 / 0.12); }
+  .sf .sw::before { left: 6px; width: 18%; } .sf .sw::after { right: 6px; width: 18%; }
   .sf b, .sf .by { text-align: left; padding: 0 2px; }
   .sf.locked .sw { opacity: 0.4; }
-  .sf[data-surface='graphite'] { --zone: oklch(0.06 0.01 262 / 0.9); }
-  .sf[data-surface='ink'] { --zone: oklch(0.14 0.045 255 / 0.95); }
-  .sf[data-surface='umber'] { --zone: oklch(0.15 0.03 60 / 0.9); }
+  .sf[data-surface='graphite'] { --zone: oklch(0.20 0.006 262); }
+  .sf[data-surface='ink'] { --zone: oklch(0.24 0.06 255); }
+  .sf[data-surface='umber'] { --zone: oklch(0.25 0.045 60); }
+  .sf .sw .bd { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -30%); display: flex; gap: 2px; }
+  .sf .sw .bd i { width: 7px; height: 10px; border-radius: 1.5px; background: var(--bone); box-shadow: 0 1px 1px oklch(0 0 0 / 0.5); }
+  .sf .sw .pt { position: absolute; left: 50%; top: 5px; transform: translateX(-50%); width: 14px; height: 4px; border-radius: 2px; background: oklch(1 0 0 / 0.55); }
   .df { flex-direction: row; align-items: center; text-align: left; gap: 10px; padding: 9px 10px; }
   .df .ring { width: 26px; height: 26px; flex: none; border-radius: 50%; }
-  .df .ring[data-finish='bone'] { background: radial-gradient(circle at 40% 32%, #FFFFFF, var(--bone) 55%, var(--chip-a)); box-shadow: inset 0 0 0 0.5px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.5); }
+  .df .ring[data-finish='bone'] { background: radial-gradient(circle at 40% 32%, var(--text-hi), var(--bone) 55%, var(--chip-a)); box-shadow: inset 0 0 0 0.5px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.5); }
   .df .ring[data-finish='smoked'] { background: radial-gradient(circle, transparent 7px, oklch(0.42 0.006 262 / 0.9) 7.5px 11px, oklch(0.62 0.006 262 / 0.6) 11.5px 13px); box-shadow: 0 1px 2px oklch(0 0 0 / 0.5); }
-  .df .ring[data-finish='graphite'] { background: radial-gradient(circle, transparent 7px, var(--chip-b) 7.5px 11px, #4C5157 11.5px 13px); box-shadow: 0 1px 2px oklch(0 0 0 / 0.5); }
+  .df .ring[data-finish='graphite'] { background: radial-gradient(circle, transparent 7px, var(--chip-b) 7.5px 11px, color-mix(in oklch, var(--chip-b), black 30%) 11.5px 13px); box-shadow: 0 1px 2px oklch(0 0 0 / 0.5); }
   .df.locked .ring { opacity: 0.4; }
   .df .t { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
   .df b, .df .by { text-align: left; }
-  .rule-note { margin-top: auto; padding-top: 12px; }
+  .rule-note { margin-top: auto; padding-top: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bk .lock { color: var(--ink-2); }
 
   @media (max-width: 1000px) {
     .lk { gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); }
@@ -104,7 +108,7 @@
     .chosen { gap: 12px; } .chosen .grow h2 { font-size: var(--t-head); }
     .backs, .row3 { gap: 6px; }
     .bk { padding: 8px 4px 7px; gap: 4px; } .bk .art { width: 32px; height: 45px; }
-    .sf { padding: 6px 6px 7px; } .sf .sw { height: 26px; } .sf .sw::before, .sf .sw::after { top: 6px; height: 13px; }
+    .sf { padding: 6px 6px 7px; } .sf .sw { height: 32px; } .sf .sw::before, .sf .sw::after { top: 10px; height: 11px; }
     .df { padding: 7px 8px; gap: 8px; } .df .ring { width: 22px; height: 22px; }
     .rule-note { display: none; }
     .right .sec { margin-bottom: 6px; }
@@ -142,7 +146,7 @@
             <div class="mhero" aria-hidden="true">
               <div class="cards"><div class="card red"><span class="rk">2</span><span class="st">♦</span><span class="pip">♦</span></div><div class="card red"><span class="rk">K</span><span class="st">♥</span><span class="pip">♥</span></div></div>
               <div><div class="nm">You</div><div class="t-score num">4950</div><div class="stat"><i></i>Your turn</div></div>
-              <span class="dealer" style="position:absolute;left:-6px;bottom:-4px;width:18px;height:18px;font-size:10px;animation:none">D</span>
+              <span class="dealer" style="position:absolute;left:-6px;bottom:-4px;width:20px;height:20px;font-size:var(--t-cap);animation:none">D</span>
             </div>
             <div class="perch-pv"><span class="caption" id="finishCap">Dee<br />Bone</span><span class="rim" id="rim" data-finish="bone"><span class="dee" data-pose="rest" data-size="30"></span></span></div>
           </figure>
@@ -162,9 +166,9 @@
 
           <div class="sec" style="margin-top: 16px"><h2>Table surface</h2><span class="caption">Tints of the lit zone</span></div>
           <div class="row3" role="radiogroup" aria-label="Table surface" id="surfaces">
-            <button class="bk sf" role="radio" aria-checked="true" data-surface="graphite"><span class="sw"></span><b>Graphite</b><span class="by">Yours from day one</span></button>
-            <button class="bk sf" role="radio" aria-checked="false" data-surface="ink"><span class="sw"></span><b>Night ink</b><span class="by">Seventy-Five Deep</span></button>
-            <button class="bk sf locked" role="radio" aria-checked="false" aria-disabled="true" data-surface="umber"><span class="sw"></span><b>Umber</b><span class="lock"><svg aria-hidden="true"><use href="#lock"/></svg>Certify 100 bb · 3 of 5</span></button>
+            <button class="bk sf" role="radio" aria-checked="true" data-surface="graphite"><span class="sw"><span class="pt"></span><span class="bd"><i></i><i></i><i></i></span></span><b>Graphite</b><span class="by">Yours from day one</span></button>
+            <button class="bk sf" role="radio" aria-checked="false" data-surface="ink"><span class="sw"><span class="pt"></span><span class="bd"><i></i><i></i><i></i></span></span><b>Night ink</b><span class="by">Seventy-Five Deep</span></button>
+            <button class="bk sf locked" role="radio" aria-checked="false" aria-disabled="true" data-surface="umber"><span class="sw"><span class="pt"></span><span class="bd"><i></i><i></i><i></i></span></span><b>Umber</b><span class="lock"><svg aria-hidden="true"><use href="#lock"/></svg>Certify 125 bb · 7 of 8</span></button>
           </div>
 
           <div class="sec" style="margin-top: 16px"><h2>Dee’s finish</h2><span class="caption">The rim only</span></div>
@@ -174,7 +178,7 @@
             <button class="bk df locked" role="radio" aria-checked="false" aria-disabled="true" data-finish="graphite"><span class="ring" data-finish="graphite"></span><span class="t"><b>Graphite</b><span class="lock"><svg aria-hidden="true"><use href="#lock"/></svg>Streak 23 of 31</span></span></button>
           </div>
 
-          <p class="caption rule-note">Paint only: card faces, seats and numbers never change. Each one is earned by a decision, listed here before you earn it. Nothing is sold and nothing is random.</p>
+          <p class="caption rule-note">Paint only: faces, seats and numbers never change. Nothing is sold, nothing is random.</p>
         </section>
       </div>
     </div>
@@ -207,7 +211,7 @@
     // The crease: a back folded once, corner to corner; one half hatched, the fold line lit.
     crease: frame(`<path d="M2.5 67.5 L47.5 2.5 V67.5Z" fill="${B}" fill-opacity=".05"/><g stroke="${C}" stroke-opacity=".18" stroke-width=".45">${range(18).map((i) => `<path d="M${10 + i * 3} 70 L47.5 ${70 - (i + 3) * 4.3}"/>`).join('')}</g>
       <path d="M2.5 67.5 L47.5 2.5" stroke="${B}" stroke-opacity=".75" stroke-width=".7"/>`),
-    // The Hundred (locked): three depth rings, 40, 75 and 100.
+    // One-Twenty-Five Deep (locked): three depth rings, 40, 75 and 125.
     depth: frame(`<g fill="none" stroke="${C}" stroke-width=".6"><rect x="8" y="10" width="34" height="50" rx="16" stroke-opacity=".25"/><rect x="13" y="17" width="24" height="36" rx="11" stroke-opacity=".45"/><rect x="18" y="24" width="14" height="22" rx="6.5" stroke-opacity=".8"/></g>`),
     // Sure Means Sure (locked): a calibration field, 85 of 100 marks set.
     sure: frame(range(100).map((i) => { const x = 8 + (i % 10) * 3.8, y = 16 + Math.floor(i / 10) * 4.2; return `<circle cx="${x}" cy="${y}" r=".9" fill="${C}" fill-opacity="${i < 85 ? 0.55 : 0.12}"/>`; }).join('')),
@@ -219,7 +223,7 @@
     ['lattice', 'Button lattice', 'Three Weeks', 'From Three Weeks: 21 days in a row, 9 Oct'],
     ['seal', 'The seal', 'Forty Deep', 'From Forty Deep: the 40 bb table certified, 2 Sep'],
     ['crease', 'The crease', 'The Set Fold', 'From The Set Fold: you folded a set of sevens, right, 4 Oct'],
-    ['depth', 'Depth rings', '3 of 5 blocks', 'The Hundred: certify the 100 bb table. You have 3 of 5 blocks', 'locked', 60],
+    ['depth', 'Depth rings', '125 bb · 7 of 8', 'One-Twenty-Five Deep: certify the 125 bb table. 7 of 8 concepts through the gate', 'locked', 87.5],
     ['sure', 'Calibration', '81% of 85%', 'Sure Means Sure: 85% right over 100 Sure calls. You are at 81%', 'locked', 81 / 85 * 100],
   ];
   const backs = document.getElementById('backs');

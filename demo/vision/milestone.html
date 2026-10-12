@@ -19,7 +19,7 @@
      Sources (vision/personalization-sources.md):
        The Set Fold, 7♠7♥ on A♠7♦K♠Q♠, the check-raise all-in … HandRecord (session.ts:66) + decisions[] (session.ts:43: street,
          board, pot, toCall, action, verdict), villain {name} (new); "first time" … no earlier fold with a set graded right in hands[]
-       35% price, 22% … DecisionRecord.pot/toCall (the price) and the grader's equity vs range (rw.ts:157); "free" = verdict, 0 bb
+       35% price, 22% … DecisionRecord.pot/toCall (the price) and the grader's equity vs range (rw.ts:157); fold right by ~23 bb = EV of calling (0.22 × 9,100 − 3,150 ≈ −1,150 chips); grade.price kept on free grades (new, coach.ts:139)
        the summary behind … the session's hands[] (net, grades), SessionStats (session.ts:130), streak {current: 15} (new) on 4 Oct
        2 of 10 trophies … the fixed trophy list (persona.md), earned dates from HandRecord.playedAt -->
 <style>
@@ -29,7 +29,7 @@
   .summary .three { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 0; }
   .summary .three > div { padding: 12px 14px; } .summary .three > div + div { box-shadow: inset 0.5px 0 0 var(--hair-strong); }
   .summary .three .v { font-size: var(--t-t2); font-weight: 600; }
-  .streak-hero { display: flex; align-items: flex-end; gap: 12px; } .streak-hero .t-score { font-size: 76px; }
+  .streak-hero { display: flex; align-items: flex-end; gap: 12px; } .streak-hero .t-score { font-size: calc(var(--t-hero) * 2); }
 
   /* The moment */
   .scrim { animation-duration: var(--dur-3); }
@@ -65,9 +65,9 @@
   .m-what { font-size: var(--t-body); color: var(--ink-2); line-height: 1.5; }
   .m-what b { color: var(--ink-1); font-weight: 500; }
   .pm { position: relative; height: 30px; margin-top: 2px; }
-  .pm .bar { position: absolute; left: 0; right: 0; top: 6px; height: 4px; border-radius: 2px; background: var(--ring-track); }
-  .pm .had { position: absolute; left: 0; top: 6px; height: 4px; width: 22%; border-radius: 2px; background: var(--ring-fill); }
-  .pm .need { position: absolute; left: 35%; top: 1px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--ink-1); }
+  .pm .bar { position: absolute; left: 0; right: 0; top: 6px; height: 4px; border-radius: var(--r-xs); background: var(--ring-track); }
+  .pm .had { position: absolute; left: 0; top: 6px; height: 4px; width: 22%; border-radius: var(--r-xs); background: var(--ring-fill); }
+  .pm .need { position: absolute; left: 35%; top: 1px; width: 2px; height: 14px; margin-left: -1px; border-radius: var(--r-xs); background: var(--ink-1); }
   .pm .lab { position: absolute; top: 17px; font-size: var(--t-cap); color: var(--ink-2); transform: translateX(-50%); white-space: nowrap; }
   .m-body .dee-line { gap: 12px; align-items: center; }
   .m-body .dee-line .say { font-size: var(--t-body); line-height: 1.45; animation: none; }
@@ -80,7 +80,7 @@
   @media (prefers-reduced-motion: reduce) { .moment, .moment *, .scrim { animation: none !important; } }
 
   @media (max-width: 1000px) {
-    .summary { column-gap: 24px; } .streak-hero .t-score { font-size: 60px; }
+    .summary { column-gap: 24px; } .streak-hero .t-score { font-size: var(--t-hero); }
     .moment { width: calc(100% - 32px); grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1fr); gap: 16px; padding: 12px; }
     .m-stage { min-height: 300px; } .m-obj { width: 176px; height: 205px; margin-bottom: -22px; } .m-plinth { width: 210px; height: 40px; }
     .m-body { gap: 10px; } .m-title h2 { font-size: var(--t-stat); } .m-title p { font-size: var(--t-head); }
@@ -91,11 +91,11 @@
 <body data-tab="Play" data-streak="15">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <linearGradient id="bone" x1="0" y1="0" x2="1" y2=".25"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".35" stop-color="#F4F2EC"/><stop offset=".78" stop-color="#D9D4C8"/><stop offset="1" stop-color="#B5AFA2"/></linearGradient>
-    <radialGradient id="boneF" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".4" stop-color="#F3F0E8"/><stop offset=".85" stop-color="#D9D4C8"/><stop offset="1" stop-color="#BEB8AB"/></radialGradient>
-    <linearGradient id="boneS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C9C3B6"/><stop offset="1" stop-color="#8F897D"/></linearGradient>
-    <linearGradient id="graph" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2E3339"/><stop offset=".3" stop-color="#6F767E"/><stop offset=".62" stop-color="#3A4047"/><stop offset="1" stop-color="#16181B"/></linearGradient>
-    <linearGradient id="plinthT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3A4047"/><stop offset="1" stop-color="#16181B"/></linearGradient>
+    <linearGradient id="bone" x1="0" y1="0" x2="1" y2=".25"><stop offset="0" stop-color="#F4F2EC"/><stop offset=".45" stop-color="#ECE9E1"/><stop offset="1" stop-color="#D2CCC0"/></linearGradient>
+    <radialGradient id="boneF" cx="40%" cy="32%" r="85%"><stop offset="0" stop-color="#F4F2EC"/><stop offset=".6" stop-color="#ECE9E1"/><stop offset="1" stop-color="#D6D1C5"/></radialGradient>
+    <linearGradient id="boneS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#D2CCC0"/><stop offset="1" stop-color="#A9A396"/></linearGradient>
+    <linearGradient id="graph" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3A4047"/><stop offset=".45" stop-color="#4A5057"/><stop offset="1" stop-color="#2A2F35"/></linearGradient>
+    <linearGradient id="plinthT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E3339"/><stop offset="1" stop-color="#262A30"/></linearGradient>
     <filter id="soft" x="-50%" y="-300%" width="200%" height="700%"><feGaussianBlur stdDeviation="3"/></filter>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4"/></filter>
   </defs>
@@ -110,19 +110,17 @@
       <rect x="44" y="50" width="32" height="60" rx="3" fill="none" stroke="#9A9488" stroke-opacity=".35" stroke-width=".8"/>
       <text x="47" y="63.8" font-family="ui-serif, 'New York', Georgia, serif" font-size="13" font-weight="600" fill="#FFFFFF" fill-opacity=".9">7</text>
       <text x="47" y="63" font-family="ui-serif, 'New York', Georgia, serif" font-size="13" font-weight="600" fill="#9A9488">7</text>
-      <text x="60" y="93" text-anchor="middle" font-family="ui-serif, 'New York', Georgia, serif" font-size="26" font-weight="600" fill="#9A9488" fill-opacity=".55">7</text>
-      <ellipse cx="50" cy="56" rx="7" ry="3" fill="#FFFFFF" opacity=".55" filter="url(#glow)"/></g>
+      <text x="60" y="93" text-anchor="middle" font-family="ui-serif, 'New York', Georgia, serif" font-size="26" font-weight="600" fill="#9A9488" fill-opacity=".55">7</text></g>
     <rect x="22" y="110" width="76" height="18" rx="4" fill="url(#bone)"/>
-    <path d="M26 110.6H94" stroke="#FFFFFF" stroke-width="1"/>
+    <path d="M26 110.6H94" stroke="#FFFFFF" stroke-opacity=".45" stroke-width=".8"/>
     <rect x="22" y="110" width="76" height="18" rx="4" fill="none" stroke="#000" stroke-opacity=".2" stroke-width=".7"/>
-    <text x="60" y="122.5" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', sans-serif" font-size="6" font-weight="700" letter-spacing="1.6" fill="#9A9488">FOLDED · FREE</text>
+    <text x="60" y="122.5" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', sans-serif" font-size="6" font-weight="700" letter-spacing="1.6" fill="#9A9488">FOLDED · RIGHT</text>
   </symbol>
   <symbol id="plinth" viewBox="0 0 240 46">
-    <ellipse cx="120" cy="38" rx="118" ry="8" fill="#000" opacity=".55" filter="url(#soft)"/>
-    <path d="M6 14V26A114 14 0 0 0 234 26V14Z" fill="url(#graph)"/>
+    <ellipse cx="120" cy="30" rx="116" ry="9" fill="#000" opacity=".4" filter="url(#soft)"/>
+    <path d="M6 14V21A114 14 0 0 0 234 21V14Z" fill="url(#graph)"/>
     <ellipse cx="120" cy="14" rx="114" ry="14" fill="url(#plinthT)"/>
-    <ellipse cx="120" cy="14" rx="114" ry="14" fill="none" stroke="#FFFFFF" stroke-opacity=".16" stroke-width=".8"/>
-    <ellipse cx="120" cy="13" rx="60" ry="6" fill="#FFFFFF" opacity=".06" filter="url(#glow)"/>
+    <ellipse cx="120" cy="14" rx="113.5" ry="13.5" fill="none" stroke="#FFFFFF" stroke-opacity=".10" stroke-width=".7"/>
   </symbol>
 </svg>
 
@@ -159,7 +157,7 @@
       <div class="m-stage stage">
         <div class="pool" aria-hidden="true"></div>
         <div class="m-obj">
-          <svg viewBox="0 0 120 140" role="img" aria-label="The Set Fold: three cast ceramic sevens fanned in a bone slab engraved Folded, free">
+          <svg viewBox="0 0 120 140" role="img" aria-label="The Set Fold: three cast ceramic sevens fanned in a bone slab engraved Folded, right">
             <defs>
               <clipPath id="tc"><rect x="40" y="50" width="40" height="64" rx="5" transform="rotate(-22 60 120)"/><rect x="40" y="48" width="40" height="66" rx="5" transform="rotate(-7 60 120)"/>
                 <rect x="40" y="46" width="40" height="68" rx="5" transform="rotate(16 60 120)"/><rect x="22" y="110" width="76" height="18" rx="4"/></clipPath>
@@ -181,7 +179,7 @@
           <div class="grp"><span class="k">Board</span><div class="mini"><div class="card"><span class="rk">A</span><span class="st">♠</span></div><div class="card red"><span class="rk">7</span><span class="st">♦</span></div><div class="card"><span class="rk">K</span><span class="st">♠</span></div><div class="card"><span class="rk">Q</span><span class="st">♠</span></div></div></div>
         </div>
         <div>
-          <p class="m-what num">Bo check-raised all-in: <b>3,150</b> more to win 5,950. You needed <b>35%</b>; your set had <b>22%</b> against his range. The grader said fold, for free.</p>
+          <p class="m-what num">Bo check-raised all-in: <b>3,150</b> more to win 5,950. You needed <b>35%</b>; your set had <b>22%</b> against his range. The grader said fold: calling would have cost about 23 bb.</p>
           <div class="pm" role="img" aria-label="Your set had 22%; the price needed 35%">
             <div class="bar"></div><div class="had"></div><div class="need"></div>
             <span class="lab" style="left:11%">you had 22%</span><span class="lab" style="left:35%;transform:translateX(-10%)">needed 35%</span>

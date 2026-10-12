@@ -302,7 +302,6 @@ correct verdict, by type (economy-designer §2–3).
 | **Reps** | Effort, the XP equivalent | No | Learning actions only (table below) | Fill Notebooks (levels) | Above 400 a day, Reps count at 0 for the Rail and quests |
 | **Chalk** (Bold, ⚑ D4) | Cosmetic budget | Yes | 1 per Rep for the first 150 Reps a day, 0.5 per Rep up to 300 Reps, then nothing | Locker items at fixed prices: 150 / 450 / 1,000 / 2,400 | **At most 225 earned a day**; no wallet cap |
 | **Seals** | Mastered concepts | No (a gate) | Derived from `schedule.ts` `gate() === 'mastered'` | Unlock mastery items | Bounded by the concept count |
-| **Spare wicks** | Freezes | Used automatically | One per two kept weeks | Cover a missed week | Hold at most 2; never sold |
 
 **Sources** (Reps per action; learning-scientist §4 and economy §3 reconciled):
 

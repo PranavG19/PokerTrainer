@@ -12,9 +12,10 @@
      Every personal line names its source (vision/personalization-sources.md):
        The Long Call, The Set Fold …     HandRecord (session.ts:66) + decisions[] (session.ts:43: street, pot, toCall, action, verdict),
                                           pinned (new: kept hands survive the 500 cap), villain {name} (new)
-       31% price, 34%, Sure, the reason … DecisionRecord.prediction (new) + calibration (session.ts:149), DecisionRecord.reason (new, reasonGrade.ts:143)
+       31% price, 34% … grade.price {needed, had} kept on free grades too (new: coach.ts:139 sets it only when not free);
+       Sure, the reason …                DecisionRecord.prediction (new) + calibration (session.ts:149), DecisionRecord.reason (new, reasonGrade.ts:143)
        Forty Deep, Seventy-Five Deep …    standing() (standing.ts:226), DEPTHS (standing.ts:38), careerRecord (career.ts:163)
-       The Hundred 3 of 5 blocks …       assessments (session.ts:239), assessmentBlock.ts
+       One-Twenty-Five Deep, 7 of 8 …    standing() masteryGate (standing.ts:226: masteredKcCount ≥ 8 for 125 bb), DEPTHS 0/40/75/125/200 (standing.ts:38)
        Twelve Rules …                     lexicon (session.ts:200, AcceptedSentence lexicon.ts:62)
        Three Weeks, Thirty-One 23/31 …    streak {current, best} (new, local day) from HandRecord.playedAt (session.ts:80)
        Sure Means Sure 81% …              sureAccuracy (predict.ts:112), CareerRecord.sureAccuracy (career.ts:85)
@@ -45,7 +46,11 @@
   .shelf button:active { background: var(--fill-1); }
   .shelf button:focus-visible { outline: 2px solid oklch(1 0 0 / 0.6); outline-offset: 2px; }
   .shelf button[aria-pressed='true'] { background: var(--fill-1); box-shadow: inset 0 0 0 0.5px var(--hair-strong), var(--top-light); }
-  .shelf svg { width: 62px; height: 72px; display: block; margin-bottom: 4px; }
+  /* each earned object sits in its own lit well: a soft pool of light from above and a hairline plinth under it */
+  .shelf .well { position: relative; display: block; padding: 6px 10px 0; margin-bottom: 6px;
+    background: radial-gradient(48% 62% at 50% 38%, oklch(1 0 0 / 0.17), transparent 72%); }
+  .shelf .well::after { content: ""; display: block; height: 1px; margin: -3px 2px 0; background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.32) 25%, oklch(1 0 0 / 0.32) 75%, transparent); }
+  .shelf svg { width: 62px; height: 72px; display: block; }
   .shelf .n { font-size: var(--t-cap); font-weight: 600; color: var(--ink-1); line-height: 1.25; min-height: 2.5em; display: flex; align-items: center; }
   .shelf .dt { font-size: var(--t-cap); color: var(--ink-3); }
 
@@ -75,10 +80,12 @@
   .next .p .caption { white-space: nowrap; font-size: var(--t-cap); }
   .next .meter-sm { width: 100%; }
 
+  .show-sm { display: none; }
   @media (max-width: 1000px) {
+    .show-sm { display: inline; }
     .room { column-gap: 18px; }
     .hero-obj .plate { margin-top: 4px; }
-    .shelf { margin: 0 10px 10px; padding: 6px; gap: 2px; } .shelf svg { width: 44px; height: 51px; }
+    .shelf { margin: 0 10px 10px; padding: 6px; gap: 2px; } .shelf svg { width: 44px; height: 51px; } .shelf .well { padding: 4px 6px 0; margin-bottom: 4px; }
     .hero-obj .obj { flex-basis: 250px; margin-bottom: -22px; } .hero-obj .plinth { width: 220px; height: 42px; } .stage-head { padding: 12px 14px 0; }
     .hand .k { display: none; } .story .head .caption { display: none; }
     .shelf .dt { display: none; }
@@ -93,15 +100,15 @@
 <body data-tab="You" data-streak="23" data-perch="pleased">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <linearGradient id="bone" x1="0" y1="0" x2="1" y2=".25"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".35" stop-color="#F4F2EC"/><stop offset=".78" stop-color="#D9D4C8"/><stop offset="1" stop-color="#B5AFA2"/></linearGradient>
-    <radialGradient id="boneF" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".4" stop-color="#F3F0E8"/><stop offset=".85" stop-color="#D9D4C8"/><stop offset="1" stop-color="#BEB8AB"/></radialGradient>
-    <linearGradient id="boneS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C9C3B6"/><stop offset="1" stop-color="#8F897D"/></linearGradient>
-    <linearGradient id="graph" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2E3339"/><stop offset=".3" stop-color="#6F767E"/><stop offset=".62" stop-color="#3A4047"/><stop offset="1" stop-color="#16181B"/></linearGradient>
-    <linearGradient id="graphT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9AA1A8"/><stop offset=".5" stop-color="#5A6168"/><stop offset="1" stop-color="#2E3339"/></linearGradient>
-    <linearGradient id="glassF" x1="0" y1="0" x2=".45" y2="1"><stop offset="0" stop-color="#B4BCC6" stop-opacity=".6"/><stop offset=".5" stop-color="#4E5660" stop-opacity=".58"/><stop offset="1" stop-color="#1E2228" stop-opacity=".85"/></linearGradient>
-    <linearGradient id="glassS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3A414A" stop-opacity=".85"/><stop offset="1" stop-color="#16181B" stop-opacity=".92"/></linearGradient>
+    <linearGradient id="bone" x1="0" y1="0" x2="1" y2=".25"><stop offset="0" stop-color="#F4F2EC"/><stop offset=".45" stop-color="#ECE9E1"/><stop offset="1" stop-color="#D2CCC0"/></linearGradient>
+    <radialGradient id="boneF" cx="40%" cy="32%" r="85%"><stop offset="0" stop-color="#F4F2EC"/><stop offset=".6" stop-color="#ECE9E1"/><stop offset="1" stop-color="#D6D1C5"/></radialGradient>
+    <linearGradient id="boneS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#D2CCC0"/><stop offset="1" stop-color="#A9A396"/></linearGradient>
+    <linearGradient id="graph" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3A4047"/><stop offset=".45" stop-color="#4A5057"/><stop offset="1" stop-color="#2A2F35"/></linearGradient>
+    <linearGradient id="graphT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9AA1A8"/><stop offset="1" stop-color="#6F767E"/></linearGradient>
+    <linearGradient id="glassF" x1="0" y1="0" x2=".45" y2="1"><stop offset="0" stop-color="#C4CBD3" stop-opacity=".7"/><stop offset=".55" stop-color="#6F767E" stop-opacity=".6"/><stop offset="1" stop-color="#3A4047" stop-opacity=".8"/></linearGradient>
+    <linearGradient id="glassS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5A6168" stop-opacity=".8"/><stop offset="1" stop-color="#2E3339" stop-opacity=".9"/></linearGradient>
     <linearGradient id="glassT" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E4E8EC" stop-opacity=".7"/><stop offset="1" stop-color="#9AA2AC" stop-opacity=".45"/></linearGradient>
-    <linearGradient id="plinthT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3A4047"/><stop offset="1" stop-color="#16181B"/></linearGradient>
+    <linearGradient id="plinthT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E3339"/><stop offset="1" stop-color="#262A30"/></linearGradient>
     <filter id="soft" x="-50%" y="-300%" width="200%" height="700%"><feGaussianBlur stdDeviation="3"/></filter>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4"/></filter>
   </defs>
@@ -123,15 +130,14 @@
     <ellipse cx="60" cy="70" rx="40" ry="44" fill="none" stroke="#000" stroke-opacity=".22" stroke-width=".8"/>
     <ellipse cx="60" cy="70" rx="35.5" ry="39" fill="none" stroke="#A9A396" stroke-opacity=".38" stroke-width="3" stroke-dasharray="9 14.4" stroke-linecap="round"/>
     <ellipse cx="60" cy="70" rx="29" ry="32" fill="none" stroke="#8E897E" stroke-opacity=".5" stroke-width="1"/>
-    <ellipse cx="60" cy="70.9" rx="29" ry="32" fill="none" stroke="#FFFFFF" stroke-opacity=".85" stroke-width=".6"/>
+    <ellipse cx="60" cy="70.9" rx="29" ry="32" fill="none" stroke="#FFFFFF" stroke-opacity=".45" stroke-width=".6"/>
     <path d="M40 82Q60 48 80 82" fill="none" stroke="#FFFFFF" stroke-opacity=".85" stroke-width="2.2" stroke-linecap="round" transform="translate(0 .8)"/>
     <path d="M40 82Q60 48 80 82" fill="none" stroke="#9A9488" stroke-width="2.2" stroke-linecap="round"/>
     <circle cx="80" cy="82" r="2.8" fill="#9A9488"/>
     <text x="60" y="97" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', sans-serif" font-size="8.5" font-weight="700" letter-spacing="1.2" fill="#9A9488">31%</text>
-    <ellipse cx="45" cy="45" rx="12" ry="5.5" fill="#FFFFFF" opacity=".6" filter="url(#glow)" transform="rotate(-38 45 45)"/>
     <path d="M30 111H90L94 126H26Z" fill="url(#graph)"/>
     <path d="M30 111H90" stroke="#FFFFFF" stroke-opacity=".32" stroke-width=".8"/>
-    <rect x="24" y="125.5" width="72" height="3.5" rx="1.5" fill="#16181B"/>
+    <rect x="24" y="125.5" width="72" height="3" rx="1.5" fill="#2A2F35"/>
   </symbol>
 
   <!-- 2 · The Set Fold: three cast ceramic sevens fanned in a bone slab, the front one laid back (folded) -->
@@ -145,12 +151,11 @@
       <rect x="44" y="50" width="32" height="60" rx="3" fill="none" stroke="#9A9488" stroke-opacity=".35" stroke-width=".8"/>
       <text x="47" y="63.8" font-family="ui-serif, 'New York', Georgia, serif" font-size="13" font-weight="600" fill="#FFFFFF" fill-opacity=".9">7</text>
       <text x="47" y="63" font-family="ui-serif, 'New York', Georgia, serif" font-size="13" font-weight="600" fill="#9A9488">7</text>
-      <text x="60" y="93" text-anchor="middle" font-family="ui-serif, 'New York', Georgia, serif" font-size="26" font-weight="600" fill="#9A9488" fill-opacity=".55">7</text>
-      <ellipse cx="50" cy="56" rx="7" ry="3" fill="#FFFFFF" opacity=".55" filter="url(#glow)"/></g>
+      <text x="60" y="93" text-anchor="middle" font-family="ui-serif, 'New York', Georgia, serif" font-size="26" font-weight="600" fill="#9A9488" fill-opacity=".55">7</text></g>
     <rect x="22" y="110" width="76" height="18" rx="4" fill="url(#bone)"/>
-    <path d="M26 110.6H94" stroke="#FFFFFF" stroke-width="1"/>
+    <path d="M26 110.6H94" stroke="#FFFFFF" stroke-opacity=".45" stroke-width=".8"/>
     <rect x="22" y="110" width="76" height="18" rx="4" fill="none" stroke="#000" stroke-opacity=".2" stroke-width=".7"/>
-    <text x="60" y="122.5" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', sans-serif" font-size="6" font-weight="700" letter-spacing="1.6" fill="#9A9488">FOLDED · FREE</text>
+    <text x="60" y="122.5" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', sans-serif" font-size="6" font-weight="700" letter-spacing="1.6" fill="#9A9488">FOLDED · RIGHT</text>
   </symbol>
 
   <!-- 3 · Forty Deep: a smoked-glass block, the depth etched at 40% -->
@@ -200,7 +205,6 @@
         <path d="M41 63.8h30M41 69.1h24M41 74.4h32M41 79.7h20M41 85h28M41 90.3h26M41 95.6h32M41 100.9h18M41 106.2h30M41 111.5h24M41 116.8h28M41 122.1h22" stroke="#FFFFFF" stroke-opacity=".8" transform="translate(0 .7)"/>
         <path d="M41 63.8h30M41 69.1h24M41 74.4h32M41 79.7h20M41 85h28M41 90.3h26M41 95.6h32M41 100.9h18M41 106.2h30M41 111.5h24M41 116.8h28M41 122.1h22" stroke="#A9A396"/>
       </g>
-      <ellipse cx="44" cy="45" rx="8" ry="3" fill="#FFFFFF" opacity=".55" filter="url(#glow)"/>
     </g>
   </symbol>
 
@@ -215,20 +219,18 @@
     <use href="#coin" x="30.5" y="65.5" width="56" height="20"/>
     <use href="#coin" x="32" y="57" width="56" height="20"/>
     <text transform="translate(60 66.8) scale(1 .34)" text-anchor="middle" font-family="-apple-system, 'SF Pro Display', sans-serif" font-size="20" font-weight="700" fill="#D9D4C8" fill-opacity=".75">21</text>
-    <ellipse cx="50" cy="61" rx="9" ry="1.8" fill="#FFFFFF" opacity=".4" filter="url(#glow)"/>
   </symbol>
 
   <!-- The plinth: a graphite drum under the selected trophy -->
   <symbol id="plinth" viewBox="0 0 240 46">
-    <ellipse cx="120" cy="38" rx="118" ry="8" fill="#000" opacity=".55" filter="url(#soft)"/>
-    <path d="M6 14V26A114 14 0 0 0 234 26V14Z" fill="url(#graph)"/>
+    <ellipse cx="120" cy="30" rx="116" ry="9" fill="#000" opacity=".4" filter="url(#soft)"/>
+    <path d="M6 14V21A114 14 0 0 0 234 21V14Z" fill="url(#graph)"/>
     <ellipse cx="120" cy="14" rx="114" ry="14" fill="url(#plinthT)"/>
-    <ellipse cx="120" cy="14" rx="114" ry="14" fill="none" stroke="#FFFFFF" stroke-opacity=".16" stroke-width=".8"/>
-    <ellipse cx="120" cy="13" rx="60" ry="6" fill="#FFFFFF" opacity=".06" filter="url(#glow)"/>
+    <ellipse cx="120" cy="14" rx="113.5" ry="13.5" fill="none" stroke="#FFFFFF" stroke-opacity=".10" stroke-width=".7"/>
   </symbol>
 
   <!-- Next trophies, drawn in outline: their shape is known in advance -->
-  <symbol id="n-hundred" viewBox="0 0 30 34"><path d="M10 7H19V32H10ZM19 7L23 3.5V28.5L19 32M10 7L14 3.5H23" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M11.5 12.5H17.5" stroke="currentColor" stroke-width="1.1"/></symbol>
+  <symbol id="n-125" viewBox="0 0 30 34"><path d="M10 7H19V32H10ZM19 7L23 3.5V28.5L19 32M10 7L14 3.5H23" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M11.5 12.5H17.5" stroke="currentColor" stroke-width="1.1"/></symbol>
   <symbol id="n-sure" viewBox="0 0 30 34"><ellipse cx="15" cy="15" rx="10" ry="11" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M10.5 15.2l3 3 6-6.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 27H22L23.5 31.5H6.5Z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></symbol>
   <symbol id="n-thirtyone" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="1.1"><ellipse cx="15" cy="10" rx="10" ry="3"/><path d="M5 10v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4M5 17v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4M5 24v4c0 1.7 4.5 3 10 3s10-1.3 10-3v-4"/></g></symbol>
   <symbol id="n-rival" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="1.1"><circle cx="11.5" cy="15" r="8"/><circle cx="18.5" cy="15" r="8"/><path d="M7 27H23L24.5 31.5H5.5Z" stroke-linejoin="round"/></g></symbol>
@@ -253,12 +255,12 @@
             <div class="plate"><b>The Long Call</b> · 11 Oct</div>
           </div>
           <div class="shelf" role="group" aria-label="Earned trophies, newest first">
-            <button aria-pressed="true"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-longcall"/></svg><span class="n">The Long Call</span><span class="dt">11 Oct</span></button>
-            <button aria-pressed="false"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-twelve"/></svg><span class="n">Twelve Rules</span><span class="dt">9 Oct</span></button>
-            <button aria-pressed="false"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-threeweeks"/></svg><span class="n">Three Weeks</span><span class="dt">9 Oct</span></button>
-            <button aria-pressed="false"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-seventyfive"/></svg><span class="n">Seventy-Five Deep</span><span class="dt">6 Oct</span></button>
-            <button aria-pressed="false"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-setfold"/></svg><span class="n">The Set Fold</span><span class="dt">4 Oct</span></button>
-            <button aria-pressed="false"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-forty"/></svg><span class="n">Forty Deep</span><span class="dt">2 Sep</span></button>
+            <button aria-pressed="true"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-longcall"/></svg></span><span class="n">The Long Call</span><span class="dt">11 Oct</span></button>
+            <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-twelve"/></svg></span><span class="n">Twelve Rules</span><span class="dt">9 Oct</span></button>
+            <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-threeweeks"/></svg></span><span class="n">Three Weeks</span><span class="dt">10 Oct</span></button>
+            <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-seventyfive"/></svg></span><span class="n">Seventy-Five Deep</span><span class="dt">6 Oct</span></button>
+            <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-setfold"/></svg></span><span class="n">The Set Fold</span><span class="dt">4 Oct</span></button>
+            <button aria-pressed="false"><span class="well"><svg viewBox="0 0 120 140" aria-hidden="true"><use href="#t-forty"/></svg></span><span class="n">Forty Deep</span><span class="dt">2 Sep</span></button>
           </div>
         </section>
 
@@ -274,11 +276,11 @@
             <div class="tile nums">
               <div><div class="v num">31%</div><div class="k">the price</div></div>
               <div><div class="v num">34%</div><div class="k">you had</div></div>
-              <div><div class="v num pos-num">+1450</div><div class="k">the pot</div></div>
+              <div><div class="v num pos-num">+750</div><div class="k">your net<span class="hide-sm">, 1450 pot</span></div></div>
             </div>
             <div class="dee-line sm">
               <span class="dee" data-pose="pleased" data-size="28"></span>
-              <p class="say">You folded this spot twice the week before. This time you said why: “the price is the call over the pot.”
+              <p class="say"><span class="hide-sm">You folded this spot twice the week before. This time you</span><span class="show-sm">You</span> said why: “the price is the call over the pot after I call.”
                 <span class="by">Dee · from your river calls, 29 Sep to 11 Oct</span></p>
             </div>
             <div class="acts"><button class="btn primary">Replay the hand <span class="kbd">↩</span></button><button class="btn quiet">Open in Hands</button></div>
@@ -287,8 +289,8 @@
           <section class="next" aria-label="Next four trophies">
             <div class="sec"><h2>Next four</h2><span class="caption">What each records, and how close you are</span></div>
             <div class="tile flat">
-              <div class="r"><svg aria-hidden="true"><use href="#n-hundred"/></svg><span><span class="t">The Hundred</span><span class="d">Certify the 100 bb table</span></span>
-                <span class="p"><span class="caption num">3 of 5 blocks</span><span class="meter-sm"><i style="width:60%"></i></span></span></div>
+              <div class="r"><svg aria-hidden="true"><use href="#n-125"/></svg><span><span class="t">One-Twenty-Five Deep</span><span class="d">Certify the 125 bb table</span></span>
+                <span class="p"><span class="caption num">7 of 8 concepts</span><span class="meter-sm"><i style="width:87.5%"></i></span></span></div>
               <div class="r"><svg aria-hidden="true"><use href="#n-sure"/></svg><span><span class="t">Sure Means Sure</span><span class="d">85% right over 100 Sure calls</span></span>
                 <span class="p"><span class="caption num">81% of 85%</span><span class="meter-sm"><i style="width:95%"></i></span></span></div>
               <div class="r"><svg aria-hidden="true"><use href="#n-thirtyone"/></svg><span><span class="t">Thirty-One</span><span class="d">Beat your best streak</span></span>

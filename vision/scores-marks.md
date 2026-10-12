@@ -1,63 +1,71 @@
-# Dee mark: blind scores
+# Dee mark directions: scores
 
-I rated these from the two renders (`dee-marks-blind-1100x760.png`, `dee-marks-blind-900x640.png`) and the shipped table (`sports-live-1100x760.jpg`) only. The render's own card captions were visible. I scored what is drawn, not what the captions claim.
+**This is the truly blind re-rate. The renders had no captions or descriptions, only the labels 1 to 5.** I looked at only three files: `dee-marks-blind-1100x760.png`, `dee-marks-blind-900x640.png` and the table context `sports-live-1100x760.jpg`. I opened no other file.
 
-| Criterion | D1 Smoked pebble + visor | D2 Bone button, two dots | D3 "d" glass tile | D4 Bone button, one jewel eye | D5 Ring + bead |
-|---|---|---|---|---|---|
-| Legibility at 16px | 5 | 8 | 8 | 6 | 7 |
-| Legibility at 64px | 7 | 9 | 8 | 8 | 8 |
-| Expression range | 5 | 7 | 2 | 4 | 5 |
-| Originality | 4 | 6 | 4 | 6 | 4 |
-| Fit with glass system | 7 | 8 | 7 | 8 | 7 |
-| Premium / craft | 7 | 8 | 7 | 9 | 7 |
-| Feels personal | 6 | 9 | 2 | 4 | 3 |
-| **Overall** | **5** | **8** | **4** | **6** | **5** |
+What each direction looks like (my reading, since none were described):
+1. A dark glass pebble with one bone dash for an eye, like a visor. Expressions come from the dash tilting and moving, an arc for Price held, and coral or amber rims.
+2. A bone dealer button with two pill eyes. The hero has DEALER lettering round the rim. Expressions come from the eyes moving, ^^ for Price held, coral or amber rims, and for Asleep the disc tipped flat with its eyes shut.
+3. A lowercase "d" in a dark squircle. Expressions only tint the counter of the d (coral or amber).
+4. A bone dealer button with one central pupil. Expressions come from the pupil moving, coral or amber rims, and the disc tipped flat for Asleep.
+5. An open bone ring with an orbiting dot. Expressions come from where the dot sits, a coral ring with a centre dot for Serious, an amber arc for The gate, and a grey ring for Asleep.
 
-**Rank:** 1. D2, 2. D4, 3. D5, 4. D1, 5. D3.
+## Scores (1 to 10)
 
-## Reasons (every score under 8)
+| Dir | 16px | 64px | Range | Original | Glass fit | Premium | Personal | Overall |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 6 | 8 | 6 | 7 | 9 | 8 | 6 | 6 |
+| **2** | **8** | **9** | **9** | **7** | **8** | **8** | **9** | **8** |
+| 3 | 9 | 8 | 3 | 4 | 7 | 6 | 3 | 4 |
+| 4 | 6 | 8 | 5 | 6 | 8 | 8 | 6 | 6 |
+| 5 | 7 | 8 | 6 | 5 | 9 | 7 | 3 | 5 |
 
-### Direction 1: smoked-glass pebble with a bone visor
-- **16px (5):** In the "23" chip the visor shrinks to a white bar inside a dark circle, which is the standard "remove / minus" control glyph. It reads as a button you could press, not as a character. *Fix:* split the visor into two short slots, or curve it, so the 16px form cannot be mistaken for a minus.
-- **64px (7):** The dark body on the dark glass chrome has low figure-ground contrast. Only the specular arc and the visor carry the shape. *Fix:* add a lighter bone rim or a stronger edge highlight so the silhouette holds on `--ink` backgrounds.
-- **Expression (5):** Rest, Listening, Glance and Thinking change only by a few pixels of visor offset or tilt, and they look almost identical. Asleep is the same bar, just dimmer. Only Price held (the arc) and the coloured rims for Serious and The gate stand out. *Fix:* give the visor real shape changes (narrowing, arc up or down, split) instead of position changes alone.
-- **Originality (4):** A dark glossy capsule with a glowing visor slit is the stock "friendly robot" form (EVE, many assistant mascots). It also drops the dealer-button idea, which is the one thing that makes Dee Dee. *Fix:* if you keep it, make the body a puck with a chip edge so it is still a button.
-- **Fit (7):** Smoked glass matches the materials. But a bone visor on a dark body turns the bone role inside out: bone should be the physical object itself. *Fix:* make the body bone and the visor ink.
-- **Premium (7):** The gloss is tidy but generic, and nothing in it is poker-specific. *Fix:* add an engraved or chip-edge detail on the rim at hero size.
-- **Personal (6):** It is cute, but it reads as an appliance with one feature. *Fix:* same as Expression: a face that can smile and narrow.
+## Why each score under 8 is low, and what to do
 
-### Direction 2: dealer button in bone ceramic with two engraved dots (pick)
-- **Expression (7):** The second row is excellent. The ^^ for Price held is readable and warm, the coral and amber rims for Serious and The gate use colour exactly as the role map defines it, and the flipped, lying-flat button for Asleep is clever. Row 1 is weak: Rest, Listening, Glance and Thinking differ only by 1–2px dot shifts and are hard to tell apart even at 64. *Fix:* give each row-1 state one silhouette-level cue. For example, Listening tilts the whole disc about 8 degrees, Glance moves the dots fully to one edge, and Thinking puts the dots up and to the side and turns them a little, or shows one dot as a short dash.
-- **Originality (6):** A disc with two dot eyes is a very common kawaii face and could be anyone's. What saves it is the DEALER engraving and the ceramic rim, but those are lost below hero size (the 900x640 hero also drops the engraving). *Fix:* carry one button-specific feature to every size, such as a single notch or an inset rim ring that stays visible at 24 and 16px.
+**Direction 1**
+- 16px (6): it is a dark pebble on a dark chip, so at 16px it shrinks to a grey smudge with a dash, and the "23" outweighs it. Fix: add a 1px bone outline, or a lighter body tone, at 16px and 24px only.
+- Range (6): Rest, Listening, Glance and Thinking are all the same dash nudged a few pixels, and they look alike at 24 to 32px. Fix: let the dash change shape as well as position, for example shorter for Listening, a dot plus a dash for Thinking, and a curve for Glance.
+- Original (7): a single glowing visor slit is a common robot-face shorthand. Fix: tie it to the button, for example a faint D, or rim ticks on the pebble.
+- Personal (6): one dash on a dark body reads as cool and distant. That fits a judge, but people get attached to warmth, not to a slot. Fix: give it at least one warm, readable state beyond Price held.
+- Overall (6): it is the cleanest fit with the glass system, but it does not read as the dealer button, which is a bone object at the table. It looks like a UI control.
 
-### Direction 3: lowercase "d" whose bowl is the button
-- **Expression (2):** Six of the eight states show the same glyph. Only Serious and The gate change, and only by a rim colour round the counter. At 900x640 the tile backgrounds disappear from the expression grid, so the set is also inconsistent across window sizes. *Fix:* there is no real fix that keeps the concept. It is a wordmark, not a character.
-- **Originality (4):** A letter on a rounded tile is the default way to make an app icon. *Fix:* use it as the app icon, not as Dee.
-- **Fit (7):** The tile works as an icon. But in the nav it reads as a second logo next to the spade wordmark. *Fix:* keep it only as the dock or app icon.
-- **Premium (7):** It is clean but plain. *Fix:* not worth investing in as the character.
-- **Personal (2):** You cannot get attached to a letter. *Fix:* not fixable within this direction.
+**Direction 2**
+- Original (7): two vertical pill eyes on a round white body is a well-worn cute-mascot formula. It is not a copy, but you cannot own it. Fix: make the button do some of the expressing. Let the inner rim ring act as a lid or brow (it thins, tilts or dims), and keep the DEALER rim lettering as a signature at 64px and above. That way the face cannot be lifted off the disc.
 
-### Direction 4: bone button with one smoked-glass jewel eye
-- **16px (6):** In the chip it reads as a radio button or a target, not a face. *Fix:* make the jewel larger relative to the disc (about 40%) and put a glint on it at small sizes.
-- **Expression (4):** The eight states differ only by where the single pupil sits, plus the shared coloured rims. Price held looks like Rest. A single eye cannot smile or narrow, so warmth has no channel. *Fix:* add a lid, a bone crescent that can close over the jewel from the top or bottom, so the eye can narrow (Serious), smile (Price held) and close (Asleep).
-- **Originality (6):** It is a well-made button, but a lone eye brings HAL and eyeball baggage. Up close it reads as watching or judging, which is risky for a grader. *Fix:* the lid above also softens it.
-- **Personal (4):** It feels cold and watchful. *Fix:* the lid gives it blink and smile states.
-- Craft is the best of the five (9): the ceramic, the jewel and the engraving are the most premium hero.
+**Direction 3**
+- Range (3): seven of the eight expressions are the same "d". Only Serious and The gate change, and only by tinting the counter. It has no expression system. Fix: make the counter of the d the eye, with pupil, lid and squint states. Even so, the ceiling is low.
+- Original (4): a lowercase letter in a squircle is an app-icon or monogram, not a character. It looks like any "d"-named product.
+- Glass fit (7): at 900x640 the expression tiles lose their squircle and turn into bare glyphs, while at 1100x760 they keep it. The two sizes do not match. Fix: keep one container across sizes.
+- Premium (6): the specular arc on the squircle is generic stock glass, and the plain bold letterform adds nothing. Fix: draw a custom d with a bevel like a button edge.
+- Personal (3): nobody grows attached to a letter. It is legible branding, not a companion.
+- Overall (4): it has the best 16px legibility and fails at everything else the brief asks.
 
-### Direction 5: ring with one bead (the button's path round the table)
-- **16px (7):** It is crisp, but a ring with a gap and a dot is the universal refresh / reload / loading glyph. In a nav it will read as "sync". *Fix:* close the ring and set the bead on it, not in a gap, so it reads as an orbit rather than a refresh icon.
-- **Expression (5):** Bead position is an abstract code: Rest, Listening, Glance and Thinking are just the bead at four clock positions, and the player has to learn the mapping. Serious (a coral bullseye) and The gate (an amber partial ring) do read, but the amber ring looks like a progress spinner. *Fix:* pair the bead with motion or ring weight (a thinner, open ring for Thinking, a closed ring for Serious).
-- **Originality (4):** It is close to the generic loading/refresh and power marks. *Fix:* see 16px.
-- **Fit (7):** The monoline suits SF Symbols. But a ring with an amber sweep collides with the gate timer's own UI. *Fix:* never animate the ring as a sweep. Keep sweeps for the timer only.
-- **Premium (7):** It is minimal to the point of being anonymous. *Fix:* add the bone ceramic material to the bead at large sizes.
-- **Personal (3):** It is a symbol, not a someone. *Fix:* not fixable without giving it a face.
+**Direction 4**
+- 16px (6): at 16px a bone disc with a dark centre dot reads as a radio button, a record button or a target, not as Dee. Fix: draw a dedicated 16px glyph with a larger pupil and a thinner rim, or add a highlight so it reads as an eye.
+- Range (5): the only expressive part is one pupil sliding about. Thinking, Glance and Listening differ by a few pixels, and Price held has no positive state. Fix: add a lid that can close, half-close, smile or squint.
+- Original (6): a single staring eyeball calls up HAL, a webcam, or other cyclops characters. The "always watching you" feeling also works against a coach the player should warm to.
+- Personal (6): a judge's stare. Fix: same as Range. A lid that can smile turns watching into caring.
+- Overall (6): it is well crafted, and as a disc it is truer to the dealer button than 1, but the eye is both too limited and slightly unsettling.
 
-## Pick: ship Direction 2
+**Direction 5**
+- 16px (7): it is legible as a glyph, but at 16px in the nav it reads as a refresh, loading or power icon. Fix: close the ring or change how the dot sits, so it cannot pass for a spinner.
+- Range (6): the dot moving round the ring is abstract. Viewers have to learn what each state means. The amber arc for The gate is the best timer state in the set, though.
+- Original (5): ring plus dot is the house style of loading spinners and voice assistants.
+- Premium (7): the flat strokes are clean but carry no craft detail: no material, no bevel, no light. It looks unfinished next to 1, 2 and 4.
+- Personal (3): it is an indicator, not a someone. In a UI it would also be confused with a busy state, which is a real usability cost.
+- Overall (5).
 
-It is the only direction that is a dealer button and also a face. The bone ceramic is a physical object, so it sits correctly in the colour role map. It reads as a friendly character at 16px in the nav (I checked a zoomed crop of the chip: two clear dots on a bone disc). It has the warmest states (Price held ^^, the lying-flat Asleep), and it uses coral and amber exactly as the system defines them. A player would grow attached to it.
+## Ranking
 
-**Single biggest fix:** row 1 (Rest, Listening, Glance, Thinking) needs states that read at a glance. Right now they differ by 1–2px dot nudges. Give each one a whole-object cue (a tilt of the disc, dots pushed fully to one edge, dots raised with one shortened to a dash for Thinking) so all eight states are distinct at 64px and the important ones survive at 24px.
+1. **Direction 2.** It is the only one that is plainly the dealer button: a bone disc, a physical object, the same as the "D" chip at the table in the context shot. It has a real face and the widest, most readable expressions (the tipped-over Asleep disc is charming). It holds up at 64px, and it already reads in the nav chip.
+2. **Direction 1.** Best fit with the glass system and well made, but it is dark on dark at small sizes and does not read as the button.
+3. **Direction 4.** The right object and fine craft, but one eye limits the range and it feels like being watched.
+4. **Direction 5.** Elegant and systemic, but it reads as a spinner and has no personality.
+5. **Direction 3.** A monogram, not a character.
 
-**Secondary concerns for D2:**
-- Keep one button-specific feature (an inset rim ring or a notch) visible at every size, so it is not just a generic dot-eyed circle.
-- Watch that a bright bone disc in the nav does not compete with the single bone primary action on the same screen. At 16px a slightly lower-value bone, or a thin rim, may help.
+## Ship: Direction 2
+
+**Single biggest fix: make the face belong to the button, so it stops being a generic two-dot face.** Let the inner rim ring do part of the expressing: it thins, tilts as a brow, or closes as a lid. Keep the DEALER rim lettering as the signature at 64px and above. The 900x640 hero currently drops the lettering, so restore it there. Then draw a separate, hand-tuned 16px version: no inner ring, eyes at least 2px wide, and a slightly darker rim stroke so the disc separates from the chip.
+
+Two smaller notes on Direction 2:
+- Bone is also the single primary-action colour. Keep Dee's hero off any screen whose primary pill is in view, or set it smaller there.
+- Serious and The gate depend only on a thin coral or amber rim, which is weak at 24px. Change the eyes as well, not just the rim colour.

@@ -19,7 +19,7 @@ const problems = [];
 for (const p of pages) {
   for (const q of STATES[p] ?? ['']) {
     for (const [w, h] of SIZES) {
-      const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
+      const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, reducedMotion: 'reduce' });   // reduced motion: deterministic end frames
       const page = await ctx.newPage();
       page.on('console', (m) => { if (m.type() === 'error') problems.push(`${p}?${q} ${w}x${h}: ${m.text()}`); });
       page.on('pageerror', (e) => problems.push(`${p}?${q} ${w}x${h}: ${e.message}`));
@@ -28,6 +28,13 @@ for (const p of pages) {
       await page.waitForTimeout(1600);
       const over = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight, iw: innerWidth, ih: innerHeight }));
       if (over.sw > over.iw || over.sh > over.ih) problems.push(`${p}?${q} ${w}x${h}: page scrolls ${over.sw}x${over.sh}`);
+      // Inner overflow (review R20): .vpage hides overflow, so also fail when any text box ends outside the window.
+      const clipped = await page.evaluate(() => { const out = []; const W = innerWidth, H = innerHeight;
+        for (const el of document.querySelectorAll('.main *')) { if (!el.childNodes.length || ![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+          const st = getComputedStyle(el); if (st.visibility === 'hidden' || st.display === 'none' || el.closest('[hidden],[inert],[aria-hidden="true"]')) continue;
+          const r = el.getBoundingClientRect(); if (r.width && (r.bottom > H + 1 || r.right > W + 1 || r.top < -1)) out.push(el.textContent.trim().slice(0, 30)); }
+        return out.slice(0, 3); });
+      if (clipped.length) problems.push(`${p}?${q} ${w}x${h}: text outside the window: ${clipped.join(' | ')}`);
       const name = `${p}${q ? '-' + q.replace('=', '') .replace(/^step/, 'step').replace(/^state/, '').replace(/^blind1$/, 'blind') : ''}-${w}x${h}.png`;
       await page.screenshot({ path: join(here, 'screenshots', name) });
       await ctx.close();
