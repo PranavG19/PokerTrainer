@@ -168,10 +168,28 @@ export function gradeSpot(state: TableState, chosen: ActionKind, opts: GradeSpot
   const model = aggressor !== null && aggressor !== hero.id ? opts.modelFor(aggressor) : null;
   if (model === null) return gradeDecision({ ...base, villainRange: VILLAIN_BETTING_RANGE });
 
+  const { facing, potFraction } = aggressorRead(state, aggressor!);
+  return gradeDecision({
+    ...base,
+    villainHands: villainRange({ model, board: state.board, facing, potFraction, livePlayers: opponents + 1 }),
+  });
+}
+
+/**
+ * How the aggressor's action reads to the range model: a bet into no bet or a raise over one, and for a
+ * postflop bet its size as a fraction of the pot before it.
+ */
+export function aggressorRead(
+  state: TableState,
+  aggressor: number,
+): { facing: 'bet' | 'raise'; potFraction: number | undefined } {
   // Bet or raise, from the aggressor's own last line: the engine logs "bets" into no bet and "raises to"
   // over one. An all-in over an earlier bet on this street (someone else already has chips in) is a raise.
-  const villain = state.seats[aggressor!];
-  const last = [...state.log].reverse().find((l) => l.startsWith(`${villain.name} `)) ?? '';
+  const villain = state.seats[aggressor];
+  // The whole line must be this seat's action, so a seat named "Bo" never claims "Bo B bets 100".
+  const name = villain.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const own = new RegExp(`^${name} (folds|checks|calls \\d+|bets \\d+|raises to \\d+|all-in \\d+)$`);
+  const last = [...state.log].reverse().find((l) => own.test(l)) ?? '';
   const othersIn = state.seats.some((s) => s.id !== villain.id && s.committed > 0);
   const facing: 'bet' | 'raise' =
     state.street === 'preflop' || last.includes(' raises to ') || (last.includes(' all-in ') && othersIn)
@@ -185,8 +203,5 @@ export function gradeSpot(state: TableState, chosen: ActionKind, opts: GradeSpot
   const potBefore = state.pot - streetChips;
   const potFraction =
     state.street !== 'preflop' && facing === 'bet' && potBefore > 0 ? villain.committed / potBefore : undefined;
-  return gradeDecision({
-    ...base,
-    villainHands: villainRange({ model, board: state.board, facing, potFraction, livePlayers: opponents + 1 }),
-  });
+  return { facing, potFraction };
 }

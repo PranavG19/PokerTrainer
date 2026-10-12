@@ -12,7 +12,7 @@ import {
   valueLine,
   villainRange,
 } from '../../src/core/villainRanges.js';
-import { gradeSpot } from '../../src/core/gradeSpot.js';
+import { aggressorRead, gradeSpot } from '../../src/core/gradeSpot.js';
 import { applyAction, createTable, startHand, type TableState } from '../../src/core/table.js';
 
 /**
@@ -221,6 +221,7 @@ describe('bet or raise, and the size read', () => {
 
   it('grades a multiway raise as a raise, at the archetype\'s own size', () => {
     const s = multiwayRaise();
+    expect(aggressorRead(s, s.lastAggressor!)).toEqual({ facing: 'raise', potFraction: undefined });
     const lag = ARCHETYPE_PROFILES.lag;
     const hero = s.seats[0];
     const viaSpot = gradeSpot(s, 'call', { seed: 1, modelFor: () => lag });
@@ -238,5 +239,49 @@ describe('bet or raise, and the size read', () => {
       villainHands: villainRange({ model: lag, board: s.board, facing: 'raise', livePlayers: 3 }),
     });
     expect(viaSpot).toEqual(expected);
+  });
+});
+
+describe('the aggressor\'s own line, not a prefix of another seat\'s name', () => {
+  it('reads "Bo raises" even after "Bo B calls"', () => {
+    let s = startHand(
+      createTable({
+        seats: ['You', 'Bo', 'Bo B', 'Cy'].map((name, i) => ({ name, stack: 5000, isHero: i === 0 })),
+        sb: 25,
+        bb: 50,
+        seed: 21,
+      }),
+    );
+    s = applyAction(s, { kind: 'call' }); // Cy limps
+    s = applyAction(s, { kind: 'call' }); // hero
+    s = applyAction(s, { kind: 'call' }); // Bo (SB)
+    s = applyAction(s, { kind: 'check' }); // Bo B (BB)
+    s = applyAction(s, { kind: 'check' }); // Bo
+    s = applyAction(s, { kind: 'bet', amount: 100 }); // Bo B
+    s = applyAction(s, { kind: 'fold' }); // Cy
+    s = applyAction(s, { kind: 'call' }); // hero
+    s = applyAction(s, { kind: 'raise', amount: 400 }); // Bo check-raises
+    s = applyAction(s, { kind: 'call' }); // Bo B calls
+    expect(s.toAct).toBe(0);
+    expect(s.lastAggressor).toBe(1);
+    // Graded-Grade equality can coincide when the hand is far from the line, so assert the read itself.
+    expect(aggressorRead(s, 1)).toEqual({ facing: 'raise', potFraction: undefined });
+  });
+});
+
+describe('a postflop bet is sized against the pot before it', () => {
+  it('reads a bet with a caller before hero at its own fraction', () => {
+    let s = startHand(
+      createTable({ seats: [0, 1, 2, 3].map((i) => ({ name: `P${i}`, stack: 5000, isHero: i === 0 })), sb: 25, bb: 50, seed: 21 }),
+    );
+    s = applyAction(s, { kind: 'call' });
+    s = applyAction(s, { kind: 'call' });
+    s = applyAction(s, { kind: 'call' });
+    s = applyAction(s, { kind: 'check' }); // a 200 pot on the flop
+    s = applyAction(s, { kind: 'bet', amount: 150 }); // SB bets 3/4 pot
+    s = applyAction(s, { kind: 'call' }); // BB calls
+    s = applyAction(s, { kind: 'fold' }); // seat 3
+    expect(s.toAct).toBe(0);
+    expect(aggressorRead(s, 1)).toEqual({ facing: 'bet', potFraction: 0.75 });
   });
 });

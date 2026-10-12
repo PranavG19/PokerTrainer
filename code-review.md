@@ -435,3 +435,76 @@ evaluator.
 | Big-pot close spots can hide a large estimate | Consider | Not changed: the band is the honest uncertainty; `estimateLossBb` keeps the figure. Open question. |
 | River strength ignores card removal (≤1.45 pts) | Consider | Not changed: under the 3-point step width the range uses. Comment softened to "well under the step width" → stated as measured. |
 | Doc drift 0.3 → 0.4bb | Noted | Fixed in DECISIONS. |
+
+## Re-verification (at 876a79a)
+
+Independent re-check of the four act-on items and every Fixed/Taken row. I did not edit any source file.
+Every check below runs real `TableState`s (`createTable`/`startHand`/`applyAction`) through `chartSpotFor` and
+`gradeSpot`. The scratch scripts are in `tests/tmp/rv/` (`charts.ts`, `facing.ts`, `shovemodel.ts`, `copy.ts`, `sb.ts`; gitignored).
+
+### Per item
+
+| Item | Status | Evidence |
+|---|---|---|
+| Act-on 1: chart ignores shoves, size, depth | **Partly fixed** | Spots now go to the pot-odds model: CO shove, then BB to act (`null`); the 30x open (`null`); hero at 8bb or 39.98bb (`null`, while 40bb still charts); a 30bb raiser (`null`); an open of 251 (`null`, while 250 = 5bb charts); a 3-bet to 751 (`null`, while 750 charts). Facing the shove: call AA `free 0`, fold 98s `free 0`, call 72o `serious 42.2bb` priced from pot odds. With archetype models the shove grades sensibly (lag: fold KJo `serious 15.9`, call `free`). The standard bot sizes (open ≤ 2.5bb, 3-bet 6.5bb, or 11.5bb over a 5bb open) still chart, so normal spots are not lost. **Not fixed:** hero's own `allin`. The review's fix list named it, but the resolution does not mention it (see the new Act on below). |
+| Act-on 2: multiway `facing` | **Verified fixed** (with a latent edge) | Limped 4-way flop, S bets 100, B raises to 300, U folds: `gradeSpot` matches only `facing:'raise'`. Hero bets and villain raises: `raise`. A bet with a caller before hero: `bet`. A bet followed by a third player's short all-in for less: `bet` (correct). Edge: names that are prefixes of each other (see Consider). |
+| Act-on 3: raise size mis-measured | **Verified fixed** | A raise now carries no `potFraction`, so the archetype's own size is used and the shift is 0. For a bet with callers before hero, `potFraction = villain.committed / (pot − street chips)`: S bets 150 into 200 with B calling reads 0.750. A 400 overbet with a caller reads 2.000, as the only matching candidate. A real `decideArchetypeAction` lag bet (150 into 200) reads 0.750 = `betPotFraction`, and `valueLine` gives 0.53 both with and without the size, so the shift is 0. |
+| Act-on 4: garbled close copy | **Verified fixed** | Actual output: "…edge of the BB chart against a CO open…", "…the SB chart against a BTN open…", "…the chart facing a 3-bet after a CO open…". `bannedPhrasingIn` returns null on all three. Only the 3-bet form is pinned by a test. |
+| CAP_LOOSE_CALL 0.5 → 0.25 (Taken) | Verified | Unit test 72o call is 0.35. UTG 3-bet response: 72o call is >1. |
+| Mixed cell one region over (Fixed) | **Regression in sb-vs-btn** | See the new Act on below. In BB defence the cell counts are unchanged (26/32/38/40/36). For BTN facing a 3-bet the count is unchanged (20). For UTG/HJ/CO facing a 3-bet, only AKo-fold and AQo-4-bet lose close, which is the intended change: folding AKo to a UTG 3-bet is `serious` 3.9bb. RFI is untouched (the guard sits after the RFI branch; CO still has 12 boundary cells). |
+| `' posts '` anchored (Taken) | Verified | Regex `/ posts (SB|BB) \d+$/`. Every existing chart test passes. |
+| Doc drift 0.3 → 0.4 | Verified | DECISIONS.md line updated. |
+| Tests "red on the reviewed head" | Not checked | I did not run the new tests against 2e1433d. |
+
+### New Act on
+
+- **src/core/gradeSpot.ts:125 / src/core/coach.ts:239 (`chartMove('allin')` → `'raise'`). Hero's own 100bb shove is still graded as a standard open.**
+  This was in the original act-on 1 fix list ("hero's chosen action is `allin`") and is not addressed.
+  Reproduced at 100bb, 6-max, with UTG first in:
+  - `allin` with 72o: `notable` 1.00bb, "The UTG opening chart folds 72o; raising it costs ~1.0 bb." This is the same as a min-open. A 100bb shove of 72o loses roughly 3bb or more: it is called by about 12% of hands at about 30% equity.
+  - `allin` with AA: `free` 0. Shoving aces 100bb deep forfeits most of the open's value.
+  - The BB shoving QJo over a CO open grades the same as a 3-bet (0.38bb, free).
+
+  Fix: in `gradeSpot`, skip the chart when `chosen === 'allin'` and the hero's stack is at least `MIN_CHART_DEPTH_BB`. Grade it through the pot-odds model, or grade it as a separate push mistake. Add a test that a 100bb UTG shove of 72o is not the 1bb open cost.
+- **src/core/chartGrade.ts:209. The new "one region over" rule removes the mixed cells of the 3-bet-or-fold SB vs BTN chart.**
+  sb-vs-btn is authored as mostly 3-bet-or-fold (preflop.ts:345, "a separate 3-bet-or-fold spot"). Its edge therefore runs straight from raise to fold. |raise − fold| = 2, so that edge can no longer be close: the mixed-cell count falls from 22 to 18.
+  At SB-vs-2.5x pricing (pot 200, to call 100), these were silent before the fix and now get a coach message:
+  - SB 3-betting **ATo**: `notable` 0.50bb, "the SB chart folds ATo; raising it costs ~0.5 bb";
+  - SB 3-betting **KJo**: `notable` 0.50bb;
+  - SB folding **AJo**: `notable` 0.52bb.
+
+  In a 3-bet-or-fold strategy these are the mixed cells, and the fix's own rationale ("a solve mixes 3-bet with call, or call with fold") does not hold for this spot.
+  Fix: allow raise/fold adjacency in sb-vs-btn. More generally, allow it wherever the row has no call cell between the two neighbours. Keep the AKo/AQo-facing-3-bet case non-close. Add a test for sb-vs-btn ATo raise being close.
+
+### Consider
+
+- **gradeSpot.ts:174. The aggressor's last line is found with `startsWith(name + ' ')`, which mis-attributes when one seat name is a prefix of another.**
+  Reproduced with seats `Al`, `Bo`, `Bo B`: Al bets 100, Bo raises to 300, Bo B calls 300. `last` becomes "Bo B calls 300", so the raise is read as `facing:'bet'` with `potFraction` 1.5.
+  This is latent today: `SEAT_NAMES` is You/Ada/Bo/Cy, and the LAN table passes no model. Matching the action regex and comparing the name capture exactly (as `preflopActions` does) removes it.
+  Postflop also does not refuse duplicate names the way `preflopActions` does.
+- **gradeSpot.ts:177. `last.includes(' all-in ') && othersIn` reads a first-in full all-in bet as a raise once anyone has called it.**
+  Unreachable for bots: they use `allin` first in only with ≤ 1bb behind, which is never a full bet, so `lastAggressor` stays null (D in `facing.ts`). It is reachable only for a human villain, who has no model. Reading the street's betting order would be exact.
+- **Tests.** Missing cases:
+  - the defend close copy (only the 3-bet sentence is pinned);
+  - the `potFraction` read for a bet with callers;
+  - the boundary values of the guards (5bb, 15bb, 40bb).
+- **Depth guard is hero and raisers only.** A 100bb CO is still graded on the RFI chart when the BB behind has 8bb. Effective stack is arguably the right measure, but this is minor and a judgment call.
+
+### Verification
+
+- `npx tsc --noEmit -p tsconfig.json`: exit 0.
+- `npx vitest run tests/unit/chartGrade.test.ts tests/unit/villainRanges.test.ts tests/unit/closeSpot.test.ts tests/unit/coach.test.ts tests/unit/coach-message.test.ts`: 5 files, 86 tests passed, exit 0.
+- Not run, by instruction: Electron, e2e, the full unit suite.
+
+Verdict after fixes: FAIL
+
+## Resolution of the re-verification (author)
+
+| Finding | Disposition |
+|---|---|
+| Hero all-in graded as a min-open | **Fixed.** In a chart spot a shove the chart does not make costs 3x the wrong-raise loss (100bb 72o from CO = 3bb, serious) and is never a close mixed cell; a shove the chart plays is graded as its raise. Test: "hero shoves and the 3-bet-or-fold chart" (red before). |
+| One-region rule regressed SB vs BTN | **Fixed.** That chart is 3-bet-or-fold by design, so 3-bet beside fold counts as one step there. Test: ATo 3-bet and AJo fold are close again (red before). |
+| Aggressor's line matched by name prefix | **Fixed.** Exact-line regex; `aggressorRead` exported and tested directly (red with the prefix match). |
+| Missing tests: bet size with callers, limits | Bet-size-with-callers test added (0.75). Limits are covered by the shove / 30x / 8bb tests; exact-boundary values not pinned. |
+| A called first-in all-in read as a raise (humans only) | Noted: no model exists for a human seat, so it never reaches the range. |
+| Effective stack ignored (100bb hero vs 8bb BB) | Noted: follow-up; at the app's 100bb tables only a busted-down bot can trigger it. |

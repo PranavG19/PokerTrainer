@@ -67,6 +67,14 @@ export type ChartSpot =
 /** The hero's action collapsed onto the chart's vocabulary. */
 export type ChartMove = 'fold' | 'call' | 'raise';
 
+/**
+ * A 100bb shove is not the chart's standard raise, and the grader never sees a size (Experiment 1 B1).
+ * When the chart plays the hand, shoving it is graded as the raise (the size cost is not modelled);
+ * when the chart does not, the wrong-raise cost is multiplied by this, so a 100bb shove of 72o is a
+ * serious 3bb rather than a min-open's 1bb, and it is never a close mixed cell.
+ */
+export const SHOVE_MULTIPLIER = 3;
+
 export function chartMove(action: 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'allin'): ChartMove {
   if (action === 'fold') return 'fold';
   if (action === 'call' || action === 'check') return 'call';
@@ -206,7 +214,11 @@ export function isMixedCell(spot: ChartSpot, combo: Combo, move: ChartMove): boo
   // Only one region over: a published solve mixes 3-bet with call, or call with fold, at an edge. A hand
   // the chart re-raises beside one it folds (AKo beside AQo facing a CO 3-bet) is not a mixed cell, so
   // folding it is a real mistake, not a close one.
-  if (Math.abs(STRENGTH_OF[own] - STRENGTH_OF[move]) !== 1) return false;
+  // The small blind against the button is a 3-bet-or-fold chart by design (preflop.ts), so there its
+  // edge is 3-bet beside fold and two regions over is still one step.
+  const steps = Math.abs(STRENGTH_OF[own] - STRENGTH_OF[move]);
+  const threeBetOrFold = spot.kind === 'defend' && spot.spot === 'sb-vs-btn';
+  if (steps !== 1 && !(threeBetOrFold && steps === 2)) return false;
   return rowNeighbours(combo).some((n) => chartAction(spot, n) === move);
 }
 
@@ -228,6 +240,7 @@ export function chartVerdict(
   move: ChartMove,
   potBb: number,
   toCallBb: number = 0,
+  shove = false,
 ): ChartVerdict {
   const combo = comboOf(hole[0], hole[1]);
   const chart = chartAction(spot, combo);
@@ -260,6 +273,7 @@ export function chartVerdict(
     const value = pot * (spot.kind === 'rfi' ? TIGHT_VALUE_UNOPENED_POTS : TIGHT_VALUE_RAISED_POTS);
     lossBb = value * share * (move === 'fold' ? 1 : FLAT_SHARE);
   }
+  if (shove && move === 'raise') return { combo, chart, move, lossBb: lossBb * SHOVE_MULTIPLIER, close: false };
   return { combo, chart, move, lossBb, close: isMixedCell(spot, combo, move) };
 }
 

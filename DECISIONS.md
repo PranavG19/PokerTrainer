@@ -300,7 +300,15 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
   flatting a re-raise hand is a fifth of folding it; a limp is half the nearer mistake. Folding aces first
   in ≈ 3.8bb from any seat, opening 72o = 1bb (notable), a hand 10% of all hands outside the CO chart ≈ 0.4bb (silent).
 - **Mixed cells are close:** RFI uses the authored `BOUNDARY_COMBOS`; defence and 3-bet spots use row
-  adjacency (a neighbour one kicker or one pair away takes the other action).
+  adjacency (a neighbour one kicker or one pair away takes the action one region over: 3-bet/call or
+  call/fold; 3-bet/fold in the 3-bet-or-fold small blind vs button chart). Folding AKo beside a folded AQo
+  facing a 3-bet is a mistake, not close.
+- **Not chart spots:** any all-in in the preflop betting, an open over 5bb, a 3-bet over 15bb, or hero or a
+  raiser under 40bb. The 100bb standard-size charts do not apply; the pot-odds model, which sees the price,
+  grades them.
+- **A hero shove in a chart spot:** graded as the chart's raise when the chart plays the hand (the size is
+  not modelled, Experiment 1 B1); when it does not, at 3x the wrong-raise cost (100bb 72o first in ≈ 3bb,
+  serious), and never as a close mixed cell.
 - **Chart and close verdicts carry no price meter** (a close spot's two shares overprint on the meter; the message quotes both) and use the principle `position` (RFI) or `ranges`.
 
 ### Villain ranges (`src/core/villainRanges.ts`)
@@ -310,8 +318,11 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
   authored tight/standard/wide family, which would be a second model of the same opponents.
 - **Street:** strength is re-measured on each board; postflop each hand is also weighted by its preflop
   continuation likelihood. Earlier postflop streets are not replayed (one-street memory).
-- **Bet size:** the value line moves 0.1 per doubling of the bet against the archetype's own size, capped at
-  one doubling; zero at the archetype's size, so the bots are modelled exactly. Preflop size is not read.
+- **Bet or raise** is read from the aggressor's own last log line (exact name match), not from hero's chips.
+- **Bet size:** for a postflop bet into no bet, the aggressor's chips over the pot without this street's
+  chips; the value line moves 0.1 per doubling against the archetype's own size, capped at one doubling, and
+  is zero at that size, so the bots are modelled exactly. A raise, and any preflop action, is modelled at
+  the archetype's own size (a raise's size cannot be recovered from the state).
 - **Crowd:** +0.03 per extra live player, as the bots do.
 - **Deterministic:** strength tables average 16 runouts seeded from the board (exact on the river); preflop
   strength is a generated 169-hand table (`src/core/preflopStrength.ts`, 100k iterations each,
@@ -328,6 +339,20 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
 - No existing unit spec changed. New: `closeSpot.test.ts`, `chartGrade.test.ts`, `villainRanges.test.ts`;
   two perf cases (cold strength table, weighted equity). Red-first: `closeSpot.test.ts` fails 6 of 11 on the
   old `coach.ts` (the big-pot call graded `serious`).
+
+### Open questions (default taken in brackets)
+- **Charts vs archetypes preflop.** Defending against a nit's open is graded as against a standard open.
+  [Standard charts; archetype-adjusted preflop ranges are a follow-up.]
+- **The verdict can hint at a hidden archetype.** A call graded free against a maniac's bet but not against
+  a nit's tells a careful learner something the seat label hides until showdown. [Accepted: the grade is
+  shown after the decision and never names the archetype.]
+- **The station bot's bets are mostly air.** Its parameters (bluffBetFreq 0.05, raiseFreq 0.15) make 82–91% of its
+  flop bets (by weight, on three sample flops) hands below its own value line, so the grader tells a learner to call it down. True of the
+  bot, not of real passive players. [Bots unchanged; retuning `station` is the owner's call.]
+- **Close spots in big pots.** The band is in pot-share points, so a 300bb pot can hold a ~14bb estimate
+  inside "close". [Kept: it is the honest uncertainty; `estimateLossBb` keeps the figure.]
+- **Folding aces to an open is graded ~3.4bb** (published solver gap ~9–11bb, the reviewer's recall). Still
+  `serious`. [Kept; recalibrating moves the Experiment 1 numbers.]
 
 ## The full redesign (branch `glass-full-redesign`): the mockup, built
 The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old

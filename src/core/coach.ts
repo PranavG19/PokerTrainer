@@ -243,7 +243,7 @@ function closeMessage(equity: number, line: number, priced: boolean): string {
  */
 function gradeFromChart(spot: ChartSpot, hole: Card[], chosen: Action, pot: number, toCall: number, bb: number): Grade {
   const potBb = bb > 0 ? pot / bb : Number.NaN;
-  const v = chartVerdict(spot, hole, chartMove(chosen), potBb, bb > 0 ? toCall / bb : Number.NaN);
+  const v = chartVerdict(spot, hole, chartMove(chosen), potBb, bb > 0 ? toCall / bb : Number.NaN, chosen === 'allin');
   if (v.close) {
     return {
       severity: 'free',

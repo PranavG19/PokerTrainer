@@ -271,3 +271,29 @@ describe('chart spots only where the charts apply', () => {
     );
   });
 });
+
+/** Re-verification fixes (code-review.md, "Re-verification (at 876a79a)"). */
+describe('hero shoves and the 3-bet-or-fold chart', () => {
+  const base = { board: [], street: 'preflop', stack: 4950, bb: 50, opponents: 3, seed: 1, pot: 75, toCall: 50 } as const;
+
+  it('a 100bb shove of trash is serious, not a min-open\'s 1bb; a shove of aces is not charged', () => {
+    const trash = gradeDecision({ ...base, board: [], hole: ['7s', '2h'], chosen: 'allin', chart: rfi('CO') });
+    expect(trash.severity).toBe('serious');
+    expect(trash.evLossBb).toBeCloseTo(3, 10);
+    const aces = gradeDecision({ ...base, board: [], hole: ['As', 'Ah'], chosen: 'allin', chart: rfi('CO') });
+    expect(aces.severity).toBe('free');
+  });
+
+  it('a shove of a boundary cell is not a close mixed cell', () => {
+    const v = chartVerdict(rfi('CO'), ['Ks', '7s'], 'raise', 1.5, 1, true);
+    expect(v.close).toBe(false);
+  });
+
+  it('the small blind against the button: 3-bet beside fold is still a mixed edge', () => {
+    const sbVsBtn: ChartSpot = { kind: 'defend', spot: 'sb-vs-btn' };
+    expect(chartAction(sbVsBtn, 'ATo')).toBe('fold');
+    expect(chartAction(sbVsBtn, 'AJo')).toBe('raise');
+    expect(chartVerdict(sbVsBtn, ['As', 'Th'], 'raise', 3.4, 1.4).close).toBe(true);
+    expect(chartVerdict(sbVsBtn, ['As', 'Jh'], 'fold', 3.4, 1.4).close).toBe(true);
+  });
+});
