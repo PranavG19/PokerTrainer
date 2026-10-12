@@ -22,10 +22,11 @@
  * negative. Measured: table.ts is reachable from most of the suite, so "affected by table.ts" is
  * "everything" anyway; naming it explicitly makes that honest instead of accidental.
  *
- * Usage:
- *   npx tsx scripts/affected-tests.ts            # vs HEAD (uncommitted work)
- *   npx tsx scripts/affected-tests.ts HEAD~3     # vs an earlier revision
- *   npx tsx scripts/affected-tests.ts --run      # print, then run what it selected
+ * Usage (Node 26 strips the types itself; tsx is not installed):
+ *   node scripts/affected-tests.ts               # vs HEAD (uncommitted work)
+ *   node scripts/affected-tests.ts HEAD~3        # vs an earlier revision
+ *   node scripts/affected-tests.ts --run         # print, then run what it selected
+ *   npm run test:affected                        # typecheck, then --run vs origin/main
  */
 
 import { execFileSync } from 'node:child_process';
@@ -178,15 +179,17 @@ console.log(`Changed vs ${base} (${changed.length}):`);
 for (const file of changed) console.log(`  ${file}`);
 console.log();
 
+function runFullSuite(): void {
+  execFileSync('npm', ['test', '--', '--run'], { cwd: ROOT, stdio: 'inherit' });
+  execFileSync('npm', ['run', 'e2e'], { cwd: ROOT, stdio: 'inherit' });
+}
+
 const forcingFull = changed.filter((f) => ALWAYS_FULL.includes(f));
 if (forcingFull.length > 0) {
   console.log('FULL SUITE REQUIRED — these are depended on too widely to narrow:');
   for (const file of forcingFull) console.log(`  ${file}`);
   console.log('\n  npm test -- --run && npm run e2e');
-  if (shouldRun) {
-    execFileSync('npm', ['test', '--', '--run'], { cwd: ROOT, stdio: 'inherit' });
-    execFileSync('npm', ['run', 'e2e'], { cwd: ROOT, stdio: 'inherit' });
-  }
+  if (shouldRun) runFullSuite();
   process.exit(0);
 }
 
@@ -248,6 +251,9 @@ if (affected.size === 0) {
   console.log('No suite could be attributed to these changes — running everything, because an empty');
   console.log('answer is indistinguishable from a selector that cannot see the link.');
   console.log('\n  npm test -- --run && npm run e2e');
+  // Under --run, actually run it: printing "running everything" and exiting 0 would be a green tier
+  // that tested nothing (code-review.md, finding 1).
+  if (shouldRun) runFullSuite();
   process.exit(0);
 }
 

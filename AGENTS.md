@@ -5,14 +5,40 @@ no DOM), `src/main/` is the Electron main process (window, store, network seal, 
 the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framework.
 
 ## Commands
-- Fast check (seconds): `npm run typecheck`
-- Unit tests: `npm test` (vitest, `tests/unit/`)
-- Full verify: `npm run typecheck && npm test && npm run e2e` — `e2e` builds `dist/` then runs Playwright
-  against the real Electron app (`tests/e2e/`, one worker, ~45 min). All three must be green on the final commit.
-- Iterating only: `node scripts/affected-tests.ts` (Node 26 runs the .ts directly; `tsx` is not installed and
-  must not be fetched) prints the suites a diff can break, `--run` runs them. It is a
-  shortcut for the loop, never the evidence for a commit — the full suite is.
+- Fast check (seconds): `npm run typecheck`. Unit tests: `npm test` (vitest, `tests/unit/`).
 - Run locally: `npm start` (builds, then opens the window).
+- e2e builds `dist/` then drives the real Electron app with Playwright (`tests/e2e/`, one worker).
+
+## Test tiers (pick by blast radius, the same sizing as review)
+| Tier | Command | Time | Use for |
+|---|---|---|---|
+| smoke | `npm run test:smoke` | 33 tests; 8.7 min measured at load avg ~600 | a sanity pass: launch, navigation, one hand, persistence, no-network |
+| affected | `npm run test:affected` | typecheck + the selection; the full suite when it must widen | low and medium radius (tests, docs, one module, a screen): typecheck plus the unit and e2e suites `scripts/affected-tests.ts` attributes to the diff vs `origin/main` |
+| full | `npm run test:full` | 552 tests (1 skipped) + 1804 unit; 1.3 h measured at load avg ~300, ~45 min idle | high radius (engine, profile schema, security, network), batch merges, anything the selector sends to "FULL SUITE REQUIRED" |
+- `test:affected` widens to the full suite by itself when the diff touches a shared file (`ALWAYS_FULL` in the
+  script: engine, app shell, `helpers.ts`, `package.json`, …) or when no suite can be attributed to it.
+- Under heavy machine load (endpoint-security agents), a 60s test timeout can fire on a healthy spec. Rerun that
+  one spec before believing it.
+- `node scripts/affected-tests.ts [base]` prints the selection without running it. Node 26 runs the .ts
+  directly; `tsx` is not installed and must not be fetched.
+- Red-first for a bug fix: run the one spec (`npx playwright test <name>` after `npm run build`) before the fix.
+
+## e2e windows: hidden by default, workspace 12 when visible
+- **Hidden (default).** `tests/e2e/helpers.ts` launches with `OFFSUIT_E2E=1 OFFSUIT_E2E_HIDDEN=1`. The main
+  process never calls `show()`, hides the Dock icon and uses the accessory activation policy, so a run never
+  takes focus or shows a window. The window still paints (`paintWhenInitiallyHidden`, no background
+  throttling): screenshots, layout geometry and keyboard specs all pass hidden. No spec currently needs the
+  visible tier.
+- **Visible tier.** For a spec that truly needs an on-screen window, use `launchApp({ visible: true })`, or set
+  `OFFSUIT_E2E_VISIBLE=1` to make every launch visible. The window is shown with `showInactive()`, switched to the
+  regular policy so AeroSpace can see it, and moved to workspace 12 with
+  `aerospace move-node-to-workspace --window-id <id> 12`. It is never focused. It sits on the focused workspace
+  for ~100ms before the move. Without `aerospace` on PATH it throws, naming the cause.
+- To prove a run took no focus: `scripts/focus-watch.sh <log> &` polls the focused workspace/app and lists any
+  Electron window AeroSpace can see. Kill it after the run.
+- **`ELECTRON_RUN_AS_NODE` gotcha.** Some shells (the Foundry shell) export `ELECTRON_RUN_AS_NODE=1`, which makes
+  Electron run as plain Node, so a launch hangs with no window. The e2e helper and the verify-app drive script
+  strip it. For any other Electron launch, use `env -u ELECTRON_RUN_AS_NODE npm start`.
 
 ## Boundaries
 - No dependency changes and no network: `no-network.spec` and the CSP in `index.html` (no remote fonts or
@@ -44,6 +70,6 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
 - To prove a change in the running app, use `.claude/skills/verify-app/SKILL.md`.
 
 ## Done
-- `npm run typecheck`, `npm test` and `npm run e2e` exit 0 on the final commit.
+- The tier the blast radius calls for (above) exits 0 on the final commit; `npm run test:full` for high radius.
 - UI changes: screenshots of the running app at 900x640 and 1100x760.
 - Changed files, any spec change with its reason, skipped checks and open concerns reported.

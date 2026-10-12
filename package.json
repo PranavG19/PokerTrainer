@@ -14,7 +14,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "npm run build && playwright test",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:smoke": "npm run build && playwright test navigation persistence no-network gameplay",
+    "test:affected": "npm run typecheck && node scripts/affected-tests.ts origin/main --run",
+    "test:full": "npm run typecheck && vitest run && npm run e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
