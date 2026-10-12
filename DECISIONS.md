@@ -32,6 +32,35 @@ Living record. Each line is the current end state.
   heavy machine load, are in AGENTS.md.
 - `.gitignore` uses `node_modules` without the slash, so a symlinked `node_modules` in a worktree is ignored too.
 
+## Profile schema v2 (branch `feat/profile-schema-v2`)
+
+- **Version key:** `schemaVersion`; absent or garbage = v1, any number above `SCHEMA_VERSION` = newer.
+- **Migration v1 → v2 adds defaults only.** It does not seed the Lamp, Reps or milestones from the logs.
+  Those features backfill from `hands`/`assessments` when they land. Seeding now would be untested logic
+  with no reader.
+- **The snapshot is `offsuit-state.json.pre-v2`**, a copy of the file actually read (live or the backup
+  recovery used). It is written at load, before any save. It is never overwritten: on a re-upgrade the first
+  copy is kept, and the rolling backups hold the later one. If the snapshot can't be written (a full disk),
+  load still works, but every save refuses until the snapshot succeeds. Delete removes it.
+- **Read-only lives in main, not the renderer.** It covers a newer `schemaVersion` and a file changed on
+  disk (mtime/size) since this build last read or wrote it. Delete is the one way out. The banner is fixed
+  and click-through, so no layout changes. It is amber because read-only is notable, not an error.
+- **Unknown keys are carried** at the top level and at every fixed-shape level of `progression`, using a
+  declared key tree. Lists, maps and v1 objects are owned whole by their parsers. A carried key never
+  overwrites one the serialiser wrote.
+- **Extensible vocabularies are persisted as strings** (tier, entitlements, cosmetic ids, onboarding
+  answers, Dee's tone and frequency) and read through `effective*()` helpers. An older build keeps a newer
+  build's value rather than resetting it.
+- **The Lamp model** follows the 2026-10-12 brief: lit and rested days, the weekly Rhythm (2–6 days, best
+  run), spare wicks (at most 2), and the boundary hour. A classic daily streak (vision D5) derives from
+  `litDays`, so either UI fits the same data.
+- **Local day = local time, turning at 4 am**, with the offset looked up per timestamp (DST-safe). Career's
+  cadence uses it now. It was UTC.
+- **Units:** `bankroll` is `Chips`, and `Reps`/`Chalk` are separate brands with no converters. Isolation is
+  tested by type (`@ts-expect-error`), at runtime, and by a source scan of `core/progression`.
+- **Single-instance lock** per user-data directory. A second launch exits and focuses the first, except
+  under e2e, where it does not take focus.
+
 ## The full redesign (branch `glass-full-redesign`): the mockup, built
 The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old
 layouts. This branch builds the mock's layouts and components (`demo/glass/*.html`, rounds 3 and 5) in the
