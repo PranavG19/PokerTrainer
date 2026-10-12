@@ -1,5 +1,5 @@
 # Review: feat/profile-schema-v2
-Verdict: CHANGES REQUESTED
+Verdict: PASS WITH NOTES (re-review at ba7ba94; the original review at 8af212d was CHANGES REQUESTED)
 Base: 2b28855 (merge-base with origin/main)  Head: 8af212d. I reviewed d635155 and 21278db in full. 8af212d (AGENTS.md, DECISIONS.md, profile-schema.spec) landed while I was reviewing, and I read it too.
 
 I found no way for the on-disk profile to be lost or overwritten by the paths this branch adds. The two blocking items are about a guarantee the branch states but does not keep: one is about telling the learner when saving has stopped, the other is the claimed unit isolation.
@@ -71,3 +71,31 @@ I found no way for the on-disk profile to be lost or overwritten by the paths th
 | Re-upgrade takes no new snapshot | Kept by design: the first copy is the untouched original, and the rolling backups hold the later v1 file. Pre-v2 Delete leaving `.pre-v2`: cannot change old builds; noted. |
 | DST test does not call `systemDayKeyOf` | Not changed: the real function depends on the machine timezone. The per-timestamp lookup is tested through `dayKeyAt`, and `systemDayKeyOf` is checked against `Date`. |
 | PROFILE_SHAPE drift test is one-way | Not changed: the dangerous direction (serialize writes an unlisted key) is the one tested. An extra listed key only stops a carry. |
+
+## Re-review at ba7ba94
+Both blocking items are fixed, and I have no new blocking findings. I tested the fixes on an extract of ba7ba94 in /tmp/hd2, using scratch tests that fake ENOSPC on `writeFileSync`, `copyFileSync` and `renameSync`.
+
+- **(1) Renderer save wrapper (main.ts:248-266): fixed.** `save()` no longer throws: a failed write returns `failed: 'write'`, a failed snapshot returns `failed: 'pre-migration-copy'`, and the wrapper turns an IPC rejection into `failed: 'ipc'`. `saveFailing` is set on any `saved:false` without a read-only reason and cleared by the next save that lands. The in-memory bridge returns `void`, which counts as not failing. A read-only reason takes priority over `save-failing` in `paintReadOnly`. No save runs before the banner exists. Consider: the banner says progress "saves as soon as it can", but a retry only happens on the next action that saves, and quitting while it is showing loses the session. The text could say "keep Offsuit open; it retries on your next action".
+- **(2) Temp-first `saveWithBackup` (backup.ts:110-123): fixed for the case reported.** Every failure path unlinks the temp, and no `.tmp` files were left in any probe. Results after 3 failed saves:
+  - Temp write fails: live and all 3 backups byte-identical (repo test "a write that fails").
+  - Temp write succeeds but the bak1 copy fails (`copyIfPresent` swallows it): all 3 saves go through, but the backups shrink to `[none, none, v3]`, so the previous versions v4, v2 and v1 are gone. This is the likely state on a nearly full disk: the temp file took the last of the space, and the copy needs the same again. **Consider:** `fs.linkSync(file, bak1)` instead of `copyFileSync`. A hard link uses no space and is safe because live is always replaced by rename, never rewritten in place. Fall back to copy if linking fails.
+  - The final rename fails: rotation has already run, so all three backups become the live version (v3, v2, v1 lost). The live file is intact. A same-directory rename failing is rare. Noted. Running the rename-dependent steps only once the rename can succeed, or skipping rotation when `renameSync` fails, would close it.
+- **(3) Hash-confirmed `changedElsewhere` (store.ts:79-84): fixed.** A changed stamp with identical bytes re-stamps and keeps saving (test "a file touched but not changed"). Different bytes still trip the guard (the existing second-copy test). Noted: `remember()` hashes the file re-read from disk rather than the text just written, so another writer landing in that window is taken as our own write. Also, `hashOf` returning null on a transient read error (for example EMFILE) while the stamp differs would trip the guard. Hashing the written text, and treating a null hash as "unknown, retry" rather than "changed", closes both.
+- **(4) `Unbranded` constructors (units.ts:17-38): fixed.** The 4 new `@ts-expect-error` mint cases compile, so each line really errors, and `reps(n)` with `n: number` still compiles (scratch probe, tsc exit 0). Noted: arithmetic and `Number()` still launder a brand (`chalk(bankroll - 0)`, `chalk(Number(bankroll))` compile). That is inherent to TS brands and matches the existing "arithmetic drops the brand" note. The source scan of `core/progression` is the backstop.
+- **Author's "not changed" items.** The DST response does not hold: `process.env.TZ` set at runtime makes `systemDayKeyOf` machine-independent, so a real per-timestamp test is possible. The drift response covers serialize writing an unlisted key, not a legacy key that deserialize reads but nothing lists, which the carry would write back on every save. Both stay Consider, not blocking. The re-upgrade snapshot decision is accepted.
+- **Verification at ba7ba94.**
+  - Both `tsc` configs: exit 0.
+  - `npx vitest run`: 1852 of 1855. The 3 failures are all `perf.test.ts` (load average 76-135); re-run alone it passes 7 of 7.
+  - The store, backup, units, profileSchema and progression suites plus the scratch probes: 67 of 67 pass.
+  - e2e not run, as instructed. The renderer's banner states (`save-failing` set and cleared) still have no automated test.
+
+## Author response to the re-review (next commit)
+| Note | Outcome |
+|---|---|
+| Banner says "saves as soon as it can" | Fixed: "Free some space and keep Offsuit open: the next action saves everything." |
+| Re-hash reads the file after the write | Fixed: hashes the text just written. |
+| A null hash on a transient read failure trips the guard | Fixed: present-but-unreadable is not a change; a missing file still is. |
+| Use a hard link for bak1 on a full disk | Not changed: a link shares bytes with the live file, so an in-place edit or corruption of the live file would corrupt the backup too. Commented in backup.ts. |
+| Final rename fails after rotation | Not changed: rare (the temp is already written on the same volume); the live file stays intact. |
+| DST test does not use a real timezone | Fixed: `systemDayKeyOf` is tested under TZ=America/Los_Angeles across 2023-11-05. |
+| Drift test misses a legacy key that is read but not listed | Not changed: every key deserialize reads is also written by serialize, which the test covers. |

@@ -618,5 +618,5 @@ export function readOnlyExplanation(reason: ReadOnlyReason, fileVersion?: number
 export function readOnlyHeadline(reason: ReadOnlyReason | 'save-failing'): string {
   if (reason === 'newer-version') return 'Read-only: this profile is from a newer Offsuit. Nothing here is saved.';
   if (reason === 'changed-elsewhere') return 'Not saving: another copy of Offsuit changed this profile. Restart to continue.';
-  return 'Not saving: the profile could not be written (is the disk full?). Your progress is kept here and saves as soon as it can.';
+  return 'Not saving: the profile could not be written (is the disk full?). Free some space and keep Offsuit open: the next action saves everything.';
 }

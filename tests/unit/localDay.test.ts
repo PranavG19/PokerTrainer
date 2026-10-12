@@ -64,3 +64,25 @@ describe('dayKeyAt', () => {
     expect(systemDayKeyOf()(ms)).toBe(viaDate);
   });
 });
+
+describe('systemDayKeyOf in a real timezone', () => {
+  it('follows America/Los_Angeles across the 2023-11-05 DST change, evening to evening', () => {
+    const saved = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      // Skip honestly if this runtime ignores a TZ change after start (then the offset stays put).
+      const pdt = new Date(Date.UTC(2023, 10, 5, 3)).getTimezoneOffset();
+      const pst = new Date(Date.UTC(2023, 10, 6, 4)).getTimezoneOffset();
+      expect([pdt, pst]).toEqual([420, 480]);
+      const dayOf = systemDayKeyOf();
+      const nov4Evening = Date.UTC(2023, 10, 5, 3); // 20:00 PDT
+      const nov5Evening = Date.UTC(2023, 10, 6, 4); // 20:00 PST
+      const nov5Early = Date.UTC(2023, 10, 5, 10, 30); // 02:30 PST, before the 4 am turn
+      expect(dayOf(nov5Evening) - dayOf(nov4Evening)).toBe(1);
+      expect(dayOf(nov5Early)).toBe(dayOf(nov4Evening));
+    } finally {
+      if (saved === undefined) delete process.env.TZ;
+      else process.env.TZ = saved;
+    }
+  });
+});

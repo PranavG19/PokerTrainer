@@ -89,6 +89,11 @@ function renameIfPresent(from: string, to: string): void {
   }
 }
 
+/**
+ * A real copy, not a hard link. A link would cost no space on a full disk, but it shares bytes with the
+ * live file, so anything that edits the live file in place (an editor, a corrupting crash) would corrupt
+ * the backup with it.
+ */
 function copyIfPresent(from: string, to: string): void {
   try {
     fs.copyFileSync(from, to);

@@ -70,16 +70,26 @@ function hashOf(file: string): string | null {
   }
 }
 
-function remember(): void {
+/**
+ * After a write, `written` is the text this build just wrote: hashing that rather than re-reading the
+ * file means another writer landing in between is still seen as foreign.
+ */
+function remember(written?: string): void {
   lastSeen = stampOf(STATE_FILE);
-  lastSeenHash = hashOf(STATE_FILE);
+  lastSeenHash =
+    written === undefined ? hashOf(STATE_FILE) : crypto.createHash('sha256').update(written, 'utf-8').digest('hex');
 }
 
 /** True only when the live file's bytes differ from what this build last read or wrote. */
 function changedElsewhere(): boolean {
-  if (sameStamp(stampOf(STATE_FILE), lastSeen)) return false;
-  if (hashOf(STATE_FILE) !== lastSeenHash) return true;
-  lastSeen = stampOf(STATE_FILE);
+  const now = stampOf(STATE_FILE);
+  if (sameStamp(now, lastSeen)) return false;
+  const hash = hashOf(STATE_FILE);
+  // Present but unreadable for a moment is not evidence of another writer; stopping all saves on it
+  // would be the worse failure. A file that is gone (now === null) still counts as changed.
+  if (hash === null && now !== null) return false;
+  if (hash !== lastSeenHash) return true;
+  lastSeen = now;
   return false;
 }
 
@@ -165,13 +175,14 @@ export function save(obj: Record<string, unknown>): SaveOutcome {
   } catch {
     return { saved: false, readOnly: null, failed: 'pre-migration-copy' };
   }
+  // Stamped here as well as by serialize, so nothing this build writes can claim another version.
+  const text = JSON.stringify({ ...obj, schemaVersion: SCHEMA_VERSION }, null, 2);
   try {
-    // Stamped here as well as by serialize, so nothing this build writes can claim another version.
-    saveWithBackup(STATE_FILE, JSON.stringify({ ...obj, schemaVersion: SCHEMA_VERSION }, null, 2));
+    saveWithBackup(STATE_FILE, text);
   } catch {
     return { saved: false, readOnly: null, failed: 'write' };
   }
-  remember();
+  remember(text);
   return { saved: true, readOnly: null };
 }
 
