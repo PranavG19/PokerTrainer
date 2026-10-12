@@ -1,14 +1,14 @@
 # The mock persona (one player, every screen agrees)
 
 **Today is Sunday 12 October 2025, evening, not yet played.** Every date below is 2025. The streak of 23 runs
-20 Sep–11 Oct; today is still open.
+19 Sep–11 Oct (23 days, inclusive); today is still open.
 
 Sam (Dee calls them what they set in onboarding; there is no account and no real name field). Pronouns are not
 needed anywhere: write to "you".
 
 ## Onboarding answers (profile, new)
 - Goals (tiles, verbatim): **Win my home game** and **Understand why I lose**. The game is on Thursdays (schedule).
-- Where you play: **Home game** (also some online). Stakes: **$1/$2 home game**, 100 bb deep.
+- Where you play: **Home game** (also some online). Stakes: **$1/$2 home game** (Dee talks in this money; stack depth comes from the certified table).
 - Experience: **A few years, never studied.**
 - Why you play: **The friends, and the puzzle.**
 - Schedule: **Weeknights, 30 minutes** (Mon–Fri reminders); the game itself is Thursday. 30 minutes is the shipped minimum session (sessionPlan.ts:45, spec S2a).
@@ -16,7 +16,7 @@ needed anywhere: write to "you".
 
 ## Numbers (sources: vision/personalization-sources.md)
 - Started 6 weeks ago (Mon 1 Sep). 1,240 graded decisions. 412 hands played (HandRecord, last 500 kept).
-- Streak **23 days** (20 Sep–11 Oct), which is also your longest (the first run, 1–18 Sep, was 18). Today (Sun 12 Oct) is not yet played on every screen.
+- Streak **23 days** (19 Sep–11 Oct), which is also your longest (the first run, 1–17 Sep, was 17; 18 Sep was missed). Today (Sun 12 Oct) is not yet played on every screen.
 - EV loss **4.1 bb/100**, down from 9.4 in the first assessment block (assessmentBlock.ts).
 - Sure calls right **81%** (118 of 146); Guess 52% (61 of 117). The mark is 85%.
 - Biggest leak: **river calls**, 1.8 bb a time across 14 hands = 25 bb (bets of 60–100% pot). Second: **folding to c-bets** on dry boards, 68% folds, 0.6 bb a time across 22 = 13 bb (pot odds).
@@ -45,7 +45,7 @@ needed anywhere: write to "you".
 
 ## Trophies (fixed, shown in advance; each names the decision it records)
 Earned (6): The Long Call (11 Oct), The Set Fold (4 Oct), Forty Deep (40 bb table certified, 2 Sep), Seventy-Five Deep (75 bb, 6 Oct),
-Twelve Rules (12 sentences accepted, 9 Oct), Three Weeks (21-day streak, 10 Oct).
+Twelve Rules (12 sentences accepted, 9 Oct), Three Weeks (21-day streak, 9 Oct).
 Next: One-Twenty-Five Deep (certify 125 bb; 7 of 8 concepts, puzzles done), Sure Means Sure (85% over 100 Sure calls; 81% now), Thirty Days (a 30-day streak; 23/30), Rival Turned (win back the 14 bb from Bo).
 Materials: ceramic bone (decisions), smoked glass (depth), graphite (habit). No gold, no colour.
 

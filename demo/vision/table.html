@@ -187,7 +187,7 @@
   if (state === 'great') {
     $('dock').hidden = true; $('beat').hidden = false; $('stage').classList.add('beat-open');
     // The river: Bo bets 450 into 550 (31% price); hero calls with two pair and wins. Bo's archetype shows once the hand ends (jitter.ts).
-    $('hero').classList.remove('act'); $('heroStatus').innerHTML = 'Won the 1450 pot · <span class="pos-num">+750</span>'; document.querySelector('#hero .stackval').textContent = '5750';
+    $('hero').classList.remove('act'); $('heroStatus').innerHTML = 'Won the 1450 pot&nbsp;·&nbsp;<span class="pos-num">+750</span>'; document.querySelector('#hero .stackval').textContent = '5750';
     const wells = document.querySelectorAll('.board .card.well');
     wells[0].outerHTML = '<div class="card"><span class="rk">9</span><span class="st">♣</span><span class="pip">♣</span></div>';
     wells[1].outerHTML = '<div class="card"><span class="rk">J</span><span class="st">♠</span><span class="pip">♠</span></div>';

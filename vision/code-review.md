@@ -439,3 +439,75 @@ Counts: verified fixed 12 · partly fixed 9 · not fixed 0 · dispute accepted 4
 - **N7:** Fixed. The Squeeze is +8 bb, and the milestone's 4 Oct 3-bet is A♠5♠.
 - **N8:** Fixed. Profile's chart end point is ink-1.
 - **N10:** Fixed. The label reads "Most quoted:".
+
+---
+
+## Third pass (at 7d0f691)
+
+**Verdict: FAIL.** Every item that was open after the second pass now holds in the tree and the renders, apart from two small residues. One must-fix contradiction remains, and the N1 fix made it explicit: the streak calendar is off by one day (N11). 20 Sep–11 Oct is 22 days, not 23. The new persona line "the first run, 1–18 Sep" also leaves 19 Sep as the missed day, yet the SPR rule was accepted on 19 Sep. The second pass's acceptance of the R21 dispute rested on the same miscount. That is corrected here as part of N11; R21's row is left as it was.
+
+**Re-render.** `~/.local/share/mise/installs/node/24/bin/node capture.mjs` exited 0 with "no console errors, no network, no page scroll". After the render, `git status` failed in this sandbox (packed-refs not readable), so I could not confirm that the PNGs are byte-identical. I read these renders by eye: table-live and dee-settings, lesson, onboarding-step4 and hands at 900x640; table-great and trophies at 1100x760.
+
+| # | Status | Reason |
+|---|---|---|
+| R2 | verified fixed | The live tray now has only Call picked, with Sure/Guess unpicked, so it is uncommitted. The same flop no longer carries two stories. Ada and Cy are revealed at hand end (N3). |
+| R3 | verified fixed | Onboarding: "talk in your game's money … Stack depth comes from the tables you certify". Profile: "depth comes from your tables". Story's room hand is 75 bb. The gate reads "7 of 8 concepts, puzzles done". Residue: `persona.md:11` still says "Stakes: $1/$2 home game, 100 bb deep" (N12). |
+| R4 | verified fixed | Onboarding offers 30 / 50 min, which matches `SESSION_LENGTHS = [30, 50]`. Milestone shows "28 hands · 30 minutes". DECISIONS.md and persona.md cite sessionPlan.ts:45. |
+| R7 | partly fixed | `persona.md:19` no longer contradicts line 3, and today is open everywhere. But the day count is wrong (N11). |
+| R12 | verified fixed | `persona.md:15` says "After notable hands", which matches the option. |
+| R13 | verified fixed (note stands) | Nothing changed. The like-for-like re-rate note from the second pass still applies, as a note. |
+| R14 | dispute accepted | The `%23F3F4F6` sits inside an SVG data-URI glyph, which is drawn art, not a page colour. The orphan display sizes are still deferred to the port, as acknowledged. |
+| R18 | partly fixed | Unchanged. Story venue icons and the monogram chips remain a consider, as the author says. |
+| R20 | partly fixed | Accepted as stated: ellipsis truncation inside the window is still not machine-checked. I found none by eye in the renders listed above. |
+| N1 | partly fixed | "Best 31" is gone everywhere (Home "Your longest yet", Thirty Days 23/30, Locker 23 of 30, Profile run bar 23/30). The replacement history is arithmetically wrong (N11). |
+| N2 | verified fixed | `commit-btn` is removed. The tray caption reads "It commits when you pick both", and only Call is picked (`table-live-900x640.png`). The comment in table-dee.css cites predictPanel.ts. |
+| N3 | verified fixed | `table-great-1100x760.png` shows Ada Station and Cy TAG-reg. |
+| N4 | partly fixed | Rival, story, lesson body, persona and source comments say 5 of 12 (about 42%). Residue: the lesson diagram's aria-label still says "Bo bluffs 44% of the time" (`lesson.html:155`). That is the old figure, and it is phrased as engine truth (N13). |
+| N5 | verified fixed | `.choice[aria-checked='true']` reserves 34px (`vision.css:76`). "After notable hands" wraps clear of the check in `dee-settings-900x640.png`. |
+| N6 | verified fixed | `lesson-900x640.png`: "5 of 12 big river bets he showed were bluffs" shows in full, and the ellipsis rule is gone. |
+| N7 | verified fixed | The Squeeze is +8 bb in hands, letter and persona. The milestone's 4 Oct 3-bet is A♠5♠. |
+| N8 | verified fixed | `.chart .pt.end` uses `--ink-1` (`profile.html:78`). |
+| N9 | verified fixed | `table-live-900x640.png` shows the whole reason, "25% price, two pair beats his bluffs". |
+| N10 | verified fixed | "Most quoted:" (`dee-settings.html:134`). |
+
+Counts: verified fixed 13 · partly fixed 5 · not fixed 0 · dispute accepted 1 · dispute rejected 0.
+
+### New findings
+
+**N11. must-fix. The streak is 22 days, not 23, and the gap day has a recorded session.**
+- **Where:** `vision/persona.md:4` and `:19` ("23 days (20 Sep–11 Oct) … the first run, 1–18 Sep, was 18"), `persona.md:48` and `trophies.html:260` (Three Weeks, 10 Oct), `locker.html:223` (Three Weeks, "9 Oct"), `milestone.html` perch 15 on 4 Oct, and every "23" perch.
+- **Evidence:**
+  - 20 Sep–11 Oct inclusive is 11 + 11 = 22 days. A run of 21 days from 20 Sep ends on 10 Oct, so 11 Oct is day 22.
+  - The new "first run 1–18 Sep" makes 19 Sep the missed day. But the SPR rule is dated 19 Sep (`persona.md:28`, `profile.html:183`, and `letter.html:171` "your SPR rule, 19 Sep"), so a session was played that day.
+  - The Locker (9 Oct) and Trophies (10 Oct) disagree on the date Three Weeks was earned.
+- **Fix:** Start the run on Fri 19 Sep and make the first run 1–17 Sep (17 days), with Thu 18 Sep missed (no dated event falls on it).
+  - Then 19 Sep–11 Oct = 23 days, and Three Weeks = 9 Oct, which matches the Locker. Change `trophies.html:260` and `persona.md:48` to 9 Oct.
+  - The milestone perch on Sat 4 Oct becomes 16, as R21 first said.
+  - Restate persona.md lines 4 and 19.
+
+**N12. should-fix. The persona still says the stakes come with a depth.**
+- **Where:** `vision/persona.md:11` "Stakes: **$1/$2 home game**, 100 bb deep."
+- **Fix:** "Stakes: $1/$2 home game (money talk only; depth comes from certified tables)". persona.md is the source every screen inherits from (R1's own fix note).
+
+**N13. should-fix. The lesson diagram's accessible name says 44%, as engine truth.**
+- **Where:** `lesson.html:155` (`.tile.dia` aria-label "Bo bluffs 44% of the time, above the 31% price").
+- **Fix:** "Of Bo's big river bets you've seen at showdown, 5 of 12 (about 42%) were bluffs, above the 31% price." Similarly, the meter label "Bo bluffed 5 of 12" (`lesson.html` `.pm .lb`) could read "Bo showed bluffs 5 of 12", to keep R6's observed-only framing.
+
+**N14. consider. The great state's status line is missing a space.**
+- **Where:** `table.html:190` (`'Won the 1450 pot · <span class="pos-num">+750</span>'`).
+- **Evidence:** In `table-great-1100x760.png` it renders as "pot ·+750". The space before the span collapses, or the span's padding eats it.
+- **Fix:** Use `&nbsp;` after the dot, or a small gap on `.pos-num` here.
+
+**Noted (no action):**
+- `lesson.html:142` keeps a Commit primary. That is the lesson's own answer flow, not the shipped table tray, so N2 doesn't apply.
+- The Hands "graded right" reason ("Bo bluffs his big river bets about half the time") is the player's own words. It overstates the 42%, but quoting the user verbatim is the rule.
+- Thirty Days reuses the streak stack glyph. That is the same meaning, so it is consistent with the R18 response.
+
+### Author response to the third pass
+- **N11:** Fixed. The run is 19 Sep–11 Oct, 23 days inclusive. The first run was 1–17 Sep and 18 Sep was missed; the SPR rule from 19 Sep is a session
+  day. Three Weeks is 9 Oct everywhere. The milestone perch on Sat 4 Oct reads 16, kept that day. R21's original 16 was right, and the
+  author's dispute is withdrawn.
+- **N12:** Fixed. persona.md's stakes no longer claim 100 bb.
+- **N13:** Fixed. The lesson diagram's aria-label and meter label now use the showdown count ("showed 5 bluffs in 12, about 42%").
+- **N14:** Fixed. Non-breaking spaces around the separator.
+- **R18, R20:** Open as considers (venue icons and monograms; in-window truncation is checked by eye).
