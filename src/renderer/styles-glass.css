@@ -1111,6 +1111,19 @@ html .g-seg > button:disabled {
 .table-corner-r {
   right: 0;
   gap: 12px;
+  z-index: 6;   /* above a coach sheet's scrim: table settings stay reachable */
+}
+/* While a verdict sheet is up, its Close is the one primary; Next hand under it reads as secondary. */
+html .table-screen[data-sheet='verdict'] .controls .pill.primary:not(:disabled) {
+  background: var(--fill-1);
+  color: var(--ink-1);
+  font-weight: 500;
+  border-color: var(--hair-strong);
+  box-shadow: none;
+}
+html .table-screen[data-sheet='verdict'] .controls .pill.primary:not(:disabled):hover {
+  background: var(--fill-2);
+  box-shadow: none;
 }
 
 /* ─── Compact tiers: the stage shrinks when coached mode, the stats sheet or the coach verdict take
@@ -1154,8 +1167,9 @@ html .g-seg > button:disabled {
 /* ─── The stats readout, in the table's top-right corner. The win/tie line is quiet metadata in the stat
  * grammar (value then label, neutral ink: the colour role map gives a win% no hue); opening Stats drops the
  * made-hand list under it as a small float. ─── */
+/* static, so the made-hand float anchors to the corner's right edge, clear of the top seat. */
 html .table-screen .stats-sheet {
-  position: relative;
+  position: static;
   padding: 0;
   gap: 0;
   background: none;
@@ -1440,7 +1454,7 @@ html .coach-gate-note {
   background: rgba(10, 12, 16, 0.5);
   animation: coach-fade var(--dur-2) var(--ease) both;
 }
-.table-screen[data-sheet] .table-stage > :not(.coach-layer) {
+.table-screen[data-sheet] .table-stage > :not(.coach-layer):not(.table-corner-r) {
   filter: blur(10px) brightness(0.45) saturate(0.7);
   transition: filter var(--dur-3) var(--ease);
 }
@@ -1660,7 +1674,7 @@ html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong);
  * round-3 rater found a frozen bar under reduced motion hid how long was left). */
 @media (prefers-reduced-motion: reduce) {
   .sel-thumb,
-  .table-screen[data-sheet] .table-stage > :not(.coach-layer) {
+  .table-screen[data-sheet] .table-stage > :not(.coach-layer):not(.table-corner-r) {
     transition: none;
   }
   .coach-sheet,

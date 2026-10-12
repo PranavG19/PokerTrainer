@@ -444,6 +444,9 @@ export function renderTable(opts: {
     if (coachedMode) {
       if (coach.parentElement !== sheet) sheet.replaceChildren(coach, sheetPredict, sheetFoot);
       if (sheetLayer.parentElement !== stage) stage.appendChild(sheetLayer);
+      // A verdict already up (shown inline while uncoached) moves into the sheet rather than vanishing
+      // inside a hidden layer while the voice and the announcer still carry it.
+      if (!coach.hidden && sheetKind === null) openSheet(gate !== null ? 'gate' : 'verdict');
       return;
     }
     closeSheet();
@@ -451,10 +454,12 @@ export function renderTable(opts: {
     sheetLayer.remove();
   }
 
-  /** Everything in the stage but the sheet goes inert (out of the tab order and the a11y tree). */
+  /** Everything in the stage but the sheet goes inert (out of the tab order and the a11y tree). The
+   *  right-hand corner is table settings, not table content: the Coach switch and Stats stay reachable at
+   *  every point in a hand, sheet or not. */
   function setStageInert(on: boolean): void {
     for (const child of stage.children) {
-      if (child === sheetLayer) continue;
+      if (child === sheetLayer || child === cornerRight) continue;
       (child as HTMLElement).inert = on;
     }
   }
@@ -482,7 +487,7 @@ export function renderTable(opts: {
       } else {
         sheetPredict.hidden = true;
       }
-      sheetCaption.textContent = state.winners === null ? 'The hand plays on behind this sheet' : '';
+      syncSheetCaption();
       sheetClose.hidden = false;
       sheet.focus({ preventScroll: true });
     } else {
@@ -490,6 +495,13 @@ export function renderTable(opts: {
       sheetPredict.hidden = true;
       sheetCaption.textContent = 'The verdict appears when you answer, use both attempts, or the bar runs out.';
       sheetClose.hidden = true;
+    }
+  }
+
+  /** A verdict opens before its action is applied, so the caption follows the live state (render()). */
+  function syncSheetCaption(): void {
+    if (sheetKind === 'verdict') {
+      sheetCaption.textContent = state.winners === null ? 'The hand plays on behind this sheet' : '';
     }
   }
 
@@ -954,6 +966,7 @@ export function renderTable(opts: {
     // The commit row tracks whether a decision is pending, so it must be re-synced every render,
     // not only when the toggle is clicked.
     syncPredictMount();
+    syncSheetCaption();
 
     refreshStats();
 
@@ -1176,6 +1189,8 @@ export function renderTable(opts: {
     raise.disabled = !heroTurn || !committed || !canRaise;
     raise.appendChild(keycap('R'));
     raise.setAttribute('aria-keyshortcuts', 'R');
+    // The R key raises to the minimum; this button raises to the slider's amount. Say so where it shows.
+    raise.title = `R raises to the minimum (${min})`;
     controls.appendChild(raise);
   }
 

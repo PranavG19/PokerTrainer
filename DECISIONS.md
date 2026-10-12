@@ -70,15 +70,19 @@ rule.
   survives every render. The blinds sit top-left as 12px metadata.
 - **The Win/Tie strip under the dock is gone; the readout moved to that corner.** The win/tie line is quiet
   metadata in the stat grammar (value then label, neutral ink — the role map gives a win% no hue, so it is no
-  longer mint), and Stats (or the readout itself) drops the made-hand list under it as a small float. This
+  longer mint), and Stats (or the readout itself) drops the made-hand list as a small float anchored to the
+  corner's right edge, clear of the top seat. This
   frees the strip's ~40px at 900x640 and fixes the strip that matched nothing else in the system. The sheet's
   testids, `data-open`, `data-withheld` and the "—" withholding in coached mode are unchanged.
 - **The dock has the round-3 hierarchy:** Fold / Check / Call secondary with trailing keycaps on their real
   hotkeys (C sits on Check when checking is legal, else on Call, exactly as the C key behaves), a separator,
   the sizing group (a slider whose track fills to the thumb centre, a fixed 40px tabular amount slot, and the
   presets ½ ¾ Pot All-in as one small segmented group with `role="group"`; All-in's A hotkey is in its
-  tooltip), a separator, and Raise as the one bone primary with its R keycap. Next hand is the primary at
-  handover. Keycaps are `aria-hidden`; each button names its key with `aria-keyshortcuts`.
+  tooltip), a separator, and Raise as the one bone primary with its R keycap. The R key raises to the
+  minimum while the button raises to the slider's amount, so the button's tooltip says "R raises to the
+  minimum (N)". Next hand is the primary at handover. Keycaps are `aria-hidden`; each button names its key
+  with `aria-keyshortcuts`. The table also draws the streets still to come as empty inset wells (no card
+  testid, so card queries are unchanged).
 - **Round-5 sports fixes:**
   - **One green on the hero:** the pinned mint ring stays (`interaction.spec`); the mint border and mint wash
     are gone. Your turn is the ring plus a soft white light pool on the plate.
@@ -108,6 +112,14 @@ rule.
   - The screen-reader announcer still announces each verdict once.
   - Action hotkeys never reach a table behind a sheet; Esc closes a verdict but never a gate.
   - On close, focus returns to the first live control (the tray, else the dock), never to `<body>`.
+  - The table-settings corner (the Coach switch, the win/tie readout, Stats) is never inert and sits above the
+    scrim, so the Coach switch stays reachable at every point in a hand, as the dock toggle was.
+  - Switching Coach on while an uncoached verdict is up moves it into the sheet (it never vanishes while the
+    voice and the announcer still carry it); switching Coach off moves an open sheet's verdict or gate back
+    inline.
+  - The sheet's caption follows the live state: "The hand plays on behind this sheet" only while it does.
+  - One primary on screen: while a verdict sheet is up its Close is the bone button and Next hand under it
+    reads as secondary; with the sheet closed Next hand is the primary again.
 - **The verdict sheet holds both halves:** the coach's head (a 13px warning glyph plus "Serious"/"Notable" in
   coral/amber, so severity is never colour alone, and "On the flop, you folded to 75" on the right), the 17/600
   headline, the principle, the price meter, a divider, "You committed to Fold, Sure", the 15/600 neutral
@@ -135,13 +147,61 @@ rule.
 - `predict.spec` (toggle): the Coach toggle is a switch, so "off" is asserted as `role="switch"` +
   `aria-checked="false"` instead of the old "Coach off" label text.
 - `layout.spec` 8: the made-hand list now opens as a small float that fits at 900x640, so "the body scrolls"
-  became "every row is on screen or reachable by scrolling the body". The no-page-scroll, win% on screen and
-  action pills on screen assertions are unchanged.
+  became "the body scrolls, or every row is on screen, inside the body and hit-tests to itself". Added: the
+  open list covers no seat stack. The no-page-scroll, win% on screen and action pills on screen assertions
+  are unchanged.
 - `gate.spec` 5: under reduced motion the budget bar's animation is now asserted ON (`offsuit-gate-drain`);
   the gate box's entrance animation is still asserted off and the gate still fires, resolves and logs.
-- Added: `coached-handover.spec` 3 (the gate sheet takes focus into its field; the stage behind is inert; Esc
-  does not dismiss a gate) and 4 (the verdict sheet takes focus, holds both halves, Esc dismisses it, focus
-  lands on Next hand, nothing stays inert); `coach.test.ts` (`Grade.price`).
+- Added: `coached-handover.spec` 3 (the gate sheet takes focus into its field; the stage behind is inert except
+  the settings corner; Esc does not dismiss a gate), 4 (the verdict sheet takes focus, holds both halves, its
+  caption is honest at handover, exactly one bone primary, the Coach switch reachable, Esc dismisses it,
+  focus lands on Next hand, nothing stays inert) and 5 (switching Coach on over an uncoached verdict keeps it
+  on screen); `coach.test.ts` (`Grade.price`).
+- Added by the screen work: `grid-tools.spec` (Equity shows only the villain input its mode needs; Bank,
+  Equity and Ranges grids fit with every cell at least 24px), `puzzle.spec` 0 (each Spots action shows its
+  real hotkey). Changed: `charts.spec` 4 also accepts the boundary's corner notch (`::after`) as its
+  non-colour cue, alongside border style and weight; the "not recoloured, not mint" checks are unchanged.
+
+### Every other screen (the round-3 element change log, applied with the kit)
+- **Learn:** a 22/600 title, title-case phase labels, each phase's lessons as one inset group of rows with
+  chevrons; the lesson view's facts on the stat component, its example a hairline section with a segmented
+  1/2/3, Commit as the one bone primary. The tutor rail (shared with Spots) is a flat hairline section.
+- **Train hub and drills:** the sub-rail is a source list (fill-1, no shadow), distinct from the toolbar thumb.
+  Math matches `drill.html`: the 216px Drilling column with ONE kind list (checkmark plus the session tally,
+  then "All kinds"), the 22/600 question, the 15/600 band sentence, the You said / The answer stat pair with
+  coral only on the wrong value, the numbered method with tertiary tabular numerals, and Next problem as the
+  bone primary with ↩. Reading, Sight, Defense and 3-bet follow it; Spots is two flat columns with the tutor
+  rail; Speed, Stress, Leaks, Upkeep and variance are hairline columns with stat figures and one primary.
+- **Charts, Bank, Equity, Ranges:** `charts.html`'s 288px side column (segmented spot and seat with the sliding
+  thumb, the 28px width stat, classes as a flat list, numbered rules, flat boundary tags), the 13×13 grid on an
+  opaque base with graphite cells and the boundary as a 10px corner notch (never a ring: rings mean focus),
+  a legend drawn like the cells, row-staggered cell fade-in, and the quiz as a horizontal inset group with
+  trailing keycaps. Bank, Equity and Ranges share the grid language and use the kit's fields, segmented
+  pickers and one bone primary each.
+- **Dossier, Progress, Profile, Settings, Review, Assessment, Career, Multiplayer:** headline figures on the
+  stat component, title-case labels, inset groups only for lists that act (tendencies, saved ranges, the hand
+  picker, setup rows, multiplayer seats as rows), hairline sections for the rest, one primary each. Settings'
+  on/off controls are real switches (`role="switch"`, `aria-checked`, visible On/Off text kept) and the theme
+  picker is a segmented control; the theme switch is still paint-only.
+- **Bugs found and fixed along the way (each with a failing test first):**
+  - Equity's hidden villain inputs and its 169-cell grid showed in "Any two cards" mode (`.equity-field`'s
+    `display:flex` beat `hidden`): `grid-tools.spec` E1 failed first.
+  - Spots showed Check's hint as "C" though its hotkey is K: `puzzle.spec` 0 failed first.
+  - Learn's Enter on the lesson list re-clicked the now-persistent focused tab and redrew the list over the
+    lesson (the persistent nav exposed a missing `preventDefault`): `lesson.spec` 7 failed first.
+  - The review's three table defects (verdict hidden by switching Coach on, a stale "plays on" caption, two
+    primaries at handover): `coached-handover.spec` 4 and 5 failed first (`tests/tmp/e2e-red-review.log`).
+
+### Tests: why no failing-first test overall, and what no test covers
+- **No failing-first test applies to the redesign itself:** it changes how screens look and where controls
+  sit, not a defect. The behaviour it adds is pinned by new tests (the sheet's focus, inertness, Esc, caption
+  and primaries; `Grade.price`; the grid fit), and each real bug found along the way got its failing test
+  first (above).
+- **No test covers:** how any screen looks beyond the colour, geometry and fit pins; the sliding thumb's
+  motion; hover and press states; the stage's blur under a sheet; the obsidian theme's appearance; the
+  backdrop under `prefers-reduced-transparency`; the real traffic-light position (`trafficLightPosition`)
+  in a windowed build. The evidence for these is the screenshots (`fr-final/`, `fr-compare/`) and the AA
+  measurement (`aa-fr.log`).
 
 ## The app restyle (shipped look: glass, with the `sports` table)
 The user chose `sports`. The real app (`src/renderer/`) now uses the glass system and the `sports` table.

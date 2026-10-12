@@ -271,10 +271,14 @@ test.describe('coached handover at the documented minimum size', () => {
       await expect(sheet).toHaveAttribute('role', 'dialog');
       await expect(page.locator('[data-testid="gate-input"]')).toBeFocused();
       const inert = await page.evaluate(() =>
-        [...document.querySelectorAll<HTMLElement>('.table-stage > :not(.coach-layer)')].map((el) => el.inert),
+        [...document.querySelectorAll<HTMLElement>('.table-stage > :not(.coach-layer):not(.table-corner-r)')].map(
+          (el) => el.inert,
+        ),
       );
       expect(inert.length).toBeGreaterThan(0);
       expect(inert.every(Boolean), 'everything on the table behind the gate is inert').toBe(true);
+      // ...except the table-settings corner: the Coach switch is reachable at every point in a hand.
+      await page.locator(modeToggle).click({ trial: true, timeout: 5_000 });
       // Esc does not dismiss a gate (only a verdict): the self-explanation is still owed.
       await page.keyboard.press('Escape');
       await expect(page.locator(tableScreen)).toHaveAttribute('data-gate', 'open');
@@ -298,6 +302,17 @@ test.describe('coached handover at the documented minimum size', () => {
       await expect(sheet.locator(predictResult)).toBeVisible();
       await expect(page.locator('[data-testid="verdict-commit"]')).toHaveText('You committed to Fold, Sure');
       await expect(page.locator('[data-testid="coach-severity"]')).toHaveText('Serious');
+      // The action that opened this verdict ended the hand, so the sheet must not say it plays on.
+      await expect(sheet.locator('.coach-sheet-foot .g-caption')).not.toContainText('plays on');
+      // One bone primary on screen: the sheet's Close. Next hand stays reachable as a secondary.
+      const bone = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('button')]
+          .filter((b) => b.offsetParent !== null && getComputedStyle(b).backgroundColor === 'rgb(244, 242, 236)')
+          .map((b) => b.dataset.testid ?? b.textContent),
+      );
+      expect(bone, 'exactly one primary (bone) action at a coached handover').toEqual(['coach-close']);
+      // The Coach switch is table settings, not table content: reachable with the sheet up.
+      await page.locator(modeToggle).click({ trial: true, timeout: 5_000 });
 
       await page.keyboard.press('Escape');
       await expect(sheet).toBeHidden();
@@ -309,6 +324,30 @@ test.describe('coached handover at the documented minimum size', () => {
         [...document.querySelectorAll<HTMLElement>('.table-stage > *')].some((el) => el.inert),
       );
       expect(inert, 'nothing stays inert once the sheet is gone').toBe(false);
+    } finally {
+      await close();
+    }
+  });
+
+  test('5. switching Coach on over an uncoached verdict keeps the verdict on screen', async () => {
+    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    try {
+      await sitDown(page);
+      await useViewport(app, page);
+      // Uncoached: call preflop, then the serious flop fold, which ends the hand with the verdict inline.
+      await page.locator(sel.btnCall).click();
+      expect(await waitForIdle(page)).toBe('hero');
+      await page.locator(sel.btnFold).click();
+      expect(await waitForIdle(page)).toBe('handover');
+      await expect(page.locator('[data-testid="coach-message"]')).toBeVisible();
+      const message = await page.locator('[data-testid="coach-message"]').textContent();
+
+      // The verdict is the voice's and the announcer's subject; it must not vanish from the screen
+      // while they still carry it (table.ts: narration never outlives the text).
+      await page.locator(modeToggle).click();
+      await expect(page.locator(modeToggle)).toHaveAttribute('aria-checked', 'true');
+      await expect(page.locator('[data-testid="coach-message"]')).toBeVisible();
+      await expect(page.locator('[data-testid="coach-message"]')).toHaveText(message ?? '');
     } finally {
       await close();
     }
