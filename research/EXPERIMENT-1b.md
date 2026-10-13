@@ -28,21 +28,21 @@ Raw reports: [`experiment-1b/`](experiment-1b/) (`before-legacy-random.txt`, `be
 ## Results
 
 "Before" is `origin/main` at `2b28855`. "Before, shipped" grades as the live table did (the fixed betting
-range when facing a bet); "before, legacy" is the no-model call Experiment 1 used. "After" is this branch at `c91155d` (rebased as `09cbaec`; the rebase onto the test-tier merge touched no grader file).
+range when facing a bet); "before, legacy" is the no-model call Experiment 1 used. "After" is this branch at `a3a55f6` (the tip's grader; later commits touch only scripts and docs).
 
 ### How often the grader has an opinion (adherent-passive, every legal action graded, all streets)
 
 | Measure | Exp. 1 as published (`c66c40e`) | Before, legacy (`2b28855`) | Before, shipped (`2b28855`) | After |
 |---|---:|---:|---:|---:|
 | decisions | 60,183 | 60,183 | 74,737 | 60,968 |
-| every action free (old "no opinion") | 39.3% | 43.2% | 39.2% | 27.0% |
-| **silent** (free and nothing close) | 39.3% | 43.2% | 39.2% | **21.7%** |
+| every action free (old "no opinion") | 39.3% | 43.2% | 39.2% | 22.7% |
+| **silent** (free and nothing close) | 39.3% | 43.2% | 39.2% | **18.0%** |
 | close (some action in the band) | — | — | — | 12.4% |
-| tied at the minimum | 47.7% | 53.9% | 61.7% | 58.8% |
-| tied, bet/raise/all-in as one class | — | — | 51.0% | 44.7% |
-| decisive | — | 14.7% | 13.2% | 26.3% |
+| tied at the minimum | 47.7% | 53.9% | 61.7% | 56.1% |
+| tied, bet/raise/all-in as one class | — | — | 51.0% | 46.7% |
+| decisive | — | 14.7% | 13.2% | 29.7% |
 
-Preflop, where the charts now decide: silent 62.2% → 23.5%, decisive 2.1% → 34.3% (before, shipped → after).
+Preflop, where the charts now decide: silent 62.2% → 14.0%, decisive 2.1% → 43.1% (before, shipped → after).
 Postflop silent: flop 34.1% → 26.5%, turn 27.7% → 20.9%, river 20.1% → 12.8%.
 
 The legacy column differs from the published 39.3% / 47.7% because `coach.ts` changed after `c66c40e`
@@ -54,7 +54,7 @@ exactly (60,183), so the harness is the same.
 | Over | free | close | notable | serious |
 |---|---:|---:|---:|---:|
 | every legal action, before (shipped) | 80.1% | — | 14.4% | 5.5% |
-| every legal action, after | 63.8% | 6.7% | 20.3% | 9.1% |
+| every legal action, after | 63.0% | 6.7% | 21.9% | 8.4% |
 | action played, after | 94.1% | 5.9% | 0% | 0% |
 
 ### The veto arm per lineup (tag-plus-grader − tag-baseline, paired bb/100, 95% CI)
@@ -84,32 +84,32 @@ of what "adherence" plays.
 | | Before (shipped) | After |
 |---|---:|---:|
 | hero decision states | 998 | 971 |
-| some verdict word changes | 8.9% | 13.0% |
-| **a mistake under one seed, not under another** | **6.7%** | **5.9%** |
+| some verdict word changes | 8.9% | 14.1% |
+| **a mistake under one seed, not under another** | **6.7%** | **6.1%** |
 
-The band barely moves loud flips. Any hard line on a noisy estimate flips near the line; the band moves the
+The band does not move loud flips. Any hard line on a noisy estimate flips near the line; the band moves the
 line (to the band's edge) rather than removing it, and the 0.5bb silence line is a second edge. The word-level
 rate rises because "close" is a new word that a spot can flip into.
 
 ## Verdict: is the grader fit to drive rewards?
 
-**Not yet, for rewards that read a single verdict. It is closer, and it is fit for the coarse use the
-skeptic proposed.**
+**Not yet, for rewards that read a single verdict. It now meets one of the two suggested targets, and it is
+fit for the coarse use the skeptic proposed.**
 
 Against the suggested pre-registered targets (BUILD-PLAN Wave 0):
-- *No opinion on under 20% of decisions:* **missed narrowly** — 21.7% silent (39.2% before). On the old
-  measure (every action free, a close spot included) it is 27.0%.
-- *No severity flip from re-seeding on a fixed spot set:* **missed** — 5.9% of states still flip between
+- *No opinion on under 20% of decisions:* **met, narrowly and with a caveat** — 18.0% silent (39.2% before). Part of the last drop is cheap: a 100bb preflop shove is now priced (`shoveLossBb`), so in many preflop spots the all-in is the one action charged. Before shove pricing (`c91155d`) it was 21.7%. On the old
+  measure (every action free, a close spot included) it is 22.7%.
+- *No severity flip from re-seeding on a fixed spot set:* **missed** — 6.1% of states still flip between
   "mistake" and "not a mistake" under re-seeding (6.7% before). Not reachable by any threshold on a 2000-
   iteration estimate; it needs either more iterations on graded spots or a reward that ignores verdicts near
   a line.
 - *A veto arm positive against all four lineups (the skeptic's bar):* **missed narrowly** — positive against
   three, all-tag now inside the noise at −3 (it was −70, significant). Both previously harmful lineups improved.
 
-What did improve, plainly: preflop is graded (decisive 2% → 34%), the archetype exploit text and the grade
+What did improve, plainly: preflop is graded (decisive 2% → 43%), the archetype exploit text and the grade
 now agree (calling down a maniac is not charged; folding to a nit is not), and the veto arm stopped hurting.
 
-What still blocks a reward layer: ties (44.7% even counting bet/raise/all-in as one) come from the grader
+What still blocks a reward layer: ties (46.7% even counting bet/raise/all-in as one) come from the grader
 never preferring a bet to a check except on turn/river value (Experiment 1 defect B7, out of this scope), and
 ~6% of verdicts are seed-fragile. **Recommendation:** rewards, if any, key only on the coarse "serious vs not"
 boundary and give nothing for close spots, as the skeptic proposed; the reward-reading layer waits for a

@@ -62,27 +62,27 @@ raise and all-in one class: the grader never sees a size); decisive = unique min
 
 adherent-passive
   street   decisions allFree  silent   close    tied tiedCls decisive
-  preflop      23677   29.2%   23.5%    8.2%   59.0%   43.2%    34.3%
+  preflop      23677   18.1%   14.0%    8.2%   52.1%   48.1%    43.1%
   flop         13461   32.6%   26.6%   13.4%   59.2%   59.2%    14.9%
   turn         12550   25.8%   20.9%   17.2%   58.5%   40.4%    21.0%
   river        11280   16.8%   12.8%   14.8%   58.3%   35.6%    29.1%
-  ALL          60968   27.0%   21.7%   12.4%   58.8%   44.7%    26.3%
-  verdicts, every legal action: free 63.8%  close 6.7%  notable 20.3%  serious 9.1%
+  ALL          60968   22.7%   18.0%   12.4%   56.1%   46.7%    29.7%
+  verdicts, every legal action: free 63.0%  close 6.7%  notable 21.9%  serious 8.4%
   verdicts, action played:      free 94.1%  close 5.9%  notable 0.0%  serious 0.0%
 
 adherent-aggro
   street   decisions allFree  silent   close    tied tiedCls decisive
-  preflop      24250   28.6%   22.9%    8.2%   59.4%   43.9%    34.1%
+  preflop      24250   17.8%   13.7%    8.2%   52.7%   48.8%    42.7%
   flop         12740    9.5%    6.2%   13.4%   62.3%   62.3%    31.6%
   turn         10202    7.6%    5.4%   17.3%   56.3%   35.0%    38.2%
   river         8542    4.0%    2.5%   14.0%   55.5%   29.1%    42.0%
-  ALL          55734   16.6%   12.8%   11.9%   58.9%   44.2%    35.5%
-  verdicts, every legal action: free 57.4%  close 6.2%  notable 21.0%  serious 15.4%
+  ALL          55734   11.9%    8.7%   11.9%   56.0%   46.3%    39.2%
+  verdicts, every legal action: free 56.5%  close 6.2%  notable 22.7%  serious 14.6%
   verdicts, action played:      free 91.2%  close 8.8%  notable 0.0%  serious 0.0%
 
 == GRADER DIAGNOSTICS (adherent policies only) ==
-adherent-passive  decisions=60968 allFree=16437 (27.0%) tiedAtMin=35855 (58.8%)
-adherent-aggro    decisions=55734 allFree=9264 (16.6%) tiedAtMin=32814 (58.9%)
+adherent-passive  decisions=60968 allFree=13812 (22.7%) tiedAtMin=34231 (56.1%)
+adherent-aggro    decisions=55734 allFree=6639 (11.9%) tiedAtMin=31190 (56.0%)
 
 == SAMPLE SIZE: what this run buys ==
 observed per-hand σ for adherent-passive: 19.3bb → ±24.4 bb/100 at n=24000
@@ -94,6 +94,6 @@ paired σ (adherent-passive − wide-caller): 19.4bb → half-width ±24.5 bb/10
 
 engine sanity: stuckStates total = 0 (must be 0)
 
-harness dependency hash: 0bad14906807ccd5 (HEAD c91155d at start)
+harness dependency hash: fe4d99b09da7a3ad (HEAD a3a55f6 at start)
 
-wrote scripts/experiments/adherence/out/results-2000-shipped-dep0bad14906807ccd5.json in 606s
+wrote scripts/experiments/adherence/out/results-2000-shipped-depfe4d99b09da7a3ad.json in 7s
