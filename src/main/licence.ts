@@ -19,7 +19,7 @@
  */
 
 import * as crypto from 'node:crypto';
-import { advanceHighWater, highWaterAfterInstall } from '../core/entitlements/clock.js';
+import { advanceHighWater } from '../core/entitlements/clock.js';
 import { DEV_KEYS, PRODUCTION_KEYS, REVOKED_LICENCE_IDS } from '../core/entitlements/config.js';
 import { can, freeSnapshot, resolveEntitlements, type EntitlementSnapshot } from '../core/entitlements/entitlements.js';
 import { isFeature, type Feature, type Tier } from '../core/entitlements/features.js';
@@ -34,6 +34,11 @@ export interface LicenceDeps {
   readonly isPackaged: boolean;
   readonly devOverride: Tier | null;
   readonly nowSeconds: () => number;
+  /**
+   * A clock that only goes forward while this process runs (performance.now()). With the system clock set
+   * back, licence time still advances by the time Offsuit runs, so a rollback cannot stop it ticking.
+   */
+  readonly monotonicSeconds?: () => number;
   readonly loadMirror: () => LicenceMirror;
   readonly saveMirror: (mirror: LicenceMirror) => void;
 }
@@ -69,6 +74,17 @@ export type InstallOutcome =
   | { readonly ok: true; readonly snapshot: EntitlementSnapshot }
   | { readonly ok: false; readonly reason: string };
 
+export interface KeyPreview {
+  readonly ok: true;
+  readonly claims: LicenceClaims;
+  /** Names this exact token, so a confirmation installs what it showed and nothing that arrived since. */
+  readonly id: string;
+  /** Already past its paid period and grace at licence time: installing it is refused. */
+  readonly ended: boolean;
+  /** The key ending it would replace, when one is installed. */
+  readonly replaces: string | null;
+}
+
 export interface LicenceAuthority {
   /** Take the profile main just loaded: adopt its token and mark, and return it with main's entitlements. */
   adopt(profile: Record<string, unknown>): Record<string, unknown>;
@@ -76,31 +92,67 @@ export interface LicenceAuthority {
   stamp(profile: Record<string, unknown>): Record<string, unknown>;
   snapshot(): EntitlementSnapshot;
   can(feature: Feature): boolean;
-  /** Verify and install a pasted (or deep-linked, then confirmed) key. Nothing is stored unless it verifies. */
+  /**
+   * Verify and install a pasted (or deep-linked, then confirmed) key. Nothing is stored unless it verifies,
+   * and a key that has already ended, or is older than the valid key installed, is refused: one click on
+   * a link from any web page must not be able to downgrade a paying learner.
+   */
   install(raw: string): InstallOutcome;
-  /** Forget the key on this Mac (the purchase itself is untouched). */
+  /** Forget the key on this Mac (the purchase itself is untouched; the rollback guard is kept). */
   remove(): EntitlementSnapshot;
   /** The stored token (for refresh), or null. Never sent to the renderer. */
   token(): string | null;
-  /** What a token would grant, verified, without installing it: the deep-link confirmation shows this. */
-  preview(raw: string): { ok: true; claims: LicenceClaims } | { ok: false; reason: string };
+  /** What a token would do, verified, without installing it: the deep-link confirmation shows this. */
+  preview(raw: string): KeyPreview | { ok: false; reason: string };
+  /**
+   * Set the mark to the licence server's time (its reply to refresh or restore). The one way a mark
+   * pushed ahead by a fast clock comes back down; a pasted key never moves it.
+   */
+  correctClock(serverNow: unknown): void;
+}
+
+/** A stored mark or iat, or null when it is out of range: ignored rather than allowed to zero the guard. */
+function saneMark(v: unknown): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && v > 0 && v <= MAX_SANE_SECONDS ? v : null;
+}
+const MAX_SANE_SECONDS = 7_258_118_400;
+
+export function tokenId(token: string): string {
+  return crypto.createHash('sha256').update(token, 'utf8').digest('hex').slice(0, 16);
 }
 
 export function createLicenceAuthority(deps: LicenceDeps): LicenceAuthority {
   const check = signatureCheck(keyring(deps.isPackaged));
   const verify = (token: string): VerifyResult => verifyToken(token, check, REVOKED_LICENCE_IDS);
+  const mono = deps.monotonicSeconds ?? (() => performance.now() / 1000);
 
   const mirror = deps.loadMirror();
   let token: string | null = mirror.token;
-  let highWater = advanceHighWater(mirror.highWater, deps.nowSeconds());
+  let highWater = advanceHighWater(saneMark(mirror.highWater) ?? 0, deps.nowSeconds());
+  // The session's own clock: the mark as of now plus the time this process has run.
+  let sessionBase = highWater;
+  let monoBase = mono();
 
-  const current = (): EntitlementSnapshot =>
-    resolveEntitlements({
-      verified: token === null ? null : verify(token),
-      now: deps.nowSeconds(),
-      highWater,
-      devOverride: deps.devOverride,
-    });
+  const tick = (): void => {
+    highWater = Math.max(advanceHighWater(highWater, deps.nowSeconds()), Math.floor(sessionBase + (mono() - monoBase)));
+  };
+  /** Restart the session clock from the current mark (after a load or a reset of the mark). */
+  const rebase = (): void => {
+    sessionBase = highWater;
+    monoBase = mono();
+  };
+  const verifiedIat = (t: string | null): number | null => {
+    if (t === null) return null;
+    const v = verify(t);
+    return v.ok ? v.claims.iat : null;
+  };
+  const resolveFor = (t: string | null, devOverride = deps.devOverride): EntitlementSnapshot =>
+    resolveEntitlements({ verified: t === null ? null : verify(t), now: deps.nowSeconds(), highWater, devOverride });
+
+  const current = (): EntitlementSnapshot => {
+    tick();
+    return resolveFor(token);
+  };
 
   const persistMirror = (): void => {
     try {
@@ -111,9 +163,9 @@ export function createLicenceAuthority(deps: LicenceDeps): LicenceAuthority {
   };
 
   const entitlementsObject = (): Record<string, unknown> => {
-    const s = current();
+    tick();
     // A dev override is never persisted as a grant: the cache says what the licence alone grants.
-    const cached = s.state === 'dev' ? resolveEntitlements({ verified: token === null ? null : verify(token), now: deps.nowSeconds(), highWater, devOverride: null }) : s;
+    const cached = resolveFor(token, null);
     return { tier: cached.tier, granted: [...cached.features], licence: token, highWater };
   };
 
@@ -129,19 +181,33 @@ export function createLicenceAuthority(deps: LicenceDeps): LicenceAuthority {
     };
   };
 
+  /** Why `candidate` must not replace the installed key, or null when it may. */
+  const refusal = (candidate: LicenceClaims, candidateToken: string): string | null => {
+    if (candidateToken === token) return null;
+    if (resolveFor(candidateToken, null).state === 'expired') return 'already-ended';
+    const installed = resolveFor(token, null);
+    const installedIat = verifiedIat(token);
+    if ((installed.state === 'active' || installed.state === 'grace') && installedIat !== null && candidate.iat < installedIat) {
+      return 'older-than-current';
+    }
+    return null;
+  };
+
   return {
     adopt(profile) {
       const stored = readStored(profile);
       if (stored !== null) {
-        highWater = Math.max(highWater, stored.highWater);
+        const mark = saneMark(stored.highWater);
+        if (mark !== null) highWater = Math.max(highWater, mark);
         if (stored.token !== null) token = better(token, stored.token, verify);
       }
-      highWater = advanceHighWater(highWater, deps.nowSeconds());
+      tick();
+      rebase();
       persistMirror();
       return withEntitlements(profile);
     },
     stamp(profile) {
-      highWater = advanceHighWater(highWater, deps.nowSeconds());
+      tick();
       persistMirror();
       return withEntitlements(profile);
     },
@@ -152,9 +218,9 @@ export function createLicenceAuthority(deps: LicenceDeps): LicenceAuthority {
       const candidate = normalizeToken(raw);
       const result = verify(candidate);
       if (!result.ok) return { ok: false, reason: result.reason };
-      const previous = token === null ? null : verify(token);
-      const previousIat = previous !== null && previous.ok ? previous.claims.iat : null;
-      highWater = highWaterAfterInstall(highWater, deps.nowSeconds(), result.claims.iat, previousIat);
+      tick();
+      const refused = refusal(result.claims, candidate);
+      if (refused !== null) return { ok: false, reason: refused };
       token = candidate;
       persistMirror();
       return { ok: true, snapshot: current() };
@@ -165,10 +231,28 @@ export function createLicenceAuthority(deps: LicenceDeps): LicenceAuthority {
       return current();
     },
     token: () => token,
+    correctClock(serverNow) {
+      const t = saneMark(serverNow);
+      if (t === null) return;
+      highWater = t;
+      rebase();
+      tick();
+      persistMirror();
+    },
     preview(raw) {
       if (typeof raw !== 'string') return { ok: false, reason: 'malformed' };
-      const result = verify(normalizeToken(raw));
-      return result.ok ? { ok: true, claims: result.claims } : { ok: false, reason: result.reason };
+      const candidate = normalizeToken(raw);
+      const result = verify(candidate);
+      if (!result.ok) return { ok: false, reason: result.reason };
+      tick();
+      const installed = token === null ? null : verify(token);
+      return {
+        ok: true,
+        claims: result.claims,
+        id: tokenId(candidate),
+        ended: resolveFor(candidate, null).state === 'expired',
+        replaces: installed !== null && installed.ok && token !== candidate ? installed.claims.lid.slice(-6) : null,
+      };
     },
   };
 }
@@ -193,7 +277,7 @@ function readStored(profile: Record<string, unknown>): LicenceMirror | null {
   return {
     // Decodable at least; verification decides what it grants.
     token: raw.length > 0 && !('error' in decodeToken(raw)) ? raw : null,
-    highWater: typeof o.highWater === 'number' && Number.isFinite(o.highWater) ? o.highWater : 0,
+    highWater: typeof o.highWater === 'number' ? o.highWater : 0,
   };
 }
 
@@ -269,4 +353,31 @@ export function tokenFromDeepLink(url: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+export interface CheckoutOffer {
+  readonly url: string;
+  readonly price: string;
+}
+
+/**
+ * The plans checkout may open for: a URL, a price label to show first, and something shipped to sell.
+ * An unpackaged run may supply prices (OFFSUIT_PRICE_MONTHLY / _ANNUAL) and declare the build sellable
+ * (OFFSUIT_DEV_SELLABLE=1) so tests can drive checkout; a packaged build ignores both.
+ */
+export function checkoutPlans(
+  endpoints: LicenceEndpoints,
+  prices: Readonly<Record<'monthly' | 'annual', string>>,
+  anyProFeatureShipped: boolean,
+  env: Readonly<Record<string, string | undefined>>,
+  isPackaged: boolean,
+): Readonly<Record<'monthly' | 'annual', CheckoutOffer | null>> {
+  const dev = !isPackaged;
+  const shipped = anyProFeatureShipped || (dev && env.OFFSUIT_DEV_SELLABLE === '1');
+  const offer = (plan: 'monthly' | 'annual', override: string | undefined): CheckoutOffer | null => {
+    const url = endpoints.checkout[plan];
+    const price = dev && override !== undefined && override !== '' ? override : prices[plan];
+    return shipped && url !== null && price.trim() !== '' ? { url, price } : null;
+  };
+  return { monthly: offer('monthly', env.OFFSUIT_PRICE_MONTHLY), annual: offer('annual', env.OFFSUIT_PRICE_ANNUAL) };
 }

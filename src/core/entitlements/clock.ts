@@ -4,17 +4,20 @@
  * The install keeps a high-water mark: the latest time it has trusted (persisted in the profile AND in
  * the settings file, so deleting the profile does not reset it; src/main/licence.ts). Licence time is
  * `max(system clock, high-water mark, the token's issue time)`: a token cannot be issued in the future,
- * so its `iat` is a lower bound on the true time too. Rolling the clock back therefore never extends a
- * licence; it is simply ignored.
+ * so its `iat` is a lower bound on the true time too. Rolling the clock back therefore never revives an
+ * ended licence and never winds licence time back.
  *
  * Tolerance: nothing is ever taken away for a rollback (licence time just stops going backwards), and
  * the learner is told only when the clock is more than ROLLBACK_TOLERANCE behind, so an NTP correction,
  * a time-zone change or a dual-boot clock never shows a warning.
  *
- * A clock that ran far AHEAD by mistake pushes the mark forward and could end a licence early. Installing
- * a newer token (a higher `iat`, which only the server can sign) resets the mark to the token's issue
- * time or the system time, whichever is later (`highWaterAfterInstall`), so a renewal or a restore is
- * always the way out.
+ * While the clock stays behind, main still advances the mark by the time Offsuit runs (a monotonic clock,
+ * src/main/licence.ts), so licence time keeps ticking at the app's own pace.
+ *
+ * A clock that ran far AHEAD by mistake pushes the mark forward and could end a licence early. Pasting a
+ * key never lowers the mark (any key, however old, could be pasted with the clock set back). Only the
+ * licence server's own time, in its reply to Check for renewal or Restore, corrects it
+ * (`LicenceAuthority.correctClock`), so those buttons are always the way out.
  */
 
 export const ROLLBACK_TOLERANCE_SECONDS = 36 * 3600;
@@ -33,21 +36,6 @@ export function isClockBehind(systemNow: number, highWater: number, iat: number 
 /** The mark after a reading: never lower. */
 export function advanceHighWater(highWater: number, systemNow: number): number {
   return Math.max(sane(highWater), sane(systemNow));
-}
-
-/**
- * The mark after installing a token. A NEWER token (iat above the stored one's, or the first token)
- * resets it; re-installing the same or an older token cannot, so replaying an old key never undoes a
- * rollback guard.
- */
-export function highWaterAfterInstall(
-  highWater: number,
-  systemNow: number,
-  installedIat: number,
-  previousIat: number | null,
-): number {
-  if (previousIat === null || installedIat > previousIat) return Math.max(sane(systemNow), installedIat);
-  return advanceHighWater(highWater, systemNow);
 }
 
 function sane(t: number): number {

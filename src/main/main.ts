@@ -26,9 +26,10 @@ import { nullModelClient, nullTutor } from './tutor/nullTutor.js';
 import { hostSession, joinSession, type RelaySession } from './relaySession.js';
 import { parseInvite } from '../core/relayClient.js';
 import type { Action } from '../core/table.js';
-import { CHECKOUT_URLS, LICENCE_SERVER_URL, MANAGE_URL } from '../core/entitlements/config.js';
+import { CHECKOUT_URLS, LICENCE_SERVER_URL, MANAGE_URL, PRICE_LABELS } from '../core/entitlements/config.js';
+import { FEATURE_INFO, PRO_FEATURES } from '../core/entitlements/features.js';
 import { devOverrideFrom } from '../core/entitlements/entitlements.js';
-import { createLicenceAuthority, licenceEndpoints, tokenFromDeepLink } from './licence.js';
+import { checkoutPlans, createLicenceAuthority, licenceEndpoints, tokenFromDeepLink, tokenId } from './licence.js';
 import { refreshLicence, restoreLicence } from './licenceClient.js';
 import type { RoomView } from '../core/multiplayer.js';
 
@@ -128,6 +129,11 @@ const endpoints = licenceEndpoints(
   process.env,
   app.isPackaged,
 );
+/**
+ * What may be sold right now: a plan opens checkout only with a URL, a price shown before it, and at least
+ * one Pro feature shipped. Decided here, so the sheet's "checkout stays closed" is a fact, not a promise.
+ */
+const sellable = checkoutPlans(endpoints, PRICE_LABELS, PRO_FEATURES.some((f) => FEATURE_INFO[f].available), process.env, app.isPackaged);
 
 /**
  * A deep link `offsuit://activate?key=…` is only ever a PROPOSAL: any web page can open one, so the
@@ -276,6 +282,7 @@ app.whenReady().then(() => {
     isPackaged: app.isPackaged,
     devOverride: devOverrideFrom(process.env, app.isPackaged),
     nowSeconds: () => Math.floor(Date.now() / 1000),
+    monotonicSeconds: () => performance.now() / 1000,
     loadMirror: loadLicenceMirror,
     saveMirror: saveLicenceMirror,
   });
@@ -292,7 +299,8 @@ app.whenReady().then(() => {
   // Verification is offline and lives here. Every network call below is a button the learner pressed.
   const licenceStatus = () => ({
     snapshot: authority.snapshot(),
-    checkout: { monthly: endpoints.checkout.monthly !== null, annual: endpoints.checkout.annual !== null },
+    checkout: { monthly: sellable.monthly !== null, annual: sellable.annual !== null },
+    prices: { monthly: sellable.monthly?.price ?? null, annual: sellable.annual?.price ?? null },
     manage: endpoints.manage !== null,
     server: endpoints.server === null ? null : new URL(endpoints.server).host,
     devBuild: !app.isPackaged,
@@ -316,22 +324,35 @@ app.whenReady().then(() => {
   ipcMain.handle('licence:deeplinkPreview', () => {
     if (pendingDeepLink === null) return null;
     const preview = authority.preview(pendingDeepLink);
-    if (!preview.ok) return { ok: false, reason: preview.reason };
+    if (!preview.ok) return { ok: false, reason: preview.reason, id: tokenId(pendingDeepLink) };
     const c = preview.claims;
-    return { ok: true, plan: c.plan, tier: c.tier, paidThrough: c.exp, licenceHint: c.lid.slice(-6) };
+    return {
+      ok: true,
+      id: preview.id,
+      plan: c.plan,
+      tier: c.tier,
+      paidThrough: c.exp,
+      licenceHint: c.lid.slice(-6),
+      ended: preview.ended,
+      replaces: preview.replaces,
+    };
   });
-  ipcMain.handle('licence:deeplinkConfirm', (_event, accept: unknown) => {
+  // Confirm names the key it showed: a link that arrived after the dialog opened is not the one approved.
+  ipcMain.handle('licence:deeplinkConfirm', (_event, accept: unknown, id: unknown) => {
     const token = pendingDeepLink;
+    if (token === null || typeof id !== 'string' || id !== tokenId(token)) {
+      return { ok: false, reason: 'declined', status: licenceStatus() };
+    }
     pendingDeepLink = null;
-    if (token === null || accept !== true) return { ok: false, reason: 'declined', status: licenceStatus() };
+    if (accept !== true) return { ok: false, reason: 'declined', status: licenceStatus() };
     const outcome = authority.install(token);
     if (!outcome.ok) return { ok: false, reason: outcome.reason, status: licenceStatus() };
     return { ok: true, status: persistLicence() };
   });
   ipcMain.handle('licence:openCheckout', async (_event, plan: unknown) => {
-    const url = plan === 'monthly' || plan === 'annual' ? endpoints.checkout[plan] : null;
-    if (url === null) return { opened: false };
-    await openExternal(url);
+    const offer = plan === 'monthly' || plan === 'annual' ? sellable[plan] : null;
+    if (offer === null) return { opened: false };
+    await openExternal(offer.url);
     return { opened: true };
   });
   ipcMain.handle('licence:openManage', async () => {
@@ -343,6 +364,7 @@ app.whenReady().then(() => {
     const token = authority.token();
     if (token === null) return { ok: false, reason: 'no-licence', status: licenceStatus() };
     const reply = await refreshLicence(endpoints.server, token);
+    if (reply.ok) authority.correctClock(reply.serverNow);
     if (!reply.ok) return { ok: false, reason: reply.reason, serverStatus: reply.status ?? null, status: licenceStatus() };
     if (reply.token !== null && reply.token !== token) {
       const outcome = authority.install(reply.token);
@@ -356,6 +378,7 @@ app.whenReady().then(() => {
     const email = typeof input?.email === 'string' ? input.email : '';
     if (orderId.trim() === '' || email.trim() === '') return { ok: false, reason: 'missing', status: licenceStatus() };
     const reply = await restoreLicence(endpoints.server, orderId, email);
+    if (reply.ok) authority.correctClock(reply.serverNow);
     if (!reply.ok || reply.token === null) {
       return { ok: false, reason: reply.ok ? 'not-found' : reply.reason, serverStatus: reply.status ?? null, status: licenceStatus() };
     }

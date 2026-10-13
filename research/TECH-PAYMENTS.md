@@ -319,7 +319,8 @@ How the tokens work:
    `invoice.paid` (after re-reading the subscription and confirming `status === "active"`), it upserts
    `{account, plan, current_period_end}`.
 3. On `invoice.payment_failed` it flags past-due and keeps access until the period ends. On
-   `customer.subscription.deleted`, `charge.refunded` and `charge.dispute.created` it revokes.
+   `customer.subscription.deleted` it ends the licence; a FULL `charge.refunded` or a `charge.dispute.closed`
+   that was lost revokes the period it covered (a partial refund or an open dispute changes nothing).
 4. The token reaches the app by pasting it, or through an `offsuit://activate?key=…` deep link from the
    checkout success page (the app asks before installing it). Offsuit never contacts the server by itself:
    **Check for renewal** and **Restore** are buttons the learner presses (the no-network guarantee). The token

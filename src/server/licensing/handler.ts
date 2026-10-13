@@ -83,22 +83,31 @@ export function createLicenceServer(deps: LicenceServerDeps): (request: LicenceR
 
     try {
       let subscriptionId = event.subscriptionId;
-      if (subscriptionId === null && event.chargeId !== null) {
-        subscriptionId = await deps.stripe.subscriptionForCharge(event.chargeId);
+      let charge = null;
+      if (event.chargeId !== null) {
+        charge = await deps.stripe.getCharge(event.chargeId);
+        subscriptionId ??= charge?.subscriptionId ?? null;
       }
       if (subscriptionId === null && event.orderId !== null) {
         subscriptionId = await deps.store.subscriptionForOrder(event.orderId);
       }
       if (subscriptionId === null) return json(200, { status: 'no-subscription' });
-      if (event.orderId !== null) await deps.store.linkOrder(event.orderId, subscriptionId);
-
-      if (event.kind === 'revoke') {
-        await setStatus(subscriptionId, 'revoked');
-        return json(200, { status: 'revoked' });
-      }
-      const truth = await deps.stripe.getSubscription(subscriptionId);
-      if (truth === null) return json(200, { status: 'no-subscription' });
-      const outcome = await apply(truth, event.orderId, now);
+      const sub = subscriptionId;
+      // One subscription's events run one at a time: Stripe sends checkout, subscription and invoice
+      // events within milliseconds, and each is a read-then-write of the same record.
+      const outcome = await serialized(sub, async () => {
+        if (event.orderId !== null) await deps.store.linkOrder(event.orderId, sub);
+        if (event.kind === 'refund') {
+          if (charge === null || charge.amountRefunded < charge.amount) return 'partial-refund';
+          return revoke(sub, event.orderId);
+        }
+        if (event.kind === 'dispute-closed') {
+          return event.disputeStatus === 'lost' ? revoke(sub, event.orderId) : 'dispute-closed';
+        }
+        const truth = await deps.stripe.getSubscription(sub);
+        if (truth === null) return 'no-subscription';
+        return apply(truth, event.orderId, now);
+      });
       return json(200, { status: outcome });
     } catch (error) {
       // Let Stripe's retry run the event again rather than having it skipped as a duplicate.
@@ -108,29 +117,72 @@ export function createLicenceServer(deps: LicenceServerDeps): (request: LicenceR
     }
   }
 
-  async function setStatus(subscriptionId: string, status: LicenceStatus): Promise<void> {
+  /**
+   * Per-subscription serialisation within this process. A host running several instances must give the
+   * store an equivalent guarantee (a row lock or compare-and-set on `put`); docs/PAYMENTS-SETUP.md says so.
+   */
+  const queues = new Map<string, Promise<unknown>>();
+  function serialized<T>(key: string, run: () => Promise<T>): Promise<T> {
+    const previous = queues.get(key) ?? Promise.resolve();
+    const next = previous.then(run, run);
+    const settled = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    queues.set(key, settled);
+    void settled.then(() => {
+      if (queues.get(key) === settled) queues.delete(key);
+    });
+    return next;
+  }
+
+  /**
+   * A full refund or a lost dispute: no key is handed out for the period it covered. With no record yet
+   * (the refund beat the grant), a tombstone is written so the grant that follows issues nothing. A LATER
+   * paid period (Stripe kept billing) is a new purchase and is granted again.
+   */
+  async function revoke(subscriptionId: string, orderId: string | null): Promise<string> {
     const existing = await deps.store.bySubscription(subscriptionId);
-    if (existing !== null && existing.status !== 'revoked') await deps.store.put({ ...existing, status });
+    const truth = await deps.stripe.getSubscription(subscriptionId);
+    const through = Math.max(existing?.paidThrough ?? 0, truth?.currentPeriodEnd ?? 0);
+    const orderIds = mergeOrders(existing?.orderIds ?? [], orderId);
+    await deps.store.put(
+      existing !== null
+        ? { ...existing, status: 'revoked', paidThrough: through, orderIds }
+        : {
+            lid: newLicenceId(),
+            subscriptionId,
+            plan: truth?.interval === 'year' ? 'annual' : 'monthly',
+            status: 'revoked',
+            paidThrough: through,
+            token: '',
+            emailHash: truth?.customerEmail == null ? null : emailHash(truth.customerEmail, deps.emailPepper),
+            orderIds,
+          },
+    );
+    return 'revoked';
   }
 
   /** Bring our record in line with Stripe's subscription. Returns what happened. */
   async function apply(truth: SubscriptionTruth, orderId: string | null, now: number): Promise<string> {
     const existing = await deps.store.bySubscription(truth.id);
-    // A refund or dispute is final for that subscription: no later event re-grants it.
-    if (existing?.status === 'revoked') return 'revoked';
     const status = statusOf(truth.status);
     const orderIds = mergeOrders(existing?.orderIds ?? [], orderId);
     const email = truth.customerEmail === null ? (existing?.emailHash ?? null) : emailHash(truth.customerEmail, deps.emailPepper);
+    // A refunded period stays refunded, whatever a later event for it says.
+    if (existing?.status === 'revoked' && truth.currentPeriodEnd <= existing.paidThrough) {
+      await deps.store.put({ ...existing, orderIds, emailHash: email });
+      return 'revoked';
+    }
 
     if (status !== 'active' || truth.currentPeriodEnd <= now) {
-      if (existing !== null) await deps.store.put({ ...existing, status, orderIds, emailHash: email });
+      if (existing !== null && existing.status !== 'revoked') await deps.store.put({ ...existing, status, orderIds, emailHash: email });
       return status;
     }
     const plan = truth.interval === 'year' ? 'annual' : 'monthly';
-    if (existing !== null && existing.status === 'active' && truth.currentPeriodEnd <= existing.paidThrough) {
-      if (orderIds.length !== existing.orderIds.length || email !== existing.emailHash) {
-        await deps.store.put({ ...existing, orderIds, emailHash: email });
-      }
+    // The same period (a retry, or past-due paid up): the key already minted covers it; no new one.
+    if (existing !== null && existing.status !== 'revoked' && existing.token !== '' && truth.currentPeriodEnd <= existing.paidThrough) {
+      await deps.store.put({ ...existing, status: 'active', orderIds, emailHash: email });
       return 'current';
     }
     const lid = existing?.lid ?? newLicenceId();
@@ -158,7 +210,7 @@ export function createLicenceServer(deps: LicenceServerDeps): (request: LicenceR
     } catch (error) {
       log(`onIssued ${lid} failed: ${(error as Error).message}`);
     }
-    return existing === null ? 'issued' : 'renewed';
+    return existing === null || existing.token === '' ? 'issued' : 'renewed';
   }
 
   async function refresh(request: LicenceRequest): Promise<LicenceResponse> {
@@ -168,7 +220,7 @@ export function createLicenceServer(deps: LicenceServerDeps): (request: LicenceR
     if (!verified.ok) return json(400, { status: 'invalid' });
     const record = await deps.store.byLicence(verified.claims.lid);
     if (record === null) return json(404, { status: 'not-found' });
-    return json(200, reply(record, token));
+    return json(200, { ...reply(record, token), now: deps.nowSeconds() });
   }
 
   async function restore(request: LicenceRequest): Promise<LicenceResponse> {
@@ -178,11 +230,12 @@ export function createLicenceServer(deps: LicenceServerDeps): (request: LicenceR
     // One answer for every miss, so the endpoint cannot be used to learn which orders exist.
     const notFound = json(404, { status: 'not-found' });
     if (orderId === '' || orderId.length > 128 || email.trim() === '') return notFound;
-    const record = await deps.store.byOrder(orderId);
-    if (record === null || record.emailHash === null) return notFound;
+    // Hashed before the lookup, so a known and an unknown order take the same work.
     const given = Buffer.from(emailHash(email, deps.emailPepper), 'hex');
-    if (!crypto.timingSafeEqual(given, Buffer.from(record.emailHash, 'hex'))) return notFound;
-    return json(200, reply(record, null));
+    const record = await deps.store.byOrder(orderId);
+    const stored = Buffer.from(record?.emailHash ?? '0'.repeat(64), 'hex');
+    if (!crypto.timingSafeEqual(given, stored) || record === null || record.emailHash === null) return notFound;
+    return json(200, { ...reply(record, null), now: deps.nowSeconds() });
   }
 
   async function claim(request: LicenceRequest): Promise<LicenceResponse> {

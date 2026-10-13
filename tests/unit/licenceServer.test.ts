@@ -17,18 +17,34 @@ const SECRET = 'whsec_test_secret';
 const PEPPER = 'pepper';
 const DAY = 86_400;
 
-function world() {
+function world(opts: { latencyMs?: number } = {}) {
   let now = 1_791_000_000;
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const x = publicKey.export({ format: 'jwk' }).x as string;
   const d = privateKey.export({ format: 'jwk' }).d as string;
   const subs = new Map<string, SubscriptionTruth>();
   const charges = new Map<string, string>();
+  const chargeAmounts = new Map<string, { amount: number; refunded: number }>();
   const stripe: StripeApi = {
     getSubscription: async (id) => subs.get(id) ?? null,
-    subscriptionForCharge: async (id) => charges.get(id) ?? null,
+    getCharge: async (id) => {
+      const sub = charges.get(id);
+      if (sub === undefined) return null;
+      const a = chargeAmounts.get(id) ?? { amount: 600, refunded: 600 };
+      return { id, subscriptionId: sub, amount: a.amount, amountRefunded: a.refunded };
+    },
   };
   const store = new MemoryLicenceStore();
+  if (opts.latencyMs !== undefined) {
+    const delay = () => new Promise((r) => setTimeout(r, opts.latencyMs));
+    for (const m of ['bySubscription', 'put', 'byOrder', 'linkOrder', 'subscriptionForOrder'] as const) {
+      const original = (store[m] as (...a: unknown[]) => Promise<unknown>).bind(store);
+      (store as unknown as Record<string, unknown>)[m] = async (...a: unknown[]) => {
+        await delay();
+        return original(...a);
+      };
+    }
+  }
   const issued: string[] = [];
   const handle = createLicenceServer({
     store,
@@ -60,6 +76,7 @@ function world() {
     store,
     subs,
     charges,
+    chargeAmounts,
     issued,
     event,
     deliver,
@@ -107,8 +124,10 @@ describe('Stripe signatures', () => {
 
   it('parses the events we act on and ignores the rest', () => {
     expect(parseStripeEvent({ id: 'evt', object: 'event', type: 'invoice.paid', data: { object: { id: 'in_1', object: 'invoice', parent: { subscription_details: { subscription: 'sub_9' } } } } }))
-      .toEqual({ id: 'evt', type: 'invoice.paid', kind: 'grant', subscriptionId: 'sub_9', orderId: 'in_1', chargeId: null });
-    expect(parseStripeEvent({ id: 'evt', object: 'event', type: 'charge.dispute.created', data: { object: { id: 'dp_1', object: 'dispute', charge: 'ch_1' } } })?.chargeId).toBe('ch_1');
+      .toEqual({ id: 'evt', type: 'invoice.paid', kind: 'grant', subscriptionId: 'sub_9', orderId: 'in_1', chargeId: null, disputeStatus: null });
+    expect(parseStripeEvent({ id: 'evt', object: 'event', type: 'charge.dispute.closed', data: { object: { id: 'dp_1', object: 'dispute', charge: 'ch_1', status: 'lost' } } }))
+      .toMatchObject({ kind: 'dispute-closed', chargeId: 'ch_1', disputeStatus: 'lost' });
+    expect(parseStripeEvent({ id: 'evt', object: 'event', type: 'charge.dispute.created', data: { object: {} } })?.kind).toBe('ignore');
     expect(parseStripeEvent({ id: 'evt', object: 'event', type: 'customer.created', data: { object: {} } })?.kind).toBe('ignore');
     expect(parseStripeEvent({ id: 'evt', type: 'invoice.paid' })).toBeNull();
   });
@@ -177,20 +196,94 @@ describe('the licence server', () => {
     expect((await w.post('/v1/licence/refresh', { token: 'OFFSUIT1.e30.' + 'A'.repeat(86) })).status).toBe(400);
   });
 
-  it('cancellation and refunds: no token is handed out afterwards, and a revoke is final', async () => {
+  it('cancellation and refunds: no token is handed out afterwards, and a refunded period stays refunded', async () => {
     const w = world();
     await checkout(w);
     const token = (await w.store.bySubscription('sub_1'))!.token;
     w.subs.set('sub_1', { ...w.subs.get('sub_1')!, status: 'canceled' });
     await w.deliver(w.event('customer.subscription.deleted', { id: 'sub_1', object: 'subscription' }));
-    expect(JSON.parse((await w.post('/v1/licence/refresh', { token })).body)).toEqual({ status: 'canceled' });
+    expect(JSON.parse((await w.post('/v1/licence/refresh', { token })).body)).toMatchObject({ status: 'canceled' });
+    expect(JSON.parse((await w.post('/v1/licence/refresh', { token })).body).token).toBeUndefined();
     w.charges.set('ch_1', 'sub_1');
     await w.deliver(w.event('charge.refunded', { id: 'ch_1', object: 'charge' }));
     expect((await w.store.bySubscription('sub_1'))!.status).toBe('revoked');
-    // A later "active" event cannot re-grant a refunded subscription.
-    w.subs.set('sub_1', { ...w.subs.get('sub_1')!, status: 'active', currentPeriodEnd: w.now() + 999 * DAY });
+    // A later "active" event for the refunded period cannot re-grant it.
+    w.subs.set('sub_1', { ...w.subs.get('sub_1')!, status: 'active' });
     expect((await w.deliver(w.event('customer.subscription.updated', { id: 'sub_1', object: 'subscription' }))).body).toContain('revoked');
-    expect(JSON.parse((await w.post('/v1/licence/refresh', { token })).body)).toEqual({ status: 'revoked' });
+    expect(JSON.parse((await w.post('/v1/licence/refresh', { token })).body)).toEqual({ status: 'revoked', now: w.now() });
+  });
+
+  it('RACE: Stripe’s first three events at once mint ONE licence and send ONE email', async () => {
+    const w = world({ latencyMs: 5 });
+    activeSub(w);
+    await Promise.all([
+      w.deliver(w.event('checkout.session.completed', { id: 'cs_1', object: 'checkout.session', subscription: 'sub_1' })),
+      w.deliver(w.event('customer.subscription.created', { id: 'sub_1', object: 'subscription' })),
+      w.deliver(w.event('invoice.paid', { id: 'in_1', object: 'invoice', subscription: 'sub_1' })),
+    ]);
+    expect(w.issued).toHaveLength(1);
+    const record = (await w.store.bySubscription('sub_1'))!;
+    expect([...record.orderIds].sort()).toEqual(['cs_1', 'in_1']);
+  });
+
+  it('RACE: a refund arriving with a grant is never overwritten by it', async () => {
+    const w = world({ latencyMs: 5 });
+    await checkout(w);
+    w.charges.set('ch_1', 'sub_1');
+    await Promise.all([
+      w.deliver(w.event('charge.refunded', { id: 'ch_1', object: 'charge' })),
+      w.deliver(w.event('customer.subscription.updated', { id: 'sub_1', object: 'subscription' })),
+    ]);
+    expect((await w.store.bySubscription('sub_1'))!.status).toBe('revoked');
+  });
+
+  it('a refund before any licence exists leaves a tombstone: the next grant for that period issues nothing', async () => {
+    const w = world();
+    activeSub(w);
+    w.charges.set('ch_1', 'sub_1');
+    await w.deliver(w.event('charge.refunded', { id: 'ch_1', object: 'charge' }));
+    expect((await w.deliver(w.event('customer.subscription.created', { id: 'sub_1', object: 'subscription' }))).body).toContain('revoked');
+    expect(w.issued).toHaveLength(0);
+  });
+
+  it('a PARTIAL refund does not revoke; a dispute revokes only when lost', async () => {
+    const w = world();
+    await checkout(w);
+    w.charges.set('ch_1', 'sub_1');
+    w.chargeAmounts.set('ch_1', { amount: 4800, refunded: 500 });
+    await w.deliver(w.event('charge.refunded', { id: 'ch_1', object: 'charge' }));
+    expect((await w.store.bySubscription('sub_1'))!.status).toBe('active');
+    await w.deliver(w.event('charge.dispute.created', { id: 'dp_1', object: 'dispute', charge: 'ch_1', status: 'needs_response' }));
+    expect((await w.store.bySubscription('sub_1'))!.status).toBe('active');
+    await w.deliver(w.event('charge.dispute.closed', { id: 'dp_1', object: 'dispute', charge: 'ch_1', status: 'won' }));
+    expect((await w.store.bySubscription('sub_1'))!.status).toBe('active');
+    await w.deliver(w.event('charge.dispute.closed', { id: 'dp_1', object: 'dispute', charge: 'ch_1', status: 'lost' }));
+    expect((await w.store.bySubscription('sub_1'))!.status).toBe('revoked');
+  });
+
+  it('after a refund, a NEW paid period (Stripe kept billing) issues a key again', async () => {
+    const w = world();
+    await checkout(w);
+    w.charges.set('ch_1', 'sub_1');
+    await w.deliver(w.event('charge.refunded', { id: 'ch_1', object: 'charge' }));
+    w.advance(365 * DAY);
+    activeSub(w, 'sub_1', w.now() + 365 * DAY);
+    expect((await w.deliver(w.event('invoice.paid', { id: 'in_9', object: 'invoice', subscription: 'sub_1' }))).body).toContain('renewed');
+    expect((await w.store.bySubscription('sub_1'))!.status).toBe('active');
+  });
+
+  it('past-due back to active in the same period mints nothing new', async () => {
+    const w = world();
+    await checkout(w);
+    const token = (await w.store.bySubscription('sub_1'))!.token;
+    w.subs.set('sub_1', { ...w.subs.get('sub_1')!, status: 'past_due' });
+    await w.deliver(w.event('invoice.payment_failed', { id: 'in_x', object: 'invoice', subscription: 'sub_1' }));
+    w.subs.set('sub_1', { ...w.subs.get('sub_1')!, status: 'active' });
+    await w.deliver(w.event('customer.subscription.updated', { id: 'sub_1', object: 'subscription' }));
+    const after = (await w.store.bySubscription('sub_1'))!;
+    expect(after.status).toBe('active');
+    expect(after.token).toBe(token);
+    expect(w.issued).toHaveLength(1);
   });
 
   it('restore needs the order id AND the email; every miss looks the same', async () => {

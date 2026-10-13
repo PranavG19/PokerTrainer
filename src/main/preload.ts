@@ -48,7 +48,9 @@ contextBridge.exposeInMainWorld('offsuit', {
   licenceRestore: (input: { orderId: string; email: string }): Promise<unknown> =>
     ipcRenderer.invoke('licence:restore', input),
   licenceDeepLinkPreview: (): Promise<unknown> => ipcRenderer.invoke('licence:deeplinkPreview'),
-  licenceDeepLinkConfirm: (accept: boolean): Promise<unknown> => ipcRenderer.invoke('licence:deeplinkConfirm', accept),
+  // `id` is the one the preview returned: main installs only the key the learner was shown.
+  licenceDeepLinkConfirm: (accept: boolean, id: string): Promise<unknown> =>
+    ipcRenderer.invoke('licence:deeplinkConfirm', accept, id),
   onLicenceDeepLink: (handler: () => void): (() => void) => {
     const listener = (): void => handler();
     ipcRenderer.on('licence:deeplink', listener);

@@ -18,7 +18,10 @@ import { FEATURE_INFO, type Feature } from '../core/entitlements/features.js';
 
 export interface ProStatus {
   readonly snapshot: EntitlementSnapshot;
+  /** A plan is true only when main would open checkout for it (a URL, a price, something shipped). */
   readonly checkout: { readonly monthly: boolean; readonly annual: boolean };
+  /** The price main shows before checkout, per plan; null when that plan is not on sale. */
+  readonly prices: { readonly monthly: string | null; readonly annual: string | null };
   readonly manage: boolean;
   /** The licence server's host, when one is configured (shown before any call is made). */
   readonly server: string | null;
@@ -35,7 +38,7 @@ export interface ProBridge {
   licenceRefresh?: () => Promise<unknown>;
   licenceRestore?: (input: { orderId: string; email: string }) => Promise<unknown>;
   licenceDeepLinkPreview?: () => Promise<unknown>;
-  licenceDeepLinkConfirm?: (accept: boolean) => Promise<unknown>;
+  licenceDeepLinkConfirm?: (accept: boolean, id: string) => Promise<unknown>;
   onLicenceDeepLink?: (handler: () => void) => () => void;
 }
 
@@ -45,9 +48,14 @@ export interface ProNotice {
 }
 
 export interface DeepLinkPreview {
+  readonly id: string;
   readonly plan: string;
   readonly paidThrough: number | null;
   readonly licenceHint: string;
+  /** Already ended: it can only be dismissed. */
+  readonly ended: boolean;
+  /** The installed key it would replace (its ending), or null. */
+  readonly replaces: string | null;
 }
 
 export interface ProClient {
@@ -62,8 +70,8 @@ export interface ProClient {
   openManage(): Promise<void>;
   refresh(): Promise<void>;
   restore(orderId: string, email: string): Promise<boolean>;
-  deepLinkPreview(): Promise<DeepLinkPreview | ProNotice | null>;
-  confirmDeepLink(accept: boolean): Promise<void>;
+  deepLinkPreview(): Promise<DeepLinkPreview | (ProNotice & { readonly id: string }) | null>;
+  confirmDeepLink(accept: boolean, id: string): Promise<void>;
   /** Called after every status change; returns an unsubscribe. */
   subscribe(listener: () => void): () => void;
   /** Called when main receives an offsuit:// link. */
@@ -73,6 +81,7 @@ export interface ProClient {
 const OFFLINE: ProStatus = {
   snapshot: freeSnapshot(),
   checkout: { monthly: false, annual: false },
+  prices: { monthly: null, annual: null },
   manage: false,
   server: null,
   devBuild: false,
@@ -83,9 +92,12 @@ export function parseStatus(raw: unknown): ProStatus {
   if (typeof raw !== 'object' || raw === null) return OFFLINE;
   const o = raw as Record<string, unknown>;
   const checkout = (typeof o.checkout === 'object' && o.checkout !== null ? o.checkout : {}) as Record<string, unknown>;
+  const prices = (typeof o.prices === 'object' && o.prices !== null ? o.prices : {}) as Record<string, unknown>;
+  const price = (v: unknown): string | null => (typeof v === 'string' && v.length <= 60 ? v : null);
   return {
     snapshot: parseSnapshot(o.snapshot),
     checkout: { monthly: checkout.monthly === true, annual: checkout.annual === true },
+    prices: { monthly: price(prices.monthly), annual: price(prices.annual) },
     manage: o.manage === true,
     server: typeof o.server === 'string' ? o.server : null,
     devBuild: o.devBuild === true,
@@ -103,6 +115,10 @@ export function reasonText(reason: unknown, serverStatus?: unknown): string {
       return 'That key is damaged. Copy it again from your receipt or the page you got it from.';
     case 'bad-signature':
       return 'That key was not issued for this version of Offsuit (or it is a test key). Nothing was changed.';
+    case 'already-ended':
+      return 'That key’s paid period has already ended, so it was not added. Your current key, if any, is unchanged.';
+    case 'older-than-current':
+      return 'You already have a newer Pro key on this Mac, so the older one was not added.';
     case 'revoked':
       return 'That key was refunded or reported lost, so it no longer works.';
     case 'network':
@@ -202,15 +218,19 @@ export function createProClient(bridge: ProBridge): ProClient {
       const raw = await bridge.licenceDeepLinkPreview?.();
       if (typeof raw !== 'object' || raw === null) return null;
       const o = raw as Record<string, unknown>;
-      if (o.ok !== true) return { kind: 'error', text: reasonText(o.reason) };
+      const id = typeof o.id === 'string' ? o.id : '';
+      if (o.ok !== true) return { kind: 'error', text: reasonText(o.reason), id };
       return {
+        id,
+        ended: o.ended === true,
+        replaces: typeof o.replaces === 'string' ? o.replaces : null,
         plan: typeof o.plan === 'string' ? o.plan : 'pro',
         paidThrough: typeof o.paidThrough === 'number' ? o.paidThrough : null,
         licenceHint: typeof o.licenceHint === 'string' ? o.licenceHint : '',
       };
     },
-    async confirmDeepLink(accept) {
-      const o = take(await bridge.licenceDeepLinkConfirm?.(accept));
+    async confirmDeepLink(accept, id) {
+      const o = take(await bridge.licenceDeepLinkConfirm?.(accept, id));
       if (o.ok === true) notice = { kind: 'ok', text: 'Pro is on. Thank you.' };
       else if (accept) fail(o);
       emit();

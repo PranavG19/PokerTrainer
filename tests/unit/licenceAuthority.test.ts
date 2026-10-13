@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEV_KEY_ID, DEV_KEYS } from '../../src/core/entitlements/config.js';
 import { encodeToken, type LicenceClaims } from '../../src/core/entitlements/token.js';
 import {
+  checkoutPlans,
   createLicenceAuthority,
   gated,
   keyring,
@@ -124,9 +125,10 @@ describe('the licence authority (main)', () => {
   it('ROLLING THE CLOCK BACK: the mark is kept in profile and mirror, so an expired licence stays expired', () => {
     const real = 1_791_000_000;
     const expired = mint(real, { iat: real - 60 * DAY, exp: real - 30 * DAY });
-    const t = setup({ now: real });
+    const t = setup({ now: real - 45 * DAY });
     t.authority.adopt(profile());
-    t.authority.install(expired);
+    expect(t.authority.install(expired).ok).toBe(true);
+    t.setNow(real);
     expect(t.authority.snapshot().state).toBe('expired');
     // Restart with the clock wound back 40 days, from the profile and from the mirror separately.
     const saved = t.authority.stamp(profile());
@@ -142,10 +144,10 @@ describe('the licence authority (main)', () => {
     const real = 1_791_000_000;
     const expired = mint(real, { iat: real - 60 * DAY, exp: real - 30 * DAY });
     const t = setup({ now: real });
-    t.authority.install(expired);
+    t.authority.adopt(profile());
     t.setNow(real - 40 * DAY);
-    t.authority.install(expired);
-    expect(t.authority.snapshot().state).toBe('expired');
+    expect(t.authority.install(expired)).toEqual({ ok: false, reason: 'already-ended' });
+    expect(t.authority.snapshot().state).toBe('free');
   });
 
   it('remove() forgets the key here and in the mirror', () => {
@@ -162,6 +164,88 @@ describe('the licence authority (main)', () => {
     expect(handler(2)).toEqual({ locked: 'leak-finder' });
     t.authority.install(mint(t.now()));
     expect(handler(2)).toBe(4);
+  });
+});
+
+describe('review fixes: rollback, tampered marks, replacing a key', () => {
+  const real = 1_791_000_000;
+  const expired = () => mint(real, { iat: real - 60 * DAY, exp: real - 30 * DAY });
+
+  it('clock back, remove the key, paste the same expired key: refused (a paste never lowers the mark)', () => {
+    const t = setup({ now: real });
+    t.authority.adopt(profile());
+    t.authority.install(mint(real, { lid: 'lic_unit_000002' }));
+    t.authority.remove();
+    t.setNow(real - 40 * DAY);
+    const again = t.authority.install(expired());
+    expect(again).toEqual({ ok: false, reason: 'already-ended' });
+    expect(t.authority.snapshot().tier).toBe('free');
+  });
+
+  it('an out-of-range mark in ONE file is ignored, not a reset of the other', () => {
+    const t = setup({ now: real });
+    t.authority.adopt(profile());
+    t.authority.install(mint(real, { iat: real - 60 * DAY, exp: real + DAY }));
+    t.setNow(real + 10 * DAY); // licence ended, mark at real + 10d
+    t.authority.stamp(profile());
+    const mirror = t.mirror();
+    for (const bad of [1e20, -5, Number.NaN, 7_258_118_401]) {
+      const u = setup({ now: real - 100 * DAY, mirror });
+      u.authority.adopt(profile({ licence: mirror.token, highWater: bad }));
+      expect(u.authority.snapshot().state, `mark ${bad}`).toBe('grace');
+    }
+  });
+
+  it('while the clock stays behind, licence time still ticks with the time Offsuit runs', () => {
+    let mono = 0;
+    let mirror: LicenceMirror = { token: null, highWater: 0 };
+    const make = (now: number) =>
+      createLicenceAuthority({
+        isPackaged: false,
+        devOverride: null,
+        nowSeconds: () => now,
+        monotonicSeconds: () => mono,
+        loadMirror: () => mirror,
+        saveMirror: (m) => {
+          mirror = m;
+        },
+      });
+    const a = make(real);
+    a.install(mint(real, { exp: real + 2 * DAY }));
+    const b = make(real - 100 * DAY); // set back for good
+    expect(b.snapshot().state).toBe('active');
+    mono += 3 * DAY; // three days of running with the clock still behind
+    expect(b.snapshot().state).toBe('grace');
+  });
+
+  it('a newer valid key is never replaced by an older or ended one; a newer one replaces', () => {
+    const t = setup({ now: real });
+    const current = mint(real, { lid: 'lic_unit_current', iat: real - DAY });
+    t.authority.install(current);
+    expect(t.authority.install(mint(real, { lid: 'lic_unit_older', iat: real - 10 * DAY }))).toEqual({ ok: false, reason: 'older-than-current' });
+    expect(t.authority.install(expired())).toEqual({ ok: false, reason: 'already-ended' });
+    expect(t.authority.token()).toBe(current);
+    expect(t.authority.install(mint(real, { lid: 'lic_unit_newer', iat: real })).ok).toBe(true);
+  });
+
+  it('preview says whether a key has ended and which key it would replace', () => {
+    const t = setup({ now: real });
+    t.authority.install(mint(real, { lid: 'lic_unit_current' }));
+    const p = t.authority.preview(expired());
+    expect(p).toMatchObject({ ok: true, ended: true, replaces: 'urrent' });
+    const q = t.authority.preview(mint(real, { iat: real }));
+    expect(q.ok && q.id).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('only the server’s time lowers a mark a fast clock pushed ahead', () => {
+    const t = setup({ now: real + 400 * DAY }); // the clock ran a year ahead once
+    t.authority.adopt(profile());
+    t.setNow(real);
+    expect(t.authority.install(mint(real))).toEqual({ ok: false, reason: 'already-ended' });
+    t.authority.correctClock('junk');
+    t.authority.correctClock(real);
+    expect(t.authority.install(mint(real)).ok).toBe(true);
+    expect(t.authority.snapshot().state).toBe('active');
   });
 });
 
@@ -189,6 +273,17 @@ describe('deep links and endpoints', () => {
       server: null,
     });
     expect(licenceEndpoints({ ...config, manage: 'https://u:p@x.example' }, {}, true).manage).toBeNull();
+  });
+
+  it('checkout opens only with a URL, a price, and something shipped; the dev overrides die when packaged', () => {
+    const ep = { checkout: { monthly: 'https://buy.stripe.com/m', annual: null }, manage: null, server: null };
+    const prices = { monthly: '$6 a month', annual: '$48 a year' };
+    expect(checkoutPlans(ep, prices, false, {}, true)).toEqual({ monthly: null, annual: null });
+    expect(checkoutPlans(ep, prices, true, {}, true)).toEqual({ monthly: { url: 'https://buy.stripe.com/m', price: '$6 a month' }, annual: null });
+    expect(checkoutPlans(ep, { monthly: '', annual: '' }, true, {}, true).monthly).toBeNull();
+    const dev = { OFFSUIT_DEV_SELLABLE: '1', OFFSUIT_PRICE_MONTHLY: '$1' };
+    expect(checkoutPlans(ep, { monthly: '', annual: '' }, false, dev, false).monthly).toEqual({ url: 'https://buy.stripe.com/m', price: '$1' });
+    expect(checkoutPlans(ep, { monthly: '', annual: '' }, false, dev, true).monthly).toBeNull();
   });
 
   it('the licensing session admits only the armed origin, and nothing when disarmed', () => {

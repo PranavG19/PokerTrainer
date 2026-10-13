@@ -8,7 +8,7 @@
  * dismiss. "Not now" closes it and nothing asks again.
  */
 
-import { MERCHANT_NAME, PRICE_LABELS } from '../../core/entitlements/config.js';
+import { MERCHANT_NAME } from '../../core/entitlements/config.js';
 import { FEATURE_INFO, FREE_FEATURES, PRO_FEATURES, type Feature } from '../../core/entitlements/features.js';
 import { attachThumb } from './thumb.js';
 import { formatDay, type ProClient } from '../pro.js';
@@ -111,7 +111,7 @@ export function openUpgradeSheet(pro: ProClient, opts: UpgradeSheetOptions): HTM
     price.dataset.testid = 'upgrade-price';
     const paint = (): void => {
       for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.plan === plan));
-      price.textContent = PRICE_LABELS[plan] !== '' ? PRICE_LABELS[plan] : 'The price is shown at checkout, before you pay.';
+      price.textContent = status.prices[plan] ?? 'Not on sale yet.';
       checkout.disabled = !status.checkout[plan];
       checkout.textContent = status.checkout[plan] ? 'Continue to checkout' : 'Checkout is not open yet';
     };
@@ -179,7 +179,7 @@ export async function openDeepLinkConfirm(pro: ProClient): Promise<void> {
   const answer = (accept: boolean): void => {
     if (answered) return;
     answered = true;
-    void pro.confirmDeepLink(accept);
+    void pro.confirmDeepLink(accept, preview.id);
   };
   const dialog = openDialog('deeplink-confirm', 'Add a Pro key', (close) => {
     const head = el('h2', 'pro-sheet-title', 'Add this Pro key?');
@@ -201,6 +201,18 @@ export async function openDeepLinkConfirm(pro: ProClient): Promise<void> {
     );
     what.dataset.testid = 'deeplink-summary';
     const why = el('p', 'g-caption', 'A link opened Offsuit with this key. Add it if you just bought or restored Pro; otherwise choose Not now and nothing changes.');
+    if (preview.ended) {
+      what.textContent += ' Its paid period has already ended, so it cannot be added.';
+      const ok = pill('Close', 'deeplink-close', 'primary');
+      ok.addEventListener('click', () => {
+        answer(false);
+        close();
+      });
+      const foot = el('div', 'pro-sheet-foot');
+      foot.appendChild(ok);
+      return [head, what, foot];
+    }
+    if (preview.replaces !== null) why.textContent = `It replaces the key ending ${preview.replaces} on this Mac. ${why.textContent}`;
     const foot = el('div', 'pro-sheet-foot');
     const no = pill('Not now', 'deeplink-decline', 'quiet');
     no.addEventListener('click', () => {

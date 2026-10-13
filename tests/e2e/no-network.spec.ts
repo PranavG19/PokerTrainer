@@ -165,7 +165,12 @@ test('licensing: no request until "Check for renewal", then exactly one, to the 
   const { app, page, close } = await launchApp({
     seed: 42,
     extraArgs: proxyArgs(proxy.port),
-    env: { OFFSUIT_LICENCE_SERVER: licenceServer, OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m' },
+    env: {
+      OFFSUIT_LICENCE_SERVER: licenceServer,
+      OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m',
+      OFFSUIT_PRICE_MONTHLY: '$6 a month',
+      OFFSUIT_DEV_SELLABLE: '1',
+    },
   });
   try {
     await page.waitForSelector('[data-testid="home-screen"]');

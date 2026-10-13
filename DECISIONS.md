@@ -1010,9 +1010,14 @@ R5–R7, R13), built. Solo play is unchanged: it keeps the seeded `mulberry32` a
   build, and `OFFSUIT_DEV_TIER` is ignored there.
 - **Offline grace: 14 days after `exp`**, then Free. Supersedes the research draft's 7 days with a daily refresh,
   because the app never calls the network by itself: "Check for renewal" and "Restore" are buttons.
-- **Clock: licence time = max(system clock, high-water mark, token iat).** A rollback never extends a licence;
-  the learner is told only past 36 h. A newer token (higher `iat`) resets a mark a fast clock pushed ahead;
-  re-pasting an old key cannot.
+- **Clock: licence time = max(system clock, high-water mark, token iat), and the mark also advances by the time
+  Offsuit runs (a monotonic clock).** A rollback never revives an ended licence, and with the clock held back
+  licence time still ticks at the app's pace. The learner is told only past 36 h. A stored mark out of range is
+  ignored, never allowed to zero the guard. Only the licence server's time (in its refresh/restore reply) lowers
+  a mark a fast clock pushed ahead. Supersedes "a newer token resets the mark", because the review showed any
+  paste with the clock set back could then revive an expired key.
+- **A key never downgrades the installed one.** Installing (paste or deep link) refuses a key whose paid period
+  and grace have ended, and a key issued earlier than the valid key in place.
 - **Persistence: additive, no schema bump.** `progression.entitlements` gains `licence` and `highWater` (older v2
   builds carry them). `tier`/`granted` stay as a display cache. The token and mark are mirrored in
   `offsuit-settings.json`, so deleting the profile (starting over) keeps the purchase and the rollback guard.
@@ -1021,12 +1026,20 @@ R5–R7, R13), built. Solo play is unchanged: it keeps the seeded `mulberry32` a
   partition that admits only the configured licence server while the request is in flight. Checkout and
   "Manage or cancel" open in the system browser (`shell.openExternal`, recorded instead under e2e); the renderer
   names a plan, never a URL.
-- **Deep link `offsuit://activate?key=` is a proposal.** Any page can open one, so the app shows the plan, date and
-  key ending and asks; Escape is a no. The protocol is registered only by a packaged build.
+- **Deep link `offsuit://activate?key=` is a proposal.** Any page can open one, so the app shows the plan, date,
+  key ending, whether it has ended and which key it replaces, and asks; Escape is a no. Confirm carries the id of
+  the key shown, so a link that arrives while the dialog is open is never the one installed. The protocol is registered only by a packaged build.
+- **Checkout opens only when a plan has a URL, a price label and at least one Pro feature has shipped**, decided in
+  main (`checkoutPlans`), so the sheet's "checkout stays closed" is enforced. "Manage or cancel" shows whenever the
+  portal is configured, key or no key.
 - **Upgrade sheet copy:** the price before checkout, renewal and how to cancel on the same sheet, unshipped Pro
   features marked "Coming in an update" (checkout stays closed until one ships), learning named as never locked.
   Monthly is the default plan (the smaller commitment). No countdown, no urgency, "Not now" never re-asks.
 - **Webhook server (`src/server/licensing/`):** Stripe-Signature v1, 5-minute window, event-id ledger; grants come
   from re-reading the subscription at Stripe, never from the event body; a token is minted only when the paid
-  period moves forward; a refund or dispute is final. Restore needs order id + email (stored only as a peppered
+  period moves forward (also past-due → active); events are serialised per subscription (multi-instance hosts need
+  the same from their store). A FULL refund or a LOST dispute revokes the period it covered; a refund that beats the
+  grant leaves a tombstone; a partial refund or an open dispute changes nothing; a later paid period re-grants.
+  Supersedes "a refund or dispute is final", because a goodwill partial refund would have revoked a paying
+  subscriber for good. Restore needs order id + email (stored only as a peppered
   hash), with one 404 for every miss.

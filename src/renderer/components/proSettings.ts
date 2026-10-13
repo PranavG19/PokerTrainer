@@ -99,11 +99,14 @@ export function renderProSettings(pro: ProClient, handlers: ProSettingsHandlers)
     see.addEventListener('click', () => handlers.openSheet());
     actions.appendChild(see);
   }
-  if (s.plan !== null && s.state !== 'invalid') {
+  // Cancelling is never behind having the key on this Mac: the portal is reachable whenever it exists.
+  if (status.manage || s.plan !== null) {
     const manage = pill('Manage or cancel', 'pro-manage');
     manage.disabled = !status.manage;
     manage.addEventListener('click', () => void pro.openManage());
     actions.appendChild(manage);
+  }
+  if (s.plan !== null && s.state !== 'invalid') {
     const renew = pill('Check for renewal', 'pro-refresh');
     renew.disabled = status.server === null;
     renew.addEventListener('click', () => void pro.refresh());

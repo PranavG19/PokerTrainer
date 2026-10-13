@@ -164,11 +164,41 @@ test('a deep link only PROPOSES a key: declined, nothing changes; accepted, Pro 
     await page.locator('[data-testid="deeplink-decline"]').click();
     await expect(page.locator('[data-testid="pro-settings"]')).toHaveAttribute('data-tier', 'free');
     // Declining drops it: confirming later has nothing to install.
-    expect(await page.evaluate(() => window.offsuit!.licenceDeepLinkConfirm!(true))).toMatchObject({ ok: false });
+    expect(await page.evaluate(() => window.offsuit!.licenceDeepLinkConfirm!(true, '0000000000000000'))).toMatchObject({ ok: false });
+
+    // A second link arriving while the first is shown: Add installs neither, because the id no longer matches.
+    await emit(link);
+    await expect(page.locator('[data-testid="deeplink-confirm"]')).toBeVisible();
+    const swapped = mint({ lid: 'lic_e2e_swapped', exp: now() + 2 * DAY });
+    await app.evaluate(({ app: a }, u) => a.emit('open-url', { preventDefault: () => {} }, u), `offsuit://activate?key=${encodeURIComponent(swapped)}`);
+    // The renderer re-opens the dialog for the new link; answer the stale one through IPC to prove main refuses it.
+    const staleId = crypto.createHash('sha256').update(mint(), 'utf8').digest('hex').slice(0, 16);
+    expect(await page.evaluate((id) => window.offsuit!.licenceDeepLinkConfirm!(true, id), staleId)).toMatchObject({ ok: false });
+    await page.locator('[data-testid="deeplink-decline"]').click();
+    await expect(page.locator('[data-testid="pro-settings"]')).toHaveAttribute('data-tier', 'free');
 
     await emit(link);
     await page.locator('[data-testid="deeplink-accept"]').click();
     await expect(page.locator('[data-testid="pro-settings"]')).toHaveAttribute('data-tier', 'pro');
+
+    // A link with an ENDED key can only be dismissed, and never downgrades the key in place.
+    await emit(`offsuit://activate?key=${encodeURIComponent(mint({ lid: 'lic_e2e_ended', iat: now() - 90 * DAY, exp: now() - 60 * DAY }))}`);
+    await expect(page.locator('[data-testid="deeplink-summary"]')).toContainText('already ended');
+    await expect(page.locator('[data-testid="deeplink-accept"]')).toHaveCount(0);
+    await page.locator('[data-testid="deeplink-close"]').click();
+    await expect(page.locator('[data-testid="pro-settings"]')).toHaveAttribute('data-tier', 'pro');
+  } finally {
+    await close();
+  }
+});
+
+test('checkout stays closed while nothing has shipped, even with a checkout URL', async () => {
+  const { page, close } = await launchApp({ env: { OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m', OFFSUIT_PRICE_MONTHLY: '$6 a month' } });
+  try {
+    await openSettings(page);
+    await page.locator('[data-testid="pro-see"]').click();
+    await expect(page.locator('[data-testid="upgrade-checkout"]')).toBeDisabled();
+    expect(await page.evaluate(() => window.offsuit!.licenceOpenCheckout!('monthly'))).toEqual({ opened: false });
   } finally {
     await close();
   }
@@ -176,12 +206,19 @@ test('a deep link only PROPOSES a key: declined, nothing changes; accepted, Pro 
 
 test('checkout opens in the system browser (recorded under e2e), never in the app', async () => {
   const url = 'https://checkout.example/offsuit-pro-monthly';
-  const { app, page, close } = await launchApp({ env: { OFFSUIT_CHECKOUT_MONTHLY: url } });
+  const { app, page, close } = await launchApp({
+    env: { OFFSUIT_CHECKOUT_MONTHLY: url, OFFSUIT_PRICE_MONTHLY: '$6 a month', OFFSUIT_DEV_SELLABLE: '1' },
+  });
   try {
     await openSettings(page);
     const windowsBefore = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
     await page.locator('[data-testid="pro-see"]').click();
     await expect(page.locator('[data-testid="upgrade-checkout"]')).toBeEnabled();
+    await expect(page.locator('[data-testid="upgrade-price"]')).toHaveText('$6 a month');
+    // Annual has no URL here: it is not on sale, and says so.
+    await page.locator('[data-testid="upgrade-plan-annual"]').click();
+    await expect(page.locator('[data-testid="upgrade-checkout"]')).toBeDisabled();
+    await page.locator('[data-testid="upgrade-plan-monthly"]').click();
     await page.locator('[data-testid="upgrade-checkout"]').click();
     await expect(page.locator('[data-testid="pro-notice"]')).toContainText('Checkout opened in your browser');
     const opened = await app.evaluate(() => (globalThis as { __offsuitOpenedExternal?: string[] }).__offsuitOpenedExternal ?? []);
@@ -202,7 +239,7 @@ test('Check for renewal fetches the renewed key from a real licence server, only
     store,
     stripe: {
       getSubscription: async (id) => ({ id, status: 'active', customerEmail: 'e2e@example.com', currentPeriodEnd: periodEnd, interval: 'month' }),
-      subscriptionForCharge: async () => null,
+      getCharge: async () => null,
     },
     webhookSecrets: ['whsec_e2e'],
     signing: { kid: DEV.kid, key: DEV_PRIVATE },

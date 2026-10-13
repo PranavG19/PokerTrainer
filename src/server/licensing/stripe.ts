@@ -51,7 +51,12 @@ export function signStripePayload(rawBody: string, secret: string, t: number): s
 }
 
 /** What an event means for us, before the API read-back. */
-export type EventKind = 'grant' | 'past-due' | 'ended' | 'revoke' | 'ignore';
+/**
+ * - grant / past-due / ended: re-read the subscription and follow it.
+ * - refund: revoke only if the charge is FULLY refunded (a goodwill partial refund is not a cancellation).
+ * - dispute-closed: revoke only when the dispute is lost. An open dispute changes nothing: most are won.
+ */
+export type EventKind = 'grant' | 'past-due' | 'ended' | 'refund' | 'dispute-closed' | 'ignore';
 
 export interface ParsedEvent {
   readonly id: string;
@@ -63,6 +68,8 @@ export interface ParsedEvent {
   readonly orderId: string | null;
   /** A charge (refund, dispute) whose subscription must be looked up through its invoice. */
   readonly chargeId: string | null;
+  /** A dispute's outcome: 'lost', 'won', … (charge.dispute.closed only). */
+  readonly disputeStatus: string | null;
 }
 
 const KINDS: Readonly<Record<string, EventKind>> = {
@@ -72,8 +79,8 @@ const KINDS: Readonly<Record<string, EventKind>> = {
   'invoice.paid': 'grant',
   'invoice.payment_failed': 'past-due',
   'customer.subscription.deleted': 'ended',
-  'charge.refunded': 'revoke',
-  'charge.dispute.created': 'revoke',
+  'charge.refunded': 'refund',
+  'charge.dispute.closed': 'dispute-closed',
 };
 
 export function parseStripeEvent(json: unknown): ParsedEvent | null {
@@ -97,7 +104,8 @@ export function parseStripeEvent(json: unknown): ParsedEvent | null {
   if (objType === 'charge') chargeId = objId;
   else if (objType === 'dispute') chargeId = str(obj.charge);
 
-  return { id, type, kind, subscriptionId, orderId, chargeId };
+  const disputeStatus = objType === 'dispute' ? str(obj.status) : null;
+  return { id, type, kind, subscriptionId, orderId, chargeId, disputeStatus };
 }
 
 /** The subscription as Stripe's API reports it now. */
@@ -114,8 +122,16 @@ export interface SubscriptionTruth {
 /** What the handler needs from Stripe's API. Faked in tests; `stripeApi` is the real one. */
 export interface StripeApi {
   getSubscription(id: string): Promise<SubscriptionTruth | null>;
-  /** The subscription a charge paid for (charge → invoice → subscription), or null. */
-  subscriptionForCharge(chargeId: string): Promise<string | null>;
+  /** A charge with the subscription it paid for (charge → invoice → subscription), or null. */
+  getCharge(chargeId: string): Promise<ChargeTruth | null>;
+}
+
+export interface ChargeTruth {
+  readonly id: string;
+  readonly subscriptionId: string | null;
+  /** Minor units. */
+  readonly amount: number;
+  readonly amountRefunded: number;
 }
 
 /**
@@ -148,11 +164,16 @@ export function stripeApi(secretKey: string, fetchImpl: typeof fetch = fetch): S
         interval: interval === 'month' || interval === 'year' ? interval : null,
       };
     },
-    async subscriptionForCharge(chargeId) {
+    async getCharge(chargeId) {
       const c = await get(`charges/${encodeURIComponent(chargeId)}?expand[]=invoice`);
-      if (c === null) return null;
+      if (c === null || str(c.id) === null) return null;
       const inv = record(c.invoice);
-      return str(inv.subscription) ?? str(record(record(inv.parent).subscription_details).subscription);
+      return {
+        id: str(c.id) as string,
+        subscriptionId: str(inv.subscription) ?? str(record(record(inv.parent).subscription_details).subscription),
+        amount: typeof c.amount === 'number' ? c.amount : 0,
+        amountRefunded: typeof c.amount_refunded === 'number' ? c.amount_refunded : 0,
+      };
     },
   };
 }

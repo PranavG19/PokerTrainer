@@ -2,7 +2,6 @@ import * as crypto from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   advanceHighWater,
-  highWaterAfterInstall,
   isClockBehind,
   ROLLBACK_TOLERANCE_SECONDS,
   trustedNow,
@@ -106,12 +105,6 @@ describe('clock', () => {
     expect(advanceHighWater(NOW, 9e12)).toBe(NOW);
   });
 
-  it('only a NEWER token resets a mark a fast clock pushed ahead', () => {
-    const fastMark = NOW + 1000 * DAY;
-    expect(highWaterAfterInstall(fastMark, NOW, NOW - DAY, NOW - 2 * DAY)).toBe(NOW);
-    // Replaying the same or an older token cannot.
-    expect(highWaterAfterInstall(fastMark, NOW, NOW - 2 * DAY, NOW - 2 * DAY)).toBe(fastMark);
-  });
 });
 
 describe('resolveEntitlements and can()', () => {

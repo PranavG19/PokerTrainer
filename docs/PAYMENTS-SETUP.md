@@ -21,7 +21,8 @@ pepper, and all of them live on the licence server.
 5. Add a **webhook endpoint** at `https://<licence server>/webhooks/stripe` with these events:
    `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
    `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `charge.refunded`,
-   `charge.dispute.created`. Copy its signing secret (`whsec_…`).
+   `charge.dispute.closed`. (A partial refund keeps Pro; a full refund or a lost dispute ends it for the period
+   it covered. Revoking does not stop billing: cancel the subscription in Stripe when you refund in full.) Copy its signing secret (`whsec_…`).
 6. Create a **restricted API key** with read access to Subscriptions, Charges, Invoices and Customers (`rk_live_…`).
 
 ## 2. Run the one command
@@ -30,7 +31,7 @@ pepper, and all of them live on the licence server.
 node scripts/payments-setup.ts \
   --checkout-monthly https://buy.stripe.com/… --checkout-annual https://buy.stripe.com/… \
   --manage https://billing.stripe.com/p/login/… --server https://<licence server> \
-  --price-monthly "$X a month" --price-annual "$Y a year"
+  --price-monthly '$6 a month' --price-annual '$48 a year'
 ```
 
 Every flag is optional: run it bare to make only the key, then fill the URLs later in
@@ -61,6 +62,8 @@ The online server task mounts `createLicenceServer` from `src/server/licensing/h
 - `stripeApi(STRIPE_SECRET_KEY)`
 - `signingKeyFromJwk(<key file JSON>)`
 - TLS, plus rate limiting on `/v1/*`
+- if it runs more than one instance: a store whose writes per subscription are serialised (a row lock or
+  compare-and-set). The handler serialises events per subscription inside one process only.
 
 To email keys, use the optional `onIssued` hook. Without it, the buyer gets the key on the checkout success page,
 which also offers an `offsuit://` link, and can restore it with the order number and email.

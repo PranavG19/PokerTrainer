@@ -10,7 +10,7 @@
  *
  * Optional, to fill the app's public URLs in the same run (all can be edited in config.ts later):
  *   --checkout-monthly <https url> --checkout-annual <https url> --manage <https url> --server <https url>
- *   --price-monthly "$6 a month" --price-annual "$48 a year"
+ *   --price-monthly '$6 a month' --price-annual '$48 a year'   (single quotes: the shell expands $6 in double)
  * Rotation: run it again with --kid <new id>; the old kid stays in PRODUCTION_KEYS (config.ts explains when to drop it).
  * Testing the script itself: --dir <key dir> --config <config.ts path>.
  */
@@ -33,6 +33,23 @@ const keyDir = flag('dir') ?? path.join(os.homedir(), '.offsuit-licensing');
 const configPath = flag('config') ?? path.join(import.meta.dirname, '..', 'src', 'core', 'entitlements', 'config.ts');
 const keyFile = path.join(keyDir, `${kid}.json`);
 
+const httpsOnly = (name: string): string | undefined => {
+  const v = flag(name);
+  if (v !== undefined && !v.startsWith('https://')) throw new Error(`--${name} must be an https URL`);
+  return v;
+};
+// Every flag is checked before anything is generated or written, so a typo leaves no half-done setup.
+const urls = {
+  checkoutMonthly: httpsOnly('checkout-monthly'),
+  checkoutAnnual: httpsOnly('checkout-annual'),
+  manage: httpsOnly('manage'),
+  server: httpsOnly('server'),
+};
+for (const name of ['price-monthly', 'price-annual']) {
+  const v = flag(name);
+  if (v !== undefined && /['\\\n]/.test(v)) throw new Error(`--${name}: quotes, backslashes and newlines are not allowed`);
+}
+
 if (fs.existsSync(keyFile)) {
   console.error(`${keyFile} already exists. Nothing was changed. Use --kid <new id> to rotate.`);
   process.exit(1);
@@ -54,25 +71,21 @@ const setString = (name: string, value: string | undefined, key?: string): void 
   if (value === undefined) return;
   if (/['\\\n]/.test(value)) throw new Error(`--${name}: quotes, backslashes and newlines are not allowed`);
   if (key === undefined) {
-    config = config.replace(new RegExp(`(export const ${name} = )'[^']*';`), `$1'${value}';`);
+    // Replacer functions, not replacement strings: a price like "$10 a month" would read "$1" as a group.
+    config = config.replace(new RegExp(`(export const ${name} = )'[^']*';`), (_m, head: string) => `${head}'${value}';`);
   } else {
     const start = config.indexOf(`export const ${name}`);
     const end = config.indexOf('};', start);
-    const block = config.slice(start, end).replace(new RegExp(`(\\n\\s*${key}: )'[^']*'`), `$1'${value}'`);
+    const block = config.slice(start, end).replace(new RegExp(`(\\n\\s*${key}: )'[^']*'`), (_m, head: string) => `${head}'${value}'`);
     config = config.slice(0, start) + block + config.slice(end);
   }
 };
-const httpsOnly = (name: string): string | undefined => {
-  const v = flag(name);
-  if (v !== undefined && !v.startsWith('https://')) throw new Error(`--${name} must be an https URL`);
-  return v;
-};
-setString('CHECKOUT_URLS', httpsOnly('checkout-monthly'), 'monthly');
-setString('CHECKOUT_URLS', httpsOnly('checkout-annual'), 'annual');
+setString('CHECKOUT_URLS', urls.checkoutMonthly, 'monthly');
+setString('CHECKOUT_URLS', urls.checkoutAnnual, 'annual');
 setString('PRICE_LABELS', flag('price-monthly'), 'monthly');
 setString('PRICE_LABELS', flag('price-annual'), 'annual');
-setString('MANAGE_URL', httpsOnly('manage'));
-setString('LICENCE_SERVER_URL', httpsOnly('server'));
+setString('MANAGE_URL', urls.manage);
+setString('LICENCE_SERVER_URL', urls.server);
 fs.writeFileSync(configPath, config);
 
 const pepper = crypto.randomBytes(32).toString('base64url');
