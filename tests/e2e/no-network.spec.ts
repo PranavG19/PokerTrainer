@@ -148,7 +148,7 @@ test('the browser process makes no request at all, measured at a loopback proxy'
  * checkout (the system browser, recorded under e2e) and a deep link must reach nothing. "Check for
  * renewal" is the one user-initiated egress: it must reach EXACTLY the configured licence server, once,
  * and only after the press. It runs on its own Chromium session (network.ts licensingFetch), which is
- * why this proxy can see it at all; the server is a reserved .example host, so the proxy's refused CONNECT
+ * why this proxy can see it at all, and why the main-process oracle (netOracle.ts) must see nothing; the server is a reserved .example host, so the proxy's refused CONNECT
  * is the whole conversation.
  */
 test('licensing: no request until "Check for renewal", then exactly one, to the licence server only', async () => {
@@ -162,10 +162,12 @@ test('licensing: no request until "Check for renewal", then exactly one, to the 
   );
   const licenceServer = 'https://licence.offsuit.example';
   const proxy = await startProxy();
+  const oracle = oracleFile();
   const { app, page, close } = await launchApp({
     seed: 42,
     extraArgs: proxyArgs(proxy.port),
     env: {
+      OFFSUIT_NET_ORACLE: oracle,
       OFFSUIT_LICENCE_SERVER: licenceServer,
       OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m',
       OFFSUIT_PRICE_MONTHLY: '$6 a month',
@@ -184,6 +186,7 @@ test('licensing: no request until "Check for renewal", then exactly one, to the 
     await page.locator('[data-testid="deeplink-accept"]').click();
     await page.waitForTimeout(1500);
     expect(proxy.seen, 'licensing reached the network before any button asked it to').toEqual([]);
+    expect(readOracle(oracle).filter(isOutbound), 'licensing opened a main-process socket').toEqual([]);
 
     await page.locator('[data-testid="pro-refresh"]').click();
     await expect(page.locator('[data-testid="pro-notice"]')).toHaveAttribute('data-kind', 'error');
@@ -193,6 +196,8 @@ test('licensing: no request until "Check for renewal", then exactly one, to the 
     const before = proxy.seen.length;
     await page.waitForTimeout(1500);
     expect(proxy.seen.length).toBe(before);
+    // The one request went through Chromium's licensing session, never a Node socket in main.
+    expect(readOracle(oracle).filter(isOutbound), 'licensing used a main-process socket').toEqual([]);
   } finally {
     await close();
     await proxy.close();

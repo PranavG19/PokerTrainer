@@ -1022,7 +1022,7 @@ R5–R7, R13), built. Solo play is unchanged: it keeps the seeded `mulberry32` a
   builds carry them). `tier`/`granted` stay as a display cache. The token and mark are mirrored in
   `offsuit-settings.json`, so deleting the profile (starting over) keeps the purchase and the rollback guard.
 - **Seats are carried, not enforced offline.** The online server counts activations for the features that need it.
-- **Network: one origin, armed per request.** Refresh/restore go through `licensingFetch` on an in-memory
+- **Network: one origin, armed per request, measured by both oracles.** The loopback proxy sees exactly the one CONNECT after the press; the main-process oracle (`netOracle.ts`, from the deal-security work) sees no socket at all. Refresh/restore go through `licensingFetch` on an in-memory
   partition that admits only the configured licence server while the request is in flight. Checkout and
   "Manage or cancel" open in the system browser (`shell.openExternal`, recorded instead under e2e); the renderer
   names a plan, never a URL.
