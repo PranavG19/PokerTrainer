@@ -28,7 +28,7 @@ Raw reports: [`experiment-1b/`](experiment-1b/) (`before-legacy-random.txt`, `be
 ## Results
 
 "Before" is `origin/main` at `2b28855`. "Before, shipped" grades as the live table did (the fixed betting
-range when facing a bet); "before, legacy" is the no-model call Experiment 1 used. "After" is this branch at `a3a55f6` (the tip's grader; later commits touch only scripts and docs).
+range when facing a bet); "before, legacy" is the no-model call Experiment 1 used. "After" is this branch at `3dcbfac`, the grader tip.
 
 ### How often the grader has an opinion (adherent-passive, every legal action graded, all streets)
 
@@ -38,7 +38,7 @@ range when facing a bet); "before, legacy" is the no-model call Experiment 1 use
 | every action free (old "no opinion") | 39.3% | 43.2% | 39.2% | 22.7% |
 | **silent** (free and nothing close) | 39.3% | 43.2% | 39.2% | **18.0%** |
 | close (some action in the band) | — | — | — | 12.4% |
-| tied at the minimum | 47.7% | 53.9% | 61.7% | 56.1% |
+| tied at the minimum | 47.7% | 53.9% | 61.7% | 56.2% |
 | tied, bet/raise/all-in as one class | — | — | 51.0% | 46.7% |
 | decisive | — | 14.7% | 13.2% | 29.7% |
 
