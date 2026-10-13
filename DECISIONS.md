@@ -1262,8 +1262,12 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   The research's "trusted server: can stack? not with player entropy" row is the reason.
 - **Reconnects resume the seat.** A dropped connection holds its seat for 60 s (`graceMs`); the held seat's
   turn waits on the clock instead of folding. On sign-in the server sends `resync` (the live hand's commit,
-  entropy set and reveals) and a fresh `GuestProtocol` checks it like a live deal; it accepts a resync only
-  when fresh, and refuses one that leaves out entropy this session remembers revealing for that deal. After
+  entropy set and reveals) and a fresh `GuestProtocol` checks it like a live deal. It accepts a resync only
+  when fresh; it refuses one with no entropy set, and one that leaves out entropy this session committed for
+  that deal (remembered at commit, not reveal). A resync it has no memory for (the app restarted) plays on
+  with a warning on the table, so a server forcing reconnects to slip in a chosen deal is visible each time.
+  Supersedes: remembering entropy at reveal and accepting any fresh resync silently, because a server could
+  drop the socket between commit and reveal and replay a deal it ground (review A1). After
   the grace window the player has left, exactly as a LAN guest (PR #22's `dealtTo`, `seatedAt`, `foldAbsent`).
 - **A turn clock** (30 s): a seat that does not act checks when free, else folds, through the same
   validation a player's action takes. The server deals the next hand 4 s after a settle; a client's `deal`
@@ -1272,7 +1276,10 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   mid-hand would force a graded fold), and the removed key cannot sit there again.
 - **Limits:** per address 8 sockets and 30 attempts a minute, 4,000 sockets in all; sign in within 10 s;
   60 s silence (the client pings every 20 s) closes a socket; 10 frames/s with a burst of 30; 20 strikes
-  close it; more than 2 MB unsent closes a slow reader; 10 bad signatures block an address for 10 minutes;
+  close it (10 forgiven a minute); export and erasure need a player row and may each start once a minute per
+  key, and an export is paged (1,000 rows a page) so it fits a frame; ledgers are streamed, never read as one
+  string; new ranked tables wait while more than 1,000 grades are queued; per-address state is dropped once
+  it limits nothing; more than 2 MB unsent closes a slow reader; 10 bad signatures block an address for 10 minutes;
   10 failed room or league codes per 10 minutes per key and per network.
 - **No free text.** Eight preset emotes, one per 3 s per player. Display names: 2–16 letters, digits,
   spaces, `._-`, a small folded denylist and reserved names ([names.ts](src/core/online/names.ts)).
@@ -1289,7 +1296,10 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   different material, and no signature replays on another connection ([onlineAuth.ts](src/main/onlineAuth.ts)).
 - **The server stores per key:** display name, the date of the 18+ confirmation, first and last sign-in
   dates. A player row exists only after the player sets a name and confirms 18+.
-- **Export and erasure:** `export` returns everything held about the key (opponents by key prefix only);
+- **The device key is created only when its file is missing.** An unreadable file is refused with the reason,
+  never overwritten; the app's export file loads back as the same identity (review A8).
+- **Export and erasure:** `export` returns everything held about the key (opponents by key prefix only, no
+  other player's network signal); main fetches every page and joins them;
   `forget` erases the row, leagues, past results and every ledger line naming the key, then signs out. The
   app exports the device identity (private key included, with the warning). Recovery is out of scope.
 - **What leaves the machine:** [docs/PRIVACY-ONLINE.md](docs/PRIVACY-ONLINE.md).
@@ -1300,7 +1310,9 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   facing a price), from the server's own engine state. No client value enters it; a forged `grade` frame is
   not understood. Lower is better; 0 is the grader's own play.
 - **Every graded decision is a ledger line with its full input**, so `admin.js regrade` recomputes any season
-  and reports differences. The Monte Carlo seed is derived from the deal's nonce and the decision's index.
+  and reports differences. The Monte Carlo seed is an HMAC of the deal nonce and decision index under a
+  server secret (`gradeSecret` in the state store). Supersedes: a seed from the nonce alone, because every
+  player sees the nonce and a bot could then compute its exact grade before acting (review A6).
 - **Auto actions are graded** (timeouts, and folds after leaving): otherwise dropping the connection would
   dodge a hard spot. Unranked tables store nothing.
 - **Honest noise:** a 95% normal interval on the mean, unrated below 200 decisions, the ladder ordered by the
@@ -1310,7 +1322,8 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   the same opponent, and nobody is listed with fewer than 3 different opponents. Friends leagues count
   everything (members chose each other). The operator sees per-pair signals (hands together, chip flow,
   shared network as a yes/no per hand) via `admin.js signals`; players never do.
-- **Seasons are UTC months**, each starting empty, pinned to `GRADER_VERSION`. The grader is fingerprinted
+- **Seasons are UTC months**, each starting empty, pinned to `GRADER_VERSION`. A season the server was down
+  for the end of is closed from its own ledger at the next start, before its ledger can be pruned. The grader is fingerprinted
   over a fixed corpus (`graderFingerprint`, pinned by a unit test); a server whose grader differs from its
   version's fingerprint, or from the season's version, refuses ranked play until next season.
 - **Friends leagues:** invite codes, up to 50 members, 5 owned and 20 joined per player, a board of the same

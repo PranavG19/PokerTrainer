@@ -7,7 +7,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MAX_SERVER_FRAME } from '../../src/core/online/protocol.js';
-import { decisionSeed, seasonOf } from '../../src/core/online/ranked.js';
+import { seasonOf } from '../../src/core/online/ranked.js';
 import type { ResyncMessage, ServerMessage } from '../../src/core/multiplayer.js';
 import { GuestProtocol, type GuestMemory } from '../../src/core/relayGuest.js';
 import type { DecisionRecord } from '../../src/core/relayServer.js';
@@ -104,10 +104,14 @@ describe('server-side fixes', () => {
     await t.server.rankings.idle();
     const lines = t.server.store.read<DecisionLine>('decisions', seasonOf(Date.now()));
     expect(lines.length).toBeGreaterThan(0);
+    // The old seed was the deal nonce's first 32 bits mixed with the index, which every player sees.
+    const derivable = (nonce: string, index: number): number =>
+      ((Number.parseInt(nonce.slice(0, 8), 16) >>> 0) ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0;
     for (const line of lines) {
       const [nonce, index] = line.d.split(':');
-      expect(line.in.seed).not.toBe(decisionSeed(nonce, Number(index)));
+      expect(line.in.seed).not.toBe(derivable(nonce, Number(index)));
     }
+    for (const p of [a, b]) expect(p.wire.join('\n')).not.toContain(t.server.store.gradeSecret);
   });
 });
 
@@ -176,5 +180,23 @@ describe('8. the device identity is never silently replaced', () => {
     const exported = path.join(dir, 'b.json');
     fs.writeFileSync(exported, JSON.stringify({ what: 'Offsuit online identity', identity: exportIdentity(original) }));
     expect(loadOrCreateIdentity(exported).publicKey).toBe(original.publicKey);
+  });
+});
+
+describe('7. addresses are not kept after their limits have lapsed', () => {
+  it('the per-address maps empty once nobody from that address is connected and its windows pass', async () => {
+    let clock = Date.now();
+    const t = await startTestServer({ now: () => clock });
+    try {
+      const p = await signedIn(t, 'Ada');
+      p.close();
+      await new Promise((r) => setTimeout(r, 100));
+      expect(t.server.stats().addressesTracked).toBeGreaterThan(0);
+      clock += 11 * 60_000;
+      await new Promise((r) => setTimeout(r, 200));
+      expect(t.server.stats().addressesTracked).toBe(0);
+    } finally {
+      await t.close();
+    }
   });
 });

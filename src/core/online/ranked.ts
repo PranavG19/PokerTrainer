@@ -76,15 +76,6 @@ export interface GradeInput {
 }
 
 /**
- * The grader's Monte Carlo seed for one decision: from the deal's nonce (fresh CSPRNG bytes per deal)
- * and the decision's index in the hand. Reproducible from the ledger, unknowable before the deal.
- */
-export function decisionSeed(nonce: string, index: number): number {
-  const head = Number.parseInt(nonce.slice(0, 8), 16) >>> 0;
-  return (head ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0;
-}
-
-/**
  * What the grader is asked about a seat's action, read from the engine state before it — the same
  * quantities the solo table hands the coach (screens/table.ts computeHeroGrade): the seat's hole, the
  * board, the pot, the price, its stack, and the live opponents.

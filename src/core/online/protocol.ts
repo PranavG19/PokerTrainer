@@ -104,7 +104,8 @@ export type OnlineRequest =
   | { readonly type: 'league-leave'; readonly id: number; readonly code: string }
   | { readonly type: 'league-board'; readonly id: number; readonly code: string }
   | { readonly type: 'leagues'; readonly id: number }
-  | { readonly type: 'export'; readonly id: number }
+  /** Everything the server holds about this key, in pages (`page` from 0) so each reply fits a frame. */
+  | { readonly type: 'export'; readonly id: number; readonly page: number }
   | { readonly type: 'forget'; readonly id: number };
 
 export type OnlineRequestType = OnlineRequest['type'];
@@ -243,11 +244,14 @@ export function parseOnlineFrame(line: string): OnlineRequest | RoomFrame | Ping
       const code = normaliseCode(r.code);
       return code === null ? null : { type: r.type, id, code };
     }
+    case 'export': {
+      const page = r.page ?? 0;
+      return Number.isInteger(page) && (page as number) >= 0 && (page as number) <= 10_000 ? { type: 'export', id, page: page as number } : null;
+    }
     case 'room-leave':
     case 'ladder':
     case 'season':
     case 'leagues':
-    case 'export':
     case 'forget':
       return { type: r.type, id };
   }

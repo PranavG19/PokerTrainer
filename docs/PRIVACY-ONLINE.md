@@ -17,7 +17,7 @@ pin. A server that fails the check is never sent anything.
 | That you confirmed you are **18 or over** | Online play is for adults | The **date** you confirmed it, nothing else |
 | Your **table actions** (fold, check, call, bet, raise and amounts), preset **emotes**, and your share of the **deal entropy** | Playing the hand; the entropy lets you check the server did not stack the deck | Unranked tables: nothing is kept after the hand. **Ranked** tables: see below |
 | Room and league **codes** you create or type | Joining the table or league | League codes and names, and who is in them |
-| Your **IP address** (every internet connection reveals it) | Unavoidable; also used to rate-limit abuse | **No.** Held in memory only while connected, never written to disk or logs |
+| Your **IP address** (every internet connection reveals it) | Unavoidable; also used to rate-limit abuse | **No.** Held in memory only, for the connection limits, and dropped within a few minutes of your last connection (at most 10 minutes after a blocked sign-in). Never written to disk or logs |
 
 The server also sees **your hole cards**, because it is the dealer: it deals them, it hides them from
 everyone else until showdown, and on ranked tables it grades your decisions with them.
@@ -50,7 +50,8 @@ your key. They never contain your name, key, IP address or cards. Logs are kept 
 
 - **Go offline** at any time; turning online play off in the app closes the connection.
 - **Export your server data**: the app's export request returns everything the server holds about your key
-  (your row, leagues, past season figures, your ranked decision records).
+  (your row, leagues, past season figures, your ranked decision records), fetched in pages and joined into one
+  file. One export and one deletion may be started per minute.
 - **Delete your server data**: the delete request erases your player row, league memberships, past season
   figures and every ranked record naming you, then signs you out. Hands you shared with others keep the
   other players' rows, with yours removed.

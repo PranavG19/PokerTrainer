@@ -88,7 +88,7 @@ export interface OnlineServer {
   readonly store: Store;
   /** Swap the certificate (SIGHUP after a renewal); open connections keep theirs. */
   reloadTls(tlsFiles: { readonly key: string; readonly cert: string }): void;
-  stats(): { connections: number; signedIn: number; rooms: number; seated: number };
+  stats(): { connections: number; signedIn: number; addressesTracked: number; rooms: number; seated: number };
   /** Grade everything queued and write the store. */
   flush(): Promise<void>;
   close(): Promise<void>;
@@ -113,7 +113,14 @@ class Bucket {
     this.tokens -= 1;
     return true;
   }
+  /** Full again by `now`: holding it changes nothing, so it can be dropped. */
+  full(now: number): boolean {
+    return this.tokens + ((now - this.at) / 1000) * this.rate >= this.cap;
+  }
 }
+
+/** Strikes forgiven per minute: a burst of button presses is not a hostile client for ever. */
+const STRIKE_DECAY_PER_MINUTE = 10;
 
 export async function startOnlineServer(options: OnlineServerOptions): Promise<OnlineServer> {
   const log = options.log ?? jsonLog();
@@ -174,6 +181,7 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
     let nonce = '';
     let conn: Conn | null = null;
     let strikes = 0;
+    let struckAt = now();
     const bucket = new Bucket(limits.framesPerSecond, limits.burst, now());
 
     const send = (frame: object): void => {
@@ -190,7 +198,9 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
       setTimeout(() => secure.destroy(), 1000).unref();
     };
     const strike = (): void => {
-      strikes += 1;
+      const t = now();
+      strikes = Math.max(0, strikes - ((t - struckAt) / 60_000) * STRIKE_DECAY_PER_MINUTE) + 1;
+      struckAt = t;
       if (strikes >= limits.strikes) {
         log('conn.strikes', conn ? { who: lobby.tag(key) } : {});
         bye('Too many messages this server could not use.');
@@ -299,7 +309,24 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
     secure.on('error', closed);
   }
 
-  const ticker = setInterval(() => lobby.tick(), options.tickMs ?? 250);
+  /**
+   * Forget an address once nothing about it still limits anything: no open socket, a full attempt bucket
+   * and no live block. So an address is held in memory at most a few minutes after its last connection.
+   */
+  const sweepAddresses = (): void => {
+    const t = now();
+    for (const [address, bucket] of attempts) if (!perAddress.has(address) && bucket.full(t)) attempts.delete(address);
+    for (const [address, row] of authFailures) if (t >= row.until) authFailures.delete(address);
+  };
+  let sweptAt = now();
+  const ticker = setInterval(() => {
+    lobby.tick();
+    if (now() - sweptAt >= 1000) {
+      sweptAt = now();
+      sweepAddresses();
+      lobby.sweep();
+    }
+  }, options.tickMs ?? 250);
   ticker.unref();
 
   return new Promise<OnlineServer>((resolve, reject) => {
@@ -317,7 +344,7 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
           secureContext = tls.createSecureContext({ key: files.key, cert: files.cert, minVersion: 'TLSv1.3' });
           log('tls.reloaded', {});
         },
-        stats: () => ({ connections: open.size, signedIn: signedIn.size, ...lobby.stats() }),
+        stats: () => ({ connections: open.size, signedIn: signedIn.size, addressesTracked: attempts.size + authFailures.size, ...lobby.stats() }),
         async flush() {
           await rankings.idle();
           store.close();

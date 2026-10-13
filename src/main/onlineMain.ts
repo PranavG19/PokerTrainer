@@ -115,7 +115,12 @@ export class OnlineController {
     this.disconnect();
     const target: OnlineTarget = { ...address, pin: pin.pin, ...(this.deps.ca !== undefined ? { ca: this.deps.ca } : {}) };
     // The device key is made here, on first use, and never before.
-    const identity = loadOrCreateIdentity(this.deps.identityFile);
+    let identity;
+    try {
+      identity = loadOrCreateIdentity(this.deps.identityFile);
+    } catch (error) {
+      return { ok: false, error: (error as Error).message };
+    }
     const session = new OnlineSession(target, identity, (event) => this.onEvent(session, event));
     this.session = session;
     try {
@@ -146,6 +151,7 @@ export class OnlineController {
     // Ranked tables are a Pro feature. The seam (onlineEntitlement.ts) is the one place it is decided.
     if (op === 'room-create' && body.ranked === true && !rankedEntitled()) return { ok: false, error: RANKED_IS_PRO };
     try {
+      if (op === 'export') return { ok: true, data: await exportAll(session) };
       const data = await session.request(op as OnlineRequestType, body as never);
       if (op === 'forget') this.disconnect();
       return { ok: true, data };
@@ -193,6 +199,21 @@ export class OnlineController {
       2,
     );
   }
+}
+
+/** Fetch every page of a server data export and join them into one document for the player. */
+async function exportAll(session: OnlineSession): Promise<unknown> {
+  type Page = { pages: number; decisions: unknown[]; hands: unknown[] } & Record<string, unknown>;
+  const first = (await session.request('export', { page: 0 })) as Page;
+  const decisions = [...first.decisions];
+  const hands = [...first.hands];
+  for (let page = 1; page < Math.min(first.pages, 10_000); page += 1) {
+    const next = (await session.request('export', { page })) as Page;
+    decisions.push(...next.decisions);
+    hands.push(...next.hands);
+  }
+  const { page: _page, pages: _pages, ...summary } = first;
+  return { ...summary, decisions, hands };
 }
 
 function isoToday(): string {

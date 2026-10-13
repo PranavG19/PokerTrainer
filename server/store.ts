@@ -20,6 +20,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import type { GradeInput, Rating } from '../src/core/online/ranked.js';
 
 export interface PlayerRow {
@@ -45,6 +46,8 @@ export interface SeasonRow {
 interface StateFile {
   readonly version: 1;
   readonly logSalt: string;
+  /** Keys the grader's Monte Carlo seeds, so no client can know a decision's exact seed (review A6). */
+  readonly gradeSecret: string;
   readonly players: Record<string, PlayerRow>;
   readonly leagues: Record<string, LeagueRow>;
   readonly seasons: Record<string, SeasonRow>;
@@ -103,7 +106,15 @@ export class Store {
     fs.mkdirSync(path.join(dir, 'ledger'), { recursive: true, mode: 0o700 });
     const file = path.join(dir, 'state.json');
     if (!fs.existsSync(file)) {
-      const fresh: StateFile = { version: 1, logSalt: crypto.randomBytes(16).toString('hex'), players: {}, leagues: {}, seasons: {}, results: {} };
+      const fresh: StateFile = {
+        version: 1,
+        logSalt: crypto.randomBytes(16).toString('hex'),
+        gradeSecret: crypto.randomBytes(32).toString('hex'),
+        players: {},
+        leagues: {},
+        seasons: {},
+        results: {},
+      };
       const store = new Store(dir, fresh);
       store.writeNow();
       return store;
@@ -115,11 +126,22 @@ export class Store {
       throw new Error(`${file} is not valid JSON (${(error as Error).message}); restore it from a backup`);
     }
     if (parsed?.version !== 1 || typeof parsed.logSalt !== 'string') throw new Error(`${file} is not an Offsuit state file`);
-    return new Store(dir, { ...parsed, results: parsed.results ?? {} });
+    const store = new Store(dir, { ...parsed, results: parsed.results ?? {}, gradeSecret: parsed.gradeSecret ?? crypto.randomBytes(32).toString('hex') });
+    if (parsed.gradeSecret === undefined) store.writeNow();
+    return store;
   }
 
   get logSalt(): string {
     return this.state.logSalt;
+  }
+
+  get gradeSecret(): string {
+    return this.state.gradeSecret;
+  }
+
+  /** Seasons that were opened, oldest first. */
+  openedSeasons(): string[] {
+    return Object.keys(this.state.seasons).sort();
   }
 
   // ── Players ──────────────────────────────────────────────────────────────
@@ -221,19 +243,27 @@ export class Store {
     fs.appendFileSync(this.ledgerFile(kind, season), `${JSON.stringify(line)}\n`, { mode: 0o600 });
   }
 
-  /** Every line of one ledger; a torn last line (a crash mid-append) is skipped. */
-  read<T extends DecisionLine | HandLine>(kind: LedgerKind, season: string): T[] {
-    const file = this.ledgerFile(kind, season);
-    if (!fs.existsSync(file)) return [];
-    const out: T[] = [];
-    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-      if (line.length === 0) continue;
+  /**
+   * Visit every line of one ledger, streamed in 1 MB chunks (a ledger as one string would hit V8's string
+   * limit at about a million lines). A torn last line (a crash mid-append) is skipped.
+   */
+  scan<T extends DecisionLine | HandLine>(kind: LedgerKind, season: string, visit: (line: T) => void): void {
+    forEachLine(this.ledgerFile(kind, season), (text) => {
+      let parsed: T;
       try {
-        out.push(JSON.parse(line) as T);
+        parsed = JSON.parse(text) as T;
       } catch {
         // A partial line from an interrupted append: it was never acknowledged as stored.
+        return;
       }
-    }
+      visit(parsed);
+    });
+  }
+
+  /** Every line of one ledger (admin tools and tests; the server itself scans). */
+  read<T extends DecisionLine | HandLine>(kind: LedgerKind, season: string): T[] {
+    const out: T[] = [];
+    this.scan<T>(kind, season, (line) => out.push(line));
     return out;
   }
 
@@ -262,13 +292,30 @@ export class Store {
 
   // ── A player's rights: export and erasure ──────────────────────────────────
 
-  /** Everything stored about one key. `limit` caps the decision rows (newest kept); the count is exact. */
-  exportFor(key: string, limit = 3000): Record<string, unknown> {
-    const decisions: DecisionLine[] = [];
-    const hands: HandLine[] = [];
+  /**
+   * Everything stored about one key, one page at a time: the summary on every page, and EXPORT_PAGE
+   * decision and hand rows from `page`. Every page of a heavy player still fits one server frame.
+   */
+  exportFor(key: string, page = 0): Record<string, unknown> {
+    const from = page * EXPORT_PAGE;
+    const to = from + EXPORT_PAGE;
+    const decisions: unknown[] = [];
+    const hands: unknown[] = [];
+    let decisionCount = 0;
+    let handCount = 0;
     for (const season of this.ledgerSeasons()) {
-      decisions.push(...this.read<DecisionLine>('decisions', season).filter((d) => d.k === key));
-      hands.push(...this.read<HandLine>('hands', season).filter((h) => h.p.some((p) => p.k === key)));
+      this.scan<DecisionLine>('decisions', season, (d) => {
+        if (d.k !== key) return;
+        if (decisionCount >= from && decisionCount < to) decisions.push({ ...d, opp: d.opp.map((o) => o.slice(0, 10)) });
+        decisionCount += 1;
+      });
+      this.scan<HandLine>('hands', season, (h) => {
+        if (!h.p.some((p) => p.k === key)) return;
+        // Other players at your hands appear by the first 10 characters of their key only, and nothing
+        // about their networks.
+        if (handCount >= from && handCount < to) hands.push({ h: h.h, day: h.day, p: h.p.map((p) => ({ ...p, k: p.k === key ? 'you' : p.k.slice(0, 10) })) });
+        handCount += 1;
+      });
     }
     const results: Record<string, Rating> = {};
     for (const [season, rows] of Object.entries(this.state.results)) if (rows[key]) results[season] = rows[key];
@@ -277,10 +324,12 @@ export class Store {
       player: this.player(key) ?? null,
       leagues: this.leaguesOf(key).map(({ code, row }) => ({ code, name: row.name, owner: row.owner === key, members: row.members.length })),
       pastSeasons: results,
-      decisionCount: decisions.length,
-      decisions: decisions.slice(-limit).map((d) => ({ ...d, opp: d.opp.map((o) => o.slice(0, 10)) })),
-      // Other players at your hands appear by the first 10 characters of their key only.
-      hands: hands.slice(-limit).map((h) => ({ ...h, p: h.p.map((p) => ({ ...p, k: p.k === key ? 'you' : p.k.slice(0, 10) })), shared: h.shared.length })),
+      decisionCount,
+      handCount,
+      page,
+      pages: Math.max(1, Math.ceil(Math.max(decisionCount, handCount) / EXPORT_PAGE)),
+      decisions,
+      hands,
     };
   }
 
@@ -293,21 +342,35 @@ export class Store {
     for (const { code } of this.leaguesOf(key)) this.leaveLeague(code, key);
     for (const rows of Object.values(this.state.results)) delete rows[key];
     for (const season of this.ledgerSeasons()) {
-      const decisions = this.read<DecisionLine>('decisions', season).filter((d) => d.k !== key);
-      const hands = this.read<HandLine>('hands', season).map((h) => ({
-        ...h,
-        p: h.p.filter((p) => p.k !== key),
-        shared: h.shared.filter(([a, b]) => a !== key && b !== key),
-      }));
-      this.rewrite(this.ledgerFile('decisions', season), decisions.map((d) => d.opp.includes(key) ? { ...d, opp: d.opp.filter((o) => o !== key) } : d));
-      this.rewrite(this.ledgerFile('hands', season), hands);
+      this.rewrite<DecisionLine>('decisions', season, (d) =>
+        d.k === key ? null : d.opp.includes(key) ? { ...d, opp: d.opp.filter((o) => o !== key) } : d,
+      );
+      this.rewrite<HandLine>('hands', season, (h) =>
+        h.p.some((p) => p.k === key) || h.shared.some(([a, b]) => a === key || b === key)
+          ? { ...h, p: h.p.filter((p) => p.k !== key), shared: h.shared.filter(([a, b]) => a !== key && b !== key) }
+          : h,
+      );
     }
     this.changed();
     this.writeNow();
   }
 
-  private rewrite(file: string, lines: readonly unknown[]): void {
-    atomicWrite(file, lines.map((l) => `${JSON.stringify(l)}\n`).join(''));
+  /** Stream one ledger through `map` (null drops the line) into a temp file, then rename it into place. */
+  private rewrite<T extends DecisionLine | HandLine>(kind: LedgerKind, season: string, map: (line: T) => T | null): void {
+    const file = this.ledgerFile(kind, season);
+    if (!fs.existsSync(file)) return;
+    const tmp = `${file}.tmp-${process.pid}`;
+    const fd = fs.openSync(tmp, 'w', 0o600);
+    try {
+      this.scan<T>(kind, season, (line) => {
+        const kept = map(line);
+        if (kept !== null) fs.writeSync(fd, `${JSON.stringify(kept)}\n`);
+      });
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmp, file);
   }
 
   // ── Persistence ──────────────────────────────────────────────────────────
@@ -328,6 +391,35 @@ export class Store {
 
   close(): void {
     if (this.dirty || this.timer !== null) this.writeNow();
+  }
+}
+
+/** Decision and hand rows per export page: ~450 bytes a decision row, so a page is well under 1 MiB. */
+export const EXPORT_PAGE = 1000;
+
+/** Call `visit` for each non-empty line of a file, reading it in chunks. Nothing when the file is absent. */
+function forEachLine(file: string, visit: (line: string) => void): void {
+  let fd: number;
+  try {
+    fd = fs.openSync(file, 'r');
+  } catch {
+    return;
+  }
+  try {
+    const chunk = Buffer.alloc(1024 * 1024);
+    const decoder = new StringDecoder('utf8');
+    let rest = '';
+    for (;;) {
+      const n = fs.readSync(fd, chunk, 0, chunk.length, null);
+      if (n === 0) break;
+      const lines = (rest + decoder.write(chunk.subarray(0, n))).split('\n');
+      rest = lines.pop() ?? '';
+      for (const line of lines) if (line.length > 0) visit(line);
+    }
+    rest += decoder.end();
+    if (rest.length > 0) visit(rest);
+  } finally {
+    fs.closeSync(fd);
   }
 }
 

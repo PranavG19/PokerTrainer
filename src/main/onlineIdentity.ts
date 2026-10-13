@@ -26,10 +26,16 @@ interface IdentityFile {
   readonly created: string;
 }
 
+export const IDENTITY_UNREADABLE =
+  'Your online identity file could not be read, so Offsuit did not replace it (that would lose this ' +
+  'identity for good). Restore it from your export, or move the file away to start a new identity.';
+
 /** The stored identity, or null when there is none or it does not hold together. */
 export function loadIdentity(file: string): Identity | null {
   try {
-    const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as IdentityFile;
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as IdentityFile & { identity?: IdentityFile };
+    // The app's export wraps the identity; copied back into place it loads as the same identity.
+    const parsed = raw?.identity ?? raw;
     if (parsed?.v !== 1 || typeof parsed.privateKeyPem !== 'string') return null;
     const privateKey = crypto.createPrivateKey(parsed.privateKeyPem);
     const publicKey = rawPublicKey(crypto.createPublicKey(privateKey));
@@ -50,8 +56,12 @@ export function createIdentity(file: string, now: Date = new Date()): Identity {
   return identity;
 }
 
+/** Create a key only when there is no file at all: an unreadable file is refused, never overwritten. */
 export function loadOrCreateIdentity(file: string): Identity {
-  return loadIdentity(file) ?? createIdentity(file);
+  if (!fs.existsSync(file)) return createIdentity(file);
+  const identity = loadIdentity(file);
+  if (identity === null) throw new Error(IDENTITY_UNREADABLE);
+  return identity;
 }
 
 function serialise(identity: Identity): IdentityFile {

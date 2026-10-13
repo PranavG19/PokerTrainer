@@ -12,10 +12,10 @@
  * refused for the rest of the season instead of mixing two graders in one ladder.
  */
 
+import * as crypto from 'node:crypto';
 import {
   addLoss,
   buildBoard,
-  decisionSeed,
   EMPTY_TALLY,
   GRADER_FINGERPRINTS,
   GRADER_VERSION,
@@ -96,23 +96,41 @@ export class Rankings {
     this.openSeason();
   }
 
-  /** Open the current season (pinning the grader) and rebuild its tallies from the ledger. */
+  /**
+   * Open the current season (pinning the grader) and rebuild its tallies from the ledger. Any earlier
+   * season left without saved results (the server was down when its month ended) is closed first, from
+   * its own ledger, before prune may delete that ledger.
+   */
   private openSeason(): void {
+    const earlier = new Set([...this.store.openedSeasons(), ...this.store.ledgerSeasons()]);
+    for (const season of [...earlier].sort()) {
+      if (season < this.season && this.store.results(season) === undefined) this.closeSeason(season, this.talliesOf(season));
+    }
     this.store.openSeason(this.season, GRADER_VERSION, this.now());
-    this.tallies = emptyTallies();
-    for (const line of this.store.read<DecisionLine>('decisions', this.season)) this.ingest(line.k, line.opp, line.ev);
+    this.tallies = this.talliesOf(this.season);
     const removed = this.store.prune(this.season);
     if (removed.length > 0) this.log('ledger.pruned', { files: removed.length });
   }
 
-  /** Close the month if it turned: keep each player's final rating, then start the new season empty. */
+  private talliesOf(season: string): SeasonTallies {
+    const tallies = emptyTallies();
+    this.store.scan<DecisionLine>('decisions', season, (line) => ingest(tallies, line.k, line.opp, line.ev));
+    return tallies;
+  }
+
+  /** Keep each player's final ladder figure for a finished season. */
+  private closeSeason(season: string, tallies: SeasonTallies): void {
+    const results: Record<string, Rating> = {};
+    for (const [key, tally] of tallies.capped) results[key] = rate(tally);
+    this.store.saveResults(season, results);
+    this.log('season.closed', { players: Object.keys(results).length });
+  }
+
+  /** Close the month if it turned while running, then start the new season empty. */
   private rollover(): void {
     const current = seasonOf(this.now());
     if (current === this.season) return;
-    const results: Record<string, Rating> = {};
-    for (const [key, tally] of this.tallies.capped) results[key] = rate(tally);
-    this.store.saveResults(this.season, results);
-    this.log('season.closed', { players: Object.keys(results).length });
+    this.closeSeason(this.season, this.tallies);
     this.season = current;
     this.openSeason();
   }
@@ -130,18 +148,15 @@ export class Rankings {
     if (row !== undefined && row.graderVersion !== GRADER_VERSION) {
       return 'Ranked play resumes next season: the grader changed during this one.';
     }
+    // Grading falls behind only when far more is played than this server can grade; new ranked tables
+    // wait rather than let the queue grow without bound.
+    if (this.queue.length > MAX_QUEUED) return 'Ranked play is busy on this server. Try again in a few minutes.';
     return null;
   }
 
-  private ingest(key: string, opponents: readonly string[], loss: number): void {
-    const t = this.tallies;
-    t.all.set(key, addLoss(t.all.get(key) ?? EMPTY_TALLY, loss));
-    const pairs = t.pairs.get(key) ?? new Map<string, number>();
-    t.pairs.set(key, pairs);
-    // Counted on the ladder only while every opponent at the hand is still under the pair cap.
-    const underCap = opponents.every((o) => (pairs.get(o) ?? 0) < PAIR_CAP);
-    for (const o of opponents) pairs.set(o, (pairs.get(o) ?? 0) + 1);
-    if (underCap) t.capped.set(key, addLoss(t.capped.get(key) ?? EMPTY_TALLY, loss));
+  /** The grader's seed for one decision: keyed by a server secret, so no client can know it in advance. */
+  private seedOf(nonce: string, index: number): number {
+    return crypto.createHmac('sha256', this.store.gradeSecret).update(`${nonce}:${index}`).digest().readUInt32BE(0);
   }
 
   // ── Grading ──────────────────────────────────────────────────────────────
@@ -171,7 +186,9 @@ export class Rankings {
     // never written back.
     if (this.store.player(job.key) === undefined) return;
     const { record } = job;
-    const input = gradeInputFor(record.before, record.seat, record.action, decisionSeed(record.nonce, record.index));
+    const input = gradeInputFor(record.before, record.seat, record.action, this.seedOf(record.nonce, record.index));
+    // An opponent erased meanwhile is not named in a line written after their erasure.
+    const opponents = job.opponents.filter((o) => this.store.player(o) !== undefined);
     const ev = gradeInput(input);
     const season = this.currentSeason();
     const line: DecisionLine = {
@@ -180,12 +197,12 @@ export class Rankings {
       ev: Math.round(ev * 10_000) / 10_000,
       g: GRADER_VERSION,
       auto: record.auto,
-      opp: job.opponents,
+      opp: opponents,
       day: day(this.now()),
       in: input,
     };
     this.store.append('decisions', season, line);
-    this.ingest(job.key, job.opponents, line.ev);
+    ingest(this.tallies, job.key, opponents, line.ev);
   }
 
   /** Resolves once every queued decision is graded and written (tests, and a clean shutdown). */
@@ -259,7 +276,7 @@ export class Rankings {
   signals(season = this.currentSeason()): PairSignal[] {
     const pair = new Map<string, { hands: number; flow: number; shared: number }>();
     const handsOf = new Map<string, number>();
-    for (const hand of this.store.read<HandLine>('hands', season)) {
+    this.store.scan<HandLine>('hands', season, (hand) => {
       for (const p of hand.p) handsOf.set(p.k, (handsOf.get(p.k) ?? 0) + 1);
       for (let i = 0; i < hand.p.length; i += 1) {
         for (let j = i + 1; j < hand.p.length; j += 1) {
@@ -277,10 +294,23 @@ export class Rankings {
           pair.set(id, row);
         }
       }
-    }
+    });
     return [...pair].map(([id, row]) => {
       const [a, b] = id.split('|');
       return { a, b, hands: row.hands, flow: row.flow, sharedNetwork: row.shared, shareOfA: row.hands / (handsOf.get(a) ?? row.hands) };
     }).sort((x, y) => y.hands - x.hands);
   }
+}
+
+/** Grades queued beyond this close new ranked tables until grading catches up (~10 s of work). */
+const MAX_QUEUED = 1000;
+
+function ingest(t: SeasonTallies, key: string, opponents: readonly string[], loss: number): void {
+  t.all.set(key, addLoss(t.all.get(key) ?? EMPTY_TALLY, loss));
+  const pairs = t.pairs.get(key) ?? new Map<string, number>();
+  t.pairs.set(key, pairs);
+  // Counted on the ladder only while every opponent at the hand is still under the pair cap.
+  const underCap = opponents.every((o) => (pairs.get(o) ?? 0) < PAIR_CAP);
+  for (const o of opponents) pairs.set(o, (pairs.get(o) ?? 0) + 1);
+  if (underCap) t.capped.set(key, addLoss(t.capped.get(key) ?? EMPTY_TALLY, loss));
 }

@@ -19,7 +19,6 @@ import {
 import {
   addLoss,
   buildBoard,
-  decisionSeed,
   EMPTY_TALLY,
   GRADER_FINGERPRINTS,
   GRADER_VERSION,
@@ -167,10 +166,6 @@ describe('the rating', () => {
     expect(graderFingerprint()).toBe(GRADER_FINGERPRINTS[GRADER_VERSION]);
   });
 
-  it('a decision’s seed is fixed by its deal and index', () => {
-    expect(decisionSeed('00000001aaaa', 0)).toBe(decisionSeed('00000001bbbb', 0));
-    expect(decisionSeed('00000001aaaa', 0)).not.toBe(decisionSeed('00000001aaaa', 1));
-  });
 });
 
 describe('collusion caps on the season ladder', () => {

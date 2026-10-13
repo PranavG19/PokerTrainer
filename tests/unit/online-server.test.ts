@@ -8,7 +8,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as tls from 'node:tls';
 import { afterEach, describe, expect, it } from 'vitest';
-import { decisionSeed, gradeInput } from '../../src/core/online/ranked.js';
+import * as crypto from 'node:crypto';
+import { gradeInput } from '../../src/core/online/ranked.js';
 import { formatCode, MAX_CLIENT_FRAME } from '../../src/core/online/protocol.js';
 import type { RoomInfo } from '../../src/core/online/protocol.js';
 import { OnlineSession, PIN_MISMATCH } from '../../src/main/onlineClient.js';
@@ -318,12 +319,13 @@ describe('ranked recomputation', () => {
     const adaLines = ledger.filter((l) => l.k === ada.identity.publicKey);
     expect(adaLines.length).toBeGreaterThan(0);
     for (const line of adaLines) expect(adaHoles.has(line.in.hole.join())).toBe(true);
-    // 3. The grader's seed comes from the deal's nonce, which the player saw committed before any card.
+    // 3. The decision names a deal the player saw committed before any card; its grader seed is keyed by a
+    //    server secret that never appears on any player's wire.
     const nonces = ada.wire.filter((l) => l.startsWith('{"type":"commit"')).map((l) => JSON.parse(l).nonce as string);
     for (const line of adaLines) {
       const [nonce, index] = line.d.split(':');
       expect(nonces).toContain(nonce);
-      expect(line.in.seed).toBe(decisionSeed(nonce, Number(index)));
+      expect(line.in.seed).toBe(crypto.createHmac('sha256', t.server.store.gradeSecret).update(`${nonce}:${index}`).digest().readUInt32BE(0));
       expect(line.opp).toEqual([bo.identity.publicKey]);
     }
     // 4. The season view reports the same count, unrated until the minimum sample.

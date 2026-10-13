@@ -39,9 +39,10 @@ import {
 import type { ClientMessage, ResyncMessage, RoomView, SeatView, ServerMessage } from './multiplayer.js';
 
 /**
- * What a guest remembers across connections to one server: the entropy it revealed per deal. An online
- * client reconnects with a fresh protocol, and a `resync` for a deal it revealed into must carry that
- * entropy, or the server dealt that hand without it.
+ * What a guest remembers across connections to one server: the entropy it committed to per deal, kept
+ * from the moment it commits (not when it reveals, or a server could drop the connection in between and
+ * replay a deal without it). An online client reconnects with a fresh protocol, and a `resync` for a deal
+ * it committed to must carry that entropy, or the server dealt that hand without it.
  */
 export interface GuestMemory {
   readonly revealed: (nonce: string) => string | undefined;
@@ -146,6 +147,8 @@ export class GuestProtocol {
     if (dealt.nonce !== commit.nonce || dealt.hand !== commit.hand || (set !== null && (!isObject(set) || set.nonce !== commit.nonce))) {
       return events(violation('the deal replay does not belong to one deal'));
     }
+    // Every online deal has guest entropy; a deal with none is the server's choice alone, as on the live path.
+    if (set === null) return events(violation('the host dealt without publishing the entropy commitments'));
     const problem = openingProblem(this.crypto, set, dealt);
     if (problem !== null) return events(violation(problem));
     const mine = this.memory?.revealed(commit.nonce);
@@ -154,6 +157,11 @@ export class GuestProtocol {
     }
     this.usedNonces.add(commit.nonce);
     this.live = { commit, sigma: deriveSigma(this.crypto.sha256, commit, dealt.reveals), opened: new Map(), audited: false };
+    // Nothing remembered for this deal (the app restarted, or never saw its commitment): the cards are still
+    // checked against the commitment, but not that this player's entropy shaped them. Said, every time.
+    if (mine === undefined) {
+      return events({ type: 'warning', reason: 'You rejoined a hand dealt before you reconnected, so Offsuit could not check your shuffle went into it.' });
+    }
     return events();
   }
 
@@ -172,6 +180,7 @@ export class GuestProtocol {
     }
     this.usedNonces.add(commit.nonce);
     const { entropy, commitment } = freshEntropy(this.crypto, commit.nonce, commit.hand);
+    this.memory?.remember(commit.nonce, entropy);
     this.pending = { commit, entropy, commitment, set: null, revealed: false };
     return { send: [{ type: 'entropy-commit', hand: commit.hand, nonce: commit.nonce, commitment }], events: out };
   }
@@ -193,7 +202,6 @@ export class GuestProtocol {
       return events(violation('the host left your shuffle entropy out of the deal'));
     }
     pending.revealed = true;
-    this.memory?.remember(set.nonce, pending.entropy);
     const reveal: ClientMessage = { type: 'entropy-reveal', hand: set.hand, nonce: set.nonce, entropy: pending.entropy };
     return { send: [reveal], events: [] };
   }

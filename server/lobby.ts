@@ -76,6 +76,9 @@ export const DEFAULT_LIMITS: LobbyLimits = {
 
 const ROOM_BLINDS = { sb: 25, bb: 50, startStack: 5000 } as const;
 
+/** How long after page 0 the rest of an export may be fetched. */
+const EXPORT_WINDOW_MS = 5 * 60_000;
+
 type Reply = { readonly ok: true; readonly data: unknown } | { readonly ok: false; readonly error: string };
 const ok = (data: unknown = null): Reply => ({ ok: true, data });
 const fail = (error: string): Reply => ({ ok: false, error });
@@ -103,6 +106,10 @@ class Window {
   }
   add(id: string, now: number): void {
     this.hits.set(id, [...(this.hits.get(id) ?? []).filter((t) => now - t < this.ms), now]);
+  }
+  /** Drop every id whose window has passed. */
+  sweep(now: number): void {
+    for (const id of [...this.hits.keys()]) this.count(id, now);
   }
 }
 
@@ -290,6 +297,10 @@ export class Lobby {
   private readonly seatedIn = new Map<string, OnlineTable>();
   private readonly failedJoins: Window;
   private readonly created = new Window(60 * 60_000);
+  /** Export (page 0) and erasure each scan every ledger, so a key may start each once a minute. */
+  private readonly heavy = new Window(60_000);
+  /** When each key last began an export, so its later pages are not limited like a new one. */
+  private readonly exporting = new Map<string, number>();
 
   constructor(
     readonly store: Store,
@@ -341,6 +352,15 @@ export class Lobby {
     table.frame(conn.key, frame);
   }
 
+  /** Forget rate-limit history that no longer limits anything. */
+  sweep(): void {
+    const now = this.now();
+    this.failedJoins.sweep(now);
+    this.created.sweep(now);
+    this.heavy.sweep(now);
+    for (const [key, at] of this.exporting) if (now - at > EXPORT_WINDOW_MS) this.exporting.delete(key);
+  }
+
   tick(): void {
     const now = this.now();
     for (const [code, table] of this.rooms) {
@@ -376,7 +396,19 @@ export class Lobby {
       this.log('player.profile', { who: this.tag(conn.key), first: row.created === day(now) });
       return ok({ name: row.name });
     }
-    if (req.type === 'export') return ok(this.store.exportFor(conn.key));
+    if (req.type === 'export' || req.type === 'forget') {
+      // Both scan every ledger: only for a key the server holds something about, and not in a loop.
+      if (player === undefined) return fail('This server holds nothing about this key.');
+      const continuing = req.type === 'export' && req.page > 0 && now - (this.exporting.get(conn.key) ?? -Infinity) < EXPORT_WINDOW_MS;
+      if (!continuing) {
+        if (this.heavy.count(`${req.type}:${conn.key}`, now) >= 1) return fail('Try that again in a minute.');
+        this.heavy.add(`${req.type}:${conn.key}`, now);
+      }
+    }
+    if (req.type === 'export') {
+      if (req.page === 0) this.exporting.set(conn.key, now);
+      return ok(this.store.exportFor(conn.key, req.page));
+    }
     if (req.type === 'forget') {
       this.seatedIn.get(conn.key)?.unseat(conn.key, null);
       this.store.forget(conn.key);
