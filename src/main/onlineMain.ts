@@ -139,6 +139,10 @@ export class OnlineController {
     if (event.type === 'status') this.status = event.status;
     if (event.type === 'status' && event.status === 'offline') this.session = null;
     if (event.type === 'welcome') this.welcome = event.welcome;
+    // A ranked seat resumed after a reconnect is checked like a new one: without Pro, leave it.
+    if ((event.type === 'welcome' && event.welcome.room?.ranked === true) || (event.type === 'room' && event.room?.ranked === true)) {
+      if (!this.deps.canRanked()) session.leave();
+    }
     this.deps.push(event);
   }
 

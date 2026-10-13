@@ -73,7 +73,8 @@ cp -R server/deploy/remote/. "$stage/offsuit-upload/remote/"
 # env and the env is rewritten to point at its place on the VPS. Placeholders are refused when enabled.
 if [ -n "$licence_env" ]; then
   [ -f "$licence_env" ] || { echo "error: licence env file '$licence_env' not found" >&2; exit 1; }
-  if grep -q '^OFFSUIT_LICENCE_ENABLED=1' "$licence_env"; then
+  # Quoted or not: systemd strips the quotes, so "1" is enabled at runtime too.
+  if grep -Eq '^[[:space:]]*OFFSUIT_LICENCE_ENABLED=["'"'"']?1["'"'"']?[[:space:]]*$' "$licence_env"; then
     if grep -q 'REPLACE_ME' "$licence_env"; then
       echo "error: $licence_env still has REPLACE_ME placeholders" >&2
       exit 1

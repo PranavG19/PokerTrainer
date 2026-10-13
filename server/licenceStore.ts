@@ -32,7 +32,15 @@ export class FileLicenceStore implements LicenceStore {
     private readonly file: string,
     private readonly now: () => number = Date.now,
   ) {
-    this.data = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as LicenceFile) : { v: 1, events: {}, records: {}, orders: {} };
+    if (!fs.existsSync(file)) {
+      this.data = { v: 1, events: {}, records: {}, orders: {} };
+      return;
+    }
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as LicenceFile;
+    if (parsed?.v !== 1 || typeof parsed.records !== 'object' || typeof parsed.orders !== 'object' || typeof parsed.events !== 'object') {
+      throw new Error(`${file} is not a licence store; restore it from a backup`);
+    }
+    this.data = parsed;
   }
 
   /** Run one mutation after every earlier one, then persist before resolving. */

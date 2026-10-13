@@ -1342,7 +1342,7 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   in the copy and the docs.
 - **Pro gate: the licence authority** (PR #24). Main's `authority.can('ranked-play')` decides, on every
   request: a ranked `room-create` is refused, and a `room-join` that lands on a ranked table leaves it at
-  once, without the entitlement; unranked play stays free. The Play online screen shows the locked caption
+  once, without the entitlement; unranked play stays free. A ranked seat resumed after a reconnect is left at once without it. The Play online screen shows the locked caption
   with "What Pro adds", which opens the app's upgrade sheet; `ranked-play` is now `available`. The server does
   not check a licence (open question). Supersedes: a single seam returning true, because the entitlements
   core was not on main when this was built.
@@ -1366,7 +1366,11 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   argument); enabled but incomplete, the server refuses to start. Its store is `licences.json` in the state
   directory ([licenceStore.ts](server/licenceStore.ts)): one promise chain, each write atomic before it
   resolves, so per-subscription writes are serialised in the single process the deploy runs; event ids kept 35
-  days. `/v1/*` is limited to 20 a minute per address.
+  days. `/v1/*` is limited to 20 a minute per address and any HTTP path to 120, on the normalised path; a
+  target not in plain `/path` form gets 400 (review L2). Every HTTP connection has a 20 s hard deadline and
+  10 s inactivity timeout, because node:http applies its header and request timeouts only to a server it
+  listens with (review L1). A licensing fault (bad env, corrupt `licences.json`) starts the game with
+  licensing off and logs `licence.failed`, so tables stay up.
 - `deploy.sh <ip> <domain> <email>`: build locally, upload, and on Ubuntu 24.04: Node 22 (NodeSource, signed),
   unattended upgrades with a 04:30 reboot, a no-login `offsuit` user, key-only SSH (only if a key is
   installed), ufw (SSH limited, 443, 80 for renewals only), Let's Encrypt (certbot standalone, deploy hook

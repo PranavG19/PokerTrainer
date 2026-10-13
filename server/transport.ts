@@ -52,6 +52,11 @@ export interface TransportLimits {
   readonly maxBuffered: number;
   readonly authFailures: number;
   readonly blockMs: number;
+  /**
+   * The whole life of an HTTP connection on the game port. node:http enforces its request and header
+   * timeouts only for a server it listen()s, which this one never does, so this deadline is the guard.
+   */
+  readonly httpDeadlineMs: number;
 }
 
 export const TRANSPORT_LIMITS: TransportLimits = {
@@ -66,6 +71,7 @@ export const TRANSPORT_LIMITS: TransportLimits = {
   maxBuffered: 2 * 1024 * 1024,
   authFailures: 10,
   blockMs: 10 * 60_000,
+  httpDeadlineMs: 20_000,
 };
 
 export interface OnlineServerOptions {
@@ -183,6 +189,9 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
         secure.unshift(first);
         if (/^(GET|POST|HEAD|PUT|DELETE|OPTIONS|PATCH) /.test(first.subarray(0, 8).toString('latin1'))) {
           clearTimeout(helloTimer);
+          const deadline = setTimeout(() => secure.destroy(), limits.httpDeadlineMs);
+          deadline.unref();
+          secure.on('close', () => clearTimeout(deadline));
           httpServer.emit('connection', secure);
         } else {
           serve(secure, address, helloTimer);
@@ -193,28 +202,49 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
     socket.resume();
   });
 
-  /** Requests per address per minute on /v1/* (restore takes an order id, so it must not be sprayable). */
+  /**
+   * Requests per address per minute: on /v1/* (restore takes an order id, so it must not be sprayable),
+   * and on any path at all (webhook bodies and 404s are not free either).
+   */
   const V1_PER_MINUTE = 20;
+  const HTTP_PER_MINUTE = 120;
   const v1Buckets = new Map<string, Bucket>();
+  const httpBuckets = new Map<string, Bucket>();
+  const take = (buckets: Map<string, Bucket>, perMinute: number, address: string, t: number): boolean => {
+    const bucket = buckets.get(address) ?? new Bucket(perMinute / 60, perMinute, t);
+    buckets.set(address, bucket);
+    return bucket.take(t);
+  };
   const licenceListener = options.licence !== undefined ? nodeListener(options.licence) : null;
   const httpServer = http.createServer({ requestTimeout: 15_000, headersTimeout: 10_000, maxHeaderSize: 8192 }, (req, res) => {
+    const address = req.socket.remoteAddress ?? '';
+    const t = now();
+    const slowDown = (): void => void res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '60' }).end('{"status":"slow-down"}');
+    if (!take(httpBuckets, HTTP_PER_MINUTE, address, t)) return slowDown();
+    // Only a plain origin-form target: the handler routes on the normalised pathname, so a target that
+    // normalises to something else ("/./v1", "//h/v1", "/x/../v1", absolute-form) would dodge the limit.
+    const target = req.url ?? '';
+    const pathOnly = target.split('?')[0];
+    let pathname: string;
+    try {
+      pathname = new URL(target, 'http://offsuit.invalid').pathname;
+    } catch {
+      pathname = '';
+    }
+    if (!target.startsWith('/') || target.startsWith('//') || pathname !== pathOnly) {
+      res.writeHead(400, { 'content-type': 'text/plain' }).end('Bad request\n');
+      return;
+    }
     if (licenceListener === null) {
       res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found\n');
       return;
     }
-    if ((req.url ?? '').startsWith('/v1/')) {
-      const address = req.socket.remoteAddress ?? '';
-      const t = now();
-      const bucket = v1Buckets.get(address) ?? new Bucket(V1_PER_MINUTE / 60, V1_PER_MINUTE, t);
-      v1Buckets.set(address, bucket);
-      if (!bucket.take(t)) {
-        res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '60' }).end('{"status":"slow-down"}');
-        return;
-      }
-    }
+    if (pathname.startsWith('/v1/') && !take(v1Buckets, V1_PER_MINUTE, address, t)) return slowDown();
     licenceListener(req, res);
   });
   httpServer.keepAliveTimeout = 5_000;
+  // Inactivity on an HTTP socket (applied per connection, listen() or not).
+  httpServer.timeout = 10_000;
 
   function serve(secure: tls.TLSSocket, address: string, helloTimer: NodeJS.Timeout): void {
     secure.setEncoding('utf8');
@@ -361,7 +391,7 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
     const t = now();
     for (const [address, bucket] of attempts) if (!perAddress.has(address) && bucket.full(t)) attempts.delete(address);
     for (const [address, row] of authFailures) if (t >= row.until) authFailures.delete(address);
-    for (const [address, bucket] of v1Buckets) if (bucket.full(t)) v1Buckets.delete(address);
+    for (const buckets of [v1Buckets, httpBuckets]) for (const [address, bucket] of buckets) if (bucket.full(t)) buckets.delete(address);
   };
   let sweptAt = now();
   const ticker = setInterval(() => {

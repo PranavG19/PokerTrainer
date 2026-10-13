@@ -81,8 +81,8 @@ function selfSignedFiles(state: string): { key: string; cert: string } {
 
 /**
  * The licence server (PR #24), on when OFFSUIT_LICENCE_ENABLED=1, from the env docs/PAYMENTS-SETUP.md lists
- * (systemd reads it from /etc/offsuit/licence.env). Enabled but incomplete stops the server with the
- * missing variable's name: a licence server that starts without its keys would accept nothing silently.
+ * (systemd reads it from /etc/offsuit/licence.env). Enabled but incomplete throws with the missing
+ * variable's name; main then runs the game with licensing off and logs `licence.failed`.
  */
 export function licenceFromEnv(env: NodeJS.ProcessEnv, state: string, log: Log): ReturnType<typeof createLicenceServer> | undefined {
   if (env.OFFSUIT_LICENCE_ENABLED !== '1') {
@@ -112,12 +112,14 @@ async function main(): Promise<void> {
     ...(args.maxPerAddress !== undefined ? { maxPerAddress: args.maxPerAddress } : {}),
     ...(args.attemptsPerMinute !== undefined ? { attemptsPerMinute: args.attemptsPerMinute } : {}),
   };
+  // A licensing fault must not take the tables down: the game starts with licensing off, said loudly.
   let licence: ReturnType<typeof licenceFromEnv>;
   try {
     licence = licenceFromEnv(process.env, args.state, log);
   } catch (error) {
-    process.stderr.write(`offsuit-server: ${(error as Error).message}\n`);
-    process.exit(2);
+    process.stderr.write(`offsuit-server: licensing is OFF: ${(error as Error).message}\n`);
+    log('licence.failed', { reason: (error as Error).message.slice(0, 160) });
+    licence = undefined;
   }
   const server = await startOnlineServer({ stateDir: args.state, tls: tlsFiles, port: args.port, host: args.host, log, limits, licence });
   // The pin is the certificate's public fingerprint, not a secret; printing it is how players get it.

@@ -107,3 +107,33 @@ describe('FileLicenceStore', () => {
     for (let n = 0; n < 20; n += 1) expect((await b.byOrder(`cs_${n}`))?.lid).toBe(`l${n}`);
   });
 });
+
+describe('round 2 review: the HTTP branch', () => {
+  it('L1. a client that sends only a request line is closed by a hard deadline', async () => {
+    const tls = await import('node:tls');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-lic-'));
+    const t = await startTestServer({ stateDir: dir, licence: licence(dir).handle, limits: { httpDeadlineMs: 500 } });
+    servers.push(t);
+    const socket = tls.connect({ host: '127.0.0.1', port: t.server.port, rejectUnauthorized: false });
+    await new Promise<void>((r) => socket.on('secureConnect', () => r()));
+    socket.write('POST /v1/licence/restore HTTP/1.1\r\n');
+    const closedAt = await new Promise<number>((r) => {
+      const started = Date.now();
+      socket.on('close', () => r(Date.now() - started));
+      socket.on('error', () => undefined);
+    });
+    expect(closedAt).toBeLessThan(3000);
+  });
+
+  it('L2. a path spelled to dodge the /v1 limit is refused, and the limit holds on the normalised path', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-lic-'));
+    const t = await startTestServer({ stateDir: dir, licence: licence(dir).handle });
+    servers.push(t);
+    for (const target of ['/./v1/licence/restore', '//h/v1/licence/restore', '/x/../v1/licence/restore']) {
+      expect((await request(t.server.port, 'POST', target, '{}')).status, target).toBe(400);
+    }
+    const statuses: number[] = [];
+    for (let i = 0; i < 25; i += 1) statuses.push((await request(t.server.port, 'POST', '/v1/licence/restore?x=1', '{}')).status);
+    expect(statuses.filter((s) => s === 429).length).toBeGreaterThan(0);
+  });
+});
