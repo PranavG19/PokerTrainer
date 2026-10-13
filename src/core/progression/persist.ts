@@ -32,6 +32,16 @@ import {
   type RepAward,
   type RepsState,
   type SealsState,
+  CHAPTER_RESULTS,
+  RIVAL_ACTION_KINDS,
+  RIVAL_ACTION_STREETS,
+  type ChapterProgress,
+  type RivalAction,
+  type RivalRecord,
+  type RivalSitting,
+  type ShowdownRecord,
+  type StoryOverride,
+  type StoryState,
 } from './types.js';
 
 /** Two years of counted days: a calendar strip shows weeks, so this is generous. */
@@ -41,6 +51,11 @@ export const MAX_RECEIPTS = 500;
 export const MAX_REMEMBERED_SENTENCES = 100;
 export const MAX_DEE_SAID = 64;
 export const MAX_GOALS = 2;
+export const MAX_STORY_OVERRIDES = 100;
+export const MAX_RIVAL_SITTINGS = 60;
+export const MAX_RIVAL_SHOWDOWNS = 200;
+/** A heads-up hand rarely runs past a dozen actions a side; anything longer is corruption. */
+const MAX_RIVAL_ACTIONS = 40;
 /** Ids and enum-like answers. */
 const MAX_ID_CHARS = 64;
 /** A rule sentence, a receipt fact. */
@@ -79,6 +94,7 @@ export function defaultProgression(): ProgressionState {
     },
     milestones: { achieved: {} },
     entitlements: { tier: 'free', granted: [], licence: null, highWater: 0 },
+    story: { chapters: {}, rivals: {}, overrides: [] },
   };
 }
 
@@ -118,6 +134,7 @@ export const PROGRESSION_SHAPE = {
   },
   milestones: { achieved: true },
   entitlements: { tier: true, granted: true, licence: true, highWater: true },
+  story: { chapters: true, rivals: true, overrides: true },
 } as const;
 
 export function parseProgression(raw: unknown): ProgressionState {
@@ -132,6 +149,7 @@ export function parseProgression(raw: unknown): ProgressionState {
     personalization: section(obj.personalization, d.personalization, parsePersonalization),
     milestones: section(obj.milestones, d.milestones, parseMilestones),
     entitlements: section(obj.entitlements, d.entitlements, parseEntitlements),
+    story: section(obj.story, d.story, parseStory),
   };
 }
 
@@ -374,7 +392,95 @@ function licenceToken(value: unknown): string | null {
   return token.length > 0 && token.length <= MAX_TOKEN_CHARS ? token : null;
 }
 
+/**
+ * Story progress. Ids are kept whatever they are (a newer build's chapter survives); within a record a bad
+ * entry is dropped and a count is clamped. A showdown without exactly two shown cards and a full board is
+ * dropped: it could not have been a showdown, so it cannot be a read.
+ */
+function parseStory(obj: Record<string, unknown>): StoryState {
+  const chapters: Record<string, ChapterProgress> = {};
+  for (const [key, value] of Object.entries(asRecord(obj.chapters))) {
+    const k = id(key);
+    if (k === null || k === '__proto__' || !isPlainObject(value)) continue;
+    chapters[k] = {
+      introSeen: value.introSeen === true,
+      lessonDone: value.lessonDone === true,
+      tables: Math.min(MAX_RUN, nonNegativeInt(value.tables)),
+      // A newer build's result is kept as written; readers map it through `effectiveResult`.
+      lastResult: id(value.lastResult),
+      beatenOn: asDayKey(value.beatenOn),
+    };
+  }
+  const rivals: Record<string, RivalRecord> = {};
+  for (const [key, value] of Object.entries(asRecord(obj.rivals))) {
+    const k = id(key);
+    if (k === null || k === '__proto__' || !isPlainObject(value)) continue;
+    const showdowns = asArray(value.showdowns).map(parseShowdown).filter((s): s is ShowdownRecord => s !== null);
+    rivals[k] = {
+      // At least the showdowns on file: a corrupt count cannot fall below what the log shows.
+      hands: Math.max(showdowns.length, Math.min(MAX_RUN * 100, nonNegativeInt(value.hands))),
+      sittings: asArray(value.sittings).map(parseSitting).filter((s): s is RivalSitting => s !== null).slice(-MAX_RIVAL_SITTINGS),
+      showdowns: showdowns.slice(-MAX_RIVAL_SHOWDOWNS),
+    };
+  }
+  const overrides: StoryOverride[] = [];
+  for (const value of asArray(obj.overrides)) {
+    const entry = asRecord(value);
+    const day = asDayKey(entry.day);
+    const suggested = id(entry.suggested);
+    const chosen = id(entry.chosen);
+    if (day !== null && suggested !== null && chosen !== null) overrides.push({ day, suggested, chosen });
+  }
+  return { chapters, rivals, overrides: overrides.slice(-MAX_STORY_OVERRIDES) };
+}
+
+function parseSitting(value: unknown): RivalSitting | null {
+  const entry = asRecord(value);
+  const day = asDayKey(entry.day);
+  const chapter = id(entry.chapter);
+  if (day === null || chapter === null) return null;
+  const judged = Math.min(MAX_RUN, nonNegativeInt(entry.judged));
+  const free = Math.min(judged, nonNegativeInt(entry.free));
+  return { day, chapter, judged, free, serious: Math.min(judged - free, nonNegativeInt(entry.serious)) };
+}
+
+const CARD = /^[2-9TJQKA][shdc]$/;
+
+function cardList(value: unknown): string[] | null {
+  const cards = asArray(value);
+  if (!cards.every((c): c is string => typeof c === 'string' && CARD.test(c))) return null;
+  return cards as string[];
+}
+
+function parseShowdown(value: unknown): ShowdownRecord | null {
+  const entry = asRecord(value);
+  const day = asDayKey(entry.day);
+  const shown = cardList(entry.shown);
+  const board = cardList(entry.board);
+  if (day === null || shown === null || board === null || shown.length !== 2 || board.length !== 5) return null;
+  if (new Set([...shown, ...board]).size !== 7) return null;
+  const actions: RivalAction[] = [];
+  for (const raw of asArray(entry.actions).slice(0, MAX_RIVAL_ACTIONS)) {
+    const a = asRecord(raw);
+    const street = RIVAL_ACTION_STREETS.find((s) => s === a.street);
+    const kind = RIVAL_ACTION_KINDS.find((k) => k === a.kind);
+    if (street === undefined || kind === undefined) continue;
+    const share = a.potShare;
+    actions.push({
+      street,
+      kind,
+      facingBet: a.facingBet === true,
+      potShare: typeof share === 'number' && Number.isFinite(share) && share > 0 && share <= 100 ? share : null,
+    });
+  }
+  return { day, shown, board, actions };
+}
+
 /** Read-side helpers: an unknown value (a newer build's) reads as this build's default. */
+export function effectiveResult(p: ChapterProgress): (typeof CHAPTER_RESULTS)[number] | null {
+  return (CHAPTER_RESULTS as readonly string[]).includes(p.lastResult ?? '') ? (p.lastResult as (typeof CHAPTER_RESULTS)[number]) : null;
+}
+
 export function effectiveTier(e: EntitlementsState): (typeof KNOWN_TIERS)[number] {
   return (KNOWN_TIERS as readonly string[]).includes(e.tier) ? (e.tier as (typeof KNOWN_TIERS)[number]) : 'free';
 }

@@ -17,10 +17,10 @@ try {
   const page = await app.firstWindow();
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  // Health: the right build answered — Home renders and the tab bar has its eleven tabs.
+  // Health: the right build answered — Home renders and the tab bar has its twelve tabs.
   await page.waitForSelector('[data-testid="home-screen"]');
   const tabs = await page.locator('nav.tabs button.tab').count();
-  if (tabs !== 11) throw new Error(`expected 11 tabs, found ${tabs}`);
+  if (tabs !== 12) throw new Error(`expected 12 tabs, found ${tabs}`);
   const size = async (w, h) => {
     await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h]);
     await page.waitForTimeout(350);

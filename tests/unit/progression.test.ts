@@ -63,6 +63,27 @@ function full(): ProgressionState {
     },
     milestones: { achieved: { 'depth-40': { day: day(19570) } } },
     entitlements: { tier: 'free', granted: [], licence: null, highWater: 0 },
+    story: {
+      chapters: { library: { introSeen: true, lessonDone: true, tables: 2, lastResult: 'met', beatenOn: day(19601) } },
+      rivals: {
+        percival: {
+          hands: 12,
+          sittings: [{ day: day(19601), chapter: 'library', judged: 5, free: 4, serious: 0 }],
+          showdowns: [
+            {
+              day: day(19601),
+              shown: ['Ah', 'Kd'],
+              board: ['2c', '7d', 'Ts', 'Kh', '3s'],
+              actions: [
+                { street: 'preflop', kind: 'call', facingBet: true, potShare: null },
+                { street: 'river', kind: 'bet', facingBet: false, potShare: 0.5 },
+              ],
+            },
+          ],
+        },
+      },
+      overrides: [{ day: day(19600), suggested: 'lighthouse', chosen: 'library' }],
+    },
   };
 }
 

@@ -6,6 +6,56 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Story: the Long Orbit (branch `feat/story-campaign`)
+Owner decisions in force: D1 (character, story in scope; the tutor never authors a number; no trait insults), D17
+(rivals appear in Story first; live play keeps Ada, Bo and Cy), round 2 (each named regular keeps one archetype; the
+dossier counts showdowns only), N1 (nothing is locked).
+- **Six venues, one rival per archetype** (VISION §2.1, `src/core/story/cast.ts`): the Lighthouse (Wren Holloway, `nit`,
+  "a bet that means it"), the Toll Road Diner (Barnaby Tull, `station`, thin value), the Library (Percival Hush,
+  `over-folder`, the price of a bluff), the Night Train (Vesper Kade, `lag`, defending against barrels), the Fireworks
+  Pier (Juniper Vale, `maniac`, trapping and calling down), the Observatory (Ines Marlow, `tag-reg`, not deviating;
+  always last). The Kitchen Table tutorial and the Masquerade epilogue are not built (the task asks for six venues).
+- **A chapter** is Dee's intro (story lines) → a lesson-dialogue beat (the `dee/dialogue.ts` engine over a chapter
+  script, its numbers from a named lesson example) → 6 hands heads-up against the rival → a debrief. Every beat can be
+  picked in any order and every venue opened at any time; the stage is only where the chapter picks up.
+- **The goal is decision quality, never chips** (`campaign.ts judgeTable`): judged decisions are postflop ones facing a
+  bet plus every turn and river decision (a free flop check, or a preflop fold, proves nothing). Met = at least 3
+  judged, 3 in 4 of them free, and no serious mistake of a kind the rival punishes. Fewer than 3 judged reads "not
+  enough to judge". Meeting it takes the mask off, as a ratchet.
+- **Masked until beaten:** at a story table the rival sits as "Regular" with a "?" avatar, and the seat's label stays
+  "Masked" after the hand (not the archetype label the live table reveals). Unmasked, the seat shows the rival's name
+  and their style in words, never the archetype id.
+- **Personalization** (`route.ts`): each charged decision in the hand log is a leak kind (coach principle × action:
+  over-fold, over-call, missed value, empty bluff, light raise, free fold). Kinds rank by reach-weighted loss
+  (`rw.ts` over the authored reference reach, the recommender's ranking), raw cost breaking ties. A kind needs 2
+  decisions before it moves anything. The chapter whose rival punishes the top kind moves first and is "suggested
+  next"; the Observatory stays last. A brand-new player gets the designer's default orbit.
+- **The rival leans on the leak:** on the street carrying that kind's cost, the rival's session profile changes
+  (over-fold → more bluffs, over-call → bets every strong hand, missed value → checks and pays, empty bluff → calls
+  more, light raise → re-raises more, free fold → checks more). A structural zero (`archetypes.ts`) is never raised.
+- **Every personalized element cites its source:** the chapter's citation names the hand count, the cost, the
+  decision count and the reach-weighted bb/100; the table's lean names how many of those decisions came on its street.
+  Dee's own line names only the kind in words (`{focus}`), never the numbers.
+- **The dossier counts showdowns only** (`dossier.ts`): a hand adds to the hand count; what the rival did is stored only
+  for a hand where two or more hands were live at the end. A pot won by a fold adds nothing, even though the table
+  turns the winner's cards up. Reads (big bets shown that were bluffs, late calls with a pair or less, bets with two
+  pair or better) appear once they have 3 observations; until then each says how many more it needs. Dee's take is the
+  read furthest from its balanced baseline (more than 0.15 away), else "the standard line is the read".
+- **Decision quality over time** is one bar per table against the rival (share of judged decisions that cost
+  nothing) with the goal line; chips are not on it.
+- **Persistence:** `progression.story {chapters, rivals, overrides}`, additive, no version bump (AGENTS.md recipe).
+  Chapter and rival ids, and a result this build does not know, are kept as written. A showdown without two shown cards,
+  a full board and seven distinct cards is dropped. Choosing a chapter other than the suggested one is logged in
+  `overrides` (bounded), never refused.
+- **Story hands are hands:** each lands in the hand log, the stats and the bankroll like any table hand, so the leaks
+  that route the orbit also see them. Dee watches the story table as at the live one.
+- **Words:** 28 story lines (4 with Dry/Blunt variants) and 6 chapter scripts (13 steps) in `src/core/story/scripts.ts`, linted with Dee's bank lint (shared
+  in `tests/unit/deeLint.ts`): the tutor guard once filled, Dee's ban list, `bannedPhrasingIn`, no archetype id, no
+  numeral or number word in a template, slots from the vocabulary, STRICT checks on tone variants, every beat running on
+  its lesson example. The lint caught and fixed "win", "once", "Everyone" and a dropped "nothing" in a variant.
+- **Nav:** Story is a 12th tab after Learn. Home gets a story strip as a third launch row; at 900x640 the recent-hands
+  list (which already scrolls when Home is short) shows fewer rows.
+
 ## Dee, the character layer (branch `feat/dee-character`)
 Owner decisions in force: D1 (character in scope; the tutor never authors a number; no trait insults), D5, D6
 ("Price held" on close spots only), D7 (no words in-hand: pose only, one line at hand end), D8 (Two lights), D12 (the

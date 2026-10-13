@@ -103,6 +103,26 @@ import { createProClient, type ProBridge } from './pro.js';
 import { renderProSettings } from './components/proSettings.js';
 import { openDeepLinkConfirm, openUpgradeSheet } from './components/upgradeSheet.js';
 import type { Feature } from '../core/entitlements/features.js';
+import { renderChapter, renderRivalDossier, renderStoryMap, renderStoryStrip } from './screens/story.js';
+import { buildRoute, tableFor, tableSeed, type StoryRoute } from '../core/story/route.js';
+import { rivalOf, venueById, type ChapterId, type Venue } from '../core/story/cast.js';
+import {
+  STORY_TABLE_HANDS,
+  chapterOf,
+  isUnmasked,
+  judgeTable,
+  logChoice,
+  markIntroSeen,
+  markLessonDone,
+  recordStoryHand,
+  recordTable,
+  resumeStage,
+  rivalRecordOf,
+  type Stage,
+  type TableJudgement,
+} from '../core/story/campaign.js';
+import { effectiveResult } from '../core/progression/persist.js';
+import type { DecisionRecord } from '../core/session.js';
 
 const DEFAULT_SEED = 42;
 
@@ -183,6 +203,7 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
 type Tab =
   | 'play'
   | 'learn'
+  | 'story'
   | 'train'
   | 'charts'
   | 'chart-bank'
@@ -231,6 +252,7 @@ const TRAIN_MODES: readonly {
 const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'play', label: 'Play', testid: 'tab-play' },
   { id: 'learn', label: 'Learn', testid: 'tab-learn' },
+  { id: 'story', label: 'Story', testid: 'tab-story' },
   { id: 'train', label: 'Train', testid: 'tab-train' },
   { id: 'charts', label: 'Charts', testid: 'tab-charts' },
   { id: 'chart-bank', label: 'Bank', testid: 'tab-chart-bank' },
@@ -357,6 +379,16 @@ async function boot(): Promise<void> {
     at: 'profile',
   };
   let review: ReviewHandle | null = null;
+  /**
+   * Where the Story tab is. A chapter table is mounted like the Play table (it owns `table`), so leaving the tab
+   * tears it down; coming back lands on the chapter's table beat. `justPlayed` carries the table just finished
+   * into its debrief (the debrief of an older table reads the last sitting on file).
+   */
+  let storyView:
+    | { at: 'map' }
+    | { at: 'chapter'; id: ChapterId; stage: Stage; justPlayed: { judgement: TableJudgement; wasUnmasked: boolean } | null }
+    | { at: 'table'; id: ChapterId }
+    | { at: 'dossier'; id: ChapterId } = { at: 'map' };
 
   const app = document.getElementById('app');
   if (!app) throw new Error('#app missing');
@@ -464,6 +496,170 @@ async function boot(): Promise<void> {
   function teardownTable(): void {
     table?.destroy();
     table = null;
+  }
+
+  // ── Story ───────────────────────────────────────────────────────────────────────────────────────
+  const today = (): ReturnType<ReturnType<typeof systemDayKeyOf>> => systemDayKeyOf(session.progression.streak.boundaryHour)(Date.now());
+
+  /** The orbit for this learner: reordered by their own reach-weighted leaks (story/route.ts). */
+  function storyRoute(): StoryRoute {
+    return buildRoute(session.hands, session.progression.story);
+  }
+
+  function saveStory(next: SessionState['progression']['story']): Promise<void> {
+    return saveProgression({ ...session.progression, story: next });
+  }
+
+  function storyDee(): { tone: DeeContext['tone']; character: boolean } {
+    return { tone: deeContext().tone, character: session.progression.dee.character };
+  }
+
+  /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
+  function openChapter(id: ChapterId): void {
+    const route = storyRoute();
+    void saveStory(logChoice(session.progression.story, route.next, id, today()));
+    storyView = { at: 'chapter', id, stage: resumeStage(chapterOf(session.progression.story, id)), justPlayed: null };
+    render();
+  }
+
+  /** A chapter table: heads-up against the rival, seeded per chapter and attempt, the rival leaning on the leak. */
+  function startStoryTable(venue: Venue): void {
+    teardownTable();
+    // Keyed on the hands already dealt against this rival, so a table left half-way never re-deals the same cards.
+    const tseed = tableSeed(venue.id, rivalRecordOf(session.progression.story, venue).hands, seed);
+    const routed = storyRoute().chapters.find((c) => c.venue.id === venue.id);
+    const rt = tableFor(venue, routed?.leak ?? null, tseed);
+    const rival = rivalOf(venue);
+    const wasUnmasked = isUnmasked(session.progression.story, venue);
+    const decisions: DecisionRecord[] = [];
+    storyView = { at: 'table', id: venue.id };
+    const finish = async (): Promise<void> => {
+      const judgement = judgeTable(decisions, venue);
+      teardownTable();
+      storyView = { at: 'chapter', id: venue.id, stage: 'debrief', justPlayed: { judgement, wasUnmasked } };
+      await saveStory(recordTable(session.progression.story, venue, judgement, today()));
+      render();
+    };
+    table = renderTable({
+      seed: tseed,
+      bankroll: session.bankroll,
+      handNumber: session.stats.handsPlayed + 1,
+      handLimit: STORY_TABLE_HANDS,
+      coachedMode: session.coachedMode,
+      cast: [
+        {
+          name: wasUnmasked ? rival.short : 'Regular',
+          avatar: wasUnmasked ? rival.short[0] : '?',
+          archetype: rival.archetype,
+          profile: rt.profile,
+          streetProfiles: rt.streetProfiles,
+          revealLabel: wasUnmasked ? rival.style : null,
+        },
+      ],
+      onHandComplete: (r) => {
+        decisions.push(...(r.decisions ?? []));
+        void onHandComplete(r);
+      },
+      onHandSettled: (hand) => {
+        const seat = hand.villains[0];
+        if (!seat) return;
+        const story = recordStoryHand(session.progression.story, venue, { actions: seat.actions, shown: seat.shown, board: hand.board }, today());
+        void saveStory(story);
+      },
+      sittingEnd: {
+        note: `That is the table. The debrief judges your decisions, not the chips.`,
+        label: 'Debrief',
+        testid: 'story-debrief-go',
+      },
+      onRebuy: () => void onRebuy(),
+      onGifts: (gifts) => void onGifts(gifts),
+      onPrediction: (outcome, confidence) => void onPrediction(outcome, confidence),
+      onCoachedModeChange: (on) => void onCoachedModeChange(on),
+      onVerdict: (message) => narrate(message),
+      dee: {
+        context: deeContext(),
+        memory: lineMemoryOf(session.progression.dee),
+        onMemory: (memory) => {
+          session = { ...session, progression: withLineMemory(session.progression, memory) };
+        },
+        onPerch: (source, pose) => perch.setPose(source, pose),
+        onActing: (on) => perch.setActing(on),
+      },
+      // Busted, swept or the planned hands played: the debrief judges what was played.
+      onSessionOver: () => void finish(),
+    });
+    screen.replaceChildren(table.root);
+  }
+
+  function renderStoryTab(): HTMLElement {
+    const story = session.progression.story;
+    const unmasked = (id: ChapterId): boolean => isUnmasked(session.progression.story, venueById(id) as Venue);
+    if (storyView.at === 'dossier') {
+      const venue = venueById(storyView.id) as Venue;
+      return renderRivalDossier({
+        venue,
+        unmasked: unmasked(venue.id),
+        record: rivalRecordOf(story, venue),
+        dee: storyDee(),
+        onOpenChapter: () => openChapter(venue.id),
+        onBack: () => {
+          storyView = { at: 'map' };
+          render();
+        },
+      });
+    }
+    const route = storyRoute();
+    if (storyView.at === 'chapter' || storyView.at === 'table') {
+      const view = storyView;
+      const venue = venueById(view.id) as Venue;
+      const progress = chapterOf(story, venue.id);
+      const routed = route.chapters.find((c) => c.venue.id === venue.id) ?? route.chapters[0];
+      const lastSitting = [...rivalRecordOf(story, venue).sittings].reverse().find((s) => s.chapter === venue.id);
+      const lastResult = effectiveResult(progress);
+      const lastTable: TableJudgement | null =
+        lastSitting && lastResult
+          ? { judged: lastSitting.judged, free: lastSitting.free, serious: lastSitting.serious, focusSerious: 0, result: lastResult }
+          : null;
+      const stage: Stage = view.at === 'table' ? 'table' : view.stage;
+      const justPlayed = view.at === 'chapter' ? view.justPlayed : null;
+      const tseed = tableSeed(venue.id, rivalRecordOf(story, venue).hands, seed);
+      return renderChapter({
+        venue,
+        routed,
+        total: route.chapters.length,
+        progress,
+        unmasked: unmasked(venue.id),
+        stage,
+        tailor: tableFor(venue, routed.leak, tseed).tailor,
+        justPlayed,
+        lastTable,
+        dee: storyDee(),
+        onStage: (next) => {
+          storyView = { at: 'chapter', id: venue.id, stage: next, justPlayed };
+        },
+        onIntroSeen: () => void saveStory(markIntroSeen(session.progression.story, venue.id)),
+        onLessonDone: () => void saveStory(markLessonDone(session.progression.story, venue.id)),
+        onSitDown: () => startStoryTable(venue),
+        onOpenFile: () => {
+          storyView = { at: 'dossier', id: venue.id };
+          render();
+        },
+        onBack: () => {
+          storyView = { at: 'map' };
+          render();
+        },
+      });
+    }
+    return renderStoryMap({
+      route,
+      unmasked,
+      dee: storyDee(),
+      onOpenChapter: (id) => openChapter(id),
+      onOpenFile: (id) => {
+        storyView = { at: 'dossier', id };
+        render();
+      },
+    });
   }
 
   /** Its keydown listener would otherwise outlive the screen and eat the table's arrow keys. */
@@ -895,6 +1091,17 @@ async function boot(): Promise<void> {
 
     // Every non-play tab tears the table down: a hand left mounted behind another screen would keep
     // its AI timer running and deal on while nobody is watching it.
+    // A chapter table belongs to the Story tab the way a solo table belongs to Play.
+    if (tab === 'story' && storyView.at === 'table' && table) {
+      teardownReview();
+      screen.replaceChildren(table.root);
+      return;
+    }
+    // Leaving the Story tab leaves its table: it is never shown under Play (D17), and the chapter picks up at its table.
+    if (storyView.at === 'table' && tab !== 'story') {
+      teardownTable();
+      storyView = { at: 'chapter', id: storyView.id, stage: 'table', justPlayed: null };
+    }
     if (tab !== 'play') {
       teardownTable();
       teardownReview();
@@ -959,6 +1166,15 @@ async function boot(): Promise<void> {
           multiplayerActive = true;
           render();
         },
+        storyStrip: renderStoryStrip({
+          route: storyRoute(),
+          unmasked: (id) => isUnmasked(session.progression.story, venueById(id) as Venue),
+          onOpen: () => {
+            tab = 'story';
+            storyView = { at: 'map' };
+            render();
+          },
+        }),
         recommendation: currentRecommendation(),
         recommendationHandlers: {
           onAccept: (suggestion) => void onAcceptSuggestion(suggestion),
@@ -1082,6 +1298,7 @@ async function boot(): Promise<void> {
       });
     }
     if (which === 'train') return renderTrainTab();
+    if (which === 'story') return renderStoryTab();
     if (which === 'charts') {
       return renderCharts({
         mastery: session.chartMastery,

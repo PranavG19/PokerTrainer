@@ -1,5 +1,5 @@
 import type { Card } from '../../core/cards.js';
-import type { Action, ActionKind, Seat, TableState } from '../../core/table.js';
+import type { Action, ActionKind, Seat, Street, TableState } from '../../core/table.js';
 import {
   applyAction,
   createTable,
@@ -75,6 +75,7 @@ import {
 } from '../../core/dee/engine.js';
 import type { DeePose, SpokenLine } from '../../core/dee/types.js';
 import { renderDee } from '../components/dee.js';
+import { capturedAction } from '../../core/story/dossier.js';
 
 /**
  * Dee at the table (owner D7): no words in-hand, only the perch's pose; one line at hand end, after the reveal;
@@ -124,6 +125,36 @@ export interface TableHandle {
   destroy: () => void;
 }
 
+/**
+ * Story (D17): one villain seat of a chapter table, in place of the live table's regulars. The profile is the
+ * session's (jittered once by the caller, O3); `streetProfiles` replaces it on the streets a chapter's rival
+ * leans on (story/route.ts `tableFor`).
+ */
+export interface TableCastSeat {
+  readonly name: string;
+  readonly avatar: string;
+  readonly archetype: ArchetypeName;
+  readonly profile: ArchetypeProfile;
+  readonly streetProfiles?: Readonly<Partial<Record<Street, ArchetypeProfile>>>;
+  /** Shown on the seat once a hand ends. Null keeps the seat masked: its style label never shows. */
+  readonly revealLabel: string | null;
+}
+
+/** One villain's hand, as the hero saw it: what they did, and their cards only if a showdown turned them up. */
+export interface SettledSeat {
+  readonly seatId: number;
+  readonly name: string;
+  readonly actions: readonly { street: Exclude<Street, 'showdown'>; kind: ActionKind; facingBet: boolean; potShare: number | null }[];
+  /** Two or more hands were live at the end and this was one of them; null otherwise (a fold-out shows nothing). */
+  readonly shown: readonly Card[] | null;
+}
+
+export interface SettledHand {
+  readonly handNumber: number;
+  readonly board: readonly Card[];
+  readonly villains: readonly SettledSeat[];
+}
+
 export function renderTable(opts: {
   seed: number;
   bankroll: number;
@@ -164,6 +195,12 @@ export function renderTable(opts: {
   onGifts?: (gifts: readonly GiftEntry[]) => void;
   /** Dee. Absent (tests, multiplayer) means no Dee at this table. */
   dee?: TableDee;
+  /** Story: the villains at a chapter table. Absent = the live table and its regulars, unchanged (D17). */
+  cast?: readonly TableCastSeat[];
+  /** Story: each settled hand, with what every villain did and showed (the rival dossier's input). */
+  onHandSettled?: (hand: SettledHand) => void;
+  /** Story: the planned-complete end's note and button, in place of "New session". */
+  sittingEnd?: { readonly note: string; readonly label: string; readonly testid: string };
 }): TableHandle {
   // The depth-driven starting stack, defaulting to the classic 100bb table. A single local so the
   // initial deal, the bust top-up and the rebuy prompt all agree — a rebuy must match the table's depth.
@@ -387,12 +424,14 @@ export function renderTable(opts: {
   cornerRight.append(stats, coachSwitch, statsToggle);
 
   // ── mutable hand state ─────────────────────────────────────────────
+  const cast = opts.cast;
+  const seatNames = cast ? ['You', ...cast.map((c) => c.name)] : SEAT_NAMES;
   const table = createTable({
-    seats: SEAT_NAMES.map((name, i) => ({
+    seats: seatNames.map((name, i) => ({
       name,
       stack: startStack,
       isHero: i === 0,
-      avatar: name[0],
+      avatar: i > 0 && cast ? cast[i - 1].avatar : name[0],
     })),
     sb: SB,
     bb: BB,
@@ -415,12 +454,24 @@ export function renderTable(opts: {
   // session, not per hand" so a seat stays classifiable as one opponent across every hand.
   const seatArchetype = new Map<number, ArchetypeName>();
   const seatProfile = new Map<number, ArchetypeProfile>();
-  for (let seat = 1; seat <= 3; seat++) {
-    const name = chosen[seat - 1];
-    seatArchetype.set(seat, name);
-    // sessionProfile composes jitter.ts: a pure fn of (name, seed), so the jitter is per-session and
-    // reproducible. Drawn once per seat and reused for every decision that seat makes this session.
-    seatProfile.set(seat, sessionProfile(name, opts.seed));
+  /** Story only: a street's profile in place of the session's, and the label a seat reveals (null = masked). */
+  const seatStreetProfiles = new Map<number, Readonly<Partial<Record<Street, ArchetypeProfile>>>>();
+  const seatReveal = new Map<number, string | null>();
+  if (cast) {
+    cast.forEach((c, i) => {
+      seatArchetype.set(i + 1, c.archetype);
+      seatProfile.set(i + 1, c.profile);
+      if (c.streetProfiles) seatStreetProfiles.set(i + 1, c.streetProfiles);
+      seatReveal.set(i + 1, c.revealLabel);
+    });
+  } else {
+    for (let seat = 1; seat <= 3; seat++) {
+      const name = chosen[seat - 1];
+      seatArchetype.set(seat, name);
+      // sessionProfile composes jitter.ts: a pure fn of (name, seed), so the jitter is per-session and
+      // reproducible. Drawn once per seat and reused for every decision that seat makes this session.
+      seatProfile.set(seat, sessionProfile(name, opts.seed));
+    }
   }
   let grades: GradeRecord[] = [];
   /** Every hero decision in order, captured pre-action so the review can replay the spot as seen. */
@@ -440,6 +491,8 @@ export function renderTable(opts: {
    * the settled state, not captured here, so a caller who later folds contributes nothing.
    */
   let villainCalls: VillainCall[] = [];
+  /** Story: every villain action this hand, captured pre-action, for `onHandSettled`. Reset per hand. */
+  let villainActions = new Map<number, SettledSeat['actions'][number][]>();
   /** Session-lived so a gift's `seq` is monotonic across hands, matching giftLedger's contract. */
   const giftLedger = createGiftLedger();
   /**
@@ -826,6 +879,25 @@ export function renderTable(opts: {
     // persists nothing.
     const gifts = recordHandGifts(giftLedger, state, villainCalls);
     if (gifts.length > 0) opts.onGifts?.(gifts);
+
+    if (opts.onHandSettled) {
+      // A showdown is two or more hands live at the end. A pot won by a fold shows no cards worth reading,
+      // even though the winner's cards are turned up on the felt.
+      const live = state.seats.filter((seat) => !seat.folded && seat.hole.length > 0);
+      const showdown = live.length >= 2;
+      opts.onHandSettled({
+        handNumber: state.handNumber,
+        board: [...state.board],
+        villains: state.seats
+          .filter((seat) => !seat.isHero)
+          .map((seat) => ({
+            seatId: seat.id,
+            name: seat.name,
+            actions: villainActions.get(seat.id) ?? [],
+            shown: showdown && !seat.folded && seat.hole.length > 0 ? [...seat.hole] : null,
+          })),
+      });
+    }
   }
 
   function advance(): void {
@@ -855,7 +927,7 @@ export function renderTable(opts: {
       pendingTimer = null;
       // toAct is a villain seat (1..3) here — seat 0 is handled by the branch above — so its profile
       // is always present; throw rather than silently skip if the invariant ever breaks.
-      const profile = seatProfile.get(state.toAct);
+      const profile = seatStreetProfiles.get(state.toAct)?.[state.street] ?? seatProfile.get(state.toAct);
       if (profile === undefined) throw new Error(`no archetype profile for seat ${state.toAct}`);
       // decideArchetypeAction throws if it is not this seat's turn; advance() guarantees it is. It
       // consumes aiRng in the same count/order as ai.ts's decideActionAs (three draws per decision),
@@ -888,6 +960,12 @@ export function renderTable(opts: {
       // Table-talk: remember what this villain just did so its seat can show a line. Kind only —
       // the quip is information-free in-hand (tableTalk.ts), so nothing about the archetype is stored.
       lastActionBySeat.set(state.toAct, action.kind);
+      if (opts.onHandSettled && state.street !== 'showdown') {
+        const seat = state.seats[state.toAct];
+        const list = villainActions.get(seat.id) ?? [];
+        list.push(capturedAction({ street: state.street, pot: state.pot, currentBet: state.currentBet }, seat, action));
+        villainActions.set(seat.id, list);
+      }
       state = applyAction(state, action);
       advance();
     }, AI_DELAY_MS);
@@ -999,6 +1077,7 @@ export function renderTable(opts: {
     sessionEl = null;
     deeAnnouncer.textContent = '';
     villainCalls = [];
+    villainActions = new Map();
     // A new hand starts with an empty board; reset so the next flop deals in fresh.
     prevBoardLen = 0;
     lastActionBySeat.clear();
@@ -1073,7 +1152,7 @@ export function renderTable(opts: {
 
     const showdown = state.winners !== null;
     const seatEls = state.seats.map((seat) =>
-      renderSeat(seat, state, showdown, seatArchetype, lastActionBySeat.get(seat.id)),
+      renderSeat(seat, state, showdown, seatArchetype, lastActionBySeat.get(seat.id), seatReveal),
     );
     // The hero's seat IS the hero plate: it takes the big hole cards in, so the to-act ring and the
     // turn wash land on one object. Villains take the scoreboard slots, clockwise from the hero
@@ -1163,11 +1242,13 @@ export function renderTable(opts: {
         over.className = 'winner-summary';
         over.dataset.testid = 'session-over';
         controls.dataset.ended = 'true';
-        over.textContent = `You are out of chips. Rebuy for ${startStack} to keep this table, or start a new session.`;
+        over.textContent = opts.sittingEnd
+          ? `You are out of chips. Rebuy for ${startStack} to keep this table, or go to the debrief.`
+          : `You are out of chips. Rebuy for ${startStack} to keep this table, or start a new session.`;
         controls.appendChild(over);
         controls.appendChild(pill(`Rebuy ${startStack}`, 'btn-rebuy', () => rebuyAndContinue()));
         controls.appendChild(
-          pill('New session', 'new-session', () => opts.onSessionOver?.()),
+          pill(opts.sittingEnd?.label ?? 'New session', opts.sittingEnd?.testid ?? 'new-session', () => opts.onSessionOver?.()),
         );
         return;
       }
@@ -1182,9 +1263,11 @@ export function renderTable(opts: {
         swept.className = 'winner-summary';
         swept.dataset.testid = 'table-swept';
         controls.dataset.ended = 'true';
-        swept.textContent = 'You have every chip at this table — nobody is left to play. Start a new session.';
+        swept.textContent = opts.sittingEnd
+          ? 'You have every chip at this table — nobody is left to play.'
+          : 'You have every chip at this table — nobody is left to play. Start a new session.';
         controls.appendChild(swept);
-        controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
+        controls.appendChild(pill(opts.sittingEnd?.label ?? 'New session', opts.sittingEnd?.testid ?? 'new-session', () => opts.onSessionOver?.()));
         return;
       }
 
@@ -1201,9 +1284,12 @@ export function renderTable(opts: {
         done.className = 'winner-summary';
         done.dataset.testid = 'session-planned-complete';
         controls.dataset.ended = 'true';
-        done.textContent = `That is your planned ${opts.handLimit}-hand sitting. Start a new session when you are ready.`;
+        const end = opts.sittingEnd;
+        done.textContent = end?.note ?? `That is your planned ${opts.handLimit}-hand sitting. Start a new session when you are ready.`;
         controls.appendChild(done);
-        controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
+        const endPill = pill(end?.label ?? 'New session', end?.testid ?? 'new-session', () => opts.onSessionOver?.());
+        if (end) endPill.classList.add('primary');
+        controls.appendChild(endPill);
         return;
       }
 
@@ -1385,6 +1471,7 @@ function renderSeat(
   showdown: boolean,
   seatArchetype: Map<number, ArchetypeName>,
   lastAction: ActionKind | undefined,
+  seatReveal: ReadonlyMap<number, string | null>,
 ): HTMLElement {
   const el = document.createElement('div');
   el.className = 'seat';
@@ -1416,10 +1503,15 @@ function renderSeat(
   if (!seat.isHero) {
     const name = seatArchetype.get(seat.id);
     if (name === undefined) throw new Error(`no archetype for villain seat ${seat.id}`);
-    const trueLabel = ARCHETYPE_EXPLOITS[name].label;
+    // Story: a cast seat reveals its own label (its style in words), or stays masked until the chapter is beaten.
+    const story = seatReveal.has(seat.id);
+    const storyLabel = seatReveal.get(seat.id) ?? null;
+    const trueLabel = story ? (storyLabel ?? 'Masked') : ARCHETYPE_EXPLOITS[name].label;
     // O3: the label is hidden ('Unknown') mid-hand and revealed only once the hand has ended, so the
     // learner classifies from behaviour rather than reading the answer off the seat.
-    const { revealed, text } = visibleArchetypeLabel(trueLabel, state.winners !== null);
+    const shown = visibleArchetypeLabel(trueLabel, state.winners !== null);
+    const revealed = shown.revealed && (!story || storyLabel !== null);
+    const text = shown.text;
     const tag = document.createElement('div');
     tag.className = 'seat-archetype';
     tag.dataset.testid = 'seat-archetype';
@@ -1427,7 +1519,7 @@ function renderSeat(
     tag.textContent = text;
     // The tooltip must gate on reveal too: the exploit text names the archetype, so setting it
     // mid-hand would leak the label on hover — the exact thing O3 hides.
-    tag.title = revealed ? ARCHETYPE_EXPLOITS[name].exploit : '';
+    tag.title = revealed && !story ? ARCHETYPE_EXPLOITS[name].exploit : '';
     el.appendChild(tag);
 
     // Table-talk: a short line for the villain's last action. In-hand it is information-free (the
