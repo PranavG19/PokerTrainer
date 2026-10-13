@@ -101,12 +101,23 @@ let done = 0;
 async function execCell(cell: Cell): Promise<MatchResult> {
   // A cell is deterministic, so a retry after a transient spawn or file error (EPERM was seen on a
   // loaded shared machine) reproduces exactly the same result.
+  // A finished cell from an interrupted run of the same build is reused: same inputs, same bytes.
+  if (existsSync(cell.path)) {
+    try {
+      const prior: MatchResult = JSON.parse(readFileSync(cell.path, 'utf8'));
+      done++;
+      return prior;
+    } catch {
+      // half-written: run it again
+    }
+  }
   for (let attempt = 1; ; attempt++) {
     try {
       return await execCellOnce(cell);
     } catch (err) {
-      if (attempt >= 3) throw err;
+      if (attempt >= 6) throw err;
       process.stderr.write(`retrying ${cell.path} after: ${String(err).split('\n')[0]}\n`);
+      await new Promise((r) => setTimeout(r, 30_000));
     }
   }
 }
@@ -246,5 +257,5 @@ writeFileSync(
     results,
   }),
 );
-rmSync(CELL_DIR, { recursive: true, force: true });
+rmSync(CELL_DIR, { recursive: true, force: true }); // only after a complete run, so a resume never mixes builds
 process.stdout.write(`\nwrote ${outPath} in ${((Date.now() - startedAt) / 1000).toFixed(0)}s\n`);
