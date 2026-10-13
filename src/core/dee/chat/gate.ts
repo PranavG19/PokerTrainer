@@ -50,8 +50,14 @@ const has = (re: RegExp, ...texts: string[]): boolean => texts.some((t) => re.te
 
 // ── refusal lexicons ────────────────────────────────────────────────────────────────────────────────
 
-const CRISIS =
-  /\b(?:suicid\w*|kill (?:my ?self|me)|end(?:ing)? (?:my life|it all|it|things|everything)|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|no reason to live|overdose|(?:don'?t|do not|dont) want to (?:live|be here|be alive|wake up|exist)|wish i (?:was|were) (?:dead|gone|never born)|better off dead|take my (?:own )?life|kms|unalive\w*|not worth living)\b/;
+const CRISIS = new RegExp(
+  [
+    String.raw`\b(?:suicid\w*|kill(?:ing)? (?:my ?self|me)|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|overdos\w*)\b`,
+    String.raw`\b(?:end(?:ing)? (?:my life|it all|everything)|want to end it|(?:don'?t|do not|dont) want to (?:live|be here|be alive|wake up|exist))\b`,
+    String.raw`\b(?:wish i (?:was|were) (?:dead|gone|never born)|better off (?:dead|without me)|take my (?:own )?life|kms|unalive\w*)\b`,
+    String.raw`\b(?:can'?t go on|cannot go on|no (?:reason|point) (?:in )?(?:to )?(?:living|live|going on)|not worth living|(?:jump|jumping) off|nobody would (?:miss|care)|hate my life|give up on life|sleep forever|life is (?:pointless|meaningless|not worth))\b`,
+  ].join('|'),
+);
 
 const INJECTION = new RegExp(
   [
@@ -123,8 +129,8 @@ function refusalOf(t: string): Refusal | null {
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const phrase = (aliases: readonly string[]): RegExp => new RegExp(`(?:^|[^a-z0-9-])(?:${aliases.map(escape).join('|')})(?![a-z0-9-])`);
 
-const FEATURE_RES = FEATURES.map((f) => ({ id: f.id, re: phrase(f.aliases) }));
 const RULE_RES = RULES.map((r) => ({ id: r.id, re: phrase(r.aliases) }));
+const FEATURE_RES = FEATURES.map((f) => ({ id: f.id, re: phrase(f.aliases) }));
 // Longest alias first, so "pot share" is found before "price" and "straight flush" before "flush".
 const CONCEPT_RES = CONCEPTS.map((c) => ({ id: c.id, aliases: [...c.aliases].sort((a, b) => b.length - a.length) }));
 

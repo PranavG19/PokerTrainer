@@ -75,6 +75,8 @@ export class PhrasingService {
   private restarts = 0;
   private failedThisSession = false;
   private idle: ReturnType<typeof setTimeout> | null = null;
+  /** True while warm() is starting the sidecar: a death then is counted once, by warm's own catch. */
+  private starting = false;
   readonly phraser: Phraser;
 
   constructor(private readonly deps: PhrasingDeps) {
@@ -244,12 +246,13 @@ export class PhrasingService {
       sidecar.onExit = () => {
         this.sidecar = null;
         // A crash: one restart per session, then the written lines for the rest of it.
-        if (++this.restarts > 1) this.failedThisSession = true;
+        if (!this.starting && ++this.restarts > 1) this.failedThisSession = true;
         this.emit();
       };
       this.sidecar = sidecar;
     }
     this.touch();
+    this.starting = true;
     try {
       await this.sidecar.start();
       await this.sidecar.rewrite({ persona: PERSONA, scripted: 'The price is the call over the pot after the call.', facts: [] }, new AbortController().signal);
@@ -257,7 +260,10 @@ export class PhrasingService {
       // A failed start is counted like a crash and torn down here, so nothing relaunches it unchecked: the next
       // start goes through warm() again (binary hash first), once per session, then the written lines.
       this.stop();
-      if (++this.restarts > 1) this.failedThisSession = true;
+      // Turning phrasing off mid-start stops it on purpose; that is not a failure.
+      if (this.deps.loadEnabled() && ++this.restarts > 1) this.failedThisSession = true;
+    } finally {
+      this.starting = false;
     }
     this.emit();
   }

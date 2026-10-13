@@ -62,6 +62,8 @@ export const CONCEPTS: readonly Concept[] = [
     definition: 'a bet that worse hands call often enough to pay for it. The question it asks is which worse hands call.' },
   { id: 'c-bet', term: 'A c-bet', aliases: ['c-bet', 'cbet', 'continuation bet'],
     definition: 'a bet on the flop by the seat that raised before it. Whether it earns depends on whose range the flop favours.' },
+  { id: 'check', term: 'A check', aliases: ['a check', 'check'],
+    definition: 'a pass that puts no chips in. It is open only when nobody has bet on this street.' },
   { id: 'check-raise', term: 'A check-raise', aliases: ['check-raise', 'check raise', 'checkraise'],
     definition: 'a check, then a raise after another seat bets. It is how the seat acting first builds a pot with a strong range.' },
   { id: 'showdown', term: 'Showdown', aliases: ['showdown'],
@@ -122,7 +124,7 @@ export const RULES: readonly { readonly id: string; readonly aliases: readonly s
   { id: 'split', aliases: ['split pot', 'split the pot', 'tie', 'ties', 'chop', 'chopped'] },
   { id: 'side-pot', aliases: ['side pot', 'side pots', 'main pot'] },
   { id: 'min-raise', aliases: ['min raise', 'min-raise', 'minimum raise', 'how much can i raise', 'smallest raise', 'raise size'] },
-  { id: 'check', aliases: ['can i check', 'when can i check', 'allowed to check', 'what is a check', 'checking'] },
+  { id: 'check', aliases: ['can i check', 'when can i check', 'allowed to check', 'checking'] },
   { id: 'blinds-move', aliases: ['how do blinds work', 'blinds work', 'who posts', 'post the blind'] },
 ];
 

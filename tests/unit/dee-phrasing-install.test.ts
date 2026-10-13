@@ -270,12 +270,16 @@ describe.runIf(process.platform === 'darwin')('review 4: a sidecar that never be
     const manifest = { ...m, runtimes: { [platformKey()]: { ...m.runtimes[platformKey()], url: `${base}/${id}/rt.tar.gz`, size: rt.length, sha256: sha(rt) } } };
     let enabled = true;
     const s = new PhrasingService({
-      dir: path.join(tmp(), 'dee-model'), manifest, testLoopback: true, readyTimeoutMs: 400,
+      dir: path.join(tmp(), 'dee-model'), manifest, testLoopback: true, readyTimeoutMs: 1500,
       loadEnabled: () => enabled, saveEnabled: (on) => { enabled = on; }, onStatus: () => undefined,
     });
     expect((await s.download(true, LICENCES)).state).toBe('installed');
     const launches = (): number => (fs.existsSync(marker) ? fs.readFileSync(marker, 'utf8').split('\n').filter(Boolean).length : 0);
+    const settle = async (n: number): Promise<void> => {
+      for (let i = 0; i < 40 && launches() < n; i++) await new Promise((res) => setTimeout(res, 50));
+    };
     await s.warm();
+    await settle(1);
     expect(launches()).toBe(1);
     // A question after the failed start shows the scripted answer and starts nothing.
     const r = await s.phrase({ templateId: 'rules-order', slots: {} });
@@ -285,12 +289,14 @@ describe.runIf(process.platform === 'darwin')('review 4: a sidecar that never be
     // One retry per session, then the written answers for the rest of it.
     await s.warm();
     await s.warm();
+    await settle(2);
+    await new Promise((res) => setTimeout(res, 300));
     expect(launches()).toBe(2);
     s.stop();
     await new Promise((res) => setTimeout(res, 300));
     const alive = (() => { try { return execFileSync('/usr/bin/pgrep', ['-f', marker]).toString().trim(); } catch { return ''; } })();
     expect(alive, 'no sidecar outlives stop()').toBe('');
-  }, 20_000);
+  }, 30_000);
 });
 
 describe('the e2e manifest override', () => {

@@ -105,7 +105,7 @@ const REPERTOIRE = /^[\x20-\x7E\u2018\u2019\u201C\u201D\u2013\u2014\u2026]*$/u;
  */
 const BOUND = new Set(
   ('price pot share hand held needed had asked first last button blind seat not no never only just more less ' +
-    'enough too still already again every all some any most free better worse best worst').split(' '),
+    'enough too still already again every all some any most free better worse best worst short close so from').split(' '),
 );
 const stem = (w: string): string => w.replace(/(?:'s|s|ed|ing)$/, '');
 

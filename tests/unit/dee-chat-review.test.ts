@@ -17,6 +17,21 @@ describe('review 1: crisis phrasings reach the crisis line, never a hand explana
     'unalive myself',
     'I would be better off dead',
     'I want to take my own life',
+    'after that hand i am thinking of killing myself',
+    'i feel like killing myself after that fold',
+    "i'm killing myself over this river",
+    'i am thinking of killing myself',
+    'after that hand i cant go on',
+    'no point living after this hand',
+    "I can't go on anymore",
+    "there's no point in living",
+    'everyone would be better off without me',
+    'im going to jump off a bridge',
+    'nobody would miss me',
+    'i hate my life',
+    'i give up on life',
+    'i want to sleep forever',
+    'life is pointless after that river',
   ])('%s', (q) => {
     expect(classify(q)).toEqual({ kind: 'refuse', refusal: 'crisis' });
   });
@@ -59,7 +74,28 @@ describe('review 3: role words and negators keep their order', () => {
   });
 });
 
+describe('review: crisis words that are poker', () => {
+  it('"end it on the turn" is a poker question', () => {
+    expect(classify('should i bet to end it on the turn')).not.toEqual({ kind: 'refuse', refusal: 'crisis' });
+  });
+});
+
+describe('review: house words that carry meaning stay put', () => {
+  it.each([
+    ['Nothing in that hand cost 0.5 bb or more. The last price was 31%, for 450 into 1000, and the hand held 34%, short of it, so the fold kept the chips.',
+      'Nothing in that hand cost 0.5 bb or more. The last price was 31%, for 450 into 1000, and the hand held 34%, so the fold kept the chips, short of it.'],
+    ['Chat answers come from this machine. The only download chat can make is the optional phrasing model, and only after its button is pressed.',
+      'Chat answers come to this machine. The only download chat can make is the optional phrasing model, and only after its button is pressed.'],
+  ])('%s', (script, moved) => {
+    expect(rewriteProblems(moved, script)).not.toEqual([]);
+  });
+});
+
 describe('review: consider items', () => {
+  it('a check raise with a space is the concept', () => {
+    expect(classify('what is a check raise')).toMatchObject({ intent: 'define', topic: 'check-raise' });
+  });
+
   it('fold equity is fold equity, a check-raise is a check-raise', () => {
     expect(classify('what is fold equity')).toMatchObject({ intent: 'define', topic: 'fold-equity' });
     expect(classify('what is a check-raise')).toMatchObject({ intent: 'define', topic: 'check-raise' });
