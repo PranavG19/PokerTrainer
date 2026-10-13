@@ -1,5 +1,5 @@
 # Review: feat/dee-character
-Verdict: PASS WITH NOTES after fixes (was CHANGES REQUESTED at ce37308; every Act-on item fixed in the next commit)
+Verdict: CHANGES REQUESTED at ce37308 (reviewer). Author fixes at f9da512, listed under Resolution; re-verification below.
 Base: a7d6420 (merge-base with origin/main)  Head: ce37308. I reviewed e518563 and f93733a in full. ce37308 (the lesson.spec #10 fix) landed while I was reviewing, and I read it too.
 
 Short version: the teaching contracts hold. Commit-before-feedback, the GATE, the coach, outcome and pot announcers, the coach word budget and `Grade.price` are all unchanged, and `Grade.spot` is never persisted. The profile additions follow the recipe. Five defects block the merge. Two of them have Dee say false things: "Price held" fires on calls and folds made on the wrong side of the price, and the `{repeat}` counts carry the wrong label. One is a turn-versus-river claim. One is a perch timer that spins at 0 ms for weeks at a time. The last is the dialogue's live region, which is rebuilt on every repaint.
