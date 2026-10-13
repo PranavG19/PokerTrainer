@@ -106,6 +106,35 @@ line bank is authored once, here).
   `minimum-defence-frequency` (all numbers derivable from pot and toCall); `pot-odds-as-a-price` keeps its commit box
   because the tutor-rail specs drive it.
 
+## Dee chat and the optional local model (branch `feat/dee-chat`)
+Owner decisions in force: chat with Dee is free (a local model, never a paid API); the model only PHRASES (the engine
+computes every number and every answer); a deterministic topic gate and scripted refusals stay; the model is an
+optional opt-in download, not in the base install.
+- **Runtime: a `llama-server` sidecar, downloaded with the model on consent.** Not `node-llama-cpp`. Reasons:
+  - **Base install:** +0 bytes and no npm dependency (`dependencies` stays empty). `node-llama-cpp` is a 39.6 MB
+    package plus a 14.9 MB prebuilt per platform, shipped to every user whether or not they opt in.
+  - **Crash isolation:** a Metal or allocator crash kills the child, not main. One restart per session, then the
+    scripted answers for the rest of it.
+  - **Containment:** a separate process can be sandboxed. On macOS it runs under `sandbox-exec` with every network
+    operation denied except a unix socket (measured: `curl https://example.com` inside the profile exits 7). It
+    listens on a unix socket in a 0700 run directory with a per-launch API key, `--offline`, no web UI and no
+    `/slots`; the measured build answers 401 without the key.
+  - **Intel, Windows, Linux:** llama.cpp publishes macOS x64, Windows x64/arm64 CPU and Ubuntu x64 builds (11.6 to
+    19.5 MB). The manifest pins macOS arm64 and x64; other platforms show the row as unavailable until a manifest
+    entry with a measured hash is added (see Open questions in FINDINGS.md).
+  - **Signing and notarization:** the release binary is ad-hoc, linker-signed (measured: `codesign -dv`), which
+    Apple Silicon requires to run. A file written by the app carries no quarantine attribute, so Gatekeeper does not
+    assess it; the hardened runtime does not govern a child process. Integrity comes from the pinned sha256, not a
+    signature. A shipping build that wants a Developer-ID-signed sidecar bundles it in `extraResources` instead
+    (+12 MB per platform); the client code is the same.
+  - **Latency:** the research measured p50 194 ms / p95 257 ms for this model on this runtime (M5 Pro); this
+    build's smoke run is in `dee-model-smoke.txt`.
+- **Model: Qwen3-1.7B Q4_K_M** (`unsloth/Qwen3-1.7B-GGUF`, revision `d7f544e`, 1,107,409,472 bytes, sha256
+  `b139949c…1897`). Licence **Apache-2.0**, verified on the upstream `Qwen/Qwen3-1.7B` card and the GGUF repo (both
+  `license:apache-2.0`, ungated). Only commercially permissive licences are allowed (the manifest test pins the
+  allowed set). Gemma 4 E2B (Apache-2.0) was the better drafter but is 3.1 GB and rewrote more lines falsely.
+- **Runtime pin:** llama.cpp `b11588` (MIT), GitHub-published sha256 digests.
+
 ## Test harness: hidden e2e and test tiers
 - **Hidden by default.** Under `OFFSUIT_E2E_HIDDEN=1`, which the helper sets on every launch, the window is created
   `show: false` and never shown. It keeps `paintWhenInitiallyHidden` and gets `backgroundThrottling: false`, so

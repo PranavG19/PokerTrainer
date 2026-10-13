@@ -12,11 +12,13 @@ import {
   loadLicenceMirror,
   resaveLast,
   saveLicenceMirror,
+  loadDeePhrasing,
   loadMultiplayerEnabled,
   loadTheme,
   loadTutorEnabled,
   profileStatus,
   save,
+  saveDeePhrasing,
   saveMultiplayerEnabled,
   saveTheme,
   saveTutorEnabled,
@@ -32,8 +34,12 @@ import { devOverrideFrom } from '../core/entitlements/entitlements.js';
 import { checkoutPlans, createLicenceAuthority, licenceEndpoints, tokenFromDeepLink, tokenId } from './licence.js';
 import { refreshLicence, restoreLicence } from './licenceClient.js';
 import type { RoomView } from '../core/multiplayer.js';
+import { activeManifest } from './dee/manifest.js';
+import { PhrasingService } from './dee/service.js';
 
 let mainWindow: BrowserWindow | null = null;
+/** Stops Dee's phrasing sidecar; set once the service exists. */
+let stopPhrasing: () => void = () => undefined;
 
 /**
  * Resolved once at startup from the environment. With no Bedrock settings this
@@ -509,6 +515,31 @@ app.whenReady().then(() => {
    * The handler never rejects. A failed utterance resolves with a reason the renderer can display,
    * because the verdict is already readable on screen and speech must not be able to break a hand.
    */
+  /**
+   * Dee chat's optional phrasing model. The renderer sends a template id and typed slots, never text
+   * (phrasing.ts re-renders and re-checks them); the download runs only on the consent click and is the
+   * feature's only network use (no-network.spec proves it). Everything is in <userData>/dee-model.
+   */
+  const { manifest, testLoopback } = activeManifest();
+  const phrasing = new PhrasingService({
+    dir: path.join(app.getPath('userData'), 'dee-model'),
+    manifest,
+    testLoopback,
+    loadEnabled: loadDeePhrasing,
+    saveEnabled: saveDeePhrasing,
+    onStatus: (status) => {
+      if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.webContents.send('dee:phrasing', status);
+    },
+  });
+  stopPhrasing = () => phrasing.stop();
+  ipcMain.handle('dee:phrasing:status', () => phrasing.status());
+  ipcMain.handle('dee:phrasing:download', (_event, consent: unknown, licences: unknown) => phrasing.download(consent, licences));
+  ipcMain.handle('dee:phrasing:cancel', () => phrasing.cancel());
+  ipcMain.handle('dee:phrasing:delete', () => phrasing.remove());
+  ipcMain.handle('dee:phrasing:setEnabled', (_event, on: unknown) => phrasing.setEnabled(on));
+  ipcMain.handle('dee:chat:warm', () => phrasing.warm());
+  ipcMain.handle('dee:chat:phrase', (_event, req: unknown) => phrasing.phrase(req as never));
+
   ipcMain.handle('speech:speak', (_event, text: unknown) => {
     if (text === null) {
       cancelSpeech();
@@ -532,6 +563,8 @@ app.on('window-all-closed', () => {
  */
 app.on('will-quit', () => {
   cancelSpeech();
+  // The phrasing sidecar is a child process; it must not outlive the app either.
+  stopPhrasing();
   // A relay socket must not outlive the app that opened it: drop any live host/join on quit.
   void stopRelaySession();
 });

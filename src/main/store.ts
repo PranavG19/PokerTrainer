@@ -334,6 +334,23 @@ export function resaveLast(transform: (obj: Record<string, unknown>) => Record<s
 }
 
 /**
+ * "Smarter phrasing" on or off, once installed. A device preference like the theme (the model lives on this
+ * machine, not in the profile). Installing turns it on; only an explicit `false` turns it off.
+ */
+export function loadDeePhrasing(): boolean {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    return (parsed as { deePhrasing?: unknown })?.deePhrasing !== false;
+  } catch {
+    return true;
+  }
+}
+
+export function saveDeePhrasing(enabled: boolean): void {
+  writeSettings({ deePhrasing: enabled });
+}
+
+/**
  * Merge one or more settings keys into the settings file, preserving the others. Both switches share
  * the file, so writing one must not clobber the other — a naive `atomicWrite({tutorEnabled})` erased a
  * saved multiplayer choice and vice versa.
