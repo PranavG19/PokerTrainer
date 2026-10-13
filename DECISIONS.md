@@ -307,8 +307,11 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
   raiser under 40bb. The 100bb standard-size charts do not apply; the pot-odds model, which sees the price,
   grades them.
 - **A hero shove in a chart spot is priced on its own:** EV relative to folding now = P(all fold)·pot +
-  P(called)·(share·(pot + 2·stack) − stack), the caller holding QQ+/AK (the tightest opener's value 4-bet
-  range), one caller assumed, share from the same seeded Monte Carlo. A loss bound against folding, so for a
+  P(called)·(share·(pot + 2·stack) − stack), the call range QQ+/AK (the tightest opener's value 4-bet
+  range), one caller assumed, share from the same seeded Monte Carlo. Each opponent calls with its own
+  chance: any hand if it has not acted, its seat's RFI chart if it opened, the big blind's 3-bet region
+  against hero's seat if it 3-bet (the app has no 3-bettor chart by seat). A raise to the whole stack is
+  graded as a shove. A loss bound against folding, so for a
   chart hand it understates. 100bb 72o, KJo, 22 or A8o first in are mistakes; AA and KK are not. Never close.
   Supersedes: 3x the wrong-raise cost, because that left near-edge shoves (KJo, 22) silent.
 - **Chart and close verdicts carry no price meter** (a close spot's two shares overprint on the meter; the message quotes both) and use the principle `position` (RFI) or `ranges`.

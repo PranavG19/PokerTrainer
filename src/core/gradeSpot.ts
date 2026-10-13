@@ -17,7 +17,7 @@
  *  3. Everything else gradeDecision needs (price, opponents, seed), exactly as the call sites computed it.
  */
 import { gradeDecision, type Grade } from './coach.js';
-import type { ChartSpot } from './chartGrade.js';
+import { openerCallChance, shoveCallChance, threeBettorCallChance, type ChartSpot } from './chartGrade.js';
 import { VILLAIN_BETTING_RANGE, type RfiPosition, type ThreeBetResponsePosition } from './preflop.js';
 import type { ActionKind, TableState } from './table.js';
 import { seatPositions } from './seatPositions.js';
@@ -142,6 +142,22 @@ export function chartSpotFor(state: TableState): ChartSpot | null {
   return null;
 }
 
+/** Each live opponent's chance of calling hero's shove, from what the betting says about its range. */
+function shoveCallers(state: TableState, chart: ChartSpot): number[] {
+  const heroId = state.toAct;
+  const actions = preflopActions(state) ?? [];
+  const raisers = actions.filter((a) => a.kind === 'raise' && a.seat !== heroId).map((a) => a.seat);
+  const seats = chartSeats(state);
+  return state.seats
+    .filter((s) => !s.folded && s.id !== heroId)
+    .map((s) => {
+      if (!raisers.includes(s.id)) return shoveCallChance();
+      if (chart.kind === '3bet') return threeBettorCallChance(chart.opener);
+      const pos = seats[s.id];
+      return pos !== null && pos !== 'BB' ? openerCallChance(pos) : shoveCallChance();
+    });
+}
+
 export function gradeSpot(state: TableState, chosen: ActionKind, opts: GradeSpotOptions): Grade {
   const hero = state.seats[state.toAct];
   const toCall = Math.max(0, state.currentBet - hero.committed);
@@ -161,7 +177,11 @@ export function gradeSpot(state: TableState, chosen: ActionKind, opts: GradeSpot
   };
 
   const chart = chartSpotFor(state);
-  if (chart) return gradeDecision({ ...base, chart });
+  if (chart) {
+    // A raise to the whole stack is a shove, however the dock sent it.
+    const shove = chosen === 'allin' || (chosen === 'raise' && (opts.betSize ?? 0) >= hero.stack + hero.committed);
+    return gradeDecision({ ...base, chosen: shove ? 'allin' : chosen, chart, shoveCallers: shoveCallers(state, chart) });
+  }
   if (toCall === 0) return gradeDecision(base);
 
   const aggressor = state.lastAggressor;

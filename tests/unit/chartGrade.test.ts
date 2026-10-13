@@ -5,7 +5,10 @@ import {
   chartDistance,
   chartVerdict,
   chenScore,
+  openerCallChance,
+  shoveCallChance,
   shoveLossBb,
+  threeBettorCallChance,
   type ChartSpot,
 } from '../../src/core/chartGrade.js';
 import { gradeDecision } from '../../src/core/coach.js';
@@ -284,7 +287,7 @@ describe('hero shoves and the 3-bet-or-fold chart', () => {
       const g = grade(hole);
       expect(g.severity, hole.join('')).not.toBe('free');
       expect(g.principle).toBe('ranges');
-      expect(g.message).toMatch(/^A shove this deep is called only by QQ\+ and AK/);
+      expect(g.message).toMatch(/^A shove this deep is called by QQ\+ and AK/);
     }
     expect(grade(['As', 'Ah']).severity).toBe('free');
     expect(grade(['Ks', 'Kh']).severity).toBe('free');
@@ -292,9 +295,9 @@ describe('hero shoves and the 3-bet-or-fold chart', () => {
 
   it('the shove EV formula: all fold wins the pot, a call plays for the stacks', () => {
     // Nobody behind: the pot is won outright.
-    expect(shoveLossBb(1.5, 99, 0, 0.3)).toBe(0);
+    expect(shoveLossBb(1.5, 99, [], 0.3)).toBe(0);
     // Certain to be called with a third of the pot: loses (1 - 3*share/...) of the stack.
-    expect(shoveLossBb(1.5, 99, 1e6, 0.3)).toBeCloseTo(99 - 0.3 * (1.5 + 198), 6);
+    expect(shoveLossBb(1.5, 99, [1], 0.3)).toBeCloseTo(99 - 0.3 * (1.5 + 198), 6);
   });
 
   it('the small blind against the button: 3-bet beside fold is still a mixed edge', () => {
@@ -303,5 +306,40 @@ describe('hero shoves and the 3-bet-or-fold chart', () => {
     expect(chartAction(sbVsBtn, 'AJo')).toBe('raise');
     expect(chartVerdict(sbVsBtn, ['As', 'Th'], 'raise', 3.4, 1.4).close).toBe(true);
     expect(chartVerdict(sbVsBtn, ['As', 'Jh'], 'fold', 3.4, 1.4).close).toBe(true);
+  });
+});
+
+/** Re-verification at 6b1d0e1: a raiser was priced as a random hand, so shoves over a raise graded free. */
+describe('a shove over a raise is priced against the raiser\'s range', () => {
+  it('the raiser calls far more often than a random hand', () => {
+    expect(openerCallChance('UTG')).toBeGreaterThan(3 * shoveCallChance());
+    expect(threeBettorCallChance('CO')).toBeGreaterThan(0.4);
+  });
+
+  it('the big blind jamming 72o over an open, and the opener jamming KJo over a 3-bet, are mistakes', () => {
+    let s = dealt();
+    s = applyAction(s, { kind: 'raise', amount: 125 }); // CO opens
+    s = applyAction(s, { kind: 'fold' });
+    s = applyAction(s, { kind: 'fold' });
+    s.seats[s.toAct].hole = ['7s', '2h'];
+    expect(gradeSpot(s, 'allin', { seed: 1, modelFor: () => null }).severity).not.toBe('free');
+
+    let t = dealt();
+    t = applyAction(t, { kind: 'raise', amount: 125 }); // CO opens
+    t = applyAction(t, { kind: 'raise', amount: 400 }); // BTN 3-bets
+    t = applyAction(t, { kind: 'fold' });
+    t = applyAction(t, { kind: 'fold' });
+    t.seats[t.toAct].hole = ['Ks', 'Jh'];
+    expect(gradeSpot(t, 'allin', { seed: 1, modelFor: () => null }).severity).toBe('serious');
+  });
+
+  it('a raise to the whole stack is graded as the shove it is', () => {
+    const s = dealt();
+    s.seats[s.toAct].hole = ['Ks', 'Jh'];
+    const hero = s.seats[s.toAct];
+    const viaRaise = gradeSpot(s, 'raise', { seed: 1, betSize: hero.stack + hero.committed, modelFor: () => null });
+    const viaAllin = gradeSpot(s, 'allin', { seed: 1, modelFor: () => null });
+    expect(viaRaise).toEqual(viaAllin);
+    expect(viaRaise.severity).not.toBe('free');
   });
 });

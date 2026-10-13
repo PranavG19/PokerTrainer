@@ -289,14 +289,35 @@ export const SHOVE_CALL_RANGE: readonly Combo[] = ALL_COMBOS.filter((c) => three
  *
  *   EV = P(all fold) * pot + P(called) * (share * (pot + 2 * stack) - stack)
  *
- * where each of `behind` players holds the calling range with probability (its combos / 1326), one caller
- * is assumed, and `share` is hero's pot share against that range. loss = max(0, -EV). Against folding,
+ * where each opponent holds the calling range with its own chance (`shoveCallChance` of what is known
+ * of its range: any hand, an opener's chart, a 3-bettor's region), one caller is assumed, and `share` is hero's pot share against that range. loss = max(0, -EV). Against folding,
  * not against the chart's best line, so for a hand the chart plays it is a lower bound.
  */
-export function shoveLossBb(potBb: number, stackBb: number, behind: number, share: number): number {
-  const callCombos = SHOVE_CALL_RANGE.reduce((n, c) => n + comboWeight(c), 0);
-  const q = callCombos / TOTAL_COMBINATIONS;
-  const allFold = Math.pow(1 - q, Math.max(0, behind));
+/** The chance a hand drawn from `range` (all hands when omitted) is in the calling range. */
+export function shoveCallChance(range?: readonly Combo[]): number {
+  const calls = new Set(SHOVE_CALL_RANGE);
+  const pool = range ?? ALL_COMBOS;
+  const total = pool.reduce((n, c) => n + comboWeight(c), 0);
+  const hit = pool.reduce((n, c) => n + (calls.has(c) ? comboWeight(c) : 0), 0);
+  return total > 0 ? hit / total : 0;
+}
+
+/**
+ * Each opponent's chance of calling, by what is known of its range: a player who has not acted holds any
+ * hand; the opener holds its seat's RFI chart; a 3-bettor holds the big blind's 3-bet region against
+ * hero's opening seat (the app has no 3-bettor chart by seat, so the defence chart stands in).
+ */
+export function openerCallChance(position: RfiPosition): number {
+  return shoveCallChance(ALL_COMBOS.filter((c) => isInRfiRange(c, position)));
+}
+
+export function threeBettorCallChance(heroOpener: ThreeBetResponsePosition): number {
+  const spot: DefensePosition = heroOpener === 'UTG' ? 'bb-vs-utg' : heroOpener === 'HJ' ? 'bb-vs-hj' : heroOpener === 'CO' ? 'bb-vs-co' : 'bb-vs-btn';
+  return shoveCallChance(ALL_COMBOS.filter((c) => defenseAction(c, spot) === 'threebet'));
+}
+
+export function shoveLossBb(potBb: number, stackBb: number, callChances: readonly number[], share: number): number {
+  const allFold = callChances.reduce((p, q) => p * (1 - q), 1);
   const called = share * (potBb + 2 * stackBb) - stackBb;
   const ev = allFold * potBb + (1 - allFold) * called;
   return Math.max(0, -ev);

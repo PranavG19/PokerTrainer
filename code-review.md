@@ -594,6 +594,105 @@ Verdict after fixes: FAIL
 | The 40bb edge jumps | Noted: below 40bb the pot-odds model grades the shove; push/fold charts are a follow-up. |
 | Duplicate seat names mis-read postflop | Noted: bot names are unique and LAN seats carry no model. |
 
+## Re-verification (at 6b1d0e1)
+
+Independent re-check of the shove fix (6b1d0e1: `shoveLossBb` and `SHOVE_CALL_RANGE` in `chartGrade.ts`,
+`gradeShove` in `coach.ts`) and of the e2e re-pin (ac7fb05). I did not edit any source file. Grades come from
+real `TableState`s (`createTable`/`startHand`/`applyAction`, 100bb, bb 50) run through `gradeSpot` with
+`modelFor: () => null`. The pot shares come from my own oracle: a separate 7-card evaluator and Monte Carlo
+(`tests/tmp/rv3/oracle.ts`, 30k to 40k trials, villain combos dealt with card removal). It does not import
+`src/core/equity`. Spot checks: AA v KK 0.827, AKo v QQ 0.431, A8o v KK 0.290. Scripts are in
+`tests/tmp/rv3/`: `ev.ts`, `spots.ts`, `edges.ts` and `sanity.ts`.
+
+### Per item
+
+| Item | Status | Evidence |
+|---|---|---|
+| A shove's cost was 3x the edge cost, so near-edge shoves were silent | **Fixed for first-in (RFI) spots. Regressed in defence and 3-bet spots** (new Act on) | See the 4-max CO table below. The formula matches my own calculation to within the app's Monte Carlo noise. |
+| Shove copy said "raising" | Fixed | Example: "A shove this deep is called only by QQ+ and AK, where you have 22% pot share; it costs ~2.7 bb." `bannedPhrasingIn` returns null, and no `BANNED_PHRASINGS` entry matches. The calling-range claim is false outside RFI spots (see the Act on). |
+| 40bb edge; duplicate seat names | Noted (unchanged, agree) | No change. |
+| e2e re-pin, seed 8 → 10 (ac7fb05) | **Verified: no assertion weakened** | I compared all 227 changed lines one by one. The changes are `seed: 8`→`10` (plus `?? 8`→`?? 10` defaults), the renamed `reachSeed8Gate`→`reachPinnedGate`, comments, and one message string (`'seed 10 must give…'`). No `expect` line was removed or relaxed. Two `expect(await waitForIdle(page)).toBe('handover')` lines were added in `gate.spec`, so those tests got stricter. The predict test 21 move from seed 43 to 10 keeps all three of its expects (`awaiting` is `ai`, `withheld` is `true`, no win%). No spec still mentions QsQh, 3.9bb or 348 as a pin. I did not run e2e (by instruction), so whether the new seed holds in the app is left to the running suite. |
+
+**Formula check: 4-max, CO first in, 3 behind, pot 1.5bb, 100bb.** My EV uses the commit's formula with my own
+share and the naive per-player q = 34/1326.
+
+| Hand | My share | App share (seed 1) | My EV vs fold | App grade |
+|---|---|---|---|---|
+| 72o | 0.217 | 0.224 | −2.83 | `serious` 2.72 |
+| KJo | 0.200 | 0.215 | −3.08 | `serious` 2.87 |
+| 22 | 0.343 | 0.354 | −0.93 | `notable` 0.76 |
+| A8o | 0.250 | 0.245 | −2.33 | `serious` 2.41 |
+| AA | 0.832 | 0.838 | +6.45 | `free` 0 |
+| KK | 0.570 | 0.578 | +2.51 | `free` 0 |
+
+- Each gap is explained by the app's 2000-trial share. For KJo, 1.5pp of share is worth about 0.2bb at these stakes.
+- Card removal is ignored in q. Its effect is ±0.5bb: KJo −2.45, A8o −1.80, 22 −1.12. It does not change any severity here.
+- When the caller is a blind, `pot + 2·stack` overcounts the final pot by that blind (≤1bb·share, ≤0.3bb). This is negligible.
+- BTN first in (2 behind): 72o 1.35, KJo 1.45, A8o 1.14 `notable`; 22 `free` 0.02. My numbers are 1.42, 1.59, 1.10 and 0.14. They agree.
+
+**Determinism and edge cases.**
+- Determinism: same seed gives the same loss and the same message.
+- Seed spread over 40 seeds: CO 22 runs 0.58 to 1.33 and is always `notable`. CO A8o runs 2.07 to 2.68 and is always `serious`. The noise is real, but no severity flips at these hands.
+- Non-finite inputs give `free` with a null message, never a "~NaN bb" verdict: bb=0, bb=NaN, pot NaN, and a missing `stack` (`evLossBb` NaN). Stack 0 gives 0.
+- `seed` undefined falls back to 1. `shoveLossBb` with NaN inputs gives NaN, and with negative `behind` it gives 0.
+- Unit file `chartGrade.test.ts`: 30 passed.
+
+### New Act on
+
+- **coach.ts:87 → chartGrade.ts `shoveLossBb` (`behind` = `opponents` from `gradeSpot.ts:148`). In defence and 3-bet spots every opponent is priced as a random hand. The raiser is not random, so every non-premium shove there is now `free`. This is a regression from 09cbaec, which graded these spots `notable`.**
+  - `opponents` counts the live seats. First in, that equals the players behind, which is correct.
+  - In a defence or 3-bet spot it also counts the raiser, who has already acted. The raiser gets q = 34/1326 = 2.6%, the chance that a random hand holds QQ+/AK.
+  - The raiser's real chance of holding QQ+/AK is much higher: 9.6% of the CO open range, 15.9% of the UTG range, and 57% of the 60-combo BB 3-bet range (`bb-vs-co` threebet, used as a proxy for a 3-bettor's range).
+  - Meanwhile the dead money is 4 to 11.5bb, so fold equity dominates the result.
+
+  App grade against my EV, with the raiser's range conditioned on its action (QQ+/AK share of that range, other players random):
+
+  | Spot | App, every hand tested (72o KJo 22 A8o AQo) | My EV |
+  |---|---|---|
+  | 6-max BB vs UTG open | `free` 0.00 | 72o −5.4, KJo −6.0, A8o −4.4, AQo −4.6, 22 −1.4 |
+  | 4-max BB vs CO open | `free` 0.00 | 72o −1.7, KJo −2.0, A8o −1.1, AQo −1.2 |
+  | 4-max SB vs BTN open | `free` 0.00 | 72o −0.9, KJo −1.2 |
+  | 4-max CO open, BTN 3-bets 7.5bb, CO jams | `free` 0.00 | 72o −25, KJo −27, A8o −22, AQo −22, 22 −11 |
+
+  - At 09cbaec these were all graded: BB-vs-CO shoves 1.13 `notable`, and a 3-bet jam of AQo 1.03 `notable` (see the re-verification above).
+  - The 3-bet-spot gap is large. Even with a wide 120-combo 3-bet range (q ≈ 0.28), a 72o jam loses more than 10bb, and the grade is silent.
+  - The message also states "called only by QQ+ and AK" as a fact, in a spot where that is the one claim the model gets wrong.
+
+  Fix (all the inputs are in `chartSpotFor`/`gradeSpot`): pass `shoveLossBb` a per-opponent call probability instead of a count.
+  - The raiser gets the QQ+/AK share of its own range: `rfiCombos(opener)` in defence spots, and a 3-bet range in 3-bet spots.
+  - Only players still to act get the random-hand q.
+  - Or, at minimum, route shoves in `defend`/`3bet` spots back to the previous cost until this is done.
+
+  Pin it with a test that a 100bb BB-vs-UTG shove of 72o, and a CO jam of KJo over a BTN 3-bet, are not `free`.
+
+### Consider
+
+- **The All-in preset + Raise button bypasses the shove grade** (`table.ts:1143` and `:1175`; `coach.ts:86` checks only `chosen === 'allin'`).
+  - The dock's "All-in" preset sets the slider to `maxRaiseTo` (committed + stack), and the Raise button sends `{kind: 'raise', amount}`.
+  - CO 72o raised to 5000 grades as the chart's raise, `notable` 1.00 ("raising it costs ~1.0 bb"). KJo raised to 5000 grades `free` 0. The same chips sent through the A key grade 2.72 and 2.87.
+  - This predates the fix (09cbaec keyed on `allin` too), but it is now the main way past the fix.
+  - Fix: treat `betSize >= committed + stack` as `allin` in `gradeSpot`. Tradeoff: one more input the grader reads.
+- **Card removal in q** (`SHOVE_CALL_RANGE` against 1326). This is ±0.5bb at 100bb, and it biases blocker hands (AK, KJ, A8) toward overstated losses. It can wait; the Monte Carlo noise is the same size.
+- **Test comment** `chartGrade.test.ts` ("loses (1 - 3*share/...) of the stack") is garbled. The assertion itself is right.
+
+### Verification
+
+- `npx vitest run tests/unit/chartGrade.test.ts`: 30 passed, exit 0.
+- Scratch scripts `tests/tmp/rv3/{oracle,sanity,ev,spots,edges}.ts` (vite-node): exit 0.
+- Not run, by instruction: typecheck, e2e, `test:full`, Electron, and the full unit suite.
+
+Verdict after fixes: FAIL
+
+
+## Resolution of the re-verification at 6b1d0e1 (author)
+
+| Finding | Disposition |
+|---|---|
+| Shoves over a raise priced the raiser as a random hand | **Fixed.** `shoveLossBb` takes one call chance per live opponent: random if it has not acted, its RFI chart's QQ+/AK share if it opened, the BB 3-bet region's share against hero's seat if it 3-bet. Tests: BB jamming 72o over a CO open is not free; the CO jamming KJo over a BTN 3-bet is serious (red before). |
+| A raise to the whole stack skipped the shove grade | **Fixed.** `gradeSpot` grades a chart-spot raise whose size is the whole stack as `allin`. Test: the raise and the all-in grade identically. |
+| "called only by QQ+ and AK" false outside first-in | **Fixed.** The copy reads "called by QQ+ and AK". |
+| Card removal in the call chance (±0.5bb) | Noted. |
+
 ---
 
 # Review: feat/profile-schema-v2
