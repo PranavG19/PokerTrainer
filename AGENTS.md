@@ -89,6 +89,19 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
   through `countSession` and `currentStreakOn` (`progression/persist.ts`); never add a freeze field.
   Core takes a `DayKeyOf`; only the renderer calls `systemDayKeyOf()`.
 
+## Pro and licensing
+- Tiers, features and `can()` live in `src/core/entitlements/`. **Main is the only authority**
+  (`src/main/licence.ts`). It verifies the Ed25519 key offline and overwrites `progression.entitlements` on
+  every save. Never grant anything from renderer state.
+- **A new Pro surface:**
+  - Renderer: `proGate(pro, '<feature>', render, openSheet)` (`src/renderer/pro.ts`), the one gate.
+  - Main: register its IPC with `gated(authority, '<feature>', handler)`.
+  - Set `available: true` in `FEATURE_INFO` when it ships.
+  - Free features are never gated. Nothing cosmetic, currency-like, a streak freeze or a boost is ever Pro.
+- **Network:** licensing's only egress is `licensingFetch` (`network.ts`), from a button the user pressed. Checkout
+  goes to the system browser. Keys and URLs live in `src/core/entitlements/config.ts`; secrets never do.
+- Test keys: `node scripts/mint-test-key.ts`. Owner setup: `docs/PAYMENTS-SETUP.md`.
+
 ## Routing
 - `DECISIONS.md` is the living decision record; edit the line, do not append history.
 - To prove a change in the running app, use `.claude/skills/verify-app/SKILL.md`.

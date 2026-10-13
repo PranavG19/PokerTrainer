@@ -989,3 +989,44 @@ R5–R7, R13), built. Solo play is unchanged: it keeps the seeded `mulberry32` a
 - Captures use Playwright's cached Chromium 1243 headless shell through `executablePath`. Nothing was
   installed. Synara was shallow-cloned read-only: nothing installed and none of its scripts run.
   Foundry's asar was read by a dependency-free script; nothing in the .app was modified.
+
+## Pro and licensing (branch `feat/pro-licensing`)
+
+- **Merchant of record: Stripe Managed Payments**, sold direct (not the Mac App Store at launch); fallback Gumroad.
+  Stripe's restricted list ties every games line to "a monetary or material prize", so a play-money trainer with
+  no prizes is allowed (re-fetched 2026-10-12; page updated 2026-09-22). Paddle is cheaper (5% + 50¢) but bans
+  "games of chance" with no prize qualifier. Full comparison and sources: `research/TECH-PAYMENTS.md`.
+- **Model: monthly and annual Pro subscription.** No one-off licence at launch: ranked play, seasons and sync are
+  running costs. The token format still allows a perpetual licence (`exp: null`) if one is ever sold.
+- **Our own Ed25519 tokens, not provider licence keys.** `OFFSUIT1.<claims>.<sig>`, claims
+  `{v, kid, lid, tier, plan, iat, exp, seats}`, signature over the prefix and payload. Public keys are embedded per
+  `kid` (rotation: add a kid, keep the old until its tokens expire); a revoked-lid list covers refunded perpetual
+  keys. Stripe has no licence keys, and the online server exists anyway.
+- **Main is the only authority.** It verifies with node:crypto, and on every save it replaces the renderer's
+  `progression.entitlements` with its own, so a devtools edit or a doctored save grants nothing. Pro work runs
+  behind `gated(authority, feature, handler)` IPC handlers. Devtools are off in a packaged build.
+- **Dev key and override only when unpackaged.** The throwaway dev private key is committed
+  (`scripts/dev-licence-key.json`) so tests can mint keys; `keyring(app.isPackaged)` drops its kid in a packaged
+  build, and `OFFSUIT_DEV_TIER` is ignored there.
+- **Offline grace: 14 days after `exp`**, then Free. Supersedes the research draft's 7 days with a daily refresh,
+  because the app never calls the network by itself: "Check for renewal" and "Restore" are buttons.
+- **Clock: licence time = max(system clock, high-water mark, token iat).** A rollback never extends a licence;
+  the learner is told only past 36 h. A newer token (higher `iat`) resets a mark a fast clock pushed ahead;
+  re-pasting an old key cannot.
+- **Persistence: additive, no schema bump.** `progression.entitlements` gains `licence` and `highWater` (older v2
+  builds carry them). `tier`/`granted` stay as a display cache. The token and mark are mirrored in
+  `offsuit-settings.json`, so deleting the profile (starting over) keeps the purchase and the rollback guard.
+- **Seats are carried, not enforced offline.** The online server counts activations for the features that need it.
+- **Network: one origin, armed per request.** Refresh/restore go through `licensingFetch` on an in-memory
+  partition that admits only the configured licence server while the request is in flight. Checkout and
+  "Manage or cancel" open in the system browser (`shell.openExternal`, recorded instead under e2e); the renderer
+  names a plan, never a URL.
+- **Deep link `offsuit://activate?key=` is a proposal.** Any page can open one, so the app shows the plan, date and
+  key ending and asks; Escape is a no. The protocol is registered only by a packaged build.
+- **Upgrade sheet copy:** the price before checkout, renewal and how to cancel on the same sheet, unshipped Pro
+  features marked "Coming in an update" (checkout stays closed until one ships), learning named as never locked.
+  Monthly is the default plan (the smaller commitment). No countdown, no urgency, "Not now" never re-asks.
+- **Webhook server (`src/server/licensing/`):** Stripe-Signature v1, 5-minute window, event-id ledger; grants come
+  from re-reading the subscription at Stripe, never from the event body; a token is minted only when the paid
+  period moves forward; a refund or dispute is final. Restore needs order id + email (stored only as a peppered
+  hash), with one 404 for every miss.
