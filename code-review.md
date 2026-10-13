@@ -228,7 +228,7 @@ Both streak blockers are fixed, and I found no new blockers. I re-ran my probes 
 
 
 # Review: grader-close-band (close band, charts preflop, villain ranges)
-Verdict: FAIL at the first pass (4 act-on items) → FAIL at 876a79a (2 new) → FAIL at 09cbaec (shove pricing) → see the last re-verification below for the state at the tip
+Verdict: FAIL at the first pass (4 act-on items) → FAIL at 876a79a (2 new) → FAIL at 09cbaec (shove pricing) → PASS WITH NOTES at the jam fix (the tip's grader)
 Base: 2b28855e047746a941fdc9f759c0bfd2d12bd67d  Head: 2e1433df0fe108ca55e872fb69021ad531318890
 
 The postflop maths is right. The pot share, required price, EV-loss formula, band width and weighted-range
@@ -771,6 +771,41 @@ Verdict after fixes: FAIL
 | Jamming a 4-bet hand over a 3-bet graded serious | **Fixed** (fix a). In defence and 3-bet spots a jam of a hand the chart re-raises is graded as the chart's raise. Test: CO AKo and UTG QQ jamming over a 3-bet are free (red before). |
 | The raiser's chips counted twice in the called pot (≈0.5–1.7bb understatement) | Noted: no severity flip in the reviewer's spots; follow-up. |
 | UTG open-jams of QQ/AK/JJ graded notable | Noted: a real (small) chip loss against QQ+/AK; predates a3a55f6. |
+
+## Re-verification (at the jam fix)
+
+Independent re-check of 35eb799 (`jamOfChartRaise` in `gradeDecision`, `src/core/coach.ts`). I did not edit
+any source file. Grades come from real `TableState`s (`createTable`/`startHand`/`applyAction`, 100bb, bb 50,
+seed 11) run through `gradeSpot` with `modelFor: () => null`, for `allin` and for a raise to the whole stack.
+The only grader source change since a3a55f6 is the 10 lines in `coach.ts`. Scratch scripts were in
+`tests/tmp/rv5/` (`jam.ts`, `regions.ts`, `sb.ts`) and have been deleted.
+
+### Per item
+
+| Item | Status | Evidence |
+|---|---|---|
+| Jamming a 4-bet hand over a 3-bet graded serious | **Fixed** | Opener jams over a BB/BTN 3-bet, chart `raise`, all `free` 0.00: 4-max CO AA KK QQ JJ AKs AKo AQs; 6-max UTG AA KK QQ AKs AKo; 6-max HJ QQ AKs AKo. At a3a55f6 these were CO AKo `serious` 6.01, UTG QQ `serious` 11.75, CO JJ `serious` 7.67, and so on. In all 139 cases, a raise to the whole stack is deep-equal to `allin`. |
+| Non-chart jams over a 3-bet still charged | **Holds** | Through shove pricing, unchanged from rv4: 4-max CO KJo `serious` 24.86, 72o 23.75, A8o 21.34, AQo 22.60, 22 8.50; 6-max UTG KJo 53.37, 72o 51.42; HJ KJo 38.85, 72o 37.34. Hands the chart calls are still charged as shoves: 4-max CO TT 6.15; UTG JJ 22.70, AQs 41.04. |
+| BB jams over an open | **Holds** (one note below) | Chart-raise hands are `free`: vs UTG AA KK QQ AKs AKo; vs CO also JJ AQs AQo KQs; vs BTN also TT AJs. Non-raise hands keep the rv4 numbers: 6-max vs UTG 72o `serious` 5.17, KJo 5.47, A8o 4.51, 22 `notable` 1.00; 4-max vs CO 72o `notable` 1.54, KJo 1.73, A8o 1.14. |
+| RFI jams unchanged | **Holds** | `chart.kind !== 'rfi'` keeps RFI on shove pricing. 4-max CO: 72o 2.72, KJo 2.87, 22 0.76, A8o 2.41, AKo 0.40. 6-max UTG: QQ 0.67, AKs 0.86, AKo 1.58, JJ 1.93, AQs 4.12. All are identical to rv4. |
+| Raise regions the fix makes free | **Checked** | Every defend and 3-bet chart's `raise` region is value only: UTG is QQ+/AK; the widest is `bb-vs-sb` (22 hands, down to 77, KQo, JTs). There are no bluff hands, so the fix cannot clear a 100bb jam of a weak hand. A `3bet`/opener SB spot would throw in `chartAction` (SB has no `fourBet` row), but `chartSpotFor` returns null there, so it is unreachable. |
+| Pot overcount; UTG open-jams `notable` | Noted (agree) | No change. |
+
+**Regression checks (all pass).**
+- `npx vitest run` on the coach, chart and grade tests (`chartGrade`, `chartBank`, `chartBank-ui`, `charts`, `coach`, `coach-message`, `reasonGrade`): 7 files, 140 tests passed.
+- `npm run typecheck`: exit 0.
+
+### Notes (not regressions)
+
+- **6-max BB vs a BTN open: jamming 72o (chart `fold`) is graded `free` 0.00, and so are KJo, A8o, A5s and 76s.** 72o is not a chart raise, so this goes through the same shove path as at a3a55f6, and the fix does not cause it. The cause is the model: the BTN's RFI range calls only with QQ+/AK (q 0.058), so 94% fold equity on a 4bb pot outweighs the called loss. In practice the BTN calls a 100bb jam wider than that. So "BB jamming 72o over an open is charged" holds against UTG and CO opens, but not against BTN opens. Worth a line in `DECISIONS.md`, or a wider caller range for late-position openers.
+- **Jams of hands the chart calls still use the value-only 3-bettor stand-in.** UTG JJ costs 22.7bb, AQs 41.0bb, and 4-max CO TT 6.15bb. The direction is right (looser than the chart), but the size inherits q = 1 against UTG. Fix (b) from rv4 would temper it. This is not a blocker.
+
+### Verification
+
+- Scratch scripts `tests/tmp/rv5/{jam,regions,sb}.ts` (vite-node): exit 0. They have been deleted.
+- Not run, by instruction: e2e, Electron and `test:full`.
+
+Verdict after fixes: PASS WITH NOTES
 
 ---
 

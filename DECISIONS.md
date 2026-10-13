@@ -364,6 +364,9 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
   bot, not of real passive players. [Bots unchanged; retuning `station` is the owner's call.]
 - **Close spots in big pots.** The band is in pot-share points, so a 300bb pot can hold a ~14bb estimate
   inside "close". [Kept: it is the honest uncertainty; `estimateLossBb` keeps the figure.]
+- **Shove pricing assumes a QQ+/AK caller.** So a 6-max BB jam of trash over a BTN open shows a profit (the
+  BTN folds 94%), and jams of hands the chart only calls over a 3-bet are priced against an all-value
+  3-bettor (UTG JJ ≈ 23bb). [Kept; a 3-bettor range with bluffs and a wider caller range are follow-ups.]
 - **Folding aces to an open is graded ~3.4bb** (published solver gap ~9–11bb, the reviewer's recall). Still
   `serious`. [Kept; recalibrating moves the Experiment 1 numbers.]
 
