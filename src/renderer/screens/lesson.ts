@@ -8,6 +8,19 @@ import { chevron } from '../components/glyphs.js';
 import { attachThumb } from '../components/thumb.js';
 import { beginFocusRestore } from '../focusRestore.js';
 import { renderTutorRail, type RailContext, type RailTable } from '../components/tutorRail.js';
+import { dialogueFor } from '../../core/dee/dialogues/index.js';
+import {
+  commitAnswer,
+  exampleFacts,
+  pendingStep,
+  scriptRuns,
+  startDialogue,
+  type DialogueScript,
+  type DialogueState,
+  type LessonFacts,
+} from '../../core/dee/dialogue.js';
+import type { Tone } from '../../core/dee/types.js';
+import { renderDee } from '../components/dee.js';
 
 /**
  * LESSON MODE (the 'learn' tab). A reader over src/core/lessons — it adds no content and no
@@ -56,6 +69,12 @@ export interface LexiconEntry {
 interface LessonScreenOpts {
   /** Injectable so a test can render a stubbed registry (e.g. empty) without touching content. */
   lessons?: readonly Lesson[];
+  /**
+   * Dee. A lesson with a dialogue script (core/dee/dialogues) runs as a conversation; the tone sets Dee's
+   * generic lines, Character off drops the mark and names the speaker "Coach". `onRule` remembers an adopted
+   * sentence so Dee can quote it back at the table.
+   */
+  dee?: { tone: Tone; character: boolean; onRule?: (lessonId: string, text: string) => void };
 }
 
 declare global {
@@ -79,6 +98,12 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
 
   /** Answers already committed, keyed by lesson#example. Presence is what unlocks a reveal. */
   const commitments = new Map<string, string>();
+  /** Dialogue lessons: the conversation so far, per lesson#example. */
+  const dialogues = new Map<string, DialogueState>();
+  /** The option picked (not yet committed) on the open dialogue step. */
+  let picked: string | null = null;
+  const tone: Tone = opts.dee?.tone ?? 'warm';
+  const character = opts.dee?.character ?? true;
   const lexicon: LexiconEntry[] = readLexicon();
 
   let view: 'list' | 'lesson' = 'list';
@@ -101,6 +126,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
   const openLesson = (index: number): void => {
     lessonIndex = clamp(index, 0, lessons.length - 1);
     exampleIndex = 0;
+    picked = null;
     lastVerdict = null;
     view = 'lesson';
     render();
@@ -384,6 +410,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
       lesson.examples.forEach((candidate, index) => {
         const tab = pill(String(index + 1), 'example-tab', () => {
           exampleIndex = index;
+          picked = null;
           render();
         });
         tab.dataset.exampleId = candidate.id;
@@ -400,6 +427,13 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     prompt.dataset.testid = 'lesson-prompt';
     section.appendChild(prompt);
 
+    const script = dialogueFor(lesson.id);
+    const facts = exampleFacts(example);
+    if (script && scriptRuns(script, facts)) {
+      section.appendChild(renderDialogue(lesson, example, script, facts));
+      return section;
+    }
+
     const answer = commitments.get(key(lesson, example));
     if (answer === undefined) {
       section.appendChild(renderCommit(lesson, example));
@@ -408,6 +442,118 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     // Built only on this branch: before a commit there is no reveal node anywhere in the tree.
     section.appendChild(renderReveal(example, answer));
     return section;
+  }
+
+  /**
+   * The lesson as a conversation: Dee asks, the learner picks and commits, a wrong answer gets a question back.
+   * Commit before feedback (G5): the reply is computed by the engine only on commit, and the stored reasoning
+   * (the reveal) is built only once the last step is answered, exactly like the commit box path.
+   */
+  function renderDialogue(lesson: Lesson, example: LessonExample, script: DialogueScript, facts: LessonFacts): HTMLElement {
+    const k = key(lesson, example);
+    const seed = hashString(k);
+    let state = dialogues.get(k);
+    if (state === undefined) {
+      state = startDialogue(script, facts, { tone, seed });
+      dialogues.set(k, state);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'dee-dialogue';
+    wrap.dataset.testid = 'dee-dialogue';
+    wrap.dataset.step = String(state.stepIndex);
+    wrap.dataset.done = String(state.done);
+
+    // A log: each new turn is announced politely, and the earlier ones stay readable in order.
+    const thread = document.createElement('ol');
+    thread.className = 'dee-thread';
+    thread.dataset.testid = 'dee-thread';
+    thread.setAttribute('role', 'log');
+    thread.setAttribute('aria-live', 'polite');
+    thread.setAttribute('aria-label', character ? 'The lesson, with Dee' : 'The lesson');
+    let markShown = false;
+    for (const turn of state.thread) {
+      const li = document.createElement('li');
+      li.className = `dee-turn ${turn.who === 'dee' ? 'from-dee' : 'from-you'}`;
+      li.dataset.testid = turn.who === 'dee' ? 'dee-turn' : 'you-turn';
+      const who = document.createElement('span');
+      who.className = 'dee-who g-caption';
+      if (turn.who === 'dee') {
+        li.dataset.lineId = turn.lineId;
+        li.dataset.pose = turn.pose;
+        who.textContent = character ? 'Dee' : 'Coach';
+        // One mark, beside Dee's newest line, wearing that line's pose.
+        if (character && turn === lastDeeTurn(state)) {
+          li.appendChild(renderDee(turn.pose, 40));
+          markShown = true;
+        }
+      } else {
+        li.dataset.right = String(turn.right);
+        who.textContent = turn.right ? 'You' : 'You · not yet';
+      }
+      const p = document.createElement('p');
+      p.className = 'dee-say';
+      p.textContent = turn.text;
+      const body = document.createElement('div');
+      body.className = 'dee-turn-body';
+      body.append(who, p);
+      li.appendChild(body);
+      thread.appendChild(li);
+    }
+    wrap.dataset.mark = String(markShown);
+    wrap.appendChild(thread);
+
+    const pending = pendingStep(script, state, facts);
+    if (pending) {
+      const ask = document.createElement('div');
+      ask.className = 'dee-ask';
+      ask.dataset.testid = 'dialogue-ask';
+      const opts = document.createElement('div');
+      opts.className = 'dee-options';
+      opts.setAttribute('role', 'radiogroup');
+      opts.setAttribute('aria-label', 'Your answer');
+      for (const option of pending.options) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pill dee-option';
+        b.dataset.testid = 'dialogue-option';
+        b.dataset.optionId = option.id;
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(picked === option.id));
+        b.textContent = option.label;
+        b.disabled = option.tried;
+        if (option.tried) b.dataset.tried = 'true';
+        b.addEventListener('click', () => {
+          picked = option.id;
+          render();
+        });
+        opts.appendChild(b);
+      }
+      const commit = pill('Commit', 'dialogue-commit', () => {
+        if (picked === null) return;
+        const next = commitAnswer(script, dialogues.get(k) as DialogueState, facts, picked, { tone, seed });
+        picked = null;
+        dialogues.set(k, next);
+        // The last answer committed is the commitment: the rail moves to post-reveal and the reveal is built.
+        if (next.done) commitments.set(k, next.thread.filter((t) => t.who === 'you').map((t) => t.text).join(' · '));
+        render();
+      });
+      commit.classList.add('primary');
+      commit.disabled = picked === null;
+      ask.append(opts, commit);
+      wrap.appendChild(ask);
+      wrap.appendChild(text('p', 'g-caption dee-ask-note', 'A wrong answer gets a question back, not a grade.'));
+    } else if (state.done) {
+      // Built only now: before the last answer there is no reveal node anywhere in the tree.
+      const reveal = document.createElement('div');
+      reveal.className = 'reveal';
+      reveal.dataset.testid = 'lesson-reveal';
+      reveal.appendChild(text('div', 'stat-label g-label', 'The reasoning stored with this position'));
+      const reasoning = text('p', 'reveal-reasoning', example.reasoning);
+      reasoning.dataset.testid = 'lesson-reasoning';
+      reveal.appendChild(reasoning);
+      wrap.appendChild(reveal);
+    }
+    return wrap;
   }
 
   function renderSpot(example: LessonExample): HTMLElement {
@@ -562,6 +708,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
       // L3: append. No path in this file edits or drops an entry once it is here.
       lexicon.push(entry);
       persist(lexicon);
+      if (entry.accepted) opts.dee?.onRule?.(lesson.id, entry.text);
       lastVerdict = entry;
       render();
     });
@@ -681,12 +828,14 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     if (key === 'ArrowDown' && exampleIndex < count - 1) {
       event.preventDefault();
       exampleIndex += 1;
+      picked = null;
       render();
       return;
     }
     if (key === 'ArrowUp' && exampleIndex > 0) {
       event.preventDefault();
       exampleIndex -= 1;
+      picked = null;
       render();
     }
   }
@@ -717,6 +866,18 @@ export function checkSentence(sentence: string, keywords: readonly string[]): bo
   if (keywords.length === 0) return true;
   const lower = sentence.toLowerCase();
   return keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
+}
+
+function lastDeeTurn(state: DialogueState): DialogueState['thread'][number] | undefined {
+  for (let i = state.thread.length - 1; i >= 0; i--) if (state.thread[i].who === 'dee') return state.thread[i];
+  return undefined;
+}
+
+/** A stable seed per position, so Dee's generic lines read the same on a revisit. */
+function hashString(value: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < value.length; i++) h = Math.imul(h ^ value.charCodeAt(i), 16777619);
+  return h >>> 0;
 }
 
 function key(lesson: Lesson, example: LessonExample): string {

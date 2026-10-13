@@ -85,6 +85,7 @@ describe('Price held (owner D6)', () => {
     expect(isPriceHeld(decision({ grade: { spot: { needed: 0.25, had: 0.25 + CLOSE_SPOT_POINTS + 0.01 } } }))).toBe(false);
     expect(isPriceHeld(decision({ grade: { severity: 'notable', evLossBb: 0.6 } }))).toBe(false);
     expect(isPriceHeld(decision({ toCall: 0 }))).toBe(false);
+    expect(isPriceHeld(decision({ street: 'preflop' }))).toBe(false);
   });
 
   it('the close-spot band seam decides when the grader supplies it', () => {

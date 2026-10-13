@@ -1,0 +1,312 @@
+/* ─────────────────────────────────────────────────────────────────────────────────────────────────
+ * DEE — the character layer: the mark, the perch, the hand-end beat, lessons as dialogue, Dee's settings.
+ * Loads after styles-glass.css and composes its kit (tokens only, no hex in rules below the mark's own art,
+ * which lives in components/dee.ts).
+ *
+ * Colour roles: Dee's rim is the role colour of what it reacts to (amber = notable / the gate, coral =
+ * serious); never mint. The streak count is ink, never mint (mint is not a balance).
+ *
+ * Motion cap: a pose morph is --dur-2 (220ms), the Price held hop --dur-3 (320ms), a line rising --dur-3.
+ * Nothing here runs longer than 480ms; transform and opacity only. prefers-reduced-motion: none of it.
+ * ───────────────────────────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --dee-perch: 20px;
+}
+
+/* ─── The mark ─── */
+.dee {
+  display: inline-block;
+  flex: none;
+  width: var(--dee-size, 20px);
+  height: var(--dee-size, 20px);
+  line-height: 0;
+}
+.dee > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.dee.dee-morph > svg {
+  animation: dee-morph var(--dur-2) var(--ease) both;
+}
+@keyframes dee-morph {
+  from { opacity: 0.55; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+/* Character off hides Dee everywhere: every mark, and the perch with it. */
+html[data-character='off'] .dee,
+html[data-character='off'] .perch {
+  display: none !important;
+}
+
+/* ─── The perch: title bar, no glass of its own ─── */
+.perch {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--h-sm);
+  padding: 0 8px 0 6px;
+  margin-left: auto;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--ink-1);
+  font: inherit;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.perch:hover { background: var(--fill-1); }
+.perch:active { background: var(--fill-2); }
+.perch:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.perch-streak {
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.perch-streak[hidden] { display: none; }
+/* With the perch in the bar, the right-hand spacer only balances what the perch does not fill. */
+.tabs .nav-spacer { width: 52px; }
+
+/* ─── The hand-end beat: one line in the dock's slot, after the reveal ─── */
+.table-screen .controls[data-beat='true'] {
+  width: min(840px, calc(100% - 32px));
+  max-width: calc(100% - 32px);
+}
+.table-screen .controls[data-beat='true'] > .winner-summary {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* When the sitting ends the dock carries its own message and two buttons, so Dee's line takes a row above. */
+.table-screen .controls[data-beat='true'][data-ended='true'] {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.table-screen .controls[data-beat='true'][data-ended='true'] > .dee-beat {
+  flex-basis: 100%;
+  padding: 2px 4px;
+}
+.table-screen .controls[data-beat='true'][data-ended='true'] > .dock-sep:first-of-type {
+  display: none;
+}
+.dee-beat {
+  flex: 1 1 260px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 4px 0 2px;
+  animation: dee-rise var(--dur-3) var(--ease) both;
+}
+.dee-beat-line {
+  margin: 0;
+  white-space: normal;
+  font-size: var(--t-body);
+  line-height: 1.35;
+  color: var(--ink-1);
+  /* Two lines at most: the bank's 18-word budget keeps every line inside this. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dee-beat[data-event='price-held'] .dee {
+  animation: dee-hop var(--dur-3) var(--ease-spring) both;
+  animation-delay: 160ms;
+}
+@keyframes dee-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dee-hop {
+  40% { transform: translateY(-5px); }
+}
+@media (max-width: 1000px) {
+  .dee-beat-line { font-size: var(--t-foot); }
+}
+
+/* ─── Lessons as dialogue ─── */
+.dee-dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+.dee-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dee-turn {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  animation: dee-rise var(--dur-3) var(--ease) both;
+}
+.dee-turn.from-dee {
+  padding-left: 52px;
+}
+.dee-turn.from-dee:has(> .dee) {
+  padding-left: 0;
+}
+.dee-turn.from-you {
+  align-self: flex-end;
+  max-width: 72%;
+  padding: 7px 12px 8px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.dee-turn-body { min-width: 0; }
+.dee-who { display: block; margin-bottom: 2px; }
+.from-you[data-right='false'] .dee-who { color: var(--coral); }
+.dee-say {
+  margin: 0;
+  font-size: var(--t-head);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-1);
+  max-width: 52ch;
+}
+.from-you .dee-say { font-size: var(--t-body); }
+.dee-ask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-left: 52px;
+}
+html[data-character='off'] .dee-turn.from-dee,
+html[data-character='off'] .dee-ask {
+  padding-left: 0;
+}
+.dee-options {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dee-option[aria-checked='true'] {
+  background: var(--fill-3);
+  border-color: transparent;
+  box-shadow: var(--thumb-shadow);
+}
+.dee-option[data-tried='true'] {
+  text-decoration: line-through;
+}
+.dee-ask-note { padding-left: 52px; margin: 0; }
+html[data-character='off'] .dee-ask-note { padding-left: 0; }
+
+/* ─── Dee's settings ─── */
+.dee-settings {
+  height: var(--screen-h);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 12px 0;
+  overflow: hidden;
+}
+.dee-settings-head .g-sub { margin: 4px 0 0; }
+.dee-settings-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 24px;
+}
+.dee-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--r-group);
+  background: radial-gradient(60% 50% at 50% 34%, var(--fill-1), transparent 72%), var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  min-height: 0;
+}
+.dee-stage-mark { line-height: 0; }
+.dee-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.dee-preview {
+  text-align: center;
+  max-width: 40ch;
+}
+.dee-preview-line {
+  margin: 0 0 4px;
+  min-height: 2.8em;
+  font-size: var(--t-head);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-1);
+}
+.dee-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.dee-sect-title { margin: 6px 0 0; }
+.dee-choice {
+  justify-content: space-between;
+}
+.dee-choice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.dee-choice-title {
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.dee-choice-tick {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--hair-strong);
+}
+.dee-choice[aria-checked='true'] .dee-choice-tick {
+  box-shadow: inset 0 0 0 5px var(--ink-1);
+}
+.dee-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+}
+.dee-hush { margin: 0; }
+.dee-settings[data-character='off'] .dee-stage { opacity: 0.6; }
+@media (max-width: 1000px) {
+  .dee-settings { gap: 10px; padding-top: 6px; }
+  .dee-settings-cols { gap: 14px; }
+  .dee-stage { gap: 10px; padding: 12px; }
+  .dee-stage .dee { --dee-size: 84px !important; }
+  .dee-opt { padding: 8px 12px; }
+  .dee-choice.g-row { padding: 8px 12px; }
+  .dee-preview-line { font-size: var(--t-body); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dee.dee-morph > svg,
+  .dee-beat,
+  .dee-beat[data-event='price-held'] .dee,
+  .dee-turn {
+    animation: none !important;
+  }
+}

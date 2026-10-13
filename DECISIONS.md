@@ -6,6 +6,49 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Dee, the character layer (branch `feat/dee-character`)
+Owner decisions in force: D1 (character in scope; the tutor never authors a number; no trait insults), D5, D6
+("Price held" on close spots only), D7 (no words in-hand: pose only, one line at hand end), D8 (Two lights), D12 (the
+line bank is authored once, here).
+- **Dee phrases; the engine owns every number.** Lines are templates with slots (`{reqPct}` `{sharePct}` `{evLossBb}`
+  `{toCall}` `{pot}` `{repeat}` `{hands}` `{mistakes}` `{priceHeld}` `{rule}`) filled only from engine facts
+  (`src/core/dee/engine.ts`). `renderLine` also refuses any output numeral that no fact supplied, so a template typo
+  cannot author a number. Templates may not contain digits or number words (bank lint).
+- **The bank:** 173 lines in `src/core/dee/bank.ts`, plus 9 lesson-dialogue lines in `src/core/dee/dialogues/`.
+  The canonical text is Warm; Dry and Blunt are optional variants of the same line (the dial changes words, never
+  numbers). Lines without a variant read the same in every tone.
+- **The STRICT checks are ported, not copied into the test.** `src/core/dee/strict.ts` holds the PoC's rephrase check
+  verbatim in behaviour (`rephraseProblems`, replayed against the PoC's ten probes) for a later rephrasing channel.
+  The bank applies `variantProblems` to each tone variant: polarity words must match exactly and slots/numerals must
+  keep their order, but the variant may use its own content words. Reason: the PoC's content-word order rule is a
+  containment check on a model's rewording; applied to an author's tone variant it would forbid every Blunt line.
+- **Silence rule:** a hand whose decisions all cost under 0.5 bb gets no line. The one exception is Price held.
+- **Price held fires** on a `free` grade, on a priced spot, with pot share within 10 points of the price, a Sure
+  commit, a reason the grader reads as `price` or `range`, and no G4 flag; once per principle per sitting. Seam: when
+  the grader's close-spot band lands, its `Grade.close` decides closeness instead (`isPriceHeld(d, closeBand)`).
+- **`Grade.spot`** (new, optional) carries the two pot shares on every priced decision, silent ones included. The
+  coach sheet still paints only `Grade.price`, which stays absent on a free grade (coach.test pins that).
+- **Hand-end priority:** the costliest mistake, then right-action-wrong-reason, then Price held. A repeat notable in
+  the same principle gets "Noted." (a priority tic). A line quoting the learner's own sentence outranks one that does
+  not; sentences over 11 words are not quoted (the beat has two lines).
+- **Frequency** (`progression.dee.personality.frequency`): `normal` = After notable hands (the id the v2 default
+  already wrote, so it keeps meaning the default), `mistakes` = Mistakes only, `sessions` = After sessions only. The
+  v2 placeholder ids `after-hands` and `quiet` were never written by any build and now read as the default.
+- **Character off hides Dee everywhere:** no mark (perch, beat, lessons, settings preview), and no line of Dee's own
+  (the beat and the session summary). The coach's verdicts, the gate and the lesson questions stay; the lesson thread
+  labels the speaker "Coach" instead of "Dee". Supersedes: the vision mock's "Off shows a plain dealer button", because
+  the task asks for Dee hidden everywhere.
+- **Memory** (`progression.dee`, additive, no version bump): `character` (default true), `handsWatched` (the cooldown
+  clock, in hands) and `said` (the last 64 lines and the hand count each was said at). Rule sentences use the existing
+  `ruleSentences`. A sentence accepted in a lesson is remembered there; "Forget" clears them (the lesson lexicon itself
+  is append-only and untouched).
+- **Depth quieting:** cooldowns stretch 1×, 1×, 1.5×, 2×, 3× by certified depth index (VISION §2.2).
+- **Lesson dialogue is generic:** a script (`src/core/dee/dialogues/<lesson-id>.ts`) is steps of a question, options
+  and Dee's reply, all slots filled from the lesson example's own fields (`exampleFacts`). Converting a lesson is one
+  file plus one registry line. A distractor equal to the right answer is dropped. The first converted lesson is
+  `minimum-defence-frequency` (all numbers derivable from pot and toCall); `pot-odds-as-a-price` keeps its commit box
+  because the tutor-rail specs drive it.
+
 ## Test harness: hidden e2e and test tiers
 - **Hidden by default.** Under `OFFSUIT_E2E_HIDDEN=1`, which the helper sets on every launch, the window is created
   `show: false` and never shown. It keeps `paintWhenInitiallyHidden` and gets `backgroundThrottling: false`, so

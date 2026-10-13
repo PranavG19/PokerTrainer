@@ -130,12 +130,14 @@ export function quietnessForDepth(depthIndex: number): number {
 }
 
 /**
- * "Price held" (owner D6): a FREE grade on a priced spot whose pot share sat close to the price, a Sure
- * commit, and a reason the grader read as a mechanism (price or range). Never on a mistake, never on an
- * unpriced spot, never when the reason was a hand-strength claim.
+ * "Price held" (owner D6): a FREE grade on a priced postflop spot whose pot share sat close to the price, a
+ * Sure commit, and a reason the grader read as a mechanism (price or range). Never on a mistake, never on an
+ * unpriced or preflop spot, never when the reason was a hand-strength claim.
  */
 export function isPriceHeld(d: BeatDecision, closeBand?: boolean): boolean {
   if (d.grade.severity !== 'free' || d.toCall <= 0 || !d.grade.spot) return false;
+  // Postflop only: preflop, the grader's pot share against a betting range is too coarse to call a spot close.
+  if (d.street === 'preflop') return false;
   if (d.confidence !== 'sure' || d.rightForWrongReason) return false;
   if (d.reasonCategory !== 'price' && d.reasonCategory !== 'range') return false;
   const close = closeBand ?? Math.abs(d.grade.spot.had - d.grade.spot.needed) <= CLOSE_SPOT_POINTS;
