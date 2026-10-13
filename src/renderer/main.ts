@@ -5,6 +5,7 @@ import './styles-panels.css';
 import './styles-screens.css';
 import './styles-settings.css';
 import './styles-glass.css';
+import './styles-dee.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
 import type { SavedRange } from '../core/rangeEditor.js';
@@ -82,6 +83,21 @@ import type { AssessmentGrade } from '../core/assessmentBlock.js';
 import { renderVarianceScreen } from './screens/variance.js';
 import type { SessionPlan } from '../core/sessionPlan.js';
 import { beginFocusRestore } from './focusRestore.js';
+import { renderPerch } from './components/perch.js';
+import { renderDeeSettings } from './screens/deeSettings.js';
+import { currentStreakOn } from '../core/progression/persist.js';
+import {
+  contextOf,
+  forgetRules,
+  lineMemoryOf,
+  rememberRule,
+  setCharacter,
+  setFrequency,
+  setTone,
+  withLineMemory,
+} from '../core/dee/memory.js';
+import { principleOf, quietnessForDepth, type DeeContext } from '../core/dee/engine.js';
+import { DEPTHS } from '../core/standing.js';
 
 const DEFAULT_SEED = 42;
 
@@ -170,7 +186,9 @@ type Tab =
   | 'dossier'
   | 'progress'
   | 'profile'
-  | 'settings';
+  | 'settings'
+  /** Dee's settings: opened from the perch (and from Settings), so it takes no slot in the full tab bar. */
+  | 'dee';
 
 /**
  * The six practice/maintenance surfaces the Train hub folds together, in rail order. Each `mode` is
@@ -378,8 +396,44 @@ async function boot(): Promise<void> {
   navSpacer.className = 'nav-spacer';
   navSpacer.setAttribute('aria-hidden', 'true');
   nav.setAttribute('aria-label', 'Sections');
-  nav.append(renderBrand(), strip, navSpacer);
+  // Dee's perch: Dee at 20px and the streak, at the right of the title bar. It opens Dee's settings.
+  const perch = renderPerch(() => {
+    tab = 'dee';
+    profileView = { at: 'profile' };
+    render();
+  });
+  nav.append(renderBrand(), strip, perch.root, navSpacer);
   attachThumb(strip, 'button.tab');
+
+  /** Character on/off is one document attribute, so every mark on every screen follows it (styles-dee.css). */
+  function paintDee(): void {
+    document.documentElement.dataset.character = session.progression.dee.character ? 'on' : 'off';
+    const streak = session.progression.streak;
+    perch.setStreak(currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(Date.now())));
+  }
+  paintDee();
+
+  /**
+   * Dee's engine context from the profile. The biggest leak is the principle with the most EV loss in the
+   * session stats; quietness stretches cooldowns by certified depth (VISION §2.2).
+   */
+  function deeContext(): DeeContext {
+    let leak: string | null = null;
+    for (const [principle, cost] of Object.entries(session.stats.leakCostBb ?? {})) {
+      if (cost > 0 && (leak === null || cost > (session.stats.leakCostBb[leak] ?? 0))) leak = principle;
+    }
+    const depthIndex = Math.max(0, DEPTHS.indexOf(currentStanding(Date.now()).depth));
+    return contextOf(session.progression.dee, {
+      biggestLeak: leak === null ? null : principleOf(leak),
+      quietness: quietnessForDepth(depthIndex),
+    });
+  }
+
+  async function saveProgression(next: SessionState['progression']): Promise<void> {
+    session = { ...session, progression: next };
+    paintDee();
+    await io.saveState(serialize(session));
+  }
 
   function teardownTable(): void {
     table?.destroy();
@@ -774,6 +828,16 @@ async function boot(): Promise<void> {
       onPrediction: (outcome, confidence) => void onPrediction(outcome, confidence),
       onCoachedModeChange: (on) => void onCoachedModeChange(on),
       onVerdict: (message) => narrate(message),
+      dee: {
+        context: deeContext(),
+        memory: lineMemoryOf(session.progression.dee),
+        onMemory: (memory) => {
+          // Saved with the hand (onHandComplete runs right after), so this only updates the state.
+          session = { ...session, progression: withLineMemory(session.progression, memory) };
+        },
+        onPerch: (source, pose) => perch.setPose(source, pose),
+        onActing: (on) => perch.setActing(on),
+      },
       // Hero busted out: drop back to home, where a fresh table can be started.
       onSessionOver: () => {
         teardownTable();
@@ -967,7 +1031,30 @@ async function boot(): Promise<void> {
 
   function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
     if (which === 'profile') return renderProfileTab();
-    if (which === 'learn') return renderLessonScreen();
+    if (which === 'learn') {
+      return renderLessonScreen({
+        dee: {
+          tone: deeContext().tone,
+          character: session.progression.dee.character,
+          onRule: (lessonId, text) =>
+            void saveProgression(rememberRule(session.progression, lessonId, text, systemDayKeyOf()(Date.now()))),
+        },
+      });
+    }
+    if (which === 'dee') {
+      const remembered = session.progression.dee.ruleSentences;
+      return renderDeeSettings({
+        context: deeContext(),
+        rulesRemembered: remembered.length,
+        newestRule: remembered.length > 0 ? remembered[remembered.length - 1].text : null,
+        handlers: {
+          onTone: (tone) => void saveProgression(setTone(session.progression, tone)),
+          onFrequency: (frequency) => void saveProgression(setFrequency(session.progression, frequency)),
+          onCharacter: (on) => void saveProgression(setCharacter(session.progression, on)),
+          onForgetRules: () => void saveProgression(forgetRules(session.progression)),
+        },
+      });
+    }
     if (which === 'train') return renderTrainTab();
     if (which === 'charts') {
       return renderCharts({
@@ -1050,6 +1137,10 @@ async function boot(): Promise<void> {
           onSpokenVerdictsChange: (on) => void onSpokenVerdictsChange(on),
           onSoundCuesChange: (on) => void onSoundCuesChange(on),
           onThemeChange: (theme) => void onThemeChange(theme),
+          onOpenDee: () => {
+            tab = 'dee';
+            render();
+          },
         },
       });
     }

@@ -110,6 +110,17 @@ export interface DeeMemory {
   keepsakes: string[];
   lastGreeting: { day: DayKey; lineId: string } | null;
   personality: DeePersonality;
+  /** Character on (the default) shows Dee; off hides the mark and Dee's own lines everywhere. */
+  character: boolean;
+  /** Hands Dee has watched to the end, lifetime: the clock its line cooldowns count in (never wall time). */
+  handsWatched: number;
+  /** The lines Dee said recently and the hand count each was said at, newest last, bounded by MAX_DEE_SAID. */
+  said: DeeSaid[];
+}
+
+export interface DeeSaid {
+  lineId: string;
+  at: number;
 }
 
 export interface RememberedSentence {
@@ -119,7 +130,12 @@ export interface RememberedSentence {
 }
 
 export const DEE_TONES = ['dry', 'warm', 'blunt'] as const;
-export const DEE_FREQUENCIES = ['normal', 'after-hands', 'quiet'] as const;
+/**
+ * When Dee speaks: 'normal' = After notable hands (the default the v2 placeholder already wrote), 'mistakes' =
+ * Mistakes only, 'sessions' = After sessions only. The placeholder's 'after-hands' and 'quiet' were never
+ * written by any build and read as the default.
+ */
+export const DEE_FREQUENCIES = ['normal', 'mistakes', 'sessions'] as const;
 
 /** The personality dial: the numbers never change, only the words around them. */
 export interface DeePersonality {

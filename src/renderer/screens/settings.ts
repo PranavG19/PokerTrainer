@@ -57,6 +57,8 @@ export interface SettingsHandlers {
   onSpokenVerdictsChange: (on: boolean) => void;
   onSoundCuesChange: (on: boolean) => void;
   onThemeChange: (theme: string) => void;
+  /** Open Dee's settings (personality, when Dee speaks, Character). */
+  onOpenDee?: () => void;
 }
 
 /** T4's diagnostics show "the last few", not the whole history. */
@@ -108,6 +110,7 @@ export function renderSettings(opts: {
   root.appendChild(renderNarration(opts.spokenVerdicts, handlers));
   root.appendChild(renderSoundCues(opts.soundCues, handlers));
   root.appendChild(renderTheme(status.theme, handlers));
+  if (handlers.onOpenDee) root.appendChild(renderDeeLink(handlers.onOpenDee));
   root.appendChild(renderProfileSection(status, handlers));
 
   return root;
@@ -128,6 +131,26 @@ function switchTrack(): HTMLElement {
   track.className = 'g-switch-track';
   track.setAttribute('aria-hidden', 'true');
   return track;
+}
+
+/** Dee's own screen holds its settings; this row is the way there that does not depend on the perch (Character off hides it). */
+function renderDeeLink(onOpen: () => void): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'settings-block g-group settings-rows';
+  const row = document.createElement('div');
+  row.className = 'settings-switch';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'pill sm';
+  button.dataset.testid = 'open-dee-settings';
+  button.textContent = 'Dee’s settings';
+  button.addEventListener('click', onOpen);
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.textContent = 'Personality, when Dee speaks, and the Character switch.';
+  row.append(button, note);
+  body.appendChild(row);
+  return section('Dee', body);
 }
 
 function section(label: string, body: HTMLElement): HTMLElement {

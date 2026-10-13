@@ -46,7 +46,10 @@ function full(): ProgressionState {
       ruleSentences: [{ conceptId: 'pot-odds', text: 'the price is the call over the pot after I call', day: day(19598) }],
       keepsakes: ['wren-wick'],
       lastGreeting: { day: day(19603), lineId: 'greet.due.3' },
-      personality: { tone: 'dry', frequency: 'after-hands' },
+      personality: { tone: 'dry', frequency: 'mistakes' },
+      character: false,
+      handsWatched: 412,
+      said: [{ lineId: 'ph-1', at: 410 }],
     },
     personalization: {
       answeredOn: day(19560),

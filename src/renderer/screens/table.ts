@@ -60,6 +60,37 @@ import {
 import { renderStatsSheet, toggleStatsSheet, updateStatsSheet } from '../components/statsSheet.js';
 import { keycap } from '../components/glyphs.js';
 import type { PredictedAction } from '../../core/predict.js';
+import {
+  NEW_SITTING,
+  handEndEvent,
+  recordHandInSitting,
+  rememberLine,
+  selectLine,
+  sessionEndEvent,
+  watchHand,
+  type BeatDecision,
+  type DeeContext,
+  type DeeLineMemory,
+  type DeeSitting,
+} from '../../core/dee/engine.js';
+import type { DeePose, SpokenLine } from '../../core/dee/types.js';
+import { renderDee } from '../components/dee.js';
+
+/**
+ * Dee at the table (owner D7): no words in-hand, only the perch's pose; one line at hand end, after the reveal;
+ * the sitting's summary when the sitting ends. The table never decides whether Dee talks: the engine applies
+ * the silence rule, the frequency setting and Character off (core/dee/engine.ts).
+ */
+export interface TableDee {
+  readonly context: DeeContext;
+  readonly memory: DeeLineMemory;
+  /** The cooldown clock and recent lines after each finished hand, to persist. */
+  readonly onMemory: (memory: DeeLineMemory) => void;
+  /** Hold (or release, with null) a pose on the title-bar perch. */
+  readonly onPerch: (source: string, pose: DeePose | null) => void;
+  /** The hero is to act (the perch does not blink then). */
+  readonly onActing: (on: boolean) => void;
+}
 
 const SB = 25;
 /** The big blind, exported so the caller can size a depth-derived starting stack in the same units. */
@@ -131,6 +162,8 @@ export function renderTable(opts: {
    * derives every number from the revealed cards.
    */
   onGifts?: (gifts: readonly GiftEntry[]) => void;
+  /** Dee. Absent (tests, multiplayer) means no Dee at this table. */
+  dee?: TableDee;
 }): TableHandle {
   // The depth-driven starting stack, defaulting to the classic 100bb table. A single local so the
   // initial deal, the bust top-up and the rebuy prompt all agree — a rebuy must match the table's depth.
@@ -183,6 +216,16 @@ export function renderTable(opts: {
   potAnnouncer.setAttribute('role', 'status');
   potAnnouncer.setAttribute('aria-live', 'polite');
   root.appendChild(potAnnouncer);
+
+  // A FOURTH polite region, for Dee's hand-end line. Its own for the same reason as the others: the hand's last
+  // decision can bring a verdict, the outcome and Dee's line in one tick, and a shared region would drop two.
+  // Written once at settle, cleared on nextHand.
+  const deeAnnouncer = document.createElement('div');
+  deeAnnouncer.className = 'visually-hidden';
+  deeAnnouncer.dataset.testid = 'dee-announcer';
+  deeAnnouncer.setAttribute('role', 'status');
+  deeAnnouncer.setAttribute('aria-live', 'polite');
+  root.appendChild(deeAnnouncer);
 
   // The stage holds the table itself — villains in scoreboard rows around the pot and board, the hero
   // plate at the bottom — so the dock and the teaching panels below it stay in flow (styles-glass.css).
@@ -320,6 +363,13 @@ export function renderTable(opts: {
     syncPredictMount();
     renderControls();
   });
+  // While the reason is typed, Dee's lights glance at it, from the perch only.
+  predict.addEventListener('focusin', (e) => {
+    if ((e.target as HTMLElement).dataset?.testid === 'reason-input') perch('reason', 'glance');
+  });
+  predict.addEventListener('focusout', (e) => {
+    if ((e.target as HTMLElement).dataset?.testid === 'reason-input') perch('reason', null);
+  });
 
   // Controls come before the stats sheet: at 760px tall the sheet would otherwise push the
   // action pills below the fold, leaving a player with no visible way to act.
@@ -433,10 +483,67 @@ export function renderTable(opts: {
   } | null = null;
   let gateTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // ── Dee ─────────────────────────────────────────────────────────────
+  /** The hand's hero decisions as Dee's engine reads them, captured at each reveal. */
+  let beatDecisions: BeatDecision[] = [];
+  let sitting: DeeSitting = NEW_SITTING;
+  let deeMemory: DeeLineMemory = opts.dee?.memory ?? { handsWatched: 0, said: [] };
+  /** The hand-end beat on show (built once at settle, so a re-render does not replay its hop). */
+  let beatEl: HTMLElement | null = null;
+  /** The sitting's summary, once the sitting is over. */
+  let sessionEl: HTMLElement | null = null;
+  const perch = (source: string, pose: DeePose | null): void => opts.dee?.onPerch(source, pose);
+
+  function deeLineEl(line: SpokenLine, testid: string, size: number): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'dee-beat';
+    el.dataset.testid = testid;
+    el.dataset.lineId = line.lineId;
+    el.dataset.event = line.event;
+    el.dataset.pose = line.pose;
+    const text = document.createElement('p');
+    text.className = 'dee-beat-line';
+    text.dataset.testid = `${testid}-line`;
+    text.textContent = line.text;
+    el.append(renderDee(line.pose, size), text);
+    return el;
+  }
+
+  /** Say one line: remember it against the cooldown clock and announce it. */
+  function say(line: SpokenLine | null, testid: string): HTMLElement | null {
+    if (line === null) return null;
+    deeMemory = rememberLine(deeMemory, line.lineId);
+    deeAnnouncer.textContent = `Dee: ${line.text}`;
+    return deeLineEl(line, testid, 28);
+  }
+
+  function sittingOver(): boolean {
+    if (heroSeat().stack === 0) return true;
+    if (state.seats.filter((seat) => seat.stack > 0).length < 2) return true;
+    return opts.handLimit !== undefined && opts.handLimit > 0 && state.handNumber - opts.handNumber + 1 >= opts.handLimit;
+  }
+
+  /** At settle: the hand-end beat, then (if the sitting is over) its summary. */
+  function deeAtSettle(): void {
+    const dee = opts.dee;
+    if (!dee) return;
+    const event = handEndEvent(beatDecisions, sitting, dee.context);
+    deeMemory = watchHand(deeMemory);
+    const seed = (opts.seed ^ (state.handNumber * 0x9e3779b1)) >>> 0;
+    beatEl = say(selectLine(event, dee.context, deeMemory, seed), 'dee-beat');
+    sitting = recordHandInSitting(sitting, beatDecisions, event);
+    if (sittingOver()) {
+      sessionEl = beatEl === null ? say(selectLine(sessionEndEvent(sitting, dee.context), dee.context, deeMemory, seed + 1), 'dee-session') : null;
+      sitting = NEW_SITTING;
+    }
+    dee.onMemory(deeMemory);
+  }
+
   const heroSeat = (): Seat => state.seats[0];
 
   function setAwaiting(v: 'hero' | 'ai' | 'handover'): void {
     root.dataset.awaiting = v;
+    opts.dee?.onActing(v === 'hero');
   }
 
   /** The coach panel sits in the sheet in coached mode and inline above the dock otherwise. */
@@ -466,6 +573,7 @@ export function renderTable(opts: {
 
   function openSheet(kind: 'gate' | 'verdict'): void {
     sheetKind = kind;
+    perch('sheet', kind === 'gate' ? 'gate' : coach.dataset.severity === 'serious' ? 'serious' : coach.dataset.severity === 'notable' ? 'gate' : 'thinking');
     root.dataset.sheet = kind;
     sheetLayer.hidden = false;
     sheetLayer.dataset.kind = kind;
@@ -506,6 +614,7 @@ export function renderTable(opts: {
   }
 
   function closeSheet(): void {
+    perch('sheet', null);
     if (sheetKind === null) return;
     const hadFocus = sheetLayer.contains(document.activeElement);
     sheetKind = null;
@@ -689,6 +798,7 @@ export function renderTable(opts: {
     if (settled) return;
     settled = true;
     state = settle(state);
+    deeAtSettle();
     setAwaiting('handover');
     // The hand's outcome reaches screen readers via its own polite region. Written once here at settle
     // (not in the per-render controls, which would re-announce every re-render) and cleared on nextHand.
@@ -831,6 +941,19 @@ export function renderTable(opts: {
       // gate did not apply, never 0).
       if (gated) decision.gateAttempts = gateAttempts;
       decisions.push(decision);
+      const reason = reasonText !== '' ? gradeReason(reasonText) : null;
+      beatDecisions.push({
+        grade,
+        action: action.kind,
+        street,
+        toCall,
+        pot,
+        confidence: prediction?.confidence ?? null,
+        reasonCategory: reason?.category ?? null,
+        rightForWrongReason:
+          reason !== null &&
+          applyG4Override({ severityFromEv: grade.severity, reason, graderSource: 'local' }).rightForWrongReason,
+      });
 
       if (prediction !== null) {
         const outcome = predictOutcome(prediction, action.kind, grade.severity === 'free');
@@ -871,6 +994,10 @@ export function renderTable(opts: {
     root.dataset.gate = 'closed';
     grades = [];
     decisions = [];
+    beatDecisions = [];
+    beatEl = null;
+    sessionEl = null;
+    deeAnnouncer.textContent = '';
     villainCalls = [];
     // A new hand starts with an empty board; reset so the next flop deals in fresh.
     prevBoardLen = 0;
@@ -1012,8 +1139,17 @@ export function renderTable(opts: {
 
   function renderControlsInner(): void {
     controls.replaceChildren();
+    delete controls.dataset.beat;
+    delete controls.dataset.ended;
 
     if (state.winners !== null) {
+      // One Dee line per handover: the hand's own beat first; the sitting's summary when the hand had none.
+      const deeEl = beatEl ?? sessionEl;
+      if (deeEl) {
+        controls.appendChild(deeEl);
+        controls.appendChild(dockSeparator());
+      }
+      controls.dataset.beat = String(deeEl !== null);
       const summary = document.createElement('div');
       summary.className = 'winner-summary';
       summary.dataset.testid = 'winner-summary';
@@ -1026,6 +1162,7 @@ export function renderTable(opts: {
         const over = document.createElement('div');
         over.className = 'winner-summary';
         over.dataset.testid = 'session-over';
+        controls.dataset.ended = 'true';
         over.textContent = `You are out of chips. Rebuy for ${startStack} to keep this table, or start a new session.`;
         controls.appendChild(over);
         controls.appendChild(pill(`Rebuy ${startStack}`, 'btn-rebuy', () => rebuyAndContinue()));
@@ -1044,6 +1181,7 @@ export function renderTable(opts: {
         const swept = document.createElement('div');
         swept.className = 'winner-summary';
         swept.dataset.testid = 'table-swept';
+        controls.dataset.ended = 'true';
         swept.textContent = 'You have every chip at this table — nobody is left to play. Start a new session.';
         controls.appendChild(swept);
         controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
@@ -1062,6 +1200,7 @@ export function renderTable(opts: {
         const done = document.createElement('div');
         done.className = 'winner-summary';
         done.dataset.testid = 'session-planned-complete';
+        controls.dataset.ended = 'true';
         done.textContent = `That is your planned ${opts.handLimit}-hand sitting. Start a new session when you are ready.`;
         controls.appendChild(done);
         controls.appendChild(pill('New session', 'new-session', () => opts.onSessionOver?.()));
@@ -1231,6 +1370,9 @@ export function renderTable(opts: {
       if (pendingTimer !== null) clearTimeout(pendingTimer);
       if (gateTimer !== null) clearTimeout(gateTimer);
       window.removeEventListener('keydown', onKey);
+      perch('sheet', null);
+      perch('reason', null);
+      opts.dee?.onActing(false);
       // Switching tabs unmounts the panel holding the verdict, so the voice reading it must stop too.
       if (adviceShown) opts.onVerdict?.(null);
     },
