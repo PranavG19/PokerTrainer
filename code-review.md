@@ -1,579 +1,347 @@
-# Review: grader-close-band (close band, charts preflop, villain ranges)
-Verdict: FAIL at the first pass (4 act-on items) → FAIL at 876a79a (2 new) → FAIL at 09cbaec (shove pricing) → PASS WITH NOTES at the jam fix (the tip's grader)
-Base: 2b28855e047746a941fdc9f759c0bfd2d12bd67d  Head: 2e1433df0fe108ca55e872fb69021ad531318890
+# Review: feat/online-server (e3e58df)
+Verdict: PASS WITH NOTES (re-verified at 894080a: A1-A5, A7-A9 fixed, A6 recorded as the owner's call; no Act-on remains)
+Base: 0e9fd0780faecf7314c2bda1ad73cb570e0e9bd7  Head reviewed: e3e58dfe247aa5b5e8238349208f107e87c4a9a8  Re-verified: ff5c28a, 1ec6c3d, then 894080a
 
-The postflop maths is right. The pot share, required price, EV-loss formula, band width and weighted-range
-equity all match an independent exact oracle (table at the end). The defects are in the adapter
-(`gradeSpot.ts`): it decides which model applies, and it does not read bet size or stack depth preflop, or
-the shape of a multiway raise postflop. There is also one copy defect. All four are reproduced with real
-`TableState`s built through `createTable`/`startHand`/`applyAction`.
+The Act-on items are numbered A1-A8 in the order below, and A9 is new at 1ec6c3d. Each carries its end state; the latest check is at 894080a.
 
-## Act on
+Probes were written under `tests/tmp/` (git-ignored) and run with `npx vitest run --config /tmp/osv-review/vitest.config.mjs --root .`.
+Copies are kept in `/tmp/osv-review/*.test.ts`, and `tests/tmp/` has been removed. Note: while this review ran, another agent
+committed 680886c (renderer only: `src/renderer/**`, `tests/e2e/online.spec.ts`, `tests/unit/online-screen.test.ts`) on top
+of e3e58df in this worktree. No file under `server/`, `src/core/` or `src/main/` changed, so every probe below exercises e3e58df's code.
 
-- **src/core/gradeSpot.ts:108-121 (chartSpotFor), with src/core/chartGrade.ts:220-258. Chart spots ignore raise size, all-ins and stack depth.**
-  Any single raise counts as a standard open, any second raise counts as a standard 3-bet, and the
-  100bb charts are applied at any stack. The cost then scales with `pot`, which includes the oversized
-  raise. Reproduced on a 6-max table: UTG and HJ fold, CO goes all-in for 100bb, BTN and SB fold, BB to act.
-  `chartSpotFor` returns `{kind:'defend', spot:'bb-vs-co'}`, and the grades are:
-  - BB **calls AA** vs the shove: `serious`, 18.7bb, "Against a CO open, the BB chart raises AA; calling it costs ~18.7 bb." This is the best legal action; a raise is not possible.
-  - BB **calls QQ**: `serious`, 12.9bb.
-  - BB **folds 98s** / **T9s**: `serious`, 8.7bb / 9.4bb. Folding is correct against a 100bb shove.
-  - BB **calls KJo**: `free`, 0bb. Calling off 100bb with KJo is waved through.
-  - BB **calls 72o**: 49.5bb, quoted as a chart loss.
+## Act on (all resolved at 894080a; kept with their end states for the record)
 
-  A 30x open (raise to 1500) gives the same bad grades: fold 98s is `serious` 2.7bb, call 76s is `free`.
-  Hero at 8bb in the CO is graded on the 100bb CO chart. In the live app this happens whenever a stack runs
-  short: a bot's raise clamps to all chips, or hero shoves. The `allin` → `raise` mapping (chartMove) also
-  grades a 100bb first-in shove the same as a 2.5x open.
-  Fix: in `chartSpotFor`, return null (the pot-odds model) when any of these hold:
-  - a preflop raise is an all-in;
-  - the open is above a standard size (for example > 4bb, plus 1bb per limper);
-  - the 3-bet is above a standard multiple of the open;
-  - effective stack < about 40bb;
-  - hero's chosen action is `allin`.
+- **src/core/relayGuest.ts:138-157 (onResync) + src/main/onlineClient.ts:141. A server can stack the deck against a player by
+  forcing one reconnect.** `open()` builds a fresh `GuestProtocol` on every connection, and a fresh protocol accepts any
+  internally consistent `resync`. The only own-entropy check is `memory.revealed(nonce)`, and `remember` runs only at REVEAL
+  time (:196). So a server that drops the player's socket after the player commits but before it reveals (or one talking to an
+  app that was restarted, which empties the in-memory `revealed` map) can deal the player a hand with no entropy from the player,
+  grind that deal until it likes the outcome, and replay it. The live path rejects `set === null` (:207, "dealt without
+  publishing the entropy commitments"), but onResync accepts `set: null, reveals: []`, a deal the server chose alone. This
+  breaks the guarantee DECISIONS.md "Protocol" gives: "protects players from an operator or a compromised server stacking a
+  deck". An honest server never needs this, because a held player is not a deal recipient (relayServer.ts beginDeal:
+  `recipients: new Set(this.connected)`).
+  Probe `resync-stack.test.ts`: it ground deals until the victim held two cards below 9, then fed the resync and the state to a
+  fresh guest:
+  `tries 5 victim hole 8s 5s resync events [] state events state` (no violation). With `set=null, reveals=[]` the output is
+  `resync: []` (accepted).
+  Fix: remember entropy at COMMIT time (nonce → entropy), and persist it across app restarts or bound it per server. When a
+  resync's nonce has no remembered entropy, accept it as watch-only, like the `live === null` branch at :232-240: no own hole
+  before showdown, never `yourTurn`. Reject `set === null` whenever `reveals` is non-empty or the view deals this guest in.
+  - **A1, fixed (verified at ff5c28a).** Entropy is now remembered at commit (relayGuest.ts:183), `set === null` is a
+    violation, and a resync with no remembered entropy plays on with a visible `warning` (relayGuest.ts:162).
+    Re-run of `resync-stack.test.ts`:
+    - unremembered resync gives `[{"type":"warning","reason":"You rejoined a hand dealt before you reconnected…"}]`;
+    - `set=null` gives `violation … dealt without publishing the entropy commitments`;
+    - `remembered at commit? true`;
+    - committed-but-left-out gives `violation … the host dealt without the entropy you revealed`.
 
-  Add unit cases for the shove, the oversize open and the short stack.
+    The remaining limit is in Noted.
 
-- **src/core/gradeSpot.ts:152. `facing` is inferred from hero's own commitment, which is wrong multiway.**
-  Reproduced on a 4-handed limped flop: P1 checks, P2 bets 100, P3 raises to 300, hero (BTN) has committed 0.
-  `lastAggressor` is P3, a raiser, but the code passes `facing: 'bet'`. The bots pick bluffRaiseFreq
-  versus bluffBetFreq from their own `toCall > 0` (ai.ts:128, archetypes.ts:174), so P3 used the raise
-  frequency. For a LAG on that board the modelled range share is 0.561 as 'bet' against 0.461 as 'raise'.
-  Hero's equity is therefore measured against a range about 22% too wide, and hero is graded too leniently
-  on exactly the large-pot multiway spots.
-  Fix: take `facing` from the aggressor's own action this street. It is a raise when someone else had
-  already bet before the aggressor acted, which can be read from the log since the last street change, or
-  from a per-street bet count recorded on the state. Add a test.
+- **server/store.ts:266-285 and :291-307, reached from server/lobby.ts:379-386 before the profile check (:388). Export and
+  forget are synchronous full-ledger passes that any signed-in key can trigger.** A key that has never set a name can send
+  `export` 10 times a second (burst 30). Each request runs `readFileSync` + `JSON.parse` on every line of both ledgers on the
+  event loop. Each `forget` also rewrites and fsyncs every ledger, even for a key that has nothing stored, then the client
+  reconnects (30 a minute per address) and repeats. Every table's clock, deal handshake and socket stalls meanwhile.
+  Probe `store-scale.test.ts`: a 95.5 MB ledger (200k decisions) gives `export ms 233` and `forget (unknown key) ms 409`.
+  Probe `export-dos.test.ts`, on the real server: a 53 MB ledger and one unnamed key sending a 30-frame burst of `export` gives
+  `bystander ladder reply after 3656 ms`.
+  At about 1.1M decision lines (about 475 B each) `readFileSync(..., 'utf8')` exceeds V8's string limit and throws. The throw
+  happens in the Rankings constructor too (rankings.ts:103), so startup would crash-loop.
+  Fix: require a player row and add a per-key cooldown for export and forget (for example one per minute). Keep a per-key
+  index or per-key files instead of rescanning. Stream the ledger by line (readline) rather than reading it as one string.
+  Do the forget rewrite off the hot path, or batch it.
+  - **A2, fixed (verified at 1ec6c3d).** At ff5c28a it was fixed only in part, history below.
+    1ec6c3d does one scan at page 0 and caches it per key for 5 minutes. Later pages come only from that cache, in order,
+    each once. Export starts and erasures are limited per key and per network, within a server-wide budget of 4 scans a
+    minute.
+    Re-run of `export-dos.test.ts` (53 MB, a 30-frame burst of pages 5000, 5001, 1, 1, 3, 2, 7000…7023 after page 0):
+    - `bystander ladder reply after 21 ms` (it was 4170 ms);
+    - `5000:refused 5001:refused 1:served 1:refused 3:refused 2:served 7000…7023:refused`.
 
-- **src/core/gradeSpot.ts:153-161 with villainRanges.ts:221-229. A raise's size is measured differently from how the bots size it, so a bot's standard raise moves the value line.**
-  The bots raise to `currentBet + pot × betPotFraction`, where `pot` is the pot when they act
-  (ai.ts:156, archetypes.ts:203). The grader measures `toCall / (state.pot − toCall)`. That equals the
-  bot's fraction for a bet into hero, but not for a raise over hero's bet. Measured with hero betting half
-  pot (300) and the bot raising at its own size:
+    Re-run of `forget-sybil.test.ts` (6 fresh keys, one network): `ok,Try that again in a minute.×5 took 763 ms` (it
+    was 4371 ms). The budget brings in a new problem: see A9.
+    History at ff5c28a:
+    - Fixed: export and forget now need a player row; page 0 and forget may each start once a minute per key; ledgers are
+      streamed. Re-run: `unnamed export -> This server holds nothing about this key.` and
+      `second page 0 -> Try that again in a minute.`
+    - **New bypass: page > 0 is not limited at all.** For 5 minutes after any page 0, `continuing` skips the limiter
+      (lobby.ts:402-405). `page` may be anything up to 10,000, and every page is a full scan of both ledgers. One named
+      key does page 0 once, then floods page 5000, 5001, … at the frame rate.
+      Probe `export-dos.test.ts` (53 MB ledger, 30 frames): `page>0 burst: bystander ladder reply after 4170 ms` and
+      `page>0 burst replies ok: 30 of 30`. That is the same 3.7 s stall as before the fix.
+    - **Per-key limits do not bound the work, because keys and names are free.** Each new connection (30 a minute per
+      address) can be a fresh key that sets a name and forgets once. The streamed rewrite is also slower than before:
+      `forget (unknown key) ms 1213` on 95 MB (`store-scale.test.ts`; it was 409 ms).
+      Probe `forget-sybil.test.ts`: `6 fresh-key forgets: ok,… took 4371 ms of event loop (ledger 52 MB)`.
+      At 30 a minute from one address that is about 22 s of blocked loop per minute.
+    - Fix:
+      - Accept only `page < pages`, each page once, in order, after its own page 0 (or cache the page-0 scan per key for
+        the window and serve later pages from it).
+      - Add a server-wide budget on concurrent or per-minute scans, plus a per-address limit for export and forget.
+      - Move the forget rewrite and the export scan off the event loop (a worker, or a queued job that replies when
+        done).
 
-  | Archetype | Graded fraction | Own size | Value-line shift |
-  |---|---|---|---|
-  | tag-reg | 0.495 | 0.66 | −0.042 |
-  | lag | 0.563 | 0.75 | −0.041 |
-  | maniac | 0.750 | 1.0 | −0.042 |
+- **src/core/online/protocol.ts:35 + server/store.ts:266 (`limit = 3000`) + src/main/onlineClient.ts:165. A regular player
+  cannot export their data.** One decision row with its `GradeInput` is about 380 B, so 3,000 decisions alone exceed
+  `MAX_SERVER_FRAME` (1 MiB). The client then treats the reply as hostile: "The server sent a message too large to read".
+  It drops the connection and reconnects, and the export promise rejects. The right of access in docs/PRIVACY-ONLINE.md
+  ("Export your server data") fails for anyone with roughly 2,700 or more ranked decisions in the two kept seasons.
+  Probe `export-dos.test.ts` part 1 (3,000 decisions + 1,500 hands for the player):
+  `heavy player export -> rejected: The connection to the server closed. | ... "reconnecting:The server sent a message too large to read."`
+  (`store-scale.test.ts`: `reply chars 1403258 MAX_SERVER_FRAME 1048576 over? true`).
+  Fix: page the export (a cursor request) or bound it by bytes, with a test at the cap.
+  - **A3, fixed (verified at ff5c28a).** The export is paged (`EXPORT_PAGE` 1000) and main joins the pages (onlineMain.ts
+    `exportAll`).
+    Re-run of `export-dos.test.ts`: `heavy: decisionCount 3750 pages 4 largest page chars 467256`.
+    `store-scale.test.ts`: `pages 4 reply chars 523294 … over? false`.
 
-  So a bot raising at its own size is modelled with a value line about 4 points low, which widens the
-  range. This contradicts DECISIONS.md ("zero at the archetype's size, so the bots are modelled exactly")
-  and the module header. The unit test only pins the 'bet' case.
-  Fix: for `facing: 'raise'`, compute the fraction as (raise-to − bet faced by the aggressor) / (pot when
-  the aggressor acted). Pin it with a test: a bot-sized raise gives shift 0.
+- **server/rankings.ts:95-96, :104, :109-118. A restart across a month boundary loses the finished season.** The constructor
+  sets `this.season = seasonOf(now())` directly. The previous season's results are saved only by `rollover()`, which runs
+  lazily on a request or a grade in a process that was already running when the month turned. If the server restarts before
+  any such call (a deploy, the 04:30 unattended-upgrade reboot, a crash), those results are never saved. Next month `prune()`
+  then deletes that season's ledger. That breaks the store's documented invariant "Their results must already be saved"
+  (store.ts:240) and the privacy doc's "keeping only each player's final figure for each finished season".
+  Probe `rollover.test.ts` (250 rated decisions in 2026-09, restart at 2026-10-01 00:30):
+  `after restart in Oct: results(2026-09) = undefined | seasonView.last = null`. Then:
+  `Nov: ledger files =  | results keys = 2026-10 | Sept result for k = undefined`.
+  Fix: at startup, for every ledger season older than the current one with no `results` row, compute the results from its
+  ledger and save them before `prune` runs. Add the restart-across-boundary test.
+  - **A4, fixed (verified at ff5c28a).** `openSeason` closes every earlier season that has no results, from its own ledger,
+    before `prune` runs.
+    Re-run of `rollover.test.ts`:
+    - `after restart in Oct: results(2026-09) = {"AAAA…":{"decisions":250,…,"rated":true}} | seasonView.last = {…250…}`;
+    - `Nov: ledger files =  | results keys = 2026-09,2026-10 | Sept result for k = {"decisions":250,…}`.
 
-- **src/core/coach.ts closeChartMessage. The close copy for defence and 3-bet spots is garbled, with position names lowercased.**
-  The function rewrites `spotPhrase` with `.toLowerCase()` inside parentheses. Actual output:
-  - "Close spot: Q4s sits on the edge of the chart (against a co open, the bb chart), where both choices are played. Either choice holds up."
-  - "Close spot: JJ sits on the edge of the chart (facing a 3-bet after a co open, the chart), …"
+- **server/lobby.ts:136-141 + server/rankings.ts:172, :188. `forget` does not erase "every ledger line naming the key".**
+  The opponents list is read from `dealtTo` at each decision. When a player forgets mid-hand, the others' later decisions in
+  that hand are graded after the rewrite and store the forgotten key in `opp`. `ingest` also puts the key back into the
+  in-memory `pairs`. `grade()` checks only `job.key`.
+  Probe `ranked-cheats.test.ts` #2 (3-handed ranked, Di forgets on the first live state):
+  `ledger lines naming the forgotten key after forget: 7 {"k":"8WWP…","opp":[…]}` and `in-memory pairs still naming it: true`.
+  This contradicts DECISIONS.md "Identity" and docs/PRIVACY-ONLINE.md "every ranked record naming you".
+  Fix: in `grade()`, filter `job.opponents` to known keys, and do the same in `submit` or `ingest`. Add a mid-hand forget test.
+  - **A5, fixed (verified at ff5c28a).** Opponents erased before grading are filtered out (rankings.ts `grade`).
+    Re-run of `ranked-cheats.test.ts` #2: `ledger lines naming the forgotten key after forget: 0` and
+    `in-memory pairs still naming it: false`.
 
-  Only the RFI form reads correctly. No test asserts this copy.
-  Fix: build the phrase per kind, for example "the BB chart against a CO open" or "the chart facing a
-  3-bet after a CO open". Add a copy test for each kind that also runs `bannedPhrasingIn`.
+- **src/core/online/ranked.ts (score) + src/core/coach.ts:65-130. A ~15-line bot that applies the shipped grader's thresholds
+  takes first place on the ladder.** The grader charges nothing for: calling or raising when equity ≥ the pot-odds price,
+  folding when equity ≤ the price, betting or shoving any size with equity ≥ 0.35 when no bet is faced, and checking otherwise
+  (except a late-street check above 0.55). Bet size is never graded. The client has every input:
+  - its hole, the board, the pot and the price, from the view;
+  - `VILLAIN_BETTING_RANGE` and the equity code, shipped in the app;
+  - the exact Monte Carlo seed, which `decisionSeed(nonce, index)` (ranked.ts:82) derives from the commit nonce the client
+    receives.
+  So an automated client scores exactly 0 bb/100, with low = high = 0. The ladder sorts on `high` (ranked.ts:219), so that
+  bot is first. MIN_OPPONENTS and PAIR_CAP do not stop it, because keys are free: three throwaway keys cover MIN_OPPONENTS, and
+  the shared-network signal is per exact IP, flag-only.
+  Probe `ranked-cheats.test.ts` #1 (25 hands each, real server; the bot uses its own seed rather than the server's, so
+  borderline spots add noise):
+  `BOT decisions 58 nonzero 0 bb/100 0.00`, `BOT decisions 54 nonzero 1 bb/100 5.26`, against
+  `HUMAN decisions 96 nonzero 22 bb/100 4.73` (check/call players).
+  The DECISIONS "Ranked" section says no client value enters the score, but it never considers a client that simply plays the
+  grader. A public ladder that measures "agreement with an open grader" is won by automation or real-time assistance. The
+  app's own solo coach already shows these verdicts.
+  Fix, owner decision required: at minimum, record this limitation in DECISIONS.md and the ladder copy. Stop exposing the exact
+  seed (derive it from a server-secret salt). Consider showing the season ladder only within leagues, or grading against a
+  stronger, hidden evaluation.
+  - **A6, now Noted (recorded at 1ec6c3d).** The seed is an HMAC under `gradeSecret` (ff5c28a). DECISIONS.md "Ranked"
+    now states "Known limit, the owner's call: a scripted player can sit near 0 bb/100", with the default taken (no
+    prizes, invite-only) and what a public ladder would need. The ff5c28a re-run of the bot is unchanged:
+    `BOT … 0.00` twice, against `HUMAN … 4.28 / 3.46`. That result is what is recorded; there is no code defect left.
+
+- **server/transport.ts:129-130, :139-140, :218-219 + server/lobby.ts:95-107. Raw IP addresses stay in memory forever, which
+  contradicts docs/PRIVACY-ONLINE.md** ("Held in memory only while connected") **and grows the heap without bound.** Every
+  connecting address gets an `attempts` Bucket and every failed sign-in an `authFailures` row. Neither is ever deleted, so a
+  visitor's IP stays in process memory until the next restart. The lobby's `failedJoins` and `created` Windows keep one entry
+  per key and per netTag, and an entry is cleaned only if that same id is counted again. Keys are free, so every Sybil key
+  leaves an entry. Under the 400 MB `MemoryMax`, growth ends in an OOM restart that drops every table.
+  Fix: sweep these maps on the existing ticker. Drop a bucket once it is full again, an authFailures row once `until` has
+  passed, and Window ids with no hits inside the window. Correct the doc if any of this is kept.
+  - **A7, fixed (verified at ff5c28a; checked by code reading and the red-to-green test, with no new probe).**
+    `sweepAddresses` runs once a second: it drops an `attempts` bucket once no socket from that address is open and the
+    bucket is full again, and an `authFailures` row once `until` has passed. `Lobby.sweep` clears the Windows and
+    `exporting`. Strikes decay by 10 a minute. The privacy doc now says "dropped within a few minutes".
+    online-review-fixes.test.ts "7. addresses are not kept…" passes.
+
+- **src/main/onlineIdentity.ts:53-55. Any load failure silently overwrites the irreplaceable identity.** `loadIdentity` returns
+  null for a missing file, and also for an unreadable, truncated or hand-edited one, or for the EXPORT format the app itself
+  produces (`{what, identity: {...}, server, name, adultOn}`, onlineMain.ts:180-195). `loadOrCreateIdentity` then writes a new
+  key over it. A player who "restores" their exported identity by copying it into place, which is the only restore path the doc
+  implies ("Export it to keep it"), loses the account at their next Go online. The doc admits "There is no account recovery".
+  Probe `identity.test.ts`: `restored export -> same key? false | file now holds original? false` and
+  `truncated file -> same key? false`.
+  Fix: create a key only on ENOENT. Otherwise refuse with the reason and leave the file alone. Accept the export wrapper, or
+  ship an import.
+  - **A8, fixed (verified at ff5c28a).** A key is created only when the file is missing. An unreadable file throws
+    `IDENTITY_UNREADABLE`, which `connect` surfaces. The export wrapper loads back.
+    Re-run of `identity.test.ts`: `restored export -> same key? true` (the file still holds the wrapper and is not
+    rewritten). The truncated file now throws "could not be read, so Offsuit did not replace it" instead of being
+    replaced.
+
+- **A9, fixed (verified at 894080a).** Forget no longer touches the scan budget or any limit. It needs a player row, then
+  at once removes the row, leagues, results, rankings tallies and any cached export, and queues the key in `erasing`
+  (persisted). `Lobby.sweep` runs one streamed `eraseLedgers` pass for all pending keys at most every `erasePassMs` (60 s).
+  `Store.open` finishes a pending pass before anything reads a ledger. Later export pages require the player row.
+  Re-runs:
+  - `budget-lockout.test.ts`, the same two-network attack: `min0: export ok | forget ok`, and the same at `min1` and
+    `min2`. Export denial now needs 4 networks; it can be retried and is recorded in DECISIONS "Limits".
+  - `forget-sybil.test.ts`: `6 fresh-key forgets: ok,ok,ok,ok,ok,ok took 37 ms of event loop`. The ledger work moves
+    into one pass a minute, about 0.7-1.2 s on a 52-95 MB ledger.
+  - `ranked-cheats.test.ts` #2 (mid-hand forget, after the pass): `ledger lines naming the forgotten key after forget: 0`
+    and `in-memory pairs still naming it: false`.
+
+  Original finding at 1ec6c3d:
+  server/lobby.ts:415-421, the shared scan budget: anyone with two networks can deny every
+  player's export and erasure, indefinitely.** `scansPerMinute: 4` is one counter for the whole server, and keys and names
+  are free. Per network, a fresh key can start one export and another fresh key one forget each minute. Two networks
+  therefore spend all 4 scans every minute, and every other player gets "The server is busy. Try that again in a minute."
+  for both rights. Erasure is the serious half: "Delete your server data" (docs/PRIVACY-ONLINE.md) can be held off as long
+  as the attacker keeps it up, and the data stays stored meanwhile.
+  Probe `budget-lockout.test.ts` (Lobby driven directly with two attacker netTags, fresh named keys, one victim on a third
+  network, over 3 consecutive minutes):
+  `min0: export The server is busy… | forget The server is busy…`, the same at `min1` and at `min2`.
+  Fix: never refuse an erasure because of other people's traffic. Apply its cheap part at once (delete the player row,
+  `rankings.forget`, record the key as erased, drop any cached export). Queue the ledger rewrites and run them in batches,
+  several keys per scan, within the budget. Give exports their own budget, shared fairly per network (for example, one
+  network may not take more than 1 of the 4).
 
 ## Consider
+- **server/store.ts `Store.open` (pending pass) + server/admin.ts:1-3 (new at 894080a). The "read-only" admin commands
+  can now lose live ledger lines.** Every `Store.open` runs `eraseLedgers()` when `erasing` is non-empty. The admin
+  header says `stats`, `signals`, `regrade` and `export` may run while the server is up. If one runs within about a minute
+  of a player's forget, the admin process rewrites and renames the ledgers while the server is appending. Any line the
+  server appends between the admin's scan and its rename goes to the replaced file and is lost. The server's in-memory
+  tallies still count it, until the next restart. The admin also writes its own `state.json` snapshot.
+  Tradeoff: one flag. `Store.open(dir, { finishErasures: true })` from the server only, and read-only opens from admin;
+  `admin forget` already says to stop the service.
+  Fixed at 0f8e41a: `Store.open(dir, { readOnly })`; admin opens read-only for every command but `forget`
+  (test "review notes at 894080a").
 
-- **src/core/chartGrade.ts:240-245. Preflop cost magnitudes (my solver recall; confidence low to moderate).**
-  - Facing a 3-bet, the loose cap is reached for almost every hand outside the chart: K·pot = 283 at
-    potBb 10.5, so any d > 0.1 hits the cap. Calling a UTG 3-bet with 77, KJo or 65s comes out at a flat
-    2.44–2.50bb, which is `serious` and opens the gate. From my memory of 100bb 6-max solver EVs, these
-    flats lose roughly 0.3–1bb.
-  - Folding AA in the BB to an open is graded 3.8bb. Solver EV relative to the fold is about 9–11bb, so
-    this understates it by about 3x (it still lands in `serious`).
-  - RFI fold AA ≈ 3.8bb and open 72o = 1bb are the right order. AKo UTG fold 1.94bb looks about 1.5x high
-    (published ~1.0–1.3bb).
-
-  Tradeoff: recalibrating changes the Experiment 1 numbers, and the model is declared "not a solve".
-- **src/core/villainRanges.ts:202-207 (preflopContinue).** "Raise or call" is applied to every villain:
-  - A BB who checked a limped pot continued with all 1326 hands, but is modelled as filtered by callStrength.
-  - An open-raiser's range should be the raise branch only.
-
-  Both make postflop ranges wrong in the common limped-pot and raised-pot cases.
-  Tradeoff: needs the preflop action per seat, which `preflopActions` already parses.
-- **src/core/closeSpot.ts / coach.ts.** The band is in pot-share units, so a close spot forgives up to band × (pot + toCall) / bb.
-  - In my fuzz (300 spots, pots up to 60bb) the largest estimate silenced as close was 3.57bb.
-  - In a 300bb pot it could be about 14bb, shown as "Either choice holds up".
-
-  Tradeoff: this is the band applied literally, but a bb cap on what counts as close would keep big-pot
-  errors visible.
-- **villainRanges.ts:140-141.** The river table is called "exact" but ignores card removal between the two hands.
-  - Measured against exact enumeration with removal: QsJs on Ah Kd 7s 2c 9h is 0.4069 vs 0.3924, which is
-    1.45 points, half of STEP_WIDTH and not "well under" it.
-  - AcKc on the same board is off by 0.45 points.
-
-  Tradeoff: an exact pairwise version on the river is about 1M evaluations per board, then cached.
-- **gradeSpot.ts:71.** `line.includes(' posts ')` also drops every action of a seat whose name contains " posts ".
-  - Reproduced with a seat named "Ann posts": the log reads 'Ann posts posts SB 25'.
-  - Anchoring the match (`/^(.*) posts (SB|BB) \d+$/`) removes the edge.
-- **Tests.** No tests cover:
-  - `chartSpotFor` facing an all-in, an oversize open or a short stack;
-  - multiway `facing`;
-  - the raise-size shift;
-  - the close copy for defend and 3-bet spots.
+- **server/rankings.ts:149-167. The grading queue has no bound** (at ff5c28a this is in part addressed: new ranked tables are refused while more than 1,000 grades are queued, but rooms already open keep adding to it). One grade costs 5-13 ms here (`grade-cost.test.ts`: preflop
+  5-way 7.99 ms, turn heads-up 5.09 ms, flop 5-way check 12.59 ms), so one core manages roughly 100-200 grades a second. A
+  6-max ranked room of instant-acting bots produces about 6 decisions a second, so roughly 25-30 such rooms saturate the
+  grader. Every queued job holds a full `TableState`. Tradeoff: a per-room or per-key decision-rate cap, or a queue bound
+  that sheds and logs, costs a little code; without one, ranked capacity is set by whoever brings bots.
+- **Resolved at ff5c28a (strikes decay by 10 a minute):** server/transport.ts:192-198, :281-283. Strikes never decay, and over-rate frames are dropped silently.** A long-lived
+  honest connection that mashes the emote button (or sends a few bursts over an evening) collects 20 strikes and gets `bye`.
+  The client treats any non-"restarting" bye as final (onlineClient.ts:181), so the player is offline and loses the held seat
+  after 60 s. A dropped request frame also leaves its promise waiting 15 s. Tradeoff: decay strikes over time, or answer an
+  over-rate request with an error reply.
+- **server/transport.ts:146, server/lobby.ts:356-366. Per-address auth blocks and per-network failed-join limits let one
+  person lock out a shared NAT** (a dorm, CGNAT, a household of friends) for 10 minutes with 10 bad signatures or 10 bad codes.
+  Tradeoff: key the auth block on the key as well as the address, or raise the address threshold.
+- **server/lobby.ts:149-150 (netTag = full address). The shared-network signal is evaded by any second network** (mobile
+  hotspot, VPN). It is also asymmetric: `shareOfA` (rankings.ts:283) is computed only for the key that sorts first, and the
+  multiway `flow` (:271-275) counts one loss against several winners. Tradeoff: these are operator hints, so document how
+  weak they are, or compute both shares.
+- **Resolved at ff5c28a (hand rows no longer carry `shared`):** server/store.ts:283. The export leaked other players' shared-network signal. `shared: h.shared.length` counts pairs that
+  do not include the requester, so a player learns that two other people at their hand were on one network. This contradicts
+  "never shown to other players". Tradeoff: count only pairs that include the requester, or omit the field.
+- **server/rankings.ts:212-221, server/store.ts:183-187. `ladder` and `leagues` are O(players) and O(leagues × members) on
+  every request**, at 10 requests a second per connection, and keys and leagues are free to make. Tradeoff: cache the sorted
+  board per graded batch, and index leagues by member.
+- **src/core/online/ranked.ts:123-147. The fingerprint corpus has 9 spots.** A grader change outside those branches (multiway
+  equity, villain range content, rounding) passes the pin, and two graders mix in one season. `regrade` would catch it only
+  if someone ran it. Tradeoff: a larger corpus (all street × price × opponents buckets), or fingerprint `VILLAIN_BETTING_RANGE`
+  and `DISPLAY_ITERATIONS` too.
+- **server/store.ts:265-285. The export omits ledger lines that name the player as an opponent**, although forget strips
+  them. "Everything the server holds about your key" is not quite literal. Tradeoff: include the count, or the lines with
+  prefixes.
 
 ## Noted
-
-- Postflop equity is heads-up against the last aggressor only, even when other players are live. This was already the case before the branch.
-- `depthTax` (ai.ts, deep stacks over 100bb) is not in the range model. It does not apply at the app's 100bb.
-- Earlier postflop streets are not replayed. This one-street memory is stated in DECISIONS.
-- With bb = 0, a chart grade returns `evLossBb: NaN` (silent, `free`). This matches the existing classifySeverity guard, but NaN is then persisted in the verdict.
-- Doc drift: DECISIONS says "a hand 10% outside the CO chart ≈ 0.3bb". The formula gives 27 × 1.5 × 0.01 = 0.405, and chartGrade.ts's header says ~0.4.
-- A short all-in that lifts the bet is counted as a raise in `preflopActions`, while `lastAggressor` stays on the earlier full raiser. This is an edge case.
+- 894080a: a key that forgets and then sets a name again before the next pass loses its new ledger lines. The pass
+  deletes every line whose `k` is in `erasing`, whenever it was written. Probe `erase-window.test.ts`:
+  `before pass: old0…old4,new0,new1,new2 | after pass: (none) | player row exists: true`. In-memory tallies would keep
+  any graded ones until a restart. This only happens when the player re-registers within about a minute; a fix is to
+  refuse `profile` for a key while it is in `erasing`, or to record the erase time and keep later lines.
+  Fixed at 0f8e41a: `profile` is refused while the key is in `erasing` (same test).
+- 894080a: until the pass, another player's export can still show the erased key's 10-character prefix in shared hands
+  (up to about 60 s). This is within the privacy doc's "within about a minute".
+- Resolved at 894080a (forget drops the cached export; later pages need the row): 1ec6c3d: the export cache outlived an erasure. `forget` (lobby.ts:433-438) does not delete `exporting.get(key)`, and the
+  page > 0 path checks no player row. A key that exports and then forgets can, after reconnecting, fetch the remaining
+  pages of its erased data for up to 5 minutes. This is the requester's own data, held in memory only; the A9 fix
+  (dropping the cached export on forget) closes it.
+- 1ec6c3d: the per-network limit also means two people on one home network cannot both export, or both erase, within
+  the same minute.
+- New at ff5c28a: a resync with nothing remembered still lets the player play that hand (warned, not refused). A
+  malicious server can reach this state by never sending the player the commit, or by evicting the guest's 16-entry
+  memory with repeated commits, so a ground deal is visible but not prevented. The honest server sends the same warning
+  when a player held during a deal resumes into a hand they were not dealt, which may confuse them. This is the design
+  accepted in DECISIONS.md ("plays on with a warning").
+- New at ff5c28a: `exportAll` (onlineMain.ts) makes `pages` sequential requests, and each one scans the full ledger
+  server-side. This is bounded by the player's own pages, but it feeds the A2 cost.
+- Action frames carry no turn id. A late click that lands after the clock auto-acted is applied to the player's next spot if
+  they are first to act on the next street, and graded as their own decision.
+- A hold that expires during the player's own turn folds through `foldAbsent` even when checking was free, and is graded as a
+  fold-for-free penalty. Before expiry, `autoAct` would have checked.
+- A server that welcomes and then closes keeps the client reconnecting every 250 ms forever (attempt resets on welcome).
+- Base64url keys of 43 characters are not canonical: one Ed25519 key can register up to 4 key strings. Harmless while keys
+  are free.
+- `admin.js signals` constructs `Rankings`, which runs `openSeason` and `prune`, so a command described as read-only can delete
+  ledgers.
+- `OnlineController.exportIdentity` returns the private key PEM to the renderer, which contradicts the onlineIdentity.ts
+  header ("The renderer never sees the private key"). This is intended for the export button, but the header should say so.
+- Decisions from a hand that straddles the month are graded into the new season.
+- Forget-and-recreate resets a bad season, which is equivalent to a fresh key. With optional stopping, a player can "reroll" a
+  thin sample. Inherent to the design.
 
 ## Dismissed
-
-- **Wrong seat graded.** Proof: every call site grades `state.toAct` while hero is to act:
-  - table.ts:796 runs in the hero action handler before `applyAction`;
-  - assessmentBlock `commit` runs only when `toAct === HERO` (line 230);
-  - the harness `gradeHero` reads `state.seats[state.toAct]`.
-- **4-max seat mapping.** Proof: from the real engine, `chartSeats` gives `["BTN","SB","BB","CO"]` for 4 seats, `[…,"HJ","CO"]` for 5 and `[…,"UTG","HJ","CO"]` for 6. The first seat to act on 4-max opens the CO chart, matching contrast.ts:136.
-- **All-in parsing.** Proof: the log prints `all-in <allInTotal>` (table.ts:485), a street total, and the parser compares it with the street total `toMatch`, so a call for less is classified correctly.
-- **Silence rule / close shape.** Proof: fuzz of 300 random postflop spots with all six archetypes:
-  - 0 cases of `message === null` with an estimate ≥ 0.5, and 0 the other way round;
-  - every close grade is `free`, 0bb, with no price and no principle (28 close, 9 with a message);
-  - two runs of the same input give identical results (0 differences);
-  - 0 banned phrasings.
-
-  Separately, the chart messages for AA in defend, 3-bet and RFI spots also contain no banned phrasings.
-- **Card removal in `equityVsWeightedRange`.** Proof: matches exact enumeration within MC error on 7 spots (table).
-- **Chart direction.** Proof: `chartAction` agrees with `isInRfiRange`, `defenseAction` and `threeBetResponseAction` on 45 RFI, 44 defend and 24 3-bet samples (0 mismatches).
+- **A middleman that terminates TLS on each side relays the sign-in.** Proof: `mitm.test.ts` relayed every byte between a
+  client pinned to the middleman and the real server, and got `refused: Sign-in failed.` with the server replying `bye
+  "Sign-in failed."`. The EKM binding holds.
+- **Frames before auth, or acting for another seat, while held, after leaving, or in another room.** Proof: transport.ts:200-253
+  accepts only hello and then auth before `ready`. lobby.ts:334-341 routes by the connection's own key, and only for the live
+  conn of the room it is seated in. relayServer.ts `message('action')` refuses a non-connected (held) player. `apply` refuses
+  during a pending deal, and `applyPlayerAction` checks the turn and legality. Amounts are bounded in protocol.ts:198.
+- **Hole cards in resync, resume, rebuy or newcomer seats, kick, export, boards or logs.** Proof: the resync carries only
+  hashes and entropy (the commit `leaves` are salted, dealCommit.ts:202). Views go through `viewFor`, whose hole visibility is
+  gated on `dealtTo` (multiplayer.ts:398). The export filters to `d.k === key`, and hand rows hold stacks only. Logs take no
+  card field. online-server.test's wire test covers 3-handed play to hand 3.
+- **The turn clock is not reset when the same player acts on consecutive streets.** Proof: `turn().key` is
+  `${handNumber}:${actionCount}`, and every recorded action bumps `actionCount` (relayServer.ts `record`).
+- **The LAN path regressed.** Proof: `held` is empty, `rebuyBusted` is false and `onDecision` is undefined on LAN.
+  relay*/multiplayer/mp-deal-secrecy suites pass (82/82).
 
 ## Verification
-
-- I could not run `npx tsc --noEmit` or `npx vitest run`. The worktree's `node_modules` is a symlink into
-  `/Users/pranavgk/Documents/scratch/temp/Poker/`, and partway through the review that directory became
-  unreadable ("Operation not permitted", even outside the sandbox). `git diff origin/main...HEAD` also
-  failed after the first calls, because it reads that repo's packed-refs. The diff was read before that.
-  CI status on the branch is therefore unverified by me.
-- I ran the repo modules directly with Node 26 type stripping, using a resolve/load hook in
-  `tests/tmp/rev/` that maps `.js` imports to `.ts` and rewrites evaluate.ts's enum.
-- I wrote my own 7-card evaluator. Over 30,000 random showdowns it agreed with `evaluate.ts` on every
-  comparison (0 mismatches). Exact enumeration over villain hands and runouts is in
-  `tests/tmp/rev/oracle.ts`, `close.ts`, `chart.ts`, `shove.ts` and `fuzz.ts`.
-- Not tested by me: the renderer (coachPanel close paint, styles) and Electron; e2e was not run, by
-  instruction.
-
-## Independent maths checks
-
-Spots R1–R5 and T1–T2 use the villain's range from the repo (`villainRange`), pot = pot including the bet,
-bb = 50, 2000 iterations, seed 7. "Exact" means enumerating every villain hand and every runout with my own
-evaluator.
-
-| Check | Repo | Independent | Delta | OK? |
-|---|---|---|---|---|
-| R1 river KcQc vs tag-reg, call 400 into 1000: required price | 0.2857 | 0.2857 | 0 | OK |
-| R1 pot share (MC vs exact) | 0.527 | 0.542 | −1.5pt (half-width 2.2) | OK |
-| R2 river 99 vs maniac, call 800/1600: pot share | 0.6705 | 0.6626 | +0.8pt | OK |
-| R3 river 88 vs nit, fold 300/800: pot share | 0.0493 | 0.0498 | −0.05pt | OK |
-| T1 turn AsJc vs station, call 200/600: pot share | 0.7950 | 0.8035 | −0.85pt | OK |
-| T2 turn QhJh flush draw vs lag, call 225/525: pot share | 0.5232 | 0.5062 | +1.7pt (half-width 2.2) | OK |
-| R4 river Ad5d vs over-folder, call 220/620: EV loss (req − eq)(pot + call)/bb | 4.379bb | 4.366bb | 0.013 | OK |
-| R5 river Td9d vs lag, fold 300/700: EV loss (eq − req)(pot + call)/bb | 7.495bb | 7.532bb | 0.037 (MC) | OK |
-| 95% half-width at 2000 iterations (R1/R2/T2), exact var = win + tie/4 − p² | 0.0217/0.0206/0.0218 | 0.0216/0.0207/0.0218 | ≤0.0001 | OK |
-| Close classification, 7 spots above + 8 near-line (A2 vs lag, river, req 0.2368) | 15/15 | 15/15 agree | 0 | OK |
-| Near-line A2: estimate 0.28bb (MC) vs exact 0.48bb, both < 0.5 so no message | silent | silent | — | OK |
-| River strength 9c9d (Ah Kd 7s 2c 9h) | 0.9935 | 0.9939 (exact with removal) | −0.04pt | OK |
-| River strength AcKc | 0.9824 | 0.9869 | −0.45pt | OK |
-| River strength QsJs | 0.4069 | 0.3924 | +1.45pt | Marginal (removal ignored) |
-| River strength 3c4d | 0.0069 | 0.0045 | +0.24pt | OK |
-| Preflop strength AA | 0.8511 | 0.8526 own MC 60k (published 85.2) | −0.09pt vs published | OK |
-| Preflop strength 72o | 0.3459 | 0.3428 own MC (published 34.6) | 0.0pt vs published | OK |
-| Preflop strength KK | 0.8225 | 0.8258 own MC (published ~82.4) | −0.15pt | OK |
-| Preflop strength AKs | 0.6730 | 0.6688 own MC (published ~67.0) | +0.3pt | OK (≈2 SE) |
-| Chart direction, RFI / defend / 3-bet samples | 45 / 44 / 24 | same via preflop.ts | 0 mismatches | OK |
-| RFI fold AA cost (any seat) | 3.82–3.83bb | ~2.5–3.5bb solver RFI EV (low confidence) | ~+0.5 | Plausible |
-| RFI open 72o | 1.00bb (cap) | ~0.6–0.9bb | ~+0.2 | Plausible |
-| BB fold AA vs CO open | 3.78bb | ~9–11bb solver (moderate confidence) | −6 | Understated (still serious) |
-| UTG call 3-bet with 77 / KJo | 2.44 / 2.50bb (cap) | ~0.3–1bb (low confidence) | +1.5–2 | Overstated (serious) |
-| BB vs CO 100bb shove: call AA | serious 18.7bb | 0 (best action) | — | **WRONG** |
-| BB vs CO 100bb shove: fold 98s | serious 8.7bb | ~0 (correct fold) | — | **WRONG** |
-| Bot-sized raise value-line shift (tag-reg/lag/maniac) | −0.042/−0.041/−0.042 | 0 (DECISIONS claim) | ~−4pt | **WRONG** |
-| Multiway raise faced as 'bet' (lag range share) | 0.561 | 0.461 | +0.10 | **WRONG** |
-
-## Resolution (author, at the fix commit)
-
-| Finding | Bucket | Disposition |
-|---|---|---|
-| Chart spots ignore shoves, raise size, stack depth | Act on | **Fixed.** `chartSpotFor` returns null on any all-in, an open over 5bb, a 3-bet over 15bb, or hero/raiser under 40bb; those spots go to the pot-odds model. Tests: `chartGrade.test.ts` "chart spots only where the charts apply" (red on the reviewed head). |
-| Multiway raise graded as a bet | Act on | **Fixed.** `facing` is read from the aggressor's own last log line ("raises to", or an all-in with others already in). Test: `villainRanges.test.ts` "bet or raise, and the size read" (red on the reviewed head). |
-| A bot's normal raise lowers the value line | Act on | **Fixed.** Size is read only for a postflop bet into no bet, as the aggressor's chips over the pot without this street's chips; a raise is modelled at the archetype's own size. Same test. |
-| Garbled close chart copy | Act on | **Fixed.** `chartName()` builds the phrase; test pins the 3-bet-response sentence. |
-| Loose cap facing a 3-bet too high | Consider | **Taken.** `CAP_LOOSE_CALL` 0.5 → 0.25 of the price: calling a CO 3-bet with 77 ≈ 1.4bb (notable). |
-| Mixed cell across two regions (found while fixing) | — | **Fixed.** Row adjacency counts only one region over (3-bet/call, call/fold): folding AKo to a CO 3-bet is a mistake, not close. Test added. |
-| `' posts '` name parse | Consider | **Taken.** Anchored to `/ posts (SB|BB) \d+$/`. |
-| Folding AA in the BB understated (3.8 vs ~10bb) | Consider | Not changed: still `serious`; recorded as an open question in DECISIONS/FINDINGS. |
-| preflopContinue ignores the villain's actual preflop action | Consider | Not changed: the log has no street markers, so the preflop action cannot be read postflop without an engine change. Follow-up. |
-| Big-pot close spots can hide a large estimate | Consider | Not changed: the band is the honest uncertainty; `estimateLossBb` keeps the figure. Open question. |
-| River strength ignores card removal (≤1.45 pts) | Consider | Not changed: under the 3-point step width the range uses. Comment softened to "well under the step width" → stated as measured. |
-| Doc drift 0.3 → 0.4bb | Noted | Fixed in DECISIONS. |
-
-## Re-verification (at 876a79a)
-
-Independent re-check of the four act-on items and every Fixed/Taken row. I did not edit any source file.
-Every check below runs real `TableState`s (`createTable`/`startHand`/`applyAction`) through `chartSpotFor` and
-`gradeSpot`. The scratch scripts are in `tests/tmp/rv/` (`charts.ts`, `facing.ts`, `shovemodel.ts`, `copy.ts`, `sb.ts`; gitignored).
-
-### Per item
-
-| Item | Status | Evidence |
-|---|---|---|
-| Act-on 1: chart ignores shoves, size, depth | **Partly fixed** | Spots now go to the pot-odds model: CO shove, then BB to act (`null`); the 30x open (`null`); hero at 8bb or 39.98bb (`null`, while 40bb still charts); a 30bb raiser (`null`); an open of 251 (`null`, while 250 = 5bb charts); a 3-bet to 751 (`null`, while 750 charts). Facing the shove: call AA `free 0`, fold 98s `free 0`, call 72o `serious 42.2bb` priced from pot odds. With archetype models the shove grades sensibly (lag: fold KJo `serious 15.9`, call `free`). The standard bot sizes (open ≤ 2.5bb, 3-bet 6.5bb, or 11.5bb over a 5bb open) still chart, so normal spots are not lost. **Not fixed:** hero's own `allin`. The review's fix list named it, but the resolution does not mention it (see the new Act on below). |
-| Act-on 2: multiway `facing` | **Verified fixed** (with a latent edge) | Limped 4-way flop, S bets 100, B raises to 300, U folds: `gradeSpot` matches only `facing:'raise'`. Hero bets and villain raises: `raise`. A bet with a caller before hero: `bet`. A bet followed by a third player's short all-in for less: `bet` (correct). Edge: names that are prefixes of each other (see Consider). |
-| Act-on 3: raise size mis-measured | **Verified fixed** | A raise now carries no `potFraction`, so the archetype's own size is used and the shift is 0. For a bet with callers before hero, `potFraction = villain.committed / (pot − street chips)`: S bets 150 into 200 with B calling reads 0.750. A 400 overbet with a caller reads 2.000, as the only matching candidate. A real `decideArchetypeAction` lag bet (150 into 200) reads 0.750 = `betPotFraction`, and `valueLine` gives 0.53 both with and without the size, so the shift is 0. |
-| Act-on 4: garbled close copy | **Verified fixed** | Actual output: "…edge of the BB chart against a CO open…", "…the SB chart against a BTN open…", "…the chart facing a 3-bet after a CO open…". `bannedPhrasingIn` returns null on all three. Only the 3-bet form is pinned by a test. |
-| CAP_LOOSE_CALL 0.5 → 0.25 (Taken) | Verified | Unit test 72o call is 0.35. UTG 3-bet response: 72o call is >1. |
-| Mixed cell one region over (Fixed) | **Regression in sb-vs-btn** | See the new Act on below. In BB defence the cell counts are unchanged (26/32/38/40/36). For BTN facing a 3-bet the count is unchanged (20). For UTG/HJ/CO facing a 3-bet, only AKo-fold and AQo-4-bet lose close, which is the intended change: folding AKo to a UTG 3-bet is `serious` 3.9bb. RFI is untouched (the guard sits after the RFI branch; CO still has 12 boundary cells). |
-| `' posts '` anchored (Taken) | Verified | Regex `/ posts (SB|BB) \d+$/`. Every existing chart test passes. |
-| Doc drift 0.3 → 0.4 | Verified | DECISIONS.md line updated. |
-| Tests "red on the reviewed head" | Not checked | I did not run the new tests against 2e1433d. |
-
-### New Act on
-
-- **src/core/gradeSpot.ts:125 / src/core/coach.ts:239 (`chartMove('allin')` → `'raise'`). Hero's own 100bb shove is still graded as a standard open.**
-  This was in the original act-on 1 fix list ("hero's chosen action is `allin`") and is not addressed.
-  Reproduced at 100bb, 6-max, with UTG first in:
-  - `allin` with 72o: `notable` 1.00bb, "The UTG opening chart folds 72o; raising it costs ~1.0 bb." This is the same as a min-open. A 100bb shove of 72o loses roughly 3bb or more: it is called by about 12% of hands at about 30% equity.
-  - `allin` with AA: `free` 0. Shoving aces 100bb deep forfeits most of the open's value.
-  - The BB shoving QJo over a CO open grades the same as a 3-bet (0.38bb, free).
-
-  Fix: in `gradeSpot`, skip the chart when `chosen === 'allin'` and the hero's stack is at least `MIN_CHART_DEPTH_BB`. Grade it through the pot-odds model, or grade it as a separate push mistake. Add a test that a 100bb UTG shove of 72o is not the 1bb open cost.
-- **src/core/chartGrade.ts:209. The new "one region over" rule removes the mixed cells of the 3-bet-or-fold SB vs BTN chart.**
-  sb-vs-btn is authored as mostly 3-bet-or-fold (preflop.ts:345, "a separate 3-bet-or-fold spot"). Its edge therefore runs straight from raise to fold. |raise − fold| = 2, so that edge can no longer be close: the mixed-cell count falls from 22 to 18.
-  At SB-vs-2.5x pricing (pot 200, to call 100), these were silent before the fix and now get a coach message:
-  - SB 3-betting **ATo**: `notable` 0.50bb, "the SB chart folds ATo; raising it costs ~0.5 bb";
-  - SB 3-betting **KJo**: `notable` 0.50bb;
-  - SB folding **AJo**: `notable` 0.52bb.
-
-  In a 3-bet-or-fold strategy these are the mixed cells, and the fix's own rationale ("a solve mixes 3-bet with call, or call with fold") does not hold for this spot.
-  Fix: allow raise/fold adjacency in sb-vs-btn. More generally, allow it wherever the row has no call cell between the two neighbours. Keep the AKo/AQo-facing-3-bet case non-close. Add a test for sb-vs-btn ATo raise being close.
-
-### Consider
-
-- **gradeSpot.ts:174. The aggressor's last line is found with `startsWith(name + ' ')`, which mis-attributes when one seat name is a prefix of another.**
-  Reproduced with seats `Al`, `Bo`, `Bo B`: Al bets 100, Bo raises to 300, Bo B calls 300. `last` becomes "Bo B calls 300", so the raise is read as `facing:'bet'` with `potFraction` 1.5.
-  This is latent today: `SEAT_NAMES` is You/Ada/Bo/Cy, and the LAN table passes no model. Matching the action regex and comparing the name capture exactly (as `preflopActions` does) removes it.
-  Postflop also does not refuse duplicate names the way `preflopActions` does.
-- **gradeSpot.ts:177. `last.includes(' all-in ') && othersIn` reads a first-in full all-in bet as a raise once anyone has called it.**
-  Unreachable for bots: they use `allin` first in only with ≤ 1bb behind, which is never a full bet, so `lastAggressor` stays null (D in `facing.ts`). It is reachable only for a human villain, who has no model. Reading the street's betting order would be exact.
-- **Tests.** Missing cases:
-  - the defend close copy (only the 3-bet sentence is pinned);
-  - the `potFraction` read for a bet with callers;
-  - the boundary values of the guards (5bb, 15bb, 40bb).
-- **Depth guard is hero and raisers only.** A 100bb CO is still graded on the RFI chart when the BB behind has 8bb. Effective stack is arguably the right measure, but this is minor and a judgment call.
-
-### Verification
-
-- `npx tsc --noEmit -p tsconfig.json`: exit 0.
-- `npx vitest run tests/unit/chartGrade.test.ts tests/unit/villainRanges.test.ts tests/unit/closeSpot.test.ts tests/unit/coach.test.ts tests/unit/coach-message.test.ts`: 5 files, 86 tests passed, exit 0.
-- Not run, by instruction: Electron, e2e, the full unit suite.
-
-Verdict after fixes: FAIL
-
-## Resolution of the re-verification (author)
-
-| Finding | Disposition |
-|---|---|
-| Hero all-in graded as a min-open | **Fixed.** In a chart spot a shove the chart does not make costs 3x the wrong-raise loss (100bb 72o from CO = 3bb, serious) and is never a close mixed cell; a shove the chart plays is graded as its raise. Test: "hero shoves and the 3-bet-or-fold chart" (red before). |
-| One-region rule regressed SB vs BTN | **Fixed.** That chart is 3-bet-or-fold by design, so 3-bet beside fold counts as one step there. Test: ATo 3-bet and AJo fold are close again (red before). |
-| Aggressor's line matched by name prefix | **Fixed.** Exact-line regex; `aggressorRead` exported and tested directly (red with the prefix match). |
-| Missing tests: bet size with callers, limits | Bet-size-with-callers test added (0.75). Limits are covered by the shove / 30x / 8bb tests; exact-boundary values not pinned. |
-| A called first-in all-in read as a raise (humans only) | Noted: no model exists for a human seat, so it never reaches the range. |
-| Effective stack ignored (100bb hero vs 8bb BB) | Noted: follow-up; at the app's 100bb tables only a busted-down bot can trigger it. |
-
-## Re-verification (at 09cbaec)
-
-Independent re-check of the "Resolution of the re-verification" table. I did not edit any source file. Every
-grade below comes from real `TableState`s (`createTable`/`startHand`/`applyAction`, 6-max 100bb, bb 50) run
-through `chartSpotFor`/`gradeSpot` (`modelFor: () => null` preflop, `ARCHETYPE_PROFILES.lag` postflop). The
-scratch scripts are in `tests/tmp/rv2/` (gitignored): `shove.ts`, `shoveev.ts` (shove EV against a QQ+/AK
-caller, `equityVsRange`), and `names.ts`.
-
-### Per item
-
-| Item | Status | Evidence |
-|---|---|---|
-| Hero all-in graded as a min-open | **Partly fixed** | The headline case is fixed. A 100bb UTG shove of 72o grades `serious` 3.00 (it was `notable` 1.00), and CO 72o also grades 3.00. A shove of a boundary cell is never close. A shove the chart plays (AA) is `free`, as DECISIONS documents. **Not fixed:** the shove cost is the chart's distance cost × 3, so it keeps the open's shape and not the shove's. Hands near the chart edge are still silent or under-graded (see the new Act on). |
-| SB vs BTN 3-bet-or-fold edges | **Verified fixed** | sb-vs-btn has 22 mixed cells again (18 at 876a79a), for example `AJo:raise->fold`, `ATo:fold->raise`, `KJo:fold->raise`, `KQo:raise->fold`. In the live spot (BTN opens 125, SB to act): 3-bet ATo is close (est 0.50), 3-bet KJo is close (0.50), fold AJo is close (0.52). Fold AA is still `serious` 3.76. Calling ATo is still `notable` 0.50: the step-2 rule does not leak into the call side. The exception is keyed to `sb-vs-btn` only, so the BB and 3-bet-response counts are unchanged. A shove of ATo there is `notable` 1.50 and not close, because the shove return sits before `isMixedCell`. |
-| Aggressor line matched by prefix | **Verified fixed** | Line: limp 4-way, Y bets 100, Z folds, hero calls, X check-raises to 400, Y calls. The read is `facing:'raise'` for every name pair tried: `Bo`/`Bo B`, `A.B`/`AxB`, `Bo (2)`/`Bo (2) x`, `x+y`/`xxy`, `$1`/`$1$`, `a\b`/`a\b c`, `[Bo]`/`B`, `.*`/`Bo`, `Bo|Cy`/`Bo`, `^Bo$`/`Bo`. A bet with a prefix-named caller reads `bet` at 0.75 (`Bo B`/`Bo`, `A.B`/`A`, `.*`/`Bo`). A short postflop all-in over a bet ("Bo all-in 550") reads `raise`. The escape covers every metacharacter that `RegExp` treats specially. **Latent, unchanged:** two seats with the same name still mis-read. `Bo`/`Bo` reads `bet` with potFraction 2, because the postflop path does not refuse duplicates the way `preflopActions` does. Unreachable today: the bot names are unique, and LAN seats carry no model. |
-| Tests: bet size with callers; limits | Verified as stated | The "bet with a caller" test pins 0.75. The guard boundaries are not pinned. By hand: 40bb charts and 39.98bb does not. |
-| Called first-in all-in (humans only); effective stack | Noted (agree) | Both are unchanged and unreachable by the bots. |
-| Tests "red before" | Checked by reading the diff, not run | Each new assertion depends on the changed line: the old `steps !== 1` rule, the old `startsWith(name + ' ')` match, and the old 1.0bb shove cost. |
-
-Regression hunt (all clean apart from the Act on below):
-- **Limp special case.** The `rfi`/`call` branch returns before the shove line, and its recursive call passes no `shove`. UTG limp 72o = 0.50 and limp AA = 1.91 (half the nearer mistake), unchanged.
-- **Defence spot where the chart calls.** BB vs CO: a shove of any call-region hand is capped at 0.25 × toCall × 3 = 1.13bb (`notable`). 64 of 73 hands land there; the 9 at the 3-bet edge are `free` (AJs 0.00, TT 0.01, KJs 0.03, KQo 0.46). A shove of a fold-region hand is also 1.13 (72o, K5o).
-- **Shove where the chart 3-bets** (QQ, AKo, AA in BB vs CO): 0, `free`, as documented.
-
-### New Act on
-
-- **src/core/chartGrade.ts:276 (`lossBb * SHOVE_MULTIPLIER`). A 100bb shove is still graded by how far the hand sits from the chart edge, not by what a shove costs. A shove of a hand near the edge stays silent.**
-  The 3x factor is applied to `CHART_K * pot * d²` (the open's distance cost). So it is right only where that cost hits its cap: 72o, K9o and 106 of the 130 UTG off-chart hands.
-
-  Grades at 100bb, UTG first in, with the shove EV against five players who call only with QQ+/AK (`shoveev.ts`):
-
-  | Shove | Grade | EV vs fold |
-  |---|---|---|
-  | KJo | `free` 0.01 | −5.8bb |
-  | QJo | `free` 0.03 | −4.7bb |
-  | ATo | `free` 0.15 | −4.7bb |
-  | KTo | `free` 0.42 | — |
-  | A9o | `notable` 0.96 | — |
-  | 72o | `serious` 3.00 | −5.7bb |
-
-  KJo and 72o lose about the same and are graded 300x apart.
-  - **CO:** shoves of A8o down to A2o are all `free` (0.00 to 0.42).
-  - **BTN:** T8o 0.00, 97o 0.02, 76o 0.12.
-  - **Facing a 3-bet** (CO opens 125, BTN 3-bets 375), the cap again sets the figure. A jam of AQo is `notable` 1.03 and a jam of AJo is `notable` 1.91. Their EV against a QQ+/AK caller is −5.6bb to −14bb, depending on whether the 3-bet range is 120 or 80 combos.
-  - **On-chart hands** (UTG KQo −6.1bb, 22 −2.7bb, AJo −4.9bb) are `free` 0 by the documented "graded as the chart's raise" rule. That rule rests on the same assumption, that shove EV tracks open EV, and these numbers disprove it.
-
-  Before the fix, all of these were also silent, so this is the original act-on item left half done, not a regression.
-  Fix: grade a hero shove at or above `MIN_CHART_DEPTH_BB` by its own cost, independent of `chartDistance`. Either:
-  - estimate the push EV from the hand's equity against a fixed calling range, the call probability from the players behind, and the depth (every input is in `gradeSpot`); or
-  - at minimum, floor the loss of any shove outside a small jam set (QQ+/AK, or the chart's raise region facing a 3-bet) at the 72o figure.
-
-  Pin it with a test that a UTG 100bb shove of KJo (and of 22) is not `free`.
-
-### Consider
-
-- **The depth edge is discontinuous** (`chartGrade.ts:276` with `gradeSpot.ts` `MIN_CHART_DEPTH_BB`). A UTG 72o shove is graded as follows:
-  - at 40bb, 50bb and 100bb alike: `serious` 3.00;
-  - at 39.98bb: `free` 0.29, because the pot-odds model takes over.
-
-  The modelled EV against a QQ+/AK caller is −1.5bb at 40bb, −2.2bb at 50bb and −5.7bb at 100bb. The fixed multiplier therefore overstates the cost at 40bb about 2x and understates it at 100bb. This is the same root as the Act on: a depth-aware shove cost removes both. Tradeoff: more model surface in a grader that otherwise reads no sizes.
-- **coach.ts:283 copy.** A shove reads "…raising it costs ~3.0 bb". "Shoving" would name the mistake the learner made. Tradeoff: one more verb branch in `chartMessage`.
-
-### Verification
-
-- `npx tsc --noEmit -p tsconfig.json`: exit 0.
-- `npx vitest run tests/unit/chartGrade.test.ts tests/unit/villainRanges.test.ts tests/unit/closeSpot.test.ts`: 3 files, 58 tests passed, exit 0.
-- Scratch reproductions: `tests/tmp/rv2/shove.ts`, `shoveev.ts` and `names.ts` (vite-node, exit 0).
-- Not run, by instruction: Electron, e2e, `test:full`, and the full unit suite.
-- Untested by any committed test:
-  - the shove cost of near-edge and on-chart hands;
-  - the depth boundaries of the guards;
-  - the duplicate-name postflop read.
-
-Verdict after fixes: FAIL
-
-## Resolution of the re-verification at 09cbaec (author)
-
-| Finding | Disposition |
-|---|---|
-| A shove's cost is 3x the edge cost, so near-edge shoves are silent | **Fixed.** A chart-spot shove is priced by its own EV against a QQ+/AK calling range (`shoveLossBb`); the multiplier is gone. Test: 72o, KJo, 22 and A8o shoves first in from the CO are not free; AA and KK are (red on 09cbaec for KJo/22/A8o). |
-| The coach message for a shove says "raising" | **Fixed.** The shove verdict has its own sentence naming the calling range and the pot share. |
-| The 40bb edge jumps | Noted: below 40bb the pot-odds model grades the shove; push/fold charts are a follow-up. |
-| Duplicate seat names mis-read postflop | Noted: bot names are unique and LAN seats carry no model. |
-
-## Re-verification (at 6b1d0e1)
-
-Independent re-check of the shove fix (6b1d0e1: `shoveLossBb` and `SHOVE_CALL_RANGE` in `chartGrade.ts`,
-`gradeShove` in `coach.ts`) and of the e2e re-pin (ac7fb05). I did not edit any source file. Grades come from
-real `TableState`s (`createTable`/`startHand`/`applyAction`, 100bb, bb 50) run through `gradeSpot` with
-`modelFor: () => null`. The pot shares come from my own oracle: a separate 7-card evaluator and Monte Carlo
-(`tests/tmp/rv3/oracle.ts`, 30k to 40k trials, villain combos dealt with card removal). It does not import
-`src/core/equity`. Spot checks: AA v KK 0.827, AKo v QQ 0.431, A8o v KK 0.290. Scripts are in
-`tests/tmp/rv3/`: `ev.ts`, `spots.ts`, `edges.ts` and `sanity.ts`.
-
-### Per item
-
-| Item | Status | Evidence |
-|---|---|---|
-| A shove's cost was 3x the edge cost, so near-edge shoves were silent | **Fixed for first-in (RFI) spots. Regressed in defence and 3-bet spots** (new Act on) | See the 4-max CO table below. The formula matches my own calculation to within the app's Monte Carlo noise. |
-| Shove copy said "raising" | Fixed | Example: "A shove this deep is called only by QQ+ and AK, where you have 22% pot share; it costs ~2.7 bb." `bannedPhrasingIn` returns null, and no `BANNED_PHRASINGS` entry matches. The calling-range claim is false outside RFI spots (see the Act on). |
-| 40bb edge; duplicate seat names | Noted (unchanged, agree) | No change. |
-| e2e re-pin, seed 8 → 10 (ac7fb05) | **Verified: no assertion weakened** | I compared all 227 changed lines one by one. The changes are `seed: 8`→`10` (plus `?? 8`→`?? 10` defaults), the renamed `reachSeed8Gate`→`reachPinnedGate`, comments, and one message string (`'seed 10 must give…'`). No `expect` line was removed or relaxed. Two `expect(await waitForIdle(page)).toBe('handover')` lines were added in `gate.spec`, so those tests got stricter. The predict test 21 move from seed 43 to 10 keeps all three of its expects (`awaiting` is `ai`, `withheld` is `true`, no win%). No spec still mentions QsQh, 3.9bb or 348 as a pin. I did not run e2e (by instruction), so whether the new seed holds in the app is left to the running suite. |
-
-**Formula check: 4-max, CO first in, 3 behind, pot 1.5bb, 100bb.** My EV uses the commit's formula with my own
-share and the naive per-player q = 34/1326.
-
-| Hand | My share | App share (seed 1) | My EV vs fold | App grade |
-|---|---|---|---|---|
-| 72o | 0.217 | 0.224 | −2.83 | `serious` 2.72 |
-| KJo | 0.200 | 0.215 | −3.08 | `serious` 2.87 |
-| 22 | 0.343 | 0.354 | −0.93 | `notable` 0.76 |
-| A8o | 0.250 | 0.245 | −2.33 | `serious` 2.41 |
-| AA | 0.832 | 0.838 | +6.45 | `free` 0 |
-| KK | 0.570 | 0.578 | +2.51 | `free` 0 |
-
-- Each gap is explained by the app's 2000-trial share. For KJo, 1.5pp of share is worth about 0.2bb at these stakes.
-- Card removal is ignored in q. Its effect is ±0.5bb: KJo −2.45, A8o −1.80, 22 −1.12. It does not change any severity here.
-- When the caller is a blind, `pot + 2·stack` overcounts the final pot by that blind (≤1bb·share, ≤0.3bb). This is negligible.
-- BTN first in (2 behind): 72o 1.35, KJo 1.45, A8o 1.14 `notable`; 22 `free` 0.02. My numbers are 1.42, 1.59, 1.10 and 0.14. They agree.
-
-**Determinism and edge cases.**
-- Determinism: same seed gives the same loss and the same message.
-- Seed spread over 40 seeds: CO 22 runs 0.58 to 1.33 and is always `notable`. CO A8o runs 2.07 to 2.68 and is always `serious`. The noise is real, but no severity flips at these hands.
-- Non-finite inputs give `free` with a null message, never a "~NaN bb" verdict: bb=0, bb=NaN, pot NaN, and a missing `stack` (`evLossBb` NaN). Stack 0 gives 0.
-- `seed` undefined falls back to 1. `shoveLossBb` with NaN inputs gives NaN, and with negative `behind` it gives 0.
-- Unit file `chartGrade.test.ts`: 30 passed.
-
-### New Act on
-
-- **coach.ts:87 → chartGrade.ts `shoveLossBb` (`behind` = `opponents` from `gradeSpot.ts:148`). In defence and 3-bet spots every opponent is priced as a random hand. The raiser is not random, so every non-premium shove there is now `free`. This is a regression from 09cbaec, which graded these spots `notable`.**
-  - `opponents` counts the live seats. First in, that equals the players behind, which is correct.
-  - In a defence or 3-bet spot it also counts the raiser, who has already acted. The raiser gets q = 34/1326 = 2.6%, the chance that a random hand holds QQ+/AK.
-  - The raiser's real chance of holding QQ+/AK is much higher: 9.6% of the CO open range, 15.9% of the UTG range, and 57% of the 60-combo BB 3-bet range (`bb-vs-co` threebet, used as a proxy for a 3-bettor's range).
-  - Meanwhile the dead money is 4 to 11.5bb, so fold equity dominates the result.
-
-  App grade against my EV, with the raiser's range conditioned on its action (QQ+/AK share of that range, other players random):
-
-  | Spot | App, every hand tested (72o KJo 22 A8o AQo) | My EV |
-  |---|---|---|
-  | 6-max BB vs UTG open | `free` 0.00 | 72o −5.4, KJo −6.0, A8o −4.4, AQo −4.6, 22 −1.4 |
-  | 4-max BB vs CO open | `free` 0.00 | 72o −1.7, KJo −2.0, A8o −1.1, AQo −1.2 |
-  | 4-max SB vs BTN open | `free` 0.00 | 72o −0.9, KJo −1.2 |
-  | 4-max CO open, BTN 3-bets 7.5bb, CO jams | `free` 0.00 | 72o −25, KJo −27, A8o −22, AQo −22, 22 −11 |
-
-  - At 09cbaec these were all graded: BB-vs-CO shoves 1.13 `notable`, and a 3-bet jam of AQo 1.03 `notable` (see the re-verification above).
-  - The 3-bet-spot gap is large. Even with a wide 120-combo 3-bet range (q ≈ 0.28), a 72o jam loses more than 10bb, and the grade is silent.
-  - The message also states "called only by QQ+ and AK" as a fact, in a spot where that is the one claim the model gets wrong.
-
-  Fix (all the inputs are in `chartSpotFor`/`gradeSpot`): pass `shoveLossBb` a per-opponent call probability instead of a count.
-  - The raiser gets the QQ+/AK share of its own range: `rfiCombos(opener)` in defence spots, and a 3-bet range in 3-bet spots.
-  - Only players still to act get the random-hand q.
-  - Or, at minimum, route shoves in `defend`/`3bet` spots back to the previous cost until this is done.
-
-  Pin it with a test that a 100bb BB-vs-UTG shove of 72o, and a CO jam of KJo over a BTN 3-bet, are not `free`.
-
-### Consider
-
-- **The All-in preset + Raise button bypasses the shove grade** (`table.ts:1143` and `:1175`; `coach.ts:86` checks only `chosen === 'allin'`).
-  - The dock's "All-in" preset sets the slider to `maxRaiseTo` (committed + stack), and the Raise button sends `{kind: 'raise', amount}`.
-  - CO 72o raised to 5000 grades as the chart's raise, `notable` 1.00 ("raising it costs ~1.0 bb"). KJo raised to 5000 grades `free` 0. The same chips sent through the A key grade 2.72 and 2.87.
-  - This predates the fix (09cbaec keyed on `allin` too), but it is now the main way past the fix.
-  - Fix: treat `betSize >= committed + stack` as `allin` in `gradeSpot`. Tradeoff: one more input the grader reads.
-- **Card removal in q** (`SHOVE_CALL_RANGE` against 1326). This is ±0.5bb at 100bb, and it biases blocker hands (AK, KJ, A8) toward overstated losses. It can wait; the Monte Carlo noise is the same size.
-- **Test comment** `chartGrade.test.ts` ("loses (1 - 3*share/...) of the stack") is garbled. The assertion itself is right.
-
-### Verification
-
-- `npx vitest run tests/unit/chartGrade.test.ts`: 30 passed, exit 0.
-- Scratch scripts `tests/tmp/rv3/{oracle,sanity,ev,spots,edges}.ts` (vite-node): exit 0.
-- Not run, by instruction: typecheck, e2e, `test:full`, Electron, and the full unit suite.
-
-Verdict after fixes: FAIL
-
-
-## Resolution of the re-verification at 6b1d0e1 (author)
-
-| Finding | Disposition |
-|---|---|
-| Shoves over a raise priced the raiser as a random hand | **Fixed.** `shoveLossBb` takes one call chance per live opponent: random if it has not acted, its RFI chart's QQ+/AK share if it opened, the BB 3-bet region's share against hero's seat if it 3-bet. Tests: BB jamming 72o over a CO open is not free; the CO jamming KJo over a BTN 3-bet is serious (red before). |
-| A raise to the whole stack skipped the shove grade | **Fixed.** `gradeSpot` grades a chart-spot raise whose size is the whole stack as `allin`. Test: the raise and the all-in grade identically. |
-| "called only by QQ+ and AK" false outside first-in | **Fixed.** The copy reads "called by QQ+ and AK". |
-| Card removal in the call chance (±0.5bb) | Noted. |
-
-## Re-verification (at a3a55f6)
-
-Independent re-check of a3a55f6 (`shoveCallChance`, `openerCallChance`, `threeBettorCallChance` and
-`shoveLossBb` in `chartGrade.ts`; `shoveCallers` and the whole-stack-raise rule in `gradeSpot.ts`). I did not
-edit any source file. Grades come from real `TableState`s (`createTable`/`startHand`/`applyAction`, 100bb,
-bb 50, seed 11) run through `gradeSpot` with `modelFor: () => null`. My EV uses my own call chances and the
-exact final pot when the raiser calls. For pot share it uses `equityVsRange` at 20k trials, so the share is
-not independent here (the rv3 oracle agreed with it). Scripts are in `tests/tmp/rv4/`: `check.ts`,
-`edges.ts`, `fourbet.ts` and `defend.ts`.
-
-### Call chances (my own count: pair 6, suited 4, offsuit 12; calling set AA KK QQ AKs AKo = 34)
-
-| Range | Mine | App |
-|---|---|---|
-| Random hand | 34/1326 = 0.0256 | 0.0256 |
-| RFI UTG / HJ / CO / BTN / SB | 34/214, 34/274, 34/354, 34/582, 34/498 = 0.159, 0.124, 0.096, 0.058, 0.068 | identical |
-| 3-bettor proxy vs UTG / HJ / CO / BTN (BB 3-bet region) | 34/34, 34/44, 34/60, 34/74 = **1.000**, 0.773, 0.567, 0.459 | identical |
-
-### Per item
-
-| Item | Status | Evidence |
-|---|---|---|
-| Shoves over a raise priced the raiser as a random hand | **Fixed** (see the new Act on for what it causes in 3-bet spots) | Every spot that was `free` at 6b1d0e1 is now graded, and matches my EV. 6-max BB vs UTG: 72o 5.17 `serious` (mine −5.62), KJo 5.47 (−5.56), A8o 4.51 (−4.46), AQo 4.85 (−4.59), 22 1.00 `notable` (−1.57). 4-max BB vs CO: 72o 1.54, KJo 1.73, A8o 1.14, AQo 1.35, all `notable` (mine −1.81, −1.78, −1.11, −1.19). 4-max SB vs BTN, where BB behind is random: 72o 0.79, KJo 0.95 `notable` (mine −1.03, −1.00). CO jam over a BTN 7.5bb 3-bet: 72o 24.0, KJo 25.1, A8o 21.6, AQo 22.9, 22 8.8 `serious` (mine −26.1, −25.9, −21.9, −22.4, −11.6). AA and KK are `free` everywhere. In `shoveCallers`, folded seats are excluded and hero is excluded from the raisers. The opener gets its RFI chart's chance, the 3-bettor gets the proxy, and anyone yet to act gets the random chance. |
-| A raise to the whole stack skipped the shove grade | **Fixed** | In all 42 spot × hand cases above, `raise` with `betSize = stack + committed` gives a `Grade` deep-equal to `allin`. A raise to more than the stack also counts as a shove. Stack−1, 125 and an undefined `betSize` each stay the chart's raise (KJo CO `free`; 72o CO raise to 125 `notable` 1.00, the chart message). |
-| "called only by QQ+ and AK" copy | **Fixed** | Example: "A shove this deep is called by QQ+ and AK, where you have 21% pot share; it costs ~1.7 bb." |
-| Card removal | Noted (agree) | No change. |
-
-**Regression checks (all pass).**
-- BB facing a limp and a raise (4-max: CO limps, BTN raises to 4bb, SB folds): `chartSpotFor` gives null. Both `allin` and a raise to the whole stack go to the pot-odds model, and neither is converted.
-- 30bb hero: no chart spot, and `allin` takes the pot-odds path.
-- RFI first in: the players behind get the random chance. CO KJo is 2.87 through `gradeSpot`, and the same 2.87 through `gradeDecision` with no `shoveCallers`, which fills the default. 4-max CO and 6-max UTG RFI numbers are unchanged from 6b1d0e1 (CO 72o 2.72, KJo 2.87, 22 0.76, A8o 2.41).
-- Determinism: the same seed gives the same grade.
-- `npx vitest run tests/unit/chartGrade.test.ts`: 33 passed, exit 0.
-
-### New Act on
-
-- **In 3-bet spots, jamming the chart's own 4-bet hands is graded `serious`** (`threeBettorCallChance` → `shoveLossBb`). The 3-bettor's proxy is the BB's 3-bet region. That region is almost all value, so it calls far more often than the ranges `threeBetResponseAction` was built to 4-bet against.
-  - Against a UTG open, the proxy is exactly QQ+/AK, so q = 1: the 3-bettor never folds, and every non-AA/KK jam is priced against the top of its range.
-  - These grades were `free` at 6b1d0e1. Now they are loud false positives on the hands the chart says to raise.
-
-  Opener jams over a 7.5bb 3-bet, 6-max (`fourbet.ts`); the chart's action is `threebet` (4-bet) unless noted:
-
-  | Opener | QQ | JJ | AKs | AKo |
-  |---|---|---|---|---|
-  | UTG | `serious` 11.75 | `serious` 22.33 (chart: call) | `serious` 13.30 | `serious` 19.39 |
-  | HJ | `serious` 6.47 | `serious` 14.64 (chart: call) | `serious` 7.66 | `serious` 12.37 |
-  | CO (also the 4-max table's open) | `notable` 1.68 | `serious` 7.67 | `serious` 2.55 | `serious` 6.01 |
-  | BTN | `free` 0 | `serious` 4.40 | `free` 0.26 | `serious` 3.05 |
-
-  - On the 4-max table, CO open → BTN 3-bet → CO jam is the commonest 3-bet response. There, AQs (chart: 4-bet) is `serious` 18.1, and TT (chart: call) is `serious` 6.5.
-  - The arithmetic is right for the input. The input contradicts the chart: if the 3-bettor really held 57% QQ+/AK, the chart's AKo 4-bet would itself be a mistake.
-  - The message then tells the learner that a standard AK jam over a 3-bet costs ~6 to 19bb.
-  - Fix, either of:
-    - (a) In `defend`/`3bet` spots, when `chartAction(spot, hand)` is `raise`, grade the jam as the chart's raise. This mirrors "a raise to the whole stack is a shove" in the other direction: a shove of a chart-raise hand is that raise.
-    - (b) Give the 3-bettor a range that includes the bluffs the response chart assumes, for example the widest region (`bb-vs-btn`, q 0.46) for every opener, with q < 1 always.
-  - Pin it with a test: CO AKo, and UTG QQ, jamming over a 3-bet are not `serious`.
-
-### Consider
-
-- **Pot overcount when the raiser calls.** `pot + 2·stack` counts the raiser's chips already in twice: (villain committed − hero committed)·share. That is about 0.5bb in defence (1.5bb·share) and about 1.7bb in 3-bet spots (5bb·share). It understates the loss: for example, 22 vs a UTG open is 1.00 (mine 1.57), and 22 jamming over a 3-bet is 8.8 (mine 11.6). No severity flips in the spots tested. Pass `committed` per caller if this is touched.
-- **RFI jams of QQ/JJ/TT/AK are graded `notable`** (6-max UTG: QQ 0.67, AKs 0.86, AKo 1.58, JJ 1.93), and AQs is `serious` 4.12. This predates a3a55f6 (RFI is unchanged), and it follows from "one caller, always QQ+/AK" with no worse-hand calls. It is worth a line in `DECISIONS.md` if it is intended.
-
-### Verification
-
-- `npx vitest run tests/unit/chartGrade.test.ts`: 33 passed, exit 0.
-- Scratch scripts `tests/tmp/rv4/{check,edges,fourbet,defend}.ts` (vite-node): exit 0.
-- Not run, by instruction: typecheck, e2e, `test:full`, Electron, and the full unit suite.
-
-Verdict after fixes: FAIL
-
-
-## Resolution of the re-verification at a3a55f6 (author)
-
-| Finding | Disposition |
-|---|---|
-| Jamming a 4-bet hand over a 3-bet graded serious | **Fixed** (fix a). In defence and 3-bet spots a jam of a hand the chart re-raises is graded as the chart's raise. Test: CO AKo and UTG QQ jamming over a 3-bet are free (red before). |
-| The raiser's chips counted twice in the called pot (≈0.5–1.7bb understatement) | Noted: no severity flip in the reviewer's spots; follow-up. |
-| UTG open-jams of QQ/AK/JJ graded notable | Noted: a real (small) chip loss against QQ+/AK; predates a3a55f6. |
-
-## Re-verification (at the jam fix)
-
-Independent re-check of 35eb799 (`jamOfChartRaise` in `gradeDecision`, `src/core/coach.ts`). I did not edit
-any source file. Grades come from real `TableState`s (`createTable`/`startHand`/`applyAction`, 100bb, bb 50,
-seed 11) run through `gradeSpot` with `modelFor: () => null`, for `allin` and for a raise to the whole stack.
-The only grader source change since a3a55f6 is the 10 lines in `coach.ts`. Scratch scripts were in
-`tests/tmp/rv5/` (`jam.ts`, `regions.ts`, `sb.ts`) and have been deleted.
-
-### Per item
-
-| Item | Status | Evidence |
-|---|---|---|
-| Jamming a 4-bet hand over a 3-bet graded serious | **Fixed** | Opener jams over a BB/BTN 3-bet, chart `raise`, all `free` 0.00: 4-max CO AA KK QQ JJ AKs AKo AQs; 6-max UTG AA KK QQ AKs AKo; 6-max HJ QQ AKs AKo. At a3a55f6 these were CO AKo `serious` 6.01, UTG QQ `serious` 11.75, CO JJ `serious` 7.67, and so on. In all 139 cases, a raise to the whole stack is deep-equal to `allin`. |
-| Non-chart jams over a 3-bet still charged | **Holds** | Through shove pricing, unchanged from rv4: 4-max CO KJo `serious` 24.86, 72o 23.75, A8o 21.34, AQo 22.60, 22 8.50; 6-max UTG KJo 53.37, 72o 51.42; HJ KJo 38.85, 72o 37.34. Hands the chart calls are still charged as shoves: 4-max CO TT 6.15; UTG JJ 22.70, AQs 41.04. |
-| BB jams over an open | **Holds** (one note below) | Chart-raise hands are `free`: vs UTG AA KK QQ AKs AKo; vs CO also JJ AQs AQo KQs; vs BTN also TT AJs. Non-raise hands keep the rv4 numbers: 6-max vs UTG 72o `serious` 5.17, KJo 5.47, A8o 4.51, 22 `notable` 1.00; 4-max vs CO 72o `notable` 1.54, KJo 1.73, A8o 1.14. |
-| RFI jams unchanged | **Holds** | `chart.kind !== 'rfi'` keeps RFI on shove pricing. 4-max CO: 72o 2.72, KJo 2.87, 22 0.76, A8o 2.41, AKo 0.40. 6-max UTG: QQ 0.67, AKs 0.86, AKo 1.58, JJ 1.93, AQs 4.12. All are identical to rv4. |
-| Raise regions the fix makes free | **Checked** | Every defend and 3-bet chart's `raise` region is value only: UTG is QQ+/AK; the widest is `bb-vs-sb` (22 hands, down to 77, KQo, JTs). There are no bluff hands, so the fix cannot clear a 100bb jam of a weak hand. A `3bet`/opener SB spot would throw in `chartAction` (SB has no `fourBet` row), but `chartSpotFor` returns null there, so it is unreachable. |
-| Pot overcount; UTG open-jams `notable` | Noted (agree) | No change. |
-
-**Regression checks (all pass).**
-- `npx vitest run` on the coach, chart and grade tests (`chartGrade`, `chartBank`, `chartBank-ui`, `charts`, `coach`, `coach-message`, `reasonGrade`): 7 files, 140 tests passed.
+- At 894080a:
+  - The four online test files: exit 0, 94 passed (22 + 53 + 3 + 16).
+  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
+  - `npm run typecheck`: exit 0, with the probes removed.
+  - Probes re-run: budget-lockout, forget-sybil, and ranked-cheats #2 (the bot test skipped; it is unchanged and
+    recorded). New probe: erase-window. Copies are in /tmp/osv-review; `tests/tmp/` has been deleted.
+  - Checked by reading:
+    - a crash mid-pass is safe: each rewrite is temp-then-rename, and `erasing` is cleared only after every file, so
+      the pass repeats idempotently at startup;
+    - queued grades of an erased key are still skipped (`store.player` check), and its opponents are filtered;
+    - `recordHand` drops unknown keys;
+    - rollover during a pending pass closes the season from in-memory tallies that already exclude the key;
+    - forget closes the socket (transport `bye`), so the free per-forget `writeNow` is bounded by the connection rate.
+- At 1ec6c3d:
+  - The four online test files: exit 0, 92 passed (22 + 53 + 3 + 14).
+  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
+  - `npm run typecheck`: exit 0, run after the probes were removed. A probe file under `tests/tmp/` is picked up by
+    tsconfig's `tests` include while it exists.
+  - Probes re-run: export-dos (the page>0 burst, rewritten for in-order paging), forget-sybil, and the new
+    budget-lockout. Copies are in /tmp/osv-review; `tests/tmp/` has been deleted.
+- At ff5c28a:
+  - `npx vitest run tests/unit/online-server.test.ts tests/unit/online-core.test.ts tests/unit/online-gate.test.ts tests/unit/online-review-fixes.test.ts`
+    exit 0, 90 passed (22 + 53 + 3 + 12; online-core lost the removed `decisionSeed` test).
+  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
+  - `npm run typecheck`: exit 0.
+  - Probes re-run from /tmp/osv-review, adapted to the paged API, under a temporary `tests/tmp/` that has since been
+    deleted: resync-stack, store-scale, export-dos (adds the page>0 burst), rollover, ranked-cheats (2 tests),
+    identity, mitm (still `refused: Sign-in failed.`).
+  - New probe forget-sybil (fresh keys each forget once). Outputs are quoted in each item.
+- At e3e58df (original review):
+- `npx vitest run tests/unit/online-server.test.ts tests/unit/online-core.test.ts tests/unit/online-gate.test.ts`: exit 0,
+  79 passed (22 + 54 + 3).
+- `npx vitest run tests/unit/relay* tests/unit/multiplayer.test.ts tests/unit/mp-deal-secrecy.test.ts`: exit 0, 6 files,
+  82 passed.
 - `npm run typecheck`: exit 0.
-
-### Notes (not regressions)
-
-- **6-max BB vs a BTN open: jamming 72o (chart `fold`) is graded `free` 0.00, and so are KJo, A8o, A5s and 76s.** 72o is not a chart raise, so this goes through the same shove path as at a3a55f6, and the fix does not cause it. The cause is the model: the BTN's RFI range calls only with QQ+/AK (q 0.058), so 94% fold equity on a 4bb pot outweighs the called loss. In practice the BTN calls a 100bb jam wider than that. So "BB jamming 72o over an open is charged" holds against UTG and CO opens, but not against BTN opens. Worth a line in `DECISIONS.md`, or a wider caller range for late-position openers.
-- **Jams of hands the chart calls still use the value-only 3-bettor stand-in.** UTG JJ costs 22.7bb, AQs 41.0bb, and 4-max CO TT 6.15bb. The direction is right (looser than the chart), but the size inherits q = 1 against UTG. Fix (b) from rv4 would temper it. This is not a blocker.
-
-### Verification
-
-- Scratch scripts `tests/tmp/rv5/{jam,regions,sb}.ts` (vite-node): exit 0. They have been deleted.
-- Not run, by instruction: e2e, Electron and `test:full`.
-
-Verdict after fixes: PASS WITH NOTES
+- Probes, all against the real code (`/tmp/osv-review/`): resync-stack, store-scale, export-dos (real server over TLS),
+  rollover, ranked-cheats (real server, 2 tests), identity, mitm (real server), grade-cost. Outputs are quoted above.
+- Untested by the suite: export size at the cap; restart across a month; forget mid-hand with others still acting; resync
+  for a deal the guest committed to but did not reveal; any load or flood against export, forget or ladder; identity file
+  corruption or restore. A run of `npm run test:full` was not done: this is review only.
