@@ -35,7 +35,7 @@ export const minimumDefenceFrequencyDialogue: DialogueScript = {
       ask: 'So what share of the defending range has to keep going?',
       options: [
         { id: 'mdf', label: '{defendShare}', correct: true },
-        { id: 'alpha', label: '{betFoldShare}', correct: false, back: 'That is the fold the bluff needs. What is left of the range once those hands fold?' },
+        { id: 'alpha', label: '{betFoldShare}', correct: false, back: 'That is the fold the bluff needs. What is left of the range after those hands fold?' },
         { id: 'price', label: '{callPrice}', correct: false, back: 'That is the price of one call. Is this question about one hand, or the whole range?' },
       ],
       right: '{defendShare} of the range continues, and the bluff stops paying for itself.',

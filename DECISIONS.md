@@ -23,19 +23,26 @@ line bank is authored once, here).
   keep their order, but the variant may use its own content words. Reason: the PoC's content-word order rule is a
   containment check on a model's rewording; applied to an author's tone variant it would forbid every Blunt line.
 - **Silence rule:** a hand whose decisions all cost under 0.5 bb gets no line. The one exception is Price held.
-- **Price held fires** on a `free` grade, on a priced spot, with pot share within 10 points of the price, a Sure
-  commit, a reason the grader reads as `price` or `range`, and no G4 flag; once per principle per sitting. Seam: when
+- **Price held fires** on a `free` grade, on a priced postflop spot, on the right side of the price (a call or raise
+  at or above it, a fold below it), with pot share within 10 points of the price, a Sure commit, a reason the grader
+  reads as `price` or `range`, and no G4 flag; once per principle per sitting. Preflop is excluded: the grader's share
+  against a betting range is too coarse to call a spot close. Seam: when
   the grader's close-spot band lands, its `Grade.close` decides closeness instead (`isPriceHeld(d, closeBand)`).
 - **`Grade.spot`** (new, optional) carries the two pot shares on every priced decision, silent ones included. The
   coach sheet still paints only `Grade.price`, which stays absent on a free grade (coach.test pins that).
-- **Hand-end priority:** the costliest mistake, then right-action-wrong-reason, then Price held. A repeat notable in
-  the same principle gets "Noted." (a priority tic). A line quoting the learner's own sentence outranks one that does
+- **Hand-end priority:** the costliest mistake, then right-action-wrong-reason, then Price held. `{repeat}` counts the
+  same kind of mistake (principle, action, priced or not), and a repeat notable of that kind gets "Noted." (a tic).
+  "Mistakes only" keeps the right-action-wrong-reason line (it is a correction).
+- **The sitting summary** shows when the sitting ends at the table (planned hands played, busted, or the table
+  swept), in the dock, only if the last hand had no beat of its own. An open-ended table left mid-way gets none, so
+  under "After sessions only" such a table stays silent. A line quoting the learner's own sentence outranks one that does
   not; sentences over 11 words are not quoted (the beat has two lines).
 - **Frequency** (`progression.dee.personality.frequency`): `normal` = After notable hands (the id the v2 default
   already wrote, so it keeps meaning the default), `mistakes` = Mistakes only, `sessions` = After sessions only. The
   v2 placeholder ids `after-hands` and `quiet` were never written by any build and now read as the default.
 - **Character off hides Dee everywhere:** no mark (perch, beat, lessons, settings preview), and no line of Dee's own
-  (the beat and the session summary). The coach's verdicts, the gate and the lesson questions stay; the lesson thread
+  (the beat, the session summary, the lesson open/retry/done lines). The coach's verdicts, the gate and the lesson
+  script's questions stay; the lesson thread
   labels the speaker "Coach" instead of "Dee". Supersedes: the vision mock's "Off shows a plain dealer button", because
   the task asks for Dee hidden everywhere.
 - **Memory** (`progression.dee`, additive, no version bump): `character` (default true), `handsWatched` (the cooldown

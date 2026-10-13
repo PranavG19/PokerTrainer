@@ -80,7 +80,7 @@ export function renderPerch(onOpen: () => void): PerchHandle {
     if (prefersReducedMotion()) return;
     // 4–9 s, varied without a random source: the interval walks a fixed cycle.
     const cycle = [5200, 7400, 4300, 8600, 6100];
-    const delay = cycle[(Date.now() >> 10) % cycle.length];
+    const delay = cycle[Math.floor(Date.now() / 1024) % cycle.length];
     blinkTimer = window.setTimeout(() => {
       if (!acting && held.size === 0 && !asleep && root.isConnected) blinkDee(mark);
       scheduleBlink();

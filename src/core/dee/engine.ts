@@ -21,6 +21,7 @@
 
 import type { Grade } from '../coach.js';
 import { mulberry32 } from '../rng.js';
+import { MAX_DEE_SAID } from '../progression/persist.js';
 import { DEE_BANK } from './bank.js';
 import {
   FREQUENCIES,
@@ -95,13 +96,21 @@ export interface DeeSitting {
   readonly hands: number;
   readonly mistakes: number;
   readonly priceHeld: number;
-  /** Notable or serious verdicts per principle this sitting. */
+  /** Notable or serious verdicts per principle this sitting (the session summary names the top one). */
   readonly byPrinciple: Readonly<Record<string, number>>;
+  /** The same verdicts per kind of mistake (principle and action), which is what `{repeat}` counts. */
+  readonly byKind: Readonly<Record<string, number>>;
   /** Principles whose "Price held" has fired this sitting (once per principle per session). */
   readonly heldPrinciples: readonly Principle[];
 }
 
-export const NEW_SITTING: DeeSitting = { hands: 0, mistakes: 0, priceHeld: 0, byPrinciple: {}, heldPrinciples: [] };
+export const NEW_SITTING: DeeSitting = { hands: 0, mistakes: 0, priceHeld: 0, byPrinciple: {}, byKind: {}, heldPrinciples: [] };
+
+/** A kind of mistake: the principle plus what was done, so "the same fold again" is only said of a fold. */
+function kindOf(principle: Principle, action: DeeAction, toCall: number): string {
+  const act = action === 'bet' || action === 'raise' || action === 'allin' ? 'raise' : action;
+  return `${principle}|${act}|${toCall > 0 ? 'priced' : 'free'}`;
+}
 
 /** Personalization context, all of it already in the profile. */
 export interface DeeContext {
@@ -139,6 +148,10 @@ export function isPriceHeld(d: BeatDecision, closeBand?: boolean): boolean {
   // Postflop only: preflop, the grader's pot share against a betting range is too coarse to call a spot close.
   if (d.street === 'preflop') return false;
   if (d.confidence !== 'sure' || d.rightForWrongReason) return false;
+  // On the right side of the price: free only means under half a big blind, so a call a little short of
+  // the price is still silent, and it is not a price that held.
+  const { needed, had } = d.grade.spot;
+  if (d.action === 'fold' ? had >= needed : had < needed) return false;
   if (d.reasonCategory !== 'price' && d.reasonCategory !== 'range') return false;
   const close = closeBand ?? Math.abs(d.grade.spot.had - d.grade.spot.needed) <= CLOSE_SPOT_POINTS;
   return close;
@@ -168,7 +181,7 @@ export function handEndEvent(
     const worst = mistakes.reduce((a, b) => (b.grade.evLossBb > a.grade.evLossBb ? b : a));
     const principle = principleOf(worst.grade.principle);
     const facts = gradeFacts(worst.grade, worst.toCall, worst.pot);
-    const repeat = sitting.byPrinciple[principle] ?? 0;
+    const repeat = sitting.byKind[kindOf(principle, worst.action, worst.toCall)] ?? 0;
     if (repeat > 0) facts.repeat = String(repeat + 1);
     const rule = quotable(ctx.rules[principle]);
     if (rule) facts.rule = rule;
@@ -213,21 +226,22 @@ export function handEndEvent(
 /** Fold one finished hand into the sitting. Pure; the renderer keeps the value. */
 export function recordHandInSitting(sitting: DeeSitting, decisions: readonly BeatDecision[], beat: DeeEvent | null): DeeSitting {
   const byPrinciple = { ...sitting.byPrinciple };
+  const byKind = { ...sitting.byKind };
   let mistakes = 0;
+  let held = 0;
   for (const d of decisions) {
+    if (isPriceHeld(d, d.grade.close)) held++;
     if (d.grade.severity === 'free' || d.grade.evLossBb < SILENCE_BB) continue;
     mistakes++;
     const p = principleOf(d.grade.principle);
     byPrinciple[p] = (byPrinciple[p] ?? 0) + 1;
+    const k = kindOf(p, d.action, d.toCall);
+    byKind[k] = (byKind[k] ?? 0) + 1;
   }
-  const held = beat?.kind === 'price-held' && beat.principle ? [...sitting.heldPrinciples, beat.principle] : sitting.heldPrinciples;
-  return {
-    hands: sitting.hands + 1,
-    mistakes: sitting.mistakes + mistakes,
-    priceHeld: sitting.priceHeld + (beat?.kind === 'price-held' ? 1 : 0),
-    byPrinciple,
-    heldPrinciples: held,
-  };
+  const heldPrinciples =
+    beat?.kind === 'price-held' && beat.principle ? [...sitting.heldPrinciples, beat.principle] : sitting.heldPrinciples;
+  // Every close price that held counts toward the summary, whether or not the beat said so.
+  return { hands: sitting.hands + 1, mistakes: sitting.mistakes + mistakes, priceHeld: sitting.priceHeld + held, byPrinciple, byKind, heldPrinciples };
 }
 
 /** The session summary event. Under `sessions` it is the only thing Dee says. */
@@ -333,10 +347,9 @@ export function selectLine(
   return { lineId: last.line.id, event: event.kind, pose: last.line.pose, text: last.text };
 }
 
-/** Remember a line as said at the current hand count. Bounded; oldest dropped first. */
-export const MAX_SAID = 64;
+/** Remember a line as said at the current hand count. Bounded like the profile's `said` (MAX_DEE_SAID). */
 export function rememberLine(memory: DeeLineMemory, lineId: string): DeeLineMemory {
-  return { handsWatched: memory.handsWatched, said: [...memory.said, { lineId, at: memory.handsWatched }].slice(-MAX_SAID) };
+  return { handsWatched: memory.handsWatched, said: [...memory.said, { lineId, at: memory.handsWatched }].slice(-MAX_DEE_SAID) };
 }
 
 export function watchHand(memory: DeeLineMemory): DeeLineMemory {

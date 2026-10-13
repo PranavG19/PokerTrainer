@@ -64,10 +64,11 @@ const DEE_BANS: readonly [string, RegExp][] = [
   ['trait', /\b(?:natural|talent(?:ed)?|gifted|genius|smart|clever|stupid|idiot|bad at|good at|a (?:tight|loose|passive|aggressive) player)\b/i],
   ['praise', /\b(?:brilliant|amazing|fantastic|superb|lovely|nicely|bravo|wonderful|proud|terrific|outstanding)\b/i],
   ['you-subject', /\byou(?:'ll|’ll| will| should| need| must| did| made)\b/i],
+  ['you-are', /\byou(?:'re|’re| are| were)\b/i],
   ['gambling', /\b(?:jackpot|cash|money|dollars?|\$|bankroll|casino)\b/i],
 ];
 
-const NUMBER_WORDS = /\b(?:zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|twenty|thirty|forty|fifty|hundred|thousand|once|twice|half a dozen|dozen)\b/i;
+const NUMBER_WORDS = /\b(?:zero|half|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|twenty|thirty|forty|fifty|hundred|thousand|once|twice|half a dozen|dozen)\b/i;
 
 /** Slots each event can supply (engine.ts handEndEvent / sessionEndEvent). */
 const EVENT_SLOTS: Record<Line['event'], readonly Slot[]> = {
@@ -222,6 +223,7 @@ describe('Dialogue scripts: lint and run on every example', () => {
         for (const t of templates) {
           const problems: string[] = [];
           if (/\d/.test(t.text)) problems.push('literal numeral');
+          if (NUMBER_WORDS.test(t.text)) problems.push(`number word: ${NUMBER_WORDS.exec(t.text)?.[0]}`);
           for (const slot of slotsOf(t.text)) if (!(LESSON_SLOTS as readonly string[]).includes(slot)) problems.push(`slot {${slot}}`);
           for (const [name, re] of DEE_BANS) if (re.test(t.text)) problems.push(`dee-ban:${name}`);
           if (t.question && !t.text.trim().endsWith('?')) problems.push('not a question');

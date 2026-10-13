@@ -104,6 +104,17 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
   let picked: string | null = null;
   const tone: Tone = opts.dee?.tone ?? 'warm';
   const character = opts.dee?.character ?? true;
+  /**
+   * The dialogue's announcer: one polite region that lives as long as the screen, so the newest turn is
+   * announced once even though the thread itself is rebuilt on every render (the pattern the table uses).
+   */
+  const dialogueAnnouncer = document.createElement('div');
+  dialogueAnnouncer.className = 'visually-hidden';
+  dialogueAnnouncer.dataset.testid = 'dialogue-announcer';
+  dialogueAnnouncer.setAttribute('role', 'status');
+  dialogueAnnouncer.setAttribute('aria-live', 'polite');
+  /** Where focus goes after a commit (the first open option, or the reveal), set by the commit handler. */
+  let focusAfterCommit = false;
   const lexicon: LexiconEntry[] = readLexicon();
 
   let view: 'list' | 'lesson' = 'list';
@@ -183,7 +194,14 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     root.dataset.committed = String(committed);
     railExample = example;
     railCommitted = committed;
-    root.replaceChildren(renderLessonView(lesson, example), railSeam());
+    root.replaceChildren(renderLessonView(lesson, example), railSeam(), dialogueAnnouncer);
+    if (focusAfterCommit) {
+      focusAfterCommit = false;
+      const target =
+        root.querySelector<HTMLElement>('[data-testid="dialogue-option"]:not(:disabled)') ??
+        root.querySelector<HTMLElement>('[data-testid="lesson-reveal"]');
+      target?.focus({ preventScroll: false });
+    }
   }
 
   /**
@@ -454,7 +472,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     const seed = hashString(k);
     let state = dialogues.get(k);
     if (state === undefined) {
-      state = startDialogue(script, facts, { tone, seed });
+      state = startDialogue(script, facts, { tone, seed, character });
       dialogues.set(k, state);
     }
     const wrap = document.createElement('div');
@@ -463,12 +481,10 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     wrap.dataset.step = String(state.stepIndex);
     wrap.dataset.done = String(state.done);
 
-    // A log: each new turn is announced politely, and the earlier ones stay readable in order.
+    // The thread is a plain ordered list (rebuilt each render); new turns are announced by dialogueAnnouncer.
     const thread = document.createElement('ol');
     thread.className = 'dee-thread';
     thread.dataset.testid = 'dee-thread';
-    thread.setAttribute('role', 'log');
-    thread.setAttribute('aria-live', 'polite');
     thread.setAttribute('aria-label', character ? 'The lesson, with Dee' : 'The lesson');
     let markShown = false;
     for (const turn of state.thread) {
@@ -525,14 +541,19 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
         b.addEventListener('click', () => {
           picked = option.id;
           render();
+          root.querySelector<HTMLElement>(`[data-testid="dialogue-option"][data-option-id="${option.id}"]`)?.focus();
         });
         opts.appendChild(b);
       }
       const commit = pill('Commit', 'dialogue-commit', () => {
         if (picked === null) return;
-        const next = commitAnswer(script, dialogues.get(k) as DialogueState, facts, picked, { tone, seed });
+        const before = dialogues.get(k) as DialogueState;
+        const next = commitAnswer(script, before, facts, picked, { tone, seed, character });
         picked = null;
         dialogues.set(k, next);
+        const said = next.thread.slice(before.thread.length).filter((t) => t.who === 'dee').map((t) => t.text);
+        dialogueAnnouncer.textContent = said.join(' ');
+        focusAfterCommit = true;
         // The last answer committed is the commitment: the rail moves to post-reveal and the reveal is built.
         if (next.done) commitments.set(k, next.thread.filter((t) => t.who === 'you').map((t) => t.text).join(' · '));
         render();
@@ -547,6 +568,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
       const reveal = document.createElement('div');
       reveal.className = 'reveal';
       reveal.dataset.testid = 'lesson-reveal';
+      reveal.tabIndex = -1;
       reveal.appendChild(text('div', 'stat-label g-label', 'The reasoning stored with this position'));
       const reasoning = text('p', 'reveal-reasoning', example.reasoning);
       reasoning.dataset.testid = 'lesson-reasoning';

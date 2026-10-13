@@ -263,6 +263,10 @@ test.describe('Dee', () => {
       expect(back.trim().endsWith('?'), back).toBe(true);
       expect(back.toLowerCase()).not.toMatch(/\b(wrong|incorrect|correct|good|nice|great)\b/);
       expect(await page.locator('[data-testid="dee-turn"]').count()).toBe(turnsBefore + 1);
+      const backLine = (await page.locator('[data-testid="dee-turn"]').last().locator('.dee-say').textContent()) ?? '';
+      await expect(page.locator('[data-testid="dialogue-announcer"]')).toHaveText(backLine);
+      // Focus stays in the answer, on the first option still open.
+      expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe('dialogue-option');
       await expect(page.locator('[data-testid="dialogue-option"]', { hasText: /^300$/ })).toBeDisabled();
       await expect(page.locator('[data-testid="lesson-reveal"]')).toHaveCount(0);
 
@@ -283,8 +287,11 @@ test.describe('Dee', () => {
       await expect(page.locator('[data-testid="lesson-reveal"]')).toHaveCount(1);
       await expect(page.locator('[data-testid="lesson-reasoning"]')).toContainText('2 hands in 3');
       await expect(page.locator('[data-testid="dialogue-ask"]')).toHaveCount(0);
-      // The thread is a polite log, so each turn is announced and the earlier ones stay in order.
-      await expect(page.locator('[data-testid="dee-thread"]')).toHaveAttribute('role', 'log');
+      // New turns are announced through one persistent polite region (the thread itself is rebuilt each render).
+      await expect(page.locator('[data-testid="dialogue-announcer"]')).toHaveAttribute('aria-live', 'polite');
+      await expect(page.locator('[data-testid="dialogue-announcer"]')).not.toHaveText('');
+      // Focus lands on the reveal, not <body>.
+      expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe('lesson-reveal');
       await page.locator('[data-testid="lesson-reveal"]').scrollIntoViewIfNeeded();
       await shot(page, 'dee-lesson-done-900x640');
 

@@ -140,7 +140,15 @@ function dee(text: string, pose: DeePose, lineId: string): Turn {
 }
 
 /** A generic bank line for a lesson moment, seeded by step so a replay reads the same. */
-function bankLine(kind: 'lesson-open' | 'lesson-retry' | 'lesson-done', tone: Tone, seed: number, bank: readonly Line[]): Turn | null {
+function bankLine(
+  kind: 'lesson-open' | 'lesson-retry' | 'lesson-done',
+  tone: Tone,
+  seed: number,
+  bank: readonly Line[],
+  character = true,
+): Turn | null {
+  // Character off: Dee's own voice goes; the script's questions, which are the lesson, stay.
+  if (!character) return null;
   const line = selectLine({ kind, facts: {} }, { tone, quietness: 1, character: true }, { handsWatched: 0, said: [] }, seed, bank);
   return line ? dee(line.text, line.pose, line.lineId) : null;
 }
@@ -148,10 +156,10 @@ function bankLine(kind: 'lesson-open' | 'lesson-retry' | 'lesson-done', tone: To
 export function startDialogue(
   script: DialogueScript,
   facts: LessonFacts,
-  opts: { tone: Tone; seed: number; bank?: readonly Line[] },
+  opts: { tone: Tone; seed: number; bank?: readonly Line[]; character?: boolean },
 ): DialogueState {
   const thread: Turn[] = [];
-  const open = bankLine('lesson-open', opts.tone, opts.seed, opts.bank ?? DEE_BANK);
+  const open = bankLine('lesson-open', opts.tone, opts.seed, opts.bank ?? DEE_BANK, opts.character);
   if (open) thread.push(open);
   const first = script.steps[0];
   const ask = first ? fill(first.ask, facts) : null;
@@ -182,7 +190,7 @@ export function commitAnswer(
   state: DialogueState,
   facts: LessonFacts,
   optionId: string,
-  opts: { tone: Tone; seed: number; bank?: readonly Line[] },
+  opts: { tone: Tone; seed: number; bank?: readonly Line[]; character?: boolean },
 ): DialogueState {
   if (state.done) return state;
   const step = script.steps[state.stepIndex];
@@ -194,7 +202,7 @@ export function commitAnswer(
   const thread: Turn[] = [...state.thread, { who: 'you', text: picked.label, optionId, right: option.correct }];
   if (!option.correct) {
     const back = option.back ? fill(option.back, facts) : null;
-    const reply = back !== null ? dee(back, 'thinking', `${script.lessonId}:${step.id}:${option.id}:back`) : bankLine('lesson-retry', opts.tone, opts.seed + state.thread.length, opts.bank ?? DEE_BANK);
+    const reply = back !== null ? dee(back, 'thinking', `${script.lessonId}:${step.id}:${option.id}:back`) : bankLine('lesson-retry', opts.tone, opts.seed + state.thread.length, opts.bank ?? DEE_BANK, opts.character);
     if (reply) thread.push(reply);
     return { ...state, tried: [...state.tried, optionId], thread };
   }
@@ -204,7 +212,7 @@ export function commitAnswer(
   const nextIndex = state.stepIndex + 1;
   const next = script.steps[nextIndex];
   if (!next) {
-    const done = bankLine('lesson-done', opts.tone, opts.seed + nextIndex, opts.bank ?? DEE_BANK);
+    const done = bankLine('lesson-done', opts.tone, opts.seed + nextIndex, opts.bank ?? DEE_BANK, opts.character);
     if (done) thread.push(done);
     return { ...state, stepIndex: nextIndex, tried: [], thread, done: true };
   }

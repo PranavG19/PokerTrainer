@@ -1,7 +1,7 @@
 import '../styles-dee.css';
 
 import { gradeDecision } from '../../core/coach.js';
-import { gradeFacts, selectLine, type DeeContext } from '../../core/dee/engine.js';
+import { gradeFacts, isPriceHeld, selectLine, type DeeContext } from '../../core/dee/engine.js';
 import { DEE_BANK } from '../../core/dee/bank.js';
 import { VILLAIN_BETTING_RANGE } from '../../core/preflop.js';
 import { FREQUENCIES, TONES, type DeeEvent, type DeePose, type Frequency, type Tone } from '../../core/dee/types.js';
@@ -28,7 +28,7 @@ export interface DeeSettingsHandlers {
 const TONE_LABEL: Record<Tone, string> = { dry: 'Dry', warm: 'Warm', blunt: 'Blunt' };
 const FREQUENCY_COPY: Record<Frequency, [string, string]> = {
   normal: ['After notable hands', 'A mistake, or a close price that held'],
-  mistakes: ['Mistakes only', 'Quiet when the price held'],
+  mistakes: ['Mistakes only', 'A mistake, or a right move for the wrong reason'],
   sessions: ['After sessions only', 'A short summary, nothing between hands'],
 };
 
@@ -56,12 +56,14 @@ const QUIET: Record<'rest' | 'idle', string> = {
  * price that held (the call needs 25%, the hand has about 31%). A mistake: K♥2♦ folding to 75 into 225 on
  * 4♠4♦K♦, with the hand far ahead of the price.
  */
-function previewEvents(): Record<'hand' | 'mistake', DeeEvent> {
+function previewEvents(): Record<'hand' | 'mistake', DeeEvent | null> {
   const base = { street: 'flop', pot: 225, toCall: 75, stack: 4950, bb: 50, opponents: 1, seed: 7, villainRange: VILLAIN_BETTING_RANGE } as const;
   const call = gradeDecision({ ...base, hole: ['Qh', 'Jd'], board: ['Th', '6d', '2h'], chosen: 'call' });
   const fold = gradeDecision({ ...base, hole: ['Kh', '2d'], board: ['4s', '4d', 'Kd'], chosen: 'fold' });
+  // The preview may only claim a price held if the engine's own rule says it did.
+  const held = isPriceHeld({ grade: call, action: 'call', street: base.street, toCall: base.toCall, pot: base.pot, confidence: 'sure', reasonCategory: 'price', rightForWrongReason: false });
   return {
-    hand: { kind: 'price-held', priced: true, facts: gradeFacts(call, base.toCall, base.pot) },
+    hand: held ? { kind: 'price-held', priced: true, facts: gradeFacts(call, base.toCall, base.pot) } : null,
     mistake: {
       kind: 'verdict',
       severity: fold.severity === 'serious' ? 'serious' : 'notable',
@@ -156,7 +158,8 @@ export function renderDeeSettings(opts: {
     setDeePose(mark, MOMENT_POSE[moment]);
     markWrap.setAttribute('aria-label', `Dee, ${MOMENT_NAME[moment]}`);
     if (moment === 'hand' || moment === 'mistake') {
-      const line = selectLine(events[moment], { tone, quietness: 1, character: true }, { handsWatched: 0, said: [] }, 1, PREVIEW_BANK);
+      const event = events[moment];
+      const line = event === null ? null : selectLine(event, { tone, quietness: 1, character: true }, { handsWatched: 0, said: [] }, 1, PREVIEW_BANK);
       say.textContent = line?.text ?? '';
       say.dataset.lineId = line?.lineId ?? '';
     } else {

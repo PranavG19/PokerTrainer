@@ -88,6 +88,14 @@ describe('Price held (owner D6)', () => {
     expect(isPriceHeld(decision({ street: 'preflop' }))).toBe(false);
   });
 
+  it('never fires on the wrong side of the price, even when the cost was under half a big blind (free)', () => {
+    // A call with 31% against a 33% price: free (cheap) but short of the price.
+    expect(isPriceHeld(decision({ grade: { spot: { needed: 0.33, had: 0.31 } } }))).toBe(false);
+    // A fold with 36% against a 33% price: the call was the side the price favoured.
+    expect(isPriceHeld(decision({ action: 'fold', grade: { spot: { needed: 0.33, had: 0.36 } } }))).toBe(false);
+    expect(isPriceHeld(decision({ action: 'fold', grade: { spot: { needed: 0.33, had: 0.3 } } }))).toBe(true);
+  });
+
   it('the close-spot band seam decides when the grader supplies it', () => {
     expect(isPriceHeld(decision({ grade: { spot: { needed: 0.25, had: 0.6 } } }), true)).toBe(true);
     expect(isPriceHeld(decision(), false)).toBe(false);
@@ -151,6 +159,19 @@ describe('selection: deterministic, specific first, cooldowns, depth quieting', 
     const e = handEndEvent([decision({ grade: { severity: 'notable', evLossBb: 1.1, principle: 'pot odds' } })], sitting, CTX);
     expect(e?.repeat).toBe(1);
     expect(selectLine(e, CTX, FRESH, 1)?.text).toMatch(/^Noted/);
+  });
+
+  it('{repeat} counts the same kind of mistake, not just the same principle', () => {
+    const fold = serious();
+    const call = decision({ action: 'call', grade: { severity: 'serious', evLossBb: 2.5, principle: 'pot odds', price: { needed: 0.33, had: 0.2 } } });
+    const after = recordHandInSitting(NEW_SITTING, [fold], null);
+    expect(handEndEvent([call], after, CTX)?.repeat).toBe(0);
+    expect(handEndEvent([fold], after, CTX)?.repeat).toBe(1);
+  });
+
+  it('counts every close price that held for the summary, under any frequency', () => {
+    const s = recordHandInSitting(NEW_SITTING, [decision()], null);
+    expect(s.priceHeld).toBe(1);
   });
 
   it('quotes the learner’s own sentence when one is saved for the principle', () => {

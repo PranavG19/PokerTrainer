@@ -74,6 +74,14 @@ describe('Dee asks, you commit, a wrong answer gets a question back', () => {
     expect(pendingStep(script, s, f)?.options.map((o) => o.label)).toEqual(['1 in 2', '1 in 3']);
   });
 
+  it('Character off drops Dee’s own lines and keeps the lesson’s questions', () => {
+    let s = startDialogue(script, facts, { ...OPTS, character: false });
+    expect(s.thread.every((t) => t.who === 'dee' && t.lineId.startsWith('minimum-defence-frequency:'))).toBe(true);
+    for (const id of ['old', 'alpha', 'mdf']) s = commitAnswer(script, s, facts, id, { ...OPTS, character: false });
+    expect(s.done).toBe(true);
+    expect(s.thread.filter((t) => t.who === 'dee').every((t) => (t as { lineId: string }).lineId.startsWith('minimum-defence-frequency:'))).toBe(true);
+  });
+
   it('every registered script names a registered lesson', () => {
     for (const id of Object.keys(DIALOGUES)) expect(lessonById(id)).toBeDefined();
     expect(dialogueFor('pot-odds-as-a-price')).toBeUndefined();

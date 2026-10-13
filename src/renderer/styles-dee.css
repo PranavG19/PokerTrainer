@@ -70,6 +70,7 @@ html[data-character='off'] .perch {
 .perch-streak[hidden] { display: none; }
 /* With the perch in the bar, the right-hand spacer only balances what the perch does not fill. */
 .tabs .nav-spacer { width: 52px; }
+html[data-character='off'] .tabs .nav-spacer { width: 92px; }
 
 /* ─── The hand-end beat: one line in the dock's slot, after the reveal ─── */
 .table-screen .controls[data-beat='true'] {
