@@ -135,7 +135,7 @@ optional opt-in download, not in the base install.
   allowed set). Gemma 4 E2B (Apache-2.0) was the better drafter but is 3.1 GB and rewrote more lines falsely.
 - **Runtime pin:** llama.cpp `b11588` (MIT), GitHub-published sha256 digests.
 - **The scripted path is the product.** `src/core/dee/chat/`: a deterministic gate (`gate.ts`), the engine's answer
-  facts (`answer.ts`) and an authored chat bank (`bank.ts`, 54 templates, linted like the line bank by
+  facts (`answer.ts`) and an authored chat bank (`bank.ts`, 57 templates, linted like the line bank by
   `tests/unit/dee-chat-bank.test.ts`). Chat works fully with no model installed; the model can only reword.
 - **Intents:** explain this hand, the price (the last one faced, or a typed "bet into pot", computed by
   `arithmetic.potOdds`), what was my mistake, define a concept (Dee's own definitions or the lesson's mechanism
@@ -157,7 +157,11 @@ optional opt-in download, not in the base install.
 - **The rewording checks** (`src/main/dee/phrasing.ts`, all must pass or the scripted text shows): the tutor guard with
   the scripted text as the only numeral source, no Dee ban the script does not trip, every numeral kept in order,
   STRICT=2 (`rephraseProblems`: number words, no new action, a question stays one, no collapse, polarity words equal,
-  the script's content words in order), one plain line (no markup, link or prompt echo), at most 8 words longer.
+  the script's content words in order), the role words and negators (price, share, held, first, last, button,
+  not, only, more…) and every numeral in exactly the script's sequence (none dropped or moved), numerals counted in
+  every script (`\p{N}`), no character outside the script's repertoire (Qwen code-switches into Chinese), one plain
+  line (no markup, link or prompt echo), at most 8 words longer. The last three were added after the review
+  (code-review.md items 2 and 3).
   Budget 600 ms in main (750 ms in the renderer for the IPC hop); temperature 0, seed 7, and a cache keyed on model,
   template and slots. Timeouts and model errors are not cached.
 - **Dee's ban list moved to `src/core/dee/bans.ts`** so the line bank lint, the chat lint and the runtime check share
@@ -171,8 +175,10 @@ optional opt-in download, not in the base install.
   with a receipt holding the binary's sha256, re-checked before every start. Delete removes the directory.
 - **The download uses `node:https` in main, not Chromium,** so the session seal stays total (no allowlist hole) and
   the main-process oracle sees every socket.
-- **The sidecar** (`src/main/dee/sidecar.ts`): started when the chat panel opens, warmed with one throwaway rewording
-  (the smoke run's first cold call took 612 ms), stopped after 10 idle minutes and on quit, one restart per session.
+- **The sidecar** (`src/main/dee/sidecar.ts`): started only by `warm()` when the chat panel opens (after the binary
+  hash check), warmed with one throwaway rewording (an unwarmed first call took 612 ms), stopped after 10 idle
+  minutes and on quit. A crash or a start that never becomes ready is torn down and counted: one retry per session,
+  then the scripted answers. A question never starts a process. On macOS it runs under `sandbox-exec` or not at all.
 - **Network proof:** `no-network.spec` drives the real download against a loopback server (via
   `OFFSUIT_E2E_DEE_MANIFEST`, honoured only under `OFFSUIT_E2E=1` and only when every URL is `http://127.0.0.1`):
   chat and settings make no socket and no process; after the consent click the only outbound records are connects

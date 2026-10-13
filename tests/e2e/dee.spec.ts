@@ -156,9 +156,15 @@ test.describe('Dee', () => {
         await boardAtRest(page);
         await shot(page, `dee-beat-${w}x${h}`);
       }
-      // The beat is cleared with the hand.
-      if (await page.locator(coachClose).isVisible()) await page.locator(coachClose).click();
-      await page.locator('[data-testid="next-hand"]').click();
+      // Closing the hand-end verdict with Esc puts focus on Next hand, so Enter deals (review item 5: "Ask Dee"
+      // sits before it in the dock and must not take the focus).
+      await expect(page.locator(coachClose)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-testid="next-hand"]')).toBeFocused();
+      // The beat is back in the dock once the sheet is gone, and it is cleared with the hand.
+      await expect(page.locator(`.controls ${beat}`)).toHaveCount(1);
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-testid="dee-chat"]')).toHaveCount(0);
       await expect(page.locator(beat)).toHaveCount(0);
       await expect(page.locator('[data-testid="dee-announcer"]')).toHaveText('');
     });

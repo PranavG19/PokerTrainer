@@ -90,14 +90,40 @@ export function cleanModelText(raw: string): string {
     .trim();
 }
 
-const NUMERAL = /\d+(?:\.\d+)?/g;
+/** Every numeral in any script (full-width digits, fractions, circled numbers), not only ASCII ones. */
+const NUMERAL = /\p{N}+(?:\.\p{N}+)?/gu;
 const numerals = (t: string): string[] => (t.match(NUMERAL) ?? []) as string[];
+
+/** Plain printable ASCII plus the bank's typographic punctuation: a rewording may not bring in another script. */
+const REPERTOIRE = /^[\x20-\x7E\u2018\u2019\u201C\u201D\u2013\u2014\u2026]*$/u;
+
+/**
+ * Words the PoC's order rule treats as house words but whose position carries the meaning: what a number is
+ * (price, share, held, needed), who acts (first, last, button, blind), and the negators and limiters. A rewording
+ * may neither drop nor move them, so "the price was 31% and the share 22%" cannot become the reverse, and "the seat
+ * left of the big blind acts first" cannot lose its seat.
+ */
+const BOUND = new Set(
+  ('price pot share hand held needed had asked first last button blind seat not no never only just more less ' +
+    'enough too still already again every all some any most free better worse best worst').split(' '),
+);
+const stem = (w: string): string => w.replace(/(?:'s|s|ed|ing)$/, '');
+
+/** The bound words and numerals, in order, must be exactly the script's. */
+export function boundOrderProblem(text: string, script: string): string | null {
+  const toks = (t: string): string[] =>
+    ((t.toLowerCase().match(/[a-z']+|\d+(?:\.\d+)?/g) ?? []) as string[]).filter((w) => /\d/.test(w) || BOUND.has(w) || BOUND.has(stem(w))).map(stem);
+  const a = toks(text).join(' ');
+  const b = toks(script).join(' ');
+  return a === b ? null : `bound:${b}=>${a}`;
+}
 const words = (t: string): number => t.trim().split(/\s+/).filter(Boolean).length;
 
 /** Every reason a rewording of `scripted` is refused; empty means it may be shown. */
 export function rewriteProblems(candidate: string, scripted: string): string[] {
   const out: string[] = [];
   if (candidate.trim() === '') return ['empty'];
+  if (!REPERTOIRE.test(candidate) && REPERTOIRE.test(scripted)) out.push('script-repertoire');
   if (/[\r\n]/.test(candidate)) out.push('multiline');
   if (/[<>`*#_[\]{}|\\]|https?:|www\.|@/i.test(candidate)) out.push('markup');
   if (/\b(?:line|rules?|persona|instructions?|prompt)\s*:/i.test(candidate)) out.push('prompt-echo');
@@ -109,6 +135,8 @@ export function rewriteProblems(candidate: string, scripted: string): string[] {
   for (const [name, re] of DEE_BANS) if (re.test(candidate) && !re.test(scripted)) out.push(`dee-ban:${name}`);
   if (numerals(candidate).join(' ') !== numerals(scripted).join(' ')) out.push(`numerals:${numerals(scripted).join(' ')}=>${numerals(candidate).join(' ')}`);
   out.push(...rephraseProblems(candidate, scripted).map((p) => `strict:${p}`));
+  const bound = boundOrderProblem(candidate, scripted);
+  if (bound) out.push(bound);
   return out;
 }
 

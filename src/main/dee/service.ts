@@ -61,6 +61,8 @@ export interface PhrasingDeps {
   readonly loadEnabled: () => boolean;
   readonly saveEnabled: (on: boolean) => void;
   readonly onStatus: (s: PhrasingStatus) => void;
+  /** How long a start may take to answer /health (tests shorten it). */
+  readonly readyTimeoutMs?: number;
   /** For tests: what to run instead of the real sidecar. */
   readonly makeModel?: (binary: string, model: string) => PhraseModel & { start(): Promise<void>; stop(): void; onExit: ((code: number | null) => void) | null; readonly running: boolean };
 }
@@ -236,7 +238,8 @@ export class PhrasingService {
         this.emit();
         return;
       }
-      const make = this.deps.makeModel ?? ((binary: string, model: string) => new LlamaSidecar({ binary, model }, this.deps.manifest.id));
+      const make =
+        this.deps.makeModel ?? ((binary: string, model: string) => new LlamaSidecar({ binary, model }, this.deps.manifest.id, this.deps.readyTimeoutMs));
       const sidecar = make(receipt.binary, this.modelFile);
       sidecar.onExit = () => {
         this.sidecar = null;
@@ -251,8 +254,10 @@ export class PhrasingService {
       await this.sidecar.start();
       await this.sidecar.rewrite({ persona: PERSONA, scripted: 'The price is the call over the pot after the call.', facts: [] }, new AbortController().signal);
     } catch {
-      // A failed start is counted like a crash: one retry per session, then the written lines.
-      if (this.sidecar !== null && !this.sidecar.running && ++this.restarts > 1) this.failedThisSession = true;
+      // A failed start is counted like a crash and torn down here, so nothing relaunches it unchecked: the next
+      // start goes through warm() again (binary hash first), once per session, then the written lines.
+      this.stop();
+      if (++this.restarts > 1) this.failedThisSession = true;
     }
     this.emit();
   }

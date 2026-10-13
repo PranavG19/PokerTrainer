@@ -118,8 +118,9 @@ export function downloadUrlAllowed(raw: string, testLoopback = false): boolean {
  * every URL is on http://127.0.0.1, so a spec can drive the real download path against a loopback server and
  * prove the click is the only network use. Outside e2e, or with any non-loopback URL, the override is ignored.
  */
-export function activeManifest(env: NodeJS.ProcessEnv = process.env): { manifest: PhrasingManifest; testLoopback: boolean } {
-  const file = env.OFFSUIT_E2E === '1' ? env.OFFSUIT_E2E_DEE_MANIFEST : undefined;
+export function activeManifest(env: NodeJS.ProcessEnv = process.env, packaged = false): { manifest: PhrasingManifest; testLoopback: boolean } {
+  // A packaged build never honours the test override, whatever its environment says.
+  const file = env.OFFSUIT_E2E === '1' && !packaged ? env.OFFSUIT_E2E_DEE_MANIFEST : undefined;
   if (file !== undefined && file !== '') {
     try {
       const m = JSON.parse(fs.readFileSync(file, 'utf8')) as PhrasingManifest;

@@ -25,7 +25,7 @@ import type { PhraseModel, RewriteInput } from './phrasing.js';
 
 export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
 export const SIDECAR_SEED = 7;
-const READY_TIMEOUT_MS = 30_000;
+export const READY_TIMEOUT_MS = 30_000;
 
 export interface SidecarPaths {
   readonly binary: string;
@@ -66,7 +66,9 @@ export function sidecarArgs(paths: SidecarPaths, socket: string, apiKeyFile: str
 /** The command line actually spawned: under the sandbox on macOS. */
 export function sidecarCommand(paths: SidecarPaths, runDir: string, socket: string, keyFile: string): { command: string; args: string[] } {
   const args = sidecarArgs(paths, socket, keyFile);
-  if (process.platform === 'darwin' && fs.existsSync(SANDBOX_EXEC)) {
+  // Fail closed: on macOS the sidecar runs sandboxed or not at all.
+  if (process.platform === 'darwin') {
+    if (!fs.existsSync(SANDBOX_EXEC)) throw new Error('sandbox-exec is missing; the sidecar does not run unsandboxed');
     return { command: SANDBOX_EXEC, args: ['-p', sandboxProfile(runDir), paths.binary, ...args] };
   }
   return { command: paths.binary, args };
@@ -114,10 +116,12 @@ export class LlamaSidecar implements PhraseModel {
   private socket = '';
   private key = '';
   private ready: Promise<void> | null = null;
+  /** True once /health answered 200 for the current child. */
+  private isReady = false;
   /** Called when the child exits on its own (a crash), so the service can count restarts. */
   onExit: ((code: number | null) => void) | null = null;
 
-  constructor(private readonly paths: SidecarPaths, id: string) {
+  constructor(private readonly paths: SidecarPaths, id: string, private readonly readyTimeoutMs = READY_TIMEOUT_MS) {
     this.id = id;
   }
 
@@ -150,18 +154,23 @@ export class LlamaSidecar implements PhraseModel {
     });
     this.child = child;
     child.on('exit', (code) => {
-      const wasOurs = this.child === child;
+      // A child this sidecar already replaced or stopped must not clear the current one's state.
+      if (this.child !== child) return;
       this.child = null;
       this.ready = null;
-      if (wasOurs) this.onExit?.(code);
+      this.isReady = false;
+      this.onExit?.(code);
     });
-    const deadline = Date.now() + READY_TIMEOUT_MS;
+    const deadline = Date.now() + this.readyTimeoutMs;
     while (Date.now() < deadline) {
       if (this.child === null) throw new Error('sidecar exited during start');
       if (fs.existsSync(this.socket)) {
         try {
           const r = await request(this.socket, 'GET', '/health', this.key, null);
-          if (r.status === 200) return;
+          if (r.status === 200) {
+            this.isReady = true;
+            return;
+          }
         } catch {
           // Not accepting yet.
         }
@@ -171,8 +180,9 @@ export class LlamaSidecar implements PhraseModel {
     throw new Error('sidecar did not become ready');
   }
 
+  /** Never starts a process: only `start()` (the service's `warm`, which checks the binary first) does. */
   async rewrite(input: RewriteInput, signal: AbortSignal): Promise<string> {
-    await this.start();
+    if (!this.isReady || this.child === null) throw new Error('sidecar not ready');
     const r = await request(this.socket, 'POST', '/v1/chat/completions', this.key, chatBody(input), signal);
     if (r.status !== 200) throw new Error(`sidecar ${r.status}`);
     const parsed = JSON.parse(r.body) as { choices?: { message?: { content?: unknown } }[] };
@@ -185,6 +195,7 @@ export class LlamaSidecar implements PhraseModel {
     const child = this.child;
     this.child = null;
     this.ready = null;
+    this.isReady = false;
     if (child && child.exitCode === null) child.kill('SIGTERM');
     if (this.runDir) fs.rmSync(this.runDir, { recursive: true, force: true });
     this.runDir = null;

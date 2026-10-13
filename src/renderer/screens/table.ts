@@ -717,7 +717,12 @@ export function renderTable(opts: {
     if (state.winners !== null) renderControlsInner();
     // Focus returns to the first live control below the table, never to <body>.
     if (hadFocus) {
-      const next = [...root.querySelectorAll<HTMLElement>('.predict button, .controls button, .controls input')].find(
+      // At hand end the dock's primary takes the focus (Next hand, else Rebuy or New session), never "Ask Dee".
+      const primary =
+        state.winners === null
+          ? null
+          : root.querySelector<HTMLElement>('[data-testid="next-hand"], [data-testid="btn-rebuy"], [data-testid="new-session"]');
+      const next = primary ?? [...root.querySelectorAll<HTMLElement>('.predict button, .controls button, .controls input')].find(
         (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
       );
       (next ?? stage).focus({ preventScroll: true });
@@ -1493,7 +1498,7 @@ export function renderTable(opts: {
       // already answers Enter itself).
       const focus = document.activeElement;
       const typing = focus instanceof HTMLInputElement || focus instanceof HTMLTextAreaElement;
-      if (!typing && e.key.toLowerCase() === 'd' && opts.onAskDee && !e.metaKey && !e.ctrlKey) {
+      if (!typing && e.key.toLowerCase() === 'd' && opts.onAskDee && opts.dee?.context.character !== false && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         opts.onAskDee();
       } else if (e.key === 'Enter' && !typing && !(focus instanceof HTMLButtonElement)) {

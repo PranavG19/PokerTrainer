@@ -16,7 +16,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { LlamaSidecar, sandboxProfile, SANDBOX_EXEC } from '../../src/main/dee/sidecar.js';
-import { Phraser } from '../../src/main/dee/phrasing.js';
+import { Phraser, PERSONA } from '../../src/main/dee/phrasing.js';
 import { answerQuestion } from '../../src/core/dee/chat/answer.js';
 
 const binary = process.env.DEE_SMOKE_BINARY;
@@ -49,6 +49,10 @@ it.skipIf(!binary || !model)('real-model phrasing smoke', async () => {
   const t0 = Date.now();
   await sidecar.start();
   log(`sidecar ready in ${Date.now() - t0} ms (cold start, model load)`);
+  // What the app's warm() does: one throwaway rewording, so the first real answer is not the cold one.
+  const w0 = Date.now();
+  await sidecar.rewrite({ persona: PERSONA, scripted: 'The price is the call over the pot after the call.', facts: [] }, new AbortController().signal);
+  log(`warm-up rewording in ${Date.now() - w0} ms`);
 
   const seen = new Set<string>();
   const results: { ms: number; source: string; reason: string | null }[] = [];

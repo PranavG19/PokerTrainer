@@ -520,7 +520,7 @@ app.whenReady().then(() => {
    * (phrasing.ts re-renders and re-checks them); the download runs only on the consent click and is the
    * feature's only network use (no-network.spec proves it). Everything is in <userData>/dee-model.
    */
-  const { manifest, testLoopback } = activeManifest();
+  const { manifest, testLoopback } = activeManifest(process.env, app.isPackaged);
   const phrasing = new PhrasingService({
     dir: path.join(app.getPath('userData'), 'dee-model'),
     manifest,

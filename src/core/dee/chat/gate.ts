@@ -51,7 +51,7 @@ const has = (re: RegExp, ...texts: string[]): boolean => texts.some((t) => re.te
 // ── refusal lexicons ────────────────────────────────────────────────────────────────────────────────
 
 const CRISIS =
-  /\b(?:suicid\w*|kill (?:my ?self|me)|end (?:my|it all)|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|no reason to live|overdose)\b/;
+  /\b(?:suicid\w*|kill (?:my ?self|me)|end(?:ing)? (?:my life|it all|it|things|everything)|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|no reason to live|overdose|(?:don'?t|do not|dont) want to (?:live|be here|be alive|wake up|exist)|wish i (?:was|were) (?:dead|gone|never born)|better off dead|take my (?:own )?life|kms|unalive\w*|not worth living)\b/;
 
 const INJECTION = new RegExp(
   [
@@ -84,7 +84,7 @@ const GAMBLING = new RegExp(
 
 const MONEY = new RegExp(
   [
-    String.raw`\b(?:money|cash|dollars?|euros?|pounds sterling|bucks|quid|usd|eur|gbp|bitcoin|btc|ethereum|eth|crypto\w*|nfts?|stocks?|shares in|invest\w*|loans?|debts?|credit cards?|mortgages?|savings|salary|paycheck|bank account|financ\w*|retirement|401k|pensions?|tax(?:es)?|income|rich|wealth\w*|payday|venmo|paypal)\b`,
+    String.raw`\b(?:money|cash|dollars?|euros?|pounds sterling|bucks|quid|usd|eur|gbp|bitcoin|btc|ethereum|eth|crypto\w*|nfts?|stocks?|shares in|invest\w*|loans?|debts?|credit cards?|mortgages?|savings|salary|paycheck|bank account|owe|owes|owed|owing|financ\w*|retirement|401k|pensions?|tax(?:es)?|income|rich|wealth\w*|payday|venmo|paypal)\b`,
     String.raw`[$€£¥₿]|\b\d+\s*(?:k|grand)\b`,
     String.raw`\b(?:make|win|earn) (?:a )?(?:living|money|cash|bank|bucks)\b|\bmake a profit\b|\bget paid\b|\bpay (?:my|the|for) (?:rent|bills?|debts?|mortgage|tuition)\b|\brent\b|\bside hustle\b|\bquit my job\b|\bgo pro\b|\bturn pro\b`,
   ].join('|'),
@@ -121,12 +121,22 @@ function refusalOf(t: string): Refusal | null {
 // ── intents ─────────────────────────────────────────────────────────────────────────────────────────
 
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const phrase = (aliases: readonly string[]): RegExp => new RegExp(`(?:^|[^a-z0-9])(?:${aliases.map(escape).join('|')})(?![a-z0-9])`);
+const phrase = (aliases: readonly string[]): RegExp => new RegExp(`(?:^|[^a-z0-9-])(?:${aliases.map(escape).join('|')})(?![a-z0-9-])`);
 
 const FEATURE_RES = FEATURES.map((f) => ({ id: f.id, re: phrase(f.aliases) }));
 const RULE_RES = RULES.map((r) => ({ id: r.id, re: phrase(r.aliases) }));
 // Longest alias first, so "pot share" is found before "price" and "straight flush" before "flush".
-const CONCEPT_RES = CONCEPTS.map((c) => ({ id: c.id, re: phrase([...c.aliases].sort((a, b) => b.length - a.length)), len: Math.max(...c.aliases.map((a) => a.length)) }));
+const CONCEPT_RES = CONCEPTS.map((c) => ({ id: c.id, aliases: [...c.aliases].sort((a, b) => b.length - a.length) }));
+
+/** Concepts a question names, the one with the longest alias actually found first ("fold equity" before "equity"). */
+function conceptsIn(t: string): { id: string; len: number }[] {
+  const found: { id: string; len: number }[] = [];
+  for (const c of CONCEPT_RES) {
+    const hit = c.aliases.find((a) => phrase([a]).test(t));
+    if (hit !== undefined) found.push({ id: c.id, len: hit.length });
+  }
+  return found.sort((a, b) => b.len - a.len);
+}
 
 /** Every category a question names, longest alias first so "straight flush" is not read as "flush". */
 function categoriesIn(t: string): number[] {
@@ -193,7 +203,7 @@ export function classify(question: string): GateResult {
 
   if (feature) return { kind: 'intent', intent: 'feature', topic: feature.id };
 
-  const concepts = CONCEPT_RES.filter((c) => c.re.test(t)).sort((a, b) => b.len - a.len);
+  const concepts = conceptsIn(t);
   if (concepts.length > 0 && (DEFINE.test(t) || t.split(' ').length <= 4)) return { kind: 'intent', intent: 'define', topic: concepts[0].id };
   if (PRICE.test(t)) return { kind: 'intent', intent: 'price-now' };
   if (concepts.length > 0) return { kind: 'intent', intent: 'define', topic: concepts[0].id };

@@ -26,11 +26,15 @@ export class DownloadError extends Error {
 }
 
 const MAX_REDIRECTS = 5;
+/** No bytes for this long ends the download. */
+const STALL_MS = 30_000;
 
 function get(url: string, signal: AbortSignal): Promise<http.IncomingMessage> {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https:') ? https : http;
     const req = lib.get(url, { signal, headers: { 'user-agent': 'Offsuit', accept: '*/*' } }, resolve);
+    // A stalled connection fails rather than sitting in "downloading" until Cancel.
+    req.setTimeout(STALL_MS, () => req.destroy(new DownloadError('network', `no data for ${STALL_MS / 1000} s`)));
     req.on('error', (e) => reject(signal.aborted ? new DownloadError('aborted', 'cancelled') : new DownloadError('network', e.message)));
   });
 }

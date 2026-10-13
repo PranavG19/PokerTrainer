@@ -254,3 +254,54 @@ describe('the sidecar command line', () => {
     expect(sandboxProfile('/tmp/r')).toBe(profile);
   });
 });
+
+describe.runIf(process.platform === 'darwin')('review 4: a sidecar that never becomes ready', () => {
+  it('is stopped and counted, never relaunched by a question, and nothing outlives stop()', async () => {
+    const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dee-launch-')), 'launches');
+    const m = fixture();
+    // Replace the fixture's runtime with one that records each launch and never opens its socket.
+    const dir = tmp();
+    fs.mkdirSync(path.join(dir, 'llama-test'));
+    fs.writeFileSync(path.join(dir, 'llama-test', 'llama-server'), `#!/bin/sh\necho x >> ${marker}\nexec sleep 30\n`);
+    execFileSync('/usr/bin/tar', ['-czf', path.join(dir, 'rt.tar.gz'), '-C', dir, 'llama-test']);
+    const rt = fs.readFileSync(path.join(dir, 'rt.tar.gz'));
+    const id = crypto.randomBytes(4).toString('hex');
+    files.set(`/${id}/rt.tar.gz`, rt);
+    const manifest = { ...m, runtimes: { [platformKey()]: { ...m.runtimes[platformKey()], url: `${base}/${id}/rt.tar.gz`, size: rt.length, sha256: sha(rt) } } };
+    let enabled = true;
+    const s = new PhrasingService({
+      dir: path.join(tmp(), 'dee-model'), manifest, testLoopback: true, readyTimeoutMs: 400,
+      loadEnabled: () => enabled, saveEnabled: (on) => { enabled = on; }, onStatus: () => undefined,
+    });
+    expect((await s.download(true, LICENCES)).state).toBe('installed');
+    const launches = (): number => (fs.existsSync(marker) ? fs.readFileSync(marker, 'utf8').split('\n').filter(Boolean).length : 0);
+    await s.warm();
+    expect(launches()).toBe(1);
+    // A question after the failed start shows the scripted answer and starts nothing.
+    const r = await s.phrase({ templateId: 'rules-order', slots: {} });
+    expect(r.source).toBe('script');
+    await new Promise((res) => setTimeout(res, 300));
+    expect(launches()).toBe(1);
+    // One retry per session, then the written answers for the rest of it.
+    await s.warm();
+    await s.warm();
+    expect(launches()).toBe(2);
+    s.stop();
+    await new Promise((res) => setTimeout(res, 300));
+    const alive = (() => { try { return execFileSync('/usr/bin/pgrep', ['-f', marker]).toString().trim(); } catch { return ''; } })();
+    expect(alive, 'no sidecar outlives stop()').toBe('');
+  }, 20_000);
+});
+
+describe('the e2e manifest override', () => {
+  it('is honoured only under OFFSUIT_E2E, only in an unpackaged build, and only with loopback URLs', async () => {
+    const { activeManifest } = await import('../../src/main/dee/manifest.js');
+    const file = path.join(tmp(), 'm.json');
+    fs.writeFileSync(file, JSON.stringify({ ...PHRASING_MANIFEST, id: 'x', model: { ...PHRASING_MANIFEST.model, url: 'http://127.0.0.1:1/m' }, runtimes: {} }));
+    expect(activeManifest({ OFFSUIT_E2E: '1', OFFSUIT_E2E_DEE_MANIFEST: file }).manifest.id).toBe('x');
+    expect(activeManifest({ OFFSUIT_E2E: '1', OFFSUIT_E2E_DEE_MANIFEST: file }, true).manifest.id).toBe(PHRASING_MANIFEST.id);
+    expect(activeManifest({ OFFSUIT_E2E_DEE_MANIFEST: file }).manifest.id).toBe(PHRASING_MANIFEST.id);
+    fs.writeFileSync(file, JSON.stringify({ ...PHRASING_MANIFEST, id: 'y', runtimes: {} }));
+    expect(activeManifest({ OFFSUIT_E2E: '1', OFFSUIT_E2E_DEE_MANIFEST: file }).manifest.id).toBe(PHRASING_MANIFEST.id);
+  });
+});
