@@ -21,9 +21,9 @@ import { tableScreen, waitForIdle } from './flow.js';
  * who could click "Next hand" forever. Playwright's click auto-scrolls, which is exactly why no
  * existing test noticed.
  *
- * Seed 8 hand 1 is the spot coach.spec.ts and predict.spec.ts already pin: hero holds QsQh,
- * calling 50 preflop is FREE, then folding for 99 into a 348 pot throws away 3.9bb and grades
- * SERIOUS. The fold also ends the hand, so one line reaches handover with the coach speaking.
+ * seed 10 hand 1 is the spot coach.spec.ts and predict.spec.ts already pin: hero holds 9s7c,
+ * calling the 50 limp preflop is FREE, then folding for 139 into a 453 pot throws away 5.3bb and grades
+ * SERIOUS. The fold leaves the others to play the hand out, then it reaches handover with the coach speaking.
  */
 
 const MIN_WIDTH = 900;
@@ -129,8 +129,8 @@ async function sitDown(page: Page): Promise<void> {
 }
 
 /**
- * Play seed 8 hand 1 in coached mode to a handover that has a SERIOUS coach grade up:
- * commit+call preflop (free, a match), then commit+fold the flop (3.9bb, ends the hand).
+ * Play seed 10 hand 1 in coached mode to a handover that has a SERIOUS coach grade up:
+ * commit+call preflop (free, a match), then commit+fold the flop (5.3bb; the others play the hand out).
  */
 async function reachGradedCoachedHandover(page: Page): Promise<void> {
   await page.locator(modeToggle).click();
@@ -140,7 +140,7 @@ async function reachGradedCoachedHandover(page: Page): Promise<void> {
   await page.locator('[data-testid="predict-call"]').click();
   await page.locator('[data-testid="confidence-sure"]').click();
   await page.locator(sel.btnCall).click();
-  expect(await waitForIdle(page), 'seed 8 must give a second hero decision').toBe('hero');
+  expect(await waitForIdle(page), 'seed 10 must give a second hero decision').toBe('hero');
 
   await page.locator('[data-testid="predict-fold"]').click();
   await page.locator('[data-testid="confidence-sure"]').click();
@@ -165,7 +165,7 @@ async function reachGradedCoachedHandover(page: Page): Promise<void> {
 
 test.describe('coached handover at the documented minimum size', () => {
   test('1. "Next hand" is on screen and clickable after a graded coached mistake at 900x640', async () => {
-    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    const { app, page, close } = await launchApp({ seed: 10, userDataDir: freshUserDataDir() });
     try {
       await sitDown(page);
       await useViewport(app, page);
@@ -218,7 +218,7 @@ test.describe('coached handover at the documented minimum size', () => {
    * control off screen above.
    */
   test('2. the commit prompt and pills are gone at handover, and the verdict remains', async () => {
-    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    const { app, page, close } = await launchApp({ seed: 10, userDataDir: freshUserDataDir() });
     try {
       await sitDown(page);
       await useViewport(app, page);
@@ -252,7 +252,7 @@ test.describe('coached handover at the documented minimum size', () => {
    * where focus goes, what Esc does, and that nothing behind the sheet takes input.
    */
   test('3. the gate is a sheet: focus is in its answer field and the table behind is inert', async () => {
-    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    const { app, page, close } = await launchApp({ seed: 10, userDataDir: freshUserDataDir() });
     try {
       await sitDown(page);
       await useViewport(app, page);
@@ -288,7 +288,7 @@ test.describe('coached handover at the documented minimum size', () => {
   });
 
   test('4. the verdict is a sheet: focus moves into it, Esc dismisses it, focus lands on a live control', async () => {
-    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    const { app, page, close } = await launchApp({ seed: 10, userDataDir: freshUserDataDir() });
     try {
       await sitDown(page);
       await useViewport(app, page);
@@ -330,7 +330,7 @@ test.describe('coached handover at the documented minimum size', () => {
   });
 
   test('5. switching Coach on over an uncoached verdict keeps the verdict on screen', async () => {
-    const { app, page, close } = await launchApp({ seed: 8, userDataDir: freshUserDataDir() });
+    const { app, page, close } = await launchApp({ seed: 10, userDataDir: freshUserDataDir() });
     try {
       await sitDown(page);
       await useViewport(app, page);

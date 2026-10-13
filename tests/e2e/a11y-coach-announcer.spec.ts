@@ -9,8 +9,8 @@ import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
  * it: the region is a polite live region, it is empty until a verdict, it carries the SAME text the
  * panel shows when a verdict lands, and it clears on the next hand (no stale announcement).
  *
- * Seed 8, hand 1 (pinned by coach.spec/voice.spec): QsQh, call preflop (free/silent) then fold for 99
- * into 348 — grades SERIOUS. Exactly one verdict, so the announcer's fill is a real event, not noise.
+ * Seed 10, hand 1 (pinned by coach.spec/voice.spec): 9s7c, call a limp preflop (free/silent) then fold for 139
+ * into 453 — grades SERIOUS. Exactly one verdict, so the announcer's fill is a real event, not noise.
  */
 
 const announcer = '[data-testid="coach-announcer"]';
@@ -24,7 +24,7 @@ async function openTable(page: Page): Promise<void> {
 }
 
 test('the coach announcer is a polite, screen-reader live region and starts empty', async () => {
-  const { page, close } = await launchApp({ seed: 8 });
+  const { page, close } = await launchApp({ seed: 10 });
   try {
     await openTable(page);
     const region = page.locator(announcer);
@@ -38,7 +38,7 @@ test('the coach announcer is a polite, screen-reader live region and starts empt
 });
 
 test('a graded verdict is mirrored into the announcer, matching the on-screen coach message', async () => {
-  const { page, close } = await launchApp({ seed: 8 });
+  const { page, close } = await launchApp({ seed: 10 });
   try {
     await openTable(page);
     expect(await waitForIdle(page)).toBe('hero');
@@ -61,7 +61,7 @@ test('a graded verdict is mirrored into the announcer, matching the on-screen co
 });
 
 test('the announcer clears on the next hand, leaving no stale verdict in the a11y tree', async () => {
-  const { page, close } = await launchApp({ seed: 8 });
+  const { page, close } = await launchApp({ seed: 10 });
   try {
     await openTable(page);
     expect(await waitForIdle(page)).toBe('hero');
@@ -93,7 +93,7 @@ test('the announcer clears on the next hand, leaving no stale verdict in the a11
 });
 
 test('the pot is announced at a street boundary, matching the felt, and is empty preflop', async () => {
-  const { page, close } = await launchApp({ seed: 8 });
+  const { page, close } = await launchApp({ seed: 10 });
   try {
     await openTable(page);
     // Preflop, before any street was dealt, the pot announcer has nothing to say (it fires on the flop).
@@ -131,7 +131,7 @@ test('the pot is announced at a street boundary, matching the felt, and is empty
 });
 
 test('the showdown outcome is announced once at settle, matching the winner-summary panel', async () => {
-  const { page, close } = await launchApp({ seed: 8 });
+  const { page, close } = await launchApp({ seed: 10 });
   try {
     await openTable(page);
     // Play the hand out passively to settle.

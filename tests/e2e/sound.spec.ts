@@ -42,7 +42,7 @@ async function withApp(
   body: (ctx: { app: ElectronApplication; page: Page }) => Promise<void>,
 ): Promise<void> {
   const launched = await launchApp({
-    seed: opts.seed ?? 8,
+    seed: opts.seed ?? 10,
     userDataDir: opts.userDataDir ?? freshUserDataDir(),
   });
   try {
@@ -109,8 +109,8 @@ async function openTable(page: Page): Promise<void> {
 }
 
 /**
- * Seed 8, hand 1 (pinned by coach.spec / voice.spec): hero holds QsQh on 8c9h8s. Calling 50 preflop is
- * free (silent); folding for 99 into a 348 pot throws away ~3.9bb and grades SERIOUS — exactly one
+ * Seed 10, hand 1 (pinned by coach.spec / voice.spec): hero holds 9s7c on 6c7sTd (seed 8 moved: limping its first-in QsQh is now a chart mistake). Calling 50 preflop is
+ * free (silent); folding for 139 into a 453 pot throws away 5.3bb and grades SERIOUS — exactly one
  * mistake verdict out of two decisions, so a tone count of 1 is a real count, not a coincidence.
  */
 async function playToOneVerdict(page: Page): Promise<string> {
@@ -126,7 +126,7 @@ async function playToOneVerdict(page: Page): Promise<string> {
 
 test.describe('the sound off switch', () => {
   test('1. sound OFF is the default, and a graded verdict renders NO tone', async () => {
-    await withApp({ seed: 8 }, async ({ page }) => {
+    await withApp({ seed: 10 }, async ({ page }) => {
       await page.click(tabSettings);
       await page.waitForSelector(settingsScreen);
       await expect(page.locator(soundToggle)).toHaveAttribute('data-on', 'false');
@@ -144,7 +144,7 @@ test.describe('the sound off switch', () => {
   });
 
   test('2. sound ON: the same graded verdict renders a tone', async () => {
-    await withApp({ seed: 8 }, async ({ page }) => {
+    await withApp({ seed: 10 }, async ({ page }) => {
       await setSound(page, true);
       await installAudioSpy(page);
       await openTable(page);
@@ -157,13 +157,13 @@ test.describe('the sound off switch', () => {
 
   test('3. the toggle persists to disk and comes back on after a restart', async () => {
     const userDataDir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir }, async ({ page }) => {
+    await withApp({ seed: 10, userDataDir }, async ({ page }) => {
       await setSound(page, true);
     });
     // The saved state carries the preference...
     expect(readSaved(userDataDir).soundCues).toBe(true);
     // ...and a relaunch reads it back as On without touching the toggle.
-    await withApp({ seed: 8, userDataDir }, async ({ page }) => {
+    await withApp({ seed: 10, userDataDir }, async ({ page }) => {
       await page.click(tabSettings);
       await page.waitForSelector(settingsScreen);
       await expect(page.locator(soundToggle)).toHaveAttribute('data-on', 'true');
@@ -172,7 +172,7 @@ test.describe('the sound off switch', () => {
   });
 
   test('4. a correct/free decision is silent even with sound on', async () => {
-    await withApp({ seed: 8 }, async ({ page }) => {
+    await withApp({ seed: 10 }, async ({ page }) => {
       await setSound(page, true);
       await installAudioSpy(page);
       await openTable(page);

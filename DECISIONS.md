@@ -338,6 +338,13 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
   with no villain model while the table passed one).
 
 ### Specs and tests
+- **e2e pin moved, seed 8 → seed 10** in `coach`, `gate`, `predict`, `voice`, `sound`, `coached-handover`
+  and `a11y-coach-announcer` specs. They pinned "calling 50 preflop is free" on seed 8, where the hero's
+  call is a first-in limp of QsQh: the old, wrong behaviour (the BTN chart raises QQ; a limp is never in the
+  chart). Seed 10 gives the same shape honestly: calling a limp with 9s7c is free, folding middle pair for
+  139 into 453 is serious (5.3bb, `pot odds`). No assertion was loosened. Two `gate` tests now wait for the
+  handover before reading the save, because seed 10's fold leaves a multiway pot to play out; `predict` 21
+  moved from seed 43 for the same limp reason.
 - No existing unit spec changed. New: `closeSpot.test.ts`, `chartGrade.test.ts`, `villainRanges.test.ts`;
   two perf cases (cold strength table, weighted equity). Red-first: `closeSpot.test.ts` fails 6 of 11 on the
   old `coach.ts` (the big-pot call graded `serious`).

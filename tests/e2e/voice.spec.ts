@@ -175,7 +175,7 @@ async function withApp(
   body: (ctx: { app: ElectronApplication; page: Page }) => Promise<void>,
 ): Promise<void> {
   const launched = await launchApp({
-    seed: opts.seed ?? 8,
+    seed: opts.seed ?? 10,
     userDataDir: opts.userDataDir ?? freshUserDataDir(),
     env: opts.say === undefined ? undefined : { OFFSUIT_SAY_BINARY: opts.say.binary },
   });
@@ -236,8 +236,8 @@ async function openTable(page: Page): Promise<void> {
 }
 
 /**
- * Seed 8, hand 1, pinned by coach.spec.ts: hero holds QsQh on 8c9h8s. Calling 50 preflop is free
- * (silent); folding for 99 into a 348 pot throws away 3.9bb and grades SERIOUS. Exactly one verdict
+ * Seed 10, hand 1, pinned by coach.spec.ts: hero holds 9s7c on 6c7sTd (seed 8 moved: limping its first-in QsQh is now a chart mistake). Calling 50 preflop is free
+ * (silent); folding for 139 into a 453 pot throws away 5.3bb and grades SERIOUS. Exactly one verdict
  * out of two decisions, which is what makes "one speak per verdict" a real count rather than a
  * coincidence.
  */
@@ -260,7 +260,7 @@ test.describe('the off switch', () => {
    */
   test('1. with narration off, a graded verdict sends NO speak IPC and spawns nothing', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       // Off is the default — nothing is clicked to get here.
       await page.click(tabSettings);
       await page.waitForSelector(settingsScreen);
@@ -281,7 +281,7 @@ test.describe('the off switch', () => {
 
   test('2. turning it back off stops the channel again, mid-session', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       await playToOneVerdict(page);
@@ -306,7 +306,7 @@ test.describe('the off switch', () => {
 test.describe('with narration on', () => {
   test('3. exactly one speak request per verdict, carrying the verdict text', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       const verdict = await playToOneVerdict(page);
@@ -324,7 +324,7 @@ test.describe('with narration on', () => {
 
   test('4. the text stays fully on screen — speech is additive, never the only channel', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       const verdict = await playToOneVerdict(page);
@@ -360,7 +360,7 @@ test.describe('with narration on', () => {
 
   test('6. a new hand cancels the verdict still being read', async () => {
     const say = fakeSay('hang');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       const verdict = await playToOneVerdict(page);
@@ -385,7 +385,7 @@ test.describe('with narration on', () => {
 
   test('7. leaving the table cancels the verdict being read', async () => {
     const say = fakeSay('hang');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       const verdict = await playToOneVerdict(page);
@@ -413,7 +413,7 @@ test.describe('never two voices at once', () => {
    */
   test('8. a second verdict kills the process still reading the first', async () => {
     const say = fakeSay('hang');
-    await withApp({ seed: 8, say }, async ({ page }) => {
+    await withApp({ seed: 10, say }, async ({ page }) => {
       const first = speakInBackground(page, 'first verdict, still being read');
       // Ordered by the invoke queue on one channel, so the second cannot be handled before the first.
       await expect.poll(() => say.invocations().length).toBe(1);
@@ -452,7 +452,7 @@ test.describe('the verdict text is an argument, never a command', () => {
    */
   test('9. shell metacharacters are spoken, not interpreted', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ page }) => {
+    await withApp({ seed: 10, say }, async ({ page }) => {
       const hostile = [
         `$(touch ${say.sideEffect})`,
         `\`touch ${say.sideEffect}\``,
@@ -484,7 +484,7 @@ test.describe('the verdict text is an argument, never a command', () => {
    */
   test('10. text that looks like a flag is still spoken as text', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ page }) => {
+    await withApp({ seed: 10, say }, async ({ page }) => {
       for (const text of ['-v Alice', '--voice=Alice', '-o /tmp/offsuit-should-not-exist.aiff']) {
         expect((await speakViaBridge(page, text)).spoken, text).toBe(true);
       }
@@ -502,7 +502,7 @@ test.describe('the verdict text is an argument, never a command', () => {
 test.describe('a broken voice cannot break the app', () => {
   test('11. a voice that exits non-zero reports the failure and leaves the hand playable', async () => {
     const say = fakeSay('fail');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       const verdict = await playToOneVerdict(page);
@@ -531,7 +531,7 @@ test.describe('a broken voice cannot break the app', () => {
     const say = fakeSay('missing');
     expect(fs.existsSync(say.binary), 'the missing-binary fixture must not exist').toBe(false);
 
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       const verdict = await playToOneVerdict(page);
@@ -561,7 +561,7 @@ test.describe('a broken voice cannot break the app', () => {
 
   test('13. an empty or non-text message is refused without a spawn', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ page }) => {
+    await withApp({ seed: 10, say }, async ({ page }) => {
       expect(await speakViaBridge(page, '   ')).toEqual({ spoken: false, reason: 'empty' });
       expect(await speakViaBridge(page, '')).toEqual({ spoken: false, reason: 'empty' });
       expect(
@@ -583,7 +583,7 @@ test.describe('the preference', () => {
     const userDataDir = freshUserDataDir();
     const say = fakeSay('record');
 
-    await withApp({ seed: 8, userDataDir, say }, async ({ page }) => {
+    await withApp({ seed: 10, userDataDir, say }, async ({ page }) => {
       await setNarration(page, true);
       await expect
         .poll(() => {
@@ -596,7 +596,7 @@ test.describe('the preference', () => {
         .toBe(true);
     });
 
-    await withApp({ seed: 8, userDataDir, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, userDataDir, say }, async ({ app, page }) => {
       await page.click(tabSettings);
       await page.waitForSelector(settingsScreen);
       await expect(page.locator(speakToggle)).toHaveAttribute('data-on', 'true');
@@ -613,7 +613,7 @@ test.describe('the preference', () => {
 
   test('15. switching it off cancels whatever is being said right now', async () => {
     const say = fakeSay('hang');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       await setNarration(page, true);
       await openTable(page);
       const verdict = await playToOneVerdict(page);
@@ -651,7 +651,7 @@ test.describe('the preference', () => {
   /** N1: nothing on the settings screen is locked, greyed out or gated behind anything. */
   test('16. the toggle is enabled and reachable with no voice installed at all', async () => {
     const say = fakeSay('missing');
-    await withApp({ seed: 8, say }, async ({ page }) => {
+    await withApp({ seed: 10, say }, async ({ page }) => {
       await page.click(tabSettings);
       await page.waitForSelector(settingsScreen);
       const toggle = page.locator(speakToggle);
@@ -666,7 +666,7 @@ test.describe('the preference', () => {
 test.describe('the settings screen fits', () => {
   test('17. the row and its toggle are on screen at both documented sizes', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ app, page }) => {
+    await withApp({ seed: 10, say }, async ({ app, page }) => {
       for (const [width, height] of [
         [DEFAULT_WIDTH, DEFAULT_HEIGHT],
         [MIN_WIDTH, MIN_HEIGHT],
@@ -778,7 +778,7 @@ test.describe('the settings screen fits', () => {
 
   test('18. the table still renders and narrates with a verdict on screen', async () => {
     const say = fakeSay('record');
-    await withApp({ seed: 8, say }, async ({ page }) => {
+    await withApp({ seed: 10, say }, async ({ page }) => {
       await setNarration(page, true);
       await openTable(page);
       await playToOneVerdict(page);
@@ -800,7 +800,7 @@ test.describe('a voice cannot outlive the app', () => {
   test('19. quitting the app stops a verdict still being read', async () => {
     const say = fakeSay('hang');
     const launched = await launchApp({
-      seed: 8,
+      seed: 10,
       userDataDir: freshUserDataDir(),
       env: { OFFSUIT_SAY_BINARY: say.binary },
     });

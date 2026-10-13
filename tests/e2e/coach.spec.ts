@@ -161,12 +161,12 @@ test.describe('R6 coach layer', () => {
   });
 
   /**
-   * Seed 8, hand 1 — hero holds QsQh on 8c9h8s. Calling 50 preflop with 66% equity is free; then
-   * folding for 99 into a 348 pot (22% required, 66% held) throws away 3.9bb => SERIOUS (>2bb).
+   * Seed 10, hand 1 — hero holds 9s7c on 6c7sTd (seed 8 moved: limping its first-in QsQh is now a chart mistake). Calling the 50 limp preflop is free; then
+   * folding for 139 into a 453 pot (23% required, 68% held) throws away 5.3bb => SERIOUS (>2bb).
    * Folding a huge favourite is the cheapest reliable lever for a serious grade through the UI.
    */
   test('a >2bb error is graded serious', async () => {
-    await withApp(8, async (page) => {
+    await withApp(10, async (page) => {
       await openTable(page);
 
       await heroAct(page, 'call');
@@ -178,9 +178,9 @@ test.describe('R6 coach layer', () => {
     });
   });
 
-  /** Same pinned seed-8 spot: the line must explain WHY, not just print a verdict. */
+  /** Same pinned seed-10 spot: the line must explain WHY, not just print a verdict. */
   test('the coach message names a principle, not just a number', async () => {
-    await withApp(8, async (page) => {
+    await withApp(10, async (page) => {
       await openTable(page);
       await heroPlan(page, ['call', 'fold']);
 
@@ -194,7 +194,7 @@ test.describe('R6 coach layer', () => {
 
   /** Stale advice about the previous hand would be actively misleading, so it must be cleared. */
   test('the coach clears between hands', async () => {
-    await withApp(8, async (page) => {
+    await withApp(10, async (page) => {
       await openTable(page);
       await heroPlan(page, ['call', 'fold']);
       await expect(page.locator(COACH_PANEL)).toHaveAttribute('data-severity', 'serious');
@@ -209,7 +209,7 @@ test.describe('R6 coach layer', () => {
 
   /** A grade is only useful if it aggregates: one graded mistake must show up as a named leak. */
   test('graded mistakes accumulate into the profile leak list', async () => {
-    await withApp(8, async (page) => {
+    await withApp(10, async (page) => {
       await openTable(page);
       await heroPlan(page, ['call', 'fold']);
       await expect(page.locator(COACH_PANEL)).toHaveAttribute('data-severity', 'serious');
