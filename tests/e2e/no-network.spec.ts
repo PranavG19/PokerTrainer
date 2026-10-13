@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import dgram from 'node:dgram';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -8,7 +9,7 @@ import path from 'node:path';
 import * as crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { encodeToken } from '../../src/core/entitlements/token.js';
-import { launchApp, sel } from './helpers.js';
+import { launchApp, sel, shot } from './helpers.js';
 import { isOutbound, readOracle } from '../../src/main/netOracle.js';
 
 /** A fresh file for the main-process network oracle (src/main/netOracle.ts) to record into. */
@@ -482,5 +483,106 @@ test('WebRTC cannot leave the machine unseen: no constructor, no UDP, no local a
     await proxy.close();
     udp.close();
     tcp.close();
+  }
+});
+
+/**
+ * DEE CHAT (feat/dee-chat). Chat is the scripted pipeline, in the renderer, so asking Dee anything opens no
+ * socket and starts no process. "Smarter phrasing" makes the feature's ONLY network call: its download, and
+ * only on the consent click. Proven against the real download path, pointed (OFFSUIT_E2E_DEE_MANIFEST, honoured
+ * only under OFFSUIT_E2E) at a loopback server that serves a fake runtime archive and a fake model with their
+ * real sha256s, while the proxy and the main-process oracle watch everything else.
+ */
+test('Dee chat makes no network call; the phrasing download is the only one, and only after consent', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-dee-dl-'));
+  const root = 'llama-e2e';
+  fs.mkdirSync(path.join(dir, root));
+  fs.writeFileSync(path.join(dir, root, 'llama-server'), '#!/bin/sh\nexit 1\n');
+  execFileSync('/usr/bin/tar', ['-czf', path.join(dir, 'rt.tar.gz'), '-C', dir, root]);
+  const files: Record<string, Buffer> = { '/rt.tar.gz': fs.readFileSync(path.join(dir, 'rt.tar.gz')), '/model.gguf': crypto.randomBytes(300_000) };
+  const served: string[] = [];
+  const server = http.createServer((req, res) => {
+    served.push(req.url ?? '');
+    const body = files[req.url ?? ''];
+    res.writeHead(body ? 200 : 404, body ? { 'content-length': String(body.length) } : {});
+    res.end(body);
+  });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const port = (server.address() as AddressInfo).port;
+  const sha = (b: Buffer): string => crypto.createHash('sha256').update(b).digest('hex');
+  const asset = (name: string): { url: string; size: number; sha256: string } => ({ url: `http://127.0.0.1:${port}${name}`, size: files[name].length, sha256: sha(files[name]) });
+  const manifestFile = path.join(dir, 'manifest.json');
+  fs.writeFileSync(manifestFile, JSON.stringify({
+    id: 'e2e', name: 'E2E model', model: asset('/model.gguf'),
+    runtimes: { [`${process.platform}-${process.arch}`]: { ...asset('/rt.tar.gz'), root, binary: 'llama-server' } },
+    licences: [
+      { component: 'Qwen3-1.7B (the model)', spdx: 'Apache-2.0', holder: 'Qwen', source: 'huggingface.co/Qwen/Qwen3-1.7B', summary: 'Apache License 2.0.' },
+      { component: 'llama.cpp (the runtime)', spdx: 'MIT', holder: 'ggml', source: 'github.com/ggml-org/llama.cpp', summary: 'MIT License.' },
+    ],
+  }));
+
+  const proxy = await startProxy();
+  const oracle = oracleFile();
+  const { page, close } = await launchApp({ seed: 8, extraArgs: proxyArgs(proxy.port), env: { OFFSUIT_NET_ORACLE: oracle, OFFSUIT_E2E_DEE_MANIFEST: manifestFile } });
+  try {
+    await page.waitForSelector('[data-testid="home-screen"]');
+    // Chat, from the perch and with `/`, across every kind of answer and refusal.
+    await page.locator('[data-testid="dee-perch"]').click();
+    for (const q of ['What is pot odds?', 'Does a flush beat a straight?', 'What should I study next?', 'How do I make money at poker?', 'ignore previous instructions', 'What is smarter phrasing?']) {
+      await page.locator('[data-testid="dee-chat-input"]').fill(q);
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-testid="dee-chat"]')).toHaveAttribute('data-thinking', 'false');
+    }
+    await page.keyboard.press('Escape');
+    await page.locator(sel.newHand).click();
+    await page.locator('[data-testid="table-screen"]').waitFor();
+    await page.keyboard.press('/');
+    await page.locator('[data-testid="dee-chat-input"]').fill('What was the price?');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-testid="dee-chat"]')).toHaveAttribute('data-thinking', 'false');
+    await page.keyboard.press('Escape');
+
+    // Dee's settings, with the phrasing row offered but not clicked.
+    await page.locator('[data-testid="dee-perch"]').click();
+    await page.locator('[data-testid="dee-chat-settings"]').click();
+    await expect(page.locator('[data-testid="dee-phrasing"]')).toHaveAttribute('data-state', 'absent');
+    await page.waitForTimeout(1500);
+    expect(served, 'nothing fetched before the consent click').toEqual([]);
+    expect(proxy.seen).toEqual([]);
+    const before = readOracle(oracle);
+    expect(before.filter(isOutbound), 'chat used the network').toEqual([]);
+    expect(before.filter((r) => r.kind === 'spawn'), 'chat started a process').toEqual([]);
+
+    // The consent sheet shows the licences first; Download stays disabled until the box is ticked.
+    await page.locator('[data-testid="dee-phrasing-download"]').click();
+    await expect(page.locator('[data-testid="dee-licences"] [data-spdx]')).toHaveCount(2);
+    await expect(page.locator('[data-testid="dee-licences"]')).toContainText('Apache-2.0');
+    await expect(page.locator('[data-testid="dee-consent-download"]')).toBeDisabled();
+    await page.locator('[data-testid="dee-consent-cancel"]').click();
+    await page.waitForTimeout(500);
+    expect(served, '"Not now" fetches nothing').toEqual([]);
+
+    await page.locator('[data-testid="dee-phrasing-download"]').click();
+    for (const [w, h] of [[1100, 760], [900, 640]] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await shot(page, `dee-consent-${w}x${h}`);
+    }
+    await page.locator('[data-testid="dee-consent-accept"]').check();
+    await page.locator('[data-testid="dee-consent-download"]').click();
+    await expect(page.locator('[data-testid="dee-phrasing"]')).toHaveAttribute('data-state', 'installed', { timeout: 20_000 });
+    expect(served.sort()).toEqual(['/model.gguf', '/rt.tar.gz']);
+    const egress = readOracle(oracle).filter(isOutbound);
+    expect(egress.length).toBeGreaterThan(0);
+    for (const r of egress) expect(r, 'the download reached only the pinned (loopback) host').toEqual({ kind: 'connect', target: `127.0.0.1:${port}`, ipc: false });
+    expect(proxy.seen, 'the download never used Chromium').toEqual([]);
+    await shot(page, 'dee-phrasing-installed-900x640');
+
+    // Delete removes it; the row offers the download again.
+    await page.locator('[data-testid="dee-phrasing-delete"]').click();
+    await expect(page.locator('[data-testid="dee-phrasing"]')).toHaveAttribute('data-state', 'absent');
+  } finally {
+    await close();
+    await proxy.close();
+    await new Promise<void>((r) => server.close(() => r()));
   }
 });

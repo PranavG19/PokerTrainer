@@ -123,6 +123,8 @@ const feature: ChatTemplate[] = [
     text: 'Every finished hand is kept, with each decision as it looked at the time. The hand history replays them one decision at a time.' },
   { id: 'feature-about-dee', answers: 'feature', pose: 'glance', phrase: true,
     text: 'Dee is the dealer button, with two lights for eyes. Dee phrases what the engine decided: every number in an answer comes from the engine, never from a guess.' },
+  { id: 'greet', answers: 'feature', pose: 'listening', phrase: false,
+    text: 'Ask about the last hand, the price, a term, a rule, or how the app works. Every number comes from the engine.' },
   { id: 'feature-scope', answers: 'feature', pose: 'listening', phrase: true,
     text: 'Dee answers about the last hand, the price, mistakes, poker terms, the rules, what to study next, and how the app works. Anything else gets a polite no.' },
 ];

@@ -15,13 +15,20 @@
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
 import { fetchVerified, sha256File, type Progress } from './download.js';
 import { platformKey, type PhrasingManifest, type RuntimeAsset } from './manifest.js';
 import { Phraser, PERSONA, type PhraseModel, type PhraseRequest, type PhraseResult } from './phrasing.js';
 import { LlamaSidecar } from './sidecar.js';
 
-const run = promisify(execFile);
+/**
+ * `execFile` as a promise of its stdout. Written out rather than `util.promisify`: the test-mode network oracle
+ * wraps `execFile` (netOracle.ts), which drops promisify's custom `{ stdout, stderr }` form.
+ */
+function run(file: string, args: readonly string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => (err ? reject(err) : resolve(String(stdout))));
+  });
+}
 export const IDLE_STOP_MS = 10 * 60_000;
 const TAR = '/usr/bin/tar';
 
@@ -167,7 +174,7 @@ export class PhrasingService {
 
   /** List, then unpack, the verified archive; returns the installed binary's path. */
   private async unpack(archive: string, staging: string, runtime: RuntimeAsset): Promise<string> {
-    const { stdout } = await run(TAR, ['-tzf', archive], { maxBuffer: 4 * 1024 * 1024 });
+    const stdout = await run(TAR, ['-tzf', archive]);
     const entries = stdout.split('\n').filter(Boolean);
     if (entries.some((e) => path.isAbsolute(e) || e.split('/').includes('..') || !e.startsWith(`${runtime.root}/`))) {
       throw new Error('runtime archive has an unexpected path');

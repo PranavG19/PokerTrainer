@@ -83,6 +83,8 @@ export function renderDeeSettings(opts: {
   rulesRemembered: number;
   newestRule: string | null;
   handlers: DeeSettingsHandlers;
+  /** The "Smarter phrasing" row (components/phrasingRow.ts), owned by the caller so progress repaints in place. */
+  phrasing?: HTMLElement;
 }): HTMLElement {
   let tone = opts.context.tone;
   let frequency = opts.context.frequency;
@@ -271,6 +273,7 @@ export function renderDeeSettings(opts: {
   mem.appendChild(memRow);
   side.appendChild(mem);
   side.appendChild(text('p', 'g-caption', 'On this Mac only. Forget stops Dee quoting it; your lesson history is kept.'));
+  if (opts.phrasing) side.appendChild(opts.phrasing);
   cols.appendChild(side);
 
   paintPreview();

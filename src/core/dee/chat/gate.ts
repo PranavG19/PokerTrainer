@@ -179,10 +179,12 @@ export function classify(question: string): GateResult {
     if (bet > 0 && pot > 0) return { kind: 'intent', intent: 'price-now', topic: 'hypothetical', numbers: [bet, pot] };
   }
 
+  const priceHere = /\bwhat(?:'s| is) the (?:price|call|pot odds)\b|\bhow much (?:is|does) (?:the|a|this|that) call\b/.test(t);
+  if (priceHere) return { kind: 'intent', intent: 'price-now' };
   if (MISTAKE.test(t) && !DEFINE.test(t.replace(/\bwhat (?:was|were|is) my\b/, ''))) return { kind: 'intent', intent: 'my-mistake' };
   if (MISTAKE.test(t) && /\bmy\b|\bi\b/.test(t)) return { kind: 'intent', intent: 'my-mistake' };
   if (EXPLAIN.test(t) || ADVICE.test(t)) return { kind: 'intent', intent: 'explain-hand' };
-  if (PRICE.test(t) && NOW.test(t) && !/\bwhat (?:is|are) (?:the )?pot odds\b/.test(t)) return { kind: 'intent', intent: 'price-now' };
+  if (priceHere || (PRICE.test(t) && NOW.test(t) && !/\bwhat (?:is|are) (?:the )?pot odds\b/.test(t))) return { kind: 'intent', intent: 'price-now' };
   if (STUDY.test(t)) return { kind: 'intent', intent: 'study-next' };
 
   const rule = RULE_RES.find((r) => r.re.test(t));

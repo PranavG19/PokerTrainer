@@ -76,6 +76,7 @@ import {
 import type { DeePose, SpokenLine } from '../../core/dee/types.js';
 import { renderDee } from '../components/dee.js';
 import { capturedAction } from '../../core/story/dossier.js';
+import type { ChatDecision } from '../../core/dee/chat/types.js';
 
 /**
  * Dee at the table (owner D7): no words in-hand, only the perch's pose; one line at hand end, after the reveal;
@@ -122,6 +123,8 @@ const SEAT_NAMES = ['You', 'Ada', 'Bo', 'Cy'];
 
 export interface TableHandle {
   root: HTMLElement;
+  /** What Dee chat may answer from: whether a hand is live, and the last finished hand's graded decisions. */
+  chatContext: () => { live: boolean; lastHand: { handNumber: number; decisions: ChatDecision[] } | null };
   destroy: () => void;
 }
 
@@ -201,6 +204,8 @@ export function renderTable(opts: {
   onHandSettled?: (hand: SettledHand) => void;
   /** Story: the planned-complete end's note and button, in place of "New session". */
   sittingEnd?: { readonly note: string; readonly label: string; readonly testid: string };
+  /** Open Dee chat (the handover's "Ask Dee", or `D` at handover). Absent: no chat entry at this table. */
+  onAskDee?: () => void;
 }): TableHandle {
   // The depth-driven starting stack, defaulting to the classic 100bb table. A single local so the
   // initial deal, the bust top-up and the rebuy prompt all agree — a rebuy must match the table's depth.
@@ -384,6 +389,10 @@ export function renderTable(opts: {
   sheetClose.setAttribute('aria-keyshortcuts', 'Escape');
   sheetClose.addEventListener('click', () => dismissVerdict());
   sheetFoot.append(sheetCaption, sheetClose);
+  /** Dee's hand-end line, perched on the verdict sheet when the hand ends behind it. */
+  const sheetDee = document.createElement('div');
+  sheetDee.className = 'coach-sheet-dee';
+  sheetDee.hidden = true;
   sheetLayer.append(scrim, sheet);
   /** 'gate' while a gate is up, 'verdict' while a coached verdict is shown, else null. */
   let sheetKind: 'gate' | 'verdict' | null = null;
@@ -547,6 +556,11 @@ export function renderTable(opts: {
   let sessionEl: HTMLElement | null = null;
   const perch = (source: string, pose: DeePose | null): void => opts.dee?.onPerch(source, pose);
 
+  /**
+   * The beat as the mock draws it (demo/vision/table.html, "great" and "mistake"): Dee at 44px, the line at
+   * headline size with a short lead sentence ("Price held.", "Noted.") in bold, and the hand's outcome as the
+   * caption under it. The same element moves into the verdict sheet while one is open at hand end.
+   */
   function deeLineEl(line: SpokenLine, testid: string, size: number): HTMLElement {
     const el = document.createElement('div');
     el.className = 'dee-beat';
@@ -554,11 +568,19 @@ export function renderTable(opts: {
     el.dataset.lineId = line.lineId;
     el.dataset.event = line.event;
     el.dataset.pose = line.pose;
+    const body = document.createElement('div');
+    body.className = 'dee-beat-body';
     const text = document.createElement('p');
     text.className = 'dee-beat-line';
     text.dataset.testid = `${testid}-line`;
-    text.textContent = line.text;
-    el.append(renderDee(line.pose, size), text);
+    const lead = /^([^.?!]{1,24}[.?!])\s+(.+)$/.exec(line.text);
+    if (lead && lead[1].split(/\s+/).length <= 3) {
+      const b = document.createElement('b');
+      b.textContent = lead[1];
+      text.append(b, ` ${lead[2]}`);
+    } else text.textContent = line.text;
+    body.append(text);
+    el.append(renderDee(line.pose, size), body);
     return el;
   }
 
@@ -567,7 +589,22 @@ export function renderTable(opts: {
     if (line === null) return null;
     deeMemory = rememberLine(deeMemory, line.lineId);
     deeAnnouncer.textContent = `Dee: ${line.text}`;
-    return deeLineEl(line, testid, 28);
+    return deeLineEl(line, testid, 44);
+  }
+
+  /** The last finished hand's decisions, for Dee chat. Kept until the next hand finishes. */
+  let lastHandChat: { handNumber: number; decisions: ChatDecision[] } | null = null;
+  function rememberHandForChat(): void {
+    lastHandChat = {
+      handNumber: state.handNumber,
+      decisions: beatDecisions.map((d) => ({
+        street: d.street,
+        action: d.action,
+        pot: d.pot,
+        toCall: d.toCall,
+        grade: { severity: d.grade.severity, evLossBb: d.grade.evLossBb, principle: d.grade.principle, price: d.grade.price, spot: d.grade.spot },
+      })),
+    };
   }
 
   function sittingOver(): boolean {
@@ -602,7 +639,7 @@ export function renderTable(opts: {
   /** The coach panel sits in the sheet in coached mode and inline above the dock otherwise. */
   function syncCoachMount(): void {
     if (coachedMode) {
-      if (coach.parentElement !== sheet) sheet.replaceChildren(coach, sheetPredict, sheetFoot);
+      if (coach.parentElement !== sheet) sheet.replaceChildren(coach, sheetPredict, sheetDee, sheetFoot);
       if (sheetLayer.parentElement !== stage) stage.appendChild(sheetLayer);
       // A verdict already up (shown inline while uncoached) moves into the sheet rather than vanishing
       // inside a hidden layer while the voice and the announcer still carry it.
@@ -676,6 +713,8 @@ export function renderTable(opts: {
     setStageInert(false);
     reclaimResult(predict);
     sheetPrediction = null;
+    // A beat lent to the sheet at hand end goes back to the dock.
+    if (state.winners !== null) renderControlsInner();
     // Focus returns to the first live control below the table, never to <body>.
     if (hadFocus) {
       const next = [...root.querySelectorAll<HTMLElement>('.predict button, .controls button, .controls input')].find(
@@ -851,6 +890,7 @@ export function renderTable(opts: {
     if (settled) return;
     settled = true;
     state = settle(state);
+    rememberHandForChat();
     deeAtSettle();
     setAwaiting('handover');
     // The hand's outcome reaches screen readers via its own polite region. Written once here at settle
@@ -1223,17 +1263,32 @@ export function renderTable(opts: {
 
     if (state.winners !== null) {
       // One Dee line per handover: the hand's own beat first; the sitting's summary when the hand had none.
+      // While a verdict sheet is up at hand end, the line sits on the sheet beside the verdict (the mock's
+      // "mistake" state) and the dock carries only the outcome; it returns to the dock when the sheet closes.
       const deeEl = beatEl ?? sessionEl;
-      if (deeEl) {
-        controls.appendChild(deeEl);
-        controls.appendChild(dockSeparator());
-      }
-      controls.dataset.beat = String(deeEl !== null);
+      const inSheet = deeEl !== null && sheetKind === 'verdict';
+      sheetDee.replaceChildren(...(inSheet && deeEl ? [deeEl] : []));
+      sheetDee.hidden = !inSheet;
       const summary = document.createElement('div');
       summary.className = 'winner-summary';
       summary.dataset.testid = 'winner-summary';
       summary.textContent = winnerSummaryText();
-      controls.appendChild(summary);
+      if (deeEl && !inSheet) {
+        // The beat tray: the line, the outcome as its caption, then the actions.
+        summary.classList.add('g-caption');
+        deeEl.querySelector('.dee-beat-body')?.append(summary);
+        controls.appendChild(deeEl);
+      } else controls.appendChild(summary);
+      controls.dataset.beat = String(deeEl !== null && !inSheet);
+      /** "Ask Dee", quiet, beside the dock's last actions (never the primary). */
+      const askDee = (): void => {
+        if (!opts.onAskDee || opts.dee?.context.character === false) return;
+        const ask = pill('Ask Dee', 'ask-dee', () => opts.onAskDee?.());
+        ask.classList.add('quiet');
+        ask.setAttribute('aria-keyshortcuts', 'D');
+        ask.appendChild(keycap('D'));
+        controls.appendChild(ask);
+      };
 
       // A busted hero sits out every future hand, so "Next hand" would be a no-op forever.
       // Offer a rebuy at the same table, or an explicit end of session — never a dead button.
@@ -1250,6 +1305,7 @@ export function renderTable(opts: {
         controls.appendChild(
           pill(opts.sittingEnd?.label ?? 'New session', opts.sittingEnd?.testid ?? 'new-session', () => opts.onSessionOver?.()),
         );
+        askDee();
         return;
       }
 
@@ -1268,6 +1324,7 @@ export function renderTable(opts: {
           : 'You have every chip at this table — nobody is left to play. Start a new session.';
         controls.appendChild(swept);
         controls.appendChild(pill(opts.sittingEnd?.label ?? 'New session', opts.sittingEnd?.testid ?? 'new-session', () => opts.onSessionOver?.()));
+        askDee();
         return;
       }
 
@@ -1290,11 +1347,15 @@ export function renderTable(opts: {
         const endPill = pill(end?.label ?? 'New session', end?.testid ?? 'new-session', () => opts.onSessionOver?.());
         if (end) endPill.classList.add('primary');
         controls.appendChild(endPill);
+        askDee();
         return;
       }
 
+      askDee();
       const next = pill('Next hand', 'next-hand', () => nextHand());
       next.classList.add('primary');
+      next.setAttribute('aria-keyshortcuts', 'Enter');
+      next.appendChild(keycap('↩'));
       controls.appendChild(next);
       return;
     }
@@ -1427,7 +1488,20 @@ export function renderTable(opts: {
     }
     // Action hotkeys never reach a table that is behind a sheet.
     if (sheetKind !== null) return;
-    if (state.toAct !== 0 || state.winners !== null) return;
+    if (state.winners !== null) {
+      // At handover: D asks Dee; Enter deals the next hand when no control has focus (a focused button
+      // already answers Enter itself).
+      const focus = document.activeElement;
+      const typing = focus instanceof HTMLInputElement || focus instanceof HTMLTextAreaElement;
+      if (!typing && e.key.toLowerCase() === 'd' && opts.onAskDee && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        opts.onAskDee();
+      } else if (e.key === 'Enter' && !typing && !(focus instanceof HTMLButtonElement)) {
+        root.querySelector<HTMLButtonElement>('[data-testid="next-hand"]')?.click();
+      }
+      return;
+    }
+    if (state.toAct !== 0) return;
     const legal = legalActions(state);
     const key = e.key.toLowerCase();
     if (key === 'f' && legal.includes('fold')) heroAct({ kind: 'fold' });
@@ -1452,6 +1526,7 @@ export function renderTable(opts: {
 
   return {
     root,
+    chatContext: () => ({ live: state.winners === null && !settled, lastHand: lastHandChat }),
     destroy: () => {
       if (pendingTimer !== null) clearTimeout(pendingTimer);
       if (gateTimer !== null) clearTimeout(gateTimer);
