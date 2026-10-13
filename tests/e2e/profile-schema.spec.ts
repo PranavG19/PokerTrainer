@@ -171,7 +171,7 @@ test('a second copy on the same profile exits at once and the first keeps saving
   const first = await launchApp({ userDataDir: dir });
   try {
     await expect(first.page.locator('[data-testid="bankroll"]')).toBeVisible();
-    const env: NodeJS.ProcessEnv = { ...process.env, OFFSUIT_E2E: '1' };
+    const env: NodeJS.ProcessEnv = { ...process.env, OFFSUIT_E2E: '1', OFFSUIT_E2E_HIDDEN: '1' };
     delete env.ELECTRON_RUN_AS_NODE;
     const second = spawn(
       electronPath as unknown as string,
