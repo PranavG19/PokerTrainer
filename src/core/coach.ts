@@ -218,7 +218,8 @@ export function gradeDecision(input: {
     };
     // No price meter: a close spot's two shares sit within a few points by construction, so the meter's
     // "needed" and "had" labels would overprint each other (measured at 31% vs 26%), and the message
-    // already quotes both numbers.
+    // already quotes both numbers. The shares still travel on `spot`, which Dee's "Price held" reads.
+    if (toCall > 0 && Number.isFinite(required)) grade.spot = { needed: required, had: equity };
     return grade;
   }
 

@@ -132,3 +132,26 @@ describe('a close spot in the grader', () => {
     expect(g.severity).toBe('serious');
   });
 });
+
+/** The seam to Dee's "Price held" (owner D6): the band, not a fixed 10-point rule, decides what is close. */
+describe('Price held reads the close band', () => {
+  it('a close fold on the right side of the price holds; the same spot\'s call does not', async () => {
+    const { isPriceHeld } = await import('../../src/core/dee/engine.js');
+    const decide = (chosen: 'call' | 'fold') => {
+      const grade = gradeDecision({ ...BIG_POT_CALL, hole: [...BIG_POT_CALL.hole], board: [...BIG_POT_CALL.board], chosen });
+      return {
+        grade,
+        d: {
+          grade, action: chosen, street: 'river', toCall: BIG_POT_CALL.toCall, pot: BIG_POT_CALL.pot,
+          confidence: 'sure' as const, reasonCategory: 'price' as const, rightForWrongReason: false,
+        },
+      };
+    };
+    const fold = decide('fold');
+    expect(fold.grade.close).toBe(true);
+    expect(fold.grade.spot).toBeDefined();
+    expect(isPriceHeld(fold.d, fold.grade.close)).toBe(true);
+    const call = decide('call');
+    expect(isPriceHeld(call.d, call.grade.close)).toBe(false); // close, but short of the price
+  });
+});

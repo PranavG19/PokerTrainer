@@ -284,6 +284,9 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
   no comment still means under half a big blind. Rejected: a silent close, which would break that rule.
 - **Only verdicts that turn on a line can be close:** the price facing a bet, the 0.55 late-street check line,
   the 0.35 unpriced-bet line. Folding when checking is free is never close (check dominates it exactly).
+- **Dee's "Price held" reads the band.** Every priced grade, close ones included, carries `spot` (the two
+  shares, main's Dee seam), and Dee passes `grade.close` to `isPriceHeld`; its 10-point rule is only the
+  fallback for a saved grade without the flag.
 - **`close` and `estimateLossBb` are optional on `Grade`** and not persisted: a saved verdict keeps its four
   stored fields, and review shows the close line under "No leak flagged · 0.0 bb".
 
