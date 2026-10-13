@@ -257,3 +257,27 @@ describe('stripeApi', () => {
 });
 
 export type { LicenceRequest };
+
+describe('licenceServerDepsFromEnv', async () => {
+  const { licenceServerDepsFromEnv } = await import('../../src/server/licensing/fromEnv.js');
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const jwk = { kid: 'prod-x', x: publicKey.export({ format: 'jwk' }).x as string, d: privateKey.export({ format: 'jwk' }).d as string };
+  const env = {
+    OFFSUIT_LICENCE_SIGNING_KEY: JSON.stringify(jwk),
+    OFFSUIT_LICENCE_PUBLIC_KEYS: JSON.stringify({ 'prod-x': jwk.x }),
+    OFFSUIT_LICENCE_EMAIL_PEPPER: 'p',
+    STRIPE_SECRET_KEY: 'rk_test',
+    STRIPE_WEBHOOK_SECRETS: 'whsec_a, whsec_b',
+  };
+
+  it('builds the deps from the setup script’s env', () => {
+    const deps = licenceServerDepsFromEnv(env, new MemoryLicenceStore());
+    expect(deps.webhookSecrets).toEqual(['whsec_a', 'whsec_b']);
+    expect(deps.signing.kid).toBe('prod-x');
+  });
+
+  it('names what is missing, and refuses public keys that omit the signing key', () => {
+    expect(() => licenceServerDepsFromEnv({ ...env, STRIPE_WEBHOOK_SECRETS: '' }, new MemoryLicenceStore())).toThrow('STRIPE_WEBHOOK_SECRETS');
+    expect(() => licenceServerDepsFromEnv({ ...env, OFFSUIT_LICENCE_PUBLIC_KEYS: '{}' }, new MemoryLicenceStore())).toThrow('must include');
+  });
+});
