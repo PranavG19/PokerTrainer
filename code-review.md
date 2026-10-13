@@ -774,6 +774,254 @@ Verdict after fixes: FAIL
 
 ---
 
+# Review: fix/mp-deal-security
+Verdict: PASS WITH NOTES
+Base: 2b28855  Head: f9e75c2
+
+This is the final review after three rounds. Every Act-on item from rounds 1 and 2 is fixed and was
+checked again at f9e75c2. My temporary attack tests (`tests/unit/zz-review4.test.ts` and
+`tests/unit/zz-review5.test.ts`) have been deleted, and the tree is clean. History was rewritten again, so
+this head is f9e75c2, not a80620c.
+
+## Status of earlier findings
+
+**Round-2 Act-on items**
+
+- **R2-1. A busted player who stays gets a free rebuy: FIXED.**
+  - What changed: newcomers are detected by `RelayServer.seatedAt` (relayServer.ts:108-109, :272). That
+    map records every seat's occupant at each completed deal, whether or not the seat was dealt in. It is
+    taken from `pending.occupants` (:293, :358), so a restarted deal recomputes the base and never
+    stacks two buy-ins.
+  - Proof: dealCommit.test.ts "a player who busts and stays is not bought in again" passes; it checks
+    chips each hand for 30 hands.
+  - My check E1: seat 2 busts and stays. Next deal it is not dealt and chips stay 15000.
+  - My check E1b: the player then leaves and a new player joins that seat. The newcomer is bought in at
+    5000 (chips 20000), which is the intended rejoin behaviour.
+  - My check E2: a newcomer arrives, the deal restarts on a timeout, then another newcomer arrives.
+    Chips go from 10000 to 15000, which is exactly one buy-in.
+  - First hand: `handNumber > 0` guards it, and the seats are built from `createTable`.
+- **R2-2. A guest leaving mid-hand stalls the table: FIXED.**
+  - What changed: `foldAbsent` (multiplayer.ts:301-321) runs at the top of every `broadcastState`
+    (relayServer.ts:144-148). It folds through the engine when the turn sits on a seat whose `dealtTo`
+    owner is neither connected nor the dealer.
+  - Proof: dealCommit.test.ts "a guest who leaves mid-hand is folded…" and "a heads-up opponent leaving…"
+    pass.
+  - My checks:
+    - D1, 4 seats: two seats in a row leave. Both are folded when the turn reaches them, and the player
+      to act is not folded. The hand finishes with no guest violations.
+    - D2: a leaver who is already all-in is not folded. The hand settles, and that seat can win the pot
+      (it won 14850); chips are conserved.
+    - D3, side pot: a short stack is all-in, a deep stack is all-in, and a third seat leaves facing the
+      bet. It is folded at its turn, and the main pot and side pot settle correctly (15050 before and
+      after).
+    - D4: a leaver during a pending deal causes no fold. The previous hand is settled, so it is a no-op,
+      and the redeal is clean.
+    - D5: the dealer's in-process seat is never folded across 4 hands.
+  - Looping: the loop is bounded by `seatCount`. Each absent seat folds at most once, `isHandOver` and
+    `settle` stop it, and `fold` is always legal while the seat may act (table.ts:285).
+- **Guard `k` and "fifty-fifty" false positives (Consider): FIXED.**
+  - "9 K 2", "3k-high" and "fifty-fifty" are no longer read as numbers.
+  - "1k", "1.5k", "3k" and "2k, 3k" are still caught.
+  - Proof: my check F.
+
+**Round-1 Act-on items, still fixed at f9e75c2**
+
+- A1, entropy left out: now a violation, and warnings persist.
+- A2, `isYou` spectator bypass: the seat is held once learned.
+- A3, a malformed frame throws: shapes are checked, with a try/catch behind them.
+- A4, a false violation for a newcomer during a pending deal: `dealtTo` comes from the recipients.
+- A5: an engine throw now becomes an error.
+- A8: handshakes are capped per address.
+- A9: spelled-out numbers have their own check, and the post-reveal path keeps it.
+- Sigma binds the dealer and the deal order.
+- The oracle covers `dns.promises` and `sh -c`.
+- The `node_modules` symlink and the `wip:` commit are gone.
+
+The round-2 proofs (B1 to B5) still hold: the unit suite is green at this head.
+
+## Consider
+- **src/core/relayGuest.ts:208-212. "Verified" covers the cards only.**
+  - Winners, pot and stacks are taken from the host, though the guest holds every showdown card and
+    the board.
+  - Tradeoff: a few lines with the existing evaluator, against a label that suggests more than it checks.
+- **src/core/relayServer.ts:238-245 with relayGuest.ts:121-125. A guest can be removed and rejoin
+  repeatedly.**
+  - A guest that commits and never reveals is removed after 10 s, and can then rejoin with the same
+    invite.
+  - Each cycle costs about 10 s per hand.
+  - It also shows honest guests "the host restarted a deal" warnings that blame the host.
+  - Tradeoff: a rejoin cool-down, and a warning that names the removed seat.
+- **src/core/relayServer.ts:266-274. A rejoin is a rebuy.**
+  - A busted player can leave and rejoin to get a fresh `startStack`.
+  - A player who leaves with chips loses them: an absent seat is zeroed at the next deal, which includes
+    an all-in leaver's winnings, as in D2.
+  - This is intended ("rejoining should buy in"), but no UI tells the player.
+  - Tradeoff: hold a leaver's stack for a rejoin under the same name, against having no persistent
+    identity.
+
+## Noted
+- After a restart, a late commitment gets "no deal is waiting for that commitment" as an error toast. It
+  is noise, not harm.
+- A LAN peer with 8 or more IPv4 aliases can still hold all 32 slots, each for `HELLO_TIMEOUT_MS`.
+- Heads-up, after one player busts nothing is dealt until a newcomer joins (`dealOrder.length < 2`), and no
+  UI message says so.
+- The guard's `k` rule is now lowercase only, so "2K" is read as just `2`, which the digit provenance
+  check still runs on. "a dozen" and "half" are out of scope, as declared.
+- Whether an absent seat is folded depends on the turn reaching it. An absent seat that never gets the turn
+  again (others all-in) stays in to showdown. That matches table rules, but its winnings then leave with
+  the seat.
+- DECISIONS.md records that `npm run e2e` fails at `electron.launch` in this checkout. AGENTS.md "Done"
+  requires e2e to pass, so that is unmet here. Electron was not run, per the brief.
+
+## Dismissed
+- **foldAbsent can fold a present player's seat.**
+  - Proof: it breaks when `present.has(dealtTo[toAct])`, and `present` is everyone connected plus the
+    dealer.
+  - Every dealt seat has a `dealtTo` owner, because unoccupied seats are zeroed and `recipients` is
+    everyone connected.
+  - D1 and D5 confirm it.
+- **foldAbsent folds during the pending phase.** Proof: during a pending deal `room.table` is the
+  previous, already-settled hand (`winners !== null`), or null before the first hand. D4 confirms it.
+- **foldAbsent mis-settles side pots or loops.** Proof: it folds only through `applyAction` and `settle`,
+  and the loop is bounded by `seatCount`. D3 conserves chips across a main pot and a side pot.
+- **seatedAt misfires on the first hand, on a restart, or on bust-leave-rejoin.** Proof: the
+  `handNumber > 0` guard; `occupants` is recomputed on each `beginDeal` and committed only in
+  `finishDeal`; and E1, E1b and E2.
+- **Round-1 and round-2 dismissals stand.** These cover unseen-card leaks, sigma grinding, the token sent
+  before the pin, the handshake sniff, the counter leak, false violations from guest seat rules, and solo
+  determinism.
+
+## Verification
+- At f9e75c2, after deleting my temporary files:
+  - `npm run typecheck` exits 0.
+  - `npx vitest run --exclude tests/unit/perf.test.ts` exits 0, with 88 of 88 files and 1852 of 1852
+    tests passing.
+- Temporary tests, now deleted:
+  - D1 to D5 for foldAbsent: consecutive leavers, an all-in leaver, a side pot (the D3 run was redone with
+    a legal all-in after a harness misstep in my own script), pending, and the dealer seat.
+  - E1, E1b and E2 for seatedAt.
+  - F for the guard `k` and fifty-fifty rules.
+- Not run: e2e and Electron.
+- Untested by the branch's suite: a leaver who is all-in and wins (their chips disappear at the next
+  deal); side pots with an auto-fold; and the guard's `k` card-text cases (only "fifty-fifty" was added to
+  guard.test.ts).
+
+- `npx tsc --noEmit -p tsconfig.json`: exit 0. `npx tsc --noEmit -p tsconfig.main.json`: exit 0.
+- `npx vitest run`: 1852 of 1853 pass. The one failure is perf under load (see Noted).
+- Red-first: I extracted origin/main into /tmp and ran d635155's `profile-roundtrip.test.ts` and `localDay.test.ts` there. 3 of 3 fail, each on the asserted behaviour (key dropped; UTC buckets). HEAD's version of localDay.test fails on main only because the import is missing, which is expected for the implementation version.
+- Scratch tests in /tmp/hd (an extract of HEAD): fake ENOSPC rotation (backups lost), the sweep pattern miss, and `reps(bankroll)` compiling.
+- Not run: e2e and Electron, as instructed. Still untested: the renderer's handling of thrown saves, backup rotation under ENOSPC, the snapshot temp sweep, a newer build's second instance, and `systemDayKeyOf` across DST.
+
+## Author response (fixed in the next commit)
+| Finding | Outcome |
+|---|---|
+| Save that throws shows no banner | Fixed: `save` returns `{saved:false, failed}`; the renderer also catches IPC rejection and shows "Not saving" until a save lands. Test: store.test "a write that fails". |
+| `chalk(bankroll)` compiles | Fixed: the constructors take `Unbranded`; 4 new `@ts-expect-error` mint cases. |
+| Full disk wipes backups | Fixed: temp file written before rotation. Test: backups byte-identical after 3 failed saves. |
+| mtime/size guard could misfire | Fixed: a changed stamp stops saving only if the sha256 differs. Test: "a file touched but not changed". |
+| Snapshot temps never swept | Fixed: the sweep matches `.pre-vN.<uuid>.tmp`. Test updated. |
+| Re-upgrade takes no new snapshot | Kept by design: the first copy is the untouched original, and the rolling backups hold the later v1 file. Pre-v2 Delete leaving `.pre-v2`: cannot change old builds; noted. |
+| DST test does not call `systemDayKeyOf` | Not changed: the real function depends on the machine timezone. The per-timestamp lookup is tested through `dayKeyAt`, and `systemDayKeyOf` is checked against `Date`. |
+| PROFILE_SHAPE drift test is one-way | Not changed: the dangerous direction (serialize writes an unlisted key) is the one tested. An extra listed key only stops a carry. |
+
+## Re-review at ba7ba94
+Both blocking items are fixed, and I have no new blocking findings. I tested the fixes on an extract of ba7ba94 in /tmp/hd2, using scratch tests that fake ENOSPC on `writeFileSync`, `copyFileSync` and `renameSync`.
+
+- **(1) Renderer save wrapper (main.ts:248-266): fixed.** `save()` no longer throws: a failed write returns `failed: 'write'`, a failed snapshot returns `failed: 'pre-migration-copy'`, and the wrapper turns an IPC rejection into `failed: 'ipc'`. `saveFailing` is set on any `saved:false` without a read-only reason and cleared by the next save that lands. The in-memory bridge returns `void`, which counts as not failing. A read-only reason takes priority over `save-failing` in `paintReadOnly`. No save runs before the banner exists. Consider: the banner says progress "saves as soon as it can", but a retry only happens on the next action that saves, and quitting while it is showing loses the session. The text could say "keep Offsuit open; it retries on your next action".
+- **(2) Temp-first `saveWithBackup` (backup.ts:110-123): fixed for the case reported.** Every failure path unlinks the temp, and no `.tmp` files were left in any probe. Results after 3 failed saves:
+  - Temp write fails: live and all 3 backups byte-identical (repo test "a write that fails").
+  - Temp write succeeds but the bak1 copy fails (`copyIfPresent` swallows it): all 3 saves go through, but the backups shrink to `[none, none, v3]`, so the previous versions v4, v2 and v1 are gone. This is the likely state on a nearly full disk: the temp file took the last of the space, and the copy needs the same again. **Consider:** `fs.linkSync(file, bak1)` instead of `copyFileSync`. A hard link uses no space and is safe because live is always replaced by rename, never rewritten in place. Fall back to copy if linking fails.
+  - The final rename fails: rotation has already run, so all three backups become the live version (v3, v2, v1 lost). The live file is intact. A same-directory rename failing is rare. Noted. Running the rename-dependent steps only once the rename can succeed, or skipping rotation when `renameSync` fails, would close it.
+- **(3) Hash-confirmed `changedElsewhere` (store.ts:79-84): fixed.** A changed stamp with identical bytes re-stamps and keeps saving (test "a file touched but not changed"). Different bytes still trip the guard (the existing second-copy test). Noted: `remember()` hashes the file re-read from disk rather than the text just written, so another writer landing in that window is taken as our own write. Also, `hashOf` returning null on a transient read error (for example EMFILE) while the stamp differs would trip the guard. Hashing the written text, and treating a null hash as "unknown, retry" rather than "changed", closes both.
+- **(4) `Unbranded` constructors (units.ts:17-38): fixed.** The 4 new `@ts-expect-error` mint cases compile, so each line really errors, and `reps(n)` with `n: number` still compiles (scratch probe, tsc exit 0). Noted: arithmetic and `Number()` still launder a brand (`chalk(bankroll - 0)`, `chalk(Number(bankroll))` compile). That is inherent to TS brands and matches the existing "arithmetic drops the brand" note. The source scan of `core/progression` is the backstop.
+- **Author's "not changed" items.** The DST response does not hold: `process.env.TZ` set at runtime makes `systemDayKeyOf` machine-independent, so a real per-timestamp test is possible. The drift response covers serialize writing an unlisted key, not a legacy key that deserialize reads but nothing lists, which the carry would write back on every save. Both stay Consider, not blocking. The re-upgrade snapshot decision is accepted.
+- **Verification at ba7ba94.**
+  - Both `tsc` configs: exit 0.
+  - `npx vitest run`: 1852 of 1855. The 3 failures are all `perf.test.ts` (load average 76-135); re-run alone it passes 7 of 7.
+  - The store, backup, units, profileSchema and progression suites plus the scratch probes: 67 of 67 pass.
+  - e2e not run, as instructed. The renderer's banner states (`save-failing` set and cleared) still have no automated test.
+
+## Author response to the re-review (next commit)
+| Note | Outcome |
+|---|---|
+| Banner says "saves as soon as it can" | Fixed: "Free some space and keep Offsuit open: the next action saves everything." |
+| Re-hash reads the file after the write | Fixed: hashes the text just written. |
+| A null hash on a transient read failure trips the guard | Fixed: present-but-unreadable is not a change; a missing file still is. |
+| Use a hard link for bak1 on a full disk | Not changed: a link shares bytes with the live file, so an in-place edit or corruption of the live file would corrupt the backup too. Commented in backup.ts. |
+| Final rename fails after rotation | Not changed: rare (the temp is already written on the same volume); the live file stays intact. |
+| DST test does not use a real timezone | Fixed: `systemDayKeyOf` is tested under TZ=America/Los_Angeles across 2023-11-05. |
+| Drift test misses a legacy key that is read but not listed | Not changed: every key deserialize reads is also written by serialize, which the test covers. |
+
+## Streak change (c2a44f7)
+Verdict for this commit: **CHANGES REQUESTED**. The streak parser is meant to repair corrupt data, but when the stored fields disagree with the history it trusts the stored values. The counter can also freeze the streak for good. I verified every example below with scratch tests in /tmp/hd3 (an extract of c2a44f7).
+
+### Act on
+- **persist.ts:144-153 `parseStreak`. A corrupt stored value can invent a run or cut one, which breaks invariants (1) and (4).**
+  - **It invents a run across a gap.** `{current:50, lastCountedDay:100, countedDays:[100,102]}` parses to `current:50`, `lastCountedDay:102`. The history shows a gap, so the true run is 1. The stored `current` belonged to the old pointer (100) but is applied to the new one (102).
+  - **It invents a run with no history.** `{current:1e9, lastCountedDay:5, countedDays:[]}` parses to `current:1e9`, `best:1e9`.
+  - **It cuts a run when the pointer is ahead of the history.** `{current:1, lastCountedDay:104, countedDays:[101,102,103]}` parses to `current:1`, `lastCountedDay:104`. That is below the history's trailing run of 3, and day 104 is not in the history. `countSession` always writes both fields together, so a pointer outside the history can only come from corruption.
+  - Fix: treat the history as the source of truth.
+    - `lastCountedDay` = the newest counted day when the history is non-empty. The stated pointer is used only when the history is empty, and then `current` is 1.
+    - `current` = `runEndingOn(countedDays, lastCountedDay)`.
+    - Raise `current` to the stored value only when `stated === lastCountedDay` and the run reaches the start of a full history (`logged === countedDays.length === MAX_STREAK_DAYS`). That is the only case where the true run can be longer than the log, and it keeps the existing "current: 5000 over a full history" test passing.
+    - Add the three cases above as tests.
+- **persist.ts:184-197 `countSession` / `currentStreakOn`. A `lastCountedDay` in the future freezes the streak, which breaks rule (2).**
+  - If the clock was ahead when a session was counted (or the pointer is corrupt) and is then corrected, `countSession` ignores every real day until that future day arrives.
+  - Meanwhile `currentStreakOn` shows the stored run every day, because `today - last <= 1` is true for any negative gap.
+  - Probe: last day 20000 with current 5, then sessions on days 19800-19804. Each day leaves current at 5 and shows 5, so the learner gets neither the reset for missed days nor credit for sessions.
+  - The "changes nothing" rule is right for a small backward step (flying west can move the DayKey back one), not for a large one.
+  - Fix: in `countSession`, when `day < last - 1`, treat it as a clock correction. Drop counted days after `day`, recompute the run with `runEndingOn`, then count `day`. In `currentStreakOn`, return `current` only when the gap is 0 or 1, and treat a gap of -1 or less as "pointer not trusted". Whether the future days are kept or dropped is the owner's call, but the streak must not stop counting. Add a test that moves the clock back.
+
+### Checked and fine
+- **best >= current** holds on every path, including parse, `countSession`, and the 800-day run kept past the 730-day history.
+- **The pointer is never older than the newest counted day** (`Math.max`).
+- **A null pointer with no history** reads as 0. Negative, float and non-integer days are dropped or floored, and duplicates collapse.
+- **Same day twice** is a no-op. **The next day** adds 1. **A gap** starts again at 1, and `currentStreakOn` reads 0 after a missed day. **The bounded history** keeps the newest 730 days while `current` and `best` keep counting.
+- **Shape:** `PROGRESSION_SHAPE.streak` lists exactly the five fields, and the drift test passes. A stray `restedDays` or freeze field is carried untouched and never read. A `progression.lamp` written by an earlier commit on this branch would be carried forever as an unknown key, but no build with `lamp` ever shipped (origin/main has no `progression`), so no migration is needed.
+
+### Consider / Noted
+- **DECISIONS.md:12 still says the migration "does not seed the Lamp".** Edit that line to say the streak.
+- **The new AGENTS.md streak line runs past the file's wrap width.**
+- **`streak.boundaryHour` is stored but nothing reads it.** Day keys come from `systemDayKeyOf()` with the default hour. If the hour ever becomes a setting, the stored history needs re-keying.
+
+### Verification
+- `tsc -p tsconfig.json`: exit 0.
+- progression, profileSchema, store and localDay tests: 49 of 49 pass.
+- The scratch probes above.
+- Not run: e2e (the profile-schema.spec fixture was updated in this commit).
+
+### Re-check at ef9bfc6
+Both streak blockers are fixed, and I found no new blockers. I re-ran my probes on an extract of ef9bfc6 in /tmp/hd4.
+
+- **(1) The parser no longer invents or cuts runs.**
+  - Run across a gap: `[100,102]` with a stored current of 50 now gives current 1 on day 102.
+  - Pointer ahead of the history: `[101,102,103]` with a pointer of 104 now gives current 3 on day 103.
+  - Stored 1e9 with no history now gives current 0 and no last day.
+  - A full 1000-day run still parses as 1000, because the trailing run fills all 730 days and the stored pointer agrees.
+- **(2) A fast clock no longer freezes the streak.** With a last day of 20000, the streak reads 0 on day 19800. Sessions on 19800, 19801 and 19802 then give 1, 2 and 3. Best stays at 5.
+
+**Consider (not blocking):**
+- **A one-day step back erases the day just counted** (persist.ts:202-212). Count days 96-100, then a session on day 99. This happens when flying west lands a late session before the 4 am turnover. Day 100 is dropped, the run becomes 4 on day 99, and the streak reads 0 on day 101 unless another session counts day 100. Fix: treat a step of exactly one day back as a no-op, and correct only when `day < last - 1`.
+- **A clock correction during a run longer than 730 days cuts it to the history.** A 1000-day run corrected by 5 days becomes 726 instead of 995. Fix: when the kept history still has a full trailing run, keep `current - (last - newest)`. This is rare.
+- **A corrupt `best` becomes a 100-year record.** `best: 1e9` with an empty history parses to 36,500. When `countedDays.length < MAX_STREAK_DAYS` the history is complete, so best could be capped at the longest run in the history.
+- **Nit:** AGENTS.md line 63 is still past the wrap width, because "Core takes a `DayKeyOf`; only the renderer" stays on the long line.
+
+**Docs:** DECISIONS.md now says "streak" and describes the history-first rule and the clock correction. The `boundaryHour` documentation in types.ts reads correctly.
+
+**Verification:**
+- `tsc -p tsconfig.json`: exit 0.
+- progression, profileSchema, store, localDay and units tests: 55 of 55 pass.
+- Not run: e2e.
+
+## Author response to the streak re-check
+| Note | Outcome |
+|---|---|
+| One day back drops a counted day | Fixed: a one-day step back is ignored; only a larger gap corrects the clock. Test: "one day back (a westward flight before 4 am)". |
+| A run over 730 days is cut by a clock correction | Not changed: it needs both a 2-year run and a clock error, and the best run is kept. |
+| A corrupt best reads as 36,500 | Not changed: capping best by the history would cut a real record whenever the history itself is damaged. Losing a record is worse than an implausible one. |
+| AGENTS.md line width | Fixed. |
+
+
 # Review: feat/profile-schema-v2
 Verdict: PASS WITH NOTES (streak blockers fixed at ef9bfc6; was CHANGES REQUESTED at c2a44f7)
 Base: 2b28855 (merge-base with origin/main)  Head: 8af212d. I reviewed d635155 and 21278db in full. 8af212d (AGENTS.md, DECISIONS.md, profile-schema.spec) landed while I was reviewing, and I read it too.
