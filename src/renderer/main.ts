@@ -79,6 +79,7 @@ import { conceptStatesFromLog, dueNow, gate, posterior, type ConceptState } from
 import { remediationQueue } from '../core/contrastManifest.js';
 import { renderTable, BB, START_STACK, type TableHandle } from './screens/table.js';
 import { renderMultiplayerScreen, type MultiplayerBridge } from './screens/multiplayer.js';
+import { renderOnlineScreen, type OnlineBridge } from './screens/online.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
 import type { AssessmentGrade } from '../core/assessmentBlock.js';
 import { renderVarianceScreen } from './screens/variance.js';
@@ -163,6 +164,17 @@ interface OffsuitBridge extends ProBridge {
   deeChatWarm?: () => Promise<void>;
   deeChatPhrase?: PhraseBridge;
   onDeePhrasing?: (handler: (status: PhrasingView) => void) => () => void;
+  /** Online play (an Offsuit server). All absent outside Electron; main holds the socket and the key. */
+  onlineStatus?: OnlineBridge['onlineStatus'];
+  onlineConfigure?: OnlineBridge['onlineConfigure'];
+  onlineConnect?: OnlineBridge['onlineConnect'];
+  onlineRequest?: OnlineBridge['onlineRequest'];
+  onlineAction?: OnlineBridge['onlineAction'];
+  onlineEmote?: OnlineBridge['onlineEmote'];
+  onlineLeave?: OnlineBridge['onlineLeave'];
+  onlineDisconnect?: OnlineBridge['onlineDisconnect'];
+  onlineExportIdentity?: OnlineBridge['onlineExportIdentity'];
+  onOnlineEvent?: OnlineBridge['onOnlineEvent'];
 }
 
 declare global {
@@ -340,6 +352,12 @@ async function boot(): Promise<void> {
    * returns to Home. It swaps out like the table does, so its pushed-event subscription is torn down.
    */
   let multiplayerActive = false;
+  /**
+   * Online play is a PANEL within the Play tab too, opened from the multiplayer panel's "Play online"
+   * row. Leaving it returns to the multiplayer panel. Leaving keeps the player signed in (main holds the
+   * session), but the screen leaves any table it was seated at.
+   */
+  let onlineActive = false;
   /**
    * The weekly assessment is a PANEL within the Play tab, same as multiplayer (the tab bar is full). When
    * true the Play tab shows the assessment block instead of Home or a solo table; finishing or leaving it
@@ -1198,12 +1216,30 @@ async function boot(): Promise<void> {
 
     // Play tab: the multiplayer panel wins if it is open, then the assessment block, then a live solo
     // table, else home.
+    if (onlineActive) {
+      screen.replaceChildren(
+        renderOnlineScreen({
+          bridge: io,
+          onExit: () => {
+            onlineActive = false;
+            multiplayerActive = true;
+            render();
+          },
+        }),
+      );
+      return;
+    }
     if (multiplayerActive) {
       screen.replaceChildren(
         renderMultiplayerScreen({
           bridge: io,
           onExit: () => {
             multiplayerActive = false;
+            render();
+          },
+          onPlayOnline: () => {
+            multiplayerActive = false;
+            onlineActive = true;
             render();
           },
         }),

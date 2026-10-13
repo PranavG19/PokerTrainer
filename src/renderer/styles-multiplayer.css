@@ -249,6 +249,28 @@ html .mp-seat-cards.g-mini .card-back.small {
 .mp-controls .pill[data-testid='mp-raise']:not(:disabled):hover { background: var(--bone-hover); }
 .mp-controls .pill[data-testid='mp-raise']:not(:disabled):active { background: var(--bone-press); }
 
+/* The way to online play: one more row under the LAN choices (flat in the disabled panel). */
+.mp-online-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+}
+.mp-setup:not(.mp-setup-rows) > .mp-online-row {
+  align-self: stretch;
+  padding: 0;
+}
+
+/* Online tables deal on their own: a caption where the Next hand button would be. */
+.mp-deal-note {
+  display: inline-flex;
+  align-items: center;
+  height: var(--h-ctl);
+  padding: 0 10px;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mp-seat {
     transition: none;
