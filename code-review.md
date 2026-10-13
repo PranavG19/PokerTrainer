@@ -1,5 +1,5 @@
 # Review: feat/dee-character
-Verdict: CHANGES REQUESTED (re-verified at 9b63ff8: Act on 1-4 fixed; Act on 5 not fixed, see Re-verification)
+Verdict: PASS WITH NOTES (re-verified at 183a021: all five Act-on items fixed; was CHANGES REQUESTED at ce37308 and 9b63ff8)
 Base: a7d6420 (merge-base with origin/main)  Head: ce37308. I reviewed e518563 and f93733a in full. ce37308 (the lesson.spec #10 fix) landed while I was reviewing, and I read it too.
 
 Short version: the teaching contracts hold. Commit-before-feedback, the GATE, the coach, outcome and pot announcers, the coach word budget and `Grade.price` are all unchanged, and `Grade.spot` is never persisted. The profile additions follow the recipe. Five defects block the merge. Two of them have Dee say false things: "Price held" fires on calls and folds made on the wrong side of the price, and the `{repeat}` counts carry the wrong label. One is a turn-versus-river claim. One is a perch timer that spins at 0 ms for weeks at a time. The last is the dialogue's live region, which is rebuilt on every repaint.
@@ -109,3 +109,13 @@ One note on the "kept" rationale: engine.ts now imports `MAX_DEE_SAID` from `pro
 
 ## Resolution of re-verification item 5 (author)
 - The dialogue announcer is mounted once and never detached: `paint()` in lesson.ts repaints every other child and leaves the region in place (the list view keeps it too). dee.spec #4 tags the node and asserts the same node is still connected after a pick, a commit and the last step.
+
+### Re-verification of item 5 at 183a021 (reviewer)
+I checked `git diff 9b63ff8..183a021` (lesson.ts and dee.spec.ts). `npx tsc --noEmit -p tsconfig.json`: exit 0. `npx vitest run`: exit 0, 96 files, 2234 tests. e2e not run, as instructed.
+
+- Act on 5 (dialogue live region): **VERIFIED.** `paint()` removes every child of `root` except `dialogueAnnouncer`, prepends the new content, and appends the announcer only when it is not already a child. That happens once, on the first render (the list view), and it is never detached afterwards. Both the list and the lesson branch of `renderInner` go through `paint()`, and no other `replaceChildren` on `root` remains. The commit handler sets the text before `render()`, which is now fine, because the region stays connected and the mutation lands in a live, mounted region. A later option pick does not change the text, so it does not re-announce.
+- Noted, not blocking:
+  1. The `__dee` tag in dee.spec #4 proves node identity and connection, but not "never detached". A detach-and-reattach of the same node would keep the tag. The code is right today. A MutationObserver on `root` (childList) that flags any removal of the announcer would make the spec pin it.
+  2. The announcer keeps the last reply's text when the learner moves to another lesson or example. It is silent, because nothing changes it, but clearing it on `openLesson` or an example switch would keep the a11y tree tidy.
+
+Final: all five Act-on items are VERIFIED. **Verdict: PASS WITH NOTES.** The notes are the remaining Consider items above: no summary for an open-ended table left mid-way (owner-deferred), the duplicate frequency normalizers, and an unverified 900 px tab-bar and ended-dock fit. Before merge, AGENTS.md calls for `npm run test:full` on the final commit, because this change has a high blast radius.
