@@ -216,13 +216,13 @@ describe('2b. export pages and fresh keys cannot buy unbounded ledger scans', ()
     }
   });
 
-  it('full-ledger scans are budgeted server-wide, so many fresh keys cannot stack them', async () => {
+  it('export scans are limited per network and budgeted server-wide, so many fresh keys cannot stack them', async () => {
     const t = await startTestServer();
     try {
       const errors: string[] = [];
       for (let i = 0; i < 6; i += 1) {
         const p = await signedIn(t, `Key ${i}`);
-        await p.request('forget').catch((e: Error) => errors.push(e.message));
+        await p.request('export').catch((e: Error) => errors.push(e.message));
         p.close();
       }
       expect(errors.length).toBeGreaterThan(0);
@@ -230,5 +230,36 @@ describe('2b. export pages and fresh keys cannot buy unbounded ledger scans', ()
     } finally {
       await t.close();
     }
+  });
+});
+
+describe('9. nobody else’s traffic can stop an erasure', () => {
+  it('a deletion is accepted even when the scan budget is spent, and its ledger lines go in the next pass', async () => {
+    const t = await startTestServer({ lobbyLimits: { scansPerMinute: 0 }, timing: { erasePassMs: 200 } });
+    try {
+      const victim = await signedIn(t, 'Ada');
+      const season = seasonOf(Date.now());
+      t.server.store.append('decisions', season, { k: victim.identity.publicKey, d: 'x:0', ev: 0, g: 1, auto: false, opp: [], day: '2026-10-13', in: {} as never });
+      await expect(victim.request('export')).rejects.toThrow(/busy/);
+      await victim.request('forget');
+      expect(t.server.store.player(victim.identity.publicKey)).toBeUndefined();
+      await new Promise((r) => setTimeout(r, 1500));
+      expect(fs.readFileSync(path.join(t.dir, 'ledger', `decisions-${season}.jsonl`), 'utf8')).not.toContain(victim.identity.publicKey);
+      victim.close();
+    } finally {
+      await t.close();
+    }
+  });
+
+  it('an erasure interrupted by a restart is finished when the store opens', () => {
+    const dir = tmp();
+    const store = Store.open(dir);
+    const season = seasonOf(Date.now());
+    store.setProfile('gone', 'Gone', Date.now());
+    store.append('decisions', season, { k: 'gone', d: 'x:0', ev: 0, g: 1, auto: false, opp: [], day: '2026-10-13', in: {} as never });
+    store.forget('gone');
+    // Crash before the pass: the next open completes it.
+    const reopened = Store.open(dir);
+    expect(reopened.read<DecisionLine>('decisions', season)).toEqual([]);
   });
 });

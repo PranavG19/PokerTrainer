@@ -373,8 +373,10 @@ describe('identity, export and erasure', () => {
     await t.server.rankings.idle();
     expect(t.server.store.player(ada.identity.publicKey)).toBeUndefined();
     const season = seasonOf(Date.now());
+    // The ledger lines go in the next erasure pass (every erasePassMs; the harness runs it fast).
     for (const kind of ['decisions', 'hands'] as const) {
-      expect(fs.readFileSync(path.join(t.dir, 'ledger', `${kind}-${season}.jsonl`), 'utf8')).not.toContain(ada.identity.publicKey);
+      const file = path.join(t.dir, 'ledger', `${kind}-${season}.jsonl`);
+      await expect.poll(() => fs.readFileSync(file, 'utf8').includes(ada.identity.publicKey), { timeout: 5_000 }).toBe(false);
     }
   });
 

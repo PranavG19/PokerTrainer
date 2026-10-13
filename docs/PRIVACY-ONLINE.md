@@ -51,9 +51,9 @@ your key. They never contain your name, key, IP address or cards. Logs are kept 
 - **Go offline** at any time; turning online play off in the app closes the connection.
 - **Export your server data**: the app's export request returns everything the server holds about your key
   (your row, leagues, past season figures, your ranked decision records), fetched in pages and joined into one
-  file. One export and one deletion may be started per minute.
-- **Delete your server data**: the delete request erases your player row, league memberships, past season
-  figures and every ranked record naming you, then signs you out. Hands you shared with others keep the
+  file. One export may be started per minute.
+- **Delete your server data**: the delete request erases your player row, league memberships and past season
+  figures at once, and every ranked record naming you within about a minute, then signs you out. Hands you shared with others keep the
   other players' rows, with yours removed.
 - **Your device key** lives in `offsuit-online-identity.json` next to your profile, readable only by your
   user account. Export it to keep it; anyone with that file can play as you. There is no account recovery:

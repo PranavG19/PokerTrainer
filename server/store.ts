@@ -53,6 +53,8 @@ interface StateFile {
   readonly seasons: Record<string, SeasonRow>;
   /** Final ratings of seasons whose ledgers are gone: season → key → rating. */
   readonly results: Record<string, Record<string, Rating>>;
+  /** Keys erased whose ledger lines are still to be removed by the next pass (eraseLedgers). */
+  readonly erasing: string[];
 }
 
 /** One graded decision. `d` is `<deal nonce>:<index>`, unique for good. */
@@ -114,6 +116,7 @@ export class Store {
         leagues: {},
         seasons: {},
         results: {},
+        erasing: [],
       };
       const store = new Store(dir, fresh);
       store.writeNow();
@@ -126,8 +129,15 @@ export class Store {
       throw new Error(`${file} is not valid JSON (${(error as Error).message}); restore it from a backup`);
     }
     if (parsed?.version !== 1 || typeof parsed.logSalt !== 'string') throw new Error(`${file} is not an Offsuit state file`);
-    const store = new Store(dir, { ...parsed, results: parsed.results ?? {}, gradeSecret: parsed.gradeSecret ?? crypto.randomBytes(32).toString('hex') });
+    const store = new Store(dir, {
+      ...parsed,
+      results: parsed.results ?? {},
+      gradeSecret: parsed.gradeSecret ?? crypto.randomBytes(32).toString('hex'),
+      erasing: Array.isArray(parsed.erasing) ? parsed.erasing : [],
+    });
     if (parsed.gradeSecret === undefined) store.writeNow();
+    // An erasure the last run accepted but did not finish is finished before anything reads a ledger.
+    store.eraseLedgers();
     return store;
   }
 
@@ -348,18 +358,34 @@ export class Store {
     delete this.state.players[key];
     for (const { code } of this.leaguesOf(key)) this.leaveLeague(code, key);
     for (const rows of Object.values(this.state.results)) delete rows[key];
+    // The ledger lines go in the next pass, which handles every pending key in one scan, so an erasure
+    // costs the same however many arrive and is never refused for anyone else's traffic. Persisted, so a
+    // restart finishes it.
+    if (!this.state.erasing.includes(key)) this.state.erasing.push(key);
+    this.writeNow();
+  }
+
+  pendingErasures(): number {
+    return this.state.erasing.length;
+  }
+
+  /** Remove every pending key's ledger lines in one pass over the ledgers. Returns how many keys it erased. */
+  eraseLedgers(): number {
+    const gone = new Set(this.state.erasing);
+    if (gone.size === 0) return 0;
     for (const season of this.ledgerSeasons()) {
       this.rewrite<DecisionLine>('decisions', season, (d) =>
-        d.k === key ? null : d.opp.includes(key) ? { ...d, opp: d.opp.filter((o) => o !== key) } : d,
+        gone.has(d.k) ? null : d.opp.some((o) => gone.has(o)) ? { ...d, opp: d.opp.filter((o) => !gone.has(o)) } : d,
       );
       this.rewrite<HandLine>('hands', season, (h) =>
-        h.p.some((p) => p.k === key) || h.shared.some(([a, b]) => a === key || b === key)
-          ? { ...h, p: h.p.filter((p) => p.k !== key), shared: h.shared.filter(([a, b]) => a !== key && b !== key) }
+        h.p.some((p) => gone.has(p.k)) || h.shared.some(([a, b]) => gone.has(a) || gone.has(b))
+          ? { ...h, p: h.p.filter((p) => !gone.has(p.k)), shared: h.shared.filter(([a, b]) => !gone.has(a) && !gone.has(b)) }
           : h,
       );
     }
-    this.changed();
+    this.state.erasing.splice(0, gone.size);
     this.writeNow();
+    return gone.size;
   }
 
   /** Stream one ledger through `map` (null drops the line) into a temp file, then rename it into place. */

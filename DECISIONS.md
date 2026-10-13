@@ -1276,10 +1276,13 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   mid-hand would force a graded fold), and the removed key cannot sit there again.
 - **Limits:** per address 8 sockets and 30 attempts a minute, 4,000 sockets in all; sign in within 10 s;
   60 s silence (the client pings every 20 s) closes a socket; 10 frames/s with a burst of 30; 20 strikes
-  close it (10 forgiven a minute); export and erasure need a player row and may each start once a minute per
-  key and per network, within a server-wide budget of 4 full-ledger scans a minute (keys and names cost
-  nothing, so a per-key limit alone does not bound the work); an export is scanned once and served in pages
-  of 1,000 rows, in order, each once, so it fits a frame and no later page costs a scan; ledgers are streamed, never read as one
+  close it (10 forgiven a minute); an export needs a player row and may start once a minute per key and per
+  network, within a server-wide budget of 4 ledger scans a minute (keys and names cost nothing, so a per-key
+  limit alone does not bound the work), and is scanned once and served in pages of 1,000 rows, in order, each
+  once; an erasure is never refused for anyone else's traffic: the row, leagues, results and rankings go at
+  once, and the ledger lines of every pending key go in one batched pass a minute (persisted, finished at
+  startup). Supersedes: erasure under the scan budget, because two networks could then block every
+  deletion (review A9); ledgers are streamed, never read as one
   string; new ranked tables wait while more than 1,000 grades are queued; per-address state is dropped once
   it limits nothing; more than 2 MB unsent closes a slow reader; 10 bad signatures block an address for 10 minutes;
   10 failed room or league codes per 10 minutes per key and per network.

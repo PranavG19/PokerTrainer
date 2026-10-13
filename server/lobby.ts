@@ -46,9 +46,11 @@ export interface LobbyTiming {
   readonly entropyMs: number;
   /** A room with fewer than two players for this long is closed. */
   readonly idleRoomMs: number;
+  /** How often pending erasures' ledger lines are removed, all keys in one pass. */
+  readonly erasePassMs: number;
 }
 
-export const DEFAULT_TIMING: LobbyTiming = { turnMs: 30_000, graceMs: 60_000, nextHandMs: 4_000, entropyMs: 10_000, idleRoomMs: 30 * 60_000 };
+export const DEFAULT_TIMING: LobbyTiming = { turnMs: 30_000, graceMs: 60_000, nextHandMs: 4_000, entropyMs: 10_000, idleRoomMs: 30 * 60_000, erasePassMs: 60_000 };
 
 export interface LobbyLimits {
   readonly maxRooms: number;
@@ -357,9 +359,15 @@ export class Lobby {
     table.frame(conn.key, frame);
   }
 
-  /** Forget rate-limit history that no longer limits anything. */
+  private lastErasePass = 0;
+
+  /** Forget rate-limit history that no longer limits anything, and run a due erasure pass. */
   sweep(): void {
     const now = this.now();
+    if (this.store.pendingErasures() > 0 && now - this.lastErasePass >= this.timing.erasePassMs) {
+      this.lastErasePass = now;
+      this.log('erasure.pass', { keys: this.store.eraseLedgers() });
+    }
     this.failedJoins.sweep(now);
     this.created.sweep(now);
     this.heavy.sweep(now);
@@ -405,15 +413,25 @@ export class Lobby {
     if (req.type === 'export' && req.page > 0) {
       // Later pages come from the page-0 scan, in order, each once: no page costs a scan.
       const run = this.exporting.get(conn.key);
-      if (run === undefined || now - run.at > EXPORT_WINDOW_MS || req.page !== run.next || req.page >= run.pages) {
+      if (player === undefined || run === undefined || now - run.at > EXPORT_WINDOW_MS || req.page !== run.next || req.page >= run.pages) {
         return fail('Ask for the export again from the first page.');
       }
       run.next += 1;
       if (run.next >= run.pages) this.exporting.delete(conn.key);
       return ok(Store.page(run.doc, req.page));
     }
-    if (req.type === 'export' || req.type === 'forget') {
-      // Both scan every ledger: only for a key the server holds something about, once a minute per key
+    if (req.type === 'forget') {
+      // Never refused for anyone else's traffic: the cheap part now, the ledger lines in the next pass.
+      if (player === undefined) return fail('This server holds nothing about this key.');
+      this.exporting.delete(conn.key);
+      this.seatedIn.get(conn.key)?.unseat(conn.key, null);
+      this.store.forget(conn.key);
+      this.rankings.forget(conn.key);
+      this.log('player.forgotten', {});
+      return ok();
+    }
+    if (req.type === 'export') {
+      // A scan of every ledger: only for a key the server holds something about, once a minute per key
       // and per network, and within a server-wide budget, since keys and names cost nothing to make.
       if (player === undefined) return fail('This server holds nothing about this key.');
       const ids = [`${req.type}:k:${conn.key}`, `${req.type}:n:${conn.netTag}`];
@@ -429,13 +447,6 @@ export class Lobby {
       if (pages > 1) this.exporting.set(conn.key, { doc, at: now, next: 1, pages });
       else this.exporting.delete(conn.key);
       return ok(first);
-    }
-    if (req.type === 'forget') {
-      this.seatedIn.get(conn.key)?.unseat(conn.key, null);
-      this.store.forget(conn.key);
-      this.rankings.forget(conn.key);
-      this.log('player.forgotten', {});
-      return ok();
     }
     // Everything else needs a name and the 18+ confirmation first.
     if (player === undefined) return fail('Choose a name and confirm you are 18 or over first.');

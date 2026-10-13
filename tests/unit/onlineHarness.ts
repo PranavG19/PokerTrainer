@@ -15,7 +15,7 @@ import { issueCertificate } from '../../src/main/selfSignedCert.js';
 import { silentLog } from '../../server/log.js';
 import { startOnlineServer, type OnlineServer, type OnlineServerOptions } from '../../server/transport.js';
 
-export const FAST = { turnMs: 2_000, graceMs: 4_000, nextHandMs: 150, entropyMs: 3_000, idleRoomMs: 60_000 };
+export const FAST = { turnMs: 2_000, graceMs: 4_000, nextHandMs: 150, entropyMs: 3_000, idleRoomMs: 60_000, erasePassMs: 200 };
 
 export interface TestServer {
   readonly server: OnlineServer;

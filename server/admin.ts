@@ -53,6 +53,7 @@ function run(argv: readonly string[]): unknown {
       return store.exportFor(String(arg));
     case 'forget':
       store.forget(String(arg));
+      store.eraseLedgers();
       return { forgotten: true };
   }
   throw new Error(`unknown command: ${String(command)}`);
