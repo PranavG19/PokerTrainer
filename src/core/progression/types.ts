@@ -25,6 +25,7 @@ export interface ProgressionState {
   personalization: Personalization;
   milestones: MilestonesState;
   entitlements: EntitlementsState;
+  story: StoryState;
 }
 
 /**
@@ -197,4 +198,85 @@ export interface EntitlementsState {
   licence: string | null;
   /** The clock high-water mark, unix seconds; 0 = never (entitlements/clock.ts). */
   highWater: number;
+}
+
+/**
+ * The Long Orbit (story mode, src/core/story/): chapter progress and the rival dossiers. Chapter and rival ids
+ * are cast.ts's, persisted as strings; an id this build does not know is kept and never shown, so a newer
+ * build's chapter survives an older build's save.
+ */
+export interface StoryState {
+  chapters: Record<string, ChapterProgress>;
+  rivals: Record<string, RivalRecord>;
+  /** A chapter chosen over the suggested one, newest last, bounded by MAX_STORY_OVERRIDES (N1: logged, never blocked). */
+  overrides: StoryOverride[];
+}
+
+export const CHAPTER_RESULTS = ['met', 'short', 'unjudged'] as const;
+export type ChapterResult = (typeof CHAPTER_RESULTS)[number];
+
+export interface ChapterProgress {
+  /** Dee's intro was shown (it can be skipped; it is never required). */
+  introSeen: boolean;
+  /** The lesson-dialogue beat was answered to the end. */
+  lessonDone: boolean;
+  /** Tables against the rival played to the end. */
+  tables: number;
+  /** One of CHAPTER_RESULTS, or a newer build's value (kept, read as null); null before the first table. */
+  lastResult: string | null;
+  /** The day the goal was first met, which takes the rival's mask off. A ratchet: never cleared. */
+  beatenOn: DayKey | null;
+}
+
+/**
+ * One rival's file. Hands and decision quality are the learner's own graded decisions against them; what
+ * the rival did is kept ONLY for hands that reached a showdown, so every read is one the learner saw
+ * (round 2: the dossier counts showdowns, never engine truth).
+ */
+export interface RivalRecord {
+  /** Hands dealt against them, lifetime. */
+  hands: number;
+  /** Decision quality per table against them, newest last, bounded by MAX_RIVAL_SITTINGS. */
+  sittings: RivalSitting[];
+  /** Hands that reached a showdown with them, newest last, bounded by MAX_RIVAL_SHOWDOWNS. */
+  showdowns: ShowdownRecord[];
+}
+
+export interface RivalSitting {
+  day: DayKey;
+  chapter: string;
+  /** Decisions the chapter goal judges (story/campaign.ts `isJudged`). */
+  judged: number;
+  /** Of those, the ones that cost nothing. */
+  free: number;
+  /** Of those, serious mistakes. */
+  serious: number;
+}
+
+export interface ShowdownRecord {
+  day: DayKey;
+  /** The rival's hole cards, as shown at showdown. */
+  shown: string[];
+  /** The full board. */
+  board: string[];
+  /** Everything the rival did that hand, in order. */
+  actions: RivalAction[];
+}
+
+export const RIVAL_ACTION_STREETS = ['preflop', 'flop', 'turn', 'river'] as const;
+export const RIVAL_ACTION_KINDS = ['fold', 'check', 'call', 'bet', 'raise', 'allin'] as const;
+
+export interface RivalAction {
+  street: (typeof RIVAL_ACTION_STREETS)[number];
+  kind: (typeof RIVAL_ACTION_KINDS)[number];
+  /** A bet facing it (it called, raised or folded to chips). */
+  facingBet: boolean;
+  /** For a bet, raise or all-in: the chips added over the pot before them; null otherwise. */
+  potShare: number | null;
+}
+
+export interface StoryOverride {
+  day: DayKey;
+  suggested: string;
+  chosen: string;
 }

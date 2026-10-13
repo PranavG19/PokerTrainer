@@ -1,0 +1,218 @@
+/* ─────────────────────────────────────────────────────────────────────────────────────────────────
+ * STORY — the Long Orbit (screens/story.ts): the map, a chapter, a rival's file, the Home strip.
+ * Composes the glass kit (styles-glass.css): .g-group for the actionable beat list, .g-sect/.g-flat for
+ * informational lists, .pill / .pill.primary for the one primary action per screen. Tokens only.
+ * The map is a table seen from above: the same dark lit zone as the table stage, with a hairline rail.
+ * Neutral throughout; bone only on the primary action and the cards. Fits 900x640 and 1100x760, no scroll.
+ * ───────────────────────────────────────────────────────────────────────────────────────────────── */
+
+.story-map,
+.story-chapter,
+.rival-dossier {
+  display: grid;
+  height: var(--screen-h);
+  min-height: 0;
+  overflow: hidden;
+  column-gap: 28px;
+}
+
+/* ─── The map ─── */
+.story-map { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+.story-orbit { position: relative; min-height: 0; }
+.story-felt {
+  position: absolute;
+  inset: 14% 13%;
+  border-radius: 50%;
+  background: radial-gradient(60% 58% at 50% 46%, var(--fill-1), transparent 78%), var(--fill-0);
+  box-shadow: inset 0 0 0 1px var(--hair-strong), 0 0 0 10px var(--fill-0), 0 0 0 11px var(--hair);
+}
+.story-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 46%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.story-hub-why { max-width: 30ch; }
+.story-seats { list-style: none; margin: 0; padding: 0; }
+.story-seat-slot { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); }
+.story-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 132px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: var(--r-group);
+  background: none;
+  color: var(--ink-1);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.story-seat:hover { background: var(--fill-0); }
+.story-seat:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.story-seat-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-group);
+  background: var(--fill-1);
+  box-shadow: var(--top-light), inset 0 0 0 0.5px var(--hair-strong), var(--elev-1);
+}
+.story-seat[data-next='true'] .story-seat-art {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-sheet);
+  background: var(--fill-2);
+  box-shadow: var(--top-light), inset 0 0 0 1px var(--fill-3), 0 0 0 5px var(--fill-0), var(--elev-2);
+}
+.story-seat-medal { position: absolute; right: -8px; bottom: -6px; display: block; line-height: 0; }
+.story-seat-name { font-size: var(--t-foot); font-weight: 600; white-space: nowrap; }
+.story-seat[data-next='true'] .story-seat-name { font-size: var(--t-body); }
+.story-seat-status { font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; }
+.story-seat[data-next='true'] .story-seat-status { color: var(--ink-1); font-weight: 500; }
+
+.story-side,
+.story-file,
+.dossier-file,
+.dossier-reads-col,
+.story-beat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+  padding: 6px 0 4px;
+}
+.story-side h2,
+.story-file h2,
+.dossier-file h2 { margin: 0; }
+.story-citation {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  font-size: var(--t-foot);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.story-citation b { color: var(--ink-1); font-weight: 600; }
+.story-side-place,
+.story-place { margin: 0; }
+.story-rival { border-radius: var(--r-group); box-shadow: inset 0 0 0 0.5px var(--hair-strong); padding: 8px 12px; }
+.story-rival-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.story-rival-name { font-size: var(--t-body); font-weight: 600; }
+.story-order { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.story-order-list { list-style: none; margin: 0; padding: 0; }
+.story-order-row { display: flex; align-items: baseline; gap: 10px; padding: 4px 2px; font-size: var(--t-foot); }
+.story-order-n { width: 14px; color: var(--ink-3); }
+.story-order-name { color: var(--ink-1); font-weight: 500; white-space: nowrap; }
+.story-order-why { margin-left: auto; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.story-order > .g-caption { margin: 0; }
+.story-go { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 6px; }
+
+/* ─── A chapter ─── */
+.story-chapter { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); }
+.story-back { align-self: flex-start; }
+.story-beats .story-beat-row { padding: 8px 12px; }
+.story-beat-row[aria-current='step'] { background: var(--fill-1); }
+.story-beat-n {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: var(--t-cap);
+  font-weight: 600;
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--hair-strong);
+}
+.story-beat-row[data-done='true'] .story-beat-n { background: var(--fill-2); color: var(--ink-1); box-shadow: none; }
+.story-beat-row[aria-current='step'] .story-beat-n { background: var(--fill-3); color: var(--ink-1); box-shadow: var(--thumb-shadow); }
+.story-beat-text { display: flex; flex-direction: column; min-width: 0; }
+.story-beat-title { font-size: var(--t-body); font-weight: 500; }
+.story-beat { padding-top: 40px; }
+.story-beat-head { margin: 0; }
+.story-beat-head:focus { outline: none; }
+.story-intro { display: flex; flex-direction: column; gap: 14px; }
+.story-dee { display: flex; align-items: flex-start; gap: 12px; animation: dee-rise var(--dur-3) var(--ease) both; }
+.story-dee-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 4px; }
+.story-dee-say { margin: 0; font-size: var(--t-head); font-weight: 500; line-height: 1.4; color: var(--ink-1); max-width: 46ch; }
+.story-lesson-line { margin: 0; }
+.story-dialogue .dee-thread { gap: 8px; }
+.story-goal { display: flex; flex-direction: column; }
+.story-goal-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; padding: 8px 0; }
+.story-debrief { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+.story-debrief-score { display: flex; align-items: baseline; gap: 10px; }
+.story-debrief .g-caption { margin: 0; }
+.story-unmask { display: flex; align-items: center; gap: 14px; padding: 10px 0; }
+.story-unmask-text { display: flex; flex-direction: column; gap: 2px; }
+.story-unmask-line { font-size: var(--t-body); color: var(--ink-2); quotes: '“' '”'; }
+
+/* ─── A rival's file ─── */
+.rival-dossier { grid-template-columns: 260px minmax(0, 1fr); }
+.dossier-token { position: relative; display: grid; place-items: center; height: 128px; padding-top: 18px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+.dossier-stamp { position: absolute; left: 12px; top: 8px; letter-spacing: 0.04em; }
+.dossier-file > p { margin: 0; }
+.dossier-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; }
+.dossier-trend { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.dossier-trend .g-caption { margin: 0; }
+.dossier-bars { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 56px; padding-bottom: 1px; border-bottom: 1px solid var(--hair-strong); }
+.dossier-bars-bar { flex: 1; max-width: 18px; height: var(--h); border-radius: var(--r-xs) var(--r-xs) 0 0; background: var(--ink-2); }
+.dossier-bars-bar:hover { background: var(--ink-1); }
+.dossier-bars-goal { position: absolute; left: 0; right: 0; bottom: var(--at); border-top: 1px dashed var(--ink-3); pointer-events: none; }
+.dossier-sec { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.dossier-sec h3 { margin: 0; }
+.dossier-reads { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.dossier-read { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+.dossier-read p { margin: 0; }
+.dossier-read-v { font-size: var(--t-stat); font-weight: 500; letter-spacing: -0.01em; line-height: 1.05; }
+.dossier-read-v small { font-size: var(--t-head); color: var(--ink-2); font-weight: 500; }
+.dossier-read-locked { font-size: var(--t-t3); color: var(--ink-3); }
+.dossier-bar { position: relative; display: block; height: 4px; margin-top: auto; border-radius: var(--r-xs); background: var(--fill-1); }
+.dossier-bar i { position: absolute; inset: 0 auto 0 0; width: var(--w); border-radius: var(--r-xs); background: var(--ink-2); }
+.dossier-hands-list { display: flex; flex-direction: column; gap: 6px; }
+.dossier-hand { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.dossier-empty { margin: 0; padding: 8px 0; }
+
+/* ─── The Home strip ─── */
+.story-strip-steps { display: flex; gap: 3px; margin-left: auto; }
+.story-strip-steps i { width: 14px; height: 4px; border-radius: 2px; background: var(--fill-2); }
+.story-strip-steps i[data-on='true'] { background: var(--ink-1); }
+.story-strip .session-card-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.story-strip .session-card-text { min-width: 0; flex: 1; }
+
+@media (max-width: 1000px) {
+  .story-map, .story-chapter, .rival-dossier { column-gap: 18px; }
+  .story-seat { width: 112px; }
+  .story-seat-art { width: 46px; height: 46px; }
+  .story-seat[data-next='true'] .story-seat-art { width: 60px; height: 60px; }
+  .story-side, .story-file, .story-beat, .dossier-file, .dossier-reads-col { gap: 8px; }
+  .story-side .t-t2, .story-file .t-t2, .dossier-file .t-t2 { font-size: var(--t-t3); }
+  .story-side-place, .story-place { font-size: var(--t-foot); line-height: 1.4; }
+  .story-beat { padding-top: 34px; }
+  .story-dee-say { font-size: var(--t-body); }
+  .story-beats .story-beat-row { padding: 6px 12px; }
+  .rival-dossier { grid-template-columns: 220px minmax(0, 1fr); }
+  .story-strip-steps { display: none; }
+  .dossier-token { height: 104px; }
+  .dossier-read { padding: 10px 12px; }
+  .dossier-read-v { font-size: var(--t-t2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-dee { animation: none; }
+  .story-seat { transition: none; }
+}

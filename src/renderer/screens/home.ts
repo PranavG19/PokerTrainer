@@ -27,6 +27,8 @@ export function renderHome(opts: {
    * default table, so a caller that has not wired the planner yet is unchanged.
    */
   onStartPlanned?: (plan: SessionPlan) => void;
+  /** The Long Orbit's suggested chapter, one row in the launch group (screens/story.ts). Absent = none. */
+  storyStrip?: HTMLElement;
   /** Open the multiplayer (local relay) panel. Absent when the caller has not wired multiplayer. */
   onPlayWithFriends?: () => void;
   onOpenHand?: (handNumber: number) => void;
@@ -70,6 +72,7 @@ export function renderHome(opts: {
   launch.className = 'g-group home-launch';
   launch.appendChild(renderNewSessionCard(opts.onNewSession));
   if (opts.onPlayWithFriends) launch.appendChild(renderPlayWithFriendsCard(opts.onPlayWithFriends));
+  if (opts.storyStrip) launch.appendChild(opts.storyStrip);
   col.appendChild(launch);
   col.appendChild(renderRecentHands(opts.session.hands, opts.onOpenHand));
   /**

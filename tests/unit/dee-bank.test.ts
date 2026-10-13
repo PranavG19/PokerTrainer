@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checkTutorOutput } from '../../src/main/tutor/guard.js';
-import type { StrategyRequest, TutorOutputKind } from '../../src/main/tutor/types.js';
+import type { TutorOutputKind } from '../../src/main/tutor/types.js';
+import { DEE_BANS, NUMBER_WORDS, request } from './deeLint.js';
 import { DEE_BANK } from '../../src/core/dee/bank.js';
 import { EVENT_KINDS, selectLine, slotsOf, renderLine } from '../../src/core/dee/engine.js';
 import { variantProblems } from '../../src/core/dee/strict.js';
@@ -44,31 +45,6 @@ const FIXTURE: Required<Facts> = {
   priceHeld: '2',
   rule: 'the price is the call over the pot after I call',
 };
-
-function request(facts: Facts): StrategyRequest {
-  return {
-    kind: 'strategy',
-    prompt: JSON.stringify(facts),
-    table: { positions: [], stacksBb: [], potBb: 0, board: [], heroCards: [], toAct: '', street: 'river' },
-  } as unknown as StrategyRequest;
-}
-
-/** The personality bible's "never says", beyond what the guard already bans. */
-const DEE_BANS: readonly [string, RegExp][] = [
-  ['luck', /\b(?:luck|lucky|unlucky|fortunate|variance gods|run (?:good|bad|hot|cold)|hot run|cold run|due)\b/i],
-  // "to win" is price arithmetic ("risks 100 to win 200"); every other win/lose word is an outcome.
-  ['outcome', /\b(?:won|winning|lost|lose|loses|losing|scoop(?:ed)?|ship it)\b|(?<!\bto )\bwins?\b/i],
-  ['one-more', /\bone more hand\b/i],
-  ['comparison', /\b(?:other players|most players|everyone|percentile|than most|better than you|ranked)\b/i],
-  ['absence-guilt', /\b(?:miss(?:ed)? you|where were you|been a while|come back|sorry|streak|days?)\b/i],
-  ['trait', /\b(?:natural|talent(?:ed)?|gifted|genius|smart|clever|stupid|idiot|bad at|good at|a (?:tight|loose|passive|aggressive) player)\b/i],
-  ['praise', /\b(?:brilliant|amazing|fantastic|superb|lovely|nicely|bravo|wonderful|proud|terrific|outstanding)\b/i],
-  ['you-subject', /\byou(?:'ll|’ll| will| should| need| must| did| made)\b/i],
-  ['you-are', /\byou(?:'re|’re| are| were)\b/i],
-  ['gambling', /\b(?:jackpot|cash|money|dollars?|\$|bankroll|casino)\b/i],
-];
-
-const NUMBER_WORDS = /\b(?:zero|half|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|twenty|thirty|forty|fifty|hundred|thousand|once|twice|half a dozen|dozen)\b/i;
 
 /** Slots each event can supply (engine.ts handEndEvent / sessionEndEvent). */
 const EVENT_SLOTS: Record<Line['event'], readonly Slot[]> = {
