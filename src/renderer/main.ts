@@ -6,6 +6,7 @@ import './styles-screens.css';
 import './styles-settings.css';
 import './styles-glass.css';
 import './styles-dee.css';
+import './styles-pro.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
 import type { SavedRange } from '../core/rangeEditor.js';
@@ -98,6 +99,10 @@ import {
 } from '../core/dee/memory.js';
 import { principleOf, quietnessForDepth, type DeeContext } from '../core/dee/engine.js';
 import { DEPTHS } from '../core/standing.js';
+import { createProClient, type ProBridge } from './pro.js';
+import { renderProSettings } from './components/proSettings.js';
+import { openDeepLinkConfirm, openUpgradeSheet } from './components/upgradeSheet.js';
+import type { Feature } from '../core/entitlements/features.js';
 
 const DEFAULT_SEED = 42;
 
@@ -106,7 +111,7 @@ export interface SpeakResult {
   reason: string | null;
 }
 
-interface OffsuitBridge {
+interface OffsuitBridge extends ProBridge {
   loadState: () => Promise<Record<string, unknown>>;
   /** Main answers `{ saved: false, readOnly }` when it refused the write; the in-memory bridge answers nothing. */
   saveState: (obj: Record<string, unknown>) => Promise<{ saved: boolean; readOnly: string | null; failed?: string } | void>;
@@ -314,6 +319,27 @@ async function boot(): Promise<void> {
    */
   let varianceActive = false;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
+  /**
+   * Pro: a display copy of main's licence snapshot (pro.ts). Read after loadState, so main has adopted
+   * the profile's key before it is asked. A change repaints Settings; a deep link asks first.
+   */
+  const pro = createProClient(base);
+  await pro.reload().catch(() => undefined);
+  pro.subscribe(() => {
+    if (tab === 'settings') render();
+  });
+  const openProSheet = (feature?: Feature): void => {
+    openUpgradeSheet(pro, { feature, onHaveKey: showKeyEntry });
+  };
+  function showKeyEntry(): void {
+    tab = 'settings';
+    render();
+    const input = document.querySelector<HTMLTextAreaElement>('[data-testid="pro-key-input"]');
+    input?.scrollIntoView({ block: 'center' });
+    input?.focus();
+  }
+  pro.onDeepLink(() => void pro.reload().then(() => openDeepLinkConfirm(pro)));
+  if (pro.status().pendingDeepLink) void openDeepLinkConfirm(pro);
   // Apply the chosen theme before the first render. Graphite is the :root default (already painted with
   // no JS, so no FOUC); only a non-default choice needs the attribute. This is a top-level document
   // attribute, not a screen subscription, so it is safe to set here in boot() before anything mounts.
@@ -1142,6 +1168,7 @@ async function boot(): Promise<void> {
             render();
           },
         },
+        proSection: renderProSettings(pro, { openSheet: openProSheet }),
       });
     }
     return renderPlaceholder(which);

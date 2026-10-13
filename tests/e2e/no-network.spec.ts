@@ -5,6 +5,9 @@ import http from 'node:http';
 import net, { type AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import * as crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { encodeToken } from '../../src/core/entitlements/token.js';
 import { launchApp, sel } from './helpers.js';
 import { isOutbound, readOracle } from '../../src/main/netOracle.js';
 
@@ -134,6 +137,57 @@ test('the browser process makes no request at all, measured at a loopback proxy'
     expect(proxy.seen, 'the browser process attempted network access').toEqual([]);
     // And main, which the proxy cannot see: no socket, datagram, lookup or network tool at all.
     expect(readOracle(oracle).filter(isOutbound), 'the main process attempted network access').toEqual([]);
+  } finally {
+    await close();
+    await proxy.close();
+  }
+});
+
+/**
+ * LICENSING, measured at the same proxy. Verifying a key is offline, so pasting one, the upgrade sheet,
+ * checkout (the system browser, recorded under e2e) and a deep link must reach nothing. "Check for
+ * renewal" is the one user-initiated egress: it must reach EXACTLY the configured licence server, once,
+ * and only after the press. It runs on its own Chromium session (network.ts licensingFetch), which is
+ * why this proxy can see it at all; the server is a reserved .example host, so the proxy's refused CONNECT
+ * is the whole conversation.
+ */
+test('licensing: no request until "Check for renewal", then exactly one, to the licence server only', async () => {
+  const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const dev = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/dev-licence-key.json'), 'utf8')) as { kid: string; x: string; d: string };
+  const key = crypto.createPrivateKey({ key: { kty: 'OKP', crv: 'Ed25519', x: dev.x, d: dev.d }, format: 'jwk' });
+  const t = Math.floor(Date.now() / 1000);
+  const token = encodeToken(
+    { v: 1, kid: dev.kid, lid: 'lic_net_000001', tier: 'pro', plan: 'monthly', iat: t - 60, exp: t + 30 * 86_400, seats: 3 },
+    (m) => new Uint8Array(crypto.sign(null, m, key)),
+  );
+  const licenceServer = 'https://licence.offsuit.example';
+  const proxy = await startProxy();
+  const { app, page, close } = await launchApp({
+    seed: 42,
+    extraArgs: proxyArgs(proxy.port),
+    env: { OFFSUIT_LICENCE_SERVER: licenceServer, OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m' },
+  });
+  try {
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await page.locator('[data-testid="tab-settings"]').click();
+    await page.locator('[data-testid="pro-see"]').click();
+    await page.locator('[data-testid="upgrade-checkout"]').click();
+    await page.locator('[data-testid="pro-key-input"]').fill(token);
+    await page.locator('[data-testid="pro-activate"]').click();
+    await expect(page.locator('[data-testid="pro-settings"]')).toHaveAttribute('data-tier', 'pro');
+    await app.evaluate(({ app: a }, u) => a.emit('open-url', { preventDefault: () => {} }, u), `offsuit://activate?key=${token}`);
+    await page.locator('[data-testid="deeplink-accept"]').click();
+    await page.waitForTimeout(1500);
+    expect(proxy.seen, 'licensing reached the network before any button asked it to').toEqual([]);
+
+    await page.locator('[data-testid="pro-refresh"]').click();
+    await expect(page.locator('[data-testid="pro-notice"]')).toHaveAttribute('data-kind', 'error');
+    expect(proxy.seen.length, 'Check for renewal made no request the proxy could see').toBeGreaterThan(0);
+    for (const line of proxy.seen) expect(line, 'a licensing request went somewhere else').toBe('connect licence.offsuit.example:443');
+    // And the licensing session is disarmed again: the window's own sessions stay sealed.
+    const before = proxy.seen.length;
+    await page.waitForTimeout(1500);
+    expect(proxy.seen.length).toBe(before);
   } finally {
     await close();
     await proxy.close();
