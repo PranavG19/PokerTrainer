@@ -1,0 +1,105 @@
+/*
+ * Offsuit Pro: the upgrade sheet, the deep-link confirmation, the Pro gate card and Settings → Offsuit Pro.
+ * Composed from the kit (styles-glass.css): the sheet is the coach sheet's float material, the plan
+ * choice a .g-seg with the one thumb, actions .pill / .pill.primary / .pill.quiet, copy .g-sub/.g-caption.
+ * Bone is the sheet's ONE primary (checkout, or Add key). No new hue: Pro is not a colour, and nothing
+ * here is mint (mint means your turn / ON) or coral (nothing here is wrong).
+ */
+
+/* ─── The sheet: a native modal dialog with the float material ─── */
+dialog.pro-sheet {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(520px, calc(100vw - 32px));
+  height: fit-content;
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--float-rim);
+  border-radius: var(--r-sheet);
+  background: rgba(52, 56, 64, 0.72);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+  color: var(--ink-1);
+  overflow: hidden;
+  flex-direction: column;
+  animation: pro-rise var(--dur-3) var(--ease) both;
+}
+dialog.pro-sheet[open] { display: flex; }
+dialog.pro-sheet::backdrop {
+  background: rgba(10, 12, 16, 0.5);
+}
+@keyframes pro-rise { from { opacity: 0; transform: translateY(8px); } }
+
+.pro-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 22px 12px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.pro-sheet-head { display: flex; flex-direction: column; gap: 6px; }
+.pro-sheet-title { margin: 0; font-size: var(--t-t2); font-weight: 600; line-height: 1.2; }
+.pro-sheet-body p { margin: 0; }
+.pro-sheet-sect { display: flex; flex-direction: column; gap: 6px; }
+
+/* What Pro adds: informational, so a flat hairline list (.g-flat idiom), not an actionable group. */
+.pro-feature-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.pro-feature { display: flex; flex-direction: column; gap: 2px; padding: 7px 0; }
+.pro-feature + .pro-feature { border-top: 1px solid var(--hair); }
+.pro-feature-title { display: flex; align-items: center; gap: 8px; font-size: var(--t-body); font-weight: 500; }
+.pro-feature[data-focus='true'] .pro-feature-title { font-weight: 600; }
+.pro-tag {
+  font-size: var(--t-cap);
+  font-weight: 500;
+  color: var(--ink-2);
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+  background: var(--fill-1);
+}
+
+.pro-plan-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pro-price { margin: 0; }
+.pro-terms { max-width: 60ch; }
+
+.pro-sheet-foot { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 22px 16px; border-top: 1px solid var(--hair); }
+.pro-sheet-foot .pill.quiet { margin-right: auto; }
+
+/* ─── The gate card: a row with the feature, one honest line, and (Free) one button ─── */
+.pro-gate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  min-height: var(--h-lg);
+}
+.pro-gate-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.pro-gate-title { font-size: var(--t-body); font-weight: 500; color: var(--ink-1); }
+.pro-gate > .pill { flex: none; }
+
+/* ─── Settings → Offsuit Pro ─── */
+.pro-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pro-key, .pro-restore { display: flex; flex-direction: column; gap: 6px; }
+.pro-key-row { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.pro-key-row > .settings-confirm-input { flex: 1 1 180px; min-width: 0; }
+textarea.pro-key-input {
+  height: auto;
+  min-height: var(--h-lg);
+  padding: 6px 10px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-foot);
+  word-break: break-all;
+}
+.pro-restore > summary { cursor: pointer; width: fit-content; }
+.pro-restore[open] > summary { margin-bottom: 4px; }
+.pro-notice[data-kind='ok'] { color: var(--ink-1); }
+.pro-notice[data-kind='error'] { color: var(--amber); }
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.pro-sheet { animation: none; }
+}

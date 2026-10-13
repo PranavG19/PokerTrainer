@@ -51,6 +51,9 @@ const ALWAYS_FULL = [
   'src/main/store.ts',
   'src/renderer/main.ts',
   'src/renderer/styles.css',
+  // Security boundaries: the network seal and the licence authority (Pro gating, the profile's entitlements).
+  'src/main/network.ts',
+  'src/main/licence.ts',
   'tests/e2e/helpers.ts',
   'tests/e2e/flow.ts',
   'package.json',

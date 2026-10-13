@@ -122,10 +122,12 @@ export function load(): Record<string, unknown> {
 
   if (recovery.state === null) {
     fileSchemaVersion = SCHEMA_VERSION;
-    return migrate(structuredClone(DEFAULT_STATE)).state;
+    lastProfile = migrate(structuredClone(DEFAULT_STATE)).state;
+    return lastProfile;
   }
 
   const result = migrate(recovery.state);
+  lastProfile = result.state;
   fileSchemaVersion = result.from;
   if (result.tooNew) {
     readOnly = 'newer-version';
@@ -183,6 +185,7 @@ export function save(obj: Record<string, unknown>): SaveOutcome {
     return { saved: false, readOnly: null, failed: 'write' };
   }
   remember(text);
+  lastProfile = obj;
   return { saved: true, readOnly: null };
 }
 
@@ -225,6 +228,8 @@ export function deleteProfile(confirmation: string): DeleteOutcome {
     migratedFrom = null;
     pendingSnapshot = null;
     fileSchemaVersion = SCHEMA_VERSION;
+    // The deleted profile must never come back through resaveLast (a licence install right after a delete).
+    lastProfile = null;
     remember();
   }
   return outcome;
@@ -294,6 +299,38 @@ export function loadTheme(): string {
 export function saveTheme(theme: string): void {
   if (!THEMES.has(theme)) return;
   writeSettings({ theme });
+}
+
+/**
+ * The licence mirror (src/main/licence.ts): the token and the clock high-water mark, kept outside the
+ * profile so that deleting the profile neither loses a purchase nor resets the rollback guard.
+ */
+export function loadLicenceMirror(): { token: string | null; highWater: number } {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    const m = (parsed as { licence?: { token?: unknown; highWater?: unknown } })?.licence;
+    return {
+      token: typeof m?.token === 'string' && m.token.length <= 2048 ? m.token : null,
+      highWater: typeof m?.highWater === 'number' && Number.isFinite(m.highWater) ? m.highWater : 0,
+    };
+  } catch {
+    return { token: null, highWater: 0 };
+  }
+}
+
+export function saveLicenceMirror(mirror: { token: string | null; highWater: number }): void {
+  const current = loadLicenceMirror();
+  if (current.token === mirror.token && current.highWater === mirror.highWater) return;
+  writeSettings({ licence: { token: mirror.token, highWater: mirror.highWater } });
+}
+
+/** The profile as last loaded or saved, so main can persist a licence change without the renderer. */
+let lastProfile: Record<string, unknown> | null = null;
+
+/** Re-save the last profile through `transform` (main's licence stamp). Same refusals as `save`. */
+export function resaveLast(transform: (obj: Record<string, unknown>) => Record<string, unknown>): SaveOutcome {
+  if (lastProfile === null) return { saved: false, readOnly };
+  return save(transform(lastProfile));
 }
 
 /**

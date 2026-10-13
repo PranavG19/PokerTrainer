@@ -9,6 +9,7 @@
 
 import { asDayKey, DAY_BOUNDARY_HOUR, type DayKey } from '../localDay.js';
 import { chalk, reps } from '../units.js';
+import { MAX_TOKEN_CHARS, normalizeToken } from '../entitlements/token.js';
 import {
   CHALK_DAILY_CAP,
   COSMETIC_SLOTS,
@@ -77,7 +78,7 @@ export function defaultProgression(): ProgressionState {
       schedule: null,
     },
     milestones: { achieved: {} },
-    entitlements: { tier: 'free', granted: [] },
+    entitlements: { tier: 'free', granted: [], licence: null, highWater: 0 },
   };
 }
 
@@ -116,7 +117,7 @@ export const PROGRESSION_SHAPE = {
     schedule: true,
   },
   milestones: { achieved: true },
-  entitlements: { tier: true, granted: true },
+  entitlements: { tier: true, granted: true, licence: true, highWater: true },
 } as const;
 
 export function parseProgression(raw: unknown): ProgressionState {
@@ -358,7 +359,19 @@ function parseSchedule(raw: unknown): PracticeSchedule | null {
 }
 
 function parseEntitlements(obj: Record<string, unknown>, d: EntitlementsState): EntitlementsState {
-  return { tier: id(obj.tier) ?? d.tier, granted: idList(obj.granted, MAX_LIST) };
+  return {
+    tier: id(obj.tier) ?? d.tier,
+    granted: idList(obj.granted, MAX_LIST),
+    licence: licenceToken(obj.licence),
+    highWater: typeof obj.highWater === 'number' && Number.isInteger(obj.highWater) && obj.highWater > 0 ? obj.highWater : 0,
+  };
+}
+
+/** A stored token, whitespace-free and bounded; verified by main, not here. Anything else is null. */
+function licenceToken(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const token = normalizeToken(value);
+  return token.length > 0 && token.length <= MAX_TOKEN_CHARS ? token : null;
 }
 
 /** Read-side helpers: an unknown value (a newer build's) reads as this build's default. */

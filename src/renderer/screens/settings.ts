@@ -92,6 +92,8 @@ export function renderSettings(opts: {
   /** Same rationale as spokenVerdicts: a learner preference with no egress, kept out of the tutor report. */
   soundCues: boolean;
   handlers: SettingsHandlers;
+  /** Settings → Offsuit Pro (components/proSettings.ts), built by the caller that owns the Pro client. */
+  proSection?: HTMLElement;
 }): HTMLElement {
   const { status, handlers } = opts;
 
@@ -111,6 +113,7 @@ export function renderSettings(opts: {
   root.appendChild(renderSoundCues(opts.soundCues, handlers));
   root.appendChild(renderTheme(status.theme, handlers));
   if (handlers.onOpenDee) root.appendChild(renderDeeLink(handlers.onOpenDee));
+  if (opts.proSection !== undefined) root.appendChild(opts.proSection);
   root.appendChild(renderProfileSection(status, handlers));
 
   return root;
