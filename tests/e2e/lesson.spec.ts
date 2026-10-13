@@ -590,10 +590,11 @@ test.describe('lesson mode', () => {
         await shot(page, `lesson-list-${width}x${height}`);
 
         await useViewport(app, page, width, height);
-        await page.locator(`${lessonRow}[data-lesson-id="minimum-defence-frequency"]`).click();
-        await commitByDispatch(page, 'I fold: I am below the defence frequency with this hand.');
+        // A commit-box lesson. minimum-defence-frequency now runs as a dialogue with Dee (dee.spec #4 covers it).
+        await page.locator(`${lessonRow}[data-lesson-id="counting-outs-as-a-frequency"]`).click();
+        await commitByDispatch(page, 'I call: the outs arrive about as often as the price asks.');
         await expect(page.locator(lessonScreen)).toHaveAttribute('data-committed', 'true');
-        await page.locator(sentenceInput).fill('The bet size sets how often I must defend.');
+        await page.locator(sentenceInput).fill('Outs over unseen cards is how often the draw arrives.');
         await page.locator(sentenceSave).click();
         await shot(page, `lesson-reveal-${width}x${height}`);
 
