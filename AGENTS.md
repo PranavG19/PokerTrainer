@@ -65,6 +65,30 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
 - e2e pins to keep: `--text-hi` #FFFFFF, `--positive` #3DDC97, the to-act ring and 1.02 scale, Fold with no
   box-shadow, seat opacity order live > folded > busted. Change a pin only with the reason in `DECISIONS.md`.
 
+## Profile schema (`offsuit-state.json`)
+- One JSON file, written whole by main (`store.ts` → `backup.ts`: atomic write-temp-then-rename, 3 rolling
+  `.bakN`). `schemaVersion` is the version (absent = v1); `SCHEMA_VERSION` and the migration chain live in
+  `src/core/profileSchema.ts`. v2 = v1 + `progression` (`src/core/progression/types.ts`, parsed in `persist.ts`).
+- Load path: main reads → `migrate()` → on an upgrade, a never-rotated, never-overwritten `.pre-v{N}` copy of
+  the file actually read → renderer `deserialize`. A file with a NEWER `schemaVersion` opens read-only
+  (`store.save` refuses, a banner shows); so does a file changed on disk since this build last touched it.
+- **Adding a field (no version bump):** additive and optional only. Put it in a new top-level key or a new key
+  inside `progression` (never inside an existing v1 object), add it to the type, the default, the parser
+  (tolerant: bad input → default, never throw) and the key tree (`PROFILE_SHAPE` / `PROGRESSION_SHAPE`;
+  `profileSchema.test` fails if you forget). Older builds of the same version carry it through untouched.
+  For vocabularies a later build may extend (ids, tiers, answers), persist the string and map unknown values
+  to a default when reading, so an older build never overwrites a newer value.
+- **Bump `SCHEMA_VERSION` when** a field changes meaning or shape, a value moves, or an older build carrying
+  it through stale would be wrong. Add one `{ from, to, run }` step: pure, additive, idempotent (running it on
+  its own output changes nothing), never deleting or rewriting an older version's key. Add a fixture test
+  (v(N-1) in → every old field byte-identical, idempotent) and extend `store.test`. Older builds then open
+  the profile read-only, by design.
+- Counts never mix: `Chips` (bankroll), `Reps`, `Chalk` are branded in `src/core/units.ts`; days are `DayKey`s
+  from `src/core/localDay.ts` (local time, the day turns at 4 am). The streak is the classic daily
+  streak (`progression.streak`, owner D5): a missed day resets it, with no rest days or freezes. Go
+  through `countSession` and `currentStreakOn` (`progression/persist.ts`); never add a freeze field.
+  Core takes a `DayKeyOf`; only the renderer calls `systemDayKeyOf()`.
+
 ## Routing
 - `DECISIONS.md` is the living decision record; edit the line, do not append history.
 - To prove a change in the running app, use `.claude/skills/verify-app/SKILL.md`.

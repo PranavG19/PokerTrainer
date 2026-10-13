@@ -177,6 +177,24 @@ function createWindow(): void {
   });
 }
 
+/*
+ * One running Offsuit per profile. Two copies on the same user-data directory each hold a whole
+ * profile in memory and write it whole, so the last one to save would erase the other's progress.
+ * The lock is per user-data directory, so e2e runs (one temp directory each) are unaffected. A second
+ * launch exits at once and brings the first window forward, except under e2e, where nothing takes focus.
+ * store.ts also refuses to save over a file that changed since it was read, which covers older builds
+ * that never took this lock.
+ */
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow === null || isE2E) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+}
+
 // Set CSP via session headers
 app.whenReady().then(() => {
   // Before the window exists, so nothing can be requested during load that the seal has not seen.

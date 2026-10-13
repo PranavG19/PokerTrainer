@@ -58,6 +58,8 @@ export interface Recovery {
   /** null when neither the live file nor any backup could be read. */
   readonly state: Record<string, unknown> | null;
   readonly source: RecoverySource;
+  /** The file `state` was read from, so a pre-migration snapshot copies exactly that; null when fresh. */
+  readonly path: string | null;
 }
 
 /**
@@ -67,14 +69,16 @@ export interface Recovery {
  */
 export function loadWithRecovery(file: string): Recovery {
   const live = readProfile(file);
-  if (live !== null) return { state: live, source: 'live' };
+  if (live !== null) return { state: live, source: 'live', path: file };
 
   for (let slot = 1; slot <= BACKUP_DEPTH; slot++) {
     const restored = readProfile(backupPath(file, slot));
-    if (restored !== null) return { state: restored, source: `backup-${slot}` as RecoverySource };
+    if (restored !== null) {
+      return { state: restored, source: `backup-${slot}` as RecoverySource, path: backupPath(file, slot) };
+    }
   }
 
-  return { state: null, source: 'fresh' };
+  return { state: null, source: 'fresh', path: null };
 }
 
 function renameIfPresent(from: string, to: string): void {
@@ -85,6 +89,11 @@ function renameIfPresent(from: string, to: string): void {
   }
 }
 
+/**
+ * A real copy, not a hard link. A link would cost no space on a full disk, but it shares bytes with the
+ * live file, so anything that edits the live file in place (an editor, a corrupting crash) would corrupt
+ * the backup with it.
+ */
 function copyIfPresent(from: string, to: string): void {
   try {
     fs.copyFileSync(from, to);
@@ -94,24 +103,28 @@ function copyIfPresent(from: string, to: string): void {
 }
 
 /**
- * Rotate the backups, then swap the live file.
+ * Write the new version to a temp file, then rotate the backups, then swap the live file.
  *
- * The order is the whole guarantee. The only operation that touches `file` is a
- * rename of an already-complete temp file, so `file` is never absent and never
- * half-written: a reader either sees the previous complete version or the new
- * one. A crash during rotation costs a backup copy, which is reconstructible by
- * definition; a crash during the write costs a temp file nothing reads.
+ * The order is the whole guarantee. The only operation that touches `file` is a rename of an
+ * already-complete temp file, so `file` is never absent and never half-written: a reader either sees
+ * the previous complete version or the new one. The temp is written FIRST so a failed write (a full
+ * disk) throws before any backup moves: rotating first meant each failed save pushed one more good
+ * version out of `.bak3`. A crash during rotation costs a backup copy, which is reconstructible by
+ * definition; a crash during the write costs a temp file the next load sweeps.
  */
 export function saveWithBackup(file: string, text: string): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-
-  // Oldest first, or each rename would overwrite the slot it is about to read.
-  for (let slot = BACKUP_DEPTH - 1; slot >= 1; slot--) {
-    renameIfPresent(backupPath(file, slot), backupPath(file, slot + 1));
+  const tmp = writeTemp(file, text);
+  try {
+    // Oldest first, or each rename would overwrite the slot it is about to read.
+    for (let slot = BACKUP_DEPTH - 1; slot >= 1; slot--) {
+      renameIfPresent(backupPath(file, slot), backupPath(file, slot + 1));
+    }
+    copyIfPresent(file, backupPath(file, 1));
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    unlinkIfPresent(tmp);
+    throw error;
   }
-  copyIfPresent(file, backupPath(file, 1));
-
-  atomicWrite(file, text);
 }
 
 /**
@@ -119,11 +132,91 @@ export function saveWithBackup(file: string, text: string): void {
  * torn-write immunity as the profile without needing the version history.
  */
 export function atomicWrite(file: string, text: string): void {
+  const tmp = writeTemp(file, text);
+  try {
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    unlinkIfPresent(tmp);
+    throw error;
+  }
+}
+
+/**
+ * A complete temp file next to `file`, or a throw with nothing left behind: a full disk fails part-way
+ * through, and the half-written temp would only hold on to the space the next save needs.
+ */
+function writeTemp(file: string, text: string): string {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true });
   const tmp = path.join(dir, `${path.basename(file)}.${crypto.randomUUID()}.tmp`);
-  fs.writeFileSync(tmp, text, 'utf-8');
-  fs.renameSync(tmp, file);
+  try {
+    fs.writeFileSync(tmp, text, 'utf-8');
+  } catch (error) {
+    unlinkIfPresent(tmp);
+    throw error;
+  }
+  return tmp;
+}
+
+/**
+ * Temp files a crash left behind (a write interrupted before its rename). Nothing reads them; removing
+ * them at load gives the space back. Only this file's own temps and its snapshots' temps (writeTemp's
+ * naming pattern).
+ */
+export function sweepTempFiles(file: string): number {
+  const base = path.basename(file);
+  const pattern = new RegExp(`^${escapeRegExp(base)}(\\.pre-v\\d+)?\\.[0-9a-f-]{36}\\.tmp$`);
+  let removed = 0;
+  let names: string[] = [];
+  try {
+    names = fs.readdirSync(path.dirname(file));
+  } catch {
+    return 0;
+  }
+  for (const name of names) {
+    if (pattern.test(name) && unlinkIfPresent(path.join(path.dirname(file), name))) removed++;
+  }
+  return removed;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The named copy kept before a schema migration: `offsuit-state.json.pre-v2`. Unlike the rolling
+ * backups it is never rotated out (three ordinary saves would push the pre-migration file out of
+ * `.bak3` within one sitting) and never overwritten, so it is always the file as it was before this
+ * build first touched it. Only deleteProfile removes it.
+ */
+export function preMigrationPath(file: string, toVersion: number): string {
+  return `${file}.pre-v${toVersion}`;
+}
+
+/**
+ * Copy `source` (the file the profile was actually read from: the live file or the backup recovery
+ * used) to the pre-migration path, atomically. Returns false when a snapshot already exists, which is
+ * the re-migration case (a downgrade and re-upgrade): the first snapshot is the one worth keeping.
+ * Throws on a failed write, so the caller can refuse to save over a profile it could not snapshot.
+ */
+export function snapshotBeforeMigrate(file: string, source: string, toVersion: number): boolean {
+  const target = preMigrationPath(file, toVersion);
+  if (fs.existsSync(target)) return false;
+  atomicWrite(target, fs.readFileSync(source, 'utf-8'));
+  return true;
+}
+
+function preMigrationSnapshots(file: string): string[] {
+  const base = path.basename(file);
+  const pattern = new RegExp(`^${escapeRegExp(base)}\\.pre-v\\d+$`);
+  try {
+    return fs
+      .readdirSync(path.dirname(file))
+      .filter((name) => pattern.test(name))
+      .map((name) => path.join(path.dirname(file), name));
+  } catch {
+    return [];
+  }
 }
 
 /** How many rolling backups exist right now. Shown in settings. */
@@ -163,8 +256,10 @@ export function deleteProfile(file: string, confirmation: string): DeleteOutcome
     return { deleted: false, refusedBecause: 'not-confirmed', removed: [] };
   }
 
+  // The pre-migration snapshots are copies of the profile too: leaving them would make this not a delete.
   const targets = [file];
   for (let slot = 1; slot <= BACKUP_DEPTH; slot++) targets.push(backupPath(file, slot));
+  targets.push(...preMigrationSnapshots(file));
 
   return { deleted: true, removed: targets.filter(unlinkIfPresent) };
 }

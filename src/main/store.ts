@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -6,10 +7,14 @@ import {
   countBackups,
   deleteProfile as deleteProfileFiles,
   loadWithRecovery,
+  preMigrationPath,
   saveWithBackup,
+  snapshotBeforeMigrate,
+  sweepTempFiles,
   type DeleteOutcome,
   type RecoverySource,
 } from '../core/backup.js';
+import { migrate, SCHEMA_VERSION } from '../core/profileSchema.js';
 
 const STATE_FILE = path.join(app.getPath('userData'), 'offsuit-state.json');
 
@@ -28,30 +33,200 @@ const DEFAULT_STATE = { bankroll: 10000, hands: [], stats: {} };
  */
 let lastRecovery: RecoverySource = 'fresh';
 
-export function load(): Record<string, unknown> {
-  const recovery = loadWithRecovery(STATE_FILE);
-  lastRecovery = recovery.source;
-  return recovery.state ?? structuredClone(DEFAULT_STATE);
+/**
+ * Why saves are refused, or null when they are not.
+ * - `newer-version`: the profile was written by a newer Offsuit (a higher `schemaVersion`). Writing it
+ *   back could drop or misread what that build stored, so this build only reads it.
+ * - `changed-elsewhere`: the file changed on disk after this build last read or wrote it (another copy
+ *   of Offsuit, or an older build without the single-instance lock). Saving now would overwrite that
+ *   copy's progress with this one's, so this build stops writing until it is restarted.
+ */
+export type ReadOnlyReason = 'newer-version' | 'changed-elsewhere';
+let readOnly: ReadOnlyReason | null = null;
+
+/** The `schemaVersion` of the profile as it was on disk at load. */
+let fileSchemaVersion = SCHEMA_VERSION;
+/** The version this load migrated from, or null when no migration ran. Shown in Settings. */
+let migratedFrom: number | null = null;
+/**
+ * A migration whose pre-migration snapshot is not on disk yet (the copy failed at load, say on a full
+ * disk). The first save retries it and refuses to write until it succeeds, so a migrated profile never
+ * replaces the only copy of the original.
+ */
+let pendingSnapshot: { source: string; toVersion: number } | null = null;
+/** What the live file looked like after this build last read or wrote it; null when it did not exist. */
+let lastSeen: FileStamp | null = null;
+/**
+ * A hash of those bytes. A changed mtime or size alone does not stop saving: the content must differ
+ * too, so a touched-but-identical file (a sync tool, a coarse clock) can never silently end all saves.
+ */
+let lastSeenHash: string | null = null;
+
+function hashOf(file: string): string | null {
+  try {
+    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  } catch {
+    return null;
+  }
 }
 
-export function save(obj: Record<string, unknown>): void {
-  saveWithBackup(STATE_FILE, JSON.stringify(obj, null, 2));
+/**
+ * After a write, `written` is the text this build just wrote: hashing that rather than re-reading the
+ * file means another writer landing in between is still seen as foreign.
+ */
+function remember(written?: string): void {
+  lastSeen = stampOf(STATE_FILE);
+  lastSeenHash =
+    written === undefined ? hashOf(STATE_FILE) : crypto.createHash('sha256').update(written, 'utf-8').digest('hex');
+}
+
+/** True only when the live file's bytes differ from what this build last read or wrote. */
+function changedElsewhere(): boolean {
+  const now = stampOf(STATE_FILE);
+  if (sameStamp(now, lastSeen)) return false;
+  const hash = hashOf(STATE_FILE);
+  // Present but unreadable for a moment is not evidence of another writer; stopping all saves on it
+  // would be the worse failure. A file that is gone (now === null) still counts as changed.
+  if (hash === null && now !== null) return false;
+  if (hash !== lastSeenHash) return true;
+  lastSeen = now;
+  return false;
+}
+
+interface FileStamp {
+  readonly mtimeMs: number;
+  readonly size: number;
+}
+
+function stampOf(file: string): FileStamp | null {
+  try {
+    const st = fs.statSync(file);
+    return { mtimeMs: st.mtimeMs, size: st.size };
+  } catch {
+    return null;
+  }
+}
+
+function sameStamp(a: FileStamp | null, b: FileStamp | null): boolean {
+  return a === null || b === null ? a === b : a.mtimeMs === b.mtimeMs && a.size === b.size;
+}
+
+export function load(): Record<string, unknown> {
+  sweepTempFiles(STATE_FILE);
+  const recovery = loadWithRecovery(STATE_FILE);
+  lastRecovery = recovery.source;
+  remember();
+  readOnly = null;
+  migratedFrom = null;
+  pendingSnapshot = null;
+
+  if (recovery.state === null) {
+    fileSchemaVersion = SCHEMA_VERSION;
+    return migrate(structuredClone(DEFAULT_STATE)).state;
+  }
+
+  const result = migrate(recovery.state);
+  fileSchemaVersion = result.from;
+  if (result.tooNew) {
+    readOnly = 'newer-version';
+    return result.state;
+  }
+  if (result.from < result.to && recovery.path !== null) {
+    migratedFrom = result.from;
+    pendingSnapshot = { source: recovery.path, toVersion: result.to };
+    try {
+      takePendingSnapshot();
+    } catch {
+      // Still pending: the first save retries it and refuses to write if it fails again. Loading
+      // never fails on it, because reading the profile is safe.
+    }
+  }
+  return result.state;
+}
+
+/** Throws when the snapshot cannot be written; a no-op once it exists. */
+function takePendingSnapshot(): void {
+  if (pendingSnapshot === null) return;
+  snapshotBeforeMigrate(STATE_FILE, pendingSnapshot.source, pendingSnapshot.toVersion);
+  pendingSnapshot = null;
+}
+
+export interface SaveOutcome {
+  readonly saved: boolean;
+  readonly readOnly: ReadOnlyReason | null;
+  /**
+   * Set when the write itself failed (a full disk, or the pre-migration copy could not be made first).
+   * Returned rather than thrown so the renderer can say so: a thrown save would be an unhandled
+   * rejection at ~20 call sites, and the learner would play on with nothing saved and nothing shown.
+   * Nothing was written; the renderer keeps its session in memory and the next save retries.
+   */
+  readonly failed?: 'write' | 'pre-migration-copy';
+}
+
+/** Write the renderer's profile, unless this build must not. Never throws. */
+export function save(obj: Record<string, unknown>): SaveOutcome {
+  if (readOnly !== null) return { saved: false, readOnly };
+  if (changedElsewhere()) {
+    readOnly = 'changed-elsewhere';
+    return { saved: false, readOnly };
+  }
+  try {
+    takePendingSnapshot();
+  } catch {
+    return { saved: false, readOnly: null, failed: 'pre-migration-copy' };
+  }
+  // Stamped here as well as by serialize, so nothing this build writes can claim another version.
+  const text = JSON.stringify({ ...obj, schemaVersion: SCHEMA_VERSION }, null, 2);
+  try {
+    saveWithBackup(STATE_FILE, text);
+  } catch {
+    return { saved: false, readOnly: null, failed: 'write' };
+  }
+  remember(text);
+  return { saved: true, readOnly: null };
 }
 
 export interface ProfileStatus {
   readonly path: string;
   readonly backupCount: number;
   readonly lastRecovery: RecoverySource;
+  /** The profile format this build writes. */
+  readonly schemaVersion: number;
+  /** The format of the file as it was loaded. Above `schemaVersion` means a newer build wrote it. */
+  readonly fileSchemaVersion: number;
+  readonly migratedFrom: number | null;
+  /** The pre-migration copy, when one exists for the version this build writes. */
+  readonly preMigrationCopy: string | null;
+  readonly readOnly: ReadOnlyReason | null;
 }
 
 export function profileStatus(): ProfileStatus {
-  return { path: STATE_FILE, backupCount: countBackups(STATE_FILE), lastRecovery };
+  const copy = preMigrationPath(STATE_FILE, SCHEMA_VERSION);
+  return {
+    path: STATE_FILE,
+    backupCount: countBackups(STATE_FILE),
+    lastRecovery,
+    schemaVersion: SCHEMA_VERSION,
+    fileSchemaVersion,
+    migratedFrom,
+    preMigrationCopy: fs.existsSync(copy) ? copy : null,
+    readOnly,
+  };
 }
 
 export function deleteProfile(confirmation: string): DeleteOutcome {
   const outcome = deleteProfileFiles(STATE_FILE, confirmation);
   // A deleted profile is a fresh one; leaving the old label would misreport it.
-  if (outcome.deleted) lastRecovery = 'fresh';
+  if (outcome.deleted) {
+    lastRecovery = 'fresh';
+    // The learner chose to start over, so the next save writes a fresh current-version profile, whatever
+    // the deleted one was. Delete is the one way out of read-only.
+    readOnly = null;
+    migratedFrom = null;
+    pendingSnapshot = null;
+    fileSchemaVersion = SCHEMA_VERSION;
+    remember();
+  }
   return outcome;
 }
 

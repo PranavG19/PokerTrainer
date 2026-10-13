@@ -9,6 +9,10 @@ import { MECHANISM_FRAMES, REJECTION_TEXT, type Decider, type LexiconAttempt, ty
 import type { ContrastAxis } from './contrast.js';
 import type { FadingEvent, Rung } from './fading.js';
 import { MAX_SAVED_RANGES, deserializeRange, serializeRange, type SavedRange } from './rangeEditor.js';
+import { SCHEMA_VERSION, unknownKeysOf, withUnknownKeys, type UnknownKeys } from './profileSchema.js';
+import { defaultProgression, parseProgression, serializeProgression } from './progression/persist.js';
+import type { ProgressionState } from './progression/types.js';
+import { chips, type Chips } from './units.js';
 
 /** Bound the persisted gift log the same way the hand log is bounded, so the JSON cannot grow forever. */
 export const MAX_GIFT_LOG = 200;
@@ -133,7 +137,8 @@ export interface SessionStats {
 }
 
 export interface SessionState {
-  bankroll: number;
+  /** Table chips. Branded so they can never become Reps or Chalk (units.ts). */
+  bankroll: Chips;
   hands: HandRecord[];
   /** How many times the hero has topped their table stack back up after busting. */
   rebuys: number;
@@ -245,6 +250,17 @@ export interface SessionState {
    * name replaces it); combos are validated on load, so an unknown one simply never renders on the grid.
    */
   savedRanges: SavedRange[];
+  /**
+   * Schema v2: the daily streak, Reps, Seals, cosmetics, Dee's memory, onboarding answers, milestones and the tier
+   * placeholder (progression/types.ts). Parsed section by section, so corrupt progression data falls
+   * back to defaults without touching anything above.
+   */
+  progression: ProgressionState;
+  /**
+   * Keys on disk this build does not know (a newer build's additive fields), carried through to the
+   * next save untouched (profileSchema.ts). Opaque: nothing reads it.
+   */
+  unknownKeys: UnknownKeys;
 }
 
 export interface SessionSummary {
@@ -258,7 +274,7 @@ export interface SessionSummary {
 
 export function emptySession(): SessionState {
   return {
-    bankroll: DEFAULT_BANKROLL,
+    bankroll: chips(DEFAULT_BANKROLL),
     hands: [],
     rebuys: 0,
     depthFloor: 0,
@@ -277,6 +293,8 @@ export function emptySession(): SessionState {
     anomalyTally: { attempts: 0, correct: 0, fast: 0, missedAnomaly: 0, falseAlarm: 0, slow: 0 },
     assessments: [],
     savedRanges: [],
+    progression: defaultProgression(),
+    unknownKeys: {},
   };
 }
 
@@ -497,7 +515,7 @@ export function recordHand(state: SessionState, record: HandRecord): SessionStat
 
   return {
     ...state,
-    bankroll: state.bankroll + record.net,
+    bankroll: chips(state.bankroll + record.net, state.bankroll),
     hands: [...state.hands, structuredClone(record)].slice(-MAX_HAND_LOG),
     rebuys: state.rebuys,
     stats: {
@@ -533,9 +551,10 @@ function percent(part: number, total: number): number {
   return (part / total) * 100;
 }
 
-/** Detached plain object, ready for window.offsuit.saveState. */
+/** Detached plain object, ready for window.offsuit.saveState. Unknown keys from disk ride along. */
 export function serialize(state: SessionState): Record<string, unknown> {
-  return {
+  const out: Record<string, unknown> = {
+    schemaVersion: SCHEMA_VERSION,
     bankroll: state.bankroll,
     hands: structuredClone(state.hands),
     rebuys: state.rebuys,
@@ -559,7 +578,9 @@ export function serialize(state: SessionState): Record<string, unknown> {
     anomalyTally: { ...state.anomalyTally },
     assessments: state.assessments.map((a) => ({ ...a })),
     savedRanges: state.savedRanges.map(serializeRange),
+    progression: serializeProgression(state.progression),
   };
+  return withUnknownKeys(out, state.unknownKeys);
 }
 
 /**
@@ -570,7 +591,7 @@ export function deserialize(raw: unknown): SessionState {
   const obj = asRecord(raw);
   const stats = asRecord(obj.stats);
   return {
-    bankroll: asNumber(obj.bankroll, DEFAULT_BANKROLL),
+    bankroll: chips(asNumber(obj.bankroll, DEFAULT_BANKROLL)),
     hands: asArray(obj.hands).map(parseHand).slice(-MAX_HAND_LOG),
     // Legacy saves predate rebuys; 0 is the honest reading, not a missing field.
     rebuys: Math.max(0, Math.floor(asNumber(obj.rebuys, 0))),
@@ -621,6 +642,9 @@ export function deserialize(raw: unknown): SessionState {
       .slice(-MAX_ASSESSMENT_LOG),
     // Legacy saves predate the range editor; an empty library is the honest reading of a missing field.
     savedRanges: parseSavedRanges(obj.savedRanges),
+    // A v1 profile has none; main migrates before the renderer sees it, and defaults are honest anyway.
+    progression: parseProgression(obj.progression),
+    unknownKeys: unknownKeysOf(obj),
   };
 }
 

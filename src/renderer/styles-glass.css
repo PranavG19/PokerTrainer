@@ -1687,3 +1687,26 @@ html .legend-swatch[data-action='threebet'] { background: var(--cell-in-strong);
     animation: offsuit-gate-drain var(--gate-budget) linear forwards;
   }
 }
+
+/* ─── The read-only profile banner (main.ts). Floats, so it takes the float material; amber because it
+ * is notable, not an error. Click-through and fixed, so it never moves layout or covers a control's
+ * hit area. ─── */
+.profile-read-only {
+  position: fixed;
+  top: calc(var(--nav-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: calc(100% - 32px);
+  padding: 6px 12px;
+  border-radius: var(--r-ctl);
+  background: var(--float);
+  backdrop-filter: var(--float-blur);
+  box-shadow: inset 0 0 0 0.5px var(--amber), var(--float-shadow);
+  color: var(--ink-1);
+  font-size: var(--t-foot);
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+}
+.profile-read-only[hidden] { display: none; }

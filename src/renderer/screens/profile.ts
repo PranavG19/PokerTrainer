@@ -117,7 +117,7 @@ function section(label: string, body: HTMLElement): HTMLElement {
  * (the starting bankroll is the first point).
  */
 function bankrollSeries(session: SessionState): number[] {
-  const series = [session.bankroll];
+  const series: number[] = [session.bankroll];
   for (let i = session.hands.length - 1; i >= 0; i--) {
     series.unshift(series[0] - session.hands[i].net);
   }

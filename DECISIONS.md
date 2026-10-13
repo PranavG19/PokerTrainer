@@ -32,6 +32,48 @@ Living record. Each line is the current end state.
   heavy machine load, are in AGENTS.md.
 - `.gitignore` uses `node_modules` without the slash, so a symlinked `node_modules` in a worktree is ignored too.
 
+## Profile schema v2 (branch `feat/profile-schema-v2`)
+
+- **Version key:** `schemaVersion`; absent or garbage = v1, any number above `SCHEMA_VERSION` = newer.
+- **Migration v1 → v2 adds defaults only.** It does not seed the streak, Reps or milestones from the logs.
+  Those features backfill from `hands`/`assessments` when they land. Seeding now would be untested logic
+  with no reader.
+- **The snapshot is `offsuit-state.json.pre-v2`**, a copy of the file actually read (live or the backup
+  recovery used). It is written at load, before any save. It is never overwritten: on a re-upgrade the first
+  copy is kept, and the rolling backups hold the later one. If the snapshot can't be written (a full disk),
+  load still works, but every save refuses until the snapshot succeeds. Delete removes it.
+- **A failed write never throws to the renderer.** `save` returns `failed`, the banner says "Not saving"
+  until the next save lands, and the session stays in memory. Writes go temp file first, then backup
+  rotation, then rename, so failed saves on a full disk never push good versions out of `.bakN`.
+- **Read-only lives in main, not the renderer.** It covers a newer `schemaVersion` and a file changed on
+  disk since this build last read or wrote it: mtime/size flags a change, and only different bytes (sha256)
+  stop saving. Delete is the one way out. The banner is fixed
+  and click-through, so no layout changes. It is amber because read-only is notable, not an error.
+- **Unknown keys are carried** at the top level and at every fixed-shape level of `progression`, using a
+  declared key tree. Lists, maps and v1 objects are owned whole by their parsers. A carried key never
+  overwrites one the serialiser wrote.
+- **Extensible vocabularies are persisted as strings** (tier, entitlements, cosmetic ids, onboarding
+  answers, Dee's tone and frequency) and read through `effective*()` helpers. An older build keeps a newer
+  build's value rather than resetting it.
+- **The streak is the classic daily streak (owner D5).** `progression.streak` holds the current run, the
+  best run, the last counted local day, the counted-day history (bounded) and the boundary hour. A day
+  counts with one finished session. A missed day resets the run (`currentStreakOn` reads 0 after a gap).
+  The history is the source of truth: the parser derives the run and last day from it. A session dated
+  before the last counted day is a clock correction: later days are dropped and the run recomputed, so a
+  fast clock can never freeze the streak. The best run is a record and is kept.
+  There are no rest days, no freezes and no spare wicks. Supersedes: the Lamp (lit and rested days, the
+  weekly Rhythm, spare wicks), because the owner chose the classic streak.
+- **Scope (owner D1: amend the spec fully).** The character, the streak, XP, trophies and earn-only
+  cosmetics are in scope. The tutor still never authors a number, and there are no trait insults. Nothing
+  in the schema changes for it.
+- **Local day = local time, turning at 4 am**, with the offset looked up per timestamp (DST-safe). Career's
+  cadence uses it now. It was UTC.
+- **Units:** `bankroll` is `Chips`, and `Reps`/`Chalk` are separate brands with no converters, and the constructors refuse any branded number,
+  so `chalk(bankroll)` does not compile. Isolation is
+  tested by type (`@ts-expect-error`), at runtime, and by a source scan of `core/progression`.
+- **Single-instance lock** per user-data directory. A second launch exits and focuses the first, except
+  under e2e, where it does not take focus.
+
 ## The full redesign (branch `glass-full-redesign`): the mockup, built
 The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old
 layouts. This branch builds the mock's layouts and components (`demo/glass/*.html`, rounds 3 and 5) in the
