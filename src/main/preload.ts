@@ -35,6 +35,25 @@ contextBridge.exposeInMainWorld('offsuit', {
   mpAction: (action: unknown): Promise<void> => ipcRenderer.invoke('mp:action', action),
   mpDeal: (): Promise<void> => ipcRenderer.invoke('mp:deal'),
   mpStop: (): Promise<void> => ipcRenderer.invoke('mp:stop'),
+  // Licensing. Main verifies and decides; the renderer gets a display snapshot and sends a pasted key
+  // or a plan name, never a URL and never a grant. Refresh and restore are the only calls that use the
+  // network, and only when the learner presses them.
+  licenceStatus: (): Promise<unknown> => ipcRenderer.invoke('licence:status'),
+  licenceActivate: (key: string): Promise<unknown> => ipcRenderer.invoke('licence:activate', key),
+  licenceRemove: (): Promise<unknown> => ipcRenderer.invoke('licence:remove'),
+  licenceOpenCheckout: (plan: 'monthly' | 'annual'): Promise<{ opened: boolean }> =>
+    ipcRenderer.invoke('licence:openCheckout', plan),
+  licenceOpenManage: (): Promise<{ opened: boolean }> => ipcRenderer.invoke('licence:openManage'),
+  licenceRefresh: (): Promise<unknown> => ipcRenderer.invoke('licence:refresh'),
+  licenceRestore: (input: { orderId: string; email: string }): Promise<unknown> =>
+    ipcRenderer.invoke('licence:restore', input),
+  licenceDeepLinkPreview: (): Promise<unknown> => ipcRenderer.invoke('licence:deeplinkPreview'),
+  licenceDeepLinkConfirm: (accept: boolean): Promise<unknown> => ipcRenderer.invoke('licence:deeplinkConfirm', accept),
+  onLicenceDeepLink: (handler: () => void): (() => void) => {
+    const listener = (): void => handler();
+    ipcRenderer.on('licence:deeplink', listener);
+    return () => ipcRenderer.removeListener('licence:deeplink', listener);
+  },
   // Subscribe to pushed relay events (state broadcasts + errors). Returns an unsubscribe function.
   onMpEvent: (handler: (event: unknown) => void): (() => void) => {
     const listener = (_e: unknown, event: unknown): void => handler(event);

@@ -1,0 +1,6 @@
+{
+  "_comment": "THROWAWAY DEVELOPMENT KEY. Committed on purpose so tests and scripts/mint-test-key.ts can mint licence tokens. A packaged build never accepts tokens signed by it (src/main/licence.ts). Never use it for a real licence; the production key is made by scripts/payments-setup.ts and never committed.",
+  "kid": "dev-2026-10",
+  "x": "tFyl-lNzpI7Y5wpLFSq8L37x_O9RjzKhz51Pw3vWwPw",
+  "d": "U0AzShfUHVmHq_LaXjGzh2Q1v0T1D2OJfottEIeHetE"
+}

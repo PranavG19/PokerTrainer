@@ -18,6 +18,15 @@
  *      Chromium tried; the switches below stop it being attempted, so the seal is defence in depth
  *      rather than a single net.
  *
+ * THE ONE EXCEPTION: LICENSING. Checking for a renewal or restoring a purchase (src/main/licence.ts) is
+ * the only in-process egress, and it is built so that the seal stays total everywhere else:
+ *   - it runs on its own in-memory partition (LICENSING_PARTITION), never the window's session;
+ *   - that partition admits ONE origin (the configured licence server) and only while a request the
+ *     learner asked for is in flight (`licensingFetch` arms it and disarms it in `finally`);
+ *   - verifying a licence never calls it. Checkout is not egress from the app at all: it opens in the
+ *     system browser (shell.openExternal).
+ * Because it is a Chromium session, the loopback-proxy oracle in no-network.spec sees it like any escape.
+ *
  * WHY SEALING EVERYTHING DOES NOT BREAK THE TUTOR. The one authorised egress is Bedrock, and
  * src/main/tutor/bedrock.ts reaches it by spawning the `aws` CLI — a child process with its own
  * network stack. Electron's session is not in that path, so the seal can be total rather than an
@@ -52,6 +61,44 @@ export function sealSession(target: Session): void {
   target.webRequest.onBeforeRequest((details, callback) => {
     callback({ cancel: !isLocalUrl(details.url) });
   });
+}
+
+/** Not `persist:`: nothing about a licence check (cookies, cache) is kept on disk. */
+export const LICENSING_PARTITION = 'offsuit-licensing';
+
+/** The origin the licensing session admits right now; null between requests (it then admits nothing). */
+let licensingArmed: string | null = null;
+
+/** Pure, for the unit test: what the licensing session lets through. */
+export function licensingAllows(url: string, armedOrigin: string | null): boolean {
+  if (armedOrigin === null) return false;
+  try {
+    return new URL(url).origin === armedOrigin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One user-initiated request to the licence server. The session's seal is REPLACED (webRequest keeps
+ * one listener per event) by a filter that is just as closed except for the armed origin, and the
+ * origin is disarmed when the request settles, so a redirect or a stray request elsewhere is cancelled.
+ */
+export async function licensingFetch(url: string, init: RequestInit): Promise<Response> {
+  const origin = new URL(url).origin;
+  if (!origin.startsWith('https://') && !/^http:\/\/(127\.0\.0\.1|localhost)(:|$)/.test(origin)) {
+    throw new Error('the licence server must be https (or loopback for development)');
+  }
+  const target = session.fromPartition(LICENSING_PARTITION);
+  target.webRequest.onBeforeRequest((details, callback) => {
+    callback({ cancel: !licensingAllows(details.url, licensingArmed) });
+  });
+  licensingArmed = origin;
+  try {
+    return await target.fetch(url, { ...init, redirect: 'error' });
+  } finally {
+    licensingArmed = null;
+  }
 }
 
 /**

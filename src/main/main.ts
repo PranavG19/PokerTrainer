@@ -1,7 +1,7 @@
 // First, before any module that could open a socket: the test-mode network recorder (no-op unless
 // OFFSUIT_NET_ORACLE is set). See netOracle.ts.
 import './netOracle.js';
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 import * as path from 'node:path';
 import { DELETE_CONFIRM_PHRASE } from '../core/backup.js';
 import { sealNetwork, silenceChromium } from './network.js';
@@ -9,6 +9,9 @@ import { cancelSpeech, speak } from './speech.js';
 import {
   deleteProfile,
   load,
+  loadLicenceMirror,
+  resaveLast,
+  saveLicenceMirror,
   loadMultiplayerEnabled,
   loadTheme,
   loadTutorEnabled,
@@ -23,6 +26,10 @@ import { nullModelClient, nullTutor } from './tutor/nullTutor.js';
 import { hostSession, joinSession, type RelaySession } from './relaySession.js';
 import { parseInvite } from '../core/relayClient.js';
 import type { Action } from '../core/table.js';
+import { CHECKOUT_URLS, LICENCE_SERVER_URL, MANAGE_URL } from '../core/entitlements/config.js';
+import { devOverrideFrom } from '../core/entitlements/entitlements.js';
+import { createLicenceAuthority, licenceEndpoints, tokenFromDeepLink } from './licence.js';
+import { refreshLicence, restoreLicence } from './licenceClient.js';
 import type { RoomView } from '../core/multiplayer.js';
 
 let mainWindow: BrowserWindow | null = null;
@@ -112,6 +119,52 @@ const isE2E = process.env.OFFSUIT_E2E === '1';
 const isHidden = isE2E && process.env.OFFSUIT_E2E_HIDDEN === '1';
 
 /**
+ * LICENSING (src/main/licence.ts): the authority is created in `whenReady`, so nothing can ask for it
+ * before the profile can be read. The dev override and the dev key are refused in a packaged build,
+ * whatever the environment says. A Pro feature's IPC handler is registered with `gated(authority, …)`.
+ */
+const endpoints = licenceEndpoints(
+  { checkout: CHECKOUT_URLS, manage: MANAGE_URL, server: LICENCE_SERVER_URL },
+  process.env,
+  app.isPackaged,
+);
+
+/**
+ * A deep link `offsuit://activate?key=…` is only ever a PROPOSAL: any web page can open one, so the
+ * key is held here and the renderer asks the learner to confirm before `install()` runs. The protocol
+ * is registered by a packaged build only; a developer or e2e run must not make itself the system's
+ * handler for offsuit:// (that would outlive the run, in LaunchServices).
+ */
+let pendingDeepLink: string | null = null;
+function receiveDeepLink(url: unknown): void {
+  const token = tokenFromDeepLink(url);
+  if (token === null) return;
+  pendingDeepLink = token;
+  if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.webContents.send('licence:deeplink');
+}
+// macOS delivers the URL as an event, possibly before ready (a cold start from the link).
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  receiveDeepLink(url);
+});
+if (app.isPackaged) app.setAsDefaultProtocolClient('offsuit');
+
+/**
+ * Checkout and the subscription portal open in the SYSTEM BROWSER, never in the app (no payment page
+ * ever loads in an Offsuit window, and the seal stays total). Only a URL from `endpoints` can be opened;
+ * the renderer names a plan, never a URL. Under e2e the call is recorded instead, because opening a
+ * browser would take the screen from whoever is at the keyboard.
+ */
+function openExternal(url: string): Promise<void> {
+  if (isE2E) {
+    const g = globalThis as { __offsuitOpenedExternal?: string[] };
+    (g.__offsuitOpenedExternal ??= []).push(url);
+    return Promise.resolve();
+  }
+  return shell.openExternal(url);
+}
+
+/**
  * Before `whenReady`, or the switches are read too late to take effect. Chromium's own background
  * network users are turned off here; the seal in `sealNetwork()` is what catches anything that tries
  * anyway (src/main/network.ts explains why one window's session was not enough).
@@ -151,6 +204,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: !isHidden,
+      // No devtools in a packaged build: nothing to poke at the renderer's (display-only) licence state.
+      devTools: !app.isPackaged,
     },
   });
 
@@ -194,7 +249,9 @@ function createWindow(): void {
 if (!app.requestSingleInstanceLock()) {
   app.exit(0);
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    // Windows and Linux hand a deep link to the running copy as an argument of the second launch.
+    for (const arg of argv) if (arg.startsWith('offsuit:')) receiveDeepLink(arg);
     if (mainWindow === null || isE2E) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
@@ -215,8 +272,97 @@ app.whenReady().then(() => {
     });
   });
 
-  ipcMain.handle('store:load', () => load());
-  ipcMain.handle('store:save', (_event, obj: Record<string, unknown>) => save(obj));
+  const authority = createLicenceAuthority({
+    isPackaged: app.isPackaged,
+    devOverride: devOverrideFrom(process.env, app.isPackaged),
+    nowSeconds: () => Math.floor(Date.now() / 1000),
+    loadMirror: loadLicenceMirror,
+    saveMirror: saveLicenceMirror,
+  });
+  // Windows/Linux cold start from a link: the URL is an argument of this launch.
+  for (const arg of process.argv) if (arg.startsWith('offsuit:')) receiveDeepLink(arg);
+
+  // Main's entitlements replace the renderer's on the way in and on the way out (licence.ts).
+  ipcMain.handle('store:load', () => authority.adopt(load()));
+  ipcMain.handle('store:save', (_event, obj: Record<string, unknown>) =>
+    save(authority.stamp(typeof obj === 'object' && obj !== null ? obj : {})),
+  );
+
+  // ── Licensing ─────────────────────────────────────────────────────────────
+  // Verification is offline and lives here. Every network call below is a button the learner pressed.
+  const licenceStatus = () => ({
+    snapshot: authority.snapshot(),
+    checkout: { monthly: endpoints.checkout.monthly !== null, annual: endpoints.checkout.annual !== null },
+    manage: endpoints.manage !== null,
+    server: endpoints.server === null ? null : new URL(endpoints.server).host,
+    devBuild: !app.isPackaged,
+    pendingDeepLink: pendingDeepLink !== null,
+  });
+  /** A licence change is persisted at once, not at the renderer's next save. */
+  const persistLicence = () => {
+    resaveLast((obj) => authority.stamp(obj));
+    return licenceStatus();
+  };
+  ipcMain.handle('licence:status', () => licenceStatus());
+  ipcMain.handle('licence:activate', (_event, raw: unknown) => {
+    const outcome = authority.install(typeof raw === 'string' ? raw : '');
+    if (!outcome.ok) return { ok: false, reason: outcome.reason, status: licenceStatus() };
+    return { ok: true, status: persistLicence() };
+  });
+  ipcMain.handle('licence:remove', () => {
+    authority.remove();
+    return persistLicence();
+  });
+  ipcMain.handle('licence:deeplinkPreview', () => {
+    if (pendingDeepLink === null) return null;
+    const preview = authority.preview(pendingDeepLink);
+    if (!preview.ok) return { ok: false, reason: preview.reason };
+    const c = preview.claims;
+    return { ok: true, plan: c.plan, tier: c.tier, paidThrough: c.exp, licenceHint: c.lid.slice(-6) };
+  });
+  ipcMain.handle('licence:deeplinkConfirm', (_event, accept: unknown) => {
+    const token = pendingDeepLink;
+    pendingDeepLink = null;
+    if (token === null || accept !== true) return { ok: false, reason: 'declined', status: licenceStatus() };
+    const outcome = authority.install(token);
+    if (!outcome.ok) return { ok: false, reason: outcome.reason, status: licenceStatus() };
+    return { ok: true, status: persistLicence() };
+  });
+  ipcMain.handle('licence:openCheckout', async (_event, plan: unknown) => {
+    const url = plan === 'monthly' || plan === 'annual' ? endpoints.checkout[plan] : null;
+    if (url === null) return { opened: false };
+    await openExternal(url);
+    return { opened: true };
+  });
+  ipcMain.handle('licence:openManage', async () => {
+    if (endpoints.manage === null) return { opened: false };
+    await openExternal(endpoints.manage);
+    return { opened: true };
+  });
+  ipcMain.handle('licence:refresh', async () => {
+    const token = authority.token();
+    if (token === null) return { ok: false, reason: 'no-licence', status: licenceStatus() };
+    const reply = await refreshLicence(endpoints.server, token);
+    if (!reply.ok) return { ok: false, reason: reply.reason, serverStatus: reply.status ?? null, status: licenceStatus() };
+    if (reply.token !== null && reply.token !== token) {
+      const outcome = authority.install(reply.token);
+      if (!outcome.ok) return { ok: false, reason: 'bad-reply', status: licenceStatus() };
+      return { ok: true, serverStatus: reply.status, status: persistLicence() };
+    }
+    return { ok: true, serverStatus: reply.status, status: licenceStatus() };
+  });
+  ipcMain.handle('licence:restore', async (_event, input: { orderId?: unknown; email?: unknown }) => {
+    const orderId = typeof input?.orderId === 'string' ? input.orderId : '';
+    const email = typeof input?.email === 'string' ? input.email : '';
+    if (orderId.trim() === '' || email.trim() === '') return { ok: false, reason: 'missing', status: licenceStatus() };
+    const reply = await restoreLicence(endpoints.server, orderId, email);
+    if (!reply.ok || reply.token === null) {
+      return { ok: false, reason: reply.ok ? 'not-found' : reply.reason, serverStatus: reply.status ?? null, status: licenceStatus() };
+    }
+    const outcome = authority.install(reply.token);
+    if (!outcome.ok) return { ok: false, reason: 'bad-reply', status: licenceStatus() };
+    return { ok: true, serverStatus: reply.status, status: persistLicence() };
+  });
   ipcMain.handle('app:seed', () => seed);
 
   ipcMain.handle('tutor:status', () => {

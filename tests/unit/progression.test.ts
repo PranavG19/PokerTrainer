@@ -62,7 +62,7 @@ function full(): ProgressionState {
       schedule: { days: [1, 2, 3, 4, 5], sessionMinutes: 15 },
     },
     milestones: { achieved: { 'depth-40': { day: day(19570) } } },
-    entitlements: { tier: 'free', granted: [] },
+    entitlements: { tier: 'free', granted: [], licence: null, highWater: 0 },
   };
 }
 

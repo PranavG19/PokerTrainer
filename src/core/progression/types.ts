@@ -179,12 +179,22 @@ export interface MilestonesState {
   achieved: Record<string, { day: DayKey }>;
 }
 
-/** The tier the learner is on and anything it grants. A placeholder for the tiers task. */
-export const KNOWN_TIERS = ['free'] as const;
+/** Tier ids this build knows (src/core/entitlements/features.ts TIERS). */
+export const KNOWN_TIERS = ['free', 'pro'] as const;
 
+/**
+ * The licence, owned by MAIN (src/main/licence.ts): on every save main replaces this whole object with
+ * its own, so nothing the renderer writes here is ever persisted or believed. `tier` and `granted` are a
+ * cache of the last verified snapshot for display; the signed `licence` token is the only thing that
+ * grants anything, and main re-verifies it at every start.
+ */
 export interface EntitlementsState {
-  /** One of KNOWN_TIERS, or a newer build's tier (kept, read as 'free'). */
+  /** One of KNOWN_TIERS, or a newer build's tier (kept, read as 'free'). A cache, never a grant. */
   tier: string;
-  /** Entitlement ids, unique. */
+  /** Entitlement (feature) ids, unique. A cache, never a grant. */
   granted: string[];
+  /** The Ed25519-signed licence token (entitlements/token.ts), or null. Added in v2, no bump: additive. */
+  licence: string | null;
+  /** The clock high-water mark, unix seconds; 0 = never (entitlements/clock.ts). */
+  highWater: number;
 }
