@@ -416,7 +416,7 @@ round-4 version stays as `?felt=glass-r4`. Links to `?felt=glass` in the round-4
     ([main.ts:292](/Users/pranavgk/Documents/scratch/temp/Poker/src/main/main.ts:292)).
   - The host picker offers 2 to 6 ([multiplayer.ts:352](/Users/pranavgk/Documents/scratch/temp/Poker/src/renderer/screens/multiplayer.ts:352)).
   - The relay comments that "2–6 seats a real table uses"
-    ([relayHost.ts:44](/Users/pranavgk/Documents/scratch/temp/Poker/src/main/relayHost.ts:44)).
+    ([relayHost.ts:49](/Users/pranavgk/Documents/scratch/temp/Poker/src/main/relayHost.ts:49)).
   - The multiplayer screen draws seats as a list of rows, not an oval
     ([multiplayer.ts:444](/Users/pranavgk/Documents/scratch/temp/Poker/src/renderer/screens/multiplayer.ts:444)).
 - **The engine has no cap.** `createTable` takes any seat array
@@ -835,6 +835,98 @@ hero at the bottom. They differ in material and emphasis, not in layout logic. A
      - the predict confidence labels' casing, if any spec matches "SURE"/"GUESS"
      - the winner ring's mint `border-top-color` (not mocked)
   5. A GPU check: the coat plus at most two floats in Electron.
+
+## Multiplayer: an unpredictable, checked deal and relay protocol v2
+The revised design in `research/TECH-MULTIPLAYER.md` §3.1–3.2 (branch `vision-tech-research`, after review
+R5–R7, R13), built. Solo play is unchanged: it keeps the seeded `mulberry32` and every e2e seed.
+
+### The deal
+- **A hosted room has no seed.** `RoomState.seed` and `CreateRoomOpts.seed` are gone and `main.ts` no longer
+  passes `seed ?? 1`. A room deals only from an injected deck (`startHand(state, deck)`); the seeded shuffle
+  is the solo path alone.
+- **Secrecy: a CSPRNG order the host keeps.** The host shuffles 52 cards with `node:crypto.randomBytes`
+  (unbiased Fisher–Yates, rejection-sampled 32-bit draws), injected into core as `DealCrypto` so core stays
+  crypto-free and runs under vitest unchanged.
+- **Commit before reveal, with guest entropy** ([dealCommit.ts](/Users/pranavgk/Documents/scratch/temp/Poker/src/core/dealCommit.ts)):
+  1. The host publishes one salted SHA-256 leaf per committed position (`H(domain‖nonce‖hand‖j‖card‖salt)`,
+     16-byte salts, a fresh 16-byte nonce per attempt), the dealer and the deal order.
+  2. Every guest commits to 32 random bytes; the host publishes the full set; every guest checks its own is
+     in it, then reveals.
+  3. The revealed entropy, with the leaves, dealer and deal order, derives a public permutation `sigma`
+     (SHA-256 counter stream) mapping the k-th card dealt to committed position `sigma[k]`. The host fixed
+     its order before `sigma` existed, so it cannot place cards; each guest's guarantee needs only its own
+     entropy to be honest.
+- **Per-card openings, no full reveal.** Every state message carries an opening (card + salt) for each card
+  its view shows. The guest computes k itself from the canonical deal order (holes round by round from the
+  deal order, then burn/flop×3/burn/turn/burn/river), never from the host. Unseen positions are never
+  opened, even at hand end: that would hand every guest the mucked hands (review R6.3).
+  Supersedes: verifying "the full deck at hand end", because the only full check is a full reveal; the guest
+  instead checks every card it saw, and that no card is opened twice.
+- **What a guest raises** ([relayGuest.ts](/Users/pranavgk/Documents/scratch/temp/Poker/src/core/relayGuest.ts)):
+  a violation (the session ends) for a card that does not open its leaf, a card shown without an opening, a
+  card opened twice, a changed card, a lied deal order, reveals that do not open the published commitments,
+  its own entropy left out of the set or the deal, a replayed nonce or hand, a malformed view, a hidden or
+  moved seat, or any hole or turn shown for a hand with no completed handshake (showdown hands excepted).
+  Its seat is learned once and held, so the host's `isYou` cannot switch checks off. A warning for a deal
+  restarted after it revealed: kept on the table (`mp-warning`) until it leaves, not cleared by the next
+  state. Supersedes: excluded entropy as a warning, because a host could then choose `sigma` with a
+  made-up seat's entropy (review A1).
+- **Aborts are visible, not prevented.** A host that dislikes `sigma` can still restart the deal; the guest
+  is warned each time and the warning stays on screen. A guest that stays silent for 10 s
+  (`ENTROPY_TIMEOUT_MS`) or reveals badly is removed from the table and the deal restarts, so one guest
+  cannot stall it. Supersedes: leaving such a guest out of the deal's entropy, because an honest host must
+  never deal around a guest (see A1 above).
+- **A seat freed mid-hand keeps its cards from a newcomer.** Found by the reconnect test: a player who took
+  a seat freed mid-hand was shown the leaver's hole and could act with it. `RoomState.dealtTo` now records who
+  each hand was dealt to, from the players who received that deal's commitment; only that player sees or
+  plays it (red test: `multiplayer.test.ts`, "a seat freed mid-hand").
+- **Seats follow the people in them.** At each deal a seat whose player left sits out (its chips leave with
+  the player; dealt in, the table would stall on its turn), and a seat taken by someone new since the last
+  deal (`seatedAt`, recorded for every seat, dealt in or not) is bought in at the starting stack. A busted
+  player who stays stays out, so no chips are created. No deal is committed with fewer than two funded
+  seats.
+- **A player who leaves mid-hand is folded when the turn reaches their seat** (`foldAbsent`, through the
+  engine's own fold), so a Wi-Fi drop never freezes the table.
+- **A guest's out-of-range bet is an error, not an exception** in the host's socket handler.
+
+### Transport: relay protocol v2
+- **TLS 1.3 only, a fresh self-signed P-256 certificate per hosted table**, built in
+  [selfSignedCert.ts](/Users/pranavgk/Documents/scratch/temp/Poker/src/main/selfSignedCert.ts) (hand-rolled
+  DER: `node:crypto` signs but cannot issue a certificate, and no dependency may be added).
+- **The invite link** is `offsuit://join?host=…&port=…&fp=<SHA-256 of the cert, base64url>&token=<128-bit,
+  base64url>`, one per LAN address. The join box takes the whole link; a bare `host:port` is refused.
+- **The guest pins the fingerprint before sending a byte** (`rejectUnauthorized: false` because nothing here
+  trusts a CA; the pin is the whole check, and the TLS handshake proves key possession). A mismatch says so
+  and never sends the token.
+- **Nothing reaches an unauthenticated socket.** The first frame inside TLS must be `hello {v, token,
+  name}`; the token is compared in constant time; until then the socket is not seated and is sent nothing.
+  Five bad tokens from one address shut that address out for the table; a socket with no hello is dropped
+  after 5 s; one address may hold at most 4 sockets that have not yet said hello, so a tokenless peer
+  cannot fill the 32 slots (review A8). The 128-bit token is the real defence (one guess per TLS
+  handshake).
+- **Version 2, and mismatches are told plainly.** A v1 plaintext client is recognised by its first byte and
+  gets a v1-framed `error` it can display; a hello with another `v` gets "This table runs relay protocol v2
+  and your app sent vN"; a v2 guest pointed at a v1 host reports that it could not open a secure connection.
+  The renderer's `parseJoinAddress` stays as the host/port check inside `parseInvite`.
+- **A closed table's invite is dead**: a new table has a new certificate and token. A guest that leaves can
+  rejoin the same table with the same invite.
+
+### Network observation (reviews R5, R13)
+- **Main-process network oracle** ([netOracle.ts](/Users/pranavgk/Documents/scratch/temp/Poker/src/main/netOracle.ts)),
+  test mode only (`OFFSUIT_NET_ORACLE=<file>`), imported first by `main.ts`: it records `net.Socket#connect`
+  (net, tls, http, https and fetch all funnel through it), `net.Server#listen`, UDP sends, DNS lookups and
+  every `child_process` entry point, flagging network tools. It records and never blocks.
+  `no-network.spec` now requires zero egress records over its sitting, with a positive control, and
+  `multiplayer.spec` requires no listener while multiplayer is off.
+- **WebRTC:** `--force-webrtc-ip-handling-policy=disable_non_proxied_udp` in `silenceChromium`, the same
+  policy on every webContents, and the `RTCPeerConnection` family deleted from the page before any renderer
+  code runs (`sealWebRtc.ts`). Measured (evidence `webrtc-probe.txt`): before, a page gathered a host
+  candidate per interface and sent 16 STUN packets; after, none of either.
+- **The tutor guard reads spelled-out numbers** (check `number-words`: compounds, tens words, unit-bearing
+  words, `1k`), kept separate from digit provenance so the agent's post-reveal path, which replaces that
+  check with phrase checks, still runs it (review A9). "a dozen" and fractions are not read.
+- **`sandbox-exec` was not added.** The in-process oracle covers the stated paths; an OS-level run is an open
+  question.
 
 ## Tests and environment
 - No failing-first test applies: no defect is repaired and nothing under `src/` changes.

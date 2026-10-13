@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/pranavgk/Documents/scratch/temp/poker-wt/mp-deal-security
+
+ ❯ tests/unit/mp-deal-secrecy.test.ts (2 tests | 1 failed) 11ms
+   × a hosted room deals cards a guest cannot predict > no seed replica built from a guest view recovers the opponents’ holes or the future board 10ms
+     → the guest predicted every opponent hole from its own view: expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/mp-deal-secrecy.test.ts > a hosted room deals cards a guest cannot predict > no seed replica built from a guest view recovers the opponents’ holes or the future board
+AssertionError: the guest predicted every opponent hole from its own view: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/unit/mp-deal-secrecy.test.ts:65:89
+     63|     const recoveredHoles =
+     64|       guess !== null && opponents.every((s) => guess.holes[s.id].join(…
+     65|     expect(recoveredHoles, 'the guest predicted every opponent hole fr…
+       |                                                                                         ^
+     66| 
+     67|     // Play the hand to the river by checking/calling so the real boar…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  16:45:03
+   Duration  1.23s (transform 108ms, setup 0ms, collect 165ms, tests 11ms, environment 0ms, prepare 228ms)
+

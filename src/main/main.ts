@@ -1,3 +1,6 @@
+// First, before any module that could open a socket: the test-mode network recorder (no-op unless
+// OFFSUIT_NET_ORACLE is set). See netOracle.ts.
+import './netOracle.js';
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import * as path from 'node:path';
 import { DELETE_CONFIRM_PHRASE } from '../core/backup.js';
@@ -18,6 +21,7 @@ import {
 import { askTutor, resolveTutor, type AskInput, type ResolvedTutor } from './tutor/index.js';
 import { nullModelClient, nullTutor } from './tutor/nullTutor.js';
 import { hostSession, joinSession, type RelaySession } from './relaySession.js';
+import { parseInvite } from '../core/relayClient.js';
 import type { Action } from '../core/table.js';
 import type { RoomView } from '../core/multiplayer.js';
 
@@ -52,7 +56,9 @@ let relaySession: RelaySession | null = null;
  * acting moves everyone's state), so unlike the request/response tutor this is a one-way channel from
  * main to the renderer via webContents.send.
  */
-function pushMultiplayerEvent(event: { type: 'state'; view: RoomView } | { type: 'error'; reason: string }): void {
+function pushMultiplayerEvent(
+  event: { type: 'state'; view: RoomView } | { type: 'error' | 'warning'; reason: string },
+): void {
   if (mainWindow !== null && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('mp:event', event);
   }
@@ -271,6 +277,7 @@ app.whenReady().then(() => {
   const sessionCallbacks = {
     onState: (view: RoomView) => pushMultiplayerEvent({ type: 'state', view }),
     onError: (reason: string) => pushMultiplayerEvent({ type: 'error', reason }),
+    onWarning: (reason: string) => pushMultiplayerEvent({ type: 'warning', reason }),
   };
 
   ipcMain.handle('mp:host', async (_event, opts: { seatCount?: number }) => {
@@ -278,22 +285,30 @@ app.whenReady().then(() => {
     await stopRelaySession();
     const seatCount = Math.min(6, Math.max(2, Math.floor(opts?.seatCount ?? 3)));
     const { session, info } = await hostSession(
-      { roomId: 'local', seatCount, sb: 25, bb: 50, startStack: 5000, seed: seed ?? 1 },
+      // No seed: a hosted room deals from node:crypto with commit-before-reveal (relayServer.ts). The
+      // --seed flag stays a solo-play and e2e tool only.
+      { roomId: 'local', seatCount, sb: 25, bb: 50, startStack: 5000 },
       sessionCallbacks,
     );
     relaySession = session;
-    return { port: info.port, addresses: info.addresses };
+    return {
+      port: info.port,
+      addresses: info.addresses,
+      invites: info.invites,
+      fingerprint: info.fingerprint,
+      token: info.token,
+    };
   });
 
-  ipcMain.handle('mp:join', async (_event, address: { host: string; port: number; name?: string }) => {
+  ipcMain.handle('mp:join', async (_event, request: { invite?: unknown; name?: unknown }) => {
     if (!multiplayerEnabled) return { error: 'multiplayer is off' };
-    if (typeof address?.host !== 'string' || !Number.isFinite(address?.port)) {
-      return { error: 'a host and port are required' };
-    }
+    // Parsed again here: the renderer's check is for the notice, this one is the gate.
+    const invite = parseInvite(typeof request?.invite === 'string' ? request.invite : '');
+    if ('error' in invite) return { error: invite.error };
     await stopRelaySession();
     relaySession = joinSession(
-      { host: address.host, port: Math.floor(address.port) },
-      typeof address.name === 'string' ? address.name : 'Guest',
+      invite,
+      typeof request.name === 'string' ? request.name : 'Guest',
       sessionCallbacks,
     );
     return { joined: true };

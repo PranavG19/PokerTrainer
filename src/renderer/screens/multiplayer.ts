@@ -1,10 +1,11 @@
 import '../styles-multiplayer.css';
 import type { Action } from '../../core/table.js';
-import type { RoomView, ServerMessage } from '../../core/multiplayer.js';
+import type { RoomView } from '../../core/multiplayer.js';
 import {
   applyServerMessage,
   initialClientState,
-  parseJoinAddress,
+  parseInvite,
+  type ClientEvent,
   type ClientState,
 } from '../../core/relayClient.js';
 import { renderCard, renderCardRow } from '../components/card.js';
@@ -26,8 +27,15 @@ import { seatPositions } from '../../core/seatPositions.js';
 export interface MultiplayerBridge {
   mpStatus?: () => Promise<{ enabled: boolean; active: boolean }>;
   mpSetEnabled?: (enabled: boolean) => Promise<boolean>;
-  mpHost?: (opts: { seatCount?: number }) => Promise<{ port?: number; addresses?: string[]; error?: string }>;
-  mpJoin?: (address: { host: string; port: number; name?: string }) => Promise<{ joined?: boolean; error?: string }>;
+  mpHost?: (opts: { seatCount?: number }) => Promise<{
+    port?: number;
+    addresses?: string[];
+    invites?: string[];
+    fingerprint?: string;
+    token?: string;
+    error?: string;
+  }>;
+  mpJoin?: (request: { invite: string; name?: string }) => Promise<{ joined?: boolean; error?: string }>;
   mpAction?: (action: unknown) => Promise<void>;
   mpDeal?: () => Promise<void>;
   mpStop?: () => Promise<void>;
@@ -51,6 +59,9 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
   let phase: 'setup' | 'connecting' | 'playing' = 'setup';
   let hostPort: number | null = null;
   let hostAddresses: string[] = [];
+  let hostInvites: string[] = [];
+  let hostFingerprint = '';
+  let hostToken = '';
   let notice = '';
   let enabled = false;
   // How many seats a hosted table has (2–6). The whole point of multiplayer is multi-way play, so the
@@ -59,8 +70,8 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
 
   // Subscribe to pushed relay events for this screen's lifetime; unsubscribe when it leaves the DOM.
   const unsubscribe = bridge.onMpEvent?.((event) => {
-    const message = event as ServerMessage;
-    if (message?.type !== 'state' && message?.type !== 'error') return;
+    const message = event as ClientEvent;
+    if (message?.type !== 'state' && message?.type !== 'error' && message?.type !== 'warning') return;
     client = applyServerMessage(client, message);
     // Switch to the table only once a real hand has been DEALT. The first broadcast a host gets is the
     // empty waiting room (handNumber 0, table null) from seating itself — staying in 'connecting' then
@@ -123,6 +134,9 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       } else {
         hostPort = result?.port ?? null;
         hostAddresses = result?.addresses ?? [];
+        hostInvites = result?.invites ?? [];
+        hostFingerprint = result?.fingerprint ?? '';
+        hostToken = result?.token ?? '';
       }
     } catch {
       // A rejected mpHost (vs the modeled { error } resolve) would otherwise strand the screen on
@@ -134,13 +148,13 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     paint();
   }
 
-  async function join(hostAddr: string, port: number): Promise<void> {
+  async function join(invite: string): Promise<void> {
     role = 'join';
     phase = 'connecting';
     notice = '';
     paint();
     try {
-      const result = await bridge.mpJoin?.({ host: hostAddr, port, name: 'Guest' });
+      const result = await bridge.mpJoin?.({ invite, name: 'Guest' });
       if (result?.error) {
         notice = result.error;
         phase = 'setup';
@@ -318,20 +332,29 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
         share.dataset.testid = 'mp-host-port';
         share.dataset.port = String(hostPort);
         share.dataset.addresses = hostAddresses.join(',');
-        // A guest needs host:port, not a bare port. Show the machine's LAN address(es) with the port so
-        // the string can be typed straight into the join box. If no LAN address was found (unusual), fall
-        // back to the port alone with a note — the host still listens, the address just isn't auto-known.
-        if (hostAddresses.length > 0) {
-          const primary = hostAddresses[0];
-          share.textContent =
-            hostAddresses.length === 1
-              ? `Tell a friend on your network to join at ${primary}:${hostPort}`
-              : `Tell a friend on your network to join at ${primary}:${hostPort} (also reachable at ${hostAddresses
-                  .slice(1)
+        share.dataset.fingerprint = hostFingerprint;
+        share.dataset.token = hostToken;
+        // A guest needs the whole invite link: the address and port, the certificate fingerprint it pins
+        // and the room token it presents. Show one per LAN address, selectable as one piece of text.
+        if (hostInvites.length > 0) {
+          const lead = document.createElement('p');
+          lead.className = 'mp-share-lead';
+          lead.textContent =
+            hostInvites.length === 1
+              ? `Send a friend on your network this invite link (${hostAddresses[0]}:${hostPort}):`
+              : `Send a friend on your network one of these invite links (${hostAddresses
                   .map((a) => `${a}:${hostPort}`)
-                  .join(', ')})`;
+                  .join(', ')}):`;
+          share.appendChild(lead);
+          for (const invite of hostInvites) {
+            const code = document.createElement('code');
+            code.className = 'mp-invite';
+            code.dataset.testid = 'mp-invite';
+            code.textContent = invite;
+            share.appendChild(code);
+          }
         } else {
-          share.textContent = `Hosting on port ${hostPort} — share your machine's network address and this port with a friend.`;
+          share.textContent = `Hosting on port ${hostPort}, but no network address was found to put in an invite link.`;
         }
         el.appendChild(share);
       }
@@ -376,23 +399,15 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     const joinRow = document.createElement('div');
     joinRow.className = 'mp-join-row';
 
-    const hostInput = document.createElement('input');
-    hostInput.type = 'text';
-    hostInput.className = 'mp-input';
-    hostInput.dataset.testid = 'mp-join-host';
-    hostInput.placeholder = 'Host (e.g. 192.168.1.5 or 192.168.1.5:50000)';
-    hostInput.value = '127.0.0.1';
-    // Placeholders are not accessible names; label each field.
-    hostInput.setAttribute('aria-label', 'Host address');
-    joinRow.appendChild(hostInput);
-
-    const portInput = document.createElement('input');
-    portInput.type = 'number';
-    portInput.className = 'mp-input';
-    portInput.dataset.testid = 'mp-join-port';
-    portInput.placeholder = 'Port';
-    portInput.setAttribute('aria-label', 'Port');
-    joinRow.appendChild(portInput);
+    const inviteInput = document.createElement('input');
+    inviteInput.type = 'text';
+    inviteInput.className = 'mp-input';
+    inviteInput.dataset.testid = 'mp-join-invite';
+    inviteInput.placeholder = 'Invite link (offsuit://join?…)';
+    inviteInput.spellcheck = false;
+    // Placeholders are not accessible names; label the field.
+    inviteInput.setAttribute('aria-label', 'Invite link');
+    joinRow.appendChild(inviteInput);
 
     const joinBtn = document.createElement('button');
     joinBtn.type = 'button';
@@ -400,15 +415,15 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     joinBtn.dataset.testid = 'mp-join';
     joinBtn.textContent = 'Join a table';
     joinBtn.addEventListener('click', () => {
-      // Accept a whole `host:port` pasted into the host field (what the host screen advertises) as well
-      // as the two fields filled separately — parseJoinAddress reconciles both and reports why not.
-      const parsed = parseJoinAddress(hostInput.value, portInput.value);
+      // The invite carries the address, the certificate to pin and the room token; a bare host:port
+      // cannot join a v2 table, so the parser says what is missing before main is asked.
+      const parsed = parseInvite(inviteInput.value);
       if ('error' in parsed) {
         notice = parsed.error;
         paint();
         return;
       }
-      void join(parsed.host, parsed.port);
+      void join(inviteInput.value.trim());
     });
     joinRow.appendChild(joinBtn);
     el.appendChild(joinRow);
@@ -431,6 +446,15 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       err.dataset.testid = 'mp-error';
       err.textContent = client.lastError;
       el.appendChild(err);
+    }
+    // Deal warnings stay until the player leaves the table: they are the visible record of a host that
+    // restarted deals after seeing the shuffle.
+    for (const warning of client.warnings) {
+      const w = document.createElement('div');
+      w.className = 'mp-notice';
+      w.dataset.testid = 'mp-warning';
+      w.textContent = warning;
+      el.appendChild(w);
     }
 
     const potLine = document.createElement('div');

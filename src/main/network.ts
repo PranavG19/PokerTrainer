@@ -85,7 +85,14 @@ export function silenceChromium(): void {
     'disable-features',
     'SafeBrowsing,OptimizationHints,MediaRouter,SpellcheckService,Translate',
   );
+  // WebRTC (review R13). ICE/STUN is UDP that neither `webRequest` nor CSP governs, so a renderer bug or
+  // injected script could send packets the seal and the proxy oracle never see. With no proxy, this
+  // policy leaves WebRTC no UDP at all and no local addresses to gather.
+  app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', WEBRTC_POLICY);
 }
+
+/** The strictest WebRTC IP-handling policy Chromium has: no UDP unless a proxy carries it. */
+export const WEBRTC_POLICY = 'disable_non_proxied_udp';
 
 /**
  * Seal the default session and every session created afterwards.
@@ -97,5 +104,9 @@ export function sealNetwork(): void {
   sealSession(session.defaultSession);
   app.on('session-created', (created) => {
     sealSession(created);
+  });
+  // The same WebRTC policy per page as well as process-wide, so a later webContents cannot opt out.
+  app.on('web-contents-created', (_event, contents) => {
+    contents.setWebRTCIPHandlingPolicy(WEBRTC_POLICY);
   });
 }

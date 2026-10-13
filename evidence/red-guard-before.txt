@@ -1,0 +1,61 @@
+
+ RUN  v2.1.9 /Users/pranavgk/Documents/scratch/temp/poker-wt/mp-deal-security
+
+ ❯ tests/unit/guard.test.ts (87 tests | 2 failed) 28ms
+   × T4 check 3 — number provenance covers spelled-out numbers > rejects "Seven fifty big blind" when 750 is not in the payload 8ms
+     → expected [] to deeply equal [ Array(1) ]
+   × T4 check 3 — number provenance covers spelled-out numbers > rejects a compound or unit-bearing number word absent from the payload 1ms
+     → expected [] to deeply equal [ 'twenty five (25)' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/guard.test.ts > T4 check 3 — number provenance covers spelled-out numbers > rejects "Seven fifty big blind" when 750 is not in the payload
+AssertionError: expected [] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+- Array [
+-   Object {
+-     "check": "number-provenance",
+-     "detail": "seven fifty (750)",
+-   },
+- ]
++ Array []
+
+ ❯ tests/unit/guard.test.ts:270:31
+    268|       strategyRequest,
+    269|     );
+    270|     expect(result.violations).toEqual([{ check: 'number-provenance', d…
+       |                               ^
+    271|   });
+    272| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/guard.test.ts > T4 check 3 — number provenance covers spelled-out numbers > rejects a compound or unit-bearing number word absent from the payload
+AssertionError: expected [] to deeply equal [ 'twenty five (25)' ]
+
+- Expected
++ Received
+
+- Array [
+-   "twenty five (25)",
+- ]
++ Array []
+
+ ❯ tests/unit/guard.test.ts:276:72
+    274|     const details = (text: string): string[] =>
+    275|       checkTutorOutput({ text, kind: 'correction' }, strategyRequest).…
+    276|     expect(details('Calling costs twenty five percent of the range.'))…
+       |                                                                        ^
+    277|     expect(details('The line gains three big blinds.')).toEqual(['thre…
+    278|     expect(details('Bet two thousand into it.')).toEqual(['two thousan…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 85 passed (87)
+   Start at  16:45:57
+   Duration  1.21s (transform 89ms, setup 0ms, collect 125ms, tests 28ms, environment 0ms, prepare 234ms)
+

@@ -1,61 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import { RelayServer, type Outbound } from '../../src/core/relayServer.js';
+import { ROOM, Table, testCrypto } from './relayHarness.js';
 
 /**
  * RELAY SERVER — the orchestration between connection events and the pure room.
  *
  * These tests use no socket: connect/disconnect/message are plain calls returning the list of redacted
- * broadcasts a transport would send. The security property proven in multiplayer.test.ts (no opponent
- * hole leaks) is re-checked HERE at the broadcast boundary, because this is the layer a real transport
+ * broadcasts a transport would send, routed through real GuestProtocols by the Table harness so the
+ * deal handshake completes. The security property proven in multiplayer.test.ts (no opponent hole
+ * leaks) is re-checked HERE at the broadcast boundary, because this is the layer a real transport
  * actually calls — a regression that leaked through a broadcast would show up here.
  */
 
-const OPTS = { roomId: 'r1', seatCount: 3, sb: 25, bb: 50, startStack: 5000, seed: 42 } as const;
-
 /** The state view delivered to one player in an outbound batch, or null if none was sent to them. */
 function viewIn(out: Outbound[], playerId: string) {
-  const hit = out.find((o) => o.to === playerId && o.message.type === 'state');
+  const hit = [...out].reverse().find((o) => o.to === playerId && o.message.type === 'state');
   return hit && hit.message.type === 'state' ? hit.message.view : null;
 }
 
-/** A server with two connected players, which auto-deals the first hand. */
-function twoPlayerServer(): RelayServer {
-  const server = new RelayServer(OPTS);
-  server.connect('a', 'Alice');
-  server.connect('b', 'Bob');
-  return server;
+/** A table with two connected guests, which deals the first hand once both answer the handshake. */
+function twoPlayerTable(): Table {
+  const table = new Table();
+  table.join('a', 'Alice');
+  table.join('b', 'Bob');
+  return table;
 }
 
 describe('connection lifecycle', () => {
   it('broadcasts to every connected player on each join', () => {
-    const server = new RelayServer(OPTS);
+    const server = new RelayServer(ROOM, { crypto: testCrypto });
     const first = server.connect('a', 'Alice');
     expect(first.map((o) => o.to)).toEqual(['a']);
 
     const second = server.connect('b', 'Bob');
-    // Both players now hear the updated state.
+    // Both players now hear the updated state (and the new deal's commitment).
     expect(new Set(second.map((o) => o.to))).toEqual(new Set(['a', 'b']));
   });
 
-  it('auto-deals a hand once the second player joins', () => {
-    const server = new RelayServer(OPTS);
+  it('a second join starts the deal handshake; the hand is dealt once both guests answer', () => {
+    const server = new RelayServer(ROOM, { crypto: testCrypto });
     server.connect('a', 'Alice');
-    expect(server.roomState().table, 'one player should not start a hand').toBeNull();
-    server.connect('b', 'Bob');
-    expect(server.roomState().table, 'two players should trigger a deal').not.toBeNull();
+    expect(server.dealPending(), 'one player should not start a deal').toBe(false);
+    const out = server.connect('b', 'Bob');
+    expect(out.filter((o) => o.message.type === 'commit').map((o) => o.to).sort()).toEqual(['a', 'b']);
+    expect(server.roomState().table, 'no cards before the guests commit and reveal').toBeNull();
+
+    const table = twoPlayerTable();
+    expect(table.server.roomState().table, 'two answering guests get a hand').not.toBeNull();
   });
 
   it('a rejected join (duplicate) errors only the sender and changes nothing', () => {
-    const server = twoPlayerServer();
-    const out = server.connect('a', 'Alice again');
+    const table = twoPlayerTable();
+    const out = table.server.connect('a', 'Alice again');
     expect(out).toEqual([{ to: 'a', message: { type: 'error', reason: 'already joined' } }]);
-    expect(server.roomState().players).toHaveLength(2);
+    expect(table.server.roomState().players).toHaveLength(2);
   });
 
   it('disconnect frees the seat and broadcasts to the remainder', () => {
-    const server = twoPlayerServer();
-    const out = server.disconnect('a');
-    expect(server.roomState().players.map((p) => p.playerId)).toEqual(['b']);
+    const table = twoPlayerTable();
+    const out = table.server.disconnect('a');
+    expect(table.server.roomState().players.map((p) => p.playerId)).toEqual(['b']);
     // Only the still-connected player hears the update.
     expect(out.map((o) => o.to)).toEqual(['b']);
   });
@@ -63,10 +67,8 @@ describe('connection lifecycle', () => {
 
 describe('redaction carries through the broadcast boundary', () => {
   it('each player’s broadcast shows their own hole and never an opponent’s', () => {
-    const server = twoPlayerServer();
-    // Re-broadcast current state by having a player send a benign join message.
-    const out = server.message('a', { type: 'join', name: 'Alice' });
-
+    const table = twoPlayerTable();
+    const out = table.server.dealNext(); // a live hand: a plain re-broadcast
     const aView = viewIn(out, 'a');
     expect(aView).not.toBeNull();
     const aOwn = aView!.seats.find((s) => s.isYou);
@@ -76,28 +78,36 @@ describe('redaction carries through the broadcast boundary', () => {
     }
   });
 
-  it('no broadcast anywhere contains the deck', () => {
-    const server = twoPlayerServer();
-    const out = server.message('a', { type: 'join', name: 'Alice' });
-    expect(JSON.stringify(out)).not.toContain('"deck"');
+  it('no message anywhere contains the deck or a seed', () => {
+    const table = twoPlayerTable();
+    table.playOut();
+    const wire = JSON.stringify([...table.wire.values()]);
+    expect(wire).not.toContain('"deck"');
+    expect(wire).not.toContain('"seed"');
+  });
+
+  it('a state message opens exactly the cards its view shows: own two holes preflop, nothing else', () => {
+    const table = twoPlayerTable();
+    const last = [...table.wire.get('a')!].reverse().find((m) => m.type === 'state');
+    expect(last?.type === 'state' && last.openings.map((o) => o.card).sort()).toEqual(
+      [...table.view('a').seats.find((s) => s.isYou)!.hole!].sort(),
+    );
   });
 });
 
 describe('actions through the server', () => {
   it('an out-of-turn action errors only the sender and leaves state unchanged', () => {
-    const server = twoPlayerServer();
+    const { server } = twoPlayerTable();
     const toAct = server.roomState().table?.toAct ?? -1;
     const offTurn = server.roomState().players.find((p) => p.seatId !== toAct)!;
     const before = JSON.stringify(server.roomState().table);
     const out = server.message(offTurn.playerId, { type: 'action', action: { kind: 'fold' } });
-    expect(out).toEqual([
-      { to: offTurn.playerId, message: { type: 'error', reason: 'not your turn' } },
-    ]);
+    expect(out).toEqual([{ to: offTurn.playerId, message: { type: 'error', reason: 'not your turn' } }]);
     expect(JSON.stringify(server.roomState().table)).toBe(before);
   });
 
   it('a legal action from the right player applies and re-broadcasts to all', () => {
-    const server = twoPlayerServer();
+    const { server } = twoPlayerTable();
     const toAct = server.roomState().table?.toAct ?? -1;
     const actor = server.roomState().players.find((p) => p.seatId === toAct)!;
     const out = server.message(actor.playerId, { type: 'action', action: { kind: 'fold' } });
@@ -106,7 +116,7 @@ describe('actions through the server', () => {
   });
 
   it('a fold heads-up settles the hand and the result stays visible until the next deal', () => {
-    const server = twoPlayerServer();
+    const { server } = twoPlayerTable();
     const firstHand = server.roomState().table?.handNumber ?? 0;
     const toAct = server.roomState().table?.toAct ?? -1;
     const actor = server.roomState().players.find((p) => p.seatId === toAct)!;
@@ -118,22 +128,23 @@ describe('actions through the server', () => {
   });
 
   it('dealNext deals a fresh hand once the previous one is settled, and is a no-op while live', () => {
-    const server = twoPlayerServer();
+    const table = twoPlayerTable();
+    const { server } = table;
     const firstHand = server.roomState().table?.handNumber ?? 0;
 
     // While the first hand is live, dealNext must NOT deal over it.
-    server.dealNext();
+    table.route(server.dealNext());
     expect(server.roomState().table?.handNumber).toBe(firstHand);
+    expect(server.dealPending()).toBe(false);
 
-    // End the hand by folding, then dealNext should advance to a fresh, live hand.
+    // End the hand by folding, then a deal request should advance to a fresh, live hand.
     const toAct = server.roomState().table?.toAct ?? -1;
     const actor = server.roomState().players.find((p) => p.seatId === toAct)!;
-    server.message(actor.playerId, { type: 'action', action: { kind: 'fold' } });
-    const out = server.dealNext();
-    expect(server.roomState().table?.handNumber, 'the next hand should be dealt').toBeGreaterThan(
-      firstHand,
-    );
+    table.send(actor.playerId, { type: 'action', action: { kind: 'fold' } });
+    table.send('a', { type: 'deal' });
+    expect(server.roomState().table?.handNumber, 'the next hand should be dealt').toBeGreaterThan(firstHand);
     expect(server.roomState().table?.winners, 'the fresh hand is live, not settled').toBeNull();
-    expect(new Set(out.map((o) => o.to))).toEqual(new Set(['a', 'b']));
+    expect(table.eventsOf('a', 'violation')).toEqual([]);
+    expect(table.eventsOf('b', 'violation')).toEqual([]);
   });
 });

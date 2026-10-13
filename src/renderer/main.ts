@@ -1,3 +1,5 @@
+// First: take WebRTC out of the page before any other module runs (sealWebRtc.ts).
+import './sealWebRtc.js';
 import './styles.css';
 import './styles-panels.css';
 import './styles-screens.css';
@@ -74,7 +76,7 @@ import { renderTrainScreen, type TrainMode as TrainModeSpec } from './screens/tr
 import { conceptStatesFromLog, dueNow, gate, posterior, type ConceptState } from '../core/schedule.js';
 import { remediationQueue } from '../core/contrastManifest.js';
 import { renderTable, BB, START_STACK, type TableHandle } from './screens/table.js';
-import { renderMultiplayerScreen } from './screens/multiplayer.js';
+import { renderMultiplayerScreen, type MultiplayerBridge } from './screens/multiplayer.js';
 import { renderAssessmentScreen } from './screens/assessment.js';
 import type { AssessmentGrade } from '../core/assessmentBlock.js';
 import { renderVarianceScreen } from './screens/variance.js';
@@ -102,8 +104,8 @@ interface OffsuitBridge {
   /** Multiplayer (local relay). All absent outside Electron; the socket lives in main behind an opt-in. */
   mpStatus?: () => Promise<{ enabled: boolean; active: boolean }>;
   mpSetEnabled?: (enabled: boolean) => Promise<boolean>;
-  mpHost?: (opts: { seatCount?: number }) => Promise<{ port?: number; error?: string }>;
-  mpJoin?: (address: { host: string; port: number; name?: string }) => Promise<{ joined?: boolean; error?: string }>;
+  mpHost?: MultiplayerBridge['mpHost'];
+  mpJoin?: MultiplayerBridge['mpJoin'];
   mpAction?: (action: unknown) => Promise<void>;
   mpDeal?: () => Promise<void>;
   mpStop?: () => Promise<void>;

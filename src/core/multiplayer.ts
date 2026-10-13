@@ -5,7 +5,7 @@
  * that seats players onto the real poker engine (table.ts, unmodified), validates that an action came
  * from the player whose turn it is and is legal, and — critically — REDACTS the state per player so a
  * client is never sent another player's hole cards before showdown. The transport (a main-process
- * WebSocket, gated behind the same opt-in as the tutor) and the renderer wiring are separate layers
+ * TLS socket, gated behind the same opt-in as the tutor) and the renderer wiring are separate layers
  * built on top of this; keeping the rules here means they are unit-testable against the real engine
  * with no server to stand up.
  *
@@ -16,6 +16,14 @@
  */
 
 import type { Card } from './cards.js';
+import type {
+  CardOpening,
+  CommitMessage,
+  DealtMessage,
+  EntropyCommitMessage,
+  EntropyRevealMessage,
+  EntropySetMessage,
+} from './dealCommit.js';
 import {
   applyAction,
   createTable,
@@ -50,28 +58,56 @@ export interface RoomState {
   readonly sb: number;
   readonly bb: number;
   readonly startStack: number;
-  readonly seed: number;
   /** The live engine state once a hand is dealt; null while waiting to start. */
   readonly table: TableState | null;
+  /**
+   * Who each seat's cards were dealt to this hand (seat id → player). A seat freed mid-hand can be
+   * taken by a newcomer; without this the newcomer inherited the leaver's hole cards in its view and
+   * could act with them. Only the player a hand was dealt to sees or plays it.
+   */
+  readonly dealtTo: Readonly<Record<number, PlayerId>>;
 }
 
 // ── Messages ─────────────────────────────────────────────────────────────────
 // A tiny tagged-union protocol. All plain-serializable so the transport can JSON them unchanged.
 
-/** Client → server. */
+/**
+ * The relay protocol version. v1 was plaintext TCP with a bare `join`; v2 is TLS with a pinned
+ * certificate, a `hello` carrying the invite token, and commit-before-reveal dealing. A peer that
+ * speaks any other version is refused with a message saying so, never half-served.
+ */
+export const PROTOCOL_VERSION = 2;
+
+/** Client → server, the first frame inside TLS. Nothing else is accepted before it. */
+export interface HelloMessage {
+  readonly type: 'hello';
+  readonly v: number;
+  readonly token: string;
+  readonly name: string;
+}
+
+/** Client → server, after the hello. */
 export type ClientMessage =
-  | { readonly type: 'join'; readonly name: string }
   | { readonly type: 'leave' }
   | { readonly type: 'action'; readonly action: Action }
   // Request the next hand after one has ended. Any seated player may ask — the server only deals when
   // the current hand is settled, so a mid-hand request is a harmless no-op. Lets a joined (non-host)
   // player advance a finished hand instead of waiting on the host.
-  | { readonly type: 'deal' };
+  | { readonly type: 'deal' }
+  | EntropyCommitMessage
+  | EntropyRevealMessage;
 
-/** Server → client. `state` is ALWAYS the redacted view for the recipient (see viewFor). */
+/**
+ * Server → client. `state` is ALWAYS the redacted view for the recipient (see viewFor), with an
+ * opening for every card that view shows; the deal messages are dealCommit.ts's handshake.
+ */
 export type ServerMessage =
-  | { readonly type: 'state'; readonly view: RoomView }
-  | { readonly type: 'error'; readonly reason: string };
+  | { readonly type: 'welcome'; readonly v: number }
+  | { readonly type: 'state'; readonly view: RoomView; readonly openings: readonly CardOpening[] }
+  | { readonly type: 'error'; readonly reason: string }
+  | CommitMessage
+  | EntropySetMessage
+  | DealtMessage;
 
 // ── Redacted view ──────────────────────────────────────────────────────────────
 
@@ -91,6 +127,8 @@ export interface SeatView {
   readonly hole: readonly Card[] | null;
   /** True when this seat belongs to the player the view was built for. */
   readonly isYou: boolean;
+  /** Dealt cards this hand (folded or not). Public at a real table; the guest needs it to check the deal. */
+  readonly inHand: boolean;
 }
 
 /**
@@ -123,10 +161,9 @@ export interface CreateRoomOpts {
   readonly sb: number;
   readonly bb: number;
   readonly startStack: number;
-  readonly seed: number;
 }
 
-/** A fresh, empty room. No hand is dealt until enough players have joined and startRoomHand runs. */
+/** A fresh, empty room. No hand is dealt until enough players have joined and the relay deals one. */
 export function createRoom(opts: CreateRoomOpts): RoomState {
   if (opts.seatCount < 2 || opts.seatCount > 6) {
     throw new RangeError(`room ${opts.roomId}: seatCount ${opts.seatCount} out of 2..6`);
@@ -138,8 +175,8 @@ export function createRoom(opts: CreateRoomOpts): RoomState {
     sb: opts.sb,
     bb: opts.bb,
     startStack: opts.startStack,
-    seed: opts.seed,
     table: null,
+    dealtTo: {},
   };
 }
 
@@ -155,7 +192,7 @@ function freeSeat(room: RoomState): number | null {
 /**
  * Seat a new player. Returns the updated room and the seat they took, or an error reason when the
  * room is full or the player is already seated. Joining does NOT start a hand — the transport decides
- * when to deal (e.g. once two seats are filled) by calling startRoomHand.
+ * when to deal (e.g. once two seats are filled) through RelayServer.
  */
 export function playerJoins(
   room: RoomState,
@@ -177,18 +214,15 @@ export function playerLeaves(room: RoomState, playerId: PlayerId): RoomState {
 }
 
 /**
- * Deal a hand. On the FIRST hand it builds the engine table from the seated players (a seat with no
- * player is a chipless empty seat the engine sits out); on every SUBSEQUENT hand it calls startHand on
- * the EXISTING table so the engine carries stacks forward, rotates the dealer, advances the hand
- * number and reshuffles (seed + handNumber) — building a fresh createTable each time would reset the
- * seed and stacks and re-deal the identical hand. Requires at least two seated players.
+ * The table the next hand is dealt from. Before the FIRST hand it builds the engine table from the
+ * seated players (a seat with no player is a chipless empty seat the engine sits out); after that it
+ * is the EXISTING table, so the engine carries stacks forward, rotates the dealer and advances the hand
+ * number. Building a fresh createTable each time would reset the stacks. The seed is a placeholder: a
+ * room always deals from an injected deck (dealRoomHand), never from the seeded shuffle.
  */
-export function startRoomHand(room: RoomState): RoomState | { error: string } {
+export function handBase(room: RoomState): TableState | { error: string } {
   if (room.players.length < 2) return { error: 'need at least two players to start' };
-  if (room.table !== null) {
-    // A table already exists (a prior hand): advance it rather than rebuilding from scratch.
-    return { ...room, table: startHand(room.table) };
-  }
+  if (room.table !== null) return room.table;
   const seats = Array.from({ length: room.seatCount }, (_unused, i) => {
     const player = room.players.find((p) => p.seatId === i);
     return {
@@ -199,8 +233,30 @@ export function startRoomHand(room: RoomState): RoomState | { error: string } {
       avatar: player ? player.name.charAt(0).toUpperCase() : '·',
     };
   });
-  const table = createTable({ seats, sb: room.sb, bb: room.bb, seed: room.seed });
-  return { ...room, table: startHand(table) };
+  return createTable({ seats, sb: room.sb, bb: room.bb, seed: 0 });
+}
+
+/**
+ * Deal a hand from `base` with an injected deck (the k-th card dealt is deck[51 - k]). The caller —
+ * RelayServer — builds the deck from a CSPRNG-sealed order and the guests' entropy (dealCommit.ts), so
+ * there is no seed for anyone to replay.
+ */
+export function dealRoomHand(
+  room: RoomState,
+  base: TableState,
+  deck: readonly Card[],
+  recipients?: ReadonlySet<PlayerId>,
+): RoomState {
+  const table = startHand(base, deck);
+  // A hand belongs to the player seated when the deal began (`recipients`: those who received its
+  // commitment), never to someone who took the seat while it was being dealt.
+  const dealtTo: Record<number, PlayerId> = {};
+  for (const p of room.players) {
+    if (table.seats[p.seatId]?.hole.length && (recipients === undefined || recipients.has(p.playerId))) {
+      dealtTo[p.seatId] = p.playerId;
+    }
+  }
+  return { ...room, table, dealtTo };
 }
 
 /** The seat a player owns, or null if they are not seated. */
@@ -223,15 +279,45 @@ export function applyPlayerAction(
   const seatId = seatOf(room, playerId);
   if (seatId === null) return { error: 'not seated' };
   if (room.table.toAct !== seatId) return { error: 'not your turn' };
+  if (room.dealtTo[seatId] !== playerId) return { error: 'not dealt into this hand' };
   if (!legalActions(room.table).includes(action.kind)) {
     return { error: `illegal action: ${action.kind}` };
   }
-  const played = applyAction(room.table, action);
+  // The engine throws on an amount outside the legal range; a guest's frame must never throw into the
+  // host's socket handler, so that becomes an error to the sender like any other illegal action.
+  let played: TableState;
+  try {
+    played = applyAction(room.table, action);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'illegal action' };
+  }
   // If the action ended the hand (a fold-out or the river closing), settle it now so the pot is
   // awarded, winners are populated and showdown cards reveal — the same isHandOver→settle step the
   // single-player table screen runs. applyAction does NOT settle on its own.
   const table = isHandOver(played) ? settle(played) : played;
   return { ...room, table };
+}
+
+/**
+ * Fold every seat whose turn it is but whose player is gone. A player who leaves mid-hand keeps live
+ * cards in the engine, and nobody else may act for that seat (dealtTo), so without this the table
+ * waits on an empty chair forever. Folds only when the turn reaches the seat, through the engine's own
+ * action, so betting order and side pots stay the engine's.
+ */
+export function foldAbsent(room: RoomState, present: ReadonlySet<PlayerId>): RoomState {
+  let table = room.table;
+  for (let guard = 0; table !== null && table.winners === null && guard < room.seatCount; guard += 1) {
+    if (isHandOver(table)) {
+      table = settle(table);
+      break;
+    }
+    const owner = room.dealtTo[table.toAct];
+    if (owner !== undefined && present.has(owner)) break;
+    if (!legalActions(table).includes('fold')) break;
+    const folded = applyAction(table, { kind: 'fold' });
+    table = isHandOver(folded) ? settle(folded) : folded;
+  }
+  return table === room.table ? room : { ...room, table };
 }
 
 // ── Redaction (the security boundary) ────────────────────────────────────────
@@ -270,6 +356,7 @@ export function viewFor(room: RoomState, playerId: PlayerId): RoomView | { error
           allIn: false,
           hole: null,
           isYou: p.seatId === seatId,
+          inHand: false,
         })),
       board: [],
       street: 'preflop',
@@ -286,6 +373,8 @@ export function viewFor(room: RoomState, playerId: PlayerId): RoomView | { error
 
   const seats: SeatView[] = table.seats.map((seat) => {
     const isViewer = seat.id === seatId;
+    // The viewer's own seat shows its hole only if this hand was dealt to the viewer.
+    const ownsHand = isViewer && room.dealtTo[seat.id] === playerId;
     return {
       id: seat.id,
       name: seat.name,
@@ -293,12 +382,13 @@ export function viewFor(room: RoomState, playerId: PlayerId): RoomView | { error
       committed: seat.committed,
       folded: seat.folded,
       allIn: seat.allIn,
-      hole: holeVisible(seat, isViewer, table.street) ? [...seat.hole] : null,
+      hole: holeVisible(seat, ownsHand, table.street) ? [...seat.hole] : null,
       isYou: isViewer,
+      inHand: seat.hole.length > 0,
     };
   });
 
-  const yourTurn = table.toAct === seatId && table.winners === null;
+  const yourTurn = table.toAct === seatId && table.winners === null && room.dealtTo[seatId] === playerId;
   return {
     roomId: room.roomId,
     you: playerId,

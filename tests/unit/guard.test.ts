@@ -14,6 +14,7 @@ import {
   nullTutor,
 } from '../../src/main/tutor/nullTutor.js';
 import { buildRulesRequest, buildStrategyRequest } from '../../src/main/tutor/requests.js';
+import { guardToolResult } from '../../src/main/tutor/agent.js';
 import type {
   ErrorTag,
   GradePayload,
@@ -257,6 +258,52 @@ describe('T4 check 3 — number provenance', () => {
     expect(
       checkTutorOutput({ text: 'Bet 8 into 5.', kind: 'correction' }, rulesRequest).violations,
     ).toEqual([{ check: 'number-provenance', detail: '8' }]);
+  });
+});
+
+describe('T4 check 3 — number provenance covers spelled-out numbers', () => {
+  // A numeral written as words used to bypass provenance entirely: the digit regex never saw it.
+  it('rejects "Seven fifty big blind" when 750 is not in the payload', () => {
+    const result = checkTutorOutput(
+      { text: 'Seven fifty big blind is the price here.', kind: 'correction' },
+      strategyRequest,
+    );
+    expect(result.violations).toEqual([{ check: 'number-words', detail: 'seven fifty (750)' }]);
+  });
+
+  it('rejects a compound or unit-bearing number word absent from the payload', () => {
+    const details = (text: string): string[] =>
+      checkTutorOutput({ text, kind: 'correction' }, strategyRequest).violations.map((v) => v.detail);
+    expect(details('Calling costs twenty five percent of the range.')).toEqual(['twenty five (25)']);
+    expect(details('The line gains three big blinds.')).toEqual(['three (3)']);
+    expect(details('Bet two thousand into it.')).toEqual(['two thousand (2000)']);
+    expect(details('Range wins seven point five more.')).toEqual(['seven point five (7.5)']);
+    expect(details('Bet fifty into it.')).toEqual(['fifty (50)']);
+    // "1k" reads as 1000; the digit check separately flags its bare 1 (not in this payload).
+    expect(details('Bet 1k into it.')).toEqual(['1', '1k (1000)']);
+  });
+
+  it('permits a spelled-out number whose value is in the payload', () => {
+    // Payload: pot 5, stacks 100, bet EV 2, equity 61.
+    const ok = (text: string): boolean => checkTutorOutput({ text, kind: 'correction' }, strategyRequest).ok;
+    expect(ok('The pot is five big blinds with one hundred behind.')).toBe(true);
+    expect(ok('Sixty-one percent equity favours the bet.')).toBe(true);
+  });
+
+  it('the agent’s post-reveal path, which swaps digit provenance for phrase checks, still refuses them', () => {
+    // Review A9: the post-reveal guard drops every `number-provenance` violation, so a spelled-out
+    // number filed under that check passed there.
+    const text = 'Seven fifty big blind is the price here.';
+    expect(guardToolResult(text, strategyRequest, [])).not.toBe(text);
+    expect(guardToolResult(text, strategyRequest, [{ text: 'a 5 bb pot', derivedFrom: [] } as never])).not.toBe(text);
+  });
+
+  it('structural counting words with no quantity unit are prose, not claims', () => {
+    // "two hole cards", "one seat", "three chunks" describe the game, not an engine number.
+    expect(checks('Range advantage with two hole cards, one seat from the button, in two days.')).toEqual([]);
+    expect(checks('The class loses chips per hundred decisions.')).toEqual([]);
+    // Card text and an even split are not quantities.
+    expect(checks('A 9 K 2 board and a 3k-high flop are a fifty-fifty spot.').filter((c) => c === 'number-words')).toEqual([]);
   });
 });
 

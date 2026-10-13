@@ -11,6 +11,14 @@
  *   in the payload, "risking 10 to win 5" inverts the relationship and passes.
  * - A false claim containing no numeral passes entirely — "your range is
  *   uncapped here" when it is capped is invisible to every check below.
+ * - Spelled-out numbers (check `number-words`, kept separate from the digit
+ *   check so the agent's post-reveal path, which replaces digit provenance with
+ *   phrase checks, still runs it) are read only where they are a quantity: a
+ *   compound ("seven fifty", "one hundred"), any tens word ("fifty"), a single
+ *   word before a quantity unit ("three big blinds", "nine outs"), or a `k`
+ *   amount ("1k"). A lone counting word with no unit ("two hole cards", "one
+ *   seat") is prose and passes; ordinals, fractions and "a dozen" ("a third of
+ *   the pot", "half the pot") are not read.
  * - Check 4 is a *proxy* for the method's "task as grammatical subject". The
  *   full property needs a dependency parse plus semantic classification of the
  *   subject and is not pure-function decidable. The proxy ships; the full
@@ -24,7 +32,7 @@
 
 import type { TutorOutputKind, TutorRequest } from './types.js';
 
-export type GuardCheck = 'word-count' | 'ban-list' | 'number-provenance' | 'leading-pronoun';
+export type GuardCheck = 'word-count' | 'ban-list' | 'number-provenance' | 'number-words' | 'leading-pronoun';
 
 export interface GuardViolation {
   readonly check: GuardCheck;
@@ -107,6 +115,121 @@ function numeralsIn(text: string, pattern: RegExp): string[] {
   return [...text.matchAll(pattern)].map((m) => m[0].replace(/,/g, ''));
 }
 
+/**
+ * Spelled-out numbers. "Seven fifty big blind" carries 750 with no digit in it,
+ * so the digit regex alone let any number through as words. The word run is
+ * turned into the value a reader hears and that value takes the same
+ * membership test as a numeral.
+ */
+const SMALL: Readonly<Record<string, number>> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+  eighteen: 18, nineteen: 19,
+};
+const TENS: Readonly<Record<string, number>> = {
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+};
+const SCALES: Readonly<Record<string, number>> = { hundred: 100, thousand: 1000, million: 1_000_000 };
+const isNumberWord = (w: string): boolean => w in SMALL || w in TENS || w in SCALES;
+
+/** What makes a lone number word a quantity rather than a count of things in the game. */
+const QUANTITY_UNIT = /^\s*(?:%|(?:big\s+blinds?|blinds?|bb|chips?|percent|per\s+cent|outs?|times|to\s+one)\b)/i;
+
+/**
+ * The value of a run of number words. Standard English ("seven hundred fifty",
+ * "twenty five") composes left to right; two juxtaposed groups that standard
+ * grammar cannot join ("seven fifty", "twelve hundred fifty" aside) are read
+ * the way poker speech uses them, as hundreds then the rest: 750.
+ */
+function numberWordValue(words: readonly string[]): number {
+  const point = words.indexOf('point');
+  const whole = point === -1 ? words : words.slice(0, point);
+  const groups: number[] = [];
+  let total = 0;
+  let current = 0;
+  let last: 'small' | 'tens' | 'scale' | null = null;
+  const closeGroup = (): void => {
+    groups.push(total + current);
+    total = 0;
+    current = 0;
+  };
+  for (const w of whole) {
+    if (w in SCALES) {
+      const scale = SCALES[w];
+      if (scale === 100) current = (current || 1) * 100;
+      else {
+        total += (current || 1) * scale;
+        current = 0;
+      }
+      last = 'scale';
+    } else if (w in TENS) {
+      if (last === 'small' || last === 'tens') closeGroup();
+      current += TENS[w];
+      last = 'tens';
+    } else {
+      // A unit after a ten joins it ("twenty five"); after a unit or a teen it starts a new group.
+      if (last === 'small' || (last === 'tens' && (SMALL[w] >= 10 || current % 10 !== 0))) closeGroup();
+      current += SMALL[w];
+      last = 'small';
+    }
+  }
+  closeGroup();
+  let value = groups.reduce((acc, g) => (g < 100 ? acc * 100 + g : acc * 1000 + g), 0);
+  if (groups.length === 1) value = groups[0];
+  if (point !== -1) {
+    const digits = words.slice(point + 1).map((w) => String(SMALL[w] ?? 0)).join('');
+    value = Number(`${value}.${digits}`);
+  }
+  return value;
+}
+
+/** Every spelled-out quantity in prose, as its phrase and value. */
+function numberWordsIn(text: string): { phrase: string; value: string }[] {
+  const out: { phrase: string; value: string }[] = [];
+  const tokens = [...text.matchAll(/[A-Za-z]+/g)];
+  let i = 0;
+  while (i < tokens.length) {
+    if (!isNumberWord(tokens[i][0].toLowerCase())) {
+      i += 1;
+      continue;
+    }
+    const run: string[] = [];
+    let j = i;
+    let end = tokens[i].index! + tokens[i][0].length;
+    while (j < tokens.length) {
+      const word = tokens[j][0].toLowerCase();
+      // Only whitespace or a hyphen may join two words of one number; a comma ends it.
+      const gap = j === i ? '' : text.slice(end, tokens[j].index);
+      if (j > i && !/^[\s-]+$/.test(gap)) break;
+      const next = tokens[j + 1]?.[0].toLowerCase();
+      const joins = (word === 'and' || word === 'point') && run.length > 0 && next !== undefined && isNumberWord(next);
+      if (!isNumberWord(word) && !joins) break;
+      run.push(word);
+      end = tokens[j].index! + word.length;
+      j += 1;
+    }
+    const words = run.filter((w) => w !== 'and');
+    // "fifty-fifty" is an even split, not 5050.
+    if (words.length === 2 && words[0] === words[1] && words[0] in TENS) {
+      i = j;
+      continue;
+    }
+    // "per hundred" names a rate's denominator, not a quantity.
+    const perScale = words.length === 1 && words[0] in SCALES && tokens[i - 1]?.[0].toLowerCase() === 'per';
+    const compound = !perScale && (words.length > 1 || words.some((w) => w in SCALES || w in TENS));
+    if (compound || QUANTITY_UNIT.test(text.slice(end))) {
+      out.push({ phrase: text.slice(tokens[i].index, end).toLowerCase(), value: String(numberWordValue(words)) });
+    }
+    i = j;
+  }
+  // "1k", "2.5k": a digit the prose regex reads as 1 or 2.5, meaning a thousand times that. Lowercase,
+  // attached and standalone only, so card text ("9 K 2", "3k-high") is not read as thousands.
+  for (const m of text.matchAll(/(?<![\w.])(\d+(?:\.\d+)?)k(?![\w-])/g)) {
+    out.push({ phrase: m[0].toLowerCase(), value: String(Number(m[1]) * 1000) });
+  }
+  return out;
+}
+
 function countWords(text: string): number {
   const trimmed = text.trim();
   return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
@@ -157,6 +280,12 @@ export function checkTutorOutput(
   for (const numeral of numeralsIn(output.text, PROSE_NUMERAL)) {
     if (!allowed.has(numeral)) {
       violations.push({ check: 'number-provenance', detail: numeral });
+    }
+  }
+
+  for (const { phrase, value } of numberWordsIn(output.text)) {
+    if (!allowed.has(value)) {
+      violations.push({ check: 'number-words', detail: `${phrase} (${value})` });
     }
   }
 

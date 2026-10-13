@@ -1,7 +1,17 @@
 import { expect, test } from '@playwright/test';
+import dgram from 'node:dgram';
+import fs from 'node:fs';
 import http from 'node:http';
-import type { AddressInfo } from 'node:net';
+import net, { type AddressInfo } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 import { launchApp, sel } from './helpers.js';
+import { isOutbound, readOracle } from '../../src/main/netOracle.js';
+
+/** A fresh file for the main-process network oracle (src/main/netOracle.ts) to record into. */
+function oracleFile(): string {
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-oracle-')), 'net.jsonl');
+}
 
 /**
  * NO NETWORK, MEASURED FROM OUTSIDE THE APP — PRODUCT-SPEC's testing table:
@@ -28,6 +38,10 @@ import { launchApp, sel } from './helpers.js';
  *   2. THE PROCESS'S OWN MODULE STATE. autoUpdater and crashReporter are asserted un-started by
  *      evaluating in the MAIN process (`app.evaluate`), because "never initialised" is a fact about the
  *      browser process that no renderer assertion can reach.
+ *   3. THE MAIN-PROCESS NETWORK ORACLE (review R5). The proxy cannot see a `node:net`/`tls`/`http(s)`
+ *      socket, a datagram, a DNS lookup or a child process in main — Chromium's proxy flag does not
+ *      govern them. In test mode main records every one of those (netOracle.ts); the sitting below
+ *      requires that record to hold no egress, and a positive control shows it can see one.
  */
 
 interface Proxy {
@@ -78,7 +92,12 @@ function proxyArgs(port: number): string[] {
 
 test('the browser process makes no request at all, measured at a loopback proxy', async () => {
   const proxy = await startProxy();
-  const { app, page, close } = await launchApp({ seed: 42, extraArgs: proxyArgs(proxy.port) });
+  const oracle = oracleFile();
+  const { app, page, close } = await launchApp({
+    seed: 42,
+    extraArgs: proxyArgs(proxy.port),
+    env: { OFFSUIT_NET_ORACLE: oracle },
+  });
   try {
     // A real sitting, not just a launch: deal, act, and visit every surface, because a background
     // network user may only wake once the app is doing something.
@@ -113,6 +132,8 @@ test('the browser process makes no request at all, measured at a loopback proxy'
     await page.waitForTimeout(4000);
 
     expect(proxy.seen, 'the browser process attempted network access').toEqual([]);
+    // And main, which the proxy cannot see: no socket, datagram, lookup or network tool at all.
+    expect(readOracle(oracle).filter(isOutbound), 'the main process attempted network access').toEqual([]);
   } finally {
     await close();
     await proxy.close();
@@ -304,5 +325,98 @@ test('local assets still load, so the seal is a seal and not a brick', async () 
   } finally {
     await close();
     await proxy.close();
+  }
+});
+
+test('the main-process oracle can see an escape — positive control', async () => {
+  /*
+   * The same discipline as the proxy's control: an oracle's silence means nothing until it has been
+   * seen to speak. Main opens a plain socket and spawns a network tool; both must be recorded as egress.
+   */
+  const oracle = oracleFile();
+  const { app, close } = await launchApp({ seed: 42, env: { OFFSUIT_NET_ORACLE: oracle } });
+  try {
+    await app.evaluate(async () => {
+      const nodeNet = process.getBuiltinModule('node:net') as typeof import('node:net');
+      const cp = process.getBuiltinModule('node:child_process') as typeof import('node:child_process');
+      await new Promise<void>((resolve) => {
+        const socket = nodeNet.connect(9, '127.0.0.1');
+        socket.on('error', () => resolve());
+        socket.on('close', () => resolve());
+      });
+      cp.spawnSync('curl', ['--version']);
+    });
+    const outbound = readOracle(oracle).filter(isOutbound);
+    expect(outbound.map((r) => r.kind).sort()).toEqual(['connect', 'spawn']);
+  } finally {
+    await close();
+  }
+});
+
+test('WebRTC cannot leave the machine unseen: no constructor, no UDP, no local addresses', async () => {
+  /*
+   * Review R13: ICE/STUN is UDP outside webRequest, and CSP does not govern RTCPeerConnection. Measured
+   * before the fix (evidence/webrtc-probe.txt): a page gathered a host candidate per interface — every
+   * local IP — and sent 16 STUN packets to a script-chosen server. Three layers now: the constructors are
+   * gone from the page, and main forces `disable_non_proxied_udp` process-wide and per webContents.
+   *
+   * The probe recovers a constructor from a fresh iframe (the known way around the page-level removal),
+   * points STUN at a UDP socket here and TURN-over-TCP at a TCP socket here, and requires: no candidates,
+   * no datagram, no direct TCP connection. WebRTC's TCP is then left only the configured proxy, so under
+   * this suite's proxy it is visible rather than silent.
+   */
+  const proxy = await startProxy();
+  const udp = dgram.createSocket('udp4');
+  let datagrams = 0;
+  udp.on('message', () => (datagrams += 1));
+  await new Promise<void>((r) => udp.bind(0, '127.0.0.1', () => r()));
+  let direct = 0;
+  const tcp = net.createServer((socket) => {
+    direct += 1;
+    socket.destroy();
+  });
+  await new Promise<void>((r) => tcp.listen(0, '127.0.0.1', () => r()));
+  const { app, page, close } = await launchApp({ seed: 42, extraArgs: proxyArgs(proxy.port) });
+  try {
+    await page.waitForSelector('[data-testid="home-screen"]');
+    expect(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).RTCPeerConnection)).toBe('undefined');
+    expect(await app.evaluate(({ app: a }) => a.commandLine.getSwitchValue('force-webrtc-ip-handling-policy'))).toBe(
+      'disable_non_proxied_udp',
+    );
+
+    const stun = (udp.address() as AddressInfo).port;
+    const turn = (tcp.address() as AddressInfo).port;
+    const candidates = await page.evaluate(
+      async ({ stun, turn }) => {
+        const frame = document.createElement('iframe');
+        document.body.appendChild(frame);
+        const Ctor = (frame.contentWindow as unknown as { RTCPeerConnection: typeof RTCPeerConnection }).RTCPeerConnection;
+        const pc = new Ctor({
+          iceServers: [
+            { urls: `stun:127.0.0.1:${stun}` },
+            { urls: `turn:127.0.0.1:${turn}?transport=tcp`, username: 'u', credential: 'p' },
+          ],
+        });
+        const found: string[] = [];
+        pc.onicecandidate = (e) => {
+          if (e.candidate) found.push(e.candidate.candidate);
+        };
+        pc.createDataChannel('probe');
+        await pc.setLocalDescription(await pc.createOffer());
+        await new Promise((r) => setTimeout(r, 3000));
+        pc.close();
+        frame.remove();
+        return found;
+      },
+      { stun, turn },
+    );
+    expect(candidates, 'WebRTC gathered candidates (local addresses)').toEqual([]);
+    expect(datagrams, 'a STUN datagram left the app').toBe(0);
+    expect(direct, 'WebRTC opened a direct TCP connection past the seal').toBe(0);
+  } finally {
+    await close();
+    await proxy.close();
+    udp.close();
+    tcp.close();
   }
 });

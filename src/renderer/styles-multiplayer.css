@@ -67,6 +67,23 @@
   animation: offsuit-surface-in var(--dur-1) var(--ease);
 }
 
+/* The invite link: one selectable piece of text that wraps anywhere, since it has no spaces. */
+.mp-share-lead {
+  margin: 0 0 6px;
+}
+.mp-invite {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: var(--r-thumb);
+  background: var(--fill-1);
+  font-family: inherit;
+  font-size: var(--t-foot);
+  color: var(--ink-1);
+  word-break: break-all;
+  user-select: all;
+}
+
 /* The two ways in: one inset group, a row each — fields on the left, the button on the right. */
 .mp-setup.mp-setup-rows {
   align-items: stretch;
@@ -101,8 +118,7 @@
   padding: 0 10px;
   min-width: 0;
 }
-.mp-input[data-testid='mp-join-host'] { flex: 1 1 200px; }
-.mp-input[data-testid='mp-join-port'] { flex: 0 1 90px; }
+.mp-input[data-testid='mp-join-invite'] { flex: 1 1 280px; }
 
 .mp-input:focus-visible {
   outline: 1.5px solid rgba(255, 255, 255, 0.5);

@@ -3,7 +3,9 @@ import {
   applyServerMessage,
   clearError,
   initialClientState,
+  formatInvite,
   markDisconnected,
+  parseInvite,
   parseJoinAddress,
 } from '../../src/core/relayClient.js';
 import type { RoomView, ServerMessage } from '../../src/core/multiplayer.js';
@@ -17,8 +19,8 @@ const view = (handNumber: number): RoomView => ({
   roomId: 'r1',
   you: 'a',
   seats: [
-    { id: 0, name: 'You', stack: 5000, committed: 0, folded: false, allIn: false, hole: ['As', 'Ks'], isYou: true },
-    { id: 1, name: 'Bob', stack: 5000, committed: 0, folded: false, allIn: false, hole: null, isYou: false },
+    { id: 0, name: 'You', stack: 5000, committed: 0, folded: false, allIn: false, hole: ['As', 'Ks'], isYou: true, inHand: true },
+    { id: 1, name: 'Bob', stack: 5000, committed: 0, folded: false, allIn: false, hole: null, isYou: false, inHand: true },
   ],
   board: [],
   street: 'preflop',
@@ -32,12 +34,23 @@ const view = (handNumber: number): RoomView => ({
   yourTurn: true,
 });
 
-const stateMsg = (n: number): ServerMessage => ({ type: 'state', view: view(n) });
+const stateMsg = (n: number): ServerMessage => ({ type: 'state', view: view(n), openings: [] });
 const errorMsg = (reason: string): ServerMessage => ({ type: 'error', reason });
 
 describe('relay client reducer', () => {
   it('starts empty and disconnected', () => {
-    expect(initialClientState()).toEqual({ connected: false, view: null, lastError: null });
+    expect(initialClientState()).toEqual({ connected: false, view: null, lastError: null, warnings: [] });
+  });
+
+  it('a deal warning survives the state message that follows it; an error does not', () => {
+    let s = applyServerMessage(initialClientState(), stateMsg(1));
+    s = applyServerMessage(s, { type: 'warning', reason: 'The host restarted a deal after the shuffle was fixed.' });
+    s = applyServerMessage(s, errorMsg('not your turn'));
+    s = applyServerMessage(s, stateMsg(2));
+    expect(s.lastError).toBeNull();
+    expect(s.warnings).toEqual(['The host restarted a deal after the shuffle was fixed.']);
+    for (let i = 0; i < 5; i += 1) s = applyServerMessage(s, { type: 'warning', reason: `w${i}` });
+    expect(s.warnings).toEqual(['w2', 'w3', 'w4']);
   });
 
   it('a state message connects the client and stores the view', () => {
@@ -128,5 +141,25 @@ describe('parseJoinAddress — the join box accepts a pasted host:port', () => {
     expect('error' in parseJoinAddress('fe80::1', '50000')).toBe(true);
     // A bracketed IPv6 literal is likewise unsupported and refused explicitly.
     expect('error' in parseJoinAddress('[fe80::1]:50000', '')).toBe(true);
+  });
+});
+
+describe('invite links — everything a guest needs to join safely, in one paste', () => {
+  const invite = { host: '192.168.1.5', port: 50000, fingerprint: 'f'.repeat(43), token: 't'.repeat(22) };
+
+  it('round-trips: what the host shows is what the guest parses', () => {
+    const link = formatInvite(invite);
+    expect(link.startsWith('offsuit://join?')).toBe(true);
+    expect(parseInvite(`  ${link}  `)).toEqual(invite);
+  });
+
+  it('refuses a bare address, a truncated link, and an empty box with a specific reason', () => {
+    expect(parseInvite('')).toEqual({ error: 'Paste the invite link your friend shared.' });
+    expect(parseInvite('192.168.1.5:50000')).toEqual({
+      error: 'Paste the whole invite link your friend shared. It starts with offsuit://join.',
+    });
+    const link = formatInvite(invite);
+    expect(parseInvite(link.slice(0, -3))).toEqual({ error: 'This invite link is incomplete. Ask your friend to copy it again.' });
+    expect(parseInvite(link.replace('port=50000', 'port=99999'))).toEqual({ error: 'The port must be between 1 and 65535.' });
   });
 });

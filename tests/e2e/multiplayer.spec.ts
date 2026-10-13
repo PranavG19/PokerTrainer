@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import * as net from 'node:net';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { launchApp } from './helpers.js';
+import { hostedInvite, joinAsGuest, type TestGuest } from './mpGuest.js';
+import { parseInvite } from '../../src/core/relayClient.js';
+import { readOracle } from '../../src/main/netOracle.js';
 
 /**
  * MULTIPLAYER (local relay) — the Home panel driven through the real app, with a REAL socket client
@@ -8,12 +13,16 @@ import { launchApp } from './helpers.js';
  *
  * The safety property that matters most is proven elsewhere and re-checked here: multiplayer is OFF by
  * default (no-network.spec confirms a fresh profile makes zero requests), so this suite first sees the
- * enable gate, turns it on, hosts, and then a raw node:net client joins the port the host shows. On the
- * host's screen its own cards are face up and the opponent's are face down — the redaction the whole
- * backend guarantees, made visible.
+ * enable gate, turns it on, hosts, and then a real v2 guest (the app's own joinSession, in this process)
+ * joins with the invite the host shows: TLS, the pinned certificate, the room token, and the checked
+ * deal. On the host's screen its own cards are face up and the opponent's are face down — the redaction
+ * the whole backend guarantees, made visible.
  */
 
 const screen = '[data-testid="mp-screen"]';
+
+/** A well-formed invite to a port nothing listens on. */
+const DEAD_INVITE = 'offsuit://join?host=127.0.0.1&port=1&fp=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&token=AAAAAAAAAAAAAAAAAAAAAA';
 
 async function openMultiplayer(page: Page): Promise<void> {
   await page.waitForSelector('[data-testid="home-screen"]');
@@ -21,24 +30,34 @@ async function openMultiplayer(page: Page): Promise<void> {
   await page.waitForSelector(screen);
 }
 
-test('multiplayer is off by default: the panel shows the enable gate, not a live socket', async () => {
-  const { page, close } = await launchApp({ seed: 7 });
+test('multiplayer is off by default: the panel shows the enable gate, and main opens no socket', async () => {
+  const oracle = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mp-oracle-')), 'net.jsonl');
+  const { page, close } = await launchApp({ seed: 7, env: { OFFSUIT_NET_ORACLE: oracle } });
   try {
     await openMultiplayer(page);
     // The opt-in gate is shown; hosting/joining are not offered until it is enabled.
     await expect(page.locator('[data-testid="mp-disabled"]')).toBeVisible();
     await expect(page.locator('[data-testid="mp-enable"]')).toBeVisible();
     await expect(page.locator('[data-testid="mp-host"]')).toHaveCount(0);
+    // Observed in main, not inferred from the IPC gate: no listener and no connection.
+    const sockets = readOracle(oracle).filter((r) => r.kind === 'listen' || (r.kind === 'connect' && !r.ipc));
+    expect(sockets, 'main opened a socket with multiplayer off').toEqual([]);
+
+    // Positive control: hosting IS seen, so the silence above means something.
+    await page.locator('[data-testid="mp-enable"]').click();
+    await page.locator('[data-testid="mp-host"]').click();
+    await expect(page.locator('[data-testid="mp-host-port"]')).toBeVisible();
+    expect(readOracle(oracle).some((r) => r.kind === 'listen')).toBe(true);
   } finally {
     await close();
   }
 });
 
-test('enabling then hosting shows a port, and a real client that joins is dealt in with redacted cards', async () => {
+test('enabling then hosting shows an invite, and a real guest that joins is dealt in with redacted cards', async () => {
   const { page, close } = await launchApp({ seed: 7 });
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`${e.name}: ${e.message}`));
-  let client: net.Socket | null = null;
+  let guest: TestGuest | null = null;
   try {
     await openMultiplayer(page);
 
@@ -46,24 +65,10 @@ test('enabling then hosting shows a port, and a real client that joins is dealt 
     await page.locator('[data-testid="mp-enable"]').click();
     await page.locator('[data-testid="mp-host"]').click();
 
-    // The host shows the port to share; read it for the joining client.
-    const portEl = page.locator('[data-testid="mp-host-port"]');
-    await expect(portEl).toBeVisible();
-    const port = Number(await portEl.getAttribute('data-port'));
-    expect(Number.isFinite(port) && port > 0, `host port was "${port}"`).toBe(true);
-
-    // A real second player connects over the socket and joins. Two players → the host deals.
-    const messages: string[] = [];
-    client = net.createConnection({ host: '127.0.0.1', port });
-    client.setEncoding('utf8');
-    client.on('data', (chunk: string) => messages.push(chunk));
-    await new Promise<void>((resolve, reject) => {
-      client!.on('connect', () => {
-        client!.write(JSON.stringify({ type: 'join', name: 'Guest' }) + '\n');
-        resolve();
-      });
-      client!.on('error', reject);
-    });
+    // The host shows the port and invite secrets; a real v2 guest joins with them. Two players → deal.
+    const invite = await hostedInvite(page);
+    expect(Number.isFinite(invite.port) && invite.port > 0, `host port was "${invite.port}"`).toBe(true);
+    guest = joinAsGuest(invite);
 
     // The host's screen swaps to the live table once the deal broadcast arrives.
     await page.waitForSelector('[data-testid="mp-table"]', { timeout: 15_000 });
@@ -102,49 +107,49 @@ test('enabling then hosting shows a port, and a real client that joins is dealt 
       .evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.position).sort());
     expect(positions).toEqual(['BB', 'SB']);
 
-    // The client also received state, and no message it got contains the deck or a real opponent card
-    // field beyond what redaction allows — spot-check the deck never crossed the wire.
-    expect(messages.join('')).not.toContain('"deck"');
+    // The guest was dealt a verified hand, and nothing it received names the deck or a seed.
+    await expect.poll(() => guest!.views.some((v) => v.handNumber >= 1)).toBe(true);
+    expect(guest.errors, 'the guest’s deal check or handshake failed').toEqual([]);
+    const wire = guest.wire.join('\n');
+    expect(wire).not.toContain('"deck"');
+    expect(wire).not.toContain('"seed"');
 
     expect(errors, 'the multiplayer screen threw').toEqual([]);
   } finally {
-    client?.destroy();
+    await guest?.session.stop();
     await close();
   }
 });
 
-test('hosting surfaces the LAN address a guest types, not just a bare port', async () => {
+test('hosting shows an invite link per LAN address, carrying the pin and the token', async () => {
   const { page, close } = await launchApp({ seed: 7 });
   try {
     await openMultiplayer(page);
     await page.locator('[data-testid="mp-enable"]').click();
     await page.locator('[data-testid="mp-host"]').click();
 
-    const portEl = page.locator('[data-testid="mp-host-port"]');
-    await expect(portEl).toBeVisible();
-    const port = Number(await portEl.getAttribute('data-port'));
+    const share = page.locator('[data-testid="mp-host-port"]');
+    await expect(share).toBeVisible();
+    const port = Number(await share.getAttribute('data-port'));
     expect(port).toBeGreaterThan(0);
 
-    // The share block carries the machine's advertised LAN addresses (data-addresses). A guest on
-    // another machine needs host:port, not a bare port — a loopback-only host could never advertise one.
-    // On a network-less runner the list is legitimately empty (then the copy is the port-only fallback);
-    // assert the address→port pairing only when there IS an address to advertise.
-    const addressesAttr = (await portEl.getAttribute('data-addresses')) ?? '';
-    const addresses = addressesAttr.split(',').filter((a) => a.length > 0);
-    const text = (await portEl.textContent()) ?? '';
-    if (addresses.length > 0) {
-      // The advertised string a guest copies is address:port, and the primary address appears in the copy.
-      expect(text).toContain(`${addresses[0]}:${port}`);
-    } else {
-      // No LAN address: the fallback still names the port and tells the host to share an address.
-      expect(text).toContain(String(port));
-    }
+    // One invite per advertised address; each parses back to that address, this port, and the pin
+    // and token the share block carries. On a network-less runner there is no address and so no invite.
+    const addresses = ((await share.getAttribute('data-addresses')) ?? '').split(',').filter((a) => a.length > 0);
+    const invites = await page.locator('[data-testid="mp-invite"]').allTextContents();
+    expect(invites).toHaveLength(addresses.length);
+    const fingerprint = await share.getAttribute('data-fingerprint');
+    const token = await share.getAttribute('data-token');
+    invites.forEach((text, i) => {
+      expect(parseInvite(text)).toEqual({ host: addresses[i], port, fingerprint, token });
+    });
+    if (addresses.length === 0) expect((await share.textContent()) ?? '').toContain(String(port));
   } finally {
     await close();
   }
 });
 
-test('the join box rejects a bad address with a specific notice, without opening a socket', async () => {
+test('the join box rejects anything but a whole invite link, with a specific notice', async () => {
   const { page, close } = await launchApp({ seed: 7 });
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`${e.name}: ${e.message}`));
@@ -152,18 +157,16 @@ test('the join box rejects a bad address with a specific notice, without opening
     await openMultiplayer(page);
     await page.locator('[data-testid="mp-enable"]').click();
 
-    // A host with no port (neither field supplies one) is refused with a reason, and the screen stays on
-    // the setup panel — the parser ran in the renderer before any join was attempted.
-    await page.locator('[data-testid="mp-join-host"]').fill('192.168.1.5');
-    await page.locator('[data-testid="mp-join-port"]').fill('');
+    // A bare host:port cannot join a v2 table: it has no certificate pin and no token.
+    await page.locator('[data-testid="mp-join-invite"]').fill('192.168.1.5:50000');
     await page.locator('[data-testid="mp-join"]').click();
-    await expect(page.locator('[data-testid="mp-notice"]')).toContainText('port');
+    await expect(page.locator('[data-testid="mp-notice"]')).toContainText('invite link');
     await expect(page.locator('[data-testid="mp-setup"]')).toBeVisible();
 
-    // A pasted host:port with a non-numeric port is likewise refused with a number-specific message.
-    await page.locator('[data-testid="mp-join-host"]').fill('192.168.1.5:notaport');
+    // A truncated invite is refused as incomplete rather than failing later as a certificate error.
+    await page.locator('[data-testid="mp-join-invite"]').fill('offsuit://join?host=192.168.1.5&port=50000&fp=abc');
     await page.locator('[data-testid="mp-join"]').click();
-    await expect(page.locator('[data-testid="mp-notice"]')).toBeVisible();
+    await expect(page.locator('[data-testid="mp-notice"]')).toContainText('incomplete');
 
     expect(errors, 'the multiplayer screen threw').toEqual([]);
   } finally {
@@ -177,12 +180,11 @@ test('a join to an unreachable host falls back to setup with a notice, not a stu
     await openMultiplayer(page);
     await page.locator('[data-testid="mp-enable"]').click();
 
-    // Join a valid-but-dead address: port 1 passes parseJoinAddress but nothing is listening, so the
-    // socket connect is REFUSED. mpJoin returns immediately (the connect is async), so the failure comes
+    // Join a valid-but-dead invite: port 1 parses but nothing is listening, so the socket connect is
+    // REFUSED. mpJoin returns immediately (the connect is async), so the failure comes
     // back later as a pushed 'error' event while the screen is on 'Connecting…'. Without the fallback the
     // screen hangs there forever (the connecting branch renders no error); with it, we return to setup.
-    await page.locator('[data-testid="mp-join-host"]').fill('127.0.0.1');
-    await page.locator('[data-testid="mp-join-port"]').fill('1');
+    await page.locator('[data-testid="mp-join-invite"]').fill(DEAD_INVITE);
     await page.locator('[data-testid="mp-join"]').click();
 
     // The screen must leave the connecting state and surface the reason on the setup panel.
@@ -211,15 +213,14 @@ test('the multiplayer announcer is a polite live region that starts empty on the
 
 test('a failed join is announced, and the turn/outcome are announced once playing', async () => {
   const { page, close } = await launchApp({ seed: 7 });
-  let client: net.Socket | null = null;
+  let client: TestGuest | null = null;
   try {
     await openMultiplayer(page);
     await page.locator('[data-testid="mp-enable"]').click();
     const region = page.locator('[data-testid="mp-announcer"]');
 
     // A join failure surfaces to a screen reader: the announcer carries the same notice the panel shows.
-    await page.locator('[data-testid="mp-join-host"]').fill('127.0.0.1');
-    await page.locator('[data-testid="mp-join-port"]').fill('1');
+    await page.locator('[data-testid="mp-join-invite"]').fill(DEAD_INVITE);
     await page.locator('[data-testid="mp-join"]').click();
     await expect(page.locator('[data-testid="mp-notice"]')).toBeVisible();
     await expect(region).toHaveText((await page.locator('[data-testid="mp-notice"]').textContent()) ?? '');
@@ -228,15 +229,7 @@ test('a failed join is announced, and the turn/outcome are announced once playin
     await page.locator('[data-testid="mp-host"]').click();
     const port = Number(await page.locator('[data-testid="mp-host-port"]').getAttribute('data-port'));
     expect(port).toBeGreaterThan(0);
-    client = net.createConnection({ host: '127.0.0.1', port });
-    client.setEncoding('utf8');
-    await new Promise<void>((resolve, reject) => {
-      client!.on('connect', () => {
-        client!.write(JSON.stringify({ type: 'join', name: 'Guest' }) + '\n');
-        resolve();
-      });
-      client!.on('error', reject);
-    });
+    client = joinAsGuest(await hostedInvite(page));
     await page.waitForSelector('[data-testid="mp-table"]', { timeout: 15_000 });
 
     // Once playing, the announcer states whose turn it is when it is the host's, mirroring the seat that
@@ -249,14 +242,14 @@ test('a failed join is announced, and the turn/outcome are announced once playin
       await expect(region).toHaveText('');
     }
   } finally {
-    client?.destroy();
+    await client?.session.stop();
     await close();
   }
 });
 
 test('a keyboard-only host can act at the live table via F/C/R shortcuts', async () => {
   const { page, close } = await launchApp({ seed: 7 });
-  let client: net.Socket | null = null;
+  let client: TestGuest | null = null;
   try {
     await openMultiplayer(page);
     await page.locator('[data-testid="mp-enable"]').click();
@@ -264,15 +257,7 @@ test('a keyboard-only host can act at the live table via F/C/R shortcuts', async
     const port = Number(await page.locator('[data-testid="mp-host-port"]').getAttribute('data-port'));
     expect(port).toBeGreaterThan(0);
 
-    client = net.createConnection({ host: '127.0.0.1', port });
-    client.setEncoding('utf8');
-    await new Promise<void>((resolve, reject) => {
-      client!.on('connect', () => {
-        client!.write(JSON.stringify({ type: 'join', name: 'Guest' }) + '\n');
-        resolve();
-      });
-      client!.on('error', reject);
-    });
+    client = joinAsGuest(await hostedInvite(page));
     await page.waitForSelector('[data-testid="mp-table"]', { timeout: 15_000 });
 
     // Drive whoever is to act to the HOST via keyboard only: if the guest is to act, the guest folds over
@@ -281,7 +266,7 @@ test('a keyboard-only host can act at the live table via F/C/R shortcuts', async
     const hostToAct = page.locator('[data-testid="mp-seat"][data-you="true"][data-to-act="true"]');
     if ((await hostToAct.count()) === 0) {
       // Guest is first to act; fold it over the wire so the turn passes to the host.
-      client.write(JSON.stringify({ type: 'action', action: { kind: 'fold' } }) + '\n');
+      client!.session.action({ kind: 'fold' });
     }
     // Heads-up, a fold ends the hand. Pressing F must send the host's fold with no mouse — proving the
     // keyboard path works. (If the host's fold already ended it via the guest fold above, the table
@@ -294,14 +279,14 @@ test('a keyboard-only host can act at the live table via F/C/R shortcuts', async
     // The hand is resolved: the "Next hand" control appears once winners are populated (host-only deal).
     await expect(page.locator('[data-testid="mp-deal"]')).toBeVisible({ timeout: 10_000 });
   } finally {
-    client?.destroy();
+    await client?.session.stop();
     await close();
   }
 });
 
 test('the host can choose a larger table, and the chosen seat count reaches the room', async () => {
   const { page, close } = await launchApp({ seed: 11 });
-  let client: net.Socket | null = null;
+  let client: TestGuest | null = null;
   try {
     await openMultiplayer(page);
     await page.locator('[data-testid="mp-enable"]').click();
@@ -314,23 +299,13 @@ test('the host can choose a larger table, and the chosen seat count reaches the 
 
     // A real client joins; the deal broadcast it receives should describe a 4-seat table (the two
     // empty seats sit out chipless, but the room was built with the chosen seat count).
-    const messages: string[] = [];
-    client = net.createConnection({ host: '127.0.0.1', port });
-    client.setEncoding('utf8');
-    client.on('data', (chunk: string) => messages.push(chunk));
-    await new Promise<void>((resolve, reject) => {
-      client!.on('connect', () => {
-        client!.write(JSON.stringify({ type: 'join', name: 'Guest' }) + '\n');
-        resolve();
-      });
-      client!.on('error', reject);
-    });
+    client = joinAsGuest(await hostedInvite(page));
 
     // The host's screen shows the live table; the seat count it chose is honoured.
     await page.waitForSelector('[data-testid="mp-table"]', { timeout: 15_000 });
     await expect(page.locator('[data-testid="mp-seat"]')).toHaveCount(4);
   } finally {
-    client?.destroy();
+    await client?.session.stop();
     await close();
   }
 });

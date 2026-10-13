@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/pranavgk/Documents/scratch/temp/poker-wt/mp-deal-security
+
+ ✓ tests/unit/guard.test.ts (87 tests) 24ms
+
+ Test Files  1 passed (1)
+      Tests  87 passed (87)
+   Start at  16:49:11
+   Duration  597ms (transform 78ms, setup 0ms, collect 96ms, tests 24ms, environment 0ms, prepare 106ms)
+

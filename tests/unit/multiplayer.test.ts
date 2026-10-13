@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { shuffledDeck } from '../../src/core/cards.js';
 import {
   applyPlayerAction,
   createRoom,
+  dealRoomHand,
+  handBase,
   playerJoins,
   playerLeaves,
-  startRoomHand,
   viewFor,
   type RoomState,
 } from '../../src/core/multiplayer.js';
+import { mulberry32 } from '../../src/core/rng.js';
 
 /**
  * MULTIPLAYER CORE — the pure room and its redaction guarantee.
@@ -18,7 +21,17 @@ import {
  * out of turn or make an illegal move) and the join/leave/full lifecycle.
  */
 
-const OPTS = { roomId: 'r1', seatCount: 3, sb: 25, bb: 50, startStack: 5000, seed: 42 } as const;
+const OPTS = { roomId: 'r1', seatCount: 3, sb: 25, bb: 50, startStack: 5000 } as const;
+
+/**
+ * Deal the next hand from a fixed test deck. The room core takes the deck as an argument; where it comes
+ * from (a CSPRNG order permuted by guest entropy) is RelayServer's job and is tested in dealCommit.test.
+ */
+function startRoomHand(room: RoomState): RoomState | { error: string } {
+  const base = handBase(room);
+  if ('error' in base) return base;
+  return dealRoomHand(room, base, shuffledDeck(mulberry32(42 + base.handNumber)));
+}
 
 /** A room with `n` players joined (p0..p{n-1}), no hand dealt yet. */
 function roomWith(n: number): RoomState {
@@ -67,6 +80,28 @@ describe('room lifecycle', () => {
     const room = dealt(roomWith(2));
     expect(room.table).not.toBeNull();
     expect(room.table?.pot).toBeGreaterThan(0); // blinds posted by the real engine
+  });
+});
+
+describe('a seat freed mid-hand', () => {
+  it('a newcomer who takes it sees no hole cards and cannot act for the player who left', () => {
+    // Heads-up the small blind (p0) acts first; once it calls, the turn is the leaver's seat.
+    const called = applyPlayerAction(dealt(roomWith(2)), 'p0', { kind: 'call' });
+    if ('error' in called) throw new Error(called.error);
+    const room = called;
+    const leaverSeat = room.players.find((p) => p.playerId === 'p1')!.seatId;
+    expect(room.table!.toAct).toBe(leaverSeat);
+    const left = playerLeaves(room, 'p1');
+    const joined = playerJoins(left, 'p9', 'Newcomer');
+    if ('error' in joined) throw new Error(joined.error);
+    expect(joined.seatId).toBe(leaverSeat);
+
+    const view = viewFor(joined.room, 'p9');
+    if ('error' in view) throw new Error(view.error);
+    expect(view.seats.find((s) => s.isYou)?.hole, 'the leaver’s cards must not pass to the newcomer').toBeNull();
+    expect(JSON.stringify(view)).not.toContain(room.table!.seats[leaverSeat].hole[0]);
+
+    expect(applyPlayerAction(joined.room, 'p9', { kind: 'fold' })).toEqual({ error: 'not dealt into this hand' });
   });
 });
 

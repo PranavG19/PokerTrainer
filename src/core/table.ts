@@ -161,7 +161,16 @@ export function createTable(opts: {
   return state;
 }
 
-export function startHand(state: TableState): TableState {
+/**
+ * Deal the next hand. `deck` is for multiplayer only: a hosted room deals from a CSPRNG-shuffled,
+ * committed deck (see dealCommit.ts) instead of the seeded shuffle, so a guest who knows the engine
+ * cannot replay the deal. Solo play passes nothing and keeps `seed + handNumber`, which every e2e
+ * assertion depends on. Cards are dealt by popping from the END of the array.
+ */
+export function startHand(state: TableState, deck?: readonly Card[]): TableState {
+  if (deck !== undefined && (deck.length !== 52 || new Set(deck).size !== 52)) {
+    throw new RangeError(`startHand: an injected deck must be 52 distinct cards, got ${deck.length}`);
+  }
   const s = clone(state);
   s.handNumber += 1;
   s.board = [];
@@ -192,8 +201,7 @@ export function startHand(state: TableState): TableState {
   }
 
   // Shuffle deck: seed + handNumber for determinism
-  const rng = mulberry32(h(s)._seed + s.handNumber);
-  s.deck = shuffledDeck(rng);
+  s.deck = deck !== undefined ? [...deck] : shuffledDeck(mulberry32(h(s)._seed + s.handNumber));
 
   // Heads-up is about who can still play, not how many chairs exist: a 4-seat table with two
   // busted villains is heads-up, and using the seat count posted the small blind two seats left of
