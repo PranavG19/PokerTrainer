@@ -107,7 +107,21 @@ export type ServerMessage =
   | { readonly type: 'error'; readonly reason: string }
   | CommitMessage
   | EntropySetMessage
-  | DealtMessage;
+  | DealtMessage
+  | ResyncMessage;
+
+/**
+ * Online server → one reconnecting player: the live hand's handshake, replayed so a fresh connection can
+ * check the cards of a hand it was dealt before the drop. A guest takes it only on a fresh protocol (no
+ * deal seen yet), and only if any entropy it remembers revealing for that deal is in it (relayGuest.ts).
+ * The LAN host never sends it.
+ */
+export interface ResyncMessage {
+  readonly type: 'resync';
+  readonly commit: CommitMessage;
+  readonly set: EntropySetMessage | null;
+  readonly dealt: DealtMessage;
+}
 
 // ── Redacted view ──────────────────────────────────────────────────────────────
 
@@ -304,7 +318,11 @@ export function applyPlayerAction(
  * waits on an empty chair forever. Folds only when the turn reaches the seat, through the engine's own
  * action, so betting order and side pots stay the engine's.
  */
-export function foldAbsent(room: RoomState, present: ReadonlySet<PlayerId>): RoomState {
+export function foldAbsent(
+  room: RoomState,
+  present: ReadonlySet<PlayerId>,
+  onFold?: (before: TableState, owner: PlayerId) => void,
+): RoomState {
   let table = room.table;
   for (let guard = 0; table !== null && table.winners === null && guard < room.seatCount; guard += 1) {
     if (isHandOver(table)) {
@@ -314,6 +332,9 @@ export function foldAbsent(room: RoomState, present: ReadonlySet<PlayerId>): Roo
     const owner = room.dealtTo[table.toAct];
     if (owner !== undefined && present.has(owner)) break;
     if (!legalActions(table).includes('fold')) break;
+    // A seat dealt to a player who has gone is still that player's decision (the online ladder grades it,
+    // so leaving cannot dodge a hard spot); a seat dealt to nobody has no one to record it against.
+    if (owner !== undefined) onFold?.(table, owner);
     const folded = applyAction(table, { kind: 'fold' });
     table = isHandOver(folded) ? settle(folded) : folded;
   }

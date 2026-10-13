@@ -1232,6 +1232,117 @@ R5–R7, R13), built. Solo play is unchanged: it keeps the seeded `mulberry32` a
 - **`sandbox-exec` was not added.** The in-process oracle covers the stated paths; an OS-level run is an open
   question.
 
+## Online play: an authoritative server, device keys and an absolute ladder
+Stages 2–3 of `research/TECH-MULTIPLAYER.md` (branch `vision-tech-research`, review R1–R20), built on PR #22.
+Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE-SETUP.md](docs/ONLINE-SETUP.md)).
+
+### Host
+- **One VPS running the server as a plain Node process over `node:tls`**, not Cloudflare Durable Objects.
+  - No dependency and no CSP change: the client socket lives in main, exactly like the LAN relay, and the
+    server reuses `RelayServer`, `viewFor`, the deal commitment and the v2 framing unchanged.
+  - Durable Objects would need a WebSocket client in main (Electron 33's Node has no stable built-in one, so a
+    dependency or a hand-rolled RFC 6455 client), a second runtime for the same code, and a Cloudflare
+    account; the research's $0–6 there buys nothing at the expected ~10 concurrent tables.
+  - Flat $4–6/month. Measured enough: 50 ranked tables on localhost used 12% of one core and ≤ 123 MB
+    (`evidence/online/loadtest-*.json`).
+- **Code lives in `server/`, built separately** (`npm run build:server` → `dist-server/`, `tsconfig.server.json`
+  with lib ES2022 and no DOM, so a DOM or Electron reference reaching the server's import graph is a compile
+  error). It imports `src/core` and three Electron-free files from `src/main` (framing, sign-in, certificates).
+
+### Protocol (`offsuit-online` v1, [protocol.ts](src/core/online/protocol.ts))
+- **The same wire as LAN v2:** TLS 1.3, one JSON object per line, and once seated the same `state` /
+  `commit` / `entropy-*` / `dealt` / `action` messages. New around the table: `hello`/`challenge`/`auth`/
+  `welcome`, requests with an `id` and one `reply` each, and pushed `room`, `clock`, `emote`, `removed`, `bye`.
+- **Every client frame is parsed strictly** (`parseOnlineFrame`): known types only, every field typed and
+  bounded (whole chip amounts 0–1e9, seats 2–6, codes, hex lengths), at most six keys, ≤ 4 KB. Anything else
+  is "not understood", a strike against the connection.
+- **Guest entropy is kept on server tables.** The server is the dealer and could skip it, but keeping it
+  costs two round trips per hand (well under human think time), protects players from an operator or a
+  compromised server stacking a deck, and keeps one deal checker (`GuestProtocol`) for LAN and online.
+  The research's "trusted server: can stack? not with player entropy" row is the reason.
+- **Reconnects resume the seat.** A dropped connection holds its seat for 60 s (`graceMs`); the held seat's
+  turn waits on the clock instead of folding. On sign-in the server sends `resync` (the live hand's commit,
+  entropy set and reveals) and a fresh `GuestProtocol` checks it like a live deal; it accepts a resync only
+  when fresh, and refuses one that leaves out entropy this session remembers revealing for that deal. After
+  the grace window the player has left, exactly as a LAN guest (PR #22's `dealtTo`, `seatedAt`, `foldAbsent`).
+- **A turn clock** (30 s): a seat that does not act checks when free, else folds, through the same
+  validation a player's action takes. The server deals the next hand 4 s after a settle; a client's `deal`
+  is ignored. A busted seat is bought back in at the next deal (online chips score nothing).
+- **Seats:** a key sits in one room at a time; the opener may remove a seat, only between hands (removing
+  mid-hand would force a graded fold), and the removed key cannot sit there again.
+- **Limits:** per address 8 sockets and 30 attempts a minute, 4,000 sockets in all; sign in within 10 s;
+  60 s silence (the client pings every 20 s) closes a socket; 10 frames/s with a burst of 30; 20 strikes
+  close it; more than 2 MB unsent closes a slow reader; 10 bad signatures block an address for 10 minutes;
+  10 failed room or league codes per 10 minutes per key and per network.
+- **No free text.** Eight preset emotes, one per 3 s per player. Display names: 2–16 letters, digits,
+  spaces, `._-`, a small folded denylist and reserved names ([names.ts](src/core/online/names.ts)).
+- **Codes** for rooms and leagues: 10 Crockford base-32 characters (50 random bits), shown `XXXXX-XXXXX`,
+  look-alikes folded.
+- **Logs:** JSON lines to journald, events only, players as an HMAC of their key with a salt kept in the state
+  store. No IP, name, key or card is ever a field ([log.ts](server/log.ts)); a test asserts it.
+
+### Identity
+- **An Ed25519 device key, made the first time the player presses Go online** (never at launch), in
+  `offsuit-online-identity.json` beside the profile, mode 0600, read only by main. No password, no e-mail.
+- **Sign-in binds the TLS session:** the client signs the server's fresh 32-byte nonce and 32 bytes of keying
+  material exported from this TLS session (RFC 8446 §7.5). A middleman who terminates TLS on each side gets
+  different material, and no signature replays on another connection ([onlineAuth.ts](src/main/onlineAuth.ts)).
+- **The server stores per key:** display name, the date of the 18+ confirmation, first and last sign-in
+  dates. A player row exists only after the player sets a name and confirms 18+.
+- **Export and erasure:** `export` returns everything held about the key (opponents by key prefix only);
+  `forget` erases the row, leagues, past results and every ledger line naming the key, then signs out. The
+  app exports the device identity (private key included, with the warning). Recovery is out of scope.
+- **What leaves the machine:** [docs/PRIVACY-ONLINE.md](docs/PRIVACY-ONLINE.md).
+
+### Ranked ([ranked.ts](src/core/online/ranked.ts), [rankings.ts](server/rankings.ts))
+- **The score is absolute decision quality: bb lost per 100 graded decisions**, each graded by the solo
+  table's `gradeDecision` with the same inputs (`gradeInputFor` mirrors `computeHeroGrade`, villain range
+  facing a price), from the server's own engine state. No client value enters it; a forged `grade` frame is
+  not understood. Lower is better; 0 is the grader's own play.
+- **Every graded decision is a ledger line with its full input**, so `admin.js regrade` recomputes any season
+  and reports differences. The Monte Carlo seed is derived from the deal's nonce and the decision's index.
+- **Auto actions are graded** (timeouts, and folds after leaving): otherwise dropping the connection would
+  dodge a hard spot. Unranked tables store nothing.
+- **Honest noise:** a 95% normal interval on the mean, unrated below 200 decisions, the ladder ordered by the
+  interval's upper end (as Standing reads thin samples pessimistically), and rows whose intervals overlap the
+  row above marked ≈ ("cannot be told apart").
+- **Collusion caps:** on the season ladder a decision stops counting once the player has 300 decisions with
+  the same opponent, and nobody is listed with fewer than 3 different opponents. Friends leagues count
+  everything (members chose each other). The operator sees per-pair signals (hands together, chip flow,
+  shared network as a yes/no per hand) via `admin.js signals`; players never do.
+- **Seasons are UTC months**, each starting empty, pinned to `GRADER_VERSION`. The grader is fingerprinted
+  over a fixed corpus (`graderFingerprint`, pinned by a unit test); a server whose grader differs from its
+  version's fingerprint, or from the season's version, refuses ranked play until next season.
+- **Friends leagues:** invite codes, up to 50 members, 5 owned and 20 joined per player, a board of the same
+  metric. Membership is not probeable (a non-member is told the code does not exist).
+- **18+ before any online play**, sent as the literal `adult: true` and stored as a date. **No prizes, ever**,
+  in the copy and the docs.
+- **Pro gate: one seam**, [onlineEntitlement.ts](src/main/onlineEntitlement.ts) `rankedEntitled()`, returning
+  true until `src/core/entitlements` lands (it is not on main); main refuses a ranked `room-create` when it is
+  false. The server cannot check a licence (open question).
+
+### Client
+- **Opt-in, off by default, no server by default.** Typing a server only stores text. `OnlineController`
+  (main) opens a socket only in `connect()`, which requires the switch, a valid address and pin, a valid
+  name and the 18+ confirmation; turning the switch off or changing the server disconnects. Only the
+  listed request types pass from the renderer.
+- **Two ways to trust the server:** no pin → Node's TLS validates the chain and host name against public
+  roots (Let's Encrypt on the VPS); a pin → the certificate's SHA-256 must match before anything is sent
+  (self-signed or IP-only). Both are tested (a private CA stands in for Let's Encrypt).
+- **Network oracle:** `online-gate.test` records main's sockets around the controller: nothing while off,
+  configured or refused; after Go online, only the configured server. `no-network.spec` adds the same with
+  the real app.
+
+### Deploy ([server/deploy/](server/deploy/README.md))
+- `deploy.sh <ip> <domain> <email>`: build locally, upload, and on Ubuntu 24.04: Node 22 (NodeSource, signed),
+  unattended upgrades with a 04:30 reboot, a no-login `offsuit` user, key-only SSH (only if a key is
+  installed), ufw (SSH limited, 443, 80 for renewals only), Let's Encrypt (certbot standalone, deploy hook
+  copies the cert and sends SIGHUP), a sandboxed systemd unit (CAP_NET_BIND_SERVICE only, read-only system,
+  400 MB cap), journald capped at 200 MB / 14 days, daily state backups (14 kept). `teardown.sh` saves a final
+  backup first.
+- **State store:** `state.json` written atomically plus append-only JSONL ledgers per season; no database.
+  Ledgers older than the previous season are deleted, keeping one result row per player per season.
+
 ## Tests and environment
 - No failing-first test applies: no defect is repaired and nothing under `src/` changes.
 - No automated test covers the visual design. The evidence is the DPR-2 JPEG captures, the capture guard and

@@ -73,6 +73,23 @@ contextBridge.exposeInMainWorld('offsuit', {
     ipcRenderer.on('licence:deeplink', listener);
     return () => ipcRenderer.removeListener('licence:deeplink', listener);
   },
+  // Online play (an Offsuit server). Main holds the socket and the device key; the renderer sends
+  // requests and receives events. Nothing here opens a connection until onlineConnect, which main
+  // refuses unless online play is on, a server is set and the player confirmed they are 18 or over.
+  onlineStatus: (): Promise<unknown> => ipcRenderer.invoke('online:status'),
+  onlineConfigure: (patch: unknown): Promise<unknown> => ipcRenderer.invoke('online:configure', patch),
+  onlineConnect: (request: unknown): Promise<unknown> => ipcRenderer.invoke('online:connect', request),
+  onlineRequest: (op: string, fields?: unknown): Promise<unknown> => ipcRenderer.invoke('online:request', op, fields),
+  onlineAction: (action: unknown): Promise<void> => ipcRenderer.invoke('online:action', action),
+  onlineEmote: (emote: string): Promise<void> => ipcRenderer.invoke('online:emote', emote),
+  onlineLeave: (): Promise<void> => ipcRenderer.invoke('online:leave'),
+  onlineDisconnect: (): Promise<void> => ipcRenderer.invoke('online:disconnect'),
+  onlineExportIdentity: (): Promise<string | null> => ipcRenderer.invoke('online:exportIdentity'),
+  onOnlineEvent: (handler: (event: unknown) => void): (() => void) => {
+    const listener = (_e: unknown, event: unknown): void => handler(event);
+    ipcRenderer.on('online:event', listener);
+    return () => ipcRenderer.removeListener('online:event', listener);
+  },
   // Subscribe to pushed relay events (state broadcasts + errors). Returns an unsubscribe function.
   onMpEvent: (handler: (event: unknown) => void): (() => void) => {
     const listener = (_e: unknown, event: unknown): void => handler(event);
