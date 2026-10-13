@@ -509,6 +509,90 @@ Verdict after fixes: FAIL
 | A called first-in all-in read as a raise (humans only) | Noted: no model exists for a human seat, so it never reaches the range. |
 | Effective stack ignored (100bb hero vs 8bb BB) | Noted: follow-up; at the app's 100bb tables only a busted-down bot can trigger it. |
 
+## Re-verification (at 09cbaec)
+
+Independent re-check of the "Resolution of the re-verification" table. I did not edit any source file. Every
+grade below comes from real `TableState`s (`createTable`/`startHand`/`applyAction`, 6-max 100bb, bb 50) run
+through `chartSpotFor`/`gradeSpot` (`modelFor: () => null` preflop, `ARCHETYPE_PROFILES.lag` postflop). The
+scratch scripts are in `tests/tmp/rv2/` (gitignored): `shove.ts`, `shoveev.ts` (shove EV against a QQ+/AK
+caller, `equityVsRange`), and `names.ts`.
+
+### Per item
+
+| Item | Status | Evidence |
+|---|---|---|
+| Hero all-in graded as a min-open | **Partly fixed** | The headline case is fixed. A 100bb UTG shove of 72o grades `serious` 3.00 (it was `notable` 1.00), and CO 72o also grades 3.00. A shove of a boundary cell is never close. A shove the chart plays (AA) is `free`, as DECISIONS documents. **Not fixed:** the shove cost is the chart's distance cost × 3, so it keeps the open's shape and not the shove's. Hands near the chart edge are still silent or under-graded (see the new Act on). |
+| SB vs BTN 3-bet-or-fold edges | **Verified fixed** | sb-vs-btn has 22 mixed cells again (18 at 876a79a), for example `AJo:raise->fold`, `ATo:fold->raise`, `KJo:fold->raise`, `KQo:raise->fold`. In the live spot (BTN opens 125, SB to act): 3-bet ATo is close (est 0.50), 3-bet KJo is close (0.50), fold AJo is close (0.52). Fold AA is still `serious` 3.76. Calling ATo is still `notable` 0.50: the step-2 rule does not leak into the call side. The exception is keyed to `sb-vs-btn` only, so the BB and 3-bet-response counts are unchanged. A shove of ATo there is `notable` 1.50 and not close, because the shove return sits before `isMixedCell`. |
+| Aggressor line matched by prefix | **Verified fixed** | Line: limp 4-way, Y bets 100, Z folds, hero calls, X check-raises to 400, Y calls. The read is `facing:'raise'` for every name pair tried: `Bo`/`Bo B`, `A.B`/`AxB`, `Bo (2)`/`Bo (2) x`, `x+y`/`xxy`, `$1`/`$1$`, `a\b`/`a\b c`, `[Bo]`/`B`, `.*`/`Bo`, `Bo|Cy`/`Bo`, `^Bo$`/`Bo`. A bet with a prefix-named caller reads `bet` at 0.75 (`Bo B`/`Bo`, `A.B`/`A`, `.*`/`Bo`). A short postflop all-in over a bet ("Bo all-in 550") reads `raise`. The escape covers every metacharacter that `RegExp` treats specially. **Latent, unchanged:** two seats with the same name still mis-read. `Bo`/`Bo` reads `bet` with potFraction 2, because the postflop path does not refuse duplicates the way `preflopActions` does. Unreachable today: the bot names are unique, and LAN seats carry no model. |
+| Tests: bet size with callers; limits | Verified as stated | The "bet with a caller" test pins 0.75. The guard boundaries are not pinned. By hand: 40bb charts and 39.98bb does not. |
+| Called first-in all-in (humans only); effective stack | Noted (agree) | Both are unchanged and unreachable by the bots. |
+| Tests "red before" | Checked by reading the diff, not run | Each new assertion depends on the changed line: the old `steps !== 1` rule, the old `startsWith(name + ' ')` match, and the old 1.0bb shove cost. |
+
+Regression hunt (all clean apart from the Act on below):
+- **Limp special case.** The `rfi`/`call` branch returns before the shove line, and its recursive call passes no `shove`. UTG limp 72o = 0.50 and limp AA = 1.91 (half the nearer mistake), unchanged.
+- **Defence spot where the chart calls.** BB vs CO: a shove of any call-region hand is capped at 0.25 × toCall × 3 = 1.13bb (`notable`). 64 of 73 hands land there; the 9 at the 3-bet edge are `free` (AJs 0.00, TT 0.01, KJs 0.03, KQo 0.46). A shove of a fold-region hand is also 1.13 (72o, K5o).
+- **Shove where the chart 3-bets** (QQ, AKo, AA in BB vs CO): 0, `free`, as documented.
+
+### New Act on
+
+- **src/core/chartGrade.ts:276 (`lossBb * SHOVE_MULTIPLIER`). A 100bb shove is still graded by how far the hand sits from the chart edge, not by what a shove costs. A shove of a hand near the edge stays silent.**
+  The 3x factor is applied to `CHART_K * pot * d²` (the open's distance cost). So it is right only where that cost hits its cap: 72o, K9o and 106 of the 130 UTG off-chart hands.
+
+  Grades at 100bb, UTG first in, with the shove EV against five players who call only with QQ+/AK (`shoveev.ts`):
+
+  | Shove | Grade | EV vs fold |
+  |---|---|---|
+  | KJo | `free` 0.01 | −5.8bb |
+  | QJo | `free` 0.03 | −4.7bb |
+  | ATo | `free` 0.15 | −4.7bb |
+  | KTo | `free` 0.42 | — |
+  | A9o | `notable` 0.96 | — |
+  | 72o | `serious` 3.00 | −5.7bb |
+
+  KJo and 72o lose about the same and are graded 300x apart.
+  - **CO:** shoves of A8o down to A2o are all `free` (0.00 to 0.42).
+  - **BTN:** T8o 0.00, 97o 0.02, 76o 0.12.
+  - **Facing a 3-bet** (CO opens 125, BTN 3-bets 375), the cap again sets the figure. A jam of AQo is `notable` 1.03 and a jam of AJo is `notable` 1.91. Their EV against a QQ+/AK caller is −5.6bb to −14bb, depending on whether the 3-bet range is 120 or 80 combos.
+  - **On-chart hands** (UTG KQo −6.1bb, 22 −2.7bb, AJo −4.9bb) are `free` 0 by the documented "graded as the chart's raise" rule. That rule rests on the same assumption, that shove EV tracks open EV, and these numbers disprove it.
+
+  Before the fix, all of these were also silent, so this is the original act-on item left half done, not a regression.
+  Fix: grade a hero shove at or above `MIN_CHART_DEPTH_BB` by its own cost, independent of `chartDistance`. Either:
+  - estimate the push EV from the hand's equity against a fixed calling range, the call probability from the players behind, and the depth (every input is in `gradeSpot`); or
+  - at minimum, floor the loss of any shove outside a small jam set (QQ+/AK, or the chart's raise region facing a 3-bet) at the 72o figure.
+
+  Pin it with a test that a UTG 100bb shove of KJo (and of 22) is not `free`.
+
+### Consider
+
+- **The depth edge is discontinuous** (`chartGrade.ts:276` with `gradeSpot.ts` `MIN_CHART_DEPTH_BB`). A UTG 72o shove is graded as follows:
+  - at 40bb, 50bb and 100bb alike: `serious` 3.00;
+  - at 39.98bb: `free` 0.29, because the pot-odds model takes over.
+
+  The modelled EV against a QQ+/AK caller is −1.5bb at 40bb, −2.2bb at 50bb and −5.7bb at 100bb. The fixed multiplier therefore overstates the cost at 40bb about 2x and understates it at 100bb. This is the same root as the Act on: a depth-aware shove cost removes both. Tradeoff: more model surface in a grader that otherwise reads no sizes.
+- **coach.ts:283 copy.** A shove reads "…raising it costs ~3.0 bb". "Shoving" would name the mistake the learner made. Tradeoff: one more verb branch in `chartMessage`.
+
+### Verification
+
+- `npx tsc --noEmit -p tsconfig.json`: exit 0.
+- `npx vitest run tests/unit/chartGrade.test.ts tests/unit/villainRanges.test.ts tests/unit/closeSpot.test.ts`: 3 files, 58 tests passed, exit 0.
+- Scratch reproductions: `tests/tmp/rv2/shove.ts`, `shoveev.ts` and `names.ts` (vite-node, exit 0).
+- Not run, by instruction: Electron, e2e, `test:full`, and the full unit suite.
+- Untested by any committed test:
+  - the shove cost of near-edge and on-chart hands;
+  - the depth boundaries of the guards;
+  - the duplicate-name postflop read.
+
+Verdict after fixes: FAIL
+
+## Resolution of the re-verification at 09cbaec (author)
+
+| Finding | Disposition |
+|---|---|
+| A shove's cost is 3x the edge cost, so near-edge shoves are silent | **Fixed.** A chart-spot shove is priced by its own EV against a QQ+/AK calling range (`shoveLossBb`); the multiplier is gone. Test: 72o, KJo, 22 and A8o shoves first in from the CO are not free; AA and KK are (red on 09cbaec for KJo/22/A8o). |
+| The coach message for a shove says "raising" | **Fixed.** The shove verdict has its own sentence naming the calling range and the pot share. |
+| The 40bb edge jumps | Noted: below 40bb the pot-odds model grades the shove; push/fold charts are a follow-up. |
+| Duplicate seat names mis-read postflop | Noted: bot names are unique and LAN seats carry no model. |
+
 ---
 
 # Review: hidden e2e and test tiers

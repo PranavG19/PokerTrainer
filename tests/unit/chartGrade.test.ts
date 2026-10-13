@@ -5,6 +5,7 @@ import {
   chartDistance,
   chartVerdict,
   chenScore,
+  shoveLossBb,
   type ChartSpot,
 } from '../../src/core/chartGrade.js';
 import { gradeDecision } from '../../src/core/coach.js';
@@ -276,17 +277,24 @@ describe('chart spots only where the charts apply', () => {
 describe('hero shoves and the 3-bet-or-fold chart', () => {
   const base = { board: [], street: 'preflop', stack: 4950, bb: 50, opponents: 3, seed: 1, pot: 75, toCall: 50 } as const;
 
-  it('a 100bb shove of trash is serious, not a min-open\'s 1bb; a shove of aces is not charged', () => {
-    const trash = gradeDecision({ ...base, board: [], hole: ['7s', '2h'], chosen: 'allin', chart: rfi('CO') });
-    expect(trash.severity).toBe('serious');
-    expect(trash.evLossBb).toBeCloseTo(3, 10);
-    const aces = gradeDecision({ ...base, board: [], hole: ['As', 'Ah'], chosen: 'allin', chart: rfi('CO') });
-    expect(aces.severity).toBe('free');
+  it('prices a deep shove by its own EV against the range that calls it', () => {
+    const grade = (hole: string[]) => gradeDecision({ ...base, board: [], hole, chosen: 'allin', chart: rfi('CO') });
+    // Off-chart trash and on-chart marginal hands alike lose chips shoving 100bb into QQ+/AK.
+    for (const hole of [['7s', '2h'], ['Ks', 'Jh'], ['2s', '2h'], ['As', '8h']]) {
+      const g = grade(hole);
+      expect(g.severity, hole.join('')).not.toBe('free');
+      expect(g.principle).toBe('ranges');
+      expect(g.message).toMatch(/^A shove this deep is called only by QQ\+ and AK/);
+    }
+    expect(grade(['As', 'Ah']).severity).toBe('free');
+    expect(grade(['Ks', 'Kh']).severity).toBe('free');
   });
 
-  it('a shove of a boundary cell is not a close mixed cell', () => {
-    const v = chartVerdict(rfi('CO'), ['Ks', '7s'], 'raise', 1.5, 1, true);
-    expect(v.close).toBe(false);
+  it('the shove EV formula: all fold wins the pot, a call plays for the stacks', () => {
+    // Nobody behind: the pot is won outright.
+    expect(shoveLossBb(1.5, 99, 0, 0.3)).toBe(0);
+    // Certain to be called with a third of the pot: loses (1 - 3*share/...) of the stack.
+    expect(shoveLossBb(1.5, 99, 1e6, 0.3)).toBeCloseTo(99 - 0.3 * (1.5 + 198), 6);
   });
 
   it('the small blind against the button: 3-bet beside fold is still a mixed edge', () => {

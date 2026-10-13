@@ -67,13 +67,6 @@ export type ChartSpot =
 /** The hero's action collapsed onto the chart's vocabulary. */
 export type ChartMove = 'fold' | 'call' | 'raise';
 
-/**
- * A 100bb shove is not the chart's standard raise, and the grader never sees a size (Experiment 1 B1).
- * When the chart plays the hand, shoving it is graded as the raise (the size cost is not modelled);
- * when the chart does not, the wrong-raise cost is multiplied by this, so a 100bb shove of 72o is a
- * serious 3bb rather than a min-open's 1bb, and it is never a close mixed cell.
- */
-export const SHOVE_MULTIPLIER = 3;
 
 export function chartMove(action: 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'allin'): ChartMove {
   if (action === 'fold') return 'fold';
@@ -240,7 +233,6 @@ export function chartVerdict(
   move: ChartMove,
   potBb: number,
   toCallBb: number = 0,
-  shove = false,
 ): ChartVerdict {
   const combo = comboOf(hole[0], hole[1]);
   const chart = chartAction(spot, combo);
@@ -273,7 +265,6 @@ export function chartVerdict(
     const value = pot * (spot.kind === 'rfi' ? TIGHT_VALUE_UNOPENED_POTS : TIGHT_VALUE_RAISED_POTS);
     lossBb = value * share * (move === 'fold' ? 1 : FLAT_SHARE);
   }
-  if (shove && move === 'raise') return { combo, chart, move, lossBb: lossBb * SHOVE_MULTIPLIER, close: false };
   return { combo, chart, move, lossBb, close: isMixedCell(spot, combo, move) };
 }
 
@@ -282,4 +273,31 @@ export function spotLabel(spot: ChartSpot): string {
   if (spot.kind === 'rfi') return spot.position;
   if (spot.kind === '3bet') return spot.opener;
   return spot.spot.startsWith('bb') ? 'BB' : 'SB';
+}
+
+// ── Shoves ──────────────────────────────────────────────────────────────────
+
+/**
+ * Who calls a deep preflop shove: the value-only 4-bet range of the tightest opener facing a 3-bet
+ * (QQ+ and AK). A shove of 40bb or more gets called by little else, so this is the range it runs into.
+ */
+export const SHOVE_CALL_RANGE: readonly Combo[] = ALL_COMBOS.filter((c) => threeBetResponseAction(c, 'UTG') === 'threebet');
+
+/**
+ * A deep preflop shove is not any chart's action, and the chart's standard-raise cost does not price it
+ * (the grader never sees a size, Experiment 1 B1). So it is priced on its own, relative to folding now:
+ *
+ *   EV = P(all fold) * pot + P(called) * (share * (pot + 2 * stack) - stack)
+ *
+ * where each of `behind` players holds the calling range with probability (its combos / 1326), one caller
+ * is assumed, and `share` is hero's pot share against that range. loss = max(0, -EV). Against folding,
+ * not against the chart's best line, so for a hand the chart plays it is a lower bound.
+ */
+export function shoveLossBb(potBb: number, stackBb: number, behind: number, share: number): number {
+  const callCombos = SHOVE_CALL_RANGE.reduce((n, c) => n + comboWeight(c), 0);
+  const q = callCombos / TOTAL_COMBINATIONS;
+  const allFold = Math.pow(1 - q, Math.max(0, behind));
+  const called = share * (potBb + 2 * stackBb) - stackBb;
+  const ev = allFold * potBb + (1 - allFold) * called;
+  return Math.max(0, -ev);
 }

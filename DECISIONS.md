@@ -306,9 +306,11 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
 - **Not chart spots:** any all-in in the preflop betting, an open over 5bb, a 3-bet over 15bb, or hero or a
   raiser under 40bb. The 100bb standard-size charts do not apply; the pot-odds model, which sees the price,
   grades them.
-- **A hero shove in a chart spot:** graded as the chart's raise when the chart plays the hand (the size is
-  not modelled, Experiment 1 B1); when it does not, at 3x the wrong-raise cost (100bb 72o first in ≈ 3bb,
-  serious), and never as a close mixed cell.
+- **A hero shove in a chart spot is priced on its own:** EV relative to folding now = P(all fold)·pot +
+  P(called)·(share·(pot + 2·stack) − stack), the caller holding QQ+/AK (the tightest opener's value 4-bet
+  range), one caller assumed, share from the same seeded Monte Carlo. A loss bound against folding, so for a
+  chart hand it understates. 100bb 72o, KJo, 22 or A8o first in are mistakes; AA and KK are not. Never close.
+  Supersedes: 3x the wrong-raise cost, because that left near-edge shoves (KJo, 22) silent.
 - **Chart and close verdicts carry no price meter** (a close spot's two shares overprint on the meter; the message quotes both) and use the principle `position` (RFI) or `ranges`.
 
 ### Villain ranges (`src/core/villainRanges.ts`)

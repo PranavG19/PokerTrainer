@@ -10,7 +10,7 @@ import {
 } from './equity.js';
 import type { Combo } from './preflop.js';
 import { closeBand, isClose } from './closeSpot.js';
-import { chartMove, chartVerdict, spotLabel, type ChartSpot } from './chartGrade.js';
+import { SHOVE_CALL_RANGE, chartMove, chartVerdict, shoveLossBb, spotLabel, type ChartSpot } from './chartGrade.js';
 
 export type Severity = 'free' | 'notable' | 'serious';
 
@@ -89,6 +89,9 @@ export function gradeDecision(input: {
 }): Grade {
   const { hole, board, pot, toCall, bb, chosen, opponents, seed, villainRange, villainHands, chart } = input;
 
+  if (chart && input.street === 'preflop' && chosen === 'allin') {
+    return gradeShove(hole, pot, input.stack, opponents, bb, seed ?? 1);
+  }
   if (chart && input.street === 'preflop') return gradeFromChart(chart, hole, chosen, pot, toCall, bb);
 
   // Facing a bet/raise, grade hero against what the aggressor can actually HAVE, not two random cards.
@@ -243,7 +246,7 @@ function closeMessage(equity: number, line: number, priced: boolean): string {
  */
 function gradeFromChart(spot: ChartSpot, hole: Card[], chosen: Action, pot: number, toCall: number, bb: number): Grade {
   const potBb = bb > 0 ? pot / bb : Number.NaN;
-  const v = chartVerdict(spot, hole, chartMove(chosen), potBb, bb > 0 ? toCall / bb : Number.NaN, chosen === 'allin');
+  const v = chartVerdict(spot, hole, chartMove(chosen), potBb, bb > 0 ? toCall / bb : Number.NaN);
   if (v.close) {
     return {
       severity: 'free',
@@ -265,6 +268,28 @@ function gradeFromChart(spot: ChartSpot, hole: Card[], chosen: Action, pot: numb
     principle: spot.kind === 'rfi' ? 'position' : 'ranges',
     close: false,
     estimateLossBb: v.lossBb,
+  };
+}
+
+/**
+ * A deep shove in a chart spot, priced by its own EV against the range that calls it (chartGrade.ts
+ * shoveLossBb). The pot share is the same seeded Monte Carlo as every other verdict.
+ */
+function gradeShove(hole: Card[], pot: number, stack: number, behind: number, bb: number, seed: number): Grade {
+  const share = scalarEquity(equityVsRange(hole, [], SHOVE_CALL_RANGE, DISPLAY_ITERATIONS, seed));
+  const lossBb = bb > 0 ? shoveLossBb(pot / bb, stack / bb, behind, share) : Number.NaN;
+  const severity = classifySeverity(lossBb);
+  if (severity === 'free') {
+    return { severity, evLossBb: lossBb, message: null, principle: null, close: false, estimateLossBb: lossBb };
+  }
+  const sharePct = Math.round(share * 100);
+  return {
+    severity,
+    evLossBb: lossBb,
+    message: `A shove this deep is called only by QQ+ and AK, where you have ${sharePct}% pot share; it costs ~${lossBb.toFixed(1)} bb.`,
+    principle: 'ranges',
+    close: false,
+    estimateLossBb: lossBb,
   };
 }
 
