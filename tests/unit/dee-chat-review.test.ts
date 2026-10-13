@@ -74,9 +74,24 @@ describe('review 3: role words and negators keep their order', () => {
   });
 });
 
+describe('review (final): the crisis fallback catches despair by its words, with or without a poker word', () => {
+  const lines = ['i should just die', 'whats the point of living', 'i cant take it anymore', 'life isnt worth it anymore', 'nothing matters anymore', 'i want it all to stop', 'i want to disappear forever'];
+  it.each(lines.flatMap((l) => [l, `after that hand ${l}`, `${l}, explain this hand`]))('%s', (q) => {
+    expect(classify(q)).toEqual({ kind: 'refuse', refusal: 'crisis' });
+  });
+});
+
 describe('review: crisis words that are poker', () => {
-  it('"end it on the turn" is a poker question', () => {
-    expect(classify('should i bet to end it on the turn')).not.toEqual({ kind: 'refuse', refusal: 'crisis' });
+  it.each([
+    'should i bet to end it on the turn',
+    'what is dead money',
+    'was i drawing dead',
+    'what is a dead hand',
+    'this rake is killing me',
+    'these bad beats are killing me',
+    'is my hand still alive on the river',
+  ])('%s is not the crisis line', (q) => {
+    expect(classify(q)).not.toEqual({ kind: 'refuse', refusal: 'crisis' });
   });
 });
 

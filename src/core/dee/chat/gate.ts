@@ -52,7 +52,7 @@ const has = (re: RegExp, ...texts: string[]): boolean => texts.some((t) => re.te
 
 const CRISIS = new RegExp(
   [
-    String.raw`\b(?:suicid\w*|kill(?:ing)? (?:my ?self|me)|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|overdos\w*)\b`,
+    String.raw`\b(?:suicid\w*|kill (?:my ?self|me)|killing my ?self|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|overdos\w*)\b`,
     String.raw`\b(?:end(?:ing)? (?:my life|it all|everything)|want to end it|(?:don'?t|do not|dont) want to (?:live|be here|be alive|wake up|exist))\b`,
     String.raw`\b(?:wish i (?:was|were) (?:dead|gone|never born)|better off (?:dead|without me)|take my (?:own )?life|kms|unalive\w*)\b`,
     String.raw`\b(?:can'?t go on|cannot go on|no (?:reason|point) (?:in )?(?:to )?(?:living|live|going on)|not worth living|(?:jump|jumping) off|nobody would (?:miss|care)|hate my life|give up on life|sleep forever|life is (?:pointless|meaningless|not worth))\b`,
@@ -109,11 +109,22 @@ const OFF_TOPIC =
 const POKER =
   /\b(?:poker|hold'?em|hands?|pots?|price|odds|equity|share|call\w*|fold\w*|rais\w*|bets?|betting|check\w*|river|turn|flop|preflop|board|ranges?|position|blinds?|button|dealer|outs?|spr|mdf|alpha|combos?|kickers?|flush|straight|pairs?|trips|sets?|quads|full house|nuts|bluff\w*|value|showdown|all-?in|shove|stacks?|chips|seats?|table|coach|verdict|mistake|leak|lesson|drill|dee|bb|big blind|small blind|3-?bet|c-?bet|villain|hero|ev)\b/;
 
+/**
+ * The crisis fallback. Phrase lists miss despair said a new way, so any message using these words reaches the
+ * crisis line once their poker uses are taken out ("dead money", "drawing dead", "still alive", "a living").
+ * A false hit costs one gentle scripted line; a miss would answer a person in distress with poker arithmetic.
+ */
+const CRISIS_WORDS =
+  /\b(?:die|dying|death|dead|alive|living|suicid\w*|disappear\w*|can'?t take (?:it|this)|cant take (?:it|this)|nothing matters|point (?:of|in) (?:living|life|it all|anything)|worth (?:it|living) anymore|(?:it|everything) (?:all )?to stop)\b/;
+const POKER_DEATH =
+  /\b(?:dead (?:money|hands?|cards?|draws?|button|blinds?|equity)|drawing dead|(?:still |stay(?:s|ing)? )?alive (?:in|on|to|for|after|at) (?:the|this|that|a|my) (?:hand|pot|river|turn|flop|street|showdown)|(?:make|made|for) a living|living room)\b/g;
+
 function refusalOf(t: string): Refusal | null {
   const d = deleet(t);
   const s = squash(t);
   const ds = squash(d);
   if (has(CRISIS, t, d, s, ds)) return 'crisis';
+  if (CRISIS_WORDS.test(t.replace(POKER_DEATH, ' '))) return 'crisis';
   if (t.length > MAX_QUESTION_CHARS) return 'too-long';
   if (has(INJECTION, t, s)) return 'injection';
   if (has(SUPPORT, t, d, s, ds)) return 'support';
