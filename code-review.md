@@ -1,5 +1,5 @@
 # Review: feat/dee-character
-Verdict: CHANGES REQUESTED at ce37308 (reviewer). Author fixes at f9da512, listed under Resolution; re-verification below.
+Verdict: CHANGES REQUESTED (re-verified at 9b63ff8: Act on 1-4 fixed; Act on 5 not fixed, see Re-verification)
 Base: a7d6420 (merge-base with origin/main)  Head: ce37308. I reviewed e518563 and f93733a in full. ce37308 (the lesson.spec #10 fix) landed while I was reviewing, and I read it too.
 
 Short version: the teaching contracts hold. Commit-before-feedback, the GATE, the coach, outcome and pot announcers, the coach word budget and `Grade.price` are all unchanged, and `Grade.spot` is never persisted. The profile additions follow the recipe. Five defects block the merge. Two of them have Dee say false things: "Price held" fires on calls and folds made on the wrong side of the price, and the `{repeat}` counts carry the wrong label. One is a turn-versus-river claim. One is a perch timer that spins at 0 ms for weeks at a time. The last is the dialogue's live region, which is rebuilt on every repaint.
@@ -83,3 +83,29 @@ Short version: the teaching contracts hold. Commit-before-feedback, the GATE, th
 - Act on 5 fixed: one persistent polite `dialogue-announcer` announces each new turn; the thread is a plain list. Focus moves to the first open option after a commit, or to the reveal at the end (dee.spec #4 asserts both).
 - Consider, fixed: Character off drops Dee's own lesson lines (open/retry/done) and keeps the script's questions; every close price that held counts toward the summary; G4 lines say "The action held" instead of "Right move"; the unbacked claims (`ld-5`, `ld-6`, `ph-1` "called", `ph-3` "the price as the reason", `rg-raise-s2`, `rg-allin-s1`, `se-clean-*` "half a big blind") are reworded; the lint bans `you are/you're` and `half`, and checks number words in dialogue lines; the settings preview runs its spot through `isPriceHeld`; one `MAX_DEE_SAID`; the nav spacer keeps the strip centred with Character off; the "Mistakes only" caption names the G4 case.
 - Consider, kept: an open-ended table that is left mid-way gets no session summary (DECISIONS.md, Open question in FINDINGS.md). `frequencyOf` and `effectiveFrequency` both exist: one is the engine's typed reader, the other the persist module's; merging them would make core/dee depend on persist for a one-line map.
+
+## Re-verification (reviewer)
+Checked `git diff ce37308..9b63ff8` (f9da512 + 9b63ff8). `npx tsc --noEmit -p tsconfig.json`: exit 0. `npx vitest run`: exit 0, 96 files, 2234 tests. e2e not run, as instructed.
+
+- Act on 1 (Price held on the wrong side): **VERIFIED.** engine.ts `isPriceHeld` now returns false for a fold with `had >= needed` and for a call or raise with `had < needed`, before the closeness test. dee-engine.test covers the 31%-vs-33% call, the 36% fold and the 30% fold that holds. The settings preview's call (had .306, needed .25) is still on the right side.
+- Act on 2 (`{repeat}` label): **VERIFIED.** `DeeSitting.byKind` is keyed by principle, action group (bet/raise/allin together) and priced/free, and `handEndEvent` reads `{repeat}` from it. `byPrinciple` still drives only the session summary's top principle. I re-checked every r-line against its kind: `po-call-r1/r2` (pot odds, call, priced), `po-fold-r1/r2`, `vb-free-r1/r2` (fold, free), `vb-check-r2`, `vb-lead-r1/r2` (raise group, free), `rg-raise-r1/r2`. Each line's wording now matches what it counts. The generic `v-noted-2` ("Same principle as earlier") is still true. A unit test covers fold then call (repeat 0) and fold then fold (repeat 1).
+- Act on 3 ("no cards left" on the turn): **VERIFIED.** `po-call-s5` (all three tones) says "few cards left", and `ph-late-2` now reads "Late in the hand the price carries more of the decision." Both are true on the turn and the river.
+- Act on 4 (perch blink index): **VERIFIED.** `Math.floor(Date.now() / 1024) % 5` is never negative for any positive timestamp, so the delay is always one of the five cycle values.
+- Act on 5 (dialogue live region): **NOT FIXED. It moved, but the same failure remains.** lesson.ts:197 mounts `dialogueAnnouncer` as a child of `root` through `root.replaceChildren(renderLessonView(...), railSeam(), dialogueAnnouncer)`, which runs on every render. `replaceChildren` removes the node and re-inserts it each time. In the commit handler (lesson.ts ~554) the text is set *before* `render()`, so the region is detached and re-attached with its content already in place. That is the "inserted with content" case this item was about, and it is not reliably announced. Two related problems:
+  - Every later option pick re-inserts it still holding the previous reply, which can re-announce that reply.
+  - The list view (`root.replaceChildren(renderList(), railSeam())`) drops the region entirely.
+
+  dee.spec #4 checks only `toHaveText` and the `aria-live` attribute, not that the node survives a render. Fix: mount the announcer once, outside the subtree `render()` replaces (for example, a stable wrapper whose content child is the repainted part, which is how the table's announcers sit on `root` beside the repainted stage). Or set the text *after* `render()` and stop re-inserting the node: append it once and repaint a sibling container. Add an e2e or DOM check that the same announcer node (`isSameNode`) is still connected after an option pick and after a commit.
+  - The focus half of this item is **VERIFIED.** After a commit, focus goes to the first enabled option, or to the reveal (`tabIndex = -1`), and dee.spec #4 asserts both.
+
+Spot-checked Consider fixes:
+- Character off drops the bank's lesson-open/retry/done lines (`bankLine` returns null). VERIFIED.
+- `priceHeld` counts every held spot regardless of frequency. VERIFIED.
+- The G4 lines are reworded. VERIFIED.
+- `MAX_SAID` is removed. VERIFIED.
+- The nav spacer is restored to 92px with Character off. VERIFIED.
+
+One note on the "kept" rationale: engine.ts now imports `MAX_DEE_SAID` from `progression/persist.js`, so core/dee already depends on persist. That weakens the stated reason for keeping `frequencyOf` and `effectiveFrequency` separate. Still Consider, not blocking.
+
+## Resolution of re-verification item 5 (author)
+- The dialogue announcer is mounted once and never detached: `paint()` in lesson.ts repaints every other child and leaves the region in place (the list view keeps it too). dee.spec #4 tags the node and asserts the same node is still connected after a pick, a commit and the last step.

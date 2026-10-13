@@ -171,6 +171,16 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     }
   }
 
+  /**
+   * Repaint the screen's content while the dialogue announcer stays mounted: a live region that is removed
+   * and re-inserted on every render is not reliably announced, so it is never detached once in place.
+   */
+  function paint(...nodes: Node[]): void {
+    for (const child of [...root.childNodes]) if (child !== dialogueAnnouncer) child.remove();
+    root.prepend(...nodes);
+    if (dialogueAnnouncer.parentNode !== root) root.appendChild(dialogueAnnouncer);
+  }
+
   function renderInner(): void {
     root.dataset.view = view;
     if (view === 'list' || lessons.length === 0) {
@@ -180,7 +190,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
       root.dataset.cursor = String(cursor);
       railExample = undefined;
       railCommitted = false;
-      root.replaceChildren(renderList(), railSeam());
+      paint(renderList(), railSeam());
       return;
     }
 
@@ -194,7 +204,7 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
     root.dataset.committed = String(committed);
     railExample = example;
     railCommitted = committed;
-    root.replaceChildren(renderLessonView(lesson, example), railSeam(), dialogueAnnouncer);
+    paint(renderLessonView(lesson, example), railSeam());
     if (focusAfterCommit) {
       focusAfterCommit = false;
       const target =

@@ -254,11 +254,21 @@ test.describe('Dee', () => {
       const lastDee = page.locator('[data-testid="dee-turn"]').last();
       await expect(lastDee).toContainText('?');
 
+      // The announcer is mounted once: tag the node, and check the same node is still in place after a pick and a commit.
+      await page.evaluate(() => {
+        (document.querySelector('[data-testid="dialogue-announcer"]') as HTMLElement & { __dee?: boolean }).__dee = true;
+      });
+      const sameAnnouncer = (): Promise<boolean> =>
+        page.evaluate(() => {
+          const el = document.querySelector('[data-testid="dialogue-announcer"]') as (HTMLElement & { __dee?: boolean }) | null;
+          return el !== null && el.isConnected && el.__dee === true && document.querySelectorAll('[data-testid="dialogue-announcer"]').length === 1;
+        });
       // A wrong answer (300, the pot that already holds the bet): a question back, no grade, the option marked tried.
       await page.locator('[data-testid="dialogue-option"]', { hasText: /^300$/ }).click();
       await expect(commitBtn).toBeEnabled();
       await commitBtn.click();
       await expect(page.locator('[data-testid="you-turn"]').last()).toHaveAttribute('data-right', 'false');
+      expect(await sameAnnouncer(), 'the announcer survives a pick and a commit').toBe(true);
       const back = (await page.locator('[data-testid="dee-turn"]').last().textContent()) ?? '';
       expect(back.trim().endsWith('?'), back).toBe(true);
       expect(back.toLowerCase()).not.toMatch(/\b(wrong|incorrect|correct|good|nice|great)\b/);
@@ -283,6 +293,7 @@ test.describe('Dee', () => {
         await commitBtn.click();
       }
       await expect(dialogue).toHaveAttribute('data-done', 'true');
+      expect(await sameAnnouncer(), 'the announcer survives every step').toBe(true);
       await expect(page.locator(lessonScreen)).toHaveAttribute('data-committed', 'true');
       await expect(page.locator('[data-testid="lesson-reveal"]')).toHaveCount(1);
       await expect(page.locator('[data-testid="lesson-reasoning"]')).toContainText('2 hands in 3');
