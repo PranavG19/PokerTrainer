@@ -12,6 +12,8 @@ Environment=NODE_ENV=production
 ExecStart=/usr/bin/node /opt/offsuit/current/server/main.js --state /var/lib/offsuit --port 443 --host 0.0.0.0 --cert /var/lib/offsuit/tls/fullchain.pem --key /var/lib/offsuit/tls/privkey.pem
 # The server re-reads its certificate on SIGHUP (sent by the certbot deploy hook).
 ExecReload=/bin/kill -HUP $MAINPID
+# The licence server's env (Stripe, signing key path); optional, and off unless OFFSUIT_LICENCE_ENABLED=1.
+EnvironmentFile=-/etc/offsuit/licence.env
 Restart=on-failure
 RestartSec=2
 StandardOutput=journal

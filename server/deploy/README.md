@@ -11,8 +11,11 @@ upgrades the code and restarts the service; state and the certificate stay.
 3. From the repo root on your Mac:
 
    ```sh
-   server/deploy/deploy.sh <server-ip> <domain> <email-for-lets-encrypt>
+   server/deploy/deploy.sh <server-ip> <domain> <email-for-lets-encrypt> [licence-env-file]
    ```
+
+   The optional 4th argument turns on Pro licensing: a filled copy of `licence.env.example`, kept outside the
+   repo (docs/ONLINE-SETUP.md, "Pro licensing").
 
 4. In Offsuit: Play with friends → Play online, turn it on, and set "Server address" to `<domain>` (no pin).
 
@@ -44,6 +47,7 @@ the VPS in the provider's console; delete the DNS record too.
 | `teardown.sh` | Runs on your Mac: final backup download, then removes Offsuit from the VPS. |
 | `remote/setup.sh` | Runs as root on the VPS: packages, Node 22, unattended upgrades (reboot 04:30 if needed), `offsuit` user, release switch (keeps 3), SSH key-only login, ufw (22 limited, 80, 443), Let's Encrypt, systemd units, journald cap (200M / 14 days). |
 | `remote/offsuit.service` | The sandboxed systemd unit: non-root, binds 443 via `CAP_NET_BIND_SERVICE`, writes only `/var/lib/offsuit`, `reload` sends SIGHUP to pick up a renewed certificate. |
+| `licence.env.example` | The licence server's env, all placeholders. Fill a copy outside the repo; pass it as the 4th argument. |
 | `remote/backup.sh` | Daily `tar.gz` of `/var/lib/offsuit` (without `tls/`) into `/var/backups/offsuit`, keeps 14. |
 | `remote/offsuit-backup.service`, `.timer` | Run `backup.sh` daily. |
 

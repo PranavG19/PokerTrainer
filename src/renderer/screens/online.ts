@@ -52,6 +52,8 @@ export interface OnlineOptions {
   readonly bridge: OnlineBridge;
   /** Leave the online screen (back to the LAN panel). A player at a table leaves it first. */
   readonly onExit?: () => void;
+  /** Open the upgrade sheet on the ranked feature (the app's one Pro sheet, pro.ts). */
+  readonly onOpenPro?: () => void;
 }
 
 type Phase = 'setup' | 'connecting' | 'lobby' | 'table';
@@ -820,8 +822,12 @@ export function renderOnlineScreen(options: OnlineOptions): HTMLElement {
     wrap.appendChild(group);
 
     if (!status.rankedEntitled) {
-      const pro = el('p', 'g-caption', 'Ranked play is part of Offsuit Pro.');
+      const pro = el('p', 'g-caption', 'Ranked play is part of Offsuit Pro. Unranked tables are free.');
       pro.dataset.testid = 'online-ranked-pro';
+      if (options.onOpenPro !== undefined) {
+        pro.appendChild(document.createTextNode(' '));
+        pro.appendChild(button('pill sm quiet', 'pro-gate-open', 'What Pro adds', () => options.onOpenPro?.()));
+      }
       wrap.appendChild(pro);
     }
     wrap.appendChild(

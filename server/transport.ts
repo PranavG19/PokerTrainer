@@ -19,6 +19,7 @@
  */
 
 import * as crypto from 'node:crypto';
+import * as http from 'node:http';
 import * as net from 'node:net';
 import * as tls from 'node:tls';
 import { splitLines } from '../src/main/relayHost.js';
@@ -37,6 +38,7 @@ import { jsonLog, pseudonym, type Log } from './log.js';
 import { DEFAULT_LIMITS, DEFAULT_TIMING, Lobby, type Conn, type LobbyLimits, type LobbyTiming } from './lobby.js';
 import { Rankings } from './rankings.js';
 import { Store } from './store.js';
+import { nodeListener, type LicenceRequest, type LicenceResponse } from '../src/server/licensing/handler.js';
 
 export interface TransportLimits {
   readonly maxConnections: number;
@@ -79,6 +81,12 @@ export interface OnlineServerOptions {
   readonly limits?: Partial<TransportLimits>;
   /** How often the rooms' clocks run. */
   readonly tickMs?: number;
+  /**
+   * The licence server (PR #24, src/server/licensing/handler.ts), served on this same TLS port: after the
+   * handshake a connection whose first bytes are an HTTP request line goes here instead of the game.
+   * Absent: every HTTP request gets 404.
+   */
+  readonly licence?: (request: LicenceRequest) => Promise<LicenceResponse>;
 }
 
 export interface OnlineServer {
@@ -168,9 +176,45 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
     helloTimer.unref();
     const secure = new tls.TLSSocket(socket, { isServer: true, secureContext });
     secure.on('error', () => socket.destroy());
-    secure.on('secure', () => serve(secure, address, helloTimer));
+    secure.on('secure', () => {
+      // One port for both: the game's first frame is a JSON object, an HTTP client's is a request line.
+      secure.once('data', (first: Buffer) => {
+        secure.pause();
+        secure.unshift(first);
+        if (/^(GET|POST|HEAD|PUT|DELETE|OPTIONS|PATCH) /.test(first.subarray(0, 8).toString('latin1'))) {
+          clearTimeout(helloTimer);
+          httpServer.emit('connection', secure);
+        } else {
+          serve(secure, address, helloTimer);
+        }
+        secure.resume();
+      });
+    });
     socket.resume();
   });
+
+  /** Requests per address per minute on /v1/* (restore takes an order id, so it must not be sprayable). */
+  const V1_PER_MINUTE = 20;
+  const v1Buckets = new Map<string, Bucket>();
+  const licenceListener = options.licence !== undefined ? nodeListener(options.licence) : null;
+  const httpServer = http.createServer({ requestTimeout: 15_000, headersTimeout: 10_000, maxHeaderSize: 8192 }, (req, res) => {
+    if (licenceListener === null) {
+      res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found\n');
+      return;
+    }
+    if ((req.url ?? '').startsWith('/v1/')) {
+      const address = req.socket.remoteAddress ?? '';
+      const t = now();
+      const bucket = v1Buckets.get(address) ?? new Bucket(V1_PER_MINUTE / 60, V1_PER_MINUTE, t);
+      v1Buckets.set(address, bucket);
+      if (!bucket.take(t)) {
+        res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '60' }).end('{"status":"slow-down"}');
+        return;
+      }
+    }
+    licenceListener(req, res);
+  });
+  httpServer.keepAliveTimeout = 5_000;
 
   function serve(secure: tls.TLSSocket, address: string, helloTimer: NodeJS.Timeout): void {
     secure.setEncoding('utf8');
@@ -317,6 +361,7 @@ export async function startOnlineServer(options: OnlineServerOptions): Promise<O
     const t = now();
     for (const [address, bucket] of attempts) if (!perAddress.has(address) && bucket.full(t)) attempts.delete(address);
     for (const [address, row] of authFailures) if (t >= row.until) authFailures.delete(address);
+    for (const [address, bucket] of v1Buckets) if (bucket.full(t)) v1Buckets.delete(address);
   };
   let sweptAt = now();
   const ticker = setInterval(() => {

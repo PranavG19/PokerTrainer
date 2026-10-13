@@ -68,7 +68,7 @@ rm -f /etc/systemd/system/offsuit.service \
       /etc/letsencrypt/renewal-hooks/deploy/offsuit.sh
 systemctl daemon-reload
 systemctl reset-failed offsuit.service offsuit-backup.service 2>/dev/null || true
-rm -rf /opt/offsuit /var/lib/offsuit /var/backups/offsuit
+rm -rf /opt/offsuit /var/lib/offsuit /var/backups/offsuit /etc/offsuit
 if id offsuit >/dev/null 2>&1; then userdel offsuit; fi
 if [ -n "$domain" ]; then
   certbot delete --cert-name "$domain" --non-interactive || echo "note: no certificate named $domain"

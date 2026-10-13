@@ -1220,6 +1220,7 @@ async function boot(): Promise<void> {
       screen.replaceChildren(
         renderOnlineScreen({
           bridge: io,
+          onOpenPro: () => openProSheet('ranked-play'),
           onExit: () => {
             onlineActive = false;
             multiplayerActive = true;

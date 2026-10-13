@@ -73,7 +73,10 @@ let relaySession: RelaySession | null = null;
  * Online play (an Offsuit server, opt-in, off by default). The controller owns the only online socket and
  * opens it only from connect(); see onlineMain.ts for the gate.
  */
+/** Set once the licence authority exists (whenReady); until then nothing is Pro. */
+let rankedAllowed: () => boolean = () => false;
 const online = new OnlineController({
+  canRanked: () => rankedAllowed(),
   load: loadOnlineSettings,
   save: saveOnlineSettings,
   identityFile: ONLINE_IDENTITY_FILE,
@@ -309,6 +312,7 @@ app.whenReady().then(() => {
     loadMirror: loadLicenceMirror,
     saveMirror: saveLicenceMirror,
   });
+  rankedAllowed = () => authority.can('ranked-play');
   // Windows/Linux cold start from a link: the URL is an argument of this launch.
   for (const arg of process.argv) if (arg.startsWith('offsuit:')) receiveDeepLink(arg);
 

@@ -75,7 +75,7 @@ test('setup refuses to go online without the 18+ confirmation, and nothing is co
 });
 
 test('go online, open a ranked table, an opponent joins by code, and a hand is played with redacted cards', async () => {
-  const { page, close } = await launchApp({ seed: 7 });
+  const { page, close } = await launchApp({ seed: 7, env: { OFFSUIT_DEV_TIER: 'pro' } });
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   try {
@@ -139,3 +139,19 @@ test('go online, open a ranked table, an opponent joins by code, and a hand is p
     await close();
   }
 });
+
+test('without Pro, ranked tables are locked with an honest caption and unranked play still opens', async () => {
+  const { page, close } = await launchApp({ seed: 7 });
+  try {
+    await openOnline(page);
+    await goOnline(page);
+    await expect(page.locator('[data-testid="online-ranked-pro"]')).toContainText('Ranked play is part of Offsuit Pro');
+    await expect(page.locator('[data-testid="online-ranked"]')).toBeDisabled();
+    await page.locator('[data-testid="online-create"]').click();
+    await page.waitForSelector('[data-testid="online-screen"][data-online-phase="table"]');
+    await expect(page.locator('[data-testid="online-room-ranked"]')).toHaveAttribute('data-ranked', 'false');
+  } finally {
+    await close();
+  }
+});
+

@@ -12,7 +12,9 @@ After you (1) create an Ubuntu 24.04 VPS with your SSH key for `root`, and (2) p
 server/deploy/deploy.sh <server-ip> <domain> <email-for-lets-encrypt>
 ```
 
-For example `server/deploy/deploy.sh 203.0.113.10 play.example.com you@example.com`. It builds the server on
+For example `server/deploy/deploy.sh 203.0.113.10 play.example.com you@example.com`. To sell Pro as well, add a
+4th argument: a filled copy of [server/deploy/licence.env.example](../server/deploy/licence.env.example) kept
+outside the repo (`deploy.sh … you@example.com ~/offsuit-licence.env`); see "Pro licensing" below. It builds the server on
 your Mac (`npm run build:server`), uploads it, and on the VPS installs Node 22, a non-root `offsuit` user, a
 firewall (SSH rate-limited, 443 for the game, 80 only for certificate renewal), automatic security updates,
 key-only SSH, a Let's Encrypt certificate with automatic renewal, the sandboxed systemd service, a 14-day log
@@ -22,6 +24,25 @@ Then in Offsuit: **Play with friends → Play online**, turn it on, and set **Se
 Leave the certificate pin empty.
 
 Details of every file: [server/deploy/README.md](../server/deploy/README.md).
+
+## Pro licensing (the Stripe webhook → licence server)
+
+The same server process hosts PR #24's licence server (`src/server/licensing/handler.ts`) on the same port: after
+the TLS handshake a connection that speaks HTTP goes to it, anything else to the game. So Stripe's webhook is
+`https://<domain>/webhooks/stripe` and the checkout success URL is
+`https://<domain>/v1/licence/claim?session_id={CHECKOUT_SESSION_ID}`, both on the Let's Encrypt certificate.
+
+1. Do the Stripe steps and run `node scripts/payments-setup.ts` ([docs/PAYMENTS-SETUP.md](PAYMENTS-SETUP.md)).
+2. Copy `server/deploy/licence.env.example` outside the repo, set `OFFSUIT_LICENCE_ENABLED=1` and fill every
+   `REPLACE_ME` from that command's output (Stripe test-mode keys first). Never commit it.
+3. Re-run the one command with that file as its 4th argument. It uploads the env to `/etc/offsuit/licence.env`
+   and the signing key to `/etc/offsuit/licence-signing-key.json` (both `root:offsuit`, mode 640), and refuses an
+   enabled file that still has placeholders. Without the 4th argument an existing env is left as it is.
+
+Its store is `licences.json` in the state directory (backed up with it). Writes are serialised in the one
+process; the deploy runs exactly one instance, which is what makes that safe (more instances would need a
+database with per-subscription locking). `/v1/*` is limited to 20 requests a minute per address. An HTTP request
+with licensing off gets 404. Enabled but incomplete, the server refuses to start and names the missing variable.
 
 ## Cost
 

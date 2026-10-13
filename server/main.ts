@@ -14,7 +14,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { issueCertificate } from '../src/main/selfSignedCert.js';
 import { certFingerprint } from '../src/main/selfSignedCert.js';
-import { jsonLog } from './log.js';
+import { createLicenceServer } from '../src/server/licensing/handler.js';
+import { licenceServerDepsFromEnv } from '../src/server/licensing/fromEnv.js';
+import { jsonLog, type Log } from './log.js';
+import { FileLicenceStore } from './licenceStore.js';
 import { startOnlineServer } from './transport.js';
 
 interface Args {
@@ -76,6 +79,23 @@ function selfSignedFiles(state: string): { key: string; cert: string } {
   return { key: fs.readFileSync(keyFile, 'utf8'), cert: fs.readFileSync(certFile, 'utf8') };
 }
 
+/**
+ * The licence server (PR #24), on when OFFSUIT_LICENCE_ENABLED=1, from the env docs/PAYMENTS-SETUP.md lists
+ * (systemd reads it from /etc/offsuit/licence.env). Enabled but incomplete stops the server with the
+ * missing variable's name: a licence server that starts without its keys would accept nothing silently.
+ */
+export function licenceFromEnv(env: NodeJS.ProcessEnv, state: string, log: Log): ReturnType<typeof createLicenceServer> | undefined {
+  if (env.OFFSUIT_LICENCE_ENABLED !== '1') {
+    log('licence.off', {});
+    return undefined;
+  }
+  const store = new FileLicenceStore(path.join(state, 'licences.json'));
+  // The handler's own log lines are its event names and ids, never a key, token or email.
+  const handler = createLicenceServer(licenceServerDepsFromEnv(env, store, { log: (line) => log('licence', { line: line.slice(0, 200) }) }));
+  log('licence.on', {});
+  return handler;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if ('error' in args) {
@@ -92,7 +112,14 @@ async function main(): Promise<void> {
     ...(args.maxPerAddress !== undefined ? { maxPerAddress: args.maxPerAddress } : {}),
     ...(args.attemptsPerMinute !== undefined ? { attemptsPerMinute: args.attemptsPerMinute } : {}),
   };
-  const server = await startOnlineServer({ stateDir: args.state, tls: tlsFiles, port: args.port, host: args.host, log, limits });
+  let licence: ReturnType<typeof licenceFromEnv>;
+  try {
+    licence = licenceFromEnv(process.env, args.state, log);
+  } catch (error) {
+    process.stderr.write(`offsuit-server: ${(error as Error).message}\n`);
+    process.exit(2);
+  }
+  const server = await startOnlineServer({ stateDir: args.state, tls: tlsFiles, port: args.port, host: args.host, log, limits, licence });
   // The pin is the certificate's public fingerprint, not a secret; printing it is how players get it.
   log('server.ready', { port: server.port, pin: pemFingerprint(tlsFiles.cert), selfSigned: args.selfSigned });
 

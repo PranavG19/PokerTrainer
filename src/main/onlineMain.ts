@@ -16,7 +16,6 @@ import { EMOTE_IDS, type EmoteId, type OnlineRequestType, type RoomInfo, type We
 import type { Action } from '../core/table.js';
 import { OnlineSession, type OnlineEvent, type OnlineStatus, type OnlineTarget } from './onlineClient.js';
 import { exportIdentity, loadIdentity, loadOrCreateIdentity } from './onlineIdentity.js';
-import { rankedEntitled } from './onlineEntitlement.js';
 
 export interface OnlineSettingsLike {
   readonly enabled: boolean;
@@ -34,6 +33,8 @@ export interface OnlineDeps {
   readonly today?: () => string;
   /** Tests: a private CA for the CA-validated path. */
   readonly ca?: string;
+  /** Whether this install may play ranked: main passes `authority.can('ranked-play')` (licence.ts). */
+  readonly canRanked: () => boolean;
 }
 
 /** What the renderer may ask the server for. Anything else is refused here, before the wire. */
@@ -70,7 +71,7 @@ export class OnlineController {
       keyId: loadIdentity(this.deps.identityFile)?.publicKey.slice(0, 10) ?? null,
       room: this.session?.currentRoom() ?? null,
       season: this.welcome?.season ?? null,
-      rankedEntitled: rankedEntitled(),
+      rankedEntitled: this.deps.canRanked(),
     };
   }
 
@@ -148,12 +149,17 @@ export class OnlineController {
     const body = typeof fields === 'object' && fields !== null ? { ...(fields as Record<string, unknown>) } : {};
     delete body.type;
     delete body.id;
-    // Ranked tables are a Pro feature. The seam (onlineEntitlement.ts) is the one place it is decided.
-    if (op === 'room-create' && body.ranked === true && !rankedEntitled()) return { ok: false, error: RANKED_IS_PRO };
+    // Ranked tables are a Pro feature, decided by main's licence authority on every request.
+    if (op === 'room-create' && body.ranked === true && !this.deps.canRanked()) return { ok: false, error: RANKED_IS_PRO };
     try {
       if (op === 'export') return { ok: true, data: await exportAll(session) };
       const data = await session.request(op as OnlineRequestType, body as never);
       if (op === 'forget') this.disconnect();
+      // A code does not say whether its table is ranked until the server seats you: leave at once.
+      if (op === 'room-join' && (data as RoomInfo | null)?.ranked === true && !this.deps.canRanked()) {
+        await session.request('room-leave', {}).catch(() => undefined);
+        return { ok: false, error: RANKED_IS_PRO };
+      }
       return { ok: true, data };
     } catch (error) {
       return { ok: false, error: (error as Error).message };

@@ -145,6 +145,21 @@ fi
 RENEWED_LINEAGE="/etc/letsencrypt/live/$domain" "$hook"
 systemctl enable --now certbot.timer >/dev/null 2>&1 || true
 
+log "Installing the licence server's env"
+# Secrets for the licence server live here, readable by root and the service only. Uploaded by deploy.sh
+# when the owner passes a licence env file; otherwise a disabled template, never overwriting a real one.
+install -d -m 0750 -o root -g offsuit /etc/offsuit
+if [ -f "$here/licence.env" ]; then
+  install -m 0640 -o root -g offsuit "$here/licence.env" /etc/offsuit/licence.env
+  if [ -f "$here/licence-signing-key.json" ]; then
+    install -m 0640 -o root -g offsuit "$here/licence-signing-key.json" /etc/offsuit/licence-signing-key.json
+  fi
+elif [ ! -f /etc/offsuit/licence.env ]; then
+  printf 'OFFSUIT_LICENCE_ENABLED=0\n' > /etc/offsuit/licence.env
+  chown root:offsuit /etc/offsuit/licence.env
+  chmod 0640 /etc/offsuit/licence.env
+fi
+
 log "Installing the systemd units"
 install -m 0644 "$here/offsuit.service" /etc/systemd/system/offsuit.service
 install -m 0644 "$here/offsuit-backup.service" /etc/systemd/system/offsuit-backup.service

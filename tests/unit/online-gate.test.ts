@@ -12,7 +12,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { installNetOracle, isOutbound, readOracle } from '../../src/main/netOracle.js';
-import { OnlineController, type OnlineSettingsLike } from '../../src/main/onlineMain.js';
+import { OnlineController, RANKED_IS_PRO, type OnlineSettingsLike } from '../../src/main/onlineMain.js';
+import { signedIn } from './onlineHarness.js';
 import { startTestServer, type TestServer } from './onlineHarness.js';
 
 let t: TestServer;
@@ -23,7 +24,7 @@ afterAll(async () => {
   await t.close();
 });
 
-function controller(): { c: OnlineController; identityFile: string; settings: () => OnlineSettingsLike } {
+function controller(canRanked: () => boolean = () => true): { c: OnlineController; identityFile: string; settings: () => OnlineSettingsLike } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-gate-'));
   let settings: OnlineSettingsLike = { enabled: false, server: '', pin: '', name: '', adultOn: '' };
   const identityFile = path.join(dir, 'id.json');
@@ -33,6 +34,7 @@ function controller(): { c: OnlineController; identityFile: string; settings: ()
     identityFile,
     push: () => undefined,
     today: () => '2026-10-13',
+    canRanked,
   });
   return { c, identityFile, settings: () => settings };
 }
@@ -86,5 +88,22 @@ describe('online play opens no socket until the player goes online', () => {
     const { c } = controller();
     expect(c.configure({ server: 'http://evil/path' })).toMatchObject({ ok: false });
     expect(c.configure({ pin: 'short' })).toMatchObject({ ok: false });
+  });
+});
+
+describe('ranked online play is Pro (entitlements, PR #24)', () => {
+  it('without the entitlement a ranked table can be neither opened nor joined; unranked play is free', async () => {
+    const { c } = controller(() => false);
+    c.configure({ enabled: true, server: `127.0.0.1:${t.server.port}`, pin: t.target.pin });
+    expect((await c.connect({ name: 'Cy', adult: true })).ok).toBe(true);
+    expect(c.view().rankedEntitled).toBe(false);
+    expect(await c.request('room-create', { seats: 2, ranked: true })).toEqual({ ok: false, error: RANKED_IS_PRO });
+    const host = await signedIn(t, 'Host');
+    const room = (await host.request('room-create', { seats: 2, ranked: true })) as { code: string };
+    expect(await c.request('room-join', { code: room.code })).toEqual({ ok: false, error: RANKED_IS_PRO });
+    expect(c.view().room).toBeNull();
+    expect((await c.request('room-create', { seats: 2, ranked: false })).ok).toBe(true);
+    host.close();
+    c.disconnect();
   });
 });

@@ -1340,11 +1340,12 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   metric. Membership is not probeable (a non-member is told the code does not exist).
 - **18+ before any online play**, sent as the literal `adult: true` and stored as a date. **No prizes, ever**,
   in the copy and the docs.
-- **Pro gate: one seam**, [onlineEntitlement.ts](src/main/onlineEntitlement.ts) `rankedEntitled()`, returning
-  true until `src/core/entitlements` lands (it is not on main); main refuses a ranked `room-create` when it is
-  false. The server cannot check a licence (open question).
-
-### Client
+- **Pro gate: the licence authority** (PR #24). Main's `authority.can('ranked-play')` decides, on every
+  request: a ranked `room-create` is refused, and a `room-join` that lands on a ranked table leaves it at
+  once, without the entitlement; unranked play stays free. The Play online screen shows the locked caption
+  with "What Pro adds", which opens the app's upgrade sheet; `ranked-play` is now `available`. The server does
+  not check a licence (open question). Supersedes: a single seam returning true, because the entitlements
+  core was not on main when this was built.
 - **Opt-in, off by default, no server by default.** Typing a server only stores text. `OnlineController`
   (main) opens a socket only in `connect()`, which requires the switch, a valid address and pin, a valid
   name and the 18+ confirmation; turning the switch off or changing the server disconnects. Only the
@@ -1357,6 +1358,15 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   the real app.
 
 ### Deploy ([server/deploy/](server/deploy/README.md))
+- **The licence server (PR #24) runs in the game server's process, on the same port.** After the TLS
+  handshake a connection whose first bytes are an HTTP request line goes to `nodeListener(createLicenceServer)`,
+  anything else to the game, so Stripe's webhook and the claim page are `https://<domain>/…` on the one Let's
+  Encrypt certificate, with no second port or proxy. On only with `OFFSUIT_LICENCE_ENABLED=1` and the env from
+  `/etc/offsuit/licence.env` (`licence.env.example`, placeholders only, passed as `deploy.sh`'s optional 4th
+  argument); enabled but incomplete, the server refuses to start. Its store is `licences.json` in the state
+  directory ([licenceStore.ts](server/licenceStore.ts)): one promise chain, each write atomic before it
+  resolves, so per-subscription writes are serialised in the single process the deploy runs; event ids kept 35
+  days. `/v1/*` is limited to 20 a minute per address.
 - `deploy.sh <ip> <domain> <email>`: build locally, upload, and on Ubuntu 24.04: Node 22 (NodeSource, signed),
   unattended upgrades with a 04:30 reboot, a no-login `offsuit` user, key-only SSH (only if a key is
   installed), ufw (SSH limited, 443, 80 for renewals only), Let's Encrypt (certbot standalone, deploy hook
