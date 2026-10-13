@@ -20,7 +20,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as crypto from 'node:crypto';
-import { emailHash, mintToken, newLicenceId, verifyWithKeys, type SigningKey } from './mint.js';
+import { emailHash, mintToken, newLicenceId, signTime, verifyWithKeys, type SigningKey } from './mint.js';
 import { parseStripeEvent, verifyStripeSignature, type StripeApi, type SubscriptionTruth } from './stripe.js';
 import type { LicenceRecord, LicenceStatus, LicenceStore } from './store.js';
 
@@ -220,7 +220,7 @@ export function createLicenceServer(deps: LicenceServerDeps): (request: LicenceR
     if (!verified.ok) return json(400, { status: 'invalid' });
     const record = await deps.store.byLicence(verified.claims.lid);
     if (record === null) return json(404, { status: 'not-found' });
-    return json(200, { ...reply(record, token), now: deps.nowSeconds() });
+    return json(200, { ...reply(record, token), clock: signTime(deps.signing, deps.nowSeconds(), record.lid) });
   }
 
   async function restore(request: LicenceRequest): Promise<LicenceResponse> {
@@ -235,7 +235,7 @@ export function createLicenceServer(deps: LicenceServerDeps): (request: LicenceR
     const record = await deps.store.byOrder(orderId);
     const stored = Buffer.from(record?.emailHash ?? '0'.repeat(64), 'hex');
     if (!crypto.timingSafeEqual(given, stored) || record === null || record.emailHash === null) return notFound;
-    return json(200, { ...reply(record, null), now: deps.nowSeconds() });
+    return json(200, { ...reply(record, null), clock: signTime(deps.signing, deps.nowSeconds(), record.lid) });
   }
 
   async function claim(request: LicenceRequest): Promise<LicenceResponse> {

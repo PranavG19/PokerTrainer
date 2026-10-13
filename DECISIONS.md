@@ -1013,11 +1013,11 @@ R5–R7, R13), built. Solo play is unchanged: it keeps the seeded `mulberry32` a
 - **Clock: licence time = max(system clock, high-water mark, token iat), and the mark also advances by the time
   Offsuit runs (a monotonic clock).** A rollback never revives an ended licence, and with the clock held back
   licence time still ticks at the app's pace. The learner is told only past 36 h. A stored mark out of range is
-  ignored, never allowed to zero the guard. Only the licence server's time (in its refresh/restore reply) lowers
-  a mark a fast clock pushed ahead. Supersedes "a newer token resets the mark", because the review showed any
+  ignored, never allowed to zero the guard. Only the licence server's SIGNED time (`OFFSUIT-TIME1.<now>.<lid>`, in its
+  refresh/restore reply) lowers a mark a fast clock pushed ahead. Supersedes "a newer token resets the mark", because the review showed any
   paste with the clock set back could then revive an expired key.
 - **A key never downgrades the installed one.** Installing (paste or deep link) refuses a key whose paid period
-  and grace have ended, and a key issued earlier than the valid key in place.
+  and grace have ended, a key issued earlier than the valid key in place, and another licence that ends sooner.
 - **Persistence: additive, no schema bump.** `progression.entitlements` gains `licence` and `highWater` (older v2
   builds carry them). `tier`/`granted` stay as a display cache. The token and mark are mirrored in
   `offsuit-settings.json`, so deleting the profile (starting over) keeps the purchase and the rollback guard.

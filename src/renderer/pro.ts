@@ -117,6 +117,8 @@ export function reasonText(reason: unknown, serverStatus?: unknown): string {
       return 'That key was not issued for this version of Offsuit (or it is a test key). Nothing was changed.';
     case 'already-ended':
       return 'That key’s paid period has already ended, so it was not added. Your current key, if any, is unchanged.';
+    case 'shorter-than-current':
+      return 'That key ends sooner than the Pro key already on this Mac, so it was not added.';
     case 'older-than-current':
       return 'You already have a newer Pro key on this Mac, so the older one was not added.';
     case 'revoked':

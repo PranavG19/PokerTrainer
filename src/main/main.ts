@@ -364,7 +364,7 @@ app.whenReady().then(() => {
     const token = authority.token();
     if (token === null) return { ok: false, reason: 'no-licence', status: licenceStatus() };
     const reply = await refreshLicence(endpoints.server, token);
-    if (reply.ok) authority.correctClock(reply.serverNow);
+    if (reply.ok) authority.correctClock(reply.clock, reply.token ?? token);
     if (!reply.ok) return { ok: false, reason: reply.reason, serverStatus: reply.status ?? null, status: licenceStatus() };
     if (reply.token !== null && reply.token !== token) {
       const outcome = authority.install(reply.token);
@@ -378,7 +378,7 @@ app.whenReady().then(() => {
     const email = typeof input?.email === 'string' ? input.email : '';
     if (orderId.trim() === '' || email.trim() === '') return { ok: false, reason: 'missing', status: licenceStatus() };
     const reply = await restoreLicence(endpoints.server, orderId, email);
-    if (reply.ok) authority.correctClock(reply.serverNow);
+    if (reply.ok) authority.correctClock(reply.clock, reply.token);
     if (!reply.ok || reply.token === null) {
       return { ok: false, reason: reply.ok ? 'not-found' : reply.reason, serverStatus: reply.status ?? null, status: licenceStatus() };
     }

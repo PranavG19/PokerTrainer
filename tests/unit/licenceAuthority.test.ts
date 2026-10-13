@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { DEV_KEY_ID, DEV_KEYS } from '../../src/core/entitlements/config.js';
-import { encodeToken, type LicenceClaims } from '../../src/core/entitlements/token.js';
+import { base64urlEncode, encodeToken, timeMessage, type LicenceClaims } from '../../src/core/entitlements/token.js';
 import {
   checkoutPlans,
   createLicenceAuthority,
@@ -237,15 +237,37 @@ describe('review fixes: rollback, tampered marks, replacing a key', () => {
     expect(q.ok && q.id).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it('only the server’s time lowers a mark a fast clock pushed ahead', () => {
+  it('only the server’s SIGNED time lowers a mark a fast clock pushed ahead', () => {
     const t = setup({ now: real + 400 * DAY }); // the clock ran a year ahead once
     t.authority.adopt(profile());
     t.setNow(real);
-    expect(t.authority.install(mint(real))).toEqual({ ok: false, reason: 'already-ended' });
-    t.authority.correctClock('junk');
-    t.authority.correctClock(real);
-    expect(t.authority.install(mint(real)).ok).toBe(true);
+    const key = mint(real);
+    expect(t.authority.install(key)).toEqual({ ok: false, reason: 'already-ended' });
+    const signed = (now: number, lid: string, k: crypto.KeyObject = devKey) => ({
+      now,
+      kid: dev.kid,
+      sig: base64urlEncode(new Uint8Array(crypto.sign(null, timeMessage(now, lid), k))),
+    });
+    // Unsigned, wrongly signed, signed for another licence, or for no licence: all ignored.
+    expect(t.authority.correctClock({ now: real }, key)).toBe(false);
+    expect(t.authority.correctClock(signed(real, 'lic_unit_000001', crypto.generateKeyPairSync('ed25519').privateKey), key)).toBe(false);
+    expect(t.authority.correctClock(signed(real, 'lic_someone_else'), key)).toBe(false);
+    expect(t.authority.correctClock(signed(real, 'lic_unit_000001'), null)).toBe(false);
+    expect(t.authority.install(key).ok).toBe(false);
+    expect(t.authority.correctClock(signed(real, 'lic_unit_000001'), key)).toBe(true);
+    expect(t.authority.install(key).ok).toBe(true);
     expect(t.authority.snapshot().state).toBe('active');
+  });
+
+  it('a different licence that ends sooner never replaces a longer one', () => {
+    const t = setup({ now: real });
+    const annual = mint(real, { lid: 'lic_unit_annual', iat: real - DAY, exp: real + 300 * DAY });
+    t.authority.install(annual);
+    const short = mint(real, { lid: 'lic_unit_short', iat: real, exp: real + 2 * DAY, plan: 'monthly' });
+    expect(t.authority.install(short)).toEqual({ ok: false, reason: 'shorter-than-current' });
+    expect(t.authority.token()).toBe(annual);
+    // A renewal of the same licence, or a longer other one, is fine.
+    expect(t.authority.install(mint(real, { lid: 'lic_unit_annual', iat: real, exp: real + 665 * DAY })).ok).toBe(true);
   });
 });
 

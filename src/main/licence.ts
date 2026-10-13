@@ -23,7 +23,7 @@ import { advanceHighWater } from '../core/entitlements/clock.js';
 import { DEV_KEYS, PRODUCTION_KEYS, REVOKED_LICENCE_IDS } from '../core/entitlements/config.js';
 import { can, freeSnapshot, resolveEntitlements, type EntitlementSnapshot } from '../core/entitlements/entitlements.js';
 import { isFeature, type Feature, type Tier } from '../core/entitlements/features.js';
-import { decodeToken, normalizeToken, verifyToken, type LicenceClaims, type SignatureCheck, type VerifyResult } from '../core/entitlements/token.js';
+import { base64urlDecode, decodeToken, normalizeToken, timeMessage, verifyToken, type LicenceClaims, type SignatureCheck, type VerifyResult } from '../core/entitlements/token.js';
 
 export interface LicenceMirror {
   readonly token: string | null;
@@ -105,10 +105,11 @@ export interface LicenceAuthority {
   /** What a token would do, verified, without installing it: the deep-link confirmation shows this. */
   preview(raw: string): KeyPreview | { ok: false; reason: string };
   /**
-   * Set the mark to the licence server's time (its reply to refresh or restore). The one way a mark
-   * pushed ahead by a fast clock comes back down; a pasted key never moves it.
+   * Set the mark to the licence server's SIGNED time (its reply to refresh or restore), for the licence in
+   * `forToken`. The one way a mark pushed ahead by a fast clock comes back down; a pasted key never moves
+   * it, and an unsigned or wrongly signed reading (a proxy, a rogue server) is ignored.
    */
-  correctClock(serverNow: unknown): void;
+  correctClock(clock: unknown, forToken: string | null): boolean;
 }
 
 /** A stored mark or iat, or null when it is out of range: ignored rather than allowed to zero the guard. */
@@ -190,6 +191,13 @@ export function createLicenceAuthority(deps: LicenceDeps): LicenceAuthority {
     if ((installed.state === 'active' || installed.state === 'grace') && installedIat !== null && candidate.iat < installedIat) {
       return 'older-than-current';
     }
+    // Another licence that would END SOONER (someone else's short key): refused, so one click cannot
+    // trade a year of Pro for two days. A renewal of the same licence always runs longer.
+    const v = token === null ? null : verify(token);
+    if ((installed.state === 'active' || installed.state === 'grace') && v !== null && v.ok && candidate.lid !== v.claims.lid) {
+      const shorter = v.claims.exp === null ? candidate.exp !== null : candidate.exp !== null && candidate.exp < v.claims.exp;
+      if (shorter) return 'shorter-than-current';
+    }
     return null;
   };
 
@@ -231,13 +239,25 @@ export function createLicenceAuthority(deps: LicenceDeps): LicenceAuthority {
       return current();
     },
     token: () => token,
-    correctClock(serverNow) {
-      const t = saneMark(serverNow);
-      if (t === null) return;
+    correctClock(clock, forToken) {
+      if (typeof clock !== 'object' || clock === null || typeof forToken !== 'string') return false;
+      const c = clock as Record<string, unknown>;
+      const t = saneMark(c.now);
+      const v = verify(normalizeToken(forToken));
+      const sig = typeof c.sig === 'string' ? base64urlDecode(c.sig) : null;
+      if (t === null || !v.ok || sig === null || typeof c.kid !== 'string') return false;
+      let valid = false;
+      try {
+        valid = check(c.kid, timeMessage(t, v.claims.lid), sig);
+      } catch {
+        valid = false;
+      }
+      if (!valid) return false;
       highWater = t;
       rebase();
       tick();
       persistMirror();
+      return true;
     },
     preview(raw) {
       if (typeof raw !== 'string') return { ok: false, reason: 'malformed' };

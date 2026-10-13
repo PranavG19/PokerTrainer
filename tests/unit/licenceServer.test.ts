@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { verifyToken } from '../../src/core/entitlements/token.js';
+import { timeMessage, verifyToken } from '../../src/core/entitlements/token.js';
 import { createLicenceServer, type LicenceRequest } from '../../src/server/licensing/handler.js';
 import { signingKeyFromJwk, verifyWithKeys } from '../../src/server/licensing/mint.js';
 import { MemoryLicenceStore } from '../../src/server/licensing/store.js';
@@ -191,6 +191,16 @@ describe('the licence server', () => {
     expect(JSON.parse((await w.post('/v1/licence/refresh', { token: reply.token })).body).status).toBe('current');
   });
 
+  it('the clock reading in a reply is signed for that licence', async () => {
+    const w = world();
+    await checkout(w);
+    const record = (await w.store.bySubscription('sub_1'))!;
+    const clock = JSON.parse((await w.post('/v1/licence/refresh', { token: record.token })).body).clock as { now: number; sig: string };
+    const pub = crypto.createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: w.x }, format: 'jwk' });
+    expect(crypto.verify(null, timeMessage(clock.now, record.lid), pub, Buffer.from(clock.sig, 'base64url'))).toBe(true);
+    expect(crypto.verify(null, timeMessage(clock.now, 'lic_other'), pub, Buffer.from(clock.sig, 'base64url'))).toBe(false);
+  });
+
   it('refresh refuses a forged token', async () => {
     const w = world();
     expect((await w.post('/v1/licence/refresh', { token: 'OFFSUIT1.e30.' + 'A'.repeat(86) })).status).toBe(400);
@@ -210,7 +220,7 @@ describe('the licence server', () => {
     // A later "active" event for the refunded period cannot re-grant it.
     w.subs.set('sub_1', { ...w.subs.get('sub_1')!, status: 'active' });
     expect((await w.deliver(w.event('customer.subscription.updated', { id: 'sub_1', object: 'subscription' }))).body).toContain('revoked');
-    expect(JSON.parse((await w.post('/v1/licence/refresh', { token })).body)).toEqual({ status: 'revoked', now: w.now() });
+    expect(JSON.parse((await w.post('/v1/licence/refresh', { token })).body)).toMatchObject({ status: 'revoked', clock: { now: w.now(), kid: 'prod-test' } });
   });
 
   it('RACE: Stripe’s first three events at once mint ONE licence and send ONE email', async () => {

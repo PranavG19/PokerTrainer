@@ -16,6 +16,17 @@
 
 export const TOKEN_PREFIX = 'OFFSUIT1';
 
+/**
+ * The licence server's signed clock reading: `OFFSUIT-TIME1.<now>.<lid>`, signed with the same key as tokens.
+ * Bound to one licence id so a reading cannot be lifted onto another licence. The prefix keeps it from ever
+ * being mistaken for (or reused as) a token signature.
+ */
+export const TIME_PREFIX = 'OFFSUIT-TIME1';
+
+export function timeMessage(now: number, lid: string): Uint8Array {
+  return new TextEncoder().encode(`${TIME_PREFIX}.${now}.${lid}`);
+}
+
 /** What a token says. Times are unix seconds (UTC), never local days: a licence is not a streak. */
 export interface LicenceClaims {
   /** Claims format; this build reads 1. */

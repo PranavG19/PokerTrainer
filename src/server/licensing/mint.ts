@@ -4,7 +4,7 @@
  */
 
 import * as crypto from 'node:crypto';
-import { encodeToken, verifyToken, type LicenceClaims, type VerifyResult } from '../../core/entitlements/token.js';
+import { base64urlEncode, encodeToken, timeMessage, verifyToken, type LicenceClaims, type VerifyResult } from '../../core/entitlements/token.js';
 
 export interface SigningKey {
   readonly kid: string;
@@ -23,6 +23,11 @@ export function mintToken(signing: SigningKey, claims: Omit<LicenceClaims, 'v' |
   return encodeToken({ v: 1, kid: signing.kid, ...claims }, (message) =>
     new Uint8Array(crypto.sign(null, message, signing.key)),
   );
+}
+
+/** The server's clock, signed for one licence: what lets the app correct a mark a fast clock pushed ahead. */
+export function signTime(signing: SigningKey, now: number, lid: string): { now: number; kid: string; sig: string } {
+  return { now, kid: signing.kid, sig: base64urlEncode(new Uint8Array(crypto.sign(null, timeMessage(now, lid), signing.key))) };
 }
 
 /** Verify a token the app sent back (refresh), against every public key the server accepts. */

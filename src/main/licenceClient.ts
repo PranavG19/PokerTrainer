@@ -7,7 +7,7 @@
 import { licensingFetch } from './network.js';
 
 export type ServerReply =
-  | { readonly ok: true; readonly token: string | null; readonly status: string; readonly serverNow: number | null }
+  | { readonly ok: true; readonly token: string | null; readonly status: string; readonly clock: unknown }
   | { readonly ok: false; readonly reason: 'not-configured' | 'network' | 'refused' | 'bad-reply'; readonly status?: string };
 
 /** The server's answer to either call: `{ status, token? }`. Anything else is a bad reply. */
@@ -34,9 +34,8 @@ async function call(server: string | null, path: string, body: Record<string, un
   const status = typeof o.status === 'string' ? o.status.slice(0, 40) : 'unknown';
   if (!response.ok) return { ok: false, reason: 'refused', status };
   const token = typeof o.token === 'string' && o.token.length <= 2048 ? o.token : null;
-  // The server's clock, over https: the one reading that may correct a mark a fast clock pushed ahead.
-  const serverNow = typeof o.now === 'number' && Number.isInteger(o.now) ? o.now : null;
-  return { ok: true, token, status, serverNow };
+  // The server's SIGNED clock reading; licence.ts verifies it before it may correct the mark.
+  return { ok: true, token, status, clock: o.clock ?? null };
 }
 
 export function refreshLicence(server: string | null, token: string): Promise<ServerReply> {
