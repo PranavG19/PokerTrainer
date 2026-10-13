@@ -352,6 +352,11 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
   139 into 453 is serious (5.3bb, `pot odds`). No assertion was loosened. Two `gate` tests now wait for the
   handover before reading the save, because seed 10's fold leaves a multiway pot to play out; `predict` 21
   moved from seed 43 for the same limp reason.
+- **`dee.spec` 2 and 3 repinned.** Spec 2 pinned seed 8 (its first-in QQ limp is now a chart mistake) and
+  moves to seed 10 like the coach specs. Spec 3 re-derived "close" itself with the old fixed range and a
+  10-point rule, i.e. the pre-band grader; it now plays a pinned spot (seed 33, hand 1: call, then fold a
+  close postflop bet on the right side, Sure, price reason) found by replaying the renderer path through
+  `gradeSpot` and Dee's `isPriceHeld`. Every assertion on the beat, pose, line, silent coach and fit is kept.
 - No existing unit spec changed. New: `closeSpot.test.ts`, `chartGrade.test.ts`, `villainRanges.test.ts`;
   two perf cases (cold strength table, weighted equity). Red-first: `closeSpot.test.ts` fails 6 of 11 on the
   old `coach.ts` (the big-pot call graded `serious`).
