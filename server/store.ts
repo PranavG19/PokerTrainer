@@ -293,44 +293,51 @@ export class Store {
   // ── A player's rights: export and erasure ──────────────────────────────────
 
   /**
-   * Everything stored about one key, one page at a time: the summary on every page, and EXPORT_PAGE
-   * decision and hand rows from `page`. Every page of a heavy player still fits one server frame.
+   * Everything stored about one key, from one scan of every ledger. Other players at your hands appear by
+   * the first 10 characters of their key only, and nothing about their networks.
    */
-  exportFor(key: string, page = 0): Record<string, unknown> {
-    const from = page * EXPORT_PAGE;
-    const to = from + EXPORT_PAGE;
+  exportAll(key: string): ExportDocument {
     const decisions: unknown[] = [];
     const hands: unknown[] = [];
-    let decisionCount = 0;
-    let handCount = 0;
     for (const season of this.ledgerSeasons()) {
       this.scan<DecisionLine>('decisions', season, (d) => {
-        if (d.k !== key) return;
-        if (decisionCount >= from && decisionCount < to) decisions.push({ ...d, opp: d.opp.map((o) => o.slice(0, 10)) });
-        decisionCount += 1;
+        if (d.k === key) decisions.push({ ...d, opp: d.opp.map((o) => o.slice(0, 10)) });
       });
       this.scan<HandLine>('hands', season, (h) => {
-        if (!h.p.some((p) => p.k === key)) return;
-        // Other players at your hands appear by the first 10 characters of their key only, and nothing
-        // about their networks.
-        if (handCount >= from && handCount < to) hands.push({ h: h.h, day: h.day, p: h.p.map((p) => ({ ...p, k: p.k === key ? 'you' : p.k.slice(0, 10) })) });
-        handCount += 1;
+        if (h.p.some((p) => p.k === key)) hands.push({ h: h.h, day: h.day, p: h.p.map((p) => ({ ...p, k: p.k === key ? 'you' : p.k.slice(0, 10) })) });
       });
     }
     const results: Record<string, Rating> = {};
     for (const [season, rows] of Object.entries(this.state.results)) if (rows[key]) results[season] = rows[key];
     return {
-      key,
-      player: this.player(key) ?? null,
-      leagues: this.leaguesOf(key).map(({ code, row }) => ({ code, name: row.name, owner: row.owner === key, members: row.members.length })),
-      pastSeasons: results,
-      decisionCount,
-      handCount,
-      page,
-      pages: Math.max(1, Math.ceil(Math.max(decisionCount, handCount) / EXPORT_PAGE)),
+      summary: {
+        key,
+        player: this.player(key) ?? null,
+        leagues: this.leaguesOf(key).map(({ code, row }) => ({ code, name: row.name, owner: row.owner === key, members: row.members.length })),
+        pastSeasons: results,
+        decisionCount: decisions.length,
+        handCount: hands.length,
+      },
       decisions,
       hands,
     };
+  }
+
+  /** One page of an export document: the summary, and EXPORT_PAGE decision and hand rows from `page`. */
+  static page(doc: ExportDocument, page: number): Record<string, unknown> {
+    const from = page * EXPORT_PAGE;
+    return {
+      ...doc.summary,
+      page,
+      pages: Math.max(1, Math.ceil(Math.max(doc.decisions.length, doc.hands.length) / EXPORT_PAGE)),
+      decisions: doc.decisions.slice(from, from + EXPORT_PAGE),
+      hands: doc.hands.slice(from, from + EXPORT_PAGE),
+    };
+  }
+
+  /** One page of everything stored about a key (scans every ledger; the lobby serves pages from one scan). */
+  exportFor(key: string, page = 0): Record<string, unknown> {
+    return Store.page(this.exportAll(key), page);
   }
 
   /**
@@ -392,6 +399,12 @@ export class Store {
   close(): void {
     if (this.dirty || this.timer !== null) this.writeNow();
   }
+}
+
+export interface ExportDocument {
+  readonly summary: Record<string, unknown>;
+  readonly decisions: readonly unknown[];
+  readonly hands: readonly unknown[];
 }
 
 /** Decision and hand rows per export page: ~450 bytes a decision row, so a page is well under 1 MiB. */

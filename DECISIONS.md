@@ -1277,7 +1277,9 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
 - **Limits:** per address 8 sockets and 30 attempts a minute, 4,000 sockets in all; sign in within 10 s;
   60 s silence (the client pings every 20 s) closes a socket; 10 frames/s with a burst of 30; 20 strikes
   close it (10 forgiven a minute); export and erasure need a player row and may each start once a minute per
-  key, and an export is paged (1,000 rows a page) so it fits a frame; ledgers are streamed, never read as one
+  key and per network, within a server-wide budget of 4 full-ledger scans a minute (keys and names cost
+  nothing, so a per-key limit alone does not bound the work); an export is scanned once and served in pages
+  of 1,000 rows, in order, each once, so it fits a frame and no later page costs a scan; ledgers are streamed, never read as one
   string; new ranked tables wait while more than 1,000 grades are queued; per-address state is dropped once
   it limits nothing; more than 2 MB unsent closes a slow reader; 10 bad signatures block an address for 10 minutes;
   10 failed room or league codes per 10 minutes per key and per network.
@@ -1318,6 +1320,11 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
 - **Honest noise:** a 95% normal interval on the mean, unrated below 200 decisions, the ladder ordered by the
   interval's upper end (as Standing reads thin samples pessimistically), and rows whose intervals overlap the
   row above marked ≈ ("cannot be told apart").
+- **Known limit, the owner's call: a scripted player can sit near 0 bb/100.** The grader does not grade bet
+  sizes and its thresholds are public, so a bot (or a person with a solver open) that follows them scores
+  near the grader's own play; the review's probe did exactly that. The secret seed removes exact
+  pre-computation, not the strategy. Default taken: no prizes and invite-only leagues remove the motive; a
+  public ladder would need bet-size grading, timing analysis and a cost to make keys (FINDINGS, Open questions).
 - **Collusion caps:** on the season ladder a decision stops counting once the player has 300 decisions with
   the same opponent, and nobody is listed with fewer than 3 different opponents. Friends leagues count
   everything (members chose each other). The operator sees per-pair signals (hands together, chip flow,

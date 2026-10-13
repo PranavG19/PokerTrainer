@@ -25,7 +25,7 @@ import type { DealCrypto } from '../src/core/dealCommit.js';
 import type { Log } from './log.js';
 import { pseudonym } from './log.js';
 import type { Rankings } from './rankings.js';
-import { day, type Store } from './store.js';
+import { day, Store, type ExportDocument } from './store.js';
 
 /** A signed-in connection, as the lobby sees it. */
 export interface Conn {
@@ -61,6 +61,8 @@ export interface LobbyLimits {
   readonly leaguesJoined: number;
   readonly leagueMembers: number;
   readonly emoteGapMs: number;
+  /** Full-ledger scans (export starts and erasures) the whole server runs per minute. */
+  readonly scansPerMinute: number;
 }
 
 export const DEFAULT_LIMITS: LobbyLimits = {
@@ -72,6 +74,7 @@ export const DEFAULT_LIMITS: LobbyLimits = {
   leaguesJoined: 20,
   leagueMembers: 50,
   emoteGapMs: 3_000,
+  scansPerMinute: 4,
 };
 
 const ROOM_BLINDS = { sb: 25, bb: 50, startStack: 5000 } as const;
@@ -299,8 +302,10 @@ export class Lobby {
   private readonly created = new Window(60 * 60_000);
   /** Export (page 0) and erasure each scan every ledger, so a key may start each once a minute. */
   private readonly heavy = new Window(60_000);
-  /** When each key last began an export, so its later pages are not limited like a new one. */
-  private readonly exporting = new Map<string, number>();
+  /** Full-ledger scans (an export's page 0, an erasure) server-wide: the work fresh keys could stack. */
+  private readonly scans = new Window(60_000);
+  /** An export in progress per key: scanned once at page 0, then served page by page, in order, once each. */
+  private readonly exporting = new Map<string, { readonly doc: ExportDocument; readonly at: number; next: number; readonly pages: number }>();
 
   constructor(
     readonly store: Store,
@@ -358,7 +363,8 @@ export class Lobby {
     this.failedJoins.sweep(now);
     this.created.sweep(now);
     this.heavy.sweep(now);
-    for (const [key, at] of this.exporting) if (now - at > EXPORT_WINDOW_MS) this.exporting.delete(key);
+    this.scans.sweep(now);
+    for (const [key, run] of this.exporting) if (now - run.at > EXPORT_WINDOW_MS) this.exporting.delete(key);
   }
 
   tick(): void {
@@ -396,18 +402,33 @@ export class Lobby {
       this.log('player.profile', { who: this.tag(conn.key), first: row.created === day(now) });
       return ok({ name: row.name });
     }
-    if (req.type === 'export' || req.type === 'forget') {
-      // Both scan every ledger: only for a key the server holds something about, and not in a loop.
-      if (player === undefined) return fail('This server holds nothing about this key.');
-      const continuing = req.type === 'export' && req.page > 0 && now - (this.exporting.get(conn.key) ?? -Infinity) < EXPORT_WINDOW_MS;
-      if (!continuing) {
-        if (this.heavy.count(`${req.type}:${conn.key}`, now) >= 1) return fail('Try that again in a minute.');
-        this.heavy.add(`${req.type}:${conn.key}`, now);
+    if (req.type === 'export' && req.page > 0) {
+      // Later pages come from the page-0 scan, in order, each once: no page costs a scan.
+      const run = this.exporting.get(conn.key);
+      if (run === undefined || now - run.at > EXPORT_WINDOW_MS || req.page !== run.next || req.page >= run.pages) {
+        return fail('Ask for the export again from the first page.');
       }
+      run.next += 1;
+      if (run.next >= run.pages) this.exporting.delete(conn.key);
+      return ok(Store.page(run.doc, req.page));
+    }
+    if (req.type === 'export' || req.type === 'forget') {
+      // Both scan every ledger: only for a key the server holds something about, once a minute per key
+      // and per network, and within a server-wide budget, since keys and names cost nothing to make.
+      if (player === undefined) return fail('This server holds nothing about this key.');
+      const ids = [`${req.type}:k:${conn.key}`, `${req.type}:n:${conn.netTag}`];
+      if (ids.some((id) => this.heavy.count(id, now) >= 1)) return fail('Try that again in a minute.');
+      if (this.scans.count('all', now) >= this.limits.scansPerMinute) return fail('The server is busy. Try that again in a minute.');
+      for (const id of ids) this.heavy.add(id, now);
+      this.scans.add('all', now);
     }
     if (req.type === 'export') {
-      if (req.page === 0) this.exporting.set(conn.key, now);
-      return ok(this.store.exportFor(conn.key, req.page));
+      const doc = this.store.exportAll(conn.key);
+      const first = Store.page(doc, 0);
+      const pages = first.pages as number;
+      if (pages > 1) this.exporting.set(conn.key, { doc, at: now, next: 1, pages });
+      else this.exporting.delete(conn.key);
+      return ok(first);
     }
     if (req.type === 'forget') {
       this.seatedIn.get(conn.key)?.unseat(conn.key, null);

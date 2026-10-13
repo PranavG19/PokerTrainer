@@ -200,3 +200,35 @@ describe('7. addresses are not kept after their limits have lapsed', () => {
     }
   });
 });
+
+describe('2b. export pages and fresh keys cannot buy unbounded ledger scans', () => {
+  it('pages are served in order, once each, from one scan; a skipped or repeated page is refused', async () => {
+    const t = await startTestServer();
+    try {
+      const p = await signedIn(t, 'Ada');
+      const first = (await p.request('export', { page: 0 })) as { pages: number };
+      expect(first.pages).toBe(1);
+      await expect(p.request('export', { page: 1 })).rejects.toThrow(/page/);
+      await expect(p.request('export', { page: 5000 })).rejects.toThrow(/page/);
+      p.close();
+    } finally {
+      await t.close();
+    }
+  });
+
+  it('full-ledger scans are budgeted server-wide, so many fresh keys cannot stack them', async () => {
+    const t = await startTestServer();
+    try {
+      const errors: string[] = [];
+      for (let i = 0; i < 6; i += 1) {
+        const p = await signedIn(t, `Key ${i}`);
+        await p.request('forget').catch((e: Error) => errors.push(e.message));
+        p.close();
+      }
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.every((m) => /busy|minute/.test(m))).toBe(true);
+    } finally {
+      await t.close();
+    }
+  });
+});
