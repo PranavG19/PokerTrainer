@@ -1,13 +1,148 @@
-# Review: feat/online-server (e3e58df)
-Verdict: PASS WITH NOTES (re-verified at 894080a: A1-A5, A7-A9 fixed, A6 recorded as the owner's call; no Act-on remains)
+# Review: feat/online-server (e3e58df; round 2 at 402e54e, re-verified at 0f37e2d)
+Verdict: PASS WITH NOTES. Round 2 (licence host + Pro gate) was reviewed at 402e54e and re-verified at 0f37e2d: L1 and L2 are fixed, and no Act-on remains.
+Round 1 (the online server) ended PASS WITH NOTES at 894080a, which is f0745ba after the rebase onto origin/main 592a896.
 Base: 0e9fd0780faecf7314c2bda1ad73cb570e0e9bd7  Head reviewed: e3e58dfe247aa5b5e8238349208f107e87c4a9a8  Re-verified: ff5c28a, 1ec6c3d, then 894080a
 
-The Act-on items are numbered A1-A8 in the order below, and A9 is new at 1ec6c3d. Each carries its end state; the latest check is at 894080a.
+Round 1 Act-on items are numbered A1-A8, and A9 is new at 1ec6c3d (Round 1 section below). Each carries its end state; the latest check is at 894080a.
 
 Probes were written under `tests/tmp/` (git-ignored) and run with `npx vitest run --config /tmp/osv-review/vitest.config.mjs --root .`.
 Copies are kept in `/tmp/osv-review/*.test.ts`, and `tests/tmp/` has been removed. Note: while this review ran, another agent
 committed 680886c (renderer only: `src/renderer/**`, `tests/e2e/online.spec.ts`, `tests/unit/online-screen.test.ts`) on top
 of e3e58df in this worktree. No file under `server/`, `src/core/` or `src/main/` changed, so every probe below exercises e3e58df's code.
+
+## Round 2: licence server on the game port, and the Pro gate (402e54e, re-verified at 0f37e2d)
+Reviewed: `git show 402e54e`, plus the rebase resolution of src/main/preload.ts. Every `ipcRenderer.invoke` channel in
+preload has a matching `ipcMain.handle` in main.ts. The licensing and online blocks both survived the merge, with one
+`exposeInMainWorld`. Probes: `/tmp/osv-review/http-host.test.ts`, run as before under a temporary `tests/tmp/`, since
+deleted.
+
+### Act on (both resolved at 0f37e2d)
+- **L1. server/transport.ts:179-191 + :199-217. The HTTP path has no timeouts, so a slow client holds a socket forever.**
+  When the first chunk is an HTTP request line, the hello timer is cleared and the socket is handed to
+  `httpServer.emit('connection', secure)`. The commit relies on `requestTimeout`/`headersTimeout`, but node:http
+  enforces those from its `connectionsCheckingInterval` sweep, which starts in `listen()`. This server is never
+  listened, so nothing enforces them. `keepAliveTimeout` does work (it is a per-socket timer), so only idle
+  connections between requests are closed.
+  Probe `http-host.test.ts` "slow HTTP clients" (Node 26.11.1), timing each kind of socket:
+  - TLS, then nothing (closed by the game's hello timer): `silent 10.0` s;
+  - `GET / HTTP/1.1\r\n` and nothing more: `request line only STILL OPEN at 150s`;
+  - one header byte every 2 s: `header trickle STILL OPEN at 150s`;
+  - idle after one response: `keep-alive idle 6.0` s.
+
+  Before this commit every socket had to sign in within 10 s. Now a client holds its 8 per-address slots with one
+  write each and no reconnects. About 500 addresses hold all 4,000 sockets indefinitely, and a NAT's own players
+  are shut out by any one of them. This also contradicts the transport header ("Stall: a socket must sign in within
+  HELLO_MS").
+  Fix:
+  - On the HTTP branch, set a hard per-connection deadline (`setTimeout(() => secure.destroy(), 30_000)`, cleared on
+    close), plus an idle timeout (`httpServer.timeout = 10_000`; node:http applies it per socket, without `listen`).
+  - Or keep a manual check for header and request deadlines.
+  - Add a test that holds a request line and expects a close.
+  - **L1, fixed (verified at 0f37e2d).** Each HTTP connection now gets a hard deadline (`httpDeadlineMs`, 20 s) plus
+    `httpServer.timeout = 10_000` for inactivity. Re-run: `silent 10.0 | request line only 10.0 | header trickle 20.0 |
+    keep-alive idle 6.0` (seconds). The request line used to stay open past 150 s, and so did the trickle.
+- **L2. server/transport.ts:204-213. The `/v1/*` rate limit is bypassed by spelling the request target differently.**
+  The limiter tests `req.url.startsWith('/v1/')` on the raw target, but the handler routes on
+  `new URL(request.url, 'http://x').pathname` (src/server/licensing/handler.ts:263). That parse normalises dot
+  segments, and it accepts absolute-form and scheme-relative targets.
+  Probe `http-host.test.ts` "/v1 limit bypass": 30 pipelined POSTs per target on one connection, through a handler
+  that routes exactly as handler.ts does:
+  - `/v1/licence/restore`: reached the handler 20/30 times, with 10 × 429;
+  - `/./v1/licence/restore`, `//h/v1/licence/restore`, `http://h/v1/licence/restore` and `/x/../v1/licence/restore`:
+    each reached it 30/30 times, with 0 × 429.
+
+  The handler's own header says "The host must add rate limiting on /v1/* (restore takes a guessable-looking order
+  id)". `restore` returns the Pro token for a matching order id and email, so this is the spray the limit exists to
+  stop.
+  Fix:
+  - Rate-limit on `new URL(req.url ?? '/', 'http://x').pathname`, the same parse the handler uses. Better, compute
+    it once and pass the normalised path to the handler.
+  - Or refuse any target that is not origin-form, or does not equal its normalised path, with 400.
+  - Consider one bucket for every HTTP request per address, not only `/v1/*`.
+
+  - **L2, fixed (verified at 0f37e2d).** The limits now run on the normalised pathname. A target that does not start
+    with `/`, starts with `//`, or whose pathname differs from its raw path part gets 400. There is also a bucket of
+    120 HTTP requests a minute per address over every path.
+    Re-run, handler hits out of 30 per target:
+    - `/v1/licence/restore`: 20/30, then 429s;
+    - `/./v1/…`, `//h/v1/…`, `http://h/v1/…`, `/x/../v1/…`, `/%2e/v1/…`, `/\v1/…` and `/v1/…#f`: 0/30 each, refused
+      with 400, or 429 once the all-HTTP bucket ran out;
+    - `/v1/…?a=1` reaches the handler only within the same limit.
+### Consider
+- **Resolved at 0f37e2d** (licence faults log `licence.failed` and start the game with licensing off; the store is
+  shape-checked; deploy.sh accepts a quoted `"1"`; checked by reading and by the new licence-host tests):
+  server/licenceStore.ts:35 + server/main.ts:115-121. A bad licences.json took the game down. The constructor
+  `JSON.parse`s with no try and no shape check. A corrupt or half-restored `licences.json` throws in
+  `licenceFromEnv`, main exits 2, and `Restart=on-failure` restarts the process in a loop. So a licence file stops
+  every table. Likewise, any enabled-but-incomplete env exits the whole server. An example: deploy.sh only checks
+  `^OFFSUIT_LICENCE_ENABLED=1`, so `OFFSUIT_LICENCE_ENABLED="1"` skips the placeholder check and the key upload, yet
+  it is enabled at runtime. A shape that parses but is wrong (no `events`) only fails later, inside the write chain.
+  Tradeoff: refusing to run without a working licence server is deliberate (state.json is treated the same way).
+  Starting the game with licensing off and a loud log instead would keep tables up.
+- **Resolved at 0f37e2d** (120 a minute per address over every path): server/transport.ts:199-217. HTTP requests
+  outside `/v1/*` were unmetered. One keep-alive connection can pipeline
+  404s or webhook POSTs (up to 64 KB of HMAC each) as fast as it can write. The frame bucket does not apply.
+  Tradeoff: a per-address bucket over every HTTP request costs one Map lookup.
+- **In part at 0f37e2d** (a resumed ranked seat without Pro is now left, on `welcome` or `room`; the brief seat on a
+  non-Pro join is unchanged and recorded as an open question): src/main/onlineMain.ts:153-162. The Pro gate is client-side, as DECISIONS says (the server cannot check a
+  licence).** Two more ways round it:
+  - A held ranked seat resumes on reconnect with no `canRanked` check, so a licence that lapses mid-session keeps
+    playing ranked.
+  - A non-Pro `room-join` to a ranked code is really seated on the server before main leaves. The seat can start
+    the deal and take part in its handshake, restarting the deal for the others; a click loop repeats this.
+
+  Tradeoff: check `canRanked` on the welcome's `room`, and refuse unknown or ranked codes before joining (needs a
+  server peek), or accept and note it.
+
+### Noted
+- 0f37e2d: when licensing fails, the server runs with every HTTP path returning 404. Stripe webhooks then fail until
+  someone reads `licence.failed` in the journal; Stripe retries for 3 days, then disables the endpoint. This is the
+  chosen tradeoff, and it is logged loudly.
+- 0f37e2d: the 120-a-minute HTTP bucket is per address, so a burst of Stripe webhooks from one Stripe IP above 120 a
+  minute gets 429s and is retried later by Stripe.
+- The daily backup (`/var/lib/offsuit` minus `tls/`) now includes `licences.json`, which holds the live Pro tokens
+  (bearer keys), Stripe subscription ids and email hashes. Teardown downloads it to the Mac. The signing key stays in
+  `/etc/offsuit`, outside the backup.
+- The payments-setup output prints `OFFSUIT_LICENCE_PUBLIC_KEYS='{…}'  # comment` with trailing comments. Copied
+  verbatim into an EnvironmentFile line, the comment may become part of the value (systemd does not strip a trailing
+  `#` mid-line). `licence.env.example`, the documented path, has the safe shape: unquoted JSON, comments on their
+  own lines. This was not executed here (no systemd on macOS).
+- deploy.sh handles a signing-key path with spaces: every use is quoted, and `~` is expanded. A quoted value
+  (`"…"`) is taken literally and fails the `-f` check, with a clear error. The env goes into the tarball as 0600,
+  then 0640 root:offsuit under a 0750 `/etc/offsuit`.
+
+### Dismissed
+- **A game client sending "GET " to dodge the hello timeout or reach the game.** Proof: the HTTP branch never calls
+  `serve()`, so nothing on that socket reaches the lobby. The dodge only holds a socket, which is L1.
+- **Smuggling into the game through pipelining, `Upgrade`, `CONNECT`, or a split first chunk ("GE" + "T /").**
+  Proof: once the socket is handed to node:http it never returns to `serve()`. `CONNECT` and a split request line do
+  not match the sniff regex, so they go to the game path, whose `parseHello` refuses them with a bye.
+- **Secrets in logs.** Proof: the handler logs only `event.type`, `event.id`, the licence id and error messages. The
+  Stripe client's errors are `stripe <path>: <status>`, with the query stripped. `licenceFromEnv` truncates each line
+  to 200 characters. No token, key, email or pepper reaches a log line.
+- **FileLicenceStore races.** Proof: every mutation goes through one promise chain, and every read awaits it. The
+  file is written temp, fsync, rename. One process (one unit).
+- **Ranked without Pro through renderer request shapes.** Proof: `ranked: 1` or `"true"` passes main's
+  `=== true` check, but the server parser requires a boolean (protocol.ts room-create). `rankedAllowed` is false
+  until the authority exists, and the IPC handlers are registered after it.
+
+### Verification (round 2)
+- At 0f37e2d:
+  - The five online test files: exit 0, 102 passed (22 + 53 + 4 + 17 + 6).
+  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
+  - `npm run typecheck`: exit 0.
+  - `http-host.test.ts` re-run with four extra spellings (`/%2e/`, `/\`, `#f`, `?a=1`); outputs are quoted under L1
+    and L2.
+  - Deploy and systemd are still not run.
+- At 402e54e:
+- Online tests (server, core, gate, review-fixes, licence-host): exit 0, 100 passed (22 + 53 + 4 + 17 + 4).
+- relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
+- `npm run typecheck`: exit 0, with the probes removed.
+- Probe `http-host.test.ts` (2 tests, real server over TLS on 127.0.0.1); outputs are quoted above.
+- Not run: the deploy scripts and systemd (no VPS); the real Stripe paths.
+- The worktree's modified `screenshots/` files are not this review's.
+
+# Round 1: the online server (e3e58df → 894080a)
 
 ## Act on (all resolved at 894080a; kept with their end states for the record)
 
