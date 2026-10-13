@@ -8,9 +8,9 @@ import {
   type EquityResult,
   type WeightedRange,
 } from './equity.js';
-import type { Combo } from './preflop.js';
+import { comboOf, type Combo } from './preflop.js';
 import { closeBand, isClose } from './closeSpot.js';
-import { SHOVE_CALL_RANGE, chartMove, chartVerdict, shoveCallChance, shoveLossBb, spotLabel, type ChartSpot } from './chartGrade.js';
+import { SHOVE_CALL_RANGE, chartAction, chartMove, chartVerdict, shoveCallChance, shoveLossBb, spotLabel, type ChartSpot } from './chartGrade.js';
 
 export type Severity = 'free' | 'notable' | 'serious';
 
@@ -94,7 +94,11 @@ export function gradeDecision(input: {
 }): Grade {
   const { hole, board, pot, toCall, bb, chosen, opponents, seed, villainRange, villainHands, chart } = input;
 
-  if (chart && input.street === 'preflop' && chosen === 'allin') {
+  // Facing a raise, jamming a hand the chart re-raises is the chart's raise at a bigger size: the
+  // 3-bettor's stand-in range is almost all value, so pricing it as a shove would charge a 4-bet of QQ.
+  const jamOfChartRaise =
+    chart !== undefined && chart.kind !== 'rfi' && chartAction(chart, comboOf(hole[0], hole[1])) === 'raise';
+  if (chart && input.street === 'preflop' && chosen === 'allin' && !jamOfChartRaise) {
     const callers = input.shoveCallers ?? new Array<number>(Math.max(0, opponents)).fill(shoveCallChance());
     return gradeShove(hole, pot, input.stack, callers, bb, seed ?? 1);
   }

@@ -343,3 +343,21 @@ describe('a shove over a raise is priced against the raiser\'s range', () => {
     expect(viaRaise.severity).not.toBe('free');
   });
 });
+
+/** Re-verification at a3a55f6: jamming a 4-bet hand over a 3-bet was graded serious. */
+describe('a jam of a hand the chart re-raises', () => {
+  it('CO AKo and UTG QQ jamming over a 3-bet are not mistakes', () => {
+    let t = dealt();
+    t = applyAction(t, { kind: 'raise', amount: 125 }); // CO opens
+    t = applyAction(t, { kind: 'raise', amount: 400 }); // BTN 3-bets
+    t = applyAction(t, { kind: 'fold' });
+    t = applyAction(t, { kind: 'fold' });
+    t.seats[t.toAct].hole = ['As', 'Kh'];
+    expect(gradeSpot(t, 'allin', { seed: 1, modelFor: () => null }).severity).toBe('free');
+    const utgQQ = gradeDecision({
+      hole: ['Qs', 'Qh'], board: [], street: 'preflop', pot: 625, toCall: 275, stack: 4875, bb: 50,
+      chosen: 'allin', opponents: 1, seed: 1, chart: { kind: '3bet', opener: 'UTG' }, shoveCallers: [1],
+    });
+    expect(utgQQ.severity).toBe('free');
+  });
+});

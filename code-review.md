@@ -693,6 +693,85 @@ Verdict after fixes: FAIL
 | "called only by QQ+ and AK" false outside first-in | **Fixed.** The copy reads "called by QQ+ and AK". |
 | Card removal in the call chance (±0.5bb) | Noted. |
 
+## Re-verification (at a3a55f6)
+
+Independent re-check of a3a55f6 (`shoveCallChance`, `openerCallChance`, `threeBettorCallChance` and
+`shoveLossBb` in `chartGrade.ts`; `shoveCallers` and the whole-stack-raise rule in `gradeSpot.ts`). I did not
+edit any source file. Grades come from real `TableState`s (`createTable`/`startHand`/`applyAction`, 100bb,
+bb 50, seed 11) run through `gradeSpot` with `modelFor: () => null`. My EV uses my own call chances and the
+exact final pot when the raiser calls. For pot share it uses `equityVsRange` at 20k trials, so the share is
+not independent here (the rv3 oracle agreed with it). Scripts are in `tests/tmp/rv4/`: `check.ts`,
+`edges.ts`, `fourbet.ts` and `defend.ts`.
+
+### Call chances (my own count: pair 6, suited 4, offsuit 12; calling set AA KK QQ AKs AKo = 34)
+
+| Range | Mine | App |
+|---|---|---|
+| Random hand | 34/1326 = 0.0256 | 0.0256 |
+| RFI UTG / HJ / CO / BTN / SB | 34/214, 34/274, 34/354, 34/582, 34/498 = 0.159, 0.124, 0.096, 0.058, 0.068 | identical |
+| 3-bettor proxy vs UTG / HJ / CO / BTN (BB 3-bet region) | 34/34, 34/44, 34/60, 34/74 = **1.000**, 0.773, 0.567, 0.459 | identical |
+
+### Per item
+
+| Item | Status | Evidence |
+|---|---|---|
+| Shoves over a raise priced the raiser as a random hand | **Fixed** (see the new Act on for what it causes in 3-bet spots) | Every spot that was `free` at 6b1d0e1 is now graded, and matches my EV. 6-max BB vs UTG: 72o 5.17 `serious` (mine −5.62), KJo 5.47 (−5.56), A8o 4.51 (−4.46), AQo 4.85 (−4.59), 22 1.00 `notable` (−1.57). 4-max BB vs CO: 72o 1.54, KJo 1.73, A8o 1.14, AQo 1.35, all `notable` (mine −1.81, −1.78, −1.11, −1.19). 4-max SB vs BTN, where BB behind is random: 72o 0.79, KJo 0.95 `notable` (mine −1.03, −1.00). CO jam over a BTN 7.5bb 3-bet: 72o 24.0, KJo 25.1, A8o 21.6, AQo 22.9, 22 8.8 `serious` (mine −26.1, −25.9, −21.9, −22.4, −11.6). AA and KK are `free` everywhere. In `shoveCallers`, folded seats are excluded and hero is excluded from the raisers. The opener gets its RFI chart's chance, the 3-bettor gets the proxy, and anyone yet to act gets the random chance. |
+| A raise to the whole stack skipped the shove grade | **Fixed** | In all 42 spot × hand cases above, `raise` with `betSize = stack + committed` gives a `Grade` deep-equal to `allin`. A raise to more than the stack also counts as a shove. Stack−1, 125 and an undefined `betSize` each stay the chart's raise (KJo CO `free`; 72o CO raise to 125 `notable` 1.00, the chart message). |
+| "called only by QQ+ and AK" copy | **Fixed** | Example: "A shove this deep is called by QQ+ and AK, where you have 21% pot share; it costs ~1.7 bb." |
+| Card removal | Noted (agree) | No change. |
+
+**Regression checks (all pass).**
+- BB facing a limp and a raise (4-max: CO limps, BTN raises to 4bb, SB folds): `chartSpotFor` gives null. Both `allin` and a raise to the whole stack go to the pot-odds model, and neither is converted.
+- 30bb hero: no chart spot, and `allin` takes the pot-odds path.
+- RFI first in: the players behind get the random chance. CO KJo is 2.87 through `gradeSpot`, and the same 2.87 through `gradeDecision` with no `shoveCallers`, which fills the default. 4-max CO and 6-max UTG RFI numbers are unchanged from 6b1d0e1 (CO 72o 2.72, KJo 2.87, 22 0.76, A8o 2.41).
+- Determinism: the same seed gives the same grade.
+- `npx vitest run tests/unit/chartGrade.test.ts`: 33 passed, exit 0.
+
+### New Act on
+
+- **In 3-bet spots, jamming the chart's own 4-bet hands is graded `serious`** (`threeBettorCallChance` → `shoveLossBb`). The 3-bettor's proxy is the BB's 3-bet region. That region is almost all value, so it calls far more often than the ranges `threeBetResponseAction` was built to 4-bet against.
+  - Against a UTG open, the proxy is exactly QQ+/AK, so q = 1: the 3-bettor never folds, and every non-AA/KK jam is priced against the top of its range.
+  - These grades were `free` at 6b1d0e1. Now they are loud false positives on the hands the chart says to raise.
+
+  Opener jams over a 7.5bb 3-bet, 6-max (`fourbet.ts`); the chart's action is `threebet` (4-bet) unless noted:
+
+  | Opener | QQ | JJ | AKs | AKo |
+  |---|---|---|---|---|
+  | UTG | `serious` 11.75 | `serious` 22.33 (chart: call) | `serious` 13.30 | `serious` 19.39 |
+  | HJ | `serious` 6.47 | `serious` 14.64 (chart: call) | `serious` 7.66 | `serious` 12.37 |
+  | CO (also the 4-max table's open) | `notable` 1.68 | `serious` 7.67 | `serious` 2.55 | `serious` 6.01 |
+  | BTN | `free` 0 | `serious` 4.40 | `free` 0.26 | `serious` 3.05 |
+
+  - On the 4-max table, CO open → BTN 3-bet → CO jam is the commonest 3-bet response. There, AQs (chart: 4-bet) is `serious` 18.1, and TT (chart: call) is `serious` 6.5.
+  - The arithmetic is right for the input. The input contradicts the chart: if the 3-bettor really held 57% QQ+/AK, the chart's AKo 4-bet would itself be a mistake.
+  - The message then tells the learner that a standard AK jam over a 3-bet costs ~6 to 19bb.
+  - Fix, either of:
+    - (a) In `defend`/`3bet` spots, when `chartAction(spot, hand)` is `raise`, grade the jam as the chart's raise. This mirrors "a raise to the whole stack is a shove" in the other direction: a shove of a chart-raise hand is that raise.
+    - (b) Give the 3-bettor a range that includes the bluffs the response chart assumes, for example the widest region (`bb-vs-btn`, q 0.46) for every opener, with q < 1 always.
+  - Pin it with a test: CO AKo, and UTG QQ, jamming over a 3-bet are not `serious`.
+
+### Consider
+
+- **Pot overcount when the raiser calls.** `pot + 2·stack` counts the raiser's chips already in twice: (villain committed − hero committed)·share. That is about 0.5bb in defence (1.5bb·share) and about 1.7bb in 3-bet spots (5bb·share). It understates the loss: for example, 22 vs a UTG open is 1.00 (mine 1.57), and 22 jamming over a 3-bet is 8.8 (mine 11.6). No severity flips in the spots tested. Pass `committed` per caller if this is touched.
+- **RFI jams of QQ/JJ/TT/AK are graded `notable`** (6-max UTG: QQ 0.67, AKs 0.86, AKo 1.58, JJ 1.93), and AQs is `serious` 4.12. This predates a3a55f6 (RFI is unchanged), and it follows from "one caller, always QQ+/AK" with no worse-hand calls. It is worth a line in `DECISIONS.md` if it is intended.
+
+### Verification
+
+- `npx vitest run tests/unit/chartGrade.test.ts`: 33 passed, exit 0.
+- Scratch scripts `tests/tmp/rv4/{check,edges,fourbet,defend}.ts` (vite-node): exit 0.
+- Not run, by instruction: typecheck, e2e, `test:full`, Electron, and the full unit suite.
+
+Verdict after fixes: FAIL
+
+
+## Resolution of the re-verification at a3a55f6 (author)
+
+| Finding | Disposition |
+|---|---|
+| Jamming a 4-bet hand over a 3-bet graded serious | **Fixed** (fix a). In defence and 3-bet spots a jam of a hand the chart re-raises is graded as the chart's raise. Test: CO AKo and UTG QQ jamming over a 3-bet are free (red before). |
+| The raiser's chips counted twice in the called pot (≈0.5–1.7bb understatement) | Noted: no severity flip in the reviewer's spots; follow-up. |
+| UTG open-jams of QQ/AK/JJ graded notable | Noted: a real (small) chip loss against QQ+/AK; predates a3a55f6. |
+
 ---
 
 # Review: feat/profile-schema-v2
