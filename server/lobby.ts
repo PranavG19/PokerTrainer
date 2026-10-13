@@ -25,7 +25,7 @@ import type { DealCrypto } from '../src/core/dealCommit.js';
 import type { Log } from './log.js';
 import { pseudonym } from './log.js';
 import type { Rankings } from './rankings.js';
-import { day, Store, type ExportDocument } from './store.js';
+import { day, ERASING, Store, type ExportDocument } from './store.js';
 
 /** A signed-in connection, as the lobby sees it. */
 export interface Conn {
@@ -406,6 +406,7 @@ export class Lobby {
     if (req.type === 'profile') {
       const named = normaliseName(req.name);
       if ('error' in named) return fail(named.error);
+      if (this.store.erasing(conn.key)) return fail(ERASING);
       const row = this.store.setProfile(conn.key, named.name, now);
       this.log('player.profile', { who: this.tag(conn.key), first: row.created === day(now) });
       return ok({ name: row.name });

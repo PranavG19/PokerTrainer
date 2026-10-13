@@ -263,3 +263,16 @@ describe('9. nobody else’s traffic can stop an erasure', () => {
     expect(reopened.read<DecisionLine>('decisions', season)).toEqual([]);
   });
 });
+
+describe('review notes at 894080a', () => {
+  it('a read-only open (the admin tools) never rewrites ledgers, and a key pending erasure cannot set a name', () => {
+    const dir = tmp();
+    const store = Store.open(dir);
+    const season = seasonOf(Date.now());
+    store.setProfile('gone', 'Gone', Date.now());
+    store.append('decisions', season, { k: 'gone', d: 'x:0', ev: 0, g: 1, auto: false, opp: [], day: '2026-10-13', in: {} as never });
+    store.forget('gone');
+    expect(() => store.setProfile('gone', 'Back', Date.now())).toThrow(/being deleted/);
+    expect(Store.open(dir, { readOnly: true }).read<DecisionLine>('decisions', season)).toHaveLength(1);
+  });
+});

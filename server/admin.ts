@@ -32,9 +32,10 @@ function run(argv: readonly string[]): unknown {
   if (argv[0] === 'pin') return { pin: pemFingerprint(fs.readFileSync(argv[1], 'utf8')) };
   const at = argv.indexOf('--state');
   if (at < 0) throw new Error('--state <dir> is required');
-  const store = Store.open(path.resolve(argv[at + 1]));
   const rest = argv.filter((_a, i) => i !== at && i !== at + 1);
   const [command, arg] = rest;
+  // Only `forget` (run with the service stopped) writes; everything else may run beside the live server.
+  const store = Store.open(path.resolve(argv[at + 1]), { readOnly: command !== 'forget' });
   const season = arg ?? seasonOf(Date.now());
   switch (command) {
     case 'stats':

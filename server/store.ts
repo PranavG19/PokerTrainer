@@ -104,7 +104,11 @@ export class Store {
    * rather than starting empty: silently starting over would erase every player, and the fix (restore
    * last night's backup) is the operator's to make.
    */
-  static open(dir: string): Store {
+  /**
+   * `readOnly` (the admin tools while the server runs) skips finishing a pending erasure: rewriting the
+   * ledgers from a second process would drop lines the server appends meanwhile.
+   */
+  static open(dir: string, opts: { readonly readOnly?: boolean } = {}): Store {
     fs.mkdirSync(path.join(dir, 'ledger'), { recursive: true, mode: 0o700 });
     const file = path.join(dir, 'state.json');
     if (!fs.existsSync(file)) {
@@ -137,7 +141,7 @@ export class Store {
     });
     if (parsed.gradeSecret === undefined) store.writeNow();
     // An erasure the last run accepted but did not finish is finished before anything reads a ledger.
-    store.eraseLedgers();
+    if (opts.readOnly !== true) store.eraseLedgers();
     return store;
   }
 
@@ -161,6 +165,8 @@ export class Store {
   }
 
   setProfile(key: string, name: string, now: number): PlayerRow {
+    // Its next erasure pass would remove the new rows too; the key may come back once it has run.
+    if (this.state.erasing.includes(key)) throw new Error(ERASING);
     const today = day(now);
     const before = this.player(key);
     const row: PlayerRow = { name, adultOn: before?.adultOn ?? today, created: before?.created ?? today, seen: today };
@@ -365,6 +371,10 @@ export class Store {
     this.writeNow();
   }
 
+  erasing(key: string): boolean {
+    return this.state.erasing.includes(key);
+  }
+
   pendingErasures(): number {
     return this.state.erasing.length;
   }
@@ -426,6 +436,8 @@ export class Store {
     if (this.dirty || this.timer !== null) this.writeNow();
   }
 }
+
+export const ERASING = 'This key’s data is being deleted. Try again in a minute.';
 
 export interface ExportDocument {
   readonly summary: Record<string, unknown>;
