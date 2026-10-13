@@ -19,6 +19,7 @@ import {
   type CosmeticSlot,
   type CosmeticsState,
   type DeeMemory,
+  type DeeSaid,
   type EntitlementsState,
   type StreakState,
   type MilestonesState,
@@ -37,6 +38,7 @@ export const MAX_STREAK_DAYS = 730;
 export const MAX_REP_AWARDS = 500;
 export const MAX_RECEIPTS = 500;
 export const MAX_REMEMBERED_SENTENCES = 100;
+export const MAX_DEE_SAID = 64;
 export const MAX_GOALS = 2;
 /** Ids and enum-like answers. */
 const MAX_ID_CHARS = 64;
@@ -60,6 +62,9 @@ export function defaultProgression(): ProgressionState {
       keepsakes: [],
       lastGreeting: null,
       personality: { tone: 'warm', frequency: 'normal' },
+      character: true,
+      handsWatched: 0,
+      said: [],
     },
     personalization: {
       answeredOn: null,
@@ -96,6 +101,9 @@ export const PROGRESSION_SHAPE = {
     keepsakes: true,
     lastGreeting: true,
     personality: { tone: true, frequency: true },
+    character: true,
+    handsWatched: true,
+    said: true,
   },
   personalization: {
     answeredOn: true,
@@ -306,7 +314,22 @@ function parseDee(obj: Record<string, unknown>, d: DeeMemory): DeeMemory {
       tone: id(personality.tone) ?? d.personality.tone,
       frequency: id(personality.frequency) ?? d.personality.frequency,
     },
+    character: typeof obj.character === 'boolean' ? obj.character : d.character,
+    handsWatched: Math.min(MAX_RUN * 1000, nonNegativeInt(obj.handsWatched)),
+    said: parseSaid(obj.said),
   };
+}
+
+/** Recent lines: a bad entry is dropped; a hand count is clamped to the lifetime count by the reader. */
+function parseSaid(raw: unknown): DeeSaid[] {
+  const out: DeeSaid[] = [];
+  for (const value of asArray(raw)) {
+    const entry = asRecord(value);
+    const lineId = id(entry.lineId);
+    if (lineId === null) continue;
+    out.push({ lineId, at: nonNegativeInt(entry.at) });
+  }
+  return out.slice(-MAX_DEE_SAID);
 }
 
 function parsePersonalization(obj: Record<string, unknown>): Personalization {

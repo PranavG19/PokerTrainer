@@ -15,6 +15,12 @@ export interface Grade {
    * unpriced spot and on a silent (free) grade.
    */
   price?: { needed: number; had: number };
+  /**
+   * The same two pot shares on EVERY priced decision (a bet to face), silent grades included. The coach
+   * sheet never paints it (a free grade stays silent); Dee's "Price held" reads it to tell a close spot
+   * played right from an easy one (src/core/dee/engine.ts). Absent on an unpriced spot.
+   */
+  spot?: { needed: number; had: number };
 }
 
 export function potOddsRequired(pot: number, toCall: number): number {
@@ -142,6 +148,7 @@ export function gradeDecision(input: {
 
   const grade: Grade = { severity, evLossBb, message, principle };
   if (severity !== 'free' && toCall > 0) grade.price = { needed: required, had: equity };
+  if (toCall > 0 && Number.isFinite(equity) && Number.isFinite(required)) grade.spot = { needed: required, had: equity };
   return grade;
 }
 
