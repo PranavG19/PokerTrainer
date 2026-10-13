@@ -90,6 +90,11 @@ describe('review: crisis words that are poker', () => {
     'this rake is killing me',
     'these bad beats are killing me',
     'is my hand still alive on the river',
+    'is my draw dead',
+    'my hand is dead',
+    'is the button dead',
+    'two hands still alive at showdown',
+    'how many seats are alive',
   ])('%s is not the crisis line', (q) => {
     expect(classify(q)).not.toEqual({ kind: 'refuse', refusal: 'crisis' });
   });

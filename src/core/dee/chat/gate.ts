@@ -117,7 +117,7 @@ const POKER =
 const CRISIS_WORDS =
   /\b(?:die|dying|death|dead|alive|living|suicid\w*|disappear\w*|can'?t take (?:it|this)|cant take (?:it|this)|nothing matters|point (?:of|in) (?:living|life|it all|anything)|worth (?:it|living) anymore|(?:it|everything) (?:all )?to stop)\b/;
 const POKER_DEATH =
-  /\b(?:dead (?:money|hands?|cards?|draws?|button|blinds?|equity)|drawing dead|(?:still |stay(?:s|ing)? )?alive (?:in|on|to|for|after|at) (?:the|this|that|a|my) (?:hand|pot|river|turn|flop|street|showdown)|(?:make|made|for) a living|living room)\b/g;
+  /\b(?:dead (?:money|hands?|cards?|draws?|button|blinds?|equity)|drawing dead|(?:still |stay(?:s|ing)? )?alive (?:in|on|to|for|after|at) (?:the|this|that|a|my) (?:hand|pot|river|turn|flop|street|showdown)|(?:hand|draw|button|seat|card)s? (?:is|are) (?:dead|alive)|(?:dead|alive) at (?:the )?showdown|seats? (?:are |is )?(?:still )?alive|(?:make|made|for) a living|living room)\b/g;
 
 function refusalOf(t: string): Refusal | null {
   const d = deleet(t);
