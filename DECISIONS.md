@@ -46,6 +46,33 @@ Owner decisions in force: D10 (import for review and counting stats only, no pro
 - **`FEATURE_INFO.available` stays false** for both features until the owner answers the checkout question (marking
   them shipped also opens checkout once URLs and prices exist); until then Pro users see "Coming in an update".
 
+## The habit loop, PR 1 (branch `feat-habit-loop`): progression core, Home, onboarding, the Ticket, the Folio
+Owner decisions in force: D5 (the classic daily streak, no freezes), D6 (Price held on the close band), N1 (nothing is
+locked). Review: [`code-review.md`](code-review.md).
+- **The streak (D5)** advances on one finished session a local day: the whole Ticket, an assessment block, a story table
+  played to its end, or 12 hands at a table that day (`progression/streak.ts`). A missed day reads 0 and the best is
+  kept. The plan's Lamp, wicks, Rhythm and Pause are not built. Supersedes: the Lamp, because the owner chose the
+  classic streak.
+- **One path pays (`progression/apply.ts`):** every save diffs the last saved session against the current one, so
+  only new work pays, once per keyed award (`reps.ts`). Stacks, pots and results are not inputs to any rule. A
+  screen passes what a save cannot see as `extras`: a spot finished, Price held, a story table ended, the suggestion
+  taken, a Folio polish.
+- **Price held** is counted at the table's settle from `Grade.close === true` only, never the 10-point fallback.
+- **Today's ring:** clear what is due (nothing due and graded work today), take the suggestion, and one rule in your
+  words. It is derived and never stored, and a day with no work closes nothing.
+- **Seals** are live from the schedule gate, with first-earned receipts as a ratchet. **Milestones:** 20 fixed,
+  fact-labelled ones, ratcheted, with streak milestones read on the best run.
+- **Today's Ticket (D16)** is review, not a session: what is due, one perception drill (Speed and Sight alternate by
+  day) and three spots from the costliest leak. It runs under 30 minutes, checked on the built Ticket, and is
+  frozen at the day's first save, built from the state Home showed.
+- **Folio:** one card per concept from accepted sentences and lesson rules. Tarnish follows schedule.ts's waves in
+  local days, and a late polish counts. It opens from Learn's heading, and the one-page sheet has Copy.
+- **Onboarding:** five skippable sheets in the Play region, so the tabs stay live. The copy claims only uses that
+  exist (the name, the session length, the voice, narration). It can be reopened in Dee's settings.
+- **Schema:** `progression.ticket`, `folio` and `tallies` are additive, with no version bump.
+- **The e2e test clock:** `OFFSUIT_NOW` through `app:testHooks`, honoured only under e2e and never packaged. Onboarding
+  appears under e2e only with `OFFSUIT_E2E_ONBOARDING=1`.
+
 ## Story: the Long Orbit (branch `feat/story-campaign`)
 Owner decisions in force: D1 (character, story in scope; the tutor never authors a number; no trait insults), D17
 (rivals appear in Story first; live play keeps Ada, Bo and Cy), round 2 (each named regular keeps one archetype; the
