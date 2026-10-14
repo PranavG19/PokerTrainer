@@ -354,7 +354,8 @@ export function renderProIcm(props: { bridge: IcmBridge }): HTMLElement {
       return s;
     };
     legend.append(sw('push', `Shove ${pct1(shown.pushShare)}`));
-    if (chipOnly) legend.append(sw('chip-only', `Chip EV only +${pct1(onlyChips / 1326)}`));
+    // Hands chip EV shoves and ICM folds; shown only when there are any (ICM can also be the WIDER one).
+    if (chipOnly && onlyChips > 0) legend.append(sw('chip-only', `Chip EV only +${pct1(onlyChips / 1326)}`));
     legend.append(sw('fold', 'Fold'));
 
     // The selected hand: its two EVs, and what the callers do.

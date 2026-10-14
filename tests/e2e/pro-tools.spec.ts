@@ -204,7 +204,8 @@ test('with a test licence: ICM and push-fold, priced against named callers, at b
     await page.locator('[data-testid="pro-view-icm"]').click();
     const legend = page.locator('[data-testid="pro-chart-legend"]');
     await expect(legend).toContainText('Shove');
-    await expect(legend).toContainText('Chip EV only');
+    // On this bubble the callers tighten so much under ICM that ICM shoves wider: no chip-EV-only hands.
+    await expect(legend).not.toContainText('Chip EV only +0.0%');
     await expect(page.locator('[data-testid="pro-cell"]')).toHaveCount(169);
     await expect(page.locator('[data-testid="pro-cell"][data-combo="AA"]')).toHaveAttribute('data-kind', 'push');
     await expect(page.locator('[data-testid="pro-cell"][data-combo="72o"]')).toHaveAttribute('data-kind', 'fold');

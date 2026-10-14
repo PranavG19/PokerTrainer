@@ -92,7 +92,7 @@ function readingText(s: SpotView): string {
     case 'in-line':
       return 'In line';
     default:
-      return s.n === 0 ? 'No hands yet' : `Not enough yet · ${s.needed} more`;
+      return s.n === 0 ? 'No hands yet' : `${s.needed} more needed`;
   }
 }
 
