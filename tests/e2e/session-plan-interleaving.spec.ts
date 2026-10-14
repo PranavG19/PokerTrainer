@@ -27,6 +27,8 @@ const chartsScreen = '[data-testid="charts-screen"]';
 const PREFRAME_LINES = 3;
 
 async function openInterleaving(page: Page): Promise<void> {
+  // The planner lives on Play since the 7-tab nav (1.14).
+  await page.click('[data-testid="tab-play"]');
   await page.waitForSelector(planner);
   await page.click(`${viewBtn}[data-view="interleaving"]`);
   await expect(page.locator(planner)).toHaveAttribute('data-view', 'interleaving');
@@ -55,7 +57,7 @@ async function driveDrill(page: Page, count: number): Promise<void> {
 }
 
 async function backToHome(page: Page): Promise<void> {
-  await page.click('[data-testid="tab-home"]');
+  await page.click('[data-testid="tab-play"]');
   await page.waitForSelector(planner);
 }
 
@@ -63,6 +65,8 @@ test.describe('the interleaving view (Q1/Q2/Q3)', () => {
   test('I1. the default view is the plan, and its data-mode surface is untouched', async () => {
     const { page, close } = await launchApp({ seed: 42 });
     try {
+      // The planner lives on Play since the 7-tab nav (1.14).
+      await page.click('[data-testid="tab-play"]');
       await page.waitForSelector(planner);
       // The additive data-view attribute defaults to plan; data-mode (the session/free-roam axis the
       // existing suite pins) is present and unchanged.

@@ -16,7 +16,14 @@ import { launchApp, sel } from './helpers.js';
  */
 
 const planner = '[data-testid="session-planner"]';
-const homeScreen = '[data-testid="home-screen"]';
+/** The planner's screen: Play's launcher since the 7-tab nav (1.14); it was Home. */
+const homeScreen = '[data-testid="play-screen"]';
+/** The planner moved from Home to Play with the 7-tab nav (1.14): open Play and wait for its launcher. */
+async function openPlanner(page: Page): Promise<void> {
+  await page.click('[data-testid="tab-play"]');
+  await page.waitForSelector(homeScreen);
+}
+
 const tableScreen = '[data-testid="table-screen"]';
 const planStart = '[data-testid="plan-start"]';
 const lengthBtn = '[data-testid="length-btn"]';
@@ -56,7 +63,7 @@ test.describe('the session planner parameterises the started session', () => {
   test('a planned 50-minute session ends after the planned 3 hands, not forever', async () => {
     const { page, close } = await launchApp({ seed: 42 });
     try {
-      await page.waitForSelector(homeScreen);
+      await openPlanner(page);
       await expect(page.locator(planner)).toBeVisible();
 
       await page.click(`${lengthBtn}[data-minutes="50"]`);
@@ -87,7 +94,7 @@ test.describe('the session planner parameterises the started session', () => {
   test('the plain New session path is the default unbounded table (no hand limit)', async () => {
     const { page, close } = await launchApp({ seed: 42 });
     try {
-      await page.waitForSelector(homeScreen);
+      await openPlanner(page);
       await page.click(sel.newHand);
       await page.waitForSelector(tableScreen);
 

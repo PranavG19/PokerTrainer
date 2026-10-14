@@ -1,5 +1,5 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
 /**
  * These two are IMPORTED rather than mirrored, unlike the figures below. The threshold is quoted
  * verbatim inside a sentence the learner reads, and the false-read rates are exact binomial
@@ -87,7 +87,8 @@ const BELOW_THE_CUT = ['co-river-jam', 'utg-open-fold'];
 const w = (n: number): number => (n <= 0 ? 0 : n / (n + SHRINKAGE_PRIOR));
 
 async function openDossier(page: Page): Promise<void> {
-  await page.click(tabDossier);
+  // Dossier is under Study since the 7-tab nav (1.14).
+  await goTo(page, 'tab-dossier');
   await page.waitForSelector(dossierScreen);
 }
 

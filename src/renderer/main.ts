@@ -1452,7 +1452,7 @@ async function boot(): Promise<void> {
           bridge: io,
           onExit: () => {
             multiplayerActive = false;
-            render();
+            go('home');
           },
           onPlayOnline: () => {
             multiplayerActive = false;
@@ -1470,9 +1470,10 @@ async function boot(): Promise<void> {
           // one block stays reproducible for its run.
           seed: seed + session.stats.handsPlayed,
           onComplete: (grades) => void onAssessmentComplete(grades),
+          // Done returns to Home, the launcher, as it did before the tables moved under Play.
           onExit: () => {
             assessmentActive = false;
-            render();
+            go('home');
           },
         }),
       );

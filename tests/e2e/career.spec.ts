@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { launchApp, sel } from './helpers.js';
+import { launchApp, sel, goTo } from './helpers.js';
 import { tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -16,7 +16,7 @@ const openCareer = '[data-testid="open-career"]';
 const careerBack = '[data-testid="career-back"]';
 
 async function openProfile(page: import('@playwright/test').Page): Promise<void> {
-  await page.click('[data-testid="tab-profile"]');
+  await goTo(page, 'tab-profile');
   await page.waitForSelector(profileScreen);
 }
 
