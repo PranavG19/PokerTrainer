@@ -159,7 +159,7 @@ export function renderYouProfile(f: ProfileFacts, on: { onEdit: () => void; onOp
   built.append(
     stat(`${f.conceptsMastered}`, `of ${f.conceptsTotal} concepts mastered`),
     stat(f.depthLabel, 'certified depth'),
-    stat(`${f.streak.current}`, f.streak.best > f.streak.current ? `day streak · best ${f.streak.best}` : 'day streak, your longest'),
+    stat(`${f.streak.current}`, f.streak.best === 0 ? 'day streak · none yet' : f.streak.best > f.streak.current ? `day streak · best ${f.streak.best}` : 'day streak, your longest'),
   );
   const trophies = el('button', 'pill quiet', 'Trophy room');
   trophies.type = 'button';
