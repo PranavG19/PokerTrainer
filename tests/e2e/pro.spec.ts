@@ -98,7 +98,10 @@ test('activating a key turns Pro on, survives a restart, and survives deleting t
     await activate(first.page, `  ${key.slice(0, 50)}\n${key.slice(50)} `);
     await expect(first.page.locator('[data-testid="pro-settings"]')).toHaveAttribute('data-tier', 'pro');
     await expect(first.page.locator('[data-testid="pro-state"]')).toContainText('Annual Pro, through');
-    await expect(first.page.locator('[data-testid="pro-gate"][data-locked="false"]')).toHaveCount(4);
+    // With Pro, a shipped feature (leak finder, ICM tools) is listed by name; only the two still coming
+    // (ranked play, cloud sync) draw the "Included in your Pro. Coming in an update." card.
+    await expect(first.page.locator('[data-testid="pro-gate"][data-locked="false"]')).toHaveCount(2);
+    await expect(first.page.locator('[data-testid="pro-gate"][data-locked="false"]').first()).toContainText('Coming in an update');
     expect(readProfile(first.userDataDir).progression.entitlements.licence).toBe(key);
     fs.mkdirSync(SHOTS, { recursive: true });
     for (const [w, h] of [[900, 640], [1100, 760]] as const) {
