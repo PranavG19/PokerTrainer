@@ -16,7 +16,8 @@ Owner decisions in force: D10 (import for review and counting stats only, no pro
 - **The store is outside the profile:** `<userData>/hand-histories/hands.ndjson` + `meta.json`, atomic whole-file
   writes streamed line by line, de-duplicated by site and hand id, capped at 50,000 hands AND 100 MB (a hand over
   16 KB is refused). A store found over the cap or unreadable is left untouched and refuses writes, never read as
-  empty and overwritten; so is one whose `meta.json` `storeVersion` is newer than this build's. Lines are rebuilt
+  empty and overwritten; so is one whose `meta.json` `storeVersion` is newer than this build's (any change to the line format must bump
+  `STORE_VERSION`; a store whose `meta.json` is missing reads as version 1). Lines are rebuilt
   from known keys. No raw text, no opponent names, no results (stacks and
   blinds stay, never shown). Deleting the profile leaves it; "Delete imported hands" removes it (refused mid-import).
 - **Imports earn nothing:** no Pro module reaches the store, session, progression, story, gifts or Dee

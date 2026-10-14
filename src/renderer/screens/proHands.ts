@@ -235,14 +235,14 @@ export function renderProHands(props: HandsProps): HTMLElement {
     foot.hidden = !has;
     method.hidden = !has;
     legend.hidden = !has;
-    empty.hidden = has;
+    empty.hidden = has || (r !== null && r.status !== 'ok');
     const stuck = r !== null && r.status !== 'ok';
     clear.hidden = !has && !stuck;
     storeStatus.hidden = !stuck;
     storeStatus.textContent = !stuck
       ? ''
       : r!.status === 'newer'
-        ? 'Your imported hands were saved by a newer Offsuit, so this one only reads them and will not add to them. Update Offsuit, or delete them to start over.'
+        ? 'Your imported hands were saved by a newer Offsuit. This one leaves them untouched and cannot show or add to them: update Offsuit, or delete them to start over.'
         : 'Your imported-hands file could not be read whole, so it is left as it is and nothing new is added. Delete imported hands to start over.';
     const excluded = r?.excluded ?? 0;
     method.textContent =
@@ -348,7 +348,7 @@ export function renderProHands(props: HandsProps): HTMLElement {
         return;
       }
       if (raw?.refused === 'store-unreadable') {
-        showNotice('The imported-hands file could not be read whole, so nothing was added and it was left as it is. Delete imported hands to start over.');
+        showNotice('Nothing was added: your imported hands are kept as they are (see above). Delete them to start over.');
         return;
       }
       if (!raw || 'locked' in raw || raw.canceled === true) return;
