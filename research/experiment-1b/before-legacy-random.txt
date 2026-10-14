@@ -1,0 +1,98 @@
+
+== POOLED (4 mixes x 3 seeds x 2000 hands) ==
+adherent-passive  n= 24000 +79.6 [+58.5, +100.7]      bb/100  σhand=16.7bb  σ/100hands=167bb
+adherent-aggro    n= 24000 +254.2 [+199.1, +309.3]    bb/100  σhand=43.6bb  σ/100hands=436bb
+tag-baseline      n= 24000 +76.0 [+44.0, +108.0]      bb/100  σhand=25.3bb  σ/100hands=253bb
+tag-plus-grader   n= 24000 +177.3 [+138.2, +216.5]    bb/100  σhand=30.9bb  σ/100hands=309bb
+wide-caller       n= 24000 -230.3 [-255.6, -205.1]    bb/100  σhand=20.0bb  σ/100hands=200bb
+never-bluff-nit   n= 24000 +71.3 [+55.7, +86.9]       bb/100  σhand=12.3bb  σ/100hands=123bb
+always-fold       n= 24000 -26.1 [-26.7, -25.6]       bb/100  σhand=0.4bb  σ/100hands=4bb
+random-legal      n= 24000 -368.0 [-460.2, -275.7]    bb/100  σhand=72.9bb  σ/100hands=729bb
+
+== PAIRED DIFFERENCE, adherent-passive minus X (pooled) ==
+vs adherent-aggro    -174.6 [-221.7, -127.5]      bb/100  SEPARATES
+vs tag-baseline      +3.5 [-27.6, +34.7]          bb/100  inside noise
+vs tag-plus-grader   -97.8 [-130.6, -64.9]        bb/100  SEPARATES
+vs wide-caller       +309.9 [+284.8, +335.0]      bb/100  SEPARATES
+vs never-bluff-nit   +8.3 [-13.8, +30.4]          bb/100  inside noise
+vs always-fold       +105.7 [+84.6, +126.8]       bb/100  SEPARATES
+vs random-legal      +447.5 [+358.1, +536.9]      bb/100  SEPARATES
+
+== PER-MIX paired difference, adherent-passive minus X ==
+shipped      vs adherent-aggro    -25.1 [-109.0, +58.8]        inside noise
+shipped      vs tag-baseline      +113.0 [+55.4, +170.5]       SEPARATES
+shipped      vs tag-plus-grader   -14.5 [-73.4, +44.4]         inside noise
+shipped      vs wide-caller       +359.7 [+305.2, +414.2]      SEPARATES
+shipped      vs never-bluff-nit   +105.3 [+54.3, +156.3]       SEPARATES
+shipped      vs always-fold       +188.6 [+136.8, +240.5]      SEPARATES
+shipped      vs random-legal      +470.5 [+291.3, +649.8]      SEPARATES
+all-station  vs adherent-aggro    -1015.3 [-1161.3, -869.3]    SEPARATES
+all-station  vs tag-baseline      -85.5 [-178.6, +7.7]         inside noise
+all-station  vs tag-plus-grader   -487.9 [-585.5, -390.3]      SEPARATES
+all-station  vs wide-caller       +273.3 [+239.0, +307.5]      SEPARATES
+all-station  vs never-bluff-nit   +36.9 [-11.9, +85.7]         inside noise
+all-station  vs always-fold       +278.3 [+240.2, +316.5]      SEPARATES
+all-station  vs random-legal      +468.6 [+197.7, +739.5]      SEPARATES
+all-nit      vs adherent-aggro    +76.1 [+42.3, +109.8]        SEPARATES
+all-nit      vs tag-baseline      -9.0 [-31.4, +13.4]          inside noise
+all-nit      vs tag-plus-grader   +41.5 [+14.2, +68.7]         SEPARATES
+all-nit      vs wide-caller       +39.2 [+22.9, +55.4]         SEPARATES
+all-nit      vs never-bluff-nit   -35.9 [-51.9, -19.9]         SEPARATES
+all-nit      vs always-fold       -23.9 [-38.9, -8.9]          SEPARATES
+all-nit      vs random-legal      +218.9 [+163.0, +274.9]      SEPARATES
+all-tag      vs adherent-aggro    +265.8 [+192.3, +339.3]      SEPARATES
+all-tag      vs tag-baseline      -4.3 [-59.5, +50.9]          inside noise
+all-tag      vs tag-plus-grader   +69.9 [+11.3, +128.4]        SEPARATES
+all-tag      vs wide-caller       +567.5 [+492.5, +642.4]      SEPARATES
+all-tag      vs never-bluff-nit   -73.1 [-123.8, -22.4]        SEPARATES
+all-tag      vs always-fold       -20.4 [-72.5, +31.7]         inside noise
+all-tag      vs random-legal      +632.0 [+493.3, +770.8]      SEPARATES
+
+== GRADER MARGINAL VALUE: tag-plus-grader minus tag-baseline (paired, bb/100) ==
+POOLED       +101.3 [+75.5, +127.1]       n=24000  HELPS
+shipped      +127.5 [+75.9, +179.1]       n=6000  HELPS
+all-station  +402.4 [+331.0, +473.8]      n=6000  HELPS
+all-nit      -50.4 [-69.3, -31.6]         n=6000  HURTS
+all-tag      -74.2 [-123.6, -24.8]        n=6000  HURTS
+
+== GRADER OPINION (adherent policies; every legal action graded at every decision) ==
+allFree = every action < 0.5bb; silent = allFree and nothing flagged close; close = some action
+inside the close band; tied = >1 action at the minimum; decisive = unique minimum and some action charged.
+
+adherent-passive
+  street   decisions allFree  silent   close    tied decisive
+  preflop      23567   64.1%   64.1%    0.0%   47.7%     9.9%
+  flop         13790   35.9%   35.9%    0.0%   57.7%    13.7%
+  turn         12550   29.2%   29.2%    0.0%   59.3%    16.5%
+  river        10276   21.9%   21.9%    0.0%   56.6%    24.5%
+  ALL          60183   43.2%   43.2%    0.0%   53.9%    14.7%
+  verdicts, every legal action: free 80.2%  close 0.0%  notable 15.2%  serious 4.5%
+  verdicts, action played:      free 100.0%  close 0.0%  notable 0.0%  serious 0.0%
+
+adherent-aggro
+  street   decisions allFree  silent   close    tied decisive
+  preflop      23785   62.6%   62.6%    0.0%   48.1%    10.1%
+  flop          9997   11.6%   11.6%    0.0%   56.2%    33.3%
+  turn          7839    9.9%    9.9%    0.0%   51.5%    39.1%
+  river         6349    5.4%    5.4%    0.0%   51.4%    43.4%
+  ALL          47970   35.8%   35.8%    0.0%   50.8%    24.1%
+  verdicts, every legal action: free 74.6%  close 0.0%  notable 15.3%  serious 10.1%
+  verdicts, action played:      free 100.0%  close 0.0%  notable 0.0%  serious 0.0%
+
+== GRADER DIAGNOSTICS (adherent policies only) ==
+adherent-passive  decisions=60183 allFree=25979 (43.2%) tiedAtMin=32454 (53.9%)
+adherent-aggro    decisions=47970 allFree=17162 (35.8%) tiedAtMin=24364 (50.8%)
+
+== SAMPLE SIZE: what this run buys ==
+observed per-hand σ for adherent-passive: 16.7bb → ±21.1 bb/100 at n=24000
+  unpaired CI half-width ±50 bb/100 needs ~4,270 hands
+  unpaired CI half-width ±20 bb/100 needs ~26,682 hands
+  unpaired CI half-width ±10 bb/100 needs ~106,727 hands
+  unpaired CI half-width ±5 bb/100 needs ~426,907 hands
+paired σ (adherent-passive − wide-caller): 19.9bb → half-width ±25.1 bb/100 at n=24000
+
+engine sanity: stuckStates total = 0 (must be 0)
+
+harness dependency hash: 60320edbc1820b68 (HEAD a2159d1 at start)
+
+wrote scripts/experiments/adherence/out/results-2000-legacy-random-dep60320edbc1820b68.json in 1078s

@@ -1,7 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { freshDeck } from '../../src/core/cards.js';
 import { evaluate } from '../../src/core/evaluate.js';
-import { equityVsRandom } from '../../src/core/equity.js';
+import { equityVsRandom, equityVsWeightedRange } from '../../src/core/equity.js';
+import { strengthTable, villainRange } from '../../src/core/villainRanges.js';
+import { ARCHETYPE_PROFILES } from '../../src/core/archetypes.js';
 import { mulberry32, shuffle } from '../../src/core/rng.js';
 import {
   applyAction,
@@ -116,6 +118,15 @@ function playFullHand(): TableState {
   return settle(s);
 }
 
+// Sixteen distinct flops, more than the strength-table cache holds (8), so every call is a cold build.
+const COLD_FLOPS: string[][] = (() => {
+  const rng = mulberry32(20261012);
+  const out: string[][] = [];
+  for (let i = 0; i < 16; i++) out.push(shuffle(freshDeck(), rng).slice(0, 3));
+  return out;
+})();
+const LAG_FLOP_RANGE = villainRange({ model: ARCHETYPE_PROFILES.lag, board: ['Qh', '7c', '2s'], facing: 'bet' });
+
 const spot = (spotClass: string, module: ModuleId, rung = 2): BlockItem => ({ spotClass, module, rung });
 
 /** A 20-spot spec-legal preflop block (>=7 classes, rung 2, no adjacent repeats): the accept path. */
@@ -195,6 +206,30 @@ const CASES: Case[] = [
     baselineRatio: 2.65,
     maxRatio: 4.5,
     absBudgetMs: 60,
+    absLabel: 'single 2000-iter run median',
+  },
+  {
+    // The grader's opponent model: built once per board, the first time hero faces a bet on a street.
+    name: 'strengthTable() — flop, cold (the villain-range build)',
+    run: () => {
+      let idx = 0;
+      return benchBatchMedian(() => {
+        strengthTable(COLD_FLOPS[idx++ % COLD_FLOPS.length]);
+      }, 1, 9, 1);
+    },
+    baselineRatio: 5.8,
+    maxRatio: 9.9,
+    absBudgetMs: 150,
+    absLabel: 'single cold build median',
+  },
+  {
+    name: 'equityVsWeightedRange() — flop vs an archetype range, 2000 iters',
+    run: () => benchBatchMedian(() => {
+      equityVsWeightedRange(['As', 'Kd'], ['Qh', '7c', '2s'], LAG_FLOP_RANGE, 2000, 42);
+    }, 3, 15, 1),
+    baselineRatio: 1.25,
+    maxRatio: 2.1,
+    absBudgetMs: 45,
     absLabel: 'single 2000-iter run median',
   },
   {

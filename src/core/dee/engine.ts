@@ -13,10 +13,8 @@
  *   says the same words. Cooldowns are counted in hands, never in wall-clock time. Every line on cooldown
  *   means silence.
  *
- * SEAM: the grader's close-spot band (`Grade.close`, branch grader-close-band) has not landed on main. Until
- * it does, a spot is close when the pot share sits within CLOSE_SPOT_POINTS of the price, which is the
- * vision's own fallback rule (VISION §2.3). When it lands, pass `grade.close` as `closeBand` to
- * `priceHeldEvent` and the band decides instead.
+ * CLOSE: the grader's close-spot band decides (`Grade.close`, closeSpot.ts). The CLOSE_SPOT_POINTS rule
+ * (VISION §2.3) is only the fallback for a grade without the flag (one restored from an older save).
  */
 
 import type { Grade } from '../coach.js';

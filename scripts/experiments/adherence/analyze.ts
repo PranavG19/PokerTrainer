@@ -9,6 +9,7 @@ import type { MatchResult } from './harness.js';
 import { POLICY_NAMES } from './policies.js';
 import type { PolicyName } from './policies.js';
 import { ciText, interval, pairedDifference, separates } from './stats.js';
+import { graderReport } from './report.js';
 
 const path = process.argv[2] ?? 'scripts/experiments/adherence/out/results-2000.json';
 const file: { hands: number; seeds: number[]; results: MatchResult[] } = JSON.parse(readFileSync(path, 'utf8'));
@@ -69,3 +70,5 @@ process.stdout.write('policy the grader itself would play come out on top? Rank 
 process.stdout.write(`${POLICY_NAMES.length} policies by realised bb/100: ${ranked.findIndex((r) => r.p === 'adherent-passive') + 1} of ${ranked.length}\n`);
 process.stdout.write(`Rank of the deliberately-bad never-bluff-nit: ${ranked.findIndex((r) => r.p === 'never-bluff-nit') + 1} of ${ranked.length}\n`);
 process.stdout.write(`Rank of the always-fold control:              ${ranked.findIndex((r) => r.p === 'always-fold') + 1} of ${ranked.length}\n`);
+
+for (const l of graderReport(file.results)) process.stdout.write(l + '\n');

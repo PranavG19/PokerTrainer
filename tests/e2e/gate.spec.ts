@@ -16,7 +16,7 @@ import { tableScreen, waitForIdle } from './flow.js';
  * attempt resolves early or buys the second prompt.
  *
  * Pinned seeds (shared with coach.spec.ts / predict.spec.ts, found by replaying the real decision path):
- *   seed 8, hand 1  — QsQh: call preflop is FREE; folding for 99 into a 348 pot is SERIOUS (3.9bb).
+ *   Seed 10, hand 1  — 9s7c: calling a limp preflop is FREE; folding middle pair for 139 into a 453 pot is SERIOUS (5.3bb). Seed 8 was the old pin; its first-in QsQh limp is now a chart mistake.
  *   seed 1, hand 1  — 8dAd: call preflop free; folding the flop is NOTABLE (1.1bb) — proves T2, not T3-only.
  *   seed 42, hand 1 — call preflop is FREE (0.2bb) — the negative control: it must NOT gate.
  *
@@ -86,8 +86,8 @@ async function withApp(
   }
 }
 
-/** Drive seed 8, hand 1 to the point where the SERIOUS fold has just been committed and the gate is up. */
-async function reachSeed8Gate(page: Page): Promise<void> {
+/** Drive seed 10, hand 1 to the point where the SERIOUS fold has just been committed and the gate is up. */
+async function reachPinnedGate(page: Page): Promise<void> {
   await openTable(page);
   expect(await waitForIdle(page)).toBe('hero');
   await enableCoachedMode(page);
@@ -101,8 +101,8 @@ async function reachSeed8Gate(page: Page): Promise<void> {
 
 test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
   test('1. a T2+ mistake FIRES the gate and withholds the verdict', async () => {
-    await withApp({ seed: 8 }, async (page) => {
-      await reachSeed8Gate(page);
+    await withApp({ seed: 10 }, async (page) => {
+      await reachPinnedGate(page);
 
       // The gate box is up with its prompt; attempt counter at the first of two.
       await expect(page.locator(gateBox)).toBeVisible();
@@ -127,8 +127,8 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
 
   test('2. a passing (range/price) reason RESOLVES the gate and reveals the verdict', async () => {
     const dir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir: dir }, async (page) => {
-      await reachSeed8Gate(page);
+    await withApp({ seed: 10, userDataDir: dir }, async (page) => {
+      await reachPinnedGate(page);
 
       await page.locator(gateInput).fill('villain only continues a stronger range here');
       await page.locator(gateSubmit).click();
@@ -160,8 +160,8 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
 
   test('3. two misses EXHAUST the gate and reveal anyway (never fails the spot)', async () => {
     const dir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir: dir }, async (page) => {
-      await reachSeed8Gate(page);
+    await withApp({ seed: 10, userDataDir: dir }, async (page) => {
+      await reachPinnedGate(page);
 
       // Attempt 1: a bare hand-strength claim is a miss — the gate stays open for the last attempt.
       await page.locator(gateInput).fill('my hand is too weak');
@@ -177,6 +177,8 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
       await expect(page.locator(tableScreen)).toHaveAttribute('data-gate', 'closed');
       await expect(page.locator(coachPanel)).toHaveAttribute('data-severity', 'serious');
       await expect(page.locator(coachPanel)).toHaveAttribute('data-gate-attempts', '2');
+      // Seed 10's fold leaves a multiway pot to play out; the decision log is saved at the handover.
+      expect(await waitForIdle(page)).toBe('handover');
     });
 
     const saved = readSaved(dir);
@@ -192,14 +194,16 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
     // short — with an expect timeout comfortably past it. No submission is made: expiry must reveal.
     test.slow();
     const dir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir: dir }, async (page) => {
-      await reachSeed8Gate(page);
+    await withApp({ seed: 10, userDataDir: dir }, async (page) => {
+      await reachPinnedGate(page);
 
       // Do not submit; let the 8s budget elapse. The gate auto-resolves to the reveal.
       await expect(page.locator(tableScreen)).toHaveAttribute('data-gate', 'closed', { timeout: 15000 });
       await expect(page.locator(coachPanel)).toHaveAttribute('data-severity', 'serious');
       // "I don't know" is a commitment: expiry with no submission reveals and logs 0.
       await expect(page.locator(coachPanel)).toHaveAttribute('data-gate-attempts', '0');
+      // Seed 10's fold leaves a multiway pot to play out; the decision log is saved at the handover.
+      expect(await waitForIdle(page)).toBe('handover');
     });
 
     const saved = readSaved(dir);
@@ -247,8 +251,8 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
 
   test('5. reduced motion still FIRES and LOGS the gate — decoration off, timer bar on, behaviour intact', async () => {
     // With motion, the gate box and budget bar carry their animations.
-    await withApp({ seed: 8 }, async (page) => {
-      await reachSeed8Gate(page);
+    await withApp({ seed: 10 }, async (page) => {
+      await reachPinnedGate(page);
       const animated = await page.locator(gateBudget).locator(gateBarFill).evaluate(
         (el) => getComputedStyle(el).animationName,
       );
@@ -257,11 +261,11 @@ test.describe('GATE (state 4) — pre-reveal self-explanation', () => {
 
     // Under reduced motion, the same gate fires and logs; only the decorative animation is gone.
     const dir = freshUserDataDir();
-    const launched = await launchApp({ seed: 8, userDataDir: dir });
+    const launched = await launchApp({ seed: 10, userDataDir: dir });
     try {
       const page = launched.page;
       await page.emulateMedia({ reducedMotion: 'reduce' });
-      await reachSeed8Gate(page);
+      await reachPinnedGate(page);
       const boxAnim = await page.locator(gateBox).evaluate((el) => getComputedStyle(el).animationName);
       const barAnim = await page
         .locator(gateBudget)

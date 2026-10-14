@@ -67,8 +67,52 @@ export interface MatchResult {
   graderTiedDecisions: number;
   /** Defensive counter: a live state that offers the actor no legal action. Must be 0. */
   stuckStates: number;
+  /** Per-street opinion counts and verdict histograms over the decisions the grader fully graded. */
+  graderStats: GraderStats;
   showdownsReached: number;
   vpipHands: number;
+}
+
+export interface StreetOpinion {
+  decisions: number;
+  /** Every legal action graded below 0.5bb (the original "no opinion" measure). */
+  allFree: number;
+  /** All free AND none flagged close: the grader says nothing at all. */
+  silent: number;
+  /** At least one legal action graded inside the close band. */
+  close: number;
+  /** More than one legal action at the graded minimum. */
+  tied: number;
+  /** A unique best action and at least one action called a mistake. */
+  decisive: number;
+  /** More than one action CLASS at the minimum (bet/raise/all-in counted as one). */
+  tiedClass: number;
+}
+
+export interface GraderStats {
+  byStreet: Record<string, StreetOpinion>;
+  /** Verdict word -> count, over every legal action graded. */
+  verdictsAllActions: Record<string, number>;
+  /** Verdict word -> count, over the action actually played. */
+  verdictsChosen: Record<string, number>;
+}
+
+export function emptyGraderStats(): GraderStats {
+  return { byStreet: {}, verdictsAllActions: {}, verdictsChosen: {} };
+}
+
+export function foldTrace(stats: GraderStats, t: DecisionTrace): void {
+  if (t.verdicts.length === 0) return; // a veto-arm trace: only the switch was recorded
+  const row = (stats.byStreet[t.street] ??= { decisions: 0, allFree: 0, silent: 0, close: 0, tied: 0, decisive: 0, tiedClass: 0 });
+  row.decisions++;
+  if (t.allFree) row.allFree++;
+  if (t.allFree && !t.anyClose) row.silent++;
+  if (t.anyClose) row.close++;
+  if (t.tiedAtMin > 1) row.tied++;
+  if (t.tiedAtMin === 1 && !t.allFree) row.decisive++;
+  if (t.tiedClasses > 1) row.tiedClass++;
+  for (const v of t.verdicts) stats.verdictsAllActions[v] = (stats.verdictsAllActions[v] ?? 0) + 1;
+  stats.verdictsChosen[t.chosenVerdict] = (stats.verdictsChosen[t.chosenVerdict] ?? 0) + 1;
 }
 
 /** 32-bit mix of the four coordinates that identify one decision stream. */
@@ -107,6 +151,8 @@ export function runMatch(opts: {
   let stuckStates = 0;
   let showdownsReached = 0;
   let vpipHands = 0;
+  const graderStats = emptyGraderStats();
+  const archetypes: (Archetype | null)[] = [null, ...mix.villains];
 
   for (let hand = 0; hand < hands; hand++) {
     // Restore every stack so each hand is an independent 100bb-deep sample.
@@ -117,7 +163,7 @@ export function runMatch(opts: {
     const decisionCount = [0, 0, 0, 0];
     const trace: DecisionTrace[] = [];
     const heroRng: Rng = mulberry32(streamSeed(seed, handNumber, 0, 0));
-    const ctx: PolicyContext = { rng: heroRng, graderSeed: seed + handNumber, trace };
+    const ctx: PolicyContext = { rng: heroRng, graderSeed: seed + handNumber, trace, archetypes };
     let voluntary = false;
 
     while (!isHandOver(state)) {
@@ -147,6 +193,7 @@ export function runMatch(opts: {
     for (const t of trace) {
       if (t.allFree) graderSilentDecisions++;
       if (t.tiedAtMin > 1) graderTiedDecisions++;
+      foldTrace(graderStats, t);
     }
 
     table = state;
@@ -162,6 +209,7 @@ export function runMatch(opts: {
     graderSilentDecisions,
     graderTiedDecisions,
     stuckStates,
+    graderStats,
     showdownsReached,
     vpipHands,
   };

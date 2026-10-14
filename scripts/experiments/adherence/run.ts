@@ -12,12 +12,14 @@
  * quote real numbers rather than a summary.
  */
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { cpus } from 'node:os';
 import { promisify } from 'node:util';
 import { MIXES } from './harness.js';
 import type { MatchResult } from './harness.js';
+import { GRADER_MODE } from './grade.js';
+import { graderReport, marginalReport } from './report.js';
 import { POLICY_NAMES } from './policies.js';
 import type { PolicyName } from './policies.js';
 import { ciText, handsForHalfWidth, interval, pairedDifference, separates } from './stats.js';
@@ -47,7 +49,14 @@ const DEPENDENCIES = [
   'src/core/evaluate.ts',
   'src/core/cards.ts',
   'src/core/rng.ts',
-];
+  'src/core/preflop.ts',
+  // The grader's own modules, once they exist: the close band, the villain ranges, the state adapter.
+  'src/core/closeSpot.ts',
+  'src/core/villainRanges.ts',
+  'src/core/gradeSpot.ts',
+  'src/core/archetypes.ts',
+  'scripts/experiments/adherence/grade.ts',
+].filter((f) => existsSync(f));
 
 function sourceProvenance(): { head: string; dependencyHash: string; dirtyDependencies: string[] } {
   const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -61,7 +70,7 @@ function sourceProvenance(): { head: string; dependencyHash: string; dirtyDepend
 }
 
 const OUT_DIR = 'scripts/experiments/adherence/out';
-const CELL_DIR = `${OUT_DIR}/cells-${hands}`;
+const CELL_DIR = `${OUT_DIR}/cells-${hands}-${GRADER_MODE}`;
 mkdirSync(CELL_DIR, { recursive: true });
 
 interface Cell {
@@ -82,7 +91,7 @@ for (const mix of MIXES) {
 
 const provenanceBefore = sourceProvenance();
 process.stderr.write(
-  `harness dependencies: hash ${provenanceBefore.dependencyHash} at HEAD ${provenanceBefore.head}` +
+  `grader mode ${GRADER_MODE}; harness dependencies: hash ${provenanceBefore.dependencyHash} at HEAD ${provenanceBefore.head}` +
     `${provenanceBefore.dirtyDependencies.length ? ' (DIRTY)' : ''}\n`,
 );
 
@@ -90,6 +99,30 @@ const startedAt = Date.now();
 let done = 0;
 
 async function execCell(cell: Cell): Promise<MatchResult> {
+  // A cell is deterministic, so a retry after a transient spawn or file error (EPERM was seen on a
+  // loaded shared machine) reproduces exactly the same result.
+  // A finished cell from an interrupted run of the same build is reused: same inputs, same bytes.
+  if (existsSync(cell.path)) {
+    try {
+      const prior: MatchResult = JSON.parse(readFileSync(cell.path, 'utf8'));
+      done++;
+      return prior;
+    } catch {
+      // half-written: run it again
+    }
+  }
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await execCellOnce(cell);
+    } catch (err) {
+      if (attempt >= 6) throw err;
+      process.stderr.write(`retrying ${cell.path} after: ${String(err).split('\n')[0]}\n`);
+      await new Promise((r) => setTimeout(r, 30_000));
+    }
+  }
+}
+
+async function execCellOnce(cell: Cell): Promise<MatchResult> {
   await run('./node_modules/.bin/vite-node', [
     'scripts/experiments/adherence/cell.ts',
     cell.policy,
@@ -124,7 +157,9 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   return out;
 }
 
-const results = await mapLimit(cells, Math.max(1, cpus().length - 1), execCell);
+// OFFSUIT_JOBS caps the fan-out on a shared machine.
+const jobs = Number(process.env.OFFSUIT_JOBS ?? cpus().length - 1);
+const results = await mapLimit(cells, Math.max(1, jobs), execCell);
 
 // ── Pooled per-policy and paired-vs-adherent tables ──────────────────────────
 
@@ -169,6 +204,9 @@ for (const mix of MIXES) {
   }
 }
 
+for (const l of marginalReport(results)) say(l);
+for (const l of graderReport(results)) say(l);
+
 say('\n== GRADER DIAGNOSTICS (adherent policies only) ==');
 for (const policy of ['adherent-passive', 'adherent-aggro'] as PolicyName[]) {
   const rs = results.filter((r) => r.policy === policy);
@@ -203,12 +241,13 @@ if (provenanceBefore.dirtyDependencies.length > 0) {
   say(`!! uncommitted changes in harness dependencies: ${provenanceBefore.dirtyDependencies.join(', ')}`);
 }
 
-const outPath = `${OUT_DIR}/results-${hands}-dep${provenanceBefore.dependencyHash}.json`;
+const outPath = `${OUT_DIR}/results-${hands}-${GRADER_MODE}-dep${provenanceBefore.dependencyHash}.json`;
 writeFileSync(
   outPath,
   JSON.stringify({
     hands,
     seeds,
+    graderMode: GRADER_MODE,
     mixes: MIXES,
     provenanceBefore,
     provenanceAfter,
@@ -218,5 +257,5 @@ writeFileSync(
     results,
   }),
 );
-rmSync(CELL_DIR, { recursive: true, force: true });
+rmSync(CELL_DIR, { recursive: true, force: true }); // only after a complete run, so a resume never mixes builds
 process.stdout.write(`\nwrote ${outPath} in ${((Date.now() - startedAt) / 1000).toFixed(0)}s\n`);

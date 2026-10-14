@@ -268,6 +268,116 @@ optional opt-in download, not in the base install.
 - **Single-instance lock** per user-data directory. A second launch exits and focuses the first, except
   under e2e, where it does not take focus.
 
+## The grader, Wave 0 (branch `grader-close-band`): close band, charts preflop, villain ranges
+Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Results:
+[`research/EXPERIMENT-1b.md`](research/EXPERIMENT-1b.md). Review: [`code-review.md`](code-review.md).
+
+### Close-spot band (`src/core/closeSpot.ts`)
+- **Band = 95% Monte Carlo half-width + a 2.5-point model margin.** The half-width uses the exact per-trial
+  variance of win + tie/2 (about ±2.2 points for a coin flip at 2000 iterations). The margin is the domain
+  review's "about 2.5 points, widened by a range-model margin", pinned by a test.
+- **A close spot is graded `free` with `close: true`, `evLossBb` 0, no principle.** It never opens the gate,
+  never files a leak and never counts as a mistake. `Grade.estimateLossBb` keeps the point estimate, so a
+  later "Price held" can fire on `close && estimateLossBb === 0` (close, played on the right side).
+- **A close spot speaks only when the estimate alone would have (≥ 0.5bb)**, with a neutral "Close spot: …"
+  line, no bb figure, no severity hue (`data-severity="close"`, ink-2). This keeps the silence rule literal:
+  no comment still means under half a big blind. Rejected: a silent close, which would break that rule.
+- **Only verdicts that turn on a line can be close:** the price facing a bet, the 0.55 late-street check line,
+  the 0.35 unpriced-bet line. Folding when checking is free is never close (check dominates it exactly).
+- **Dee's "Price held" reads the band.** Every priced grade, close ones included, carries `spot` (the two
+  shares, main's Dee seam), and Dee passes `grade.close` to `isPriceHeld`; its 10-point rule is only the
+  fallback for a saved grade without the flag.
+- **`close` and `estimateLossBb` are optional on `Grade`** and not persisted: a saved verdict keeps its four
+  stored fields, and review shows the close line under "No leak flagged · 0.0 bb".
+
+### Preflop from the charts (`src/core/chartGrade.ts`, `src/core/gradeSpot.ts`)
+- **Chart spots:** first in (RFI); facing one open with no callers as the big blind (any opener) or the small
+  blind vs the button; facing one 3-bet after opening from UTG/HJ/CO/BTN. Read from the preflop log. Seats map
+  onto the 6-max charts by distance from the button (4-max first seat = CO, as `contrast.ts` maps it).
+  Limped, multiway, squeeze, 4-bet and heads-up pots stay on the pot-odds model with the archetype range.
+- **Charts are standard, not archetype-adjusted.** Defending against a nit's open is graded as against a
+  standard open. See Open questions.
+- **Cost model, stated:** too loose = 27 · pot(bb) · d², d the share of all hands outside hero's region, capped
+  at 2/3 of the unopened pot (1bb) or a quarter of the price facing a raise (calling a 3-bet with 77 off the CO chart ≈ 1.4bb, notable, not serious); too tight = value · share, value 2.7 pots
+  unopened (4bb) or 1 pot raised, share decaying by e every 4% of hands from the top to 0 at the edge;
+  flatting a re-raise hand is a fifth of folding it; a limp is half the nearer mistake. Folding aces first
+  in ≈ 3.8bb from any seat, opening 72o = 1bb (notable), a hand 10% of all hands outside the CO chart ≈ 0.4bb (silent).
+- **Mixed cells are close:** RFI uses the authored `BOUNDARY_COMBOS`; defence and 3-bet spots use row
+  adjacency (a neighbour one kicker or one pair away takes the action one region over: 3-bet/call or
+  call/fold; 3-bet/fold in the 3-bet-or-fold small blind vs button chart). Folding AKo beside a folded AQo
+  facing a 3-bet is a mistake, not close.
+- **Not chart spots:** any all-in in the preflop betting, an open over 5bb, a 3-bet over 15bb, or hero or a
+  raiser under 40bb. The 100bb standard-size charts do not apply; the pot-odds model, which sees the price,
+  grades them.
+- **A hero shove in a chart spot is priced on its own:** EV relative to folding now = P(all fold)·pot +
+  P(called)·(share·(pot + 2·stack) − stack), the call range QQ+/AK (the tightest opener's value 4-bet
+  range), one caller assumed, share from the same seeded Monte Carlo. Each opponent calls with its own
+  chance: any hand if it has not acted, its seat's RFI chart if it opened, the big blind's 3-bet region
+  against hero's seat if it 3-bet (the app has no 3-bettor chart by seat). A raise to the whole stack is
+  graded as a shove. Facing a raise, a jam of a hand the chart re-raises is graded as that raise (the
+  3-bettor's stand-in range is almost all value, so shove pricing would charge a 4-bet of QQ). A loss bound against folding, so for a
+  chart hand it understates. 100bb 72o, KJo, 22 or A8o first in are mistakes; AA and KK are not. Never close.
+  Supersedes: 3x the wrong-raise cost, because that left near-edge shoves (KJo, 22) silent.
+- **Chart and close verdicts carry no price meter** (a close spot's two shares overprint on the meter; the message quotes both) and use the principle `position` (RFI) or `ranges`.
+
+### Villain ranges (`src/core/villainRanges.ts`)
+- **The range is the archetype's own rule read as a likelihood:** P(bet | hand) = raiseFreq · v + bluffFreq
+  · (1 − v), v a logistic step (width 0.03, the bots' own 300-iteration noise) of the hand's strength on the
+  current board around `raiseStrength`. One source of truth with the bots and the exploit text. Rejected: an
+  authored tight/standard/wide family, which would be a second model of the same opponents.
+- **Street:** strength is re-measured on each board; postflop each hand is also weighted by its preflop
+  continuation likelihood. Earlier postflop streets are not replayed (one-street memory).
+- **Bet or raise** is read from the aggressor's own last log line (exact name match), not from hero's chips.
+- **Bet size:** for a postflop bet into no bet, the aggressor's chips over the pot without this street's
+  chips; the value line moves 0.1 per doubling against the archetype's own size, capped at one doubling, and
+  is zero at that size, so the bots are modelled exactly. A raise, and any preflop action, is modelled at
+  the archetype's own size (a raise's size cannot be recovered from the state).
+- **Crowd:** +0.03 per extra live player, as the bots do.
+- **Deterministic:** strength tables average 16 runouts seeded from the board (exact on the river); preflop
+  strength is a generated 169-hand table (`src/core/preflopStrength.ts`, 100k iterations each,
+  `scripts/grader/gen-preflop-strength.ts`). Cached per board (8 boards).
+- **The verdict never names the archetype** (the label stays hidden in-hand, O3); the fixed
+  `VILLAIN_BETTING_RANGE` remains the fallback for a seat with no model.
+
+### One adapter
+- **`gradeSpot(state, chosen, { seed, betSize, modelFor })`** is the only grader entry from a table state.
+  The live table, the assessment block and the Experiment 1 harness all call it (the harness used to grade
+  with no villain model while the table passed one).
+
+### Specs and tests
+- **e2e pin moved, seed 8 → seed 10** in `coach`, `gate`, `predict`, `voice`, `sound`, `coached-handover`
+  and `a11y-coach-announcer` specs. They pinned "calling 50 preflop is free" on seed 8, where the hero's
+  call is a first-in limp of QsQh: the old, wrong behaviour (the BTN chart raises QQ; a limp is never in the
+  chart). Seed 10 gives the same shape honestly: calling a limp with 9s7c is free, folding middle pair for
+  139 into 453 is serious (5.3bb, `pot odds`). No assertion was loosened. Two `gate` tests now wait for the
+  handover before reading the save, because seed 10's fold leaves a multiway pot to play out; `predict` 21
+  moved from seed 43 for the same limp reason.
+- **`dee.spec` 2 and 3 repinned.** Spec 2 pinned seed 8 (its first-in QQ limp is now a chart mistake) and
+  moves to seed 10 like the coach specs. Spec 3 re-derived "close" itself with the old fixed range and a
+  10-point rule, i.e. the pre-band grader; it now plays a pinned spot (seed 33, hand 1: call, then fold a
+  close postflop bet on the right side, Sure, price reason) found by replaying the renderer path through
+  `gradeSpot` and Dee's `isPriceHeld`. Every assertion on the beat, pose, line, silent coach and fit is kept.
+- No existing unit spec changed. New: `closeSpot.test.ts`, `chartGrade.test.ts`, `villainRanges.test.ts`;
+  two perf cases (cold strength table, weighted equity). Red-first: `closeSpot.test.ts` fails 6 of 11 on the
+  old `coach.ts` (the big-pot call graded `serious`).
+
+### Open questions (default taken in brackets)
+- **Charts vs archetypes preflop.** Defending against a nit's open is graded as against a standard open.
+  [Standard charts; archetype-adjusted preflop ranges are a follow-up.]
+- **The verdict can hint at a hidden archetype.** A call graded free against a maniac's bet but not against
+  a nit's tells a careful learner something the seat label hides until showdown. [Accepted: the grade is
+  shown after the decision and never names the archetype.]
+- **The station bot's bets are mostly air.** Its parameters (bluffBetFreq 0.05, raiseFreq 0.15) make 82–91% of its
+  flop bets (by weight, on three sample flops) hands below its own value line, so the grader tells a learner to call it down. True of the
+  bot, not of real passive players. [Bots unchanged; retuning `station` is the owner's call.]
+- **Close spots in big pots.** The band is in pot-share points, so a 300bb pot can hold a ~14bb estimate
+  inside "close". [Kept: it is the honest uncertainty; `estimateLossBb` keeps the figure.]
+- **Shove pricing assumes a QQ+/AK caller.** So a 6-max BB jam of trash over a BTN open shows a profit (the
+  BTN folds 94%), and jams of hands the chart only calls over a 3-bet are priced against an all-value
+  3-bettor (UTG JJ ≈ 23bb). [Kept; a 3-bettor range with bluffs and a wider caller range are follow-ups.]
+- **Folding aces to an open is graded ~3.4bb** (published solver gap ~9–11bb, the reviewer's recall). Still
+  `serious`. [Kept; recalibrating moves the Experiment 1 numbers.]
+
 ## The full redesign (branch `glass-full-redesign`): the mockup, built
 The restyle below gave the app the tokens, materials and the `sports` table, but most screens kept their old
 layouts. This branch builds the mock's layouts and components (`demo/glass/*.html`, rounds 3 and 5) in the

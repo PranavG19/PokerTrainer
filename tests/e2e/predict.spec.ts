@@ -18,8 +18,8 @@ import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
  * leak into default play, because 83 other e2e tests drive the action buttons directly.
  *
  * Seeds are PINNED to spots coach.spec.ts already documents:
- *   seed 8, hand 1 — hero holds QsQh on 8c9h8s. Calling 50 preflop is FREE (66% equity);
- *                    folding for 99 into a 348 pot throws away 3.9bb and grades SERIOUS.
+ *   Seed 10, hand 1 — hero holds 9s7c on 6c7sTd (seed 8 moved: limping its first-in QsQh is now a chart mistake). Calling the 50 limp preflop is FREE;
+ *                    folding for 139 into a 453 pot throws away 5.3bb and grades SERIOUS.
  * So on that hand "call" is the coach-agreed action and "fold" is the graded mistake — which is
  * exactly the lever needed to produce a match, a sure-but-wrong and a guess-but-wrong on demand.
  */
@@ -125,7 +125,7 @@ async function withApp(
 
 test.describe('coached mode toggle', () => {
   test('1. defaults OFF: no predict panel exists at all', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
 
@@ -140,7 +140,7 @@ test.describe('coached mode toggle', () => {
   });
 
   test('2. with the toggle OFF the action buttons are live immediately and the hand plays as before', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
 
@@ -157,7 +157,7 @@ test.describe('coached mode toggle', () => {
   });
 
   test('3. turning it on mounts the panel with all four actions and both confidences', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       await enableCoachedMode(page);
@@ -177,7 +177,7 @@ test.describe('coached mode toggle', () => {
   });
 
   test('4. turning it back off removes the panel and re-opens the controls', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       await enableCoachedMode(page);
@@ -193,7 +193,7 @@ test.describe('coached mode toggle', () => {
 
 test.describe('the gate', () => {
   test('5. every action button is DISABLED until both halves are committed', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       await enableCoachedMode(page);
@@ -221,7 +221,7 @@ test.describe('the gate', () => {
   });
 
   test('6. confidence first, then action, also unlocks — order does not matter', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       await enableCoachedMode(page);
@@ -249,7 +249,7 @@ test.describe('the gate', () => {
   });
 
   test('7. the gate is in the action path, not just the button: a forced click and the C key do nothing', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       await enableCoachedMode(page);
@@ -273,9 +273,9 @@ test.describe('the gate', () => {
 });
 
 test.describe('the reveal', () => {
-  /** Seed 8 hand 1: calling 50 preflop with QQ is free, so a committed 'call' is a match. */
+  /** seed 10 hand 1: calling the limp preflop is free, so a committed 'call' is a match. */
   test('8. a prediction the coach agrees with reveals as a match', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       await enableCoachedMode(page);
@@ -293,11 +293,11 @@ test.describe('the reveal', () => {
     });
   });
 
-  /** Same pinned spot: folding QQ for 99 into 348 is a 3.9bb SERIOUS error. */
+  /** Same pinned spot: folding middle pair for 139 into 453 is a 5.3bb SERIOUS error. */
   test('9. SURE-but-wrong is flagged distinctly from GUESS-but-wrong', async () => {
     const sureText = await (async (): Promise<string> => {
       let text = '';
-      await withApp({ seed: 8 }, async (page) => {
+      await withApp({ seed: 10 }, async (page) => {
         await openTable(page);
         await enableCoachedMode(page);
         await commit(page, 'call', 'sure');
@@ -318,7 +318,7 @@ test.describe('the reveal', () => {
     })();
 
     let guessText = '';
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
       await commit(page, 'call', 'sure');
@@ -342,8 +342,8 @@ test.describe('the reveal', () => {
 
   /**
    * G8's 2x2: the four cells must carry four DIFFERENT support lines (the differential treatment),
-   * and 'deviated' must carry none. Pinned seed 8 hand 1 gives all four on demand — call preflop is
-   * free (a match: sure-correct or guess-correct by the confidence), fold the flop is a 3.9bb
+   * and 'deviated' must carry none. Pinned seed 10 hand 1 gives all four on demand — call preflop is
+   * free (a match: sure-correct or guess-correct by the confidence), fold the flop is a 5.3bb
    * SERIOUS error (sure-wrong or guess-wrong by the confidence).
    */
   test('9b. the four cells render four different support lines; deviated renders none', async () => {
@@ -352,7 +352,7 @@ test.describe('the reveal', () => {
       confidenceWrong: 'sure' | 'guess' | null,
     ): Promise<string> => {
       let line = '';
-      await withApp({ seed: 8 }, async (page) => {
+      await withApp({ seed: 10 }, async (page) => {
         await openTable(page);
         await enableCoachedMode(page);
         await commit(page, 'call', confidenceMatch);
@@ -394,7 +394,7 @@ test.describe('the reveal', () => {
     expect(guessWrong).toContain('terse correction plus a worked example');
 
     // Deviated: commit fold, then call — nothing was tested, so no support is owed.
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
       await commit(page, 'fold', 'sure');
@@ -406,7 +406,7 @@ test.describe('the reveal', () => {
   });
 
   test('10. a fresh commitment is required for the next decision on the same hand', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
       await commit(page, 'call', 'sure');
@@ -427,7 +427,7 @@ test.describe('the reveal', () => {
   });
 
   test('11. the panel resets between hands — last hand’s verdict is stale advice', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
       await commit(page, 'call', 'sure');
@@ -450,7 +450,7 @@ test.describe('the reveal', () => {
 test.describe('calibration', () => {
   test('12. counts accumulate and surface on the profile', async () => {
     const userDataDir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir }, async (page) => {
+    await withApp({ seed: 10, userDataDir }, async (page) => {
       // Empty first: the zero state must be a sentence, not NaN.
       await page.locator(sel.tabProfile).click();
       await page.waitForSelector(profileScreen);
@@ -461,7 +461,7 @@ test.describe('calibration', () => {
       await openTable(page);
       await enableCoachedMode(page);
 
-      // One match, then one sure-but-wrong, in the pinned seed-8 spot.
+      // One match, then one sure-but-wrong, in the pinned seed-10 spot.
       await commit(page, 'call', 'sure');
       await page.locator(sel.btnCall).click();
       expect(await waitForIdle(page)).toBe('hero');
@@ -508,7 +508,7 @@ test.describe('calibration', () => {
      * prints the comparison.
      */
     const userDataDir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir }, async (page) => {
+    await withApp({ seed: 10, userDataDir }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
 
@@ -544,7 +544,7 @@ test.describe('calibration', () => {
 
   test('13. a deviation is not counted: committing fold and then calling tests nothing', async () => {
     const userDataDir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir }, async (page) => {
+    await withApp({ seed: 10, userDataDir }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
 
@@ -565,7 +565,7 @@ test.describe('calibration', () => {
   test('14. the toggle and the tally survive a restart', async () => {
     const userDataDir = freshUserDataDir();
 
-    await withApp({ seed: 8, userDataDir }, async (page) => {
+    await withApp({ seed: 10, userDataDir }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
       await commit(page, 'call', 'sure');
@@ -583,7 +583,7 @@ test.describe('calibration', () => {
         .toBe(true);
     });
 
-    await withApp({ seed: 8, userDataDir }, async (page) => {
+    await withApp({ seed: 10, userDataDir }, async (page) => {
       await page.waitForSelector(homeScreen);
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
@@ -603,7 +603,7 @@ test.describe('calibration', () => {
 
 test.describe('coached mode does not break the table', () => {
   test('15. the panel does not push the controls off screen or cover them', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       await enableCoachedMode(page);
@@ -649,7 +649,7 @@ test.describe('coached mode does not break the table', () => {
    * exists for. Fixed by collapsing to one row plus compact .table-screen .predict rules.
    */
   test('16. the panel does not make the document scroll at the documented 900x640 minimum', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
 
@@ -682,7 +682,7 @@ test.describe('coached mode does not break the table', () => {
 
   test('17. a full coached hand reaches showdown and logs the hand exactly once', async () => {
     const userDataDir = freshUserDataDir();
-    await withApp({ seed: 8, userDataDir }, async (page) => {
+    await withApp({ seed: 10, userDataDir }, async (page) => {
       await openTable(page);
       await enableCoachedMode(page);
 
@@ -789,7 +789,9 @@ test.describe('the answer is withheld until the commitment', () => {
   });
 
   test('21. the answer stays hidden while a villain acts, not just on the hero turn', async () => {
-    const { page, close } = await launchApp({ seed: 43, userDataDir: freshUserDataDir() });
+    // Seed 10, not 43: seed 43's preflop call is a first-in limp, which the charts now grade as a
+    // mistake, so in coached mode the gate holds the hero turn and no villain acts after the click.
+    const { page, close } = await launchApp({ seed: 10, userDataDir: freshUserDataDir() });
     try {
       await openTable(page);
       await waitForIdle(page);
@@ -826,7 +828,7 @@ test.describe('the answer is withheld until the commitment', () => {
 /**
  * G4 — the reason is graded SEPARATELY from the action (story 14, PRODUCT-SPEC line 212).
  *
- * Seed 8 hand 1: calling 50 preflop is FREE (66% equity), so the EV grade is silent. The reason box
+ * seed 10 hand 1: calling the 50 limp preflop is FREE, so the EV grade is silent. The reason box
  * is where the separate verdict lives: a hand-strength or "none" rationale on that correct-but-free
  * call is "right for the wrong reason", and an explicit GUESS escalates it. A proper range/price
  * reason triggers nothing, and an empty box never escalates — that last one is the load-bearing
@@ -850,7 +852,7 @@ test.describe('G4 — the reason is graded separately from the action', () => {
   };
 
   test('1. a hand-strength reason on a correct-but-free call is flagged, not escalated', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       const note = await noteForReason(page, 'my hand is strong, top pair plays itself');
       expect(note, 'a hand-strength rationale on a right action is right-for-wrong-reason').toContain(
         'not for the reason given',
@@ -865,17 +867,17 @@ test.describe('G4 — the reason is graded separately from the action', () => {
   });
 
   test('2. an explicit-guess reason on the same spot ESCALATES to study-this', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       const note = await noteForReason(page, 'idk, just guessing here');
       expect(note, 'an explicit guess must escalate').toContain('study this one');
     });
   });
 
   test('3. a proper price or range reason triggers no G4 note at all', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       expect(await noteForReason(page, 'the price is good, pot odds say call'), 'a price reason is fine').toBe('');
     });
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       expect(
         await noteForReason(page, 'he opens 70% from the button so my range defends wide'),
         'a range reason is fine',
@@ -884,7 +886,7 @@ test.describe('G4 — the reason is graded separately from the action', () => {
   });
 
   test('4. an EMPTY reason never escalates and shows no note — the safety property', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       expect(await noteForReason(page, ''), 'an empty reason must not be graded').toBe('');
       // And the panel is not screaming at a correct, unexplained free call.
       await expect(page.locator(coachPanel)).not.toHaveAttribute('data-severity', 'serious');
@@ -892,7 +894,7 @@ test.describe('G4 — the reason is graded separately from the action', () => {
   });
 
   test('5. the reason box is absent in uncoached play — the G4 path is coached-only', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    await withApp({ seed: 10 }, async (page) => {
       await openTable(page);
       expect(await waitForIdle(page)).toBe('hero');
       // No predict panel at all uncoached, so no reason input can leak into default play.

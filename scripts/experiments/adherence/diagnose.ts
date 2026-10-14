@@ -45,7 +45,7 @@ for (let hand = 0; hand < hands; hand++) {
   for (const s of table.seats) s.stack = START_STACK;
   let state: TableState = startHand(table);
   const rng = mulberry32((seed ^ Math.imul(state.handNumber, 0x9e3779b1)) >>> 0);
-  const ctx: PolicyContext = { rng, graderSeed: seed + state.handNumber, trace: [] };
+  const ctx: PolicyContext = { rng, graderSeed: seed + state.handNumber, trace: [], archetypes: [null, ...mix.villains] };
 
   while (!isHandOver(state)) {
     if (legalActions(state).length === 0) break;

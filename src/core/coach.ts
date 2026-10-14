@@ -1,6 +1,16 @@
 import type { Card } from './cards.js';
-import { DISPLAY_ITERATIONS, equityVsRandom, equityVsRange, scalarEquity } from './equity.js';
-import type { Combo } from './preflop.js';
+import {
+  DISPLAY_ITERATIONS,
+  equityVsRandom,
+  equityVsRange,
+  equityVsWeightedRange,
+  scalarEquity,
+  type EquityResult,
+  type WeightedRange,
+} from './equity.js';
+import { comboOf, type Combo } from './preflop.js';
+import { closeBand, isClose } from './closeSpot.js';
+import { SHOVE_CALL_RANGE, chartAction, chartMove, chartVerdict, shoveCallChance, shoveLossBb, spotLabel, type ChartSpot } from './chartGrade.js';
 
 export type Severity = 'free' | 'notable' | 'serious';
 
@@ -21,6 +31,21 @@ export interface Grade {
    * played right from an easy one (src/core/dee/engine.ts). Absent on an unpriced spot.
    */
   spot?: { needed: number; had: number };
+  /**
+   * The spot is inside the grader's uncertainty band (closeSpot.ts): the pot share sits within the Monte
+   * Carlo error plus the model margin of the line the verdict turns on, or the hand is a mixed chart cell
+   * (chartGrade.ts). A close grade is neither a mistake nor praise: severity 'free', evLossBb 0, no
+   * principle, and a message only when the point estimate alone would have spoken (>= 0.5bb), so silence
+   * still means the cost was under half a big blind. Always set by gradeDecision; absent only on a verdict
+   * restored from a save, which keeps the four stored fields.
+   */
+  close?: boolean;
+  /**
+   * The point-estimate loss before the band was applied. Equal to evLossBb outside close spots. On a close
+   * spot, 0 means the action was on the right side of the estimate ("played right"); above 0, it was on
+   * the other side but inside the margin. Set alongside `close`.
+   */
+  estimateLossBb?: number;
 }
 
 export function potOddsRequired(pot: number, toCall: number): number {
@@ -51,24 +76,57 @@ export function gradeDecision(input: {
    * villain model keep their old behaviour. The live table and assessment block always pass it facing a bet.
    */
   villainRange?: readonly Combo[];
+  /**
+   * The aggressor's range by archetype, street and size (villainRanges.ts). Takes precedence over
+   * `villainRange` when both are given. Like it, it is read only facing a bet.
+   */
+  villainHands?: WeightedRange;
+  /**
+   * Preflop, the chart spot this decision is (gradeSpot.ts detects it from the betting). When present on
+   * the preflop street, the verdict comes from the chart (chartGrade.ts) instead of the pot-odds model.
+   */
+  chart?: ChartSpot;
+  /**
+   * Preflop in a chart spot, each live opponent's chance of calling a shove (chartGrade.ts). gradeSpot
+   * fills it from who has raised; omitted, every opponent is treated as holding any hand.
+   */
+  shoveCallers?: readonly number[];
 }): Grade {
-  const { hole, board, pot, toCall, bb, chosen, opponents, seed, villainRange } = input;
+  const { hole, board, pot, toCall, bb, chosen, opponents, seed, villainRange, villainHands, chart } = input;
+
+  // Facing a raise, jamming a hand the chart re-raises is the chart's raise at a bigger size: the
+  // 3-bettor's stand-in range is almost all value, so pricing it as a shove would charge a 4-bet of QQ.
+  const jamOfChartRaise =
+    chart !== undefined && chart.kind !== 'rfi' && chartAction(chart, comboOf(hole[0], hole[1])) === 'raise';
+  if (chart && input.street === 'preflop' && chosen === 'allin' && !jamOfChartRaise) {
+    const callers = input.shoveCallers ?? new Array<number>(Math.max(0, opponents)).fill(shoveCallChance());
+    return gradeShove(hole, pot, input.stack, callers, bb, seed ?? 1);
+  }
+  if (chart && input.street === 'preflop') return gradeFromChart(chart, hole, chosen, pot, toCall, bb);
 
   // Facing a bet/raise, grade hero against what the aggressor can actually HAVE, not two random cards.
   // With no price faced (toCall === 0) there is no aggressor range to speak of, so the honest opponent
   // model is still a random field — this scopes the range fix to exactly the bet-facing branches.
-  const eq =
-    toCall > 0 && villainRange && villainRange.length > 0
-      ? equityVsRange(hole, board, villainRange, DISPLAY_ITERATIONS, seed ?? 1)
-      : equityVsRandom(hole, board, opponents, DISPLAY_ITERATIONS, seed ?? 1);
+  let eq: EquityResult;
+  if (toCall > 0 && villainHands && villainHands.hands.length > 0) {
+    eq = equityVsWeightedRange(hole, board, villainHands, DISPLAY_ITERATIONS, seed ?? 1);
+  } else if (toCall > 0 && villainRange && villainRange.length > 0) {
+    eq = equityVsRange(hole, board, villainRange, DISPLAY_ITERATIONS, seed ?? 1);
+  } else {
+    eq = equityVsRandom(hole, board, opponents, DISPLAY_ITERATIONS, seed ?? 1);
+  }
   const equity = scalarEquity(eq);
+  const band = closeBand(eq);
 
   const required = potOddsRequired(pot, toCall);
 
   let evLossBb = 0;
   let principle: string | null = null;
+  /** The line this verdict turns on, when it turns on one. A free fold is dominated and has none. */
+  let line: number | null = null;
 
   if (chosen === 'call') {
+    line = required;
     if (equity >= required) {
       evLossBb = 0;
     } else {
@@ -97,21 +155,25 @@ export function gradeDecision(input: {
       // aggregates by error tag, which makes the tag load-bearing rather than cosmetic.
       if (evLossBb >= 0.5) principle = 'value or bluff';
     } else if (equity > required) {
+      line = required;
       evLossBb = ((equity - required) * (pot + toCall)) / bb;
       principle = 'pot odds';
     } else {
+      line = required;
       evLossBb = 0;
     }
   } else if (chosen === 'check') {
     const isLateStreet = input.street === 'turn' || input.street === 'river';
-    if (isLateStreet && equity > 0.55) {
-      const missedValue = (equity - 0.55) * pot * 0.5;
+    if (isLateStreet) line = LATE_CHECK_LINE;
+    if (isLateStreet && equity > LATE_CHECK_LINE) {
+      const missedValue = (equity - LATE_CHECK_LINE) * pot * 0.5;
       evLossBb = missedValue / bb;
       principle = 'value or bluff';
     } else {
       evLossBb = 0;
     }
   } else if (chosen === 'bet' || chosen === 'raise' || chosen === 'allin') {
+    if (toCall === 0) line = UNPRICED_BET_LINE;
     if (toCall > 0) {
       // Raising (or shoving) OVER a bet puts more chips in behind a price you must first clear to
       // continue at all. That price is the size-derived break-even `required` = toCall/(pot+toCall),
@@ -121,20 +183,21 @@ export function gradeDecision(input: {
       // free) and over-nagged raises into tiny bets. Charged only on the shortfall below the price,
       // scaled by the pot being contested, so a bigger bet you cannot afford to continue against
       // costs more.
+      line = required;
       if (equity < required) {
         evLossBb = ((required - equity) * (pot + toCall)) / bb;
         principle = 'ranges';
       } else {
         evLossBb = 0;
       }
-    } else if (equity < 0.35) {
+    } else if (equity < UNPRICED_BET_LINE) {
       // Betting/raising with no bet to face (a lead or a c-bet) is not priced by pot odds — there is
       // no `required` to clear. This stays a heuristic: leading a hand with under ~35% pot share is
       // typically turning a weak made hand into a bluff without the range to back it. Kept as a
       // documented constant, since single-hand equity has no closed-form value-bet threshold; the
       // bluff-frequency math that WOULD govern it is a range property, taught in the lessons, not
       // something this per-hand grader can compute.
-      const penalty = (0.35 - equity) * pot * 0.4;
+      const penalty = (UNPRICED_BET_LINE - equity) * pot * 0.4;
       evLossBb = penalty / bb;
       principle = 'value or bluff';
     } else {
@@ -142,14 +205,138 @@ export function gradeDecision(input: {
     }
   }
 
+  // The close band. Only a verdict that turns on a line can be inside the noise around it; a non-finite
+  // loss is no verdict at all and stays silent below.
+  if (line !== null && Number.isFinite(evLossBb) && isClose(equity, line, band)) {
+    const grade: Grade = {
+      severity: 'free',
+      evLossBb: 0,
+      message: evLossBb >= 0.5 ? closeMessage(equity, line, toCall > 0) : null,
+      principle: null,
+      close: true,
+      estimateLossBb: evLossBb,
+    };
+    // No price meter: a close spot's two shares sit within a few points by construction, so the meter's
+    // "needed" and "had" labels would overprint each other (measured at 31% vs 26%), and the message
+    // already quotes both numbers. The shares still travel on `spot`, which Dee's "Price held" reads.
+    if (toCall > 0 && Number.isFinite(required)) grade.spot = { needed: required, had: equity };
+    return grade;
+  }
+
   const severity = classifySeverity(evLossBb);
   const message = severity === 'free' ? null : buildMessage(chosen, equity, required, pot, toCall, evLossBb);
   if (severity === 'free') principle = null;
 
-  const grade: Grade = { severity, evLossBb, message, principle };
+  const grade: Grade = { severity, evLossBb, message, principle, close: false, estimateLossBb: evLossBb };
   if (severity !== 'free' && toCall > 0) grade.price = { needed: required, had: equity };
   if (toCall > 0 && Number.isFinite(equity) && Number.isFinite(required)) grade.spot = { needed: required, had: equity };
   return grade;
+}
+
+/** Turn and river: checking above this pot share is charged as missed value. A heuristic line. */
+const LATE_CHECK_LINE = 0.55;
+/** Leading below this pot share with no bet to face is charged as an unbacked bluff. A heuristic line. */
+const UNPRICED_BET_LINE = 0.35;
+
+/**
+ * The close verdict. No bb figure and no severity word: the number would claim a precision the band
+ * says the grader does not have. It quotes the two pot shares so the learner sees why it is close.
+ */
+function closeMessage(equity: number, line: number, priced: boolean): string {
+  const share = Math.round(equity * 100);
+  const at = Math.round(line * 100);
+  if (priced) {
+    return `Close spot: the price was ${at}% pot share and you had about ${share}%, inside the margin of error. Either choice holds up.`;
+  }
+  return `Close spot: about ${share}% pot share sits inside the margin around the ${at}% line. Either choice holds up.`;
+}
+
+/**
+ * A preflop verdict from the chart (chartGrade.ts). The principle is 'position' for an open (opening
+ * ranges are positional) and 'ranges' for a defence or a 3-bet response.
+ */
+function gradeFromChart(spot: ChartSpot, hole: Card[], chosen: Action, pot: number, toCall: number, bb: number): Grade {
+  const potBb = bb > 0 ? pot / bb : Number.NaN;
+  const v = chartVerdict(spot, hole, chartMove(chosen), potBb, bb > 0 ? toCall / bb : Number.NaN);
+  if (v.close) {
+    return {
+      severity: 'free',
+      evLossBb: 0,
+      message: v.lossBb >= 0.5 ? closeChartMessage(spot, v.combo) : null,
+      principle: null,
+      close: true,
+      estimateLossBb: v.lossBb,
+    };
+  }
+  const severity = classifySeverity(v.lossBb);
+  if (severity === 'free') {
+    return { severity, evLossBb: v.lossBb, message: null, principle: null, close: false, estimateLossBb: v.lossBb };
+  }
+  return {
+    severity,
+    evLossBb: v.lossBb,
+    message: chartMessage(spot, v.combo, v.chart, v.move, v.lossBb),
+    principle: spot.kind === 'rfi' ? 'position' : 'ranges',
+    close: false,
+    estimateLossBb: v.lossBb,
+  };
+}
+
+/**
+ * A deep shove in a chart spot, priced by its own EV against the range that calls it (chartGrade.ts
+ * shoveLossBb). The pot share is the same seeded Monte Carlo as every other verdict.
+ */
+function gradeShove(hole: Card[], pot: number, stack: number, callers: readonly number[], bb: number, seed: number): Grade {
+  const share = scalarEquity(equityVsRange(hole, [], SHOVE_CALL_RANGE, DISPLAY_ITERATIONS, seed));
+  const lossBb = bb > 0 ? shoveLossBb(pot / bb, stack / bb, callers, share) : Number.NaN;
+  const severity = classifySeverity(lossBb);
+  if (severity === 'free') {
+    return { severity, evLossBb: lossBb, message: null, principle: null, close: false, estimateLossBb: lossBb };
+  }
+  const sharePct = Math.round(share * 100);
+  return {
+    severity,
+    evLossBb: lossBb,
+    message: `A shove this deep is called by QQ+ and AK, where you have ${sharePct}% pot share; it costs ~${lossBb.toFixed(1)} bb.`,
+    principle: 'ranges',
+    close: false,
+    estimateLossBb: lossBb,
+  };
+}
+
+const CHART_VERB: Record<'fold' | 'call' | 'raise', string> = { fold: 'folds', call: 'calls', raise: 'raises' };
+
+function spotPhrase(spot: ChartSpot): string {
+  if (spot.kind === 'rfi') return `The ${spot.position} opening chart`;
+  if (spot.kind === 'defend') {
+    const opener = spot.spot.split('-vs-')[1].toUpperCase();
+    return `Against a ${opener} open, the ${spotLabel(spot)} chart`;
+  }
+  return `Facing a 3-bet after a ${spot.opener} open, the chart`;
+}
+
+function chartMessage(
+  spot: ChartSpot,
+  combo: Combo,
+  chart: 'fold' | 'call' | 'raise',
+  move: 'fold' | 'call' | 'raise',
+  lossBb: number,
+): string {
+  const did = move === 'fold' ? 'folding' : move === 'call' ? (spot.kind === 'rfi' ? 'limping' : 'calling') : 'raising';
+  return `${spotPhrase(spot)} ${CHART_VERB[chart]} ${combo}; ${did} it costs ~${lossBb.toFixed(1)} bb.`;
+}
+
+function closeChartMessage(spot: ChartSpot, combo: Combo): string {
+  return `Close spot: ${combo} sits on the edge of ${chartName(spot)}, where both choices are played. Either choice holds up.`;
+}
+
+/** The chart, named as the object of a sentence. */
+function chartName(spot: ChartSpot): string {
+  if (spot.kind === 'rfi') return `the ${spot.position} opening chart`;
+  if (spot.kind === 'defend') {
+    return `the ${spotLabel(spot)} chart against a ${spot.spot.split('-vs-')[1].toUpperCase()} open`;
+  }
+  return `the chart facing a 3-bet after a ${spot.opener} open`;
 }
 
 function classifySeverity(evLossBb: number): Severity {

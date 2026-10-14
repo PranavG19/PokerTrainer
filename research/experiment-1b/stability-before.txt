@@ -1,0 +1,9 @@
+
+== RE-SEED STABILITY (grader mode shipped, 300 hands, seed 20260809, 5 grader seeds) ==
+hero decision states: 998
+states where some action's verdict word changes with the seed: 89 (8.9%)
+  ...where an action is a mistake under one seed and not another: 67 (6.7%)
+  preflop  341 states, 7.3% flip
+  flop     242 states, 9.5% flip
+  turn     233 states, 9.0% flip
+  river    182 states, 11.0% flip

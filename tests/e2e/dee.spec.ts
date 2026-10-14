@@ -4,9 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { launchApp, sel, shot } from './helpers.js';
 import { tableScreen, waitForIdle } from './flow.js';
-import { gradeDecision } from '../../src/core/coach.js';
-import { VILLAIN_BETTING_RANGE } from '../../src/core/preflop.js';
-import { CLOSE_SPOT_POINTS } from '../../src/core/dee/engine.js';
 import type { Card } from '../../src/core/cards.js';
 
 /**
@@ -99,7 +96,9 @@ test.describe('Dee', () => {
   });
 
   test('2. the hand-end beat: one line after the hand, numbers from the verdict, the contracts intact', async () => {
-    await withApp({ seed: 8 }, async (page) => {
+    // Seed 10, the coach specs' pin (seed 8's first-in QQ limp is a chart mistake since the grader reads
+    // the charts preflop): calling the limp is free, folding middle pair to the flop bet is serious.
+    await withApp({ seed: 10 }, async (page) => {
       await page.locator(sel.newHand).click();
       await page.locator(tableScreen).waitFor();
       expect(await waitForIdle(page)).toBe('hero');
@@ -113,7 +112,7 @@ test.describe('Dee', () => {
       expect(await waitForIdle(page)).toBe('hero');
       await expect(page.locator(beat)).toHaveCount(0);
 
-      // Seed 8: folding the big favourite is a serious mistake. Commit-before-feedback and the gate still hold.
+      // Seed 10: folding middle pair to a cheap flop bet is a serious mistake. Commit-before-feedback and the gate still hold.
       const potBefore = ((await page.locator(sel.pot).textContent()) ?? '').replace(/[^0-9]/g, '');
       await commit(page, 'fold', 'sure');
       await page.locator(sel.btnFold).click();
@@ -171,79 +170,41 @@ test.describe('Dee', () => {
   });
 
   test('3. Price held: a close spot played right, said Sure with the price as the reason', async () => {
-    test.setTimeout(240_000);
-    const SEED = 21;
-    await withApp({ seed: SEED }, async (page) => {
+    /**
+     * Seed 33, hand 1, found by replaying the renderer path (archetype draw, the villain stream, gradeSpot)
+     * through Dee's isPriceHeld: calling preflop is free and not close; the next decision faces a postflop
+     * bet that the grader's close band calls close, and folding is the right side of the price. The band
+     * decides what is close (Grade.close), not a fixed points rule, so the spec pins a spot rather than
+     * re-deriving closeness itself.
+     */
+    await withApp({ seed: 33 }, async (page) => {
       await page.locator(sel.newHand).click();
       await page.locator(tableScreen).waitFor();
       expect(await waitForIdle(page)).toBe('hero');
       await page.locator(modeToggle).click();
 
-      let held = false;
-      for (let hand = 1; hand <= 30 && !held; hand++) {
-        let closeSpotPlayed = false;
-        for (let step = 0; step < 30; step++) {
-          if ((await waitForIdle(page)) === 'handover') break;
-          const spot = await readSpot(page);
-          // Grade both options exactly as the table does (same inputs, same seed), then play the free one.
-          const grade = (chosen: 'call' | 'fold' | 'check' | 'bet') =>
-            gradeDecision({
-              hole: spot.hole,
-              board: spot.board,
-              street: spot.street,
-              pot: spot.pot,
-              toCall: spot.toCall,
-              stack: 5000,
-              bb: 50,
-              chosen,
-              opponents: Math.max(1, spot.opponents),
-              seed: SEED + hand,
-              villainRange: spot.toCall > 0 ? VILLAIN_BETTING_RANGE : undefined,
-            });
-          if (spot.toCall === 0) {
-            // Checking a strong hand late misses value (a mistake); a bet with that hand is free.
-            const check = grade('check').severity === 'free';
-            await commit(page, check ? 'check' : 'raise', 'guess');
-            await page.locator(check ? sel.btnCheck : sel.btnRaise).click();
-            await settleSheets(page);
-            continue;
-          }
-          const call = grade('call');
-          const shares = call.spot!;
-          const right = shares.had >= shares.needed ? 'call' : 'fold';
-          const close = Math.abs(shares.had - shares.needed) <= CLOSE_SPOT_POINTS - 0.01;
-          if (close && !closeSpotPlayed && spot.canCall && spot.street !== 'preflop') {
-            closeSpotPlayed = true;
-            await commit(page, right, 'sure', `the price is ${Math.round(shares.needed * 100)}% and the pot odds decide it`);
-            await page.locator(right === 'call' ? sel.btnCall : sel.btnFold).click();
-            continue;
-          }
-          await commit(page, right, 'guess');
-          await page.locator(right === 'call' ? sel.btnCall : sel.btnFold).click();
-          await settleSheets(page);
-        }
-        expect(await waitForIdle(page)).toBe('handover');
-        const event = (await page.locator(beat).count()) > 0 ? await page.locator(beat).getAttribute('data-event') : null;
-        if (closeSpotPlayed) {
-          expect(event, `hand ${hand}: a close price played right, Sure, with a price reason`).toBe('price-held');
-          held = true;
-          await expect(page.locator(beat)).toHaveAttribute('data-pose', 'price-held');
-          await expect(page.locator('[data-testid="dee-beat-line"]')).toContainText('Price held');
-          // No verdict sheet: the decision cost nothing, so the coach stays silent; only Dee's beat speaks.
-          await expect(page.locator('[data-testid="coach-announcer"]')).toHaveText('');
-          for (const [w, h] of SIZES) {
-            await setSize(page, w, h);
-            await noPageScroll(page);
-            await boardAtRest(page);
-            await shot(page, `dee-price-held-${w}x${h}`);
-          }
-        } else {
-          // The silence rule: every decision was free and none was a close price held, so Dee says nothing.
-          expect(event, `hand ${hand}: silence`).toBeNull();
-          await page.locator('[data-testid="next-hand"]').click();
-        }
+      await commit(page, 'call', 'guess');
+      await page.locator(sel.btnCall).click();
+      await settleSheets(page);
+      expect(await waitForIdle(page)).toBe('hero');
+      const spot = await readSpot(page);
+      expect(spot.street, 'the close spot is postflop').not.toBe('preflop');
+      expect(spot.toCall, 'the close spot faces a bet').toBeGreaterThan(0);
+      await commit(page, 'fold', 'sure', 'the price is too high for my pot share and the pot odds decide it');
+      await page.locator(sel.btnFold).click();
+
+      expect(await waitForIdle(page)).toBe('handover');
+      await expect(page.locator(beat)).toHaveAttribute('data-event', 'price-held');
+      await expect(page.locator(beat)).toHaveAttribute('data-pose', 'price-held');
+      await expect(page.locator('[data-testid="dee-beat-line"]')).toContainText('Price held');
+      // No verdict sheet: the decision cost nothing, so the coach stays silent; only Dee's beat speaks.
+      await expect(page.locator('[data-testid="coach-announcer"]')).toHaveText('');
+      for (const [w, h] of SIZES) {
+        await setSize(page, w, h);
+        await noPageScroll(page);
+        await boardAtRest(page);
+        await shot(page, `dee-price-held-${w}x${h}`);
       }
-      expect(held, 'a close spot came up within 30 hands').toBe(true);
     });
   });
 
