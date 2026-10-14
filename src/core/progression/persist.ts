@@ -42,6 +42,10 @@ import {
   type ShowdownRecord,
   type StoryOverride,
   type StoryState,
+  type FolioState,
+  type TalliesState,
+  type TicketItemRecord,
+  type TicketState,
 } from './types.js';
 
 /** Two years of counted days: a calendar strip shows weeks, so this is generous. */
@@ -54,6 +58,11 @@ export const MAX_GOALS = 2;
 export const MAX_STORY_OVERRIDES = 100;
 export const MAX_RIVAL_SITTINGS = 60;
 export const MAX_RIVAL_SHOWDOWNS = 200;
+/** A Ticket holds at most a handful of items; anything longer is corruption. */
+export const MAX_TICKET_ITEMS = 12;
+export const MAX_FOLIO_CARDS = 200;
+/** Polishes per card: the spacing waves need a few, a year of daily polish is generous. */
+export const MAX_FOLIO_REVIEWS = 64;
 /** A heads-up hand rarely runs past a dozen actions a side; anything longer is corruption. */
 const MAX_RIVAL_ACTIONS = 40;
 /** Ids and enum-like answers. */
@@ -95,6 +104,9 @@ export function defaultProgression(): ProgressionState {
     milestones: { achieved: {} },
     entitlements: { tier: 'free', granted: [], licence: null, highWater: 0 },
     story: { chapters: {}, rivals: {}, overrides: [] },
+    ticket: { day: null, items: [], done: [], finishedOn: null },
+    folio: { polished: {} },
+    tallies: { priceHeld: 0, ticketsFinished: 0, suggestionTakenOn: null },
   };
 }
 
@@ -135,6 +147,9 @@ export const PROGRESSION_SHAPE = {
   milestones: { achieved: true },
   entitlements: { tier: true, granted: true, licence: true, highWater: true },
   story: { chapters: true, rivals: true, overrides: true },
+  ticket: { day: true, items: true, done: true, finishedOn: true },
+  folio: { polished: true },
+  tallies: { priceHeld: true, ticketsFinished: true, suggestionTakenOn: true },
 } as const;
 
 export function parseProgression(raw: unknown): ProgressionState {
@@ -150,6 +165,9 @@ export function parseProgression(raw: unknown): ProgressionState {
     milestones: section(obj.milestones, d.milestones, parseMilestones),
     entitlements: section(obj.entitlements, d.entitlements, parseEntitlements),
     story: section(obj.story, d.story, parseStory),
+    ticket: section(obj.ticket, d.ticket, parseTicket),
+    folio: section(obj.folio, d.folio, parseFolio),
+    tallies: section(obj.tallies, d.tallies, parseTallies),
   };
 }
 
@@ -474,6 +492,53 @@ function parseShowdown(value: unknown): ShowdownRecord | null {
     });
   }
   return { day, shown, board, actions };
+}
+
+function parseTicket(obj: Record<string, unknown>): TicketState {
+  const items: TicketItemRecord[] = [];
+  const ids = new Set<string>();
+  for (const value of asArray(obj.items)) {
+    const entry = asRecord(value);
+    const kind = id(entry.kind);
+    const ref = id(entry.ref);
+    const itemId = id(entry.id);
+    if (kind === null || ref === null || itemId === null || ids.has(itemId)) continue;
+    ids.add(itemId);
+    items.push({ id: itemId, kind, ref, minutes: Math.min(60, Math.max(0, asNumber(entry.minutes))) });
+  }
+  const kept = items.slice(0, MAX_TICKET_ITEMS);
+  const keptIds = new Set(kept.map((i) => i.id));
+  return {
+    day: asDayKey(obj.day),
+    items: kept,
+    // Done is only ever of an item on the Ticket.
+    done: idList(obj.done, MAX_TICKET_ITEMS).filter((d) => keptIds.has(d)),
+    finishedOn: asDayKey(obj.finishedOn),
+  };
+}
+
+function parseFolio(obj: Record<string, unknown>): FolioState {
+  const polished: Record<string, number[]> = {};
+  let cards = 0;
+  for (const [key, value] of Object.entries(asRecord(obj.polished))) {
+    const k = id(key);
+    if (k === null || k === '__proto__' || cards >= MAX_FOLIO_CARDS) continue;
+    const times = [...new Set(asArray(value).filter((t): t is number => typeof t === 'number' && Number.isFinite(t) && t > 0))]
+      .sort((a, b) => a - b)
+      .slice(-MAX_FOLIO_REVIEWS);
+    if (times.length === 0) continue;
+    polished[k] = times;
+    cards++;
+  }
+  return { polished };
+}
+
+function parseTallies(obj: Record<string, unknown>): TalliesState {
+  return {
+    priceHeld: Math.min(MAX_RUN * 100, nonNegativeInt(obj.priceHeld)),
+    ticketsFinished: Math.min(MAX_RUN, nonNegativeInt(obj.ticketsFinished)),
+    suggestionTakenOn: asDayKey(obj.suggestionTakenOn),
+  };
 }
 
 /** Read-side helpers: an unknown value (a newer build's) reads as this build's default. */

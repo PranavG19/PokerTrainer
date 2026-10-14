@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('offsuit', {
   saveState: (obj: Record<string, unknown>): Promise<{ saved: boolean; readOnly: string | null; failed?: string }> =>
     ipcRenderer.invoke('store:save', obj),
   getSeed: (): Promise<number | null> => ipcRenderer.invoke('app:seed'),
+  // e2e only: the test clock and the onboarding switch (main answers the real defaults otherwise).
+  testHooks: (): Promise<{ now: number | null; onboarding: boolean }> => ipcRenderer.invoke('app:testHooks'),
   // The tutor lives in main; the renderer only ever sees the answer text and
   // the built payload's key paths, never a model client or a solver field.
   tutorStatus: (): Promise<unknown> => ipcRenderer.invoke('tutor:status'),

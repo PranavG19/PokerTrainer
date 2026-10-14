@@ -4,6 +4,7 @@ import './netOracle.js';
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 import * as path from 'node:path';
 import { DELETE_CONFIRM_PHRASE } from '../core/backup.js';
+import { testHooksFrom } from '../core/testHooks.js';
 import { sealNetwork, silenceChromium } from './network.js';
 import { cancelSpeech, speak } from './speech.js';
 import {
@@ -417,6 +418,8 @@ app.whenReady().then(() => {
     return { ok: true, serverStatus: reply.status, status: persistLicence() };
   });
   ipcMain.handle('app:seed', () => seed);
+  // The test clock and the onboarding switch: e2e only, never packaged (core/testHooks.ts).
+  ipcMain.handle('app:testHooks', () => testHooksFrom(process.env, app.isPackaged));
 
   // ── Pro tools (proTools.ts) ───────────────────────────────────────────────
   // Gated here, in main: a renderer that draws the surface anyway gets { locked }. The import reads only

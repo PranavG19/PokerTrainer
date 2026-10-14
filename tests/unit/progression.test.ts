@@ -84,6 +84,17 @@ function full(): ProgressionState {
       },
       overrides: [{ day: day(19600), suggested: 'lighthouse', chosen: 'library' }],
     },
+    ticket: {
+      day: day(19603),
+      items: [
+        { id: 'review:pot-odds', kind: 'review', ref: 'pot-odds', minutes: 5 },
+        { id: 'drill:anomaly', kind: 'drill', ref: 'anomaly', minutes: 4 },
+      ],
+      done: ['drill:anomaly'],
+      finishedOn: day(19602),
+    },
+    folio: { polished: { 'pot-odds-as-a-price': [1_700_000_000_000, 1_700_100_000_000] } },
+    tallies: { priceHeld: 3, ticketsFinished: 9, suggestionTakenOn: day(19603) },
   };
 }
 

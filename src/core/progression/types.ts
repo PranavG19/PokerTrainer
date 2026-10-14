@@ -26,6 +26,9 @@ export interface ProgressionState {
   milestones: MilestonesState;
   entitlements: EntitlementsState;
   story: StoryState;
+  ticket: TicketState;
+  folio: FolioState;
+  tallies: TalliesState;
 }
 
 /**
@@ -279,4 +282,51 @@ export interface StoryOverride {
   day: DayKey;
   suggested: string;
   chosen: string;
+}
+
+/**
+ * Today's Ticket (D16, src/core/ticket.ts): a review unit under 30 minutes. Frozen at its first build of the day,
+ * so it does not shrink under the learner as its items are worked. Item kinds are persisted as strings; a kind this
+ * build does not know is kept and shown as done-or-not, never re-planned.
+ */
+export interface TicketState {
+  /** The day `items` were built for; null before the first Ticket. */
+  day: DayKey | null;
+  items: TicketItemRecord[];
+  /** Ids of today's items that are done, unique. */
+  done: string[];
+  /** The most recent day the whole Ticket was finished; null before the first. */
+  finishedOn: DayKey | null;
+}
+
+/** Known kinds: 'review' (a due concept), 'drill' (one perception drill), 'spot' (a leak spot). */
+export const TICKET_KINDS = ['review', 'drill', 'spot'] as const;
+
+export interface TicketItemRecord {
+  /** `${kind}:${ref}`, unique within the Ticket. */
+  id: string;
+  kind: string;
+  /** The concept id, the drill mode or the puzzle scenario id. */
+  ref: string;
+  /** Planned minutes, so the total is checkable against the 30-minute bound. */
+  minutes: number;
+}
+
+/**
+ * Folio, the Rulebook (src/core/folio.ts): when each rule card was last re-polished. The sentences themselves stay
+ * where they already live (the lexicon and Dee's remembered rules); only the reviews are new.
+ */
+export interface FolioState {
+  /** Card (concept) id → epoch ms of each re-polish, ascending, bounded by MAX_FOLIO_REVIEWS. */
+  polished: Record<string, number[]>;
+}
+
+/** Counts the habit loop keeps that no other record can rebuild (the hand log is capped and drops grades' bands). */
+export interface TalliesState {
+  /** "Price held" beats: a close-band spot played on the right side, said Sure, with a mechanism reason. */
+  priceHeld: number;
+  /** Today's Tickets finished, lifetime. */
+  ticketsFinished: number;
+  /** The day the learner last took the one suggestion (today's ring); null before the first. */
+  suggestionTakenOn: DayKey | null;
 }
