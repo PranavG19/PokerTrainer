@@ -165,7 +165,7 @@ optional opt-in download, not in the base install.
   Budget 600 ms in main (750 ms in the renderer for the IPC hop); temperature 0, seed 7, and a cache keyed on model,
   template and slots. Timeouts and model errors are not cached.
 - **Dee's ban list moved to `src/core/dee/bans.ts`** so the line bank lint, the chat lint and the runtime check share
-  one definition (it was inline in `dee-bank.test.ts`).
+  one definition; the story branch's shared `tests/unit/deeLint.ts` re-exports it rather than keeping a copy.
 - **The download:** Settings → Dee → "Smarter phrasing (optional, about 1 GB download)" → a consent sheet listing
   each component's licence (Apache-2.0, MIT) → a checkbox → Download. Main refuses unless it gets the literal
   consent flag and the licence ids shown. Runtime archive first (fail fast), then the model, both streamed to
