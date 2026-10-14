@@ -105,5 +105,6 @@ export const keys = {
   spot: (scenarioId: string, day: DayKey): string => `spot:${day}:${scenarioId}`.slice(0, MAX_KEY_CHARS),
   rule: (conceptId: string, at: number): string => `rule:${at}:${conceptId}`.slice(0, MAX_KEY_CHARS),
   assessment: (at: number): string => `assessment:${at}`,
-  perception: (day: DayKey, n: number): string => `speed:${day}:${n}`,
+  /** Speed answers are keyed by their lifetime index alone, so a save straddling the 4 am turn pays each once. */
+  perception: (n: number): string => `speed:${n}`,
 } as const;

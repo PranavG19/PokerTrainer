@@ -28,8 +28,11 @@ import type { ProgressionState, TicketState } from './types.js';
 
 /** Perception answers in one visit that finish the Ticket's drill item (about the warm-up block's length). */
 export const DRILL_ANSWERS = 10;
-/** A save carries a few answers at most; a jump larger than this (a tally restored from elsewhere) pays only this many. */
-const MAX_SPEED_PER_SAVE = 200;
+/**
+ * A save carries a few answers at most. A jump larger than this (a tally restored from elsewhere) pays only this many,
+ * so one save cannot push the bounded award log's older keys out (each Speed answer takes one slot).
+ */
+const MAX_SPEED_PER_SAVE = 20;
 
 export interface ProgressExtras {
   /** A puzzle spot finished, with the steps played right. */
@@ -116,7 +119,10 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   // One keyed award per Speed answer (its lifetime index), so a stale base (a failed or overlapping save) re-diffs
   // into keys already paid instead of paying the whole delta again under a new key.
   const firstNew = Math.max(prev.anomalyTally.attempts, next.anomalyTally.attempts - MAX_SPEED_PER_SAVE) + 1;
-  for (let n = firstNew; n <= next.anomalyTally.attempts; n++) r = award(r, keys.perception(today, n), REPS_PER_PERCEPTION, today);
+  for (let n = firstNew; n <= next.anomalyTally.attempts; n++) {
+    // An index already paid (a stale base re-diffing) keeps its first day; the key alone decides.
+    r = award(r, keys.perception(n), REPS_PER_PERCEPTION, today);
+  }
 
   if (extras.spot) r = award(r, keys.spot(extras.spot.id, today), repsForSpot(extras.spot.correct), today);
 
@@ -153,7 +159,7 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
     next.fadingLog.filter((e) => e.kind === 'graded' && ctx.dayOf(e.at) === today).map((e) => e.conceptId),
   );
   // Speed answers are persisted (each save's tally delta is a keyed award), so today's count survives a relaunch.
-  const speedToday = r.awards.filter((a) => a.key.startsWith(`speed:${today}:`)).length;
+  const speedToday = r.awards.filter((a) => a.key.startsWith('speed:') && a.day === today).length;
   for (const item of ticket.items) {
     if (ticket.done.includes(item.id)) continue;
     const answered = item.ref === 'anomaly' ? speedToday : extras.perception?.mode === item.ref ? extras.perception.answered : 0;

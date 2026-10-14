@@ -345,6 +345,8 @@ async function boot(): Promise<void> {
       // THE PROGRESSION HOST (1.5): every save is one diff → award → save. What changed since the last save
       // pays (core/progression/apply.ts); the session saved is the one with its progression applied.
       void obj;
+      // While a delete is in flight nothing is written: a save of the old session landing after it would undo it.
+      if (deleting) return { saved: false, readOnly: null, failed: 'deleting' };
       const applied = applyProgress(lastSaved, session, takeExtras(), applyContext());
       session = { ...session, progression: applied.progression };
       const toSave = session;
@@ -397,6 +399,8 @@ async function boot(): Promise<void> {
   let shownTicket: SessionState['progression']['ticket'] | null = null;
   /** Bumped by a profile delete, so a save resolving afterwards cannot restore the deleted diff base. */
   let profileGeneration = 0;
+  /** A profile delete is awaiting main. */
+  let deleting = false;
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
   const soundPlayer = createSoundPlayer();
 
@@ -1256,7 +1260,14 @@ async function boot(): Promise<void> {
   }
 
   async function onDeleteProfile(confirmation: string): Promise<void> {
-    const outcome = await io.deleteProfile?.(confirmation);
+    deleting = true;
+    profileGeneration += 1;
+    let outcome: { deleted: boolean } | undefined;
+    try {
+      outcome = await io.deleteProfile?.(confirmation);
+    } finally {
+      deleting = false;
+    }
     // Only on a real delete: main refuses an unconfirmed call, and dropping the session anyway would
     // destroy in memory exactly what the gate just refused to destroy on disk. On a real delete the
     // session MUST go, or the next save would write the deleted log straight back.

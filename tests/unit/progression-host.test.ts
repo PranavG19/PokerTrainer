@@ -88,6 +88,16 @@ describe('the progression host: one diff → award → save', () => {
     expect(st.progression.reps.total).toBe(5 * REPS_PER_PERCEPTION);
   });
 
+  it('a Speed answer saved across the 4 am turn pays once and counts for the day it was answered', () => {
+    const tally = (n: number): SessionState => ({ ...s0, anomalyTally: { ...s0.anomalyTally, attempts: n } });
+    const before4 = { ...ctx, now: Date.parse('2026-10-13T03:59:00Z') };
+    const after4 = { ...ctx, now: Date.parse('2026-10-13T04:01:00Z') };
+    // Answer 1's save at 03:59 fails (the base stays s0); the next save, at 04:01, carries answers 1 and 2.
+    const s1 = save(s0, tally(1), {}, before4);
+    const s2 = save(s0, { ...tally(2), progression: s1.progression }, {}, after4);
+    expect(s2.progression.reps.total).toBe(2 * REPS_PER_PERCEPTION);
+  });
+
   it('Speed answers count across a relaunch: six, then four more after a restart, finish the drill item', () => {
     let s = save(s0, s0);
     const drill = s.progression.ticket.items.find((i) => i.kind === 'drill')!;
