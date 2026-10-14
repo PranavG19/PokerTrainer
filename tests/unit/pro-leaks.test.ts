@@ -140,3 +140,29 @@ describe('the report', () => {
     expect(text).not.toMatch(/won|profit|winnings|rep|chalk|seal|streak|reward|\$/i);
   });
 });
+
+describe('review round 1: what a chart spot may count', () => {
+  it('M3: tournament, ante and short-stack hands count in the summary but not against the 100bb charts', () => {
+    const open = (): ParsedHand => hand('CO', [...foldsTo('CO'), ['CO', 'raise']]);
+    const tourney = { ...open(), game: 'tournament' as const };
+    const ante = { ...open(), ante: 1 };
+    const short = { ...open(), seats: open().seats.map((s) => ({ ...s, stack: 300 })) }; // 30bb at 10bb blinds
+    const r = leakReport([tourney, ante, short, open()]);
+    expect(r.summary.hands).toBe(4);
+    expect(r.spots.find((s) => s.id === 'open-CO')!.n).toBe(1);
+    expect(r.excluded).toBe(3);
+  });
+
+  it('m1: fold to a 3-bet skips an all-in 3-bet and a squeeze; big-blind defence skips an open shove', () => {
+    const base = (threeBet: HhAction['kind'], allIn: boolean, caller: boolean): ParsedHand => {
+      const h = hand('HJ', [...foldsTo('HJ'), ['HJ', 'raise'], ...(caller ? ([['CO', 'call']] as [Pos, HhAction['kind']][]) : []), ['BTN', threeBet], ['SB', 'fold'], ['BB', 'fold'], ['HJ', 'fold']]);
+      return { ...h, actions: h.actions.map((a) => (a.seat === SEAT.BTN ? { ...a, allIn } : a)) };
+    };
+    expect(factsOf(base('raise', false, false)).spots.map((s) => s.id)).toContain('vs3bet-HJ');
+    expect(factsOf(base('raise', true, false)).spots.map((s) => s.id)).not.toContain('vs3bet-HJ');
+    expect(factsOf(base('raise', false, true)).spots.map((s) => s.id)).not.toContain('vs3bet-HJ');
+    const shove = hand('BB', [...foldsTo('BTN'), ['BTN', 'raise'], ['SB', 'fold'], ['BB', 'fold']]);
+    const allIn = { ...shove, actions: shove.actions.map((a) => (a.seat === SEAT.BTN ? { ...a, allIn: true } : a)) };
+    expect(factsOf(allIn).spots).toEqual([]);
+  });
+});

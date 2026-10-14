@@ -37,6 +37,13 @@ import type { ParsedHand } from './handHistory.js';
 
 export const BAND_LEVEL = 0.9;
 
+/**
+ * The charts are 100bb cash charts. A chart spot counts only in a cash hand with no ante where hero (and
+ * the opener or 3-bettor faced) starts with at least this many big blinds; every hand still counts in the
+ * summary. Tournament play at 15-25bb with antes is a different game, not a leak against these charts.
+ */
+export const MIN_CHART_DEPTH_BB = 60;
+
 export type SpotKind = 'open' | 'bb-defend' | 'fold-to-3bet';
 
 export interface SpotDef {
@@ -77,6 +84,8 @@ export interface Summary {
 
 export interface LeakReport {
   readonly summary: Summary;
+  /** Hands that count in the summary only: tournament, ante, or hero under MIN_CHART_DEPTH_BB. */
+  readonly excluded: number;
   /** Leaks first (largest gap first), then every other spot with hands, then empty ones. */
   readonly spots: readonly SpotReport[];
 }
@@ -168,6 +177,11 @@ export function factsOf(hand: ParsedHand): HandFacts {
   // Callers of the first raise before hero acts: a big blind with a cold-caller in front is a squeeze spot, not a defence.
   let coldCalls = 0;
   let opener: number | null = null;
+  // The latest raise: who made it, and whether it was all in (an all-in open or 3-bet is not the chart's spot).
+  let lastRaiser: number | null = null;
+  let lastRaiseAllIn = false;
+  // Each spot is held to a 100bb chart, so the players in it must be deep enough for that chart to apply.
+  const deep = (seat: number | null): boolean => seat !== null && hand.seats[seat].stack >= MIN_CHART_DEPTH_BB * hand.bb;
   let heroActed = false;
   let heroOpened = false;
   let vpip = false;
@@ -185,21 +199,23 @@ export function factsOf(hand: ParsedHand): HandFacts {
       if (raises === 1 && threeBet === null) threeBet = a.kind === 'raise';
       if (!heroActed && pos !== null) {
         const p = pos[hand.hero];
-        if (raises === 0 && limps === 0 && p !== null && p !== 'BB') {
+        if (raises === 0 && limps === 0 && p !== null && p !== 'BB' && deep(hand.hero)) {
           const took = a.kind === 'raise' || a.kind === 'bet';
           spots.push({ id: `open-${p}`, took });
           if (took) {
             heroOpened = true;
             raisesAtHeroOpen = 1;
           }
-        } else if (raises === 1 && limps === 0 && coldCalls === 0 && p === 'BB' && opener !== null) {
+        } else if (raises === 1 && limps === 0 && coldCalls === 0 && p === 'BB' && opener !== null && !lastRaiseAllIn && deep(hand.hero) && deep(opener)) {
           const op = pos[opener];
           if (op !== null && op !== 'BB' && DEFENCE[op] !== undefined) spots.push({ id: `bb-vs-${op}`, took: a.kind !== 'fold' });
         }
       } else if (heroOpened && pos !== null && raises === raisesAtHeroOpen + 1) {
         const p = pos[hand.hero];
-        // Hero's first decision facing exactly one re-raise of hero's own open.
-        if (p === 'UTG' || p === 'HJ' || p === 'CO' || p === 'BTN') spots.push({ id: `vs3bet-${p}`, took: a.kind === 'fold' });
+        // Hero's first decision facing exactly one re-raise of hero's own open: not a squeeze (a caller in
+        // between), not an all-in 3-bet, and against a 3-bettor deep enough for the chart.
+        const plain = coldCalls === 0 && !lastRaiseAllIn && deep(lastRaiser);
+        if (plain && (p === 'UTG' || p === 'HJ' || p === 'CO' || p === 'BTN')) spots.push({ id: `vs3bet-${p}`, took: a.kind === 'fold' });
         heroOpened = false;
       } else {
         heroOpened = false;
@@ -209,6 +225,8 @@ export function factsOf(hand: ParsedHand): HandFacts {
     if (a.kind === 'raise' || a.kind === 'bet') {
       raises++;
       if (opener === null) opener = a.seat;
+      lastRaiser = a.seat;
+      lastRaiseAllIn = a.allIn;
     } else if (a.kind === 'call' && raises === 0) {
       limps++;
     } else if (a.kind === 'call' && raises === 1) {
@@ -236,7 +254,10 @@ export function leakReport(hands: readonly ParsedHand[]): LeakReport {
   const pfr = { k: 0, n: 0 };
   const threeBet = { k: 0, n: 0 };
   const wtsd = { k: 0, n: 0 };
+  let excluded = 0;
   for (const hand of hands) {
+    const chartable = hand.game === 'cash' && hand.ante === 0 && hand.seats[hand.hero].stack >= MIN_CHART_DEPTH_BB * hand.bb;
+    if (!chartable) excluded++;
     const f = factsOf(hand);
     vpip.n++;
     pfr.n++;
@@ -250,7 +271,7 @@ export function leakReport(hands: readonly ParsedHand[]): LeakReport {
       wtsd.n++;
       if (f.showdown) wtsd.k++;
     }
-    for (const s of f.spots) {
+    for (const s of chartable ? f.spots : []) {
       const t = tallies.get(s.id);
       if (t === undefined) continue;
       t.n++;
@@ -275,5 +296,5 @@ export function leakReport(hands: readonly ParsedHand[]): LeakReport {
   });
   const rank = (s: SpotReport): number => (s.reading === 'leak' ? 0 : s.n >= MIN_OBSERVATIONS ? 1 : s.n > 0 ? 2 : 3);
   spots.sort((a, b) => rank(a) - rank(b) || Math.abs(b.gapPoints ?? 0) - Math.abs(a.gapPoints ?? 0) || b.n - a.n);
-  return { summary: { hands: hands.length, vpip, pfr, threeBet, wtsd }, spots };
+  return { summary: { hands: hands.length, vpip, pfr, threeBet, wtsd }, excluded, spots };
 }

@@ -7,7 +7,7 @@
  * keeps a hostile file with no blank lines from being buffered whole a second time.
  */
 
-import { MAX_HAND_LINES, type ParseResult, type Site } from './handHistory.js';
+import { MAX_HAND_LINES, MAX_SKIP_RECORDS, type ParseResult, type Site, type SkipReason } from './handHistory.js';
 import { ACR } from './parseAcr.js';
 import { isBlank, isSkip, parseHandLines, splitLines, stripBom, type Dialect } from './parseCommon.js';
 import { GGPOKER } from './parseGGPoker.js';
@@ -41,17 +41,21 @@ export function detectSite(text: string): Site | null {
 }
 
 export function parseHandHistories(text: string): ParseResult {
-  const result: ParseResult = { hands: [], skipped: [] };
+  const result: ParseResult = { hands: [], skipped: [], skipCounts: {} };
+  const skip = (id: string | null, reason: SkipReason): void => {
+    result.skipCounts[reason] = (result.skipCounts[reason] ?? 0) + 1;
+    if (result.skipped.length < MAX_SKIP_RECORDS) result.skipped.push({ id, reason });
+  };
   let block: string[] = [];
 
   const flush = (): void => {
     if (block.length === 0) return;
     const site = siteOfLine(block[0]);
     if (site === null) {
-      result.skipped.push({ id: null, reason: 'unknown-site' });
+      skip(null, 'unknown-site');
     } else {
       const r = parseHandLines(block, DIALECTS[site]);
-      if (isSkip(r)) result.skipped.push({ id: r.id, reason: r.skip });
+      if (isSkip(r)) skip(r.id, r.skip);
       else result.hands.push(r);
     }
     block = [];

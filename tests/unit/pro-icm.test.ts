@@ -110,3 +110,28 @@ describe('Clopper-Pearson bands', () => {
     expect(binomialCdf(5, 10, 0.5)).toBeCloseTo(638 / 1024, 12);
   });
 });
+
+describe('review round 1: ICM speed at ten players', () => {
+  it('ten players paying nine is fast enough to price a push-fold spot (well under 50ms)', () => {
+    const stacks = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    const pay = [0.3, 0.2, 0.14, 0.1, 0.08, 0.07, 0.05, 0.04, 0.02];
+    icmEquities(stacks, pay);
+    const t0 = performance.now();
+    const eq = icmEquities(stacks, pay);
+    expect(performance.now() - t0).toBeLessThan(50);
+    expect(eq.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 9);
+    // Against a plain walk over every finishing order (the textbook form, written out here).
+    const walk = (left: number[], place: number, prob: number, out: number[]): void => {
+      const chips = left.reduce((a, i) => a + stacks[i], 0);
+      if (place >= pay.length) return;
+      for (const i of left) {
+        const p = (prob * stacks[i]) / chips;
+        out[i] += p * pay[place];
+        walk(left.filter((j) => j !== i), place + 1, p, out);
+      }
+    };
+    const brute = new Array<number>(10).fill(0);
+    walk([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 0, 1, brute);
+    for (let i = 0; i < 10; i++) expect(eq[i]).toBeCloseTo(brute[i], 12);
+  });
+});

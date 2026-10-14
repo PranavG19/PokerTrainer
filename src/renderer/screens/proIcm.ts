@@ -408,8 +408,9 @@ export function renderProIcm(props: { bridge: IcmBridge }): HTMLElement {
       })
       .catch(() => null);
     if (mine !== generation) return;
+    const o = (raw ?? {}) as { answer?: AnswerWire; invalid?: boolean; superseded?: boolean };
+    if (o.superseded) return; // a newer request is on its way
     root.dataset.solving = 'false';
-    const o = (raw ?? {}) as { answer?: AnswerWire; invalid?: boolean };
     if (o.answer) {
       answer = o.answer;
       status.textContent = '';

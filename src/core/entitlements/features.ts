@@ -58,7 +58,7 @@ export const FEATURE_INFO: Readonly<Record<Feature, FeatureInfo>> = {
   'leak-finder': {
     tier: 'pro',
     title: 'Leak finder',
-    blurb: 'Import hand histories from where you play and see your costliest patterns.',
+    blurb: 'Import hand histories from where you play and see where your frequencies leave the charts.',
     available: false,
   },
   'icm-tools': {

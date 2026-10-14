@@ -25,7 +25,7 @@ describe('the hand store (NDJSON, outside the profile)', () => {
     const dir = tmp();
     const hands = fixtureHands();
     const store = createHandStore(dir);
-    expect(store.add(hands, { at: '2026-10-14T05:00:00.000Z', files: 1 })).toEqual({ added: hands.length, duplicates: 0, overCap: 0, total: hands.length });
+    expect(store.add(hands, { at: '2026-10-14T05:00:00.000Z', files: 1 })).toEqual({ added: hands.length, duplicates: 0, overCap: 0, tooLarge: 0, total: hands.length });
     expect(store.add(hands, { at: '2026-10-14T05:01:00.000Z', files: 1 })).toMatchObject({ added: 0, duplicates: hands.length });
     const lines = fs.readFileSync(path.join(dir, 'hands.ndjson'), 'utf8').trim().split('\n');
     expect(lines).toHaveLength(hands.length);
@@ -81,7 +81,7 @@ describe('which files an import may read', () => {
     expect(picked.skipped).toEqual({ 'not-a-file': 1, link: 1, unreadable: 1, 'too-large': 1 });
   });
 
-  it('reads UTF-8 (BOM dropped) and UTF-16 exports; a NUL byte means not text', () => {
+  it('reads UTF-8 (BOM dropped) and UTF-16 exports; a NUL byte means not text', async () => {
     const dir = tmp();
     const utf8 = path.join(dir, 'u8.txt');
     fs.writeFileSync(utf8, '﻿PokerStars Hand #1');
@@ -89,19 +89,21 @@ describe('which files an import may read', () => {
     fs.writeFileSync(utf16, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('PokerStars Hand #2', 'utf16le')]));
     const bin = path.join(dir, 'bin.txt');
     fs.writeFileSync(bin, Buffer.from([0x50, 0x00, 0x51]));
-    expect(readPicked({ path: utf8, size: 0 })).toEqual({ text: 'PokerStars Hand #1' });
-    expect(readPicked({ path: utf16, size: 0 })).toEqual({ text: 'PokerStars Hand #2' });
-    expect(readPicked({ path: bin, size: 0 })).toEqual({ skip: 'not-text' });
+    expect(await readPicked({ path: utf8, size: 0 })).toMatchObject({ text: 'PokerStars Hand #1' });
+    expect(await readPicked({ path: utf16, size: 0 })).toMatchObject({ text: 'PokerStars Hand #2' });
+    expect(await readPicked({ path: bin, size: 0 })).toEqual({ skip: 'not-text' });
+    // m4: the budget is checked on the size really opened, not the size the dialog saw.
+    expect(await readPicked({ path: utf8, size: 0 }, 5)).toEqual({ skip: 'import-too-large' });
   });
 
-  it('a file swapped for a link after the dialog is not followed', () => {
+  it('a file swapped for a link after the dialog is not followed', async () => {
     const dir = tmp();
     const p = path.join(dir, 'h.txt');
     fs.writeFileSync(p, 'x');
     const [picked] = expandPicked([p]).files;
     fs.rmSync(p);
     fs.symlinkSync('/etc/hosts', p);
-    expect(readPicked(picked)).toEqual({ skip: 'unreadable' });
+    expect(await readPicked(picked)).toEqual({ skip: 'unreadable' });
   });
 });
 
@@ -157,5 +159,45 @@ describe('a push-fold request from the renderer is validated whole', () => {
     ]) {
       expect(parseShoveRequest(bad), JSON.stringify(bad)).toBeNull();
     }
+  });
+});
+
+describe('review round 1: the store never loses hands to its own caps', () => {
+  it('M1: a store over the byte cap is refused for writing, never read as empty and overwritten', () => {
+    const dir = tmp();
+    const hands = fixtureHands();
+    createHandStore(dir).add(hands, { at: '2026-10-14T05:00:00.000Z', files: 1 });
+    const file = path.join(dir, 'hands.ndjson');
+    const size = fs.statSync(file).size;
+    // The same store opened with a cap below its size: it must refuse to write, and say so.
+    const capped = createHandStore(dir, { maxStoreBytes: size - 1 });
+    const out = capped.add([{ ...hands[0], id: '424242' }], { at: '2026-10-14T05:01:00.000Z', files: 1 });
+    expect(out.refused).toBe('store-unreadable');
+    expect(out.added).toBe(0);
+    expect(fs.statSync(file).size).toBe(size);
+    expect(capped.status()).toBe('too-large');
+  });
+
+  it('M1: adding stops at the byte budget (counted as over the cap), and an oversized hand is refused', () => {
+    const dir = tmp();
+    const hands = fixtureHands();
+    const one = Buffer.byteLength(JSON.stringify(hands[0])) + 1;
+    const store = createHandStore(dir, { maxStoreBytes: one * 2 + 10 });
+    const out = store.add(hands, { at: '2026-10-14T05:00:00.000Z', files: 1 });
+    expect(out.added).toBeLessThanOrEqual(2);
+    expect(out.overCap).toBe(hands.length - out.added);
+    expect(fs.statSync(path.join(dir, 'hands.ndjson')).size).toBeLessThanOrEqual(one * 2 + 10);
+    const big = { ...hands[0], id: '777', actions: Array.from({ length: 400 }, () => hands[0].actions[0]) };
+    expect(createHandStore(tmp()).add([big], { at: '2026-10-14T05:00:00.000Z', files: 1 })).toMatchObject({ added: 0, tooLarge: 1 });
+  });
+
+  it('m8: a doctored line keeps only the known fields; a meta.json that is not a small file is ignored', () => {
+    const dir = tmp();
+    const [good] = fixtureHands();
+    fs.writeFileSync(path.join(dir, 'hands.ndjson'), JSON.stringify({ ...good, name: 'RealName', note: 'x'.repeat(1000) }) + '\n');
+    const [read] = createHandStore(dir).all();
+    expect(Object.keys(read).sort()).toEqual(Object.keys(good).sort());
+    fs.mkdirSync(path.join(dir, 'meta.json'));
+    expect(createHandStore(dir).meta()).toBeNull();
   });
 });

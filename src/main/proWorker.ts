@@ -25,7 +25,7 @@ function run(job: Job): unknown {
     for (const text of job.texts) {
       const r = parseHandHistories(text);
       for (const h of r.hands) hands.push(h);
-      for (const s of r.skipped) skipped[s.reason] = (skipped[s.reason] ?? 0) + 1;
+      for (const [reason, n] of Object.entries(r.skipCounts) as [SkipReason, number][]) skipped[reason] = (skipped[reason] ?? 0) + n;
     }
     return { hands, skipped };
   }

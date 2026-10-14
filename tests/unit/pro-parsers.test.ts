@@ -558,7 +558,7 @@ describe('hostile input', () => {
   it('a 10 MB single line: unknown-site alone, malformed inside a hand, and fast', () => {
     const big = 'x'.repeat(10 * 1024 * 1024);
     const t0 = performance.now();
-    expect(parseHandHistories(big)).toEqual({ hands: [], skipped: [{ id: null, reason: 'unknown-site' }] });
+    expect(parseHandHistories(big)).toEqual({ hands: [], skipped: [{ id: null, reason: 'unknown-site' }], skipCounts: { 'unknown-site': 1 } });
     expect(parseHandHistories(starsWith((ls) => [...ls.slice(0, 10), big, ...ls.slice(10)])).skipped).toEqual([
       { id: '111', reason: 'malformed' },
     ]);
@@ -680,5 +680,14 @@ describe('partial hands (a file copied while the site is still writing it)', () 
   it('a hand cut off before the hole cards is skipped too', () => {
     const cut = STARS_HAND.slice(0, STARS_HAND.findIndex((l) => l.startsWith('*** HOLE CARDS'))).join('\n');
     expect(parseHandHistories(cut).hands).toHaveLength(0);
+  });
+});
+
+describe('review round 1: hostile input amplification', () => {
+  it('m5: a file of junk blocks keeps counts, not one record per block', () => {
+    const text = 'x\n\n'.repeat(50_000);
+    const r = parseHandHistories(text);
+    expect(r.skipped.length).toBeLessThanOrEqual(1000);
+    expect(r.skipCounts['unknown-site']).toBe(50_000);
   });
 });

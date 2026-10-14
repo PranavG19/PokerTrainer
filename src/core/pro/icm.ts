@@ -3,8 +3,8 @@
  * probability stack / total; given who finished above, the next place goes the same way among those
  * left. Each player's equity is the sum over places of P(that place) x the payout for it.
  *
- * Exact enumeration over finishing orders down the paid places: n x (n-1) x ... terms, which is small
- * for a table (10 players, 9 paid = 3.6M; the cap below keeps it there). Payouts are shares of the pool
+ * Exact, by dynamic programming over the set of players already placed (2^n x n steps; 10 players is
+ * ~10k states). Payouts are shares of the pool
  * in any unit; equities come back in the same unit.
  *
  * A stack of 0 is a player who has JUST busted (lost an all-in in the hand being priced): they finish
@@ -22,18 +22,37 @@ export function icmEquities(stacks: readonly number[], payouts: readonly number[
   const eq = new Array<number>(n).fill(0);
   const alive = stacks.filter((s) => s > 0).length;
   const places = Math.min(payouts.length, alive);
-
-  const walk = (taken: number, place: number, prob: number, left: number): void => {
-    if (place >= places || prob === 0) return;
-    for (let i = 0; i < n; i++) {
-      if (taken & (1 << i) || stacks[i] === 0) continue;
-      const p = (prob * stacks[i]) / left;
-      eq[i] += p * payouts[place];
-      walk(taken | (1 << i), place + 1, p, left - stacks[i]);
-    }
-  };
   const total = stacks.reduce((a, b) => a + b, 0);
-  if (total > 0) walk(0, 0, 1, total);
+
+  // DP over who has already finished: reach[mask] = P(the players in `mask` took the top |mask| places,
+  // in some order). The next place goes to i among the rest with probability stack_i / chips left. This is
+  // the same Harville sum as walking every finishing order, in 2^n x n steps instead of n! / (n - places)!.
+  if (total > 0 && places > 0) {
+    const size = 1 << n;
+    const reach = new Float64Array(size);
+    const left = new Float64Array(size);
+    const count = new Uint8Array(size);
+    reach[0] = 1;
+    left[0] = total;
+    for (let mask = 0; mask < size; mask++) {
+      const p = reach[mask];
+      if (p === 0) continue;
+      const place = count[mask];
+      if (place >= places) continue;
+      const chips = left[mask];
+      for (let i = 0; i < n; i++) {
+        if (mask & (1 << i) || stacks[i] === 0) continue;
+        const q = (p * stacks[i]) / chips;
+        eq[i] += q * payouts[place];
+        const next = mask | (1 << i);
+        if (reach[next] === 0) {
+          left[next] = chips - stacks[i];
+          count[next] = place + 1;
+        }
+        reach[next] += q;
+      }
+    }
+  }
   const busted = n - alive;
   if (busted > 0) {
     let pool = 0;

@@ -40,6 +40,7 @@ interface SpotView {
 }
 interface ReportView {
   summary: { hands: number; vpip: Ratio; pfr: Ratio; threeBet: Ratio; wtsd: Ratio };
+  excluded: number;
   spots: SpotView[];
   meta: { at: string; files: number; sites: string[] } | null;
 }
@@ -69,9 +70,9 @@ const SKIP_WORDS: Readonly<Record<string, string>> = {
 
 function parseReport(raw: unknown): ReportView | null {
   if (typeof raw !== 'object' || raw === null || 'locked' in raw) return null;
-  const o = raw as { report?: { summary?: ReportView['summary']; spots?: SpotView[] }; meta?: ReportView['meta'] };
+  const o = raw as { report?: { summary?: ReportView['summary']; spots?: SpotView[]; excluded?: number }; meta?: ReportView['meta'] };
   if (!o.report || !Array.isArray(o.report.spots) || !o.report.summary) return null;
-  return { summary: o.report.summary, spots: o.report.spots, meta: o.meta ?? null };
+  return { summary: o.report.summary, excluded: Number(o.report.excluded) || 0, spots: o.report.spots, meta: o.meta ?? null };
 }
 
 const pct = (x: number): string => `${Math.round(x * 100)}`;
@@ -101,7 +102,7 @@ function explain(s: SpotView): string {
   const band = `Your 90% band, ${pct(s.band.low)}–${pct(s.band.high)}%,`;
   switch (s.reading) {
     case 'leak':
-      return `${s.title}: ${you} ${band} sits clear of it, so this one is a leak.`;
+      return `${s.title}: ${you} ${band} sits clear of it, so this one is a leak.${s.kind === 'fold-to-3bet' ? ' (The chart’s number assumes its own opening range; open wider and you should fold more.)' : ''}`;
     case 'band-crosses':
       return `${s.title}: ${you} ${band} still reaches the chart, so it could be noise.`;
     case 'under-gap':
@@ -203,9 +204,10 @@ export function renderProHands(props: HandsProps): HTMLElement {
   practise.type = 'button';
   practise.className = 'pill primary';
   practise.dataset.testid = 'pro-practise';
-  practise.textContent = 'Practise this chart';
+  practise.textContent = 'Open the charts';
   foot.append(sentence, practise);
-  const method = text('p', 'g-caption pro-method', 'Counted, not graded: exact binomial bands. Nothing is called a leak under 20 hands or a 15-point gap.');
+  const method = text('p', 'g-caption pro-method', '');
+  method.dataset.testid = 'pro-method';
 
   const empty = document.createElement('div');
   empty.className = 'pro-empty';
@@ -229,6 +231,10 @@ export function renderProHands(props: HandsProps): HTMLElement {
     legend.hidden = !has;
     empty.hidden = has;
     clear.hidden = !has;
+    const excluded = r?.excluded ?? 0;
+    method.textContent =
+      'Counted, not graded: exact binomial bands against 100bb 6-max cash charts (seats before UTG use UTG’s). Nothing is called a leak under 20 hands or a 15-point gap.' +
+      (excluded > 0 ? ` ${excluded.toLocaleString('en-US')} tournament, ante or short-stack hand${excluded === 1 ? ' counts' : 's count'} in the totals only.` : '');
     lede.textContent = has
       ? `Your frequencies against Offsuit’s own charts, counted from ${hands.toLocaleString('en-US')} hands.`
       : 'Your frequencies against Offsuit’s own charts.';
@@ -323,7 +329,15 @@ export function renderProHands(props: HandsProps): HTMLElement {
   choose.addEventListener('click', async () => {
     choose.disabled = true;
     try {
-      const raw = (await props.bridge.proImportHands?.()) as Record<string, unknown> | undefined;
+      const raw = (await props.bridge.proImportHands?.().catch(() => ({ failed: true }))) as Record<string, unknown> | undefined;
+      if (raw?.failed === true) {
+        showNotice('The import failed, so nothing was added. Your imported hands are as they were.');
+        return;
+      }
+      if (raw?.refused === 'store-unreadable') {
+        showNotice('The imported-hands file could not be read whole, so nothing was added and it was left as it is. Delete imported hands to start over.');
+        return;
+      }
       if (!raw || 'locked' in raw || raw.canceled === true) return;
       if (raw.busy === true) {
         showNotice('An import is already running.');
@@ -336,6 +350,7 @@ export function renderProHands(props: HandsProps): HTMLElement {
       const skipped = [...words(raw.handsSkipped), ...words(raw.filesSkipped)];
       if (skipped.length > 0) parts.push(`Skipped: ${skipped.join(', ')}.`);
       if (Number(raw.overCap) > 0) parts.push(`${Number(raw.overCap)} not kept: the store is full.`);
+      if (Number(raw.tooLarge) > 0) parts.push(`${Number(raw.tooLarge)} too large to be a real hand.`);
       showNotice(parts.join(' '));
       await load();
     } finally {
@@ -354,8 +369,10 @@ export function renderProHands(props: HandsProps): HTMLElement {
     confirming = false;
     clear.textContent = 'Delete imported hands';
     clear.dataset.confirm = 'false';
-    await props.bridge.proClearHands?.();
-    showNotice('Imported hands deleted. Your profile is unchanged.');
+    const out = (await props.bridge.proClearHands?.().catch(() => ({ failed: true }))) as Record<string, unknown> | undefined;
+    if (out?.busy === true) showNotice('An import is running; delete the hands when it has finished.');
+    else if (out?.cleared === true) showNotice('Imported hands deleted. Your profile is unchanged.');
+    else showNotice('The hands could not be deleted. Nothing was changed.');
     await load();
   });
 

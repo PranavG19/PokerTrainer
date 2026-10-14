@@ -28,8 +28,11 @@ export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const MAX_FILES = 400;
 /** Bytes read per import across all files. */
 export const MAX_IMPORT_BYTES = 200 * 1024 * 1024;
-/** The store file itself; a larger one is not a file this build wrote. */
-export const MAX_STORE_BYTES = 120 * 1024 * 1024;
+/**
+ * The store file itself. `add` never writes past it (a hand over the budget counts as over the cap), and a
+ * file found larger than it is left untouched and read-only, never read as empty and overwritten.
+ */
+export const MAX_STORE_BYTES = 100 * 1024 * 1024;
 
 export type FileSkip = 'not-a-file' | 'link' | 'too-large' | 'not-text' | 'unreadable' | 'too-many' | 'import-too-large';
 
@@ -101,36 +104,39 @@ export function expandPicked(paths: readonly string[]): Picked {
 /**
  * A picked file's text, or why not. UTF-8 (a BOM is dropped) or UTF-16 with a BOM (some sites export
  * it); a NUL byte in a UTF-8 file means it is not a text export at all. The size is checked again on
- * the open handle, so a file swapped for a bigger one after the dialog is still capped.
+ * the open handle (and against what is left of the import's budget), so a file swapped for a bigger one
+ * after the dialog is still capped; `bytes` is what was really read. Asynchronous: main's thread is free
+ * while it reads.
  */
-export function readPicked(file: PickedFile): { text: string } | { skip: FileSkip } {
-  let fd: number | null = null;
+export async function readPicked(file: PickedFile, maxBytes = MAX_FILE_BYTES): Promise<{ text: string; bytes: number } | { skip: FileSkip }> {
+  let handle: fs.promises.FileHandle | null = null;
   try {
-    fd = fs.openSync(file.path, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
-    const st = fs.fstatSync(fd);
+    handle = await fs.promises.open(file.path, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    const st = await handle.stat();
     if (!st.isFile()) return { skip: 'not-a-file' };
     if (st.size > MAX_FILE_BYTES) return { skip: 'too-large' };
+    if (st.size > maxBytes) return { skip: 'import-too-large' };
     const buf = Buffer.alloc(st.size);
     let read = 0;
     while (read < st.size) {
-      const n = fs.readSync(fd, buf, read, st.size - read, read);
-      if (n === 0) break;
-      read += n;
+      const { bytesRead } = await handle.read(buf, read, st.size - read, read);
+      if (bytesRead === 0) break;
+      read += bytesRead;
     }
     const bytes = buf.subarray(0, read);
-    if (bytes[0] === 0xff && bytes[1] === 0xfe) return { text: bytes.subarray(2).toString('utf16le') };
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) return { text: bytes.subarray(2).toString('utf16le'), bytes: read };
     if (bytes[0] === 0xfe && bytes[1] === 0xff) {
       const swapped = Buffer.from(bytes.subarray(2));
       swapped.swap16();
-      return { text: swapped.toString('utf16le') };
+      return { text: swapped.toString('utf16le'), bytes: read };
     }
     if (bytes.includes(0)) return { skip: 'not-text' };
     const text = bytes.toString('utf8');
-    return { text: text.charCodeAt(0) === 0xfeff ? text.slice(1) : text };
+    return { text: text.charCodeAt(0) === 0xfeff ? text.slice(1) : text, bytes: read };
   } catch {
     return { skip: 'unreadable' };
   } finally {
-    if (fd !== null) fs.closeSync(fd);
+    await handle?.close();
   }
 }
 
@@ -144,65 +150,134 @@ export interface ImportMeta {
 export interface AddOutcome {
   readonly added: number;
   readonly duplicates: number;
-  /** Hands not kept because the store is full. */
+  /** Hands not kept because the store is full (by hands or by bytes). */
   readonly overCap: number;
+  /** Hands refused because one hand alone is larger than any real hand. */
+  readonly tooLarge: number;
   readonly total: number;
+  /** Set when nothing could be written: the store on disk could not be read whole, so it is left as it is. */
+  readonly refused?: 'store-unreadable';
 }
+
+/** 'too-large' / 'unreadable': the file on disk is kept untouched and every write is refused. */
+export type StoreStatus = 'ok' | 'too-large' | 'unreadable';
 
 export interface HandStore {
   readonly dir: string;
   /** Every stored hand, validated line by line. */
   all(): ParsedHand[];
   count(): number;
+  status(): StoreStatus;
   add(hands: readonly ParsedHand[], meta: Omit<ImportMeta, 'sites'>): AddOutcome;
   meta(): ImportMeta | null;
   clear(): void;
 }
 
-export function createHandStore(dir: string): HandStore {
+/** A real hand serialises to 1-4 KB; 16 KB is far past any, and caps what one line can cost. */
+export const MAX_HAND_BYTES = 16 * 1024;
+const MAX_META_BYTES = 4096;
+
+const HAND_KEYS = ['site', 'id', 'game', 'playedAt', 'maxSeats', 'button', 'sb', 'bb', 'ante', 'seats', 'hero', 'heroCards', 'actions', 'sbSeat', 'bbSeat', 'board', 'showdown'] as const;
+
+/** A validated hand rebuilt from the known keys only, so a hand-edited line cannot carry anything extra. */
+function cleanHand(h: ParsedHand): ParsedHand {
+  const out: Record<string, unknown> = {};
+  for (const k of HAND_KEYS) out[k] = h[k];
+  out.seats = h.seats.map((s) => ({ seatNo: s.seatNo, stack: s.stack, isHero: s.isHero }));
+  out.actions = h.actions.map((a) => ({ street: a.street, seat: a.seat, kind: a.kind, amount: a.amount, allIn: a.allIn }));
+  out.heroCards = [...h.heroCards];
+  out.board = [...h.board];
+  return out as unknown as ParsedHand;
+}
+
+/** Write `lines` to `file` atomically, one write per line (never one giant string), then rename. */
+function writeLines(file: string, lines: readonly string[]): void {
+  const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
+  const fd = fs.openSync(tmp, 'w', 0o600);
+  try {
+    for (const line of lines) fs.writeSync(fd, line + '\n');
+    fs.fsyncSync(fd);
+  } catch (error) {
+    fs.closeSync(fd);
+    fs.rmSync(tmp, { force: true });
+    throw error;
+  }
+  fs.closeSync(fd);
+  fs.renameSync(tmp, file);
+}
+
+export function createHandStore(dir: string, opts: { maxStoreBytes?: number } = {}): HandStore {
+  const maxStoreBytes = opts.maxStoreBytes ?? MAX_STORE_BYTES;
   const file = path.join(dir, 'hands.ndjson');
   const metaFile = path.join(dir, 'meta.json');
-  let cache: ParsedHand[] | null = null;
+  let cache: { hands: ParsedHand[]; lines: string[]; bytes: number; status: StoreStatus } | null = null;
 
-  const read = (): ParsedHand[] => {
+  const read = (): NonNullable<typeof cache> => {
     if (cache !== null) return cache;
-    const out: ParsedHand[] = [];
+    const hands: ParsedHand[] = [];
+    const lines: string[] = [];
+    let bytes = 0;
+    let status: StoreStatus = 'ok';
+    let st: fs.Stats | null = null;
     try {
-      const st = fs.lstatSync(file);
-      if (st.isFile() && st.size <= MAX_STORE_BYTES) {
-        const seen = new Set<string>();
-        for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-          if (line === '' || out.length >= MAX_STORED_HANDS) continue;
-          let raw: unknown;
-          try {
-            raw = JSON.parse(line);
-          } catch {
-            continue;
+      st = fs.lstatSync(file);
+    } catch {
+      st = null; // no store yet: empty
+    }
+    if (st !== null) {
+      if (!st.isFile()) status = 'unreadable';
+      else if (st.size > maxStoreBytes) status = 'too-large';
+      else {
+        try {
+          const seen = new Set<string>();
+          for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+            if (line === '' || hands.length >= MAX_STORED_HANDS || line.length > MAX_HAND_BYTES) continue;
+            let raw: unknown;
+            try {
+              raw = JSON.parse(line);
+            } catch {
+              continue;
+            }
+            if (!isParsedHand(raw)) continue;
+            const key = handKey(raw);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const clean = cleanHand(raw);
+            const text = JSON.stringify(clean);
+            hands.push(clean);
+            lines.push(text);
+            bytes += Buffer.byteLength(text) + 1;
           }
-          if (!isParsedHand(raw)) continue;
-          const key = handKey(raw);
-          if (seen.has(key)) continue;
-          seen.add(key);
-          out.push(raw);
+        } catch {
+          status = 'unreadable';
         }
       }
-    } catch {
-      // No store yet (or unreadable): empty.
     }
-    cache = out;
-    return out;
+    if (status !== 'ok') {
+      hands.length = 0;
+      lines.length = 0;
+    }
+    cache = { hands, lines, bytes, status };
+    return cache;
   };
 
   return {
     dir,
-    all: () => read().slice(),
-    count: () => read().length,
+    all: () => read().hands.slice(),
+    count: () => read().hands.length,
+    status: () => read().status,
     add(hands, meta) {
       const current = read();
-      const keys = new Set(current.map(handKey));
+      if (current.status !== 'ok') {
+        return { added: 0, duplicates: 0, overCap: 0, tooLarge: 0, total: 0, refused: 'store-unreadable' };
+      }
+      const keys = new Set(current.hands.map(handKey));
       const fresh: ParsedHand[] = [];
+      const freshLines: string[] = [];
+      let bytes = current.bytes;
       let duplicates = 0;
       let overCap = 0;
+      let tooLarge = 0;
       for (const h of hands) {
         if (!isParsedHand(h)) continue;
         const key = handKey(h);
@@ -210,32 +285,45 @@ export function createHandStore(dir: string): HandStore {
           duplicates++;
           continue;
         }
-        if (current.length + fresh.length >= MAX_STORED_HANDS) {
+        const clean = cleanHand(h);
+        const text = JSON.stringify(clean);
+        const size = Buffer.byteLength(text) + 1;
+        if (size > MAX_HAND_BYTES) {
+          tooLarge++;
+          continue;
+        }
+        if (current.hands.length + fresh.length >= MAX_STORED_HANDS || bytes + size > maxStoreBytes) {
           overCap++;
           continue;
         }
         keys.add(key);
-        fresh.push(h);
+        fresh.push(clean);
+        freshLines.push(text);
+        bytes += size;
       }
-      const next = current.concat(fresh);
+      const total = current.hands.length + fresh.length;
       if (fresh.length > 0) {
         fs.mkdirSync(dir, { recursive: true });
-        atomicWrite(file, next.map((h) => JSON.stringify(h)).join('\n') + '\n');
-        cache = next;
+        const lines = current.lines.concat(freshLines);
+        writeLines(file, lines);
+        cache = { hands: current.hands.concat(fresh), lines, bytes, status: 'ok' };
       }
       if (fresh.length > 0 || duplicates > 0) {
         fs.mkdirSync(dir, { recursive: true });
-        const sites = SITES.filter((s) => next.some((h) => h.site === s));
+        const all = read().hands;
+        const sites = SITES.filter((site) => all.some((h) => h.site === site));
         atomicWrite(metaFile, JSON.stringify({ at: meta.at, files: meta.files, sites }));
       }
-      return { added: fresh.length, duplicates, overCap, total: next.length };
+      return { added: fresh.length, duplicates, overCap, tooLarge, total };
     },
     meta() {
       try {
+        const st = fs.lstatSync(metaFile);
+        if (!st.isFile() || st.size > MAX_META_BYTES) return null;
         const o = JSON.parse(fs.readFileSync(metaFile, 'utf8')) as Record<string, unknown>;
         const at = typeof o.at === 'string' && !Number.isNaN(Date.parse(o.at)) ? o.at : null;
         const files = typeof o.files === 'number' && Number.isSafeInteger(o.files) && o.files >= 0 ? o.files : null;
-        const sites = Array.isArray(o.sites) ? SITES.filter((s) => (o.sites as unknown[]).includes(s)) : [];
+        const sites = Array.isArray(o.sites) ? SITES.filter((x) => (o.sites as unknown[]).includes(x)) : [];
         return at === null || files === null ? null : { at, files, sites };
       } catch {
         return null;
@@ -244,7 +332,7 @@ export function createHandStore(dir: string): HandStore {
     clear() {
       fs.rmSync(file, { force: true });
       fs.rmSync(metaFile, { force: true });
-      cache = [];
+      cache = { hands: [], lines: [], bytes: 0, status: 'ok' };
     },
   };
 }

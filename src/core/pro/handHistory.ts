@@ -93,9 +93,13 @@ export type SkipReason =
 
 export interface ParseResult {
   readonly hands: ParsedHand[];
-  /** One entry per hand that was seen but not kept, with why. */
+  /** The first MAX_SKIP_RECORDS hands seen but not kept, with why (a junk file makes millions). */
   readonly skipped: { readonly id: string | null; readonly reason: SkipReason }[];
+  /** Every skip, counted by reason. */
+  readonly skipCounts: Partial<Record<SkipReason, number>>;
 }
+
+export const MAX_SKIP_RECORDS = 1000;
 
 /** The longest line any parser reads; longer ones make the hand malformed (no regex ever sees them). */
 export const MAX_LINE = 400;

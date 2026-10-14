@@ -17,6 +17,10 @@
  * - One caller at most. If a player calls, everyone after folds (no overcalls, no isolation). This is the
  *   usual push-fold model; it misprices spots where two players behind both like to call.
  * - Hero folding gives the posted money to the big blind (the rest of the hand is not played out).
+ * - A player already all in from the blinds or ante (or whose post covers the shove) is FORCED: it is in
+ *   the showdown with any hand. If an earlier player calls, a forced player's money is treated as dead.
+ * - Pots are settled in layers (`settle`): a folder's post above what an all-in can match goes back to the
+ *   player who covers it, never to a winner who could not have won it.
  * - A caller's fold is valued as hero winning the pot uncontested, which is exact for the last player
  *   to act (the big blind) and an approximation for players with others still behind them.
  * - Equity is the all-in pot share (wins plus half of ties) from the preflop table; card removal between
@@ -50,6 +54,11 @@ export interface SpotShape {
   readonly callers: readonly number[];
   /** What each seat has put in before hero acts (blinds and ante). */
   readonly posted: readonly number[];
+  /**
+   * Per caller: already all in for at least hero's shove (its whole stack is posted, or its post covers
+   * the shove). Such a player has no decision: it is in the showdown, whatever calling range is named.
+   */
+  readonly forced: readonly boolean[];
 }
 
 export const MAX_SPOT_STACK_BB = 100;
@@ -72,12 +81,15 @@ export function shapeOf(spot: ShoveSpot): SpotShape {
     if (i === bb) p += Math.min(s - p, 1);
     return p;
   });
+  // A hero all in from the blinds or the ante has nothing to decide.
+  if (!(spot.stacks[spot.hero] - posted[spot.hero] > 1e-9)) throw new RangeError('hero is already all in');
   const callers: number[] = [];
   for (let i = seat(spot.hero + 1); ; i = seat(i + 1)) {
     callers.push(i);
     if (i === bb) break;
   }
-  return { n, sb, bb, callers, posted };
+  const forced = callers.map((j) => spot.stacks[j] - posted[j] <= 1e-9 || posted[j] >= spot.stacks[spot.hero] - 1e-9);
+  return { n, sb, bb, callers, posted, forced };
 }
 
 interface Outcomes {
@@ -88,27 +100,44 @@ interface Outcomes {
   readonly heroFolds: number[];
 }
 
+/**
+ * Final stacks after the pot is settled: `contrib[k]` is what seat k put in, `live` the players still in
+ * (eligible to win), `winner` the live player who has the best hand. The pot is cut into layers at each
+ * contribution level; a layer goes to the winner if the winner reached it, else to the other live player
+ * who did, else (money above every live player's stake: an uncalled bet, or a folder's post above what an
+ * all-in could match) back to whoever put it in.
+ */
+export function settle(stacks: readonly number[], contrib: readonly number[], live: readonly number[], winner: number): number[] {
+  const out = stacks.map((s, k) => s - contrib[k]);
+  const levels = [...new Set(contrib.filter((c) => c > 0))].sort((x, y) => x - y);
+  let prev = 0;
+  for (const level of levels) {
+    let layer = 0;
+    const share = contrib.map((c) => Math.max(0, Math.min(c, level) - prev));
+    for (const x of share) layer += x;
+    const eligible = live.filter((k) => contrib[k] >= level - 1e-12);
+    if (eligible.includes(winner)) out[winner] += layer;
+    else if (eligible.length > 0) out[eligible[0]] += layer;
+    else share.forEach((x, k) => (out[k] += x));
+    prev = level;
+  }
+  return out;
+}
+
 function outcomes(spot: ShoveSpot, shape: SpotShape): Outcomes {
   const { stacks, hero } = spot;
-  const after = stacks.map((s, i) => s - shape.posted[i]);
-  const deadAll = shape.posted.reduce((a, p, i) => (i === hero ? a : a + p), 0);
-  const noCall = after.slice();
-  noCall[hero] = stacks[hero] + deadAll;
-  const heroFolds = after.slice();
-  heroFolds[shape.bb] += shape.posted.reduce((a, p, i) => (i === shape.bb ? a : a + p), 0) + shape.posted[shape.bb];
+  const posted = shape.posted;
+  const shove = posted.map((p, i) => (i === hero ? stacks[hero] : p));
+  const noCall = settle(stacks, shove, [hero], hero);
+  const heroFolds = settle(stacks, posted, [shape.bb], shape.bb);
   const heroWins: number[][] = [];
   const callerWins: number[][] = [];
   for (const j of shape.callers) {
-    const dead = deadAll - shape.posted[j];
-    const matched = Math.min(stacks[hero], stacks[j]);
-    const w = after.slice();
-    w[hero] = stacks[hero] + matched + dead;
-    w[j] = stacks[j] - matched;
-    const l = after.slice();
-    l[hero] = stacks[hero] - matched;
-    l[j] = stacks[j] + matched + dead;
-    heroWins.push(w);
-    callerWins.push(l);
+    // The caller puts in up to hero's shove (or keeps its post, if that already covers it).
+    const contrib = shove.slice();
+    contrib[j] = Math.max(posted[j], Math.min(stacks[j], stacks[hero]));
+    heroWins.push(settle(stacks, contrib, [hero, j], hero));
+    callerWins.push(settle(stacks, contrib, [hero, j], j));
   }
   return { noCall, heroWins, callerWins, heroFolds };
 }
@@ -239,7 +268,8 @@ export function solveShove(spot: ShoveSpot, ranges: CallingRanges, iterations = 
   const m = shape.callers.length;
   if (ranges !== 'equilibrium') {
     if (ranges.length !== m) throw new RangeError(`need ${m} calling ranges`);
-    const calls = ranges.map((r) => Float64Array.from(r));
+    // A forced player calls with everything, whatever range was named for it.
+    const calls = ranges.map((r, k) => (shape.forced[k] ? new Float64Array(CLASS_COUNT).fill(1) : Float64Array.from(r)));
     const gain = shoveGains(val, calls);
     const push = gain.map((g) => (g > 0 ? 1 : 0));
     return { push, gain, calls, callers: shape.callers, pushShare: rangeShare(push), callShares: calls.map(rangeShare), exploitability: null };
@@ -249,6 +279,7 @@ export function solveShove(spot: ShoveSpot, ranges: CallingRanges, iterations = 
   const calls = shape.callers.map(() => new Float64Array(CLASS_COUNT).fill(1));
   for (let t = 1; t <= iterations; t++) {
     for (let k = 0; k < m; k++) {
+      if (shape.forced[k]) continue; // stays all ones: no decision to learn
       const g = callGains(val, k, push);
       for (let b = 0; b < CLASS_COUNT; b++) calls[k][b] += ((g[b] > 0 ? 1 : 0) - calls[k][b]) / (t + 1);
     }
@@ -264,7 +295,7 @@ export function solveShove(spot: ShoveSpot, ranges: CallingRanges, iterations = 
     return s;
   };
   let exploitability = gap(gain, push);
-  for (let k = 0; k < m; k++) exploitability = Math.max(exploitability, gap(callGains(val, k, push), calls[k]));
+  for (let k = 0; k < m; k++) if (!shape.forced[k]) exploitability = Math.max(exploitability, gap(callGains(val, k, push), calls[k]));
   return { push, gain, calls, callers: shape.callers, pushShare: rangeShare(push), callShares: calls.map(rangeShare), exploitability };
 }
 

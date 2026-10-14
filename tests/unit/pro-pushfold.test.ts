@@ -165,3 +165,31 @@ describe('spot shape', () => {
     expect(s.posted.map((x) => Math.round(x * 100) / 100)).toEqual([0.1, 0.3, 0.8]);
   });
 });
+
+describe('review round 1: players all in from the blinds, and side pots', () => {
+  it('M2: a big blind all in from its post is a forced caller, whatever range is named', () => {
+    // BTN 10, SB 10, BB 0.8 (all in from the blind). Against "top 10%" callers the BB still calls 100%.
+    const spot: ShoveSpot = { stacks: [10, 10, 0.8], button: 0, hero: 0, ante: 0, payouts: [] };
+    const fixed = solveShove(spot, [topRange(0.1), topRange(0.1)]);
+    expect(fixed.callShares[1]).toBeCloseTo(1, 9);
+    const forced = solveShove(spot, [topRange(0.1), topRange(1)]);
+    expect(Array.from(fixed.gain)).toEqual(Array.from(forced.gain));
+    expect(fixed.pushShare).toBeLessThan(0.6);
+  });
+
+  it('M2: a hero all in from the blinds has no decision, so the spot is refused', () => {
+    expect(() => shapeOf({ stacks: [10, 0.3, 10], button: 2, hero: 0, ante: 0, payouts: [] })).not.toThrow();
+    expect(() => shapeOf({ stacks: [0.4, 10, 10], button: 2, hero: 0, ante: 0, payouts: [] })).toThrow();
+  });
+
+  it('m2: a folder’s post above what the all-in can match goes back to the covering player, not to the winner', () => {
+    // BTN (hero) 10, SB 10 posts 0.5 and folds, BB 0.3 is all in from its post (a forced caller).
+    // Main pot to 0.3 from each of three: 0.9 to the winner. The SB's other 0.2 and hero's other 9.7 are
+    // above anything the BB put in, so hero takes them win or lose: hero wins to 10.8, or loses to 9.9
+    // (the old flat-dead-money sum gave the BB the SB's whole 0.5, leaving hero 9.7); folding is 10.
+    const spot: ShoveSpot = { stacks: [10, 10, 0.3], button: 0, hero: 0, ante: 0, payouts: [] };
+    const r = solveShove(spot, [new Float64Array(169), new Float64Array(169)]);
+    const eq = handVsRange(classIndex('AA'), new Float64Array(169).fill(1)).equity!;
+    expect(r.gain[classIndex('AA')]).toBeCloseTo(eq * 10.8 + (1 - eq) * 9.9 - 10, 9);
+  });
+});
