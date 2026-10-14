@@ -1,6 +1,6 @@
 /**
  * "Decisions, not results" for Profile (1.13): the assessment block's EV loss by week and how often Sure was right.
- * Only graded decisions feed it (the assessment log and the calibration tally), never chips, pots or a bankroll.
+ * Only graded decisions feed it (the assessment log and the calibration tally), never table stacks or pots.
  * Pure: the caller passes `now`.
  */
 

@@ -9,7 +9,7 @@ describe('navigation: seven sections, the You sub-nav, every old tab folded in (
     expect(YOU_NAV.map((i) => i.label)).toEqual(['Profile', 'Trophies', 'Style', 'Hands', 'Letters', 'Rivals', 'Locker', 'Dee']);
   });
 
-  it('every one of the twelve old tabs has a path, ending on a button that exists', () => {
+  it('every one of the thirteen old tabs (Pro included) has a path, ending on a button that exists', () => {
     const buttons = new Set([
       ...SECTIONS.map((s) => s.testid),
       ...STUDY_NAV.map((i) => i.testid),
@@ -18,7 +18,7 @@ describe('navigation: seven sections, the You sub-nav, every old tab folded in (
       'tab-progress', // Profile's link
       'tab-settings', // the title-bar button
     ]);
-    expect(Object.keys(OLD_TABS)).toHaveLength(12);
+    expect(Object.keys(OLD_TABS)).toHaveLength(13);
     for (const [old, path] of Object.entries(OLD_TABS)) {
       expect(path.length, old).toBeGreaterThan(0);
       expect(path.length, old).toBeLessThanOrEqual(2);

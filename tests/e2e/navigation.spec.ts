@@ -278,6 +278,7 @@ test('the 7-tab nav (1.14): the owner’s sections and You sub-nav, and every ol
       ['tab-equity', 'equity-screen'],
       ['tab-ranges', 'range-editor-screen'],
       ['tab-dossier', 'dossier-screen'],
+      ['tab-pro', 'pro-tools-screen'],
       ['tab-progress', 'progress-screen'],
       ['tab-profile', 'profile-screen'],
       ['tab-settings', 'settings-screen'],
