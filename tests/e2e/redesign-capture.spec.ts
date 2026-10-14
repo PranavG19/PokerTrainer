@@ -3,7 +3,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
+import { OLD_TABS } from '../../src/renderer/nav.js';
 
 /**
  * REDESIGN CAPTURE — a screenshot pass over every screen at both documented window sizes, for the UI
@@ -43,14 +44,16 @@ async function capture(page: Page, name: string): Promise<void> {
 
 /** Open a top tab and wait for its screen. */
 async function openTab(page: Page, testid: string, screenSelector: string): Promise<void> {
-  await page.click(`[data-testid="${testid}"]`);
+  // An old tab folded into the 7-tab nav (1.14) is opened through its path; a section tab directly.
+  if (testid in OLD_TABS) await goTo(page, testid as keyof typeof OLD_TABS);
+  else await page.click(`[data-testid="${testid}"]`);
   await page.waitForSelector(screenSelector, { timeout: 15000 });
   await page.waitForTimeout(150);
 }
 
 // Each entry: a top tab, the selector proving it mounted, and a label for the file.
 const TABS: { testid: string; sel: string; name: string }[] = [
-  { testid: 'tab-play', sel: '[data-testid="home-screen"]', name: 'play-home' },
+  { testid: 'tab-home', sel: '[data-testid="home-screen"]', name: 'play-home' },
   { testid: 'tab-learn', sel: '[data-testid="lesson-screen"], [data-testid="learn-screen"]', name: 'learn' },
   { testid: 'tab-train', sel: '[data-testid="train-screen"]', name: 'train-hub' },
   { testid: 'tab-charts', sel: '[data-testid="charts-screen"]', name: 'charts' },

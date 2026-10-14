@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 import { chipTotal, playToShowdown, snapshot, tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -126,7 +126,7 @@ async function bustHero(page: Page, maxHands = 14): Promise<number> {
 }
 
 async function returnHome(page: Page): Promise<void> {
-  await page.click(sel.tabProfile);
+  await goTo(page, 'tab-profile');
   await page.waitForSelector(profileScreen);
   await page.click(sel.tabPlay);
   await page.waitForSelector(homeScreen);
@@ -396,7 +396,7 @@ test.describe('mid-session rebuy', () => {
       await second.page.waitForSelector(homeScreen);
       expect(await readBankroll(second.page)).toBe(bankrollAfterRebuy);
 
-      await second.page.click(sel.tabProfile);
+      await goTo(second.page, 'tab-profile');
       await second.page.waitForSelector(profileScreen);
       await expect(second.page.locator(rebuyCount)).toHaveText('1');
     } finally {
@@ -409,7 +409,7 @@ test.describe('mid-session rebuy', () => {
     try {
       // Before any rebuy: an honest zero, not a blank.
       await page.waitForSelector(homeScreen);
-      await page.click(sel.tabProfile);
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await expect(page.locator(rebuyCount)).toHaveText('0');
       await expect(page.locator(rebuyCaption)).toHaveText('No rebuys');
@@ -420,7 +420,7 @@ test.describe('mid-session rebuy', () => {
       await page.locator(btnRebuy).click();
       await waitForIdle(page);
 
-      await page.click(sel.tabProfile);
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await expect(page.locator(rebuyCount)).toHaveText('1');
       await expect(page.locator(rebuyCaption)).toHaveText('1 rebuy this session');
@@ -462,7 +462,7 @@ test.describe('mid-session rebuy', () => {
       expect(persisted.hands.reduce((a, h) => a + h.net, 0)).toBe(-2 * START_STACK);
       expect(persisted.bankroll).toBe(DEFAULT_BANKROLL - 2 * START_STACK);
 
-      await page.click(sel.tabProfile);
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await expect(page.locator(rebuyCount)).toHaveText('2');
       await expect(page.locator(rebuyCaption)).toHaveText('2 rebuys this session');

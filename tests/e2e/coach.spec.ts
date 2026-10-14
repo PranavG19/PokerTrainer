@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 
 /**
  * Success criterion #6 — the coaching layer, and above all the SILENCE RULE.
@@ -217,7 +217,7 @@ test.describe('R6 coach layer', () => {
       await playToShowdown(page);
       await expect(page.locator('[data-testid="winner-summary"]')).toBeVisible();
 
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await expect(page.locator('[data-testid="profile-screen"]')).toBeVisible();
 
       const rows = page.locator(`${LEAK_LIST} ${LEAK_ROW}`);

@@ -667,7 +667,7 @@ test.describe('the surface', () => {
       await openSpacing(page, { now: day(10), concepts: [stale(), mid(), fresh()] });
       await expect(page.locator(spacingScreen)).toHaveAttribute('data-due-count', '3');
 
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await expect(page.locator(spacingScreen)).toHaveCount(0);
 
       // A different instant on the way back: the screen must read the seam again rather than keep the

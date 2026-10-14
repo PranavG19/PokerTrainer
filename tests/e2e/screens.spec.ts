@@ -2,7 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel } from './helpers.js';
+import { launchApp, sel, goTo } from './helpers.js';
 import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -124,7 +124,7 @@ async function readBankrollNumeral(page: Page): Promise<number> {
 }
 
 async function openProfile(page: Page): Promise<void> {
-  await page.click(sel.tabProfile);
+  await goTo(page, 'tab-profile');
   await page.waitForSelector(profileScreen);
 }
 

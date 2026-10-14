@@ -154,7 +154,7 @@ async function seedQueue(page: Page, count: number, when: 'overdue' | 'current')
   );
 
   await page.click('[data-testid="tab-profile"]');
-  await page.click('[data-testid="tab-play"]');
+  await page.click('[data-testid="tab-home"]');
   await page.waitForSelector(homeScreen);
 }
 

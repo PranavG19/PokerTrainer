@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, sel } from './helpers.js';
+import { goTo, launchApp, sel } from './helpers.js';
+import { OLD_TABS } from '../../src/renderer/nav.js';
 
 /**
  * THE TAB BAR AS A WHOLE — PRODUCT-SPEC N1 ("Nothing is ever locked") and N5 (the surfaces).
@@ -250,6 +251,71 @@ test("a table left mid-hand does not keep eating keys on another screen", async 
     ).toHaveCount(0);
 
     expect(errors, 'a stray key threw on another screen').toEqual([]);
+  } finally {
+    await close();
+  }
+});
+
+test('the 7-tab nav (1.14): the owner’s sections and You sub-nav, and every old destination reachable at 900 px', async () => {
+  const { app, page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(900, 640));
+    await page.waitForFunction(() => window.innerWidth === 900);
+    const labels = (await tabsInBar(page)).map((t) => t.label);
+    expect(labels).toEqual(['Home', 'Play', 'Learn', 'Story', 'Train', 'Study', 'You']);
+    await page.locator('[data-testid="tab-you"]').click();
+    const you = await page.locator('[data-testid="you-nav"] .subnav-item').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()));
+    expect(you).toEqual(['Profile', 'Trophies', 'Style', 'Hands', 'Letters', 'Rivals', 'Locker', 'Dee']);
+    // Every old tab's destination, through its path, on screen and fully inside the 900 px window.
+    const destinations: [keyof typeof OLD_TABS, string][] = [
+      ['tab-play', 'home-screen'],
+      ['tab-learn', 'lesson-screen'],
+      ['tab-story', 'story-map'],
+      ['tab-train', 'train-screen'],
+      ['tab-charts', 'charts-screen'],
+      ['tab-chart-bank', 'chart-bank-screen'],
+      ['tab-equity', 'equity-screen'],
+      ['tab-ranges', 'range-editor-screen'],
+      ['tab-dossier', 'dossier-screen'],
+      ['tab-progress', 'progress-screen'],
+      ['tab-profile', 'profile-screen'],
+      ['tab-settings', 'settings-screen'],
+    ];
+    for (const [old, screenId] of destinations) {
+      await goTo(page, old);
+      const el = page.locator(`[data-testid="${screenId}"]`).first();
+      await expect(el, `${old} → ${screenId}`).toBeVisible();
+      const box = await el.boundingBox();
+      expect(box && box.x >= 0 && box.x + box.width <= 900 + 1, `${screenId} is wider than the 900 px window`).toBe(true);
+      const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+      expect(sw, `${screenId} scrolls sideways at 900 px`).toBeLessThanOrEqual(iw);
+    }
+    // Every You item opens, nothing is locked.
+    for (const id of ['tab-profile', 'tab-trophies', 'tab-style', 'tab-hands', 'tab-letters', 'tab-rivals', 'tab-locker', 'tab-dee']) {
+      await page.locator('[data-testid="tab-you"]').click();
+      await page.locator(`[data-testid="${id}"]`).click();
+      await expect(page.locator(`[data-testid="${id}"]`)).toHaveAttribute('data-active', 'true');
+    }
+  } finally {
+    await close();
+  }
+});
+
+test('Profile (1.13) shows decisions, never results: no bankroll, chips, won or lost, or percentile on the page', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    // A hand on file first, so the page has a record to show.
+    await page.locator(sel.newHand).click();
+    await page.waitForSelector('[data-testid="table-screen"]');
+    await page.locator('[data-testid="tab-you"]').click();
+    const profile = page.locator('[data-testid="you-profile"]');
+    await expect(profile).toBeVisible();
+    await expect(page.locator('[data-testid="you-decisions"]')).toBeVisible();
+    const text = (await page.locator('main.screen').textContent()) ?? '';
+    expect(text).not.toMatch(/bankroll|\bchips?\b|\bwon\b|\blost\b|\bwinnings?\b|percentile|\bnet\b/i);
+    await expect(page.locator('[data-testid="bankroll"]')).toHaveCount(0);
   } finally {
     await close();
   }

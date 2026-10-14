@@ -1025,7 +1025,7 @@ test.describe('the dossier is a reachable surface that cleans up after itself (N
 
       // N1: leaving and returning must not throw, and the surface is never locked. Its state is
       // session-scoped by design, so a fresh visit starts from zero observations.
-      await page.click('[data-testid="tab-play"]');
+      await page.click('[data-testid="tab-home"]');
       await expect(page.locator(dossierScreen)).toHaveCount(0);
       await openDossier(page);
       await expect(page.locator(dossierScreen)).toHaveAttribute('data-n', '0');

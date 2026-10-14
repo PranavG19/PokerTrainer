@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 import {
   CHIPS_IN_PLAY,
   chipTotal,
@@ -143,7 +143,7 @@ async function awaitingLog(page: Page): Promise<string[]> {
 
 /** Leaving and re-entering Play tears the settled table down, revealing Home (and the bankroll). */
 async function returnHome(page: Page): Promise<void> {
-  await page.click(sel.tabProfile);
+  await goTo(page, 'tab-profile');
   await page.waitForSelector(profileScreen);
   await page.click(sel.tabPlay);
   await page.waitForSelector(homeScreen);

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel } from './helpers.js';
+import { launchApp, sel, goTo } from './helpers.js';
 import { CHIPS_IN_PLAY, chipTotal, snapshot, tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -337,7 +337,8 @@ test('a full session across every surface leaves the table playable', async () =
   const errors = watchPageErrors(page);
   // Top-level tabs after the 13→8 fold. Train opens the hub; two former mode-tabs are toured via the
   // rail below to prove those remounts (the RT-gated Speed screen especially) are still clean.
-  const tabs = ['tab-learn', 'tab-train', 'tab-charts', 'tab-profile', 'tab-settings'] as const;
+  // The 7-tab bar (1.14) plus the title bar's Settings; Charts and the old Profile are reached through goTo below.
+  const tabs = ['tab-learn', 'tab-train', 'tab-study', 'tab-you', 'tab-settings'] as const;
   const trainRungs = ['tab-drill', 'tab-anomaly'] as const;
   try {
     await sitDown(page);
@@ -351,6 +352,7 @@ test('a full session across every surface leaves the table playable', async () =
       await button.click();
       await expect(page.locator(`[data-testid="${tab}"]`)).toHaveAttribute('data-active', 'true');
     }
+    for (const old of ['tab-charts', 'tab-profile'] as const) await goTo(page, old);
 
     // Tour the hub rungs too: open Train, then each rail button, remounting its screen.
     await page.locator('[data-testid="tab-train"]').click();
@@ -362,7 +364,7 @@ test('a full session across every surface leaves the table playable', async () =
     }
 
     // Back to play, and the table must still deal.
-    await page.locator(`[data-testid="tab-play"]`).click();
+    await page.locator(`[data-testid="tab-home"]`).click();
     await page.waitForSelector(homeScreen);
     await sitDown(page);
     await soak(page, dir, 'mixed', 4);

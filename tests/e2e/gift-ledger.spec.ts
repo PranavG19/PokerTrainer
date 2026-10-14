@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel } from './helpers.js';
+import { launchApp, sel, goTo } from './helpers.js';
 import { tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -117,7 +117,7 @@ test.describe('gift ledger from showdowns', () => {
     const { page, close } = await launchApp({ seed: 1, userDataDir: dir });
     try {
       await page.waitForSelector(homeScreen);
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await expect(page.locator('[data-testid="profile-screen"]')).toBeVisible();
       // The section is omitted until the first gift is observed — the pixel-tight profile column has
       // no room for a sixth always-present section, and "nothing observed" is the honest reading of
@@ -144,10 +144,10 @@ test.describe('gift ledger from showdowns', () => {
       expect(gifts.length, 'seed 3 must observe a gift — the capture path is dead otherwise').toBeGreaterThan(0);
 
       // If the hero busted to home, get back to a screen with the profile tab.
-      if ((await page.locator(sel.tabProfile).count()) === 0) {
+      if ((await page.locator('[data-testid="tab-you"]').count()) === 0) {
         await page.waitForSelector(homeScreen);
       }
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await expect(page.locator('[data-testid="profile-screen"]')).toBeVisible();
 
       await expect(page.locator(giftTotal)).toContainText('chips handed over');
@@ -176,7 +176,7 @@ test.describe('gift ledger from showdowns', () => {
     const second = await launchApp({ seed: 3, userDataDir: dir });
     try {
       await second.page.waitForSelector(homeScreen);
-      await second.page.locator(sel.tabProfile).click();
+      await goTo(second.page, 'tab-profile');
       await expect(second.page.locator('[data-testid="profile-screen"]')).toBeVisible();
       await expect(second.page.locator(giftRow)).toHaveCount(Math.min(before.length, 12));
       // The persisted set is unchanged by the reload.

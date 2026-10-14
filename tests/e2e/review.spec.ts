@@ -2,7 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 import { tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -92,7 +92,7 @@ async function openTable(page: Page): Promise<void> {
 }
 
 async function openProfile(page: Page): Promise<void> {
-  await page.locator(sel.tabProfile).click();
+  await goTo(page, 'tab-profile');
   await page.waitForSelector(profileScreen);
 }
 
@@ -616,7 +616,7 @@ test.describe('review is keyboard navigable and cleans up after itself', () => {
 
       // Re-entering the review starts at step 0, not wherever the old instance was parked, and the
       // Profile tab is back on the profile rather than on the half-stepped replay.
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await page.locator(openReview).click();
       await page.locator(reviewHandRow).first().click();

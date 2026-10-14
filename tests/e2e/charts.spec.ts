@@ -2,7 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, shot } from './helpers.js';
+import { launchApp, shot, goTo } from './helpers.js';
 
 /**
  * N3 — THE PREFLOP CHART TRAINER.
@@ -49,7 +49,7 @@ const CLASS_IDS = ['premium', 'strong', 'broadway', 'suited-ace', 'speculative',
 
 /** Open the Charts tab and wait for the screen's first paint. */
 async function openCharts(page: Page): Promise<void> {
-  await page.click('[data-testid="tab-charts"]');
+  await goTo(page, 'tab-charts');
   await page.waitForSelector(chartsScreen);
   await expect(page.locator(grid)).toBeVisible();
 }
@@ -947,7 +947,7 @@ const defenseDrill = '[data-testid="defense-drill"]';
 const defenseVerdict = '[data-testid="defense-verdict"]';
 
 async function openDefenseMode(page: Page): Promise<void> {
-  await page.click('[data-testid="tab-charts"]');
+  await goTo(page, 'tab-charts');
   await page.waitForSelector(chartsScreen);
   await page.click('[data-testid="charts-mode-btn"][data-mode="defense"]');
   await page.waitForSelector(defenseDrill);
@@ -1123,7 +1123,7 @@ const threebetDrill = '[data-testid="threebet-drill"]';
 const threebetVerdict = '[data-testid="threebet-verdict"]';
 
 async function openThreeBetMode(page: Page): Promise<void> {
-  await page.click('[data-testid="tab-charts"]');
+  await goTo(page, 'tab-charts');
   await page.waitForSelector(chartsScreen);
   await page.click('[data-testid="charts-mode-btn"][data-mode="3bet-response"]');
   await page.waitForSelector(threebetDrill);

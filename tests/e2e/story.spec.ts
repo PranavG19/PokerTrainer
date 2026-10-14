@@ -158,7 +158,7 @@ test.describe('Story: the Long Orbit', () => {
       expect(hands).toBeLessThanOrEqual(5);
 
       // D17: the chapter table never shows under Play. Leaving the Story tab leaves the table; the chapter picks up there.
-      await page.click('[data-testid="tab-play"]');
+      await page.click('[data-testid="tab-home"]');
       await expect(page.locator('[data-testid="home-screen"]')).toBeVisible();
       await expect(page.locator(tableScreen)).toHaveCount(0);
       await page.click('[data-testid="tab-story"]');

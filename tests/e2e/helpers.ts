@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { OLD_TABS } from '../../src/renderer/nav.js';
 
 // package.json is "type": "module", so the transpiled spec has no __dirname.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -190,9 +191,21 @@ export const sel = {
   coach: '[data-testid="coach-message"]',
   bankroll: '[data-testid="bankroll"]',
   newHand: '[data-testid="new-hand"]',
-  tabPlay: '[data-testid="tab-play"]',
-  tabProfile: '[data-testid="tab-profile"]',
+  /**
+   * The launcher (bankroll, New session, recent hands). It was the Play tab; since the 7-tab nav (1.14) it is
+   * Home, and Play holds the tables. The name is kept so every spec that "goes back to Play" reads the same.
+   */
+  tabPlay: '[data-testid="tab-home"]',
 };
+
+/**
+ * Open an old tab's destination through the 7-tab nav (src/renderer/nav.ts OLD_TABS): one click on the section,
+ * then the sub-nav button or rail rung that carries the old testid. `tab-profile` is the old Profile screen (the
+ * session record), which is You › Hands now; the new Profile is `tab-you` alone.
+ */
+export async function goTo(page: Page, oldTab: keyof typeof OLD_TABS): Promise<void> {
+  for (const id of OLD_TABS[oldTab]) await page.locator(`[data-testid="${id}"]`).click();
+}
 
 export async function shot(page: Page, name: string): Promise<void> {
   const dir = path.join(ROOT, 'screenshots');

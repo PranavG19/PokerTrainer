@@ -1377,10 +1377,10 @@ async function boot(): Promise<void> {
       },
       onAskDee: () => openChat(),
       onPriceHeld: (count) => addExtras({ priceHeld: count }),
-      // Hero busted out: drop back to home, where a fresh table can be started.
+      // Hero busted out (or the planned hands played): back to Home, where the bankroll and a fresh table are.
       onSessionOver: () => {
         teardownTable();
-        render();
+        go('home');
       },
     });
     screen.replaceChildren(table.root);

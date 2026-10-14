@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -452,7 +452,7 @@ test.describe('calibration', () => {
     const userDataDir = freshUserDataDir();
     await withApp({ seed: 10, userDataDir }, async (page) => {
       // Empty first: the zero state must be a sentence, not NaN.
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await expect(page.locator(calibration)).toHaveText('No predictions yet');
       await expect(page.locator(calibration)).toHaveAttribute('data-total', '0');
@@ -478,7 +478,7 @@ test.describe('calibration', () => {
         })
         .toBe(2);
 
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       const line = page.locator(calibration);
       await expect(line).toHaveAttribute('data-total', '2');
@@ -528,7 +528,7 @@ test.describe('calibration', () => {
         })
         .toBe(2);
 
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       const line = page.locator(calibration);
       // Sure: 1/1 = 100%. Guess: 0/1 = 0%. Read independently off their own buckets.
@@ -555,7 +555,7 @@ test.describe('calibration', () => {
       await expect(result).toHaveAttribute('data-outcome', 'deviated');
       await expect(result).toContainText(/nothing was tested/i);
 
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await expect(page.locator(calibration)).toHaveAttribute('data-total', '0');
       await expect(page.locator(calibration)).toHaveText('No predictions yet');
@@ -593,7 +593,7 @@ test.describe('calibration', () => {
       await expect(page.locator(predictPanel)).toBeVisible();
       expect((await actionDisabled(page))['btn-call']).toBe(true);
 
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await expect(page.locator(calibration)).toHaveAttribute('data-total', '1');
       await expect(page.locator(calibration)).toHaveAttribute('data-correct', '1');

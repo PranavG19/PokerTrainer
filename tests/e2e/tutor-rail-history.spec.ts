@@ -18,7 +18,7 @@ import { launchApp } from './helpers.js';
  */
 
 const learnTab = '[data-testid="tab-learn"]';
-const playTab = '[data-testid="tab-play"]';
+const playTab = '[data-testid="tab-home"]';
 const lessonScreen = '[data-testid="lesson-screen"]';
 const lessonRow = '[data-testid="lesson-row"]';
 const rail = '[data-testid="tutor-rail"]';

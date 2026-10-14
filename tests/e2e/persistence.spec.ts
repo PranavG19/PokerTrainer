@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertNoNetwork, launchApp, sel, shot } from './helpers.js';
+import { assertNoNetwork, launchApp, sel, shot, goTo } from './helpers.js';
 
 const STATE_FILE = 'offsuit-state.json';
 const DEFAULT_BANKROLL = 10000;
@@ -96,7 +96,7 @@ async function startFirstHand(page: Page): Promise<void> {
 
 /** Leaving and re-entering the Play tab tears down the settled table, revealing Home again. */
 async function returnHome(page: Page): Promise<void> {
-  await page.click(sel.tabProfile);
+  await goTo(page, 'tab-profile');
   await page.waitForSelector(profileScreen);
   await page.click(sel.tabPlay);
   await page.waitForSelector(homeScreen);
@@ -255,7 +255,7 @@ test.describe('zero network (criterion #7)', () => {
 
       await startFirstHand(page);
       await playToShowdown(page);
-      await page.click(sel.tabProfile);
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
 
       expect(attempted).toEqual([]);
@@ -284,7 +284,7 @@ test.describe('profile screen (R9)', () => {
       await page.click(nextHand);
       await playToShowdown(page);
 
-      await page.click(sel.tabProfile);
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
 
       const graphPoints = await page.getAttribute(
@@ -335,7 +335,7 @@ test.describe('screenshots (criterion #4)', () => {
       await expect(page.locator(winnerSummary)).toBeVisible();
       await shot(page, 'table-showdown');
 
-      await page.click(sel.tabProfile);
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await shot(page, 'profile');
     } finally {

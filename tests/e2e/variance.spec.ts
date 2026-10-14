@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
 import { riskOfLosing } from '../../src/core/arithmetic.js';
 
 /**
@@ -15,7 +15,7 @@ const row = '[data-testid="variance-row"]';
 
 async function openVariance(page: Page): Promise<void> {
   await page.waitForSelector('[data-testid="home-screen"]');
-  await page.locator('[data-testid="tab-progress"]').click();
+  await goTo(page, 'tab-progress');
   await page.waitForSelector('[data-testid="progress-screen"]');
   await page.locator('[data-testid="graph-alternative"]').click();
   await page.waitForSelector(screen);
@@ -71,7 +71,7 @@ test('the explainer routes back to Progress', async () => {
   try {
     await openVariance(page);
     await page.locator('[data-testid="variance-back"]').click();
-    await expect(page.locator('[data-testid="tab-progress"]')).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-testid="tab-you"]')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-testid="progress-screen"]')).toBeVisible();
   } finally {
     await close();

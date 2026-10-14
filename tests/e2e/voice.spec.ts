@@ -2,7 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 import { tableScreen, waitForIdle } from './flow.js';
 
 /**
@@ -391,7 +391,7 @@ test.describe('with narration on', () => {
       const verdict = await playToOneVerdict(page);
       await expect.poll(() => say.alive()).toEqual([true]);
 
-      await page.click(sel.tabProfile);
+      await goTo(page, 'tab-profile');
       await page.waitForSelector('[data-testid="profile-screen"]');
       expect(await speakCalls(app)).toEqual([verdict, null]);
       await expect

@@ -80,7 +80,7 @@ async function playDrill(page: Page, ref: string): Promise<void> {
 }
 
 async function openTicket(page: Page): Promise<void> {
-  await page.locator('[data-testid="tab-play"]').click();
+  await page.locator('[data-testid="tab-home"]').click();
   await page.locator('[data-testid="home-ticket"]').click();
   await page.locator('[data-testid="ticket-screen"]').waitFor();
 }
@@ -240,10 +240,10 @@ test.describe('the habit loop', () => {
     try {
       const { page } = app;
       await expect(page.locator('[data-testid="onboarding"]')).toBeVisible();
-      // Nothing is locked: every tab opens with the sheet up, and Play brings the sheet back.
+      // Nothing is locked: every tab opens with the sheet up, and Home brings the sheet back.
       await page.locator('[data-testid="tab-learn"]').click();
       await expect(page.locator('[data-testid="lesson-screen"]')).toBeVisible();
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await expect(page.locator('[data-testid="onboarding-step"]')).toHaveText('Step 1 of 5');
       for (const [w, h] of [[900, 640], [1100, 760]]) {
         await size(app, w, h);

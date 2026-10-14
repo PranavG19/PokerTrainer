@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
 
 /**
  * WEEKLY ASSESSMENT BLOCK — the graded, feedback-withheld block driven through the real app.
@@ -25,7 +25,7 @@ const progressMetric = '[data-testid="progress-metric"]';
 
 /** The block launches from the Progress screen, beside the metric it feeds. */
 async function openAssessment(page: Page): Promise<void> {
-  await page.locator('[data-testid="tab-progress"]').click();
+  await goTo(page, 'tab-progress');
   await page.waitForSelector('[data-testid="progress-screen"]');
   await page.locator(startButton).click();
   await page.waitForSelector(screen);
@@ -143,7 +143,7 @@ test('finishing a block lights up the assessment-EV-loss metric on Progress (emp
   const { page, close } = await launchApp({ seed: 7 });
   try {
     // Baseline: on a fresh profile the assessment metric has recorded nothing.
-    await page.locator('[data-testid="tab-progress"]').click();
+    await goTo(page, 'tab-progress');
     const metricSample = page.locator(
       `${progressMetric}[data-metric="assessmentEvLossBb100"] [data-testid="metric-sample"]`,
     );
@@ -157,7 +157,7 @@ test('finishing a block lights up the assessment-EV-loss metric on Progress (emp
     await page.waitForSelector(homeScreen);
 
     // The metric now reports the block's decisions — the number no other screen can produce.
-    await page.locator('[data-testid="tab-progress"]').click();
+    await goTo(page, 'tab-progress');
     const card = page.locator(`${progressMetric}[data-metric="assessmentEvLossBb100"]`);
     await expect(card).toHaveAttribute('data-sample', String(decisions));
   } finally {
@@ -182,7 +182,7 @@ test('the assessment block survives a restart (decisions are persisted)', async 
   // Relaunch against the SAME profile dir; the persisted assessments must still feed the metric.
   const second = await launchApp({ seed: 7, userDataDir });
   try {
-    await second.page.locator('[data-testid="tab-progress"]').click();
+    await goTo(second.page, 'tab-progress');
     const card = second.page.locator(`${progressMetric}[data-metric="assessmentEvLossBb100"]`);
     await expect(card).toHaveAttribute('data-sample', String(decisions));
   } finally {

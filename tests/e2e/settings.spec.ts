@@ -2,7 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertNoNetwork, launchApp, sel, shot } from './helpers.js';
+import { assertNoNetwork, launchApp, sel, shot, goTo } from './helpers.js';
 import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
 import { buildStrategyRequest } from '../../src/main/tutor/requests.js';
 import { promptHash } from '../../src/main/tutor/replayCache.js';
@@ -836,7 +836,7 @@ test.describe('screenshots and layout', () => {
       await page.waitForSelector(homeScreen);
       for (let i = 0; i < 3; i++) {
         await openSettings(page);
-        await page.click(sel.tabProfile);
+        await goTo(page, 'tab-profile');
         await page.waitForSelector('[data-testid="profile-screen"]');
         await page.click(sel.tabPlay);
         await page.waitForSelector(homeScreen);

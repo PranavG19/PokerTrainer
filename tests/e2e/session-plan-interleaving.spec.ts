@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
 
 /*
  * THE INTERLEAVING VIEW (Q1/Q2/Q3, core/interleave.ts wired through sessionPlan.ts). The session
@@ -35,7 +35,7 @@ async function openInterleaving(page: Page): Promise<void> {
 
 /** Drive the chart RFI drill for `count` real graded commits at one seat, via the actual O/F keys. */
 async function driveDrill(page: Page, count: number): Promise<void> {
-  await page.click('[data-testid="tab-charts"]');
+  await goTo(page, 'tab-charts');
   await page.waitForSelector(chartsScreen);
   await page.click('[data-testid="position-btn"][data-position="CO"]');
   await expect(page.locator(chartsScreen)).toHaveAttribute('data-position', 'CO');
@@ -55,7 +55,7 @@ async function driveDrill(page: Page, count: number): Promise<void> {
 }
 
 async function backToHome(page: Page): Promise<void> {
-  await page.click('[data-testid="tab-play"]');
+  await page.click('[data-testid="tab-home"]');
   await page.waitForSelector(planner);
 }
 

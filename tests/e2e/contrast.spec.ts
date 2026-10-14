@@ -29,7 +29,7 @@ import { launchApp, shot } from './helpers.js';
  */
 
 const repairTab = '[data-testid="tab-repair"]';
-const playTab = '[data-testid="tab-play"]';
+const playTab = '[data-testid="tab-home"]';
 const repairScreen = '[data-testid="repair-screen"]';
 const repairRow = '[data-testid="repair-row"]';
 const repairTrigger = '[data-testid="repair-trigger"]';

@@ -2,7 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, shot } from './helpers.js';
+import { launchApp, shot, goTo } from './helpers.js';
 import {
   DISABLED_MESSAGE,
   EXHAUSTED_MESSAGE,
@@ -1305,7 +1305,7 @@ test.describe('O8 anomaly trigger drill', () => {
         const el = document.querySelector('[data-testid="anomaly-screen"]');
         (window as unknown as { stash?: Element | null }).stash = el;
       });
-      await page.click('[data-testid="tab-charts"]');
+      await goTo(page, 'tab-charts');
       await expect(page.locator(root)).toHaveCount(0);
 
       await page.keyboard.press('y');

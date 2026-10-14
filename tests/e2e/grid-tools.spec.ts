@@ -1,5 +1,5 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
 
 /**
  * The three grid tools beside Charts — Bank, Equity and Ranges. Their wiring is unit-tested in jsdom
@@ -35,7 +35,7 @@ test.describe('equity calculator: the villain inputs follow the chosen mode', ()
    */
   test('E1. only the input the selected villain mode needs is visible', async () => {
     await withApp(async ({ page }) => {
-      await page.click('[data-testid="tab-equity"]');
+      await goTo(page, 'tab-equity');
       await page.waitForSelector('[data-testid="equity-screen"]');
       const hand = page.locator('[data-testid="equity-villain-input"]');
       const grid = page.locator('[data-testid="equity-range-grid"]');
@@ -76,7 +76,7 @@ test.describe('bank, equity and ranges fit the window', () => {
         { tab: 'tab-ranges', root: 'range-editor-screen', grid: 'range-editor-grid', prep: async () => {} },
       ];
       for (const s of screens) {
-        await page.click(`[data-testid="${s.tab}"]`);
+        await goTo(page, s.tab as 'tab-chart-bank' | 'tab-equity' | 'tab-ranges');
         await page.waitForSelector(`[data-testid="${s.root}"]`);
         await s.prep();
         for (const [width, height] of [
