@@ -106,6 +106,100 @@ line bank is authored once, here).
   `minimum-defence-frequency` (all numbers derivable from pot and toCall); `pot-odds-as-a-price` keeps its commit box
   because the tutor-rail specs drive it.
 
+## Dee chat and the optional local model (branch `feat/dee-chat`)
+Owner decisions in force: chat with Dee is free (a local model, never a paid API); the model only PHRASES (the engine
+computes every number and every answer); a deterministic topic gate and scripted refusals stay; the model is an
+optional opt-in download, not in the base install.
+- **Runtime: a `llama-server` sidecar, downloaded with the model on consent.** Not `node-llama-cpp`. Reasons:
+  - **Base install:** +0 bytes and no npm dependency (`dependencies` stays empty). `node-llama-cpp` is a 39.6 MB
+    package plus a 14.9 MB prebuilt per platform, shipped to every user whether or not they opt in.
+  - **Crash isolation:** a Metal or allocator crash kills the child, not main. One restart per session, then the
+    scripted answers for the rest of it.
+  - **Containment:** a separate process can be sandboxed. On macOS it runs under `sandbox-exec` with every network
+    operation denied except a unix socket (measured: `curl https://example.com` inside the profile exits 7). It
+    listens on a unix socket in a 0700 run directory with a per-launch API key, `--offline`, no web UI and no
+    `/slots`; the measured build answers 401 without the key.
+  - **Intel, Windows, Linux:** llama.cpp publishes macOS x64, Windows x64/arm64 CPU and Ubuntu x64 builds (11.6 to
+    19.5 MB). The manifest pins macOS arm64 and x64; other platforms show the row as unavailable until a manifest
+    entry with a measured hash is added (see Open questions in FINDINGS.md).
+  - **Signing and notarization:** the release binary is ad-hoc, linker-signed (measured: `codesign -dv`), which
+    Apple Silicon requires to run. A file written by the app carries no quarantine attribute, so Gatekeeper does not
+    assess it; the hardened runtime does not govern a child process. Integrity comes from the pinned sha256, not a
+    signature. A shipping build that wants a Developer-ID-signed sidecar bundles it in `extraResources` instead
+    (+12 MB per platform); the client code is the same.
+  - **Latency:** the research measured p50 194 ms / p95 257 ms for this model on this runtime (M5 Pro); this
+    build's smoke run is in `dee-model-smoke.txt`.
+- **Model: Qwen3-1.7B Q4_K_M** (`unsloth/Qwen3-1.7B-GGUF`, revision `d7f544e`, 1,107,409,472 bytes, sha256
+  `b139949c…1897`). Licence **Apache-2.0**, verified on the upstream `Qwen/Qwen3-1.7B` card and the GGUF repo (both
+  `license:apache-2.0`, ungated). Only commercially permissive licences are allowed (the manifest test pins the
+  allowed set). Gemma 4 E2B (Apache-2.0) was the better drafter but is 3.1 GB and rewrote more lines falsely.
+- **Runtime pin:** llama.cpp `b11588` (MIT), GitHub-published sha256 digests.
+- **The scripted path is the product.** `src/core/dee/chat/`: a deterministic gate (`gate.ts`), the engine's answer
+  facts (`answer.ts`) and an authored chat bank (`bank.ts`, 57 templates, linted like the line bank by
+  `tests/unit/dee-chat-bank.test.ts`). Chat works fully with no model installed; the model can only reword.
+- **Intents:** explain this hand, the price (the last one faced, or a typed "bet into pot", computed by
+  `arithmetic.potOdds`), what was my mistake, define a concept (Dee's own definitions or the lesson's mechanism
+  sentence), what to study next (the recommender's suggestion, quoted), rules (hand comparisons from the evaluator's
+  category order, betting order, side pots, min raise…), and how a feature works. Everything else is one of 12
+  scripted refusals: off-topic, money, gambling, problem gambling (a pointer to a doctor or support service),
+  personal, medical, crisis (reach someone close or a local crisis line, no numbers), injection, too long, in-hand,
+  no hand yet, unknown.
+- **Refusals before intents.** A poker word cannot carry a money question through. The gate reads the normalised
+  text (NFKC, invisible characters removed, Cyrillic and Greek look-alikes folded), a de-leeted copy and a squashed
+  copy ("m o n e y"). Learner numbers are never echoed; only a hypothetical price reads them, and the engine computes
+  from them.
+- **Nothing about a live hand,** at Play's table or a story chapter's (chat reads whichever table is mounted). In-hand, the price, the verdict and "should I call" get the in-hand refusal (owner
+  D7, and the commit-first protocol: the table does not show the price before the commit). Terms, rules and features
+  are answered in-hand.
+- **No learner text reaches the model.** The renderer sends `{ templateId, slots }`; main re-renders the template and
+  checks every slot against its declared kind (`vocab.ts` `SLOT_KINDS`: a number format or a closed catalogue list).
+  Refusals and the study answer (untyped recommender prose) are never reworded.
+- **The rewording checks** (`src/main/dee/phrasing.ts`, all must pass or the scripted text shows): the tutor guard with
+  the scripted text as the only numeral source, no Dee ban the script does not trip, every numeral kept in order,
+  STRICT=2 (`rephraseProblems`: number words, no new action, a question stays one, no collapse, polarity words equal,
+  the script's content words in order), the role words and negators (price, share, held, first, last, button,
+  not, only, more…) and every numeral in exactly the script's sequence (none dropped or moved), numerals counted in
+  every script (`\p{N}`), no character outside the script's repertoire (Qwen code-switches into Chinese), one plain
+  line (no markup, link or prompt echo), at most 8 words longer. The last three were added after the review
+  (code-review.md items 2 and 3).
+  Budget 600 ms in main (750 ms in the renderer for the IPC hop); temperature 0, seed 7, and a cache keyed on model,
+  template and slots. Timeouts and model errors are not cached.
+- **Dee's ban list moved to `src/core/dee/bans.ts`** so the line bank lint, the chat lint and the runtime check share
+  one definition; the story branch's shared `tests/unit/deeLint.ts` re-exports it rather than keeping a copy.
+- **The download:** Settings → Dee → "Smarter phrasing (optional, about 1 GB download)" → a consent sheet listing
+  each component's licence (Apache-2.0, MIT) → a checkbox → Download. Main refuses unless it gets the literal
+  consent flag and the licence ids shown. Runtime archive first (fail fast), then the model, both streamed to
+  `.part`, hashed while streaming, capped at the pinned size, renamed only on a sha256 match; every URL and redirect
+  must be HTTPS on the manifest's hosts (`huggingface.co`, `*.hf.co`, `github.com`, the two GitHub asset hosts).
+  The archive's entries are listed and refused if any path escapes its root. Stored in `<userData>/dee-model/`
+  with a receipt holding the binary's sha256, re-checked before every start. Delete removes the directory.
+- **The download uses `node:https` in main, not Chromium,** so the session seal stays total (no allowlist hole) and
+  the main-process oracle sees every socket.
+- **The sidecar** (`src/main/dee/sidecar.ts`): started only by `warm()` when the chat panel opens (after the binary
+  hash check), warmed with one throwaway rewording (an unwarmed first call took 612 ms), stopped after 10 idle
+  minutes and on quit. A crash or a start that never becomes ready is torn down and counted: one retry per session,
+  then the scripted answers. A question never starts a process. On macOS it runs under `sandbox-exec` or not at all.
+- **Network proof:** `no-network.spec` drives the real download against a loopback server (via
+  `OFFSUIT_E2E_DEE_MANIFEST`, honoured only under `OFFSUIT_E2E=1` and only when every URL is `http://127.0.0.1`):
+  chat and settings make no socket and no process; after the consent click the only outbound records are connects
+  to that server. `llama-server` stays in the oracle's network-tool list on purpose, so a sidecar spawn always shows.
+- **The chat surface:** one glass sheet over the screen in the lesson thread's voice; the perch opens it (its
+  Settings button opens Dee's settings), `/` opens it from anywhere outside a field, and at handover the dock's
+  "Ask Dee" (`D`). Esc closes, focus is trapped and returns, and no key reaches the table behind it. The panel's
+  mark and the perch hold `thinking` until the answer lands (at least 260 ms). Character off: "Ask the coach",
+  no mark.
+  - Supersedes: the perch opening Dee's settings, because the task asks for chat from the perch.
+- **Mid-air cards: not a bug.** They were the turn and river mid-way through the 520 ms deal-in of an all-in
+  run-out, dealt in the render that settles the hand, captured at handover (`mid-air-cards-probe.txt`). The chat
+  spec now waits for animations to land before a screenshot.
+- **The hand-end beat is the mock's tray:** Dee at 44px, the line at headline size with a short lead sentence in
+  bold, the outcome as its caption, then "Ask Dee" and "Next hand ↩" (Enter deals when nothing has focus). When
+  a verdict sheet is up at hand end, the line sits on the sheet in the mock's inset `.yours` group (the "mistake"
+  state) and returns to the dock when the sheet closes.
+- **The perch at 16 and 20px is drawn in device pixels** (`pixelSvg`): a flat bone disc, a 1px darker edge, two 2px
+  lights on whole pixels, no gradient, bevel, inner ring, tilt or lift (each blurred to grey at that size). Rim
+  roles stay as a 1.5px ring. Before/after: `perch-marks-before-after.png`.
+
 ## Test harness: hidden e2e and test tiers
 - **Hidden by default.** Under `OFFSUIT_E2E_HIDDEN=1`, which the helper sets on every launch, the window is created
   `show: false` and never shown. It keeps `paintWhenInitiallyHidden` and gets `backgroundThrottling: false`, so

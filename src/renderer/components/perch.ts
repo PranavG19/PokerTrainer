@@ -3,7 +3,7 @@ import { blinkDee, prefersReducedMotion, renderDee, setDeePose } from './dee.js'
 
 /**
  * Dee's perch: Dee at 20px plus the daily streak, at the right of the title bar, with no glass of its own
- * (VISION §5). It is a button: it opens Dee's settings.
+ * (VISION §5). It is a button: it opens Dee chat (`/` does too, from anywhere outside a text field).
  *
  * In-hand Dee says nothing (owner D7); the perch only changes pose. The table reports what is happening
  * (`setPose(source, pose)`), and the perch shows the highest-priority pose any source holds: a serious verdict
@@ -40,6 +40,7 @@ export function renderPerch(onOpen: () => void): PerchHandle {
   root.type = 'button';
   root.className = 'perch';
   root.dataset.testid = 'dee-perch';
+  root.setAttribute('aria-keyshortcuts', '/');
   root.addEventListener('click', onOpen);
 
   const mark = renderDee('rest', 20);
@@ -63,7 +64,7 @@ export function renderPerch(onOpen: () => void): PerchHandle {
   }
 
   function label(): void {
-    const parts = ['Dee', 'open Dee’s settings'];
+    const parts = ['Dee', 'ask Dee'];
     if (days > 0) parts.push(`${days}-day streak`);
     root.setAttribute('aria-label', parts.join(', '));
     root.dataset.pose = current();

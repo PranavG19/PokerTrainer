@@ -43,6 +43,9 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
 ## Boundaries
 - No dependency changes and no network: `no-network.spec` and the CSP in `index.html` (no remote fonts or
   scripts) enforce it. Do not reinstall or add packages.
+- The two allowed egress paths, each only from a button the user pressed: licensing (`licensingFetch`, below) and
+  Dee's optional phrasing download (`src/main/dee/download.ts`: pinned sha256, HTTPS host list, consent first).
+  Chat itself never uses the network; its `llama-server` sidecar runs sandboxed on a unix socket.
 - e2e runs overwrite tracked files in `screenshots/`. Never commit those side effects: `git checkout screenshots/`.
 - Pushing, opening PRs and merging are the human's.
 

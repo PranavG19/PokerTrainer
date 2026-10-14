@@ -60,7 +60,7 @@ const SIZES: [number, number][] = [
 ];
 
 test.describe('Dee', () => {
-  test('1. the perch: Dee and the streak in the title bar, opening Dee’s settings; Character off hides Dee everywhere', async () => {
+  test('1. the perch: Dee and the streak in the title bar, opening Dee chat and through it Dee’s settings; Character off hides Dee everywhere', async () => {
     await withApp({ seed: 42 }, async (page) => {
       const p = page.locator(perch);
       await expect(p).toBeVisible();
@@ -76,7 +76,11 @@ test.describe('Dee', () => {
         expect(box && box.x + box.width <= w).toBe(true);
         await noPageScroll(page);
       }
+      // The perch opens Dee chat (feat/dee-chat); the chat's Settings button opens Dee's settings.
       await p.click();
+      await expect(page.locator('[data-testid="dee-chat"]')).toBeVisible();
+      await page.locator('[data-testid="dee-chat-settings"]').click();
+      await expect(page.locator('[data-testid="dee-chat"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="dee-settings"]')).toBeVisible();
 
       // Character off: the perch and every mark go; the setting persists.
@@ -149,11 +153,18 @@ test.describe('Dee', () => {
       for (const [w, h] of SIZES) {
         await setSize(page, w, h);
         await noPageScroll(page);
+        await boardAtRest(page);
         await shot(page, `dee-beat-${w}x${h}`);
       }
-      // The beat is cleared with the hand.
-      if (await page.locator(coachClose).isVisible()) await page.locator(coachClose).click();
-      await page.locator('[data-testid="next-hand"]').click();
+      // Closing the hand-end verdict with Esc puts focus on Next hand, so Enter deals (review item 5: "Ask Dee"
+      // sits before it in the dock and must not take the focus).
+      await expect(page.locator(coachClose)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-testid="next-hand"]')).toBeFocused();
+      // The beat is back in the dock once the sheet is gone, and it is cleared with the hand.
+      await expect(page.locator(`.controls ${beat}`)).toHaveCount(1);
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-testid="dee-chat"]')).toHaveCount(0);
       await expect(page.locator(beat)).toHaveCount(0);
       await expect(page.locator('[data-testid="dee-announcer"]')).toHaveText('');
     });
@@ -223,6 +234,7 @@ test.describe('Dee', () => {
           for (const [w, h] of SIZES) {
             await setSize(page, w, h);
             await noPageScroll(page);
+            await boardAtRest(page);
             await shot(page, `dee-price-held-${w}x${h}`);
           }
         } else {
@@ -318,6 +330,7 @@ test.describe('Dee', () => {
     const dir = freshDir();
     await withApp({ seed: 42, dir }, async (page) => {
       await page.locator(perch).click();
+      await page.locator('[data-testid="dee-chat-settings"]').click();
       const line = page.locator('[data-testid="dee-preview-line"]');
       const numbers = async (): Promise<string> => ((await line.textContent()) ?? '').match(/\d+%?/g)?.join(' ') ?? '';
       const warm = await line.textContent();
@@ -344,11 +357,23 @@ test.describe('Dee', () => {
     // After a restart the choices are still there.
     await withApp({ seed: 42, dir }, async (page) => {
       await page.locator(perch).click();
+      await page.locator('[data-testid="dee-chat-settings"]').click();
       await expect(page.locator('[data-testid="dee-frequency-mistakes"]')).toHaveAttribute('aria-checked', 'true');
       await expect(page.locator('[data-testid="dee-tone"] button[data-value="blunt"]')).toHaveAttribute('aria-checked', 'true');
     });
   });
 });
+
+/**
+ * The board's deal-in (520 ms) can still be running when the hand settles: an all-in run-out is dealt in the
+ * same render. A screenshot taken then shows the turn and river mid-air (mid-air-cards-probe.txt), so the beat
+ * shots wait for every board card to land.
+ */
+async function boardAtRest(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('[data-testid="board"] [data-testid="card"]')].every((c) => c.getAnimations().every((a) => a.playState !== 'running')),
+  );
+}
 
 /** If a decision did open a gate or a verdict sheet (it should not: the policy plays the free action), clear it. */
 async function settleSheets(page: Page): Promise<void> {

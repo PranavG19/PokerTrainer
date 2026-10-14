@@ -14,20 +14,7 @@ export function request(facts: Facts): StrategyRequest {
   } as unknown as StrategyRequest;
 }
 
-/** The personality bible's "never says", beyond what the guard already bans. */
-export const DEE_BANS: readonly [string, RegExp][] = [
-  ['luck', /\b(?:luck|lucky|unlucky|fortunate|variance gods|run (?:good|bad|hot|cold)|hot run|cold run|due)\b/i],
-  // "to win" is price arithmetic ("risks 100 to win 200"); every other win/lose word is an outcome.
-  ['outcome', /\b(?:won|winning|lost|lose|loses|losing|scoop(?:ed)?|ship it)\b|(?<!\bto )\bwins?\b/i],
-  ['one-more', /\bone more hand\b/i],
-  ['comparison', /\b(?:other players|most players|everyone|percentile|than most|better than you|ranked)\b/i],
-  ['absence-guilt', /\b(?:miss(?:ed)? you|where were you|been a while|come back|sorry|streak|days?)\b/i],
-  ['trait', /\b(?:natural|talent(?:ed)?|gifted|genius|smart|clever|stupid|idiot|bad at|good at|a (?:tight|loose|passive|aggressive) player)\b/i],
-  ['praise', /\b(?:brilliant|amazing|fantastic|superb|lovely|nicely|bravo|wonderful|proud|terrific|outstanding)\b/i],
-  ['you-subject', /\byou(?:'ll|’ll| will| should| need| must| did| made)\b/i],
-  ['you-are', /\byou(?:'re|’re| are| were)\b/i],
-  ['gambling', /\b(?:jackpot|cash|money|dollars?|\$|bankroll|casino)\b/i],
-];
-
-export const NUMBER_WORDS = /\b(?:zero|half|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|twenty|thirty|forty|fifty|hundred|thousand|once|twice|half a dozen|dozen)\b/i;
+/** The personality bible's "never says" (one definition, in src/core/dee/bans.ts: the chat runtime check reads it too). */
+export { DEE_BANS } from '../../src/core/dee/bans.js';
+export { TEMPLATE_NUMBER_WORDS as NUMBER_WORDS } from '../../src/core/dee/bans.js';
 

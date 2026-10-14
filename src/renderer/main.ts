@@ -86,6 +86,9 @@ import type { SessionPlan } from '../core/sessionPlan.js';
 import { beginFocusRestore } from './focusRestore.js';
 import { renderPerch } from './components/perch.js';
 import { renderDeeSettings } from './screens/deeSettings.js';
+import { renderDeeChat, type DeeChatHandle, type PhraseBridge } from './components/deeChat.js';
+import { renderPhrasingRow, type PhrasingRowHandle, type PhrasingView } from './components/phrasingRow.js';
+import type { ChatContext } from '../core/dee/chat/types.js';
 import { currentStreakOn } from '../core/progression/persist.js';
 import {
   contextOf,
@@ -151,6 +154,15 @@ interface OffsuitBridge extends ProBridge {
   mpDeal?: () => Promise<void>;
   mpStop?: () => Promise<void>;
   onMpEvent?: (handler: (event: unknown) => void) => () => void;
+  /** Dee chat's optional phrasing model, all in main. Absent outside Electron: the scripted answers only. */
+  deePhrasingStatus?: () => Promise<PhrasingView>;
+  deePhrasingDownload?: (consent: boolean, licences: string) => Promise<PhrasingView>;
+  deePhrasingCancel?: () => Promise<PhrasingView>;
+  deePhrasingDelete?: () => Promise<PhrasingView>;
+  deePhrasingSetEnabled?: (on: boolean) => Promise<PhrasingView>;
+  deeChatWarm?: () => Promise<void>;
+  deeChatPhrase?: PhraseBridge;
+  onDeePhrasing?: (handler: (status: PhrasingView) => void) => () => void;
 }
 
 declare global {
@@ -454,12 +466,9 @@ async function boot(): Promise<void> {
   navSpacer.className = 'nav-spacer';
   navSpacer.setAttribute('aria-hidden', 'true');
   nav.setAttribute('aria-label', 'Sections');
-  // Dee's perch: Dee at 20px and the streak, at the right of the title bar. It opens Dee's settings.
-  const perch = renderPerch(() => {
-    tab = 'dee';
-    profileView = { at: 'profile' };
-    render();
-  });
+  // Dee's perch: Dee at 20px and the streak, at the right of the title bar. It opens Dee chat (whose
+  // Settings button opens Dee's settings).
+  const perch = renderPerch(() => openChat());
   nav.append(renderBrand(), strip, perch.root, navSpacer);
   attachThumb(strip, 'button.tab');
 
@@ -486,6 +495,81 @@ async function boot(): Promise<void> {
       quietness: quietnessForDepth(depthIndex),
     });
   }
+
+  // ── Dee chat ──────────────────────────────────────────────────────────────────────────────────────
+  let chat: DeeChatHandle | null = null;
+  let phrasing: PhrasingView | null = null;
+  let phrasingRow: PhrasingRowHandle | null = null;
+  void io.deePhrasingStatus?.().then((v) => {
+    phrasing = v;
+    phrasingRow?.update(v);
+  });
+  io.onDeePhrasing?.((v) => {
+    phrasing = v;
+    phrasingRow?.update(v);
+  });
+
+  /** What chat may answer from, read fresh per question: the live table if there is one, else the last saved hand. */
+  function chatContext(): ChatContext {
+    // A mounted table is always the one on screen (render() tears it down elsewhere): Play's or a story chapter's.
+    const atTable = table?.chatContext();
+    let lastHand: ChatContext['lastHand'] = atTable?.lastHand ?? null;
+    if (lastHand === null && !atTable?.live) {
+      // From anywhere else: the last saved hand. Its grades carry no pot shares (those are not persisted),
+      // so the answer names the decision and its cost without a price.
+      const saved = session.hands[session.hands.length - 1];
+      if (saved?.decisions) {
+        lastHand = {
+          handNumber: saved.handNumber,
+          decisions: saved.decisions
+            .filter((d) => d.verdict !== null)
+            .map((d) => ({
+              street: d.street,
+              action: d.action,
+              pot: d.pot,
+              toCall: d.toCall,
+              grade: { severity: d.verdict!.severity, evLossBb: d.verdict!.evLossBb, principle: d.verdict!.principle },
+            })),
+        };
+      }
+    }
+    const suggestion = currentRecommendation().suggestion;
+    return {
+      phase: atTable?.live ? 'in-hand' : lastHand ? 'after-hand' : 'idle',
+      lastHand,
+      study: suggestion ? { source: suggestion.source, action: suggestion.action, reason: suggestion.reason } : null,
+      phrasingInstalled: phrasing?.state === 'installed' && phrasing.enabled,
+    };
+  }
+
+  function openChat(): void {
+    if (chat !== null) return;
+    chat = renderDeeChat({
+      context: chatContext,
+      character: session.progression.dee.character,
+      phrase: phrasing?.state === 'installed' && phrasing.enabled ? io.deeChatPhrase : undefined,
+      warm: () => void io.deeChatWarm?.(),
+      onPerch: (pose) => perch.setPose('chat', pose),
+      onOpenSettings: () => {
+        tab = 'dee';
+        profileView = { at: 'profile' };
+        render();
+      },
+      onClose: () => {
+        chat = null;
+      },
+    });
+    document.body.appendChild(chat.root);
+  }
+
+  // `/` opens chat from anywhere (outside a text field), so it is reachable without the pointer.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || chat !== null || e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    e.preventDefault();
+    openChat();
+  });
 
   async function saveProgression(next: SessionState['progression']): Promise<void> {
     session = { ...session, progression: next };
@@ -1060,6 +1144,7 @@ async function boot(): Promise<void> {
         onPerch: (source, pose) => perch.setPose(source, pose),
         onActing: (on) => perch.setActing(on),
       },
+      onAskDee: () => openChat(),
       // Hero busted out: drop back to home, where a fresh table can be started.
       onSessionOver: () => {
         teardownTable();
@@ -1285,7 +1370,16 @@ async function boot(): Promise<void> {
     }
     if (which === 'dee') {
       const remembered = session.progression.dee.ruleSentences;
+      phrasingRow = phrasing
+        ? renderPhrasingRow(phrasing, {
+            download: (consent, licences) => void io.deePhrasingDownload?.(consent, licences).then((v) => phrasingRow?.update((phrasing = v))),
+            cancel: () => void io.deePhrasingCancel?.(),
+            remove: () => void io.deePhrasingDelete?.().then((v) => phrasingRow?.update((phrasing = v))),
+            setEnabled: (on) => void io.deePhrasingSetEnabled?.(on).then((v) => phrasingRow?.update((phrasing = v))),
+          })
+        : null;
       return renderDeeSettings({
+        phrasing: phrasingRow?.root,
         context: deeContext(),
         rulesRemembered: remembered.length,
         newestRule: remembered.length > 0 ? remembered[remembered.length - 1].text : null,

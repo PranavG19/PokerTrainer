@@ -25,6 +25,23 @@ contextBridge.exposeInMainWorld('offsuit', {
   speak: (text: string | null): Promise<{ spoken: boolean; reason: string | null }> =>
     ipcRenderer.invoke('speech:speak', text),
 
+  // Dee chat's optional phrasing model. Only a template id and typed slots cross; main re-renders and re-checks
+  // them. download() needs the literal consent flag and the licence ids the learner was shown.
+  deePhrasingStatus: (): Promise<unknown> => ipcRenderer.invoke('dee:phrasing:status'),
+  deePhrasingDownload: (consent: boolean, licences: string): Promise<unknown> =>
+    ipcRenderer.invoke('dee:phrasing:download', consent, licences),
+  deePhrasingCancel: (): Promise<unknown> => ipcRenderer.invoke('dee:phrasing:cancel'),
+  deePhrasingDelete: (): Promise<unknown> => ipcRenderer.invoke('dee:phrasing:delete'),
+  deePhrasingSetEnabled: (on: boolean): Promise<unknown> => ipcRenderer.invoke('dee:phrasing:setEnabled', on),
+  deeChatWarm: (): Promise<void> => ipcRenderer.invoke('dee:chat:warm'),
+  deeChatPhrase: (req: { templateId: string; slots: Record<string, string> }): Promise<unknown> =>
+    ipcRenderer.invoke('dee:chat:phrase', req),
+  onDeePhrasing: (handler: (status: unknown) => void): (() => void) => {
+    const listener = (_e: unknown, status: unknown): void => handler(status);
+    ipcRenderer.on('dee:phrasing', listener);
+    return () => ipcRenderer.removeListener('dee:phrasing', listener);
+  },
+
   // Multiplayer (local relay). The socket lives in main behind an opt-in; the renderer only ever
   // sends actions and receives the already-redacted views main pushes on 'mp:event'. host/join are
   // refused in main while the opt-in is off, so nothing here can open a socket on its own.

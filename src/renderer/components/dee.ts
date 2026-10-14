@@ -6,9 +6,9 @@ import type { DeePose } from '../../core/dee/types.js';
  * posture adds tilt, lift and lying flat. No mouth, no limbs. The rim tints only for serious (coral) and the
  * gate / a notable verdict (amber); never mint.
  *
- * Sizes: under 30px the button darkens (so it never competes with the bone primary), keeps an inset rim ring and
- * scales the lights ×1.55, so at the 16/20px perch it is still a ringed button with two dots. At 80px and up the
- * rim is micro-engraved DEALER.
+ * Sizes: at 24px and under (the perch, the nav) the mark is drawn in device pixels (pixelSvg) so the lights stay
+ * two crisp dots; from 25 to 29px the button darkens, keeps an inset rim ring and scales the lights ×1.55. At 80px
+ * and up the rim is micro-engraved DEALER.
  *
  * The art is decoration: every mark is aria-hidden, and Dee's words are real DOM text beside it. Character off
  * (`html[data-character='off']`) hides every mark through one CSS rule (styles-dee.css).
@@ -139,8 +139,74 @@ function ceramic(id: string, size: number, p: Posture, inner: string): string {
     ${rim}</g>`;
 }
 
+/**
+ * The 16 and 20px mark (the perch, the nav): drawn in device pixels, not scaled down from the 100-unit art, so
+ * the two lights land on whole pixels and stay two crisp dots (dee-marks.html: "at 16px it is still a button
+ * with two dots"). A flat bone disc with a 1px darker edge, no gradient, bevel or engraved ring (each blurred to
+ * grey at this size), no tilt or lift (a tilt resamples the lights). The rim role colour is a 1.5px ring.
+ */
+function pixelSvg(pose: RigPose, size: number): string {
+  const c = size / 2;
+  const w = 2;
+  const h = size >= 20 ? 5 : 4;
+  const gap = size >= 20 ? 4 : 2;
+  const lx = c - gap / 2 - w;
+  const rx = c + gap / 2;
+  const top = Math.round(c - h / 2 - 0.5);
+  const rect = (x: number, y: number, ww: number, hh: number): string =>
+    `<rect x="${x}" y="${y}" width="${ww}" height="${hh}" rx="${Math.min(ww, hh) / 2}" fill="${INK}"/>`;
+  let lights: string;
+  switch (pose) {
+    case 'listening':
+      lights = rect(lx, top - 1, w, h + 1) + rect(rx, top - 1, w, h + 1);
+      break;
+    case 'blink':
+      lights = rect(lx - 0.5, top + h - 2, w + 1, 1.2) + rect(rx - 0.5, top + h - 2, w + 1, 1.2);
+      break;
+    case 'glance':
+      lights = rect(lx + 2, top, w, h - 1) + rect(rx + 2, top, w, h - 1);
+      break;
+    case 'thinking':
+      lights = rect(lx, top - 1, w, h - 1) + rect(rx - 0.5, top + 1, w + 1, 1.6);
+      break;
+    case 'gate':
+      lights = rect(lx + 1, top - 1, w, h - 1) + rect(rx + 1, top - 1, w, h - 1);
+      break;
+    case 'asleep':
+      lights = rect(lx - 0.5, top + h - 1, w + 1, 1.2) + rect(rx - 0.5, top + h - 1, w + 1, 1.2);
+      break;
+    case 'price-held': {
+      // The lights smile: two arcs, still no mouth.
+      const arc = (x: number): string =>
+        `<path d="M${x - 0.6} ${top + h - 1} Q${x + w / 2} ${top - 0.6} ${x + w + 0.6} ${top + h - 1}" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>`;
+      lights = arc(lx - 0.5) + arc(rx + 0.5);
+      break;
+    }
+    case 'serious': {
+      // A frown made only of the lights: each top cut flat, slanting in toward the centre.
+      const cut = (x: number, inward: 1 | -1): string => {
+        const hi = top;
+        const lo = top + 1.5;
+        const [tl, tr] = inward > 0 ? [hi, lo] : [lo, hi];
+        return `<path d="M${x} ${tl} L${x + w} ${tr} L${x + w} ${top + h} L${x} ${top + h} Z" fill="${INK}"/>`;
+      };
+      lights = cut(lx, 1) + cut(rx, -1);
+      break;
+    }
+    default:
+      lights = rect(lx, top, w, h) + rect(rx, top, w, h);
+  }
+  const role = POSTURE[pose].rim;
+  const rim = role ? `<circle cx="${c}" cy="${c}" r="${c - 0.75}" fill="none" stroke="${RIM[role]}" stroke-width="1.5"/>` : '';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" focusable="false" shape-rendering="geometricPrecision">
+    <circle cx="${c}" cy="${c}" r="${c - 0.5}" fill="#EEEAE1"/>
+    <circle cx="${c}" cy="${c}" r="${c - 0.5}" fill="none" stroke="#5F5A50" stroke-width="1"/>
+    ${rim}${lights}</svg>`;
+}
+
 /** The SVG markup for one pose at one pixel size. Static strings only: no learner text ever enters it. */
 export function deeSvg(pose: RigPose, size: number): string {
+  if (size <= 24) return pixelSvg(pose, size);
   const id = `dee${++uid}`;
   const p = POSTURE[pose];
   const body = ceramic(id, size, p, eyes(pose, size < 30, size < 20));

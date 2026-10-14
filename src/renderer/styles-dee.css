@@ -72,43 +72,37 @@ html[data-character='off'] .perch {
 .tabs .nav-spacer { width: 52px; }
 html[data-character='off'] .tabs .nav-spacer { width: 92px; }
 
-/* ─── The hand-end beat: one line in the dock's slot, after the reveal ─── */
+/* ─── The hand-end beat: the mock's tray (demo/vision/table.html "great"), in the dock's slot ───
+ * Dee at 44px, the line at headline size with its short lead sentence in bold, the outcome as the caption,
+ * the actions at the right. Under a verdict sheet at hand end, the same line sits on the sheet (the mock's
+ * "mistake" state) and the dock keeps only the outcome. */
 .table-screen .controls[data-beat='true'] {
-  width: min(840px, calc(100% - 32px));
+  width: min(760px, calc(100% - 32px));
   max-width: calc(100% - 32px);
-}
-.table-screen .controls[data-beat='true'] > .winner-summary {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* When the sitting ends the dock carries its own message and two buttons, so Dee's line takes a row above. */
-.table-screen .controls[data-beat='true'][data-ended='true'] {
-  flex-wrap: wrap;
-  row-gap: 4px;
-}
-.table-screen .controls[data-beat='true'][data-ended='true'] > .dee-beat {
-  flex-basis: 100%;
-  padding: 2px 4px;
-}
-.table-screen .controls[data-beat='true'][data-ended='true'] > .dock-sep:first-of-type {
-  display: none;
+  gap: 10px;
+  padding: 10px 12px 10px 10px;
 }
 .dee-beat {
-  flex: 1 1 260px;
+  flex: 1 1 300px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-  padding: 0 4px 0 2px;
+  padding: 0 4px 0 0;
   animation: dee-rise var(--dur-3) var(--ease) both;
+}
+.dee-beat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .dee-beat-line {
   margin: 0;
   white-space: normal;
-  font-size: var(--t-body);
-  line-height: 1.35;
+  font-size: var(--t-head);
+  font-weight: 400;
+  line-height: 1.38;
   color: var(--ink-1);
   /* Two lines at most: the bank's 18-word budget keeps every line inside this. */
   display: -webkit-box;
@@ -116,19 +110,54 @@ html[data-character='off'] .tabs .nav-spacer { width: 92px; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.dee-beat-line b { font-weight: 600; }
+.table-screen .controls[data-beat='true'] .dee-beat .winner-summary {
+  margin: 0;
+  padding: 0;
+  font-size: var(--t-foot);
+  font-weight: 400;
+  color: var(--ink-3);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* When the sitting ends the dock carries its own message and two buttons, so Dee's line takes a row above. */
+.table-screen .controls[data-beat='true'][data-ended='true'] {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.table-screen .controls[data-beat='true'][data-ended='true'] > .dee-beat {
+  flex-basis: 100%;
+  padding: 2px 4px;
+}
 .dee-beat[data-event='price-held'] .dee {
   animation: dee-hop var(--dur-3) var(--ease-spring) both;
-  animation-delay: 160ms;
+  animation-delay: 380ms;
 }
+.dee-beat[data-pose='serious'] .dee-beat-line b { color: var(--ink-1); }
+/* On the verdict sheet: the mock's `.yours` block, a quiet inset group with Dee at 28px. */
+.coach-sheet-dee {
+  padding: 12px 14px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.coach-sheet-dee[hidden] { display: none; }
+.coach-sheet-dee .dee-beat { align-items: flex-start; gap: 12px; padding: 0; }
+.coach-sheet-dee .dee { --dee-size: 28px !important; margin-top: 1px; }
+.coach-sheet-dee .dee-beat-line { font-size: var(--t-body); line-height: 1.5; color: var(--ink-2); -webkit-line-clamp: 3; }
+.coach-sheet-dee .dee-beat-line b { color: var(--ink-1); font-weight: 500; }
 @keyframes dee-rise {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes dee-hop {
-  40% { transform: translateY(-5px); }
+  40% { transform: translateY(-6px); }
 }
 @media (max-width: 1000px) {
-  .dee-beat-line { font-size: var(--t-foot); }
+  .dee-beat-line { font-size: var(--t-body); }
+  .table-screen .controls[data-beat='true'] .dee { --dee-size: 36px !important; }
 }
 
 /* ─── Lessons as dialogue ─── */
@@ -204,6 +233,136 @@ html[data-character='off'] .dee-ask {
 }
 .dee-ask-note { padding-left: 52px; margin: 0; }
 html[data-character='off'] .dee-ask-note { padding-left: 0; }
+
+/* ─── Dee chat: one sheet over the screen, the lesson thread's voice ─── */
+.dee-chat-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.dee-chat-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 9, 12, 0.46);
+  animation: dee-fade var(--dur-2) var(--ease) both;
+}
+@keyframes dee-fade { from { opacity: 0; } }
+.dee-chat {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--nav-h) + 16px);
+  bottom: 16px;
+  translate: -50% 0;
+  width: min(600px, calc(100% - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 14px;
+  border-radius: var(--r-sheet);
+  background: rgba(52, 56, 64, 0.72);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+  animation: coach-rise var(--dur-3) var(--ease) both;
+}
+.dee-chat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hair);
+}
+.dee-chat-titles { flex: 1; min-width: 0; }
+.dee-chat-title {
+  margin: 0;
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.dee-chat-source { margin: 1px 0 0; }
+.dee-chat-thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 2px 4px;
+  scroll-behavior: smooth;
+}
+.dee-chat .dee-turn.from-dee { padding-left: 40px; }
+.dee-chat .dee-turn.from-dee:has(> .dee) { padding-left: 0; }
+.dee-chat .dee-say { font-size: var(--t-body); font-weight: 400; line-height: 1.5; max-width: 60ch; }
+.dee-chat .dee-turn.from-dee .dee-say { font-size: var(--t-head); font-weight: 500; line-height: 1.45; }
+.dee-chat .dee-turn.from-you { max-width: 78%; }
+.dee-chat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dee-chat-suggest:empty { display: none; }
+html .dee-chat-chip {
+  border: 1px solid var(--hair-strong);
+  color: var(--ink-2);
+}
+.dee-chat-ask {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dee-chat-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-ctl);
+  padding: 0 12px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--hair-strong);
+  background: var(--fill-0);
+  color: var(--ink-1);
+  font: inherit;
+  font-size: var(--t-body);
+}
+.dee-chat-input::placeholder { color: var(--ink-3); }
+.dee-chat-input:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 1px; }
+/* While Dee thinks the mark wears `thinking` and the last line breathes once: motion on opacity only. */
+.dee-chat[data-thinking='true'] .dee-chat-head .dee { animation: dee-think 900ms var(--ease) infinite alternate; }
+@keyframes dee-think { to { opacity: 0.62; } }
+@media (max-width: 1000px) {
+  .dee-chat { top: calc(var(--nav-h) + 10px); bottom: 10px; padding: 14px 16px 12px; }
+  .dee-chat .dee-turn.from-dee .dee-say { font-size: var(--t-body); }
+}
+
+/* ─── Smarter phrasing: one row in Dee's settings, and its consent sheet ─── */
+.dee-phrasing { display: flex; flex-direction: column; gap: 6px; }
+.dee-phrasing-row { gap: 12px; }
+.dee-phrasing-controls { display: flex; align-items: center; gap: 8px; flex: none; }
+.dee-phrasing-bar {
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--fill-1);
+  overflow: hidden;
+}
+.dee-phrasing-bar[hidden] { display: none; }
+.dee-phrasing-bar > span { display: block; height: 100%; background: var(--ink-2); border-radius: 2px; transition: width var(--dur-2) var(--ease); }
+.dee-consent {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: min(520px, calc(100% - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 16px;
+  border-radius: var(--r-sheet);
+  background: rgba(52, 56, 64, 0.72);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  border: 1px solid var(--float-rim);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+}
+.dee-licences { list-style: none; margin: 0; padding: 0; }
+.dee-licences .g-row { cursor: default; }
+.dee-consent-agree { display: flex; align-items: center; gap: 8px; font-size: var(--t-body); color: var(--ink-1); }
 
 /* ─── Dee's settings ─── */
 .dee-settings {
@@ -307,7 +466,10 @@ html[data-character='off'] .dee-ask-note { padding-left: 0; }
   .dee.dee-morph > svg,
   .dee-beat,
   .dee-beat[data-event='price-held'] .dee,
-  .dee-turn {
+  .dee-turn,
+  .dee-chat,
+  .dee-chat-scrim,
+  .dee-chat[data-thinking='true'] .dee-chat-head .dee {
     animation: none !important;
   }
 }

@@ -39,8 +39,8 @@ export const FEATURE_INFO: Readonly<Record<Feature, FeatureInfo>> = {
   'local-chat': {
     tier: 'free',
     title: 'Chat on this Mac',
-    blurb: 'Ask about a hand with a model that runs locally.',
-    available: false,
+    blurb: 'Ask Dee about a hand; an optional model on this Mac can reword the answers.',
+    available: true,
   },
   'lan-play': { tier: 'free', title: 'Play friends nearby', blurb: 'Host or join a table on your own network.', available: true },
   'earned-cosmetics': {
