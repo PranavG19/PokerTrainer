@@ -94,7 +94,7 @@ export const GREETING_LINES: readonly GreetingLine[] = [
 ];
 
 /** The order moments are tried in: the first that has facts wins. */
-const PRECEDENCE: readonly GreetingMoment[] = ['first', 'done', 'return', 'due', 'leak', 'rule', 'quiet'];
+const PRECEDENCE: readonly GreetingMoment[] = ['done', 'first', 'return', 'due', 'leak', 'rule', 'quiet'];
 
 export interface GreetingInput {
   readonly day: DayKey;

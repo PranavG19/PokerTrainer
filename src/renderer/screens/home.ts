@@ -116,6 +116,7 @@ export function renderHome(opts: {
         else opts.onNewSession();
       },
       interleavingSpots: opts.session.interleavingSpots,
+      defaultMinutes: opts.session.progression.personalization.schedule?.sessionMinutes ?? null,
     }),
   );
 

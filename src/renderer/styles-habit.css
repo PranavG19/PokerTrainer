@@ -1,0 +1,388 @@
+/* The habit loop: Home's greeting, streak and ring, the Ticket, the Folio and onboarding. Tokens only
+ * (styles-glass.css); the streak and the ring are bone light, never mint or amber. */
+
+/* ─── Home ─── */
+.home-side {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.home-side > .session-planner {
+  flex: 1 1 auto;
+}
+.home-greeting {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.home-greeting > .dee {
+  flex: none;
+}
+.home-greeting-line {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.45;
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.home-greeting-line b {
+  color: var(--ink-1);
+  font-weight: 600;
+}
+
+.habit-card {
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 6px 16px;
+  padding: 12px 14px 10px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.habit-streak {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.habit-streak-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.habit-streak-n {
+  color: var(--ink-1);
+  font-weight: 600;
+}
+.habit-streak-label {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  color: var(--ink-1);
+}
+.habit-week {
+  display: flex;
+  gap: 6px;
+}
+.habit-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.habit-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ring-track);
+}
+.habit-day[data-counted='true'] .habit-dot {
+  background: var(--ring-fill);
+}
+.habit-day[data-today='true'] .habit-dot {
+  box-shadow: 0 0 0 1.5px var(--ink-2);
+}
+.habit-day-letter {
+  font-size: var(--t-cap);
+  color: var(--ink-3);
+}
+.habit-ring {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.habit-ring-svg {
+  flex: none;
+  width: 52px;
+  height: 52px;
+}
+.habit-arc {
+  fill: none;
+  stroke: var(--ring-track);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.habit-arc-done {
+  stroke: var(--ring-fill);
+}
+.habit-ring-count {
+  fill: var(--ink-1);
+  font-size: var(--t-foot);
+  font-weight: 600;
+}
+.habit-goals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.habit-goal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.habit-goal-label {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.habit-goal[data-done='true'] .habit-goal-label {
+  color: var(--ink-1);
+}
+.habit-goal[data-done='true'] .habit-goal-label::before {
+  content: '✓ ';
+}
+.habit-goal-detail {
+  display: none;
+}
+.habit-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.ticket-tile {
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: var(--t-foot);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.ticket-row[data-finished='true'] .ticket-tile {
+  background: var(--ring-fill);
+  color: var(--ink-on-bone);
+}
+
+/* ─── The Ticket ─── */
+.ticket-screen,
+.folio-screen {
+  box-sizing: border-box;
+  height: var(--screen-h);
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+.habit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.habit-head h1 {
+  margin: 0;
+}
+.ticket-items {
+  min-height: 0;
+  overflow-y: auto;
+}
+.ticket-item[data-done='true'] .session-card-title {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.ticket-item .ticket-mins {
+  color: var(--ink-3);
+  font-size: var(--t-foot);
+}
+.ticket-step {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--t-foot);
+  font-weight: 600;
+  color: var(--ink-1);
+  background: var(--fill-1);
+}
+.ticket-item[data-done='true'] .ticket-step {
+  background: var(--ring-fill);
+  color: var(--ink-on-bone);
+}
+
+/* ─── The Folio ─── */
+.folio-cards {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+.folio-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.folio-card[data-tarnished='true'] {
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair);
+}
+.folio-card[data-tarnished='true'] .folio-text {
+  color: var(--ink-3);
+}
+.folio-text {
+  margin: 0;
+  font-size: var(--t-head);
+  line-height: 1.4;
+  color: var(--ink-1);
+}
+.folio-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.folio-sheet {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  border-radius: var(--r-group);
+  background: var(--bone);
+  color: var(--ink-on-bone);
+}
+.folio-sheet h2 {
+  margin: 0 0 10px;
+  font-size: var(--t-t3);
+}
+.folio-sheet p {
+  margin: 0 0 8px;
+  font-size: var(--t-body);
+  line-height: 1.45;
+}
+.folio-empty {
+  padding: 24px 0;
+}
+.learn-switch {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+/* ─── Onboarding: a sheet in the screen region, so the tab bar stays live (nothing is locked) ─── */
+.onboarding {
+  box-sizing: border-box;
+  height: var(--screen-h);
+  display: grid;
+  place-items: center;
+  padding: 12px 24px;
+}
+.onboarding-sheet {
+  box-sizing: border-box;
+  width: min(820px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 22px;
+  border-radius: var(--r-sheet);
+  background: var(--float);
+  backdrop-filter: var(--float-blur);
+  box-shadow: var(--float-highlight), var(--float-shadow);
+  overflow: hidden;
+}
+.onboarding-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.onboarding-steps {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.onboarding-steps > span {
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fill-2);
+}
+.onboarding-steps > span[data-on='true'] {
+  background: var(--ink-1);
+}
+.onboarding-body {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.onboarding-body h2 {
+  margin: 0;
+}
+.onboarding-q {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.onboarding-uses {
+  margin: 0;
+}
+.onboarding-uses b {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.onboarding-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.onboarding-name {
+  height: var(--h-ctl);
+  max-width: 280px;
+  padding: 0 10px;
+  border-radius: var(--r-ctl);
+  border: 0;
+  background: var(--fill-1);
+  color: var(--ink-1);
+  font: inherit;
+}
+.onboarding-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--hair);
+  padding-top: 12px;
+}
+.onboarding-foot .g-caption {
+  flex: 1;
+}
+.onboarding-promises {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* Learn's list heading carries the Rulebook entry on the title's line, so it costs no height. */
+.lesson-list-titlerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* With the greeting on Home the column carries one more block, so it packs tighter, and recent hands (the one
+ * block that shrinks) clips rather than pushing the page into a scroll. */
+.home-col:has(> .home-greeting) {
+  gap: 12px;
+}
+.home-recent {
+  overflow: hidden;
+}

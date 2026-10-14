@@ -85,6 +85,8 @@ export function renderDeeSettings(opts: {
   handlers: DeeSettingsHandlers;
   /** The "Smarter phrasing" row (components/phrasingRow.ts), owned by the caller so progress repaints in place. */
   phrasing?: HTMLElement;
+  /** Open onboarding's questions again (every answer is editable later). */
+  onRedoOnboarding?: () => void;
 }): HTMLElement {
   let tone = opts.context.tone;
   let frequency = opts.context.frequency;
@@ -100,6 +102,15 @@ export function renderDeeSettings(opts: {
   head.className = 'dee-settings-head';
   head.appendChild(text('h1', 't-t2', 'Dee'));
   head.appendChild(text('p', 'g-sub', 'The coach’s voice at the table. The numbers are the engine’s; Dee only phrases them.'));
+  if (opts.onRedoOnboarding) {
+    const redo = document.createElement('button');
+    redo.type = 'button';
+    redo.className = 'pill quiet';
+    redo.dataset.testid = 'dee-redo-onboarding';
+    redo.textContent = 'Your answers about your game';
+    redo.addEventListener('click', opts.onRedoOnboarding);
+    head.appendChild(redo);
+  }
   root.appendChild(head);
 
   const cols = document.createElement('div');

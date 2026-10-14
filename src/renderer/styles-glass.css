@@ -118,6 +118,10 @@
   --dur-1: 120ms;
   --dur-2: 220ms;
   --dur-3: 320ms;
+  /* The habit loop (VISION §5): the streak and the ring are white light on bone, never mint, never amber. */
+  --ring-track: var(--fill-2);
+  --ring-fill: var(--bone);
+  --dur-ring: 900ms;
   --nav-h: 44px;       /* the titlebar nav; the table screen's fixed height is derived from it */
   --screen-pad-y: 8px;
   /* The height a screen has under the title bar (1px: the bar's hairline). */
