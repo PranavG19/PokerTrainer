@@ -1343,7 +1343,9 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
 - **Pro gate: the licence authority** (PR #24). Main's `authority.can('ranked-play')` decides, on every
   request: a ranked `room-create` is refused, and a `room-join` that lands on a ranked table leaves it at
   once, without the entitlement; unranked play stays free. A ranked seat resumed after a reconnect is left at once without it. The Play online screen shows the locked caption
-  with "What Pro adds", which opens the app's upgrade sheet; `ranked-play` is now `available`. The server does
+  with "What Pro adds", which opens the app's upgrade sheet. `ranked-play` stays `available: false` until
+  an owner-run server is live: marking it available would open checkout for a feature nobody can use yet
+  (pro.spec pins this). The server does
   not check a licence (open question). Supersedes: a single seam returning true, because the entitlements
   core was not on main when this was built.
 - **Opt-in, off by default, no server by default.** Typing a server only stores text. `OnlineController`

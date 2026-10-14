@@ -53,7 +53,7 @@ export const FEATURE_INFO: Readonly<Record<Feature, FeatureInfo>> = {
     tier: 'pro',
     title: 'Online ranked play and seasons',
     blurb: 'Play people anywhere, ranked, in seasons. Pro pays for the servers this needs.',
-    available: true,
+    available: false,
   },
   'leak-finder': {
     tier: 'pro',
