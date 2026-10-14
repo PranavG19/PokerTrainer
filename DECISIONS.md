@@ -48,6 +48,31 @@ Owner decisions in force: D10 (import for review and counting stats only, no pro
   before it (`checkoutPlans`, unchanged). The upgrade sheet's "checkout stays closed until the first one ships" note
   now reads only when nothing has shipped. Supersedes: held unshipped pending that answer.
 
+## The habit loop, PR 2 (branch `feat-habit-nav`): the 7-tab nav, Profile, the Trophy room
+Owner decisions in force: the 7-tab nav with a You sub-nav (D9 as decided), N1 (nothing is locked, and every old
+destination is reachable at 900 px), Locker left to MVP B3, and a Profile of decisions, never results.
+- **Sections** (`src/renderer/nav.ts`): Home · Play · Learn · Story | Train · Study | You. Home is the launcher (the
+  habit loop, the bankroll, New session, recent hands). Play holds the tables and their panels (friends, online,
+  the assessment block, variance) plus the session planner, which moved from Home. A bust or an exit returns to
+  Home.
+- **The old tabs fold in.** Each keeps its testid on the button that now opens it (`OLD_TABS`, at most two clicks):
+  - Charts is a Train rung (practice band);
+  - Bank, Equity, Ranges, Dossier and Pro are Study's sub-nav;
+  - Progress opens from You › Profile;
+  - the old Profile (the session record with its bankroll graph) is You › Hands;
+  - Settings is a title-bar button (not a section).
+- **You** (owner order): Profile · Trophies · Style · Hands · Letters · Rivals · Locker · Dee.
+  - Profile shows only decisions: the onboarding answers (editable), rules in the learner's words, the
+    assessment's EV loss by week, Sure calls right, and what has been built. No bankroll, chips, won or lost, or
+    percentile appears on it; e2e checks this.
+  - The Trophy room lists every milestone, earned or not, with its fact and how close the learner is.
+  - Rivals lists the story regulars, masked until beaten, and opens their dossiers.
+  - Style, Letters and Locker are honest "not built" pages.
+- **Sub-navs** use the kit's segmented control under a title. The screen below gets the height that is left
+  (`.subnav-body` lowers `--screen-h`).
+- **Specs** reach a folded tab through `goTo(page, oldTestid)` (tests/e2e/helpers.ts, driven by `OLD_TABS`).
+  `sel.tabPlay` now means Home, the launcher; the planner specs open Play.
+
 ## The habit loop, PR 1 (branch `feat-habit-loop`): progression core, Home, onboarding, the Ticket, the Folio
 Owner decisions in force: D5 (the classic daily streak, no freezes), D6 (Price held on the close band), N1 (nothing is
 locked). Review: [`code-review.md`](code-review.md).
