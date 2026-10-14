@@ -55,7 +55,7 @@ const CRISIS = new RegExp(
     String.raw`\b(?:suicid\w*|kill (?:my ?self|me)|killing my ?self|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|overdos\w*)\b`,
     String.raw`\b(?:end(?:ing)? (?:my life|it all|everything)|want to end it|(?:don'?t|do not|dont) want to (?:live|be here|be alive|wake up|exist))\b`,
     String.raw`\b(?:wish i (?:was|were) (?:dead|gone|never born)|better off (?:dead|without me)|take my (?:own )?life|kms|unalive\w*)\b`,
-    String.raw`\b(?:can'?t go on|cannot go on|no (?:reason|point) (?:in )?(?:to )?(?:living|live|going on)|not worth living|(?:no|lost (?:the|my)) will to live|(?:jump|jumping) off|nobody would (?:miss|care)|hate my life|give up on life|sleep forever|life is (?:pointless|meaningless|not worth))\b`,
+    String.raw`\b(?:can'?t go on|cannot go on|no (?:reason|point) (?:in )?(?:to )?(?:living|live|going on)|not worth living|(?:no|lost (?:the|my)) will to live|(?:jump|jumping) off|nobody would (?:miss|care)|hate my life|give up on life|sleep forever|life is (?:pointless|meaningless|not worth|over|too|dead|done))\b`,
   ].join('|'),
 );
 

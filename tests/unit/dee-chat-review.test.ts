@@ -90,6 +90,7 @@ describe('final review: "alive" exemptions never hide distress', () => {
     'staying alive after that hand is hard',
     'why stay alive after that river',
     'no will to live after that hand',
+    'the hand is dead, life is too',
     'i dont deserve to be alive after this hand',
     'i dont deserve to be alive after this hand, explain this hand',
     'i dont feel alive after this hand',

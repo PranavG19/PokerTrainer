@@ -530,6 +530,10 @@ tests/unit/zz-final-*.test.ts files, all deleted since.
 - Not run, as instructed: Playwright. Chat over a live story hand is untested end to end. The finding rests on
   the code path plus the core probe.
 
+**Final, at ee49e8e:** PASS WITH NOTES. Both Act-on items are fixed. `chatContext` reads `table?.chatContext()`, and dee-chat.spec test 3 pins the in-hand refusal at a chapter table. `POKER_DEATH` no longer exempts `stay alive` or `alive to/for/after`, the new `ABOUT_ME` guard keeps first-person messages from being exempted, and `will to live` is on the crisis list. All 7 strings reach the crisis line, as do my earlier Consider strings ("my hand is dead and so am i" and the rest) and 9 more I added. `tsc` exit 0; `vitest` exit 0, 113 files and 2975 tests. Remaining Consider:
+- "the hand is dead, life is too" still gets `explain-hand`.
+- Some poker phrasings now hit the crisis line, which is the safe direction: "alive in the hand", "still alive in the pot", "am i dead in this hand", "i feel my draw is dead here" and "why was my hand dead on the river".
+
 ## Final review at 6ca563d (PR #26)
 Verdict: BLOCK
 Base: 0cc4f03dc815fb9a9bc14d33b3835c05b62bc63a  Head: 6ca563d9c94d15db2e41bb3dfc460ded45804d78
