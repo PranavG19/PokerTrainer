@@ -1,0 +1,53 @@
+Hand #2001234567 - Holdem(No Limit) - $0.01/$0.02 - 2021/03/03 11:31:56 UTC
+Kiev 6-max Seat #3 is the button
+Seat 1: PlayerAlpha ($2.00)
+Seat 2: Hero ($2.04)
+Seat 3: big.fish ($1.98)
+Seat 4: Sleepy Joe ($2.00) is sitting out
+Seat 5: nit_master ($3.10)
+Seat 6: RocketQueen ($2.00)
+nit_master posts the small blind $0.01
+RocketQueen posts the big blind $0.02
+*** HOLE CARDS ***
+Dealt to Hero [6d 2c]
+PlayerAlpha folds
+Hero folds
+big.fish raises $0.04 to $0.06
+nit_master folds
+RocketQueen calls $0.04
+*** FLOP *** [Ts 5c 3h]
+RocketQueen checks
+big.fish bets $0.08
+RocketQueen folds
+Uncalled bet ($0.08) returned to big.fish
+big.fish collected $0.13
+*** SUMMARY ***
+Total pot $0.13 | Rake $0.00
+Board [Ts 5c 3h]
+Seat 1: PlayerAlpha folded before Flop (didn't bet)
+Seat 2: Hero folded before Flop (didn't bet)
+Seat 3: big.fish (button) collected ($0.13)
+Seat 5: nit_master (small blind) folded before Flop
+Seat 6: RocketQueen (big blind) folded on the Flop
+
+
+Hand #2001234569 - Holdem(No Limit) - $0.01/$0.02 - 2021/03/03 11:35:44 UTC
+Kiev 6-max Seat #6 is the button
+Seat 1: PlayerAlpha ($1.98)
+Seat 2: Hero ($2.11)
+Seat 3: big.fish ($2.05)
+Seat 5: nit_master ($3.09)
+Seat 6: RocketQueen ($1.93)
+PlayerAlpha posts the small blind $0.01
+Hero posts the big blind $0.02
+*** HOLE CARDS ***
+Dealt to Hero [Ah Kh]
+big.fish raises $0.04 to $0.06
+nit_master folds
+RocketQueen folds
+PlayerAlpha folds
+Hero raises $0.16 to $0.22
+big.fish raises $1.83 to $2.05 and is all-in
+Hero calls $1.83
+*** FLOP *** [Kd 9h 4h]
+*** TURN *** [Kd 9h 4h] [Js]

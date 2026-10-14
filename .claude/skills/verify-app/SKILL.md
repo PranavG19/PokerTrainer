@@ -12,7 +12,7 @@ description: Prove a change in the running Offsuit Electron app — launch the b
 - Ready means Home has rendered: `[data-testid="home-screen"]`.
 
 ## Health check
-- The script fails fast unless `nav.tabs button.tab` counts 12 — the right build, not a stale `dist/`.
+- The script fails fast unless `nav.tabs button.tab` counts 13 — the right build, not a stale `dist/`.
   If you changed `src/main/`, rebuild first: `dist/` is what launches.
 
 ## Drive

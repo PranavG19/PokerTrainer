@@ -1,0 +1,57 @@
+PokerStars Hand #243516247135:  Hold'em No Limit ($0.05/$0.10 USD) - 2023/03/14 19:42:11 ET [2023/03/15 00:42:11 CET]
+Table 'Aase III' 6-max Seat #3 is the button
+Seat 1: RiverRat77 ($10 in chips)
+Seat 2: Mr.Pickles ($9.85 in chips)
+Seat 3: Hero ($10 in chips)
+Seat 4: bad beat [ok] ($12.40 in chips) is sitting out
+Seat 5: Zoë Ünïcode ($4.10 in chips)
+Seat 6: Vilain_6 ($10.35 in chips)
+Zoë Ünïcode: posts small blind $0.05
+Vilain_6: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [7c 2d]
+RiverRat77: folds
+Mr.Pickles: raises $0.20 to $0.30
+Hero: folds
+Zoë Ünïcode: folds
+Vilain_6: calls $0.20
+*** FLOP *** [Kc 8h 3s]
+Vilain_6: checks
+Mr.Pickles: bets $0.35
+Vilain_6: folds
+Uncalled bet ($0.35) returned to Mr.Pickles
+Mr.Pickles collected $0.62 from pot
+Mr.Pickles: doesn't show hand
+Vilain_6 said, "nice hand: folds again"
+*** SUMMARY ***
+Total pot $0.65 | Rake $0.03
+Board [Kc 8h 3s]
+Seat 1: RiverRat77 folded before Flop (didn't bet)
+Seat 2: Mr.Pickles collected ($0.62)
+Seat 3: Hero (button) folded before Flop (didn't bet)
+Seat 5: Zoë Ünïcode (small blind) folded before Flop
+Seat 6: Vilain_6 (big blind) folded on the Flop
+
+
+PokerStars Hand #243516260044:  Hold'em No Limit ($0.05/$0.10 USD) - 2023/03/14 19:45:02 ET [2023/03/15 00:45:02 CET]
+Table 'Aase III' 6-max Seat #6 is the button
+Seat 1: RiverRat77 ($9.67 in chips)
+Seat 2: Mr.Pickles ($10.17 in chips)
+Seat 3: Hero ($10.35 in chips)
+Seat 4: bad beat [ok] ($12.40 in chips) is sitting out
+Seat 5: Zoë Ünïcode ($4.05 in chips)
+Seat 6: Vilain_6 ($10 in chips)
+RiverRat77: posts small blind $0.05
+Mr.Pickles: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Ks Kd]
+Hero: raises $0.20 to $0.30
+Zoë Ünïcode: raises $0.70 to $1
+Vilain_6: folds
+RiverRat77: folds
+Mr.Pickles: folds
+Hero: raises $9.35 to $10.35 and is all-in
+Zoë Ünïcode: calls $3.05 and is all-in
+Uncalled bet ($6.30) returned to Hero
+*** FLOP *** [Jh 9c 4d]
+*** TURN *** [Jh 9c 4d] [2s]

@@ -1,0 +1,223 @@
+﻿PokerStars Hand #243516247135:  Hold'em No Limit ($0.05/$0.10 USD) - 2023/03/14 19:42:11 ET [2023/03/15 00:42:11 CET]
+Table 'Aase III' 6-max Seat #3 is the button
+Seat 1: RiverRat77 ($10 in chips)
+Seat 2: Mr.Pickles ($9.85 in chips)
+Seat 3: Hero ($10 in chips)
+Seat 4: bad beat [ok] ($12.40 in chips) is sitting out
+Seat 5: Zoë Ünïcode ($4.10 in chips)
+Seat 6: Vilain_6 ($10.35 in chips)
+Zoë Ünïcode: posts small blind $0.05
+Vilain_6: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [7c 2d]
+RiverRat77: folds
+Mr.Pickles: raises $0.20 to $0.30
+Hero: folds
+Zoë Ünïcode: folds
+Vilain_6: calls $0.20
+*** FLOP *** [Kc 8h 3s]
+Vilain_6: checks
+Mr.Pickles: bets $0.35
+Vilain_6: folds
+Uncalled bet ($0.35) returned to Mr.Pickles
+Mr.Pickles collected $0.62 from pot
+Mr.Pickles: doesn't show hand
+Vilain_6 said, "nice hand: folds again"
+*** SUMMARY ***
+Total pot $0.65 | Rake $0.03
+Board [Kc 8h 3s]
+Seat 1: RiverRat77 folded before Flop (didn't bet)
+Seat 2: Mr.Pickles collected ($0.62)
+Seat 3: Hero (button) folded before Flop (didn't bet)
+Seat 5: Zoë Ünïcode (small blind) folded before Flop
+Seat 6: Vilain_6 (big blind) folded on the Flop
+
+
+
+PokerStars Hand #243516251902:  Hold'em No Limit ($0.05/$0.10 USD) - 2023/03/14 19:43:30 ET [2023/03/15 00:43:30 CET]
+Table 'Aase III' 6-max Seat #5 is the button
+Seat 1: RiverRat77 ($10 in chips)
+Seat 2: Mr.Pickles ($10.17 in chips)
+Seat 3: Hero ($10 in chips)
+Seat 4: bad beat [ok] ($12.40 in chips) is sitting out
+Seat 5: Zoë Ünïcode ($4.05 in chips)
+Seat 6: Vilain_6 ($10.05 in chips)
+Vilain_6: posts small blind $0.05
+RiverRat77: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Ah Qs]
+Mr.Pickles: folds
+Hero: raises $0.15 to $0.25
+Zoë Ünïcode: folds
+Vilain_6: folds
+RiverRat77: calls $0.15
+*** FLOP *** [Qd 7c 2h]
+RiverRat77: checks
+Hero: bets $0.33
+RiverRat77: calls $0.33
+*** TURN *** [Qd 7c 2h] [5s]
+RiverRat77: checks
+Hero: bets $0.80
+RiverRat77: folds
+Uncalled bet ($0.80) returned to Hero
+Hero collected $1.15 from pot
+Hero: doesn't show hand
+*** SUMMARY ***
+Total pot $1.21 | Rake $0.06
+Board [Qd 7c 2h 5s]
+Seat 1: RiverRat77 (big blind) folded on the Turn
+Seat 2: Mr.Pickles folded before Flop (didn't bet)
+Seat 3: Hero collected ($1.15)
+Seat 5: Zoë Ünïcode (button) folded before Flop (didn't bet)
+Seat 6: Vilain_6 (small blind) folded before Flop
+
+
+
+PokerStars Hand #243516260044:  Hold'em No Limit ($0.05/$0.10 USD) - 2023/03/14 19:45:02 ET [2023/03/15 00:45:02 CET]
+Table 'Aase III' 6-max Seat #6 is the button
+Seat 1: RiverRat77 ($9.67 in chips)
+Seat 2: Mr.Pickles ($10.17 in chips)
+Seat 3: Hero ($10.35 in chips)
+Seat 4: bad beat [ok] ($12.40 in chips) is sitting out
+Seat 5: Zoë Ünïcode ($4.05 in chips)
+Seat 6: Vilain_6 ($10 in chips)
+RiverRat77: posts small blind $0.05
+Mr.Pickles: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Ks Kd]
+Hero: raises $0.20 to $0.30
+Zoë Ünïcode: raises $0.70 to $1
+Vilain_6: folds
+RiverRat77: folds
+Mr.Pickles: folds
+Hero: raises $9.35 to $10.35 and is all-in
+Zoë Ünïcode: calls $3.05 and is all-in
+Uncalled bet ($6.30) returned to Hero
+*** FLOP *** [Jh 9c 4d]
+*** TURN *** [Jh 9c 4d] [2s]
+*** RIVER *** [Jh 9c 4d 2s] [Ac]
+*** SHOW DOWN ***
+Hero: shows [Ks Kd] (a pair of Kings)
+Zoë Ünïcode: shows [Ah Qh] (a pair of Aces)
+Zoë Ünïcode collected $7.83 from pot
+*** SUMMARY ***
+Total pot $8.25 | Rake $0.42
+Board [Jh 9c 4d 2s Ac]
+Seat 1: RiverRat77 (small blind) folded before Flop
+Seat 2: Mr.Pickles (big blind) folded before Flop
+Seat 3: Hero showed [Ks Kd] and lost with a pair of Kings
+Seat 5: Zoë Ünïcode showed [Ah Qh] and won ($7.83) with a pair of Aces
+Seat 6: Vilain_6 (button) folded before Flop (didn't bet)
+
+
+
+PokerStars Hand #243516266710:  Hold'em No Limit ($0.05/$0.10 USD) - 2023/03/14 19:46:40 ET [2023/03/15 00:46:40 CET]
+Table 'Aase III' 6-max Seat #1 is the button
+Seat 1: RiverRat77 ($9.62 in chips)
+Seat 2: Mr.Pickles ($10.07 in chips)
+Seat 3: Hero ($6.30 in chips)
+Seat 4: bad beat [ok] ($12.40 in chips) is sitting out
+Seat 6: Vilain_6 ($10 in chips)
+Mr.Pickles: posts small blind $0.05
+Hero: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [9h 8h]
+Vilain_6: raises $0.15 to $0.25
+RiverRat77: folds
+Mr.Pickles: folds
+Hero: calls $0.15
+*** FLOP *** [Td 7s 2c]
+Hero: checks
+Vilain_6: bets $0.20
+Hero: raises $0.50 to $0.70
+Vilain_6: folds
+Uncalled bet ($0.50) returned to Hero
+Hero collected $0.86 from pot
+Vilain_6 is disconnected
+Vilain_6 said, "gg"
+Hero: doesn't show hand
+*** SUMMARY ***
+Total pot $0.95 | Rake $0.09
+Board [Td 7s 2c]
+Seat 1: RiverRat77 (button) folded before Flop (didn't bet)
+Seat 2: Mr.Pickles (small blind) folded before Flop
+Seat 3: Hero (big blind) collected ($0.86)
+Seat 6: Vilain_6 folded on the Flop
+
+
+
+PokerStars Zoom Hand #243517000001:  Hold'em No Limit (€0.02/€0.05 EUR) - 2023/03/14 19:50:02 ET [2023/03/15 00:50:02 CET]
+Table 'Halley' 6-max Seat #1 is the button
+Seat 1: Papa Bear (€5 in chips)
+Seat 2: el.toro (€4.87 in chips)
+Seat 3: Hero (€5.12 in chips)
+Seat 4: KnightRider (€5 in chips)
+Seat 5: snowfall99 (€2.45 in chips)
+Seat 6: Mamba [NL] (€6.10 in chips)
+el.toro: posts small blind €0.02
+Hero: posts big blind €0.05
+*** HOLE CARDS ***
+Dealt to Hero [Jd 4c]
+KnightRider: folds
+snowfall99: folds
+Mamba [NL]: folds
+Papa Bear: folds
+el.toro: folds
+Uncalled bet (€0.03) returned to Hero
+Hero collected €0.04 from pot
+Hero: doesn't show hand
+*** SUMMARY ***
+Total pot €0.04 | Rake €0
+Seat 1: Papa Bear (button) folded before Flop (didn't bet)
+Seat 2: el.toro (small blind) folded before Flop
+Seat 3: Hero (big blind) collected (€0.04)
+Seat 4: KnightRider folded before Flop (didn't bet)
+Seat 5: snowfall99 folded before Flop (didn't bet)
+Seat 6: Mamba [NL] folded before Flop (didn't bet)
+
+
+
+PokerStars Hand #243516270001:  Omaha Pot Limit ($0.05/$0.10 USD) - 2023/03/14 19:48:00 ET [2023/03/15 00:48:00 CET]
+Table 'Ariadne II' 6-max Seat #2 is the button
+Seat 1: quietkoala ($10 in chips)
+Seat 2: Hero ($10 in chips)
+Seat 3: dropshot ($8.90 in chips)
+quietkoala: posts small blind $0.05
+dropshot: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Ah Ad Ks Qc]
+Hero: raises $0.25 to $0.35
+quietkoala: folds
+dropshot: folds
+Uncalled bet ($0.25) returned to Hero
+Hero collected $0.25 from pot
+*** SUMMARY ***
+Total pot $0.25 | Rake $0
+Seat 1: quietkoala (small blind) folded before Flop
+Seat 2: Hero (button) collected ($0.25)
+Seat 3: dropshot (big blind) folded before Flop
+
+
+
+PokerStars Hand #243516270002:  Hold'em Limit ($0.10/$0.20 USD) - 2023/03/14 19:49:10 ET [2023/03/15 00:49:10 CET]
+Table 'Eunomia IV' 9-max Seat #1 is the button
+Seat 1: Hero ($4 in chips)
+Seat 2: limpking ($3.80 in chips)
+Seat 3: rocknroll ($5.10 in chips)
+limpking: posts small blind $0.05
+rocknroll: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Qh Qc]
+Hero: raises $0.10 to $0.20
+limpking: folds
+rocknroll: folds
+Uncalled bet ($0.10) returned to Hero
+Hero collected $0.20 from pot
+*** SUMMARY ***
+Total pot $0.20 | Rake $0
+Seat 1: Hero (button) collected ($0.20)
+Seat 2: limpking (small blind) folded before Flop
+Seat 3: rocknroll (big blind) folded before Flop
+
+
+

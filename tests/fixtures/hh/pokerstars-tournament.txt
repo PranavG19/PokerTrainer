@@ -1,0 +1,173 @@
+PokerStars Hand #243520000001: Tournament #3456789012, $1.40+$0.10 USD Hold'em No Limit - Level III (25/50) - 2023/03/14 20:31:15 ET [2023/03/15 01:31:15 CET]
+Table '3456789012 1' 9-max Seat #5 is the button
+Seat 1: Turbo Tom (1480 in chips)
+Seat 2: Hero (2210 in chips)
+Seat 3: ace.of.base (1500 in chips)
+Seat 5: Grinder [x] (3015 in chips)
+Seat 6: Moonlight (920 in chips)
+Seat 7: noodle (1500 in chips) out of hand (moved from another table into small blind)
+Seat 8: Kas (1875 in chips)
+Turbo Tom: posts the ante 5
+Hero: posts the ante 5
+ace.of.base: posts the ante 5
+Grinder [x]: posts the ante 5
+Moonlight: posts the ante 5
+Kas: posts the ante 5
+Moonlight: posts small blind 25
+Kas: posts big blind 50
+*** HOLE CARDS ***
+Dealt to Hero [Qc 3h]
+Turbo Tom: folds
+Hero: folds
+ace.of.base: raises 75 to 125
+Grinder [x]: folds
+Moonlight: folds
+Kas: folds
+Uncalled bet (75) returned to ace.of.base
+ace.of.base collected 155 from pot
+ace.of.base: doesn't show hand
+*** SUMMARY ***
+Total pot 155 | Rake 0
+Seat 1: Turbo Tom folded before Flop (didn't bet)
+Seat 2: Hero folded before Flop (didn't bet)
+Seat 3: ace.of.base collected (155)
+Seat 5: Grinder [x] (button) folded before Flop (didn't bet)
+Seat 6: Moonlight (small blind) folded before Flop
+Seat 8: Kas (big blind) folded before Flop
+
+
+PokerStars Hand #243520000002: Tournament #3456789012, $1.40+$0.10 USD Hold'em No Limit - Level III (25/50) - 2023/03/14 20:32:40 ET [2023/03/15 01:32:40 CET]
+Table '3456789012 1' 9-max Seat #6 is the button
+Seat 1: Turbo Tom (1475 in chips)
+Seat 2: Hero (2205 in chips)
+Seat 3: ace.of.base (1625 in chips)
+Seat 5: Grinder [x] (3010 in chips)
+Seat 6: Moonlight (890 in chips)
+Seat 7: noodle (1500 in chips)
+Seat 8: Kas (1820 in chips)
+Turbo Tom: posts the ante 5
+Hero: posts the ante 5
+ace.of.base: posts the ante 5
+Grinder [x]: posts the ante 5
+Moonlight: posts the ante 5
+noodle: posts the ante 5
+Kas: posts the ante 5
+noodle: posts small blind 25
+Kas: posts big blind 50
+*** HOLE CARDS ***
+Dealt to Hero [As Jc]
+Turbo Tom: folds
+Hero: raises 70 to 120
+ace.of.base: folds
+Grinder [x]: folds
+Moonlight: folds
+noodle: folds
+Kas: calls 70
+*** FLOP *** [Jd 6s 2c]
+Kas: checks
+Hero: bets 150
+Kas: folds
+Uncalled bet (150) returned to Hero
+Hero collected 300 from pot
+Hero: doesn't show hand
+noodle said, "ty"
+*** SUMMARY ***
+Total pot 300 | Rake 0
+Board [Jd 6s 2c]
+Seat 1: Turbo Tom folded before Flop (didn't bet)
+Seat 2: Hero collected (300)
+Seat 3: ace.of.base folded before Flop (didn't bet)
+Seat 5: Grinder [x] folded before Flop (didn't bet)
+Seat 6: Moonlight (button) folded before Flop (didn't bet)
+Seat 7: noodle (small blind) folded before Flop
+Seat 8: Kas (big blind) folded on the Flop
+
+
+PokerStars Hand #243520000003: Tournament #3456789012, $1.40+$0.10 USD Hold'em No Limit - Level IV (50/100) - 2023/03/14 20:46:02 ET [2023/03/15 01:46:02 CET]
+Table '3456789012 1' 9-max Seat #8 is the button
+Seat 1: Turbo Tom (1440 in chips)
+Seat 2: Hero (2328 in chips)
+Seat 3: ace.of.base (1618 in chips)
+Seat 5: Grinder [x] (3003 in chips)
+Seat 6: Moonlight (883 in chips) is sitting out
+Seat 7: noodle (1468 in chips)
+Seat 8: Kas (1713 in chips)
+Turbo Tom: posts the ante 10
+Hero: posts the ante 10
+ace.of.base: posts the ante 10
+Grinder [x]: posts the ante 10
+Moonlight: posts the ante 10
+noodle: posts the ante 10
+Kas: posts the ante 10
+Turbo Tom: posts small blind 50
+Hero: posts big blind 100
+*** HOLE CARDS ***
+Dealt to Hero [Ad Kh]
+ace.of.base: folds
+Grinder [x]: raises 150 to 250
+Moonlight: folds
+noodle: folds
+Kas: folds
+Turbo Tom: folds
+Hero: raises 2068 to 2318 and is all-in
+Grinder [x]: calls 2068
+*** FLOP *** [Kd 9s 5h]
+*** TURN *** [Kd 9s 5h] [Qc]
+*** RIVER *** [Kd 9s 5h Qc] [7d]
+*** SHOW DOWN ***
+Hero: shows [Ad Kh] (a pair of Kings)
+Grinder [x]: shows [Jh Jc] (a pair of Jacks)
+Hero collected 4756 from pot
+*** SUMMARY ***
+Total pot 4756 | Rake 0
+Board [Kd 9s 5h Qc 7d]
+Seat 1: Turbo Tom (small blind) folded before Flop
+Seat 2: Hero (big blind) showed [Ad Kh] and won (4756) with a pair of Kings
+Seat 3: ace.of.base folded before Flop (didn't bet)
+Seat 5: Grinder [x] showed [Jh Jc] and lost with a pair of Jacks
+Seat 6: Moonlight folded before Flop (didn't bet)
+Seat 7: noodle folded before Flop (didn't bet)
+Seat 8: Kas (button) folded before Flop (didn't bet)
+
+
+PokerStars Hand #243520000004: Tournament #3456789012, $1.40+$0.10 USD Hold'em No Limit - Level IV (50/100) - 2023/03/14 20:47:31 ET [2023/03/15 01:47:31 CET]
+Table '3456789012 1' 9-max Seat #1 is the button
+Seat 1: Turbo Tom (1380 in chips)
+Seat 2: Hero (4756 in chips)
+Seat 3: ace.of.base (1608 in chips)
+Seat 5: Grinder [x] (685 in chips)
+Seat 6: Moonlight (873 in chips)
+Seat 7: noodle (1458 in chips)
+Seat 8: Kas (1703 in chips)
+Turbo Tom: posts the ante 10
+Hero: posts the ante 10
+ace.of.base: posts the ante 10
+Grinder [x]: posts the ante 10
+Moonlight: posts the ante 10
+noodle: posts the ante 10
+Kas: posts the ante 10
+Hero: posts small blind 50
+ace.of.base: posts big blind 100
+*** HOLE CARDS ***
+Dealt to Hero [Tc Ts]
+Grinder [x]: folds
+Moonlight: folds
+noodle: folds
+Kas: raises 100 to 200
+Turbo Tom: folds
+Hero: raises 450 to 650
+ace.of.base: folds
+Kas: folds
+Uncalled bet (450) returned to Hero
+Hero collected 570 from pot
+Hero: doesn't show hand
+Kas said, "wow"
+*** SUMMARY ***
+Total pot 570 | Rake 0
+Seat 1: Turbo Tom (button) folded before Flop (didn't bet)
+Seat 2: Hero (small blind) collected (570)
+Seat 3: ace.of.base (big blind) folded before Flop
+Seat 5: Grinder [x] folded before Flop (didn't bet)
+Seat 6: Moonlight folded before Flop (didn't bet)
+Seat 7: noodle folded before Flop (didn't bet)
+Seat 8: Kas folded before Flop

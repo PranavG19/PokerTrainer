@@ -1,0 +1,305 @@
+/*
+ * THE PRO TAB (screens/proTools.ts, proHands.ts, proIcm.ts), from the vision mocks pro-import and pro-icm.
+ * Kit only (styles-glass.css): a side column with a right hairline, the main column, .g-group for the
+ * actionable spot list, .g-sect for informational blocks, .g-seg + thumb for every choice, .pill ranks,
+ * the shared grid language for the 13x13 chart. Tokens only. Colour roles: neutrals for structure; coral
+ * for a leak (a wrong value); mint only on a positive EV delta; bone for the one primary. The screen is
+ * exactly the shell's height; lists scroll inside themselves, the page never does.
+ */
+
+.pro-tools-screen {
+  box-sizing: border-box;
+  height: var(--screen-h);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.pro-switch { align-self: flex-start; flex: none; }
+.pro-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pro-body > .pro-gate {
+  max-width: 520px;
+  margin: 40px auto 0;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+
+.pro-hands,
+.pro-icm {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  column-gap: 24px;
+}
+.pro-icm { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
+
+.pro-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  box-sizing: border-box;
+  padding-right: 20px;
+  border-right: 1px solid var(--hair);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.pro-side > * { flex: none; }
+.pro-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+.pro-main > * { flex: none; }
+.pro-title { margin: 0; color: var(--ink-1); }
+.pro-lede { margin: 0; }
+
+/* ─── Hands: the import card ─── */
+.pro-import {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 16px 14px 14px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  outline: 1.5px dashed var(--hair-strong);
+  outline-offset: -1.5px;
+}
+.pro-import .t-head { font-weight: 600; }
+.pro-import-icon {
+  width: var(--h-lg);
+  height: var(--h-lg);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--fill-1);
+  box-shadow: var(--top-light), inset 0 0 0 0.5px var(--hair-strong);
+  color: var(--ink-1);
+}
+.pro-import-icon svg { width: 15px; height: 17px; }
+.pro-local svg { display: inline-block; width: 10px; height: 11px; margin-right: 5px; vertical-align: -1px; color: var(--ink-3); }
+.pro-import .pill { margin-top: 4px; }
+.pro-notice { color: var(--ink-2); }
+.pro-last { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pro-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  padding: 10px 0;
+}
+.pro-review-only {
+  padding: 9px 11px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair);
+}
+.pro-clear { align-self: flex-start; }
+.pro-clear[data-confirm='true'] { color: var(--coral); }
+
+/* ─── Hands: leaks by spot ─── */
+.pro-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.pro-legend { display: flex; gap: 14px; align-items: center; font-size: var(--t-cap); color: var(--ink-3); white-space: nowrap; }
+.pro-legend i { display: inline-block; vertical-align: -1px; margin-right: 5px; }
+.lg-band { width: 18px; height: 8px; border-radius: var(--r-xs); background: var(--fill-3); }
+.lg-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-1); }
+.lg-tick { width: 2px; height: 11px; background: var(--ink-1); }
+
+.pro-spots {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pro-spot-cols,
+.pro-spot {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) 48px minmax(120px, 1.6fr) 74px minmax(96px, 0.9fr);
+  column-gap: 14px;
+  align-items: center;
+}
+.pro-spot-cols { padding: 0 14px; }
+.pro-spot-cols .num,
+.pro-spot .num { text-align: right; }
+.pro-spot-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.pro-spot {
+  width: 100%;
+  min-height: var(--h-lg);
+  padding: 7px 14px;
+  border: 0;
+  background: none;
+  color: var(--ink-1);
+  font: inherit;
+  font-size: var(--t-body);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.pro-spot:hover { background: var(--fill-0); }
+.pro-spot:active { background: var(--fill-1); }
+.pro-spot[aria-selected='true'] { background: var(--fill-1); }
+.pro-spot:focus-visible { outline: 2px solid var(--ink-2); outline-offset: -3px; }
+.pro-spot-name { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pro-spot-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pro-spot[data-reading='not-enough'] .pro-spot-title { color: var(--ink-2); }
+.pro-vs b { font-weight: 600; }
+.pro-vs { color: var(--ink-2); }
+.pro-reading { font-size: var(--t-foot); color: var(--ink-2); }
+.pro-spot[data-reading='leak'] .pro-reading {
+  justify-self: end;
+  padding: 2px 8px;
+  border-radius: var(--r-xs);
+  color: var(--coral);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 0.5px var(--coral);
+}
+
+/* The 0-100% bar: a hairline track, the band as a fill, you as a dot, the chart as a tick. */
+.pro-bar { position: relative; height: 14px; }
+.pro-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--fill-1);
+}
+.pro-bar[data-empty='true']::before { background: none; border-top: 2px dotted var(--fill-2); height: 0; }
+.pro-bar i { position: absolute; }
+.pro-bar-band { top: 3px; height: 8px; border-radius: var(--r-xs); background: var(--fill-3); }
+.pro-bar-dot { top: 2px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--ink-1); }
+.pro-bar-tick { top: 0; width: 2px; height: 14px; margin-left: -1px; background: var(--ink-1); }
+
+.pro-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 10px; border-top: 1px solid var(--hair); }
+.pro-explain { margin: 0; font-size: var(--t-body); color: var(--ink-1); line-height: 1.45; }
+.pro-foot .pill { flex: none; }
+.pro-method { margin: 0; }
+.pro-empty { display: flex; flex-direction: column; gap: 8px; max-width: 520px; padding-top: 12px; }
+.pro-empty p { margin: 0; }
+.pro-tools-screen [hidden] { display: none; }
+
+/* ─── ICM: the spot ─── */
+.pro-payouts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pro-chip {
+  padding: 2px 8px;
+  border-radius: var(--r-xs);
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-1);
+  background: var(--fill-1);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.pro-seats { display: flex; flex-direction: column; }
+.pro-seat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 92px 76px;
+  column-gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--hair);
+  font-size: var(--t-body);
+}
+.pro-seat-head { border-top: 0; padding: 0 0 4px; }
+.pro-seat .num { text-align: right; }
+.pro-seat-name { display: flex; flex-direction: column; gap: 1px; font-weight: 600; }
+.pro-seat-name .g-caption { font-weight: 400; }
+.pro-bf { display: flex; flex-direction: column; align-items: flex-end; }
+.pro-bf b { font-weight: 600; }
+input.pro-stack {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--h-sm);
+  padding: 0 8px;
+  text-align: right;
+  font: inherit;
+  font-size: var(--t-body);
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  border: 1px solid var(--hair-strong);
+  color: var(--ink-1);
+}
+input.pro-stack:focus { outline: 1.5px solid var(--ink-2); outline-offset: 2px; }
+.pro-caller-row { display: flex; align-items: center; gap: 10px; }
+.pro-hand { display: flex; align-items: center; gap: 18px; padding: 10px 0; }
+.pro-hand .g-stat { gap: 2px; }
+.pro-icm-note { margin: 0; }
+
+/* ─── ICM: the shove chart ─── */
+.pro-chart-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pro-swatch { width: 11px; height: 11px; border-radius: 3px; box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
+.pro-swatch[data-kind='push'] { background: var(--cell-in); }
+.pro-swatch[data-kind='fold'] { background: var(--cell-out); }
+.pro-swatch[data-kind='chip-only'],
+.pro-cell[data-kind='chip-only'] {
+  background: repeating-linear-gradient(135deg, var(--cell-mid) 0 3px, var(--cell-out) 3px 6px);
+}
+.pro-main > .pro-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: 1;
+  max-width: 100%;
+  align-self: flex-start;
+  --grid-base: color-mix(in srgb, var(--cell-out) 72%, black);
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  grid-template-rows: repeat(13, minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-ctl);
+  background: var(--grid-base);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.pro-cell {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  font: inherit;
+  font-size: var(--t-cap);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  background: var(--cell-out);
+  overflow: hidden;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), filter var(--dur-1) var(--ease);
+}
+.pro-cell[data-kind='push'] { background: var(--cell-in); color: var(--ink-1); }
+.pro-cell:hover { filter: brightness(1.3); color: var(--ink-1); }
+.pro-cell:focus-visible { z-index: 1; outline: 2px solid var(--ink-2); outline-offset: 2px; }
+.pro-cell[data-selected='true'] { box-shadow: inset 0 0 0 2px var(--ink-1); color: var(--ink-1); }
+.pro-solving { margin: 0; min-height: 1.5em; }
+.pro-icm[data-solving='true'] .pro-grid { opacity: 0.7; }
+
+/* The short window: tighter rows so both screens fit 900x640 without a page scroll. */
+@media (max-height: 700px) {
+  .pro-tools-screen { gap: 8px; }
+  .pro-side { gap: 9px; }
+  .pro-import { padding: 12px 12px 10px; gap: 4px; }
+  .pro-import-icon { display: none; }
+  .pro-spot { padding: 4px 14px; }
+  .pro-seat { padding: 4px 0; }
+  .pro-hand { padding: 6px 0; }
+}

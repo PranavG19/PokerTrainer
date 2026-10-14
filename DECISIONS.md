@@ -6,6 +6,46 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Pro tools (branch `feat-pro-tools`): hand-history import, leak finder, ICM and push-fold
+Owner decisions in force: D10 (import for review and counting stats only, no profit or loss, no gamification), D18
+(Pro tools allowed, review-only on real-money imports), the Pro tiers (`leak-finder`, `icm-tools`).
+- **One `Pro` tab, two views** (Hands and leaks · ICM and push-fold), each through `proGate`; the work is behind
+  `gated()` IPC in main (`pro:importHands`, `pro:handsReport`, `pro:shove`). `pro:clearHands` is never gated.
+- **The renderer names no path.** Main opens the native dialog and reads only what it returns: regular files,
+  25 MB each, 400 per import, a folder's top-level `.txt` files, no symlinks (`O_NOFOLLOW` on open). No drag-and-drop.
+- **The store is outside the profile:** `<userData>/hand-histories/hands.ndjson` + `meta.json`, atomic whole-file
+  writes streamed line by line, de-duplicated by site and hand id, capped at 50,000 hands AND 100 MB (a hand over
+  16 KB is refused). A store found over the cap or unreadable is left untouched and refuses writes, never read as
+  empty and overwritten; so is one whose `meta.json` `storeVersion` is newer than this build's (any change to the line format must bump
+  `STORE_VERSION`; a store whose `meta.json` is missing reads as version 1). Lines are rebuilt
+  from known keys. No raw text, no opponent names, no results (stacks and
+  blinds stay, never shown). Deleting the profile leaves it; "Delete imported hands" removes it (refused mid-import).
+- **Imports earn nothing:** no Pro module reaches the store, session, progression, story, gifts or Dee
+  (`pro-store.test` reads the import graph); the e2e checks the profile file is byte-identical after an import.
+- **Parsing:** a hand with no summary is skipped as `partial`; blocks split at blank lines and header lines;
+  hostile-input caps live in `parseCommon.ts`. The fixtures are hand-written in each site's format, not real exports.
+- **Leak finder** (`leaks.ts`): opens first in (UTG to SB), big-blind defence against one open with no cold-caller,
+  and fold to one 3-bet after opening, against the RFI, defence and 3-bet-response charts (fold-to-3-bet is
+  conditional on the opening range). Exact Clopper-Pearson 90% bands; a leak needs the `reads.ts` gates (20 hands,
+  15 points) and a band clear of the chart. Positions count back from the button; 7-9 handed early seats read as UTG.
+  Chart spots count only cash hands with no ante where hero (and the opener or 3-bettor faced) has 60bb or more;
+  all-in opens and 3-bets and squeezes are skipped. Every hand counts in the summary.
+- **ICM** is Malmuth-Harville, exact, by a DP over who has already placed (10 players max); a stack of 0 has just busted and takes the
+  places below everyone alive (two at once share those places evenly; push-fold never busts two). Bubble factor = ICM lost on losing a full-risk all-in / ICM gained on winning it.
+- **Push-fold** (`pushFold.ts`) prices a first-in shove against EXPLICIT calling ranges: the equilibrium's own (by
+  fictitious play, 2,000 rounds) or a fixed top-N%. Never the grader's QQ+/AK deep-shove caller. One caller at most;
+  a fold gives the blinds to the big blind. A player all in from the blinds (or whose post covers the shove) is a
+  forced caller when it acts last; one all in ahead of a live player (three-way) and a hero all in from the blinds
+  are refused as outside the model. Pots settle in layers, so dead money above what an all-in
+  can match goes back to the player who covers it.
+- **Preflop equity** is a 169x169 table generated offline (`scripts/gen-preflop-equity.ts`, 100k samples per pair,
+  seed fixed) over `eval7.ts`, an evaluator bit-identical to `evaluate()`.
+- **The heavy work runs in a `worker_threads` worker** (`proWorker.ts`): an ICM solve takes ~370 ms (two solves),
+  so main's thread stays free. Parsing 25 MB takes ~260 ms and a 50k-hand report ~75 ms. File reads are async.
+  Solves are coalesced (only the newest waiting request runs); a job over 60 s ends the worker.
+- **`FEATURE_INFO.available` stays false** for both features until the owner answers the checkout question (marking
+  them shipped also opens checkout once URLs and prices exist); until then Pro users see "Coming in an update".
+
 ## Story: the Long Orbit (branch `feat/story-campaign`)
 Owner decisions in force: D1 (character, story in scope; the tutor never authors a number; no trait insults), D17
 (rivals appear in Story first; live play keeps Ada, Bo and Cy), round 2 (each named regular keeps one archetype; the

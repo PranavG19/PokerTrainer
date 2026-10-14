@@ -70,6 +70,9 @@ import { renderHandReadingDrill } from './screens/handReadingDrill.js';
 import { renderBoardReadingDrill } from './screens/boardReadingDrill.js';
 import { renderAnomalyScreen } from './screens/anomaly.js';
 import { renderDossier } from './screens/dossier.js';
+import { renderProTools } from './screens/proTools.js';
+import type { HandsBridge } from './screens/proHands.js';
+import type { IcmBridge } from './screens/proIcm.js';
 import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
 import { readOnlyHeadline, renderSettings, type SettingsStatus } from './screens/settings.js';
@@ -135,7 +138,7 @@ export interface SpeakResult {
   reason: string | null;
 }
 
-interface OffsuitBridge extends ProBridge {
+interface OffsuitBridge extends ProBridge, HandsBridge, IcmBridge {
   loadState: () => Promise<Record<string, unknown>>;
   /** Main answers `{ saved: false, readOnly }` when it refused the write; the in-memory bridge answers nothing. */
   saveState: (obj: Record<string, unknown>) => Promise<{ saved: boolean; readOnly: string | null; failed?: string } | void>;
@@ -234,6 +237,7 @@ type Tab =
   | 'equity'
   | 'ranges'
   | 'dossier'
+  | 'pro'
   | 'progress'
   | 'profile'
   | 'settings'
@@ -283,6 +287,7 @@ const TABS: readonly { id: Tab; label: string; testid: string }[] = [
   { id: 'equity', label: 'Equity', testid: 'tab-equity' },
   { id: 'ranges', label: 'Ranges', testid: 'tab-ranges' },
   { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
+  { id: 'pro', label: 'Pro', testid: 'tab-pro' },
   { id: 'progress', label: 'Progress', testid: 'tab-progress' },
   { id: 'profile', label: 'Profile', testid: 'tab-profile' },
   { id: 'settings', label: 'Settings', testid: 'tab-settings' },
@@ -378,7 +383,7 @@ async function boot(): Promise<void> {
   const pro = createProClient(base);
   await pro.reload().catch(() => undefined);
   pro.subscribe(() => {
-    if (tab === 'settings') render();
+    if (tab === 'settings' || tab === 'pro') render();
   });
   const openProSheet = (feature?: Feature): void => {
     openUpgradeSheet(pro, { feature, onHaveKey: showKeyEntry });
@@ -1447,6 +1452,17 @@ async function boot(): Promise<void> {
       });
     }
     if (which === 'dossier') return renderDossier();
+    if (which === 'pro') {
+      return renderProTools({
+        pro,
+        bridge: io,
+        openSheet: openProSheet,
+        onPractise: () => {
+          tab = 'charts';
+          render();
+        },
+      });
+    }
     if (which === 'progress') {
       /*
        * REAL DECISIONS, HONESTLY WITHHELD ELSEWHERE. The hand log now carries per-decision verdicts
