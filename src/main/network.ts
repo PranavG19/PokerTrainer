@@ -27,6 +27,10 @@
  *     system browser (shell.openExternal).
  * Because it is a Chromium session, the loopback-proxy oracle in no-network.spec sees it like any escape.
  *
+ * NOT A SESSION AT ALL: DEE'S PHRASING DOWNLOAD. "Smarter phrasing" (src/main/dee/download.ts) fetches its
+ * pinned model and runtime with `node:https` in main, only on the learner's consent click, so it never touches
+ * a Chromium session and the seal above stays total. The main-process oracle sees it (no-network.spec).
+ *
  * WHY SEALING EVERYTHING DOES NOT BREAK THE TUTOR. The one authorised egress is Bedrock, and
  * src/main/tutor/bedrock.ts reaches it by spawning the `aws` CLI — a child process with its own
  * network stack. Electron's session is not in that path, so the seal can be total rather than an

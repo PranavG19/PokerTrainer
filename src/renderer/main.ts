@@ -511,7 +511,8 @@ async function boot(): Promise<void> {
 
   /** What chat may answer from, read fresh per question: the live table if there is one, else the last saved hand. */
   function chatContext(): ChatContext {
-    const atTable = tab === 'play' ? table?.chatContext() : undefined;
+    // A mounted table is always the one on screen (render() tears it down elsewhere): Play's or a story chapter's.
+    const atTable = table?.chatContext();
     let lastHand: ChatContext['lastHand'] = atTable?.lastHand ?? null;
     if (lastHand === null && !atTable?.live) {
       // From anywhere else: the last saved hand. Its grades carry no pot shares (those are not persisted),

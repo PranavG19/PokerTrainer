@@ -55,7 +55,7 @@ const CRISIS = new RegExp(
     String.raw`\b(?:suicid\w*|kill (?:my ?self|me)|killing my ?self|want to die|self[- ]?harm\w*|hurt(?:ing)? my ?self|cutting myself|overdos\w*)\b`,
     String.raw`\b(?:end(?:ing)? (?:my life|it all|everything)|want to end it|(?:don'?t|do not|dont) want to (?:live|be here|be alive|wake up|exist))\b`,
     String.raw`\b(?:wish i (?:was|were) (?:dead|gone|never born)|better off (?:dead|without me)|take my (?:own )?life|kms|unalive\w*)\b`,
-    String.raw`\b(?:can'?t go on|cannot go on|no (?:reason|point) (?:in )?(?:to )?(?:living|live|going on)|not worth living|(?:jump|jumping) off|nobody would (?:miss|care)|hate my life|give up on life|sleep forever|life is (?:pointless|meaningless|not worth))\b`,
+    String.raw`\b(?:can'?t go on|cannot go on|no (?:reason|point) (?:in )?(?:to )?(?:living|live|going on)|not worth living|(?:no|lost (?:the|my)) will to live|(?:jump|jumping) off|nobody would (?:miss|care)|hate my life|give up on life|sleep forever|life is (?:pointless|meaningless|not worth))\b`,
   ].join('|'),
 );
 
@@ -116,15 +116,27 @@ const POKER =
  */
 const CRISIS_WORDS =
   /\b(?:die|dying|death|dead|alive|living|suicid\w*|disappear\w*|can'?t take (?:it|this)|cant take (?:it|this)|nothing matters|point (?:of|in) (?:living|life|it all|anything)|worth (?:it|living) anymore|(?:it|everything) (?:all )?to stop)\b/;
-const POKER_DEATH =
-  /\b(?:dead (?:money|hands?|cards?|draws?|button|blinds?|equity)|drawing dead|(?:still |stay(?:s|ing)? )?alive (?:in|on|to|for|after|at) (?:the|this|that|a|my) (?:hand|pot|river|turn|flop|street|showdown)|(?:hand|draw|button|seat|card)s? (?:is |are )?(?:still )?(?:dead|alive)|(?:dead|alive) at (?:the )?showdown|seats? (?:are |is )?(?:still )?alive|(?:make|made|for) a living|living room)\b/g;
+const POKER_DEATH = new RegExp(
+  [
+    String.raw`\bdead (?:money|hands?|cards?|draws?|button|blinds?|equity)\b`,
+    String.raw`\bdrawing dead\b`,
+    // A subject that is the game, with a verb: "my draw is dead", "both hands still alive at the river".
+    String.raw`\b(?:hand|draw|button|seat|card)s? (?:(?:is|are) (?:still )?|still )(?:dead|alive)(?: (?:in|on|at|after) (?:the|this|that|a|my) (?:hand|pot|river|turn|flop|street|showdown))?\b`,
+    // The question form: "is my draw dead", "are both hands still alive".
+    String.raw`\b(?:is|are) (?:\w+ ){0,2}(?:hand|draw|button|seat|card)s? (?:still )?(?:dead|alive)\b`,
+    String.raw`\b(?:make|made|for) a living\b|\bliving room\b`,
+  ].join('|'),
+  'g',
+);
+/** A message that talks about the learner never gets a poker exemption: "my hand is dead and so am i". */
+const ABOUT_ME = /\b(?:me|myself|so am i|i (?:am|feel|want|should|dont|don't|do not|wish|deserve|hate|can'?t|cant))\b|\binside\b/;
 
 function refusalOf(t: string): Refusal | null {
   const d = deleet(t);
   const s = squash(t);
   const ds = squash(d);
   if (has(CRISIS, t, d, s, ds)) return 'crisis';
-  if (CRISIS_WORDS.test(t.replace(POKER_DEATH, ' '))) return 'crisis';
+  if (CRISIS_WORDS.test(ABOUT_ME.test(t) ? t : t.replace(POKER_DEATH, ' '))) return 'crisis';
   if (t.length > MAX_QUESTION_CHARS) return 'too-long';
   if (has(INJECTION, t, s)) return 'injection';
   if (has(SUPPORT, t, d, s, ds)) return 'support';

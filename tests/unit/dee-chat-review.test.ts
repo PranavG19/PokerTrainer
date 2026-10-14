@@ -81,6 +81,34 @@ describe('review (final): the crisis fallback catches despair by its words, with
   });
 });
 
+describe('final review: "alive" exemptions never hide distress', () => {
+  it.each([
+    'i dont know if i want to stay alive after that hand',
+    'i dont want to stay alive after this hand',
+    'do i even want to be alive after this hand',
+    'not sure i want to be alive after this hand',
+    'staying alive after that hand is hard',
+    'why stay alive after that river',
+    'no will to live after that hand',
+    'i dont deserve to be alive after this hand',
+    'i dont deserve to be alive after this hand, explain this hand',
+    'i dont feel alive after this hand',
+    'i dont feel alive after this hand, explain this hand',
+    'lost that hand dead inside',
+    'lost that hand dead inside, explain this hand',
+    'my hand is dead and so am i',
+    'my hand is dead and so am i, explain this hand',
+    'the cards are dead, just like me',
+    'the cards are dead, just like me, explain this hand',
+    'i dont feel alive in this hand anymore',
+    'i dont feel alive in this hand anymore, explain this hand',
+    'hands dead, me too',
+    'hands dead, me too, explain this hand',
+  ])('%s', (q) => {
+    expect(classify(q)).toEqual({ kind: 'refuse', refusal: 'crisis' });
+  });
+});
+
 describe('review: crisis words that are poker', () => {
   it.each([
     'should i bet to end it on the turn',
@@ -95,6 +123,10 @@ describe('review: crisis words that are poker', () => {
     'is the button dead',
     'two hands still alive at showdown',
     'how many seats are alive',
+    'is my draw alive after the flop',
+    'am i drawing dead here',
+    'which cards are dead',
+    'are both hands still alive at the river',
   ])('%s is not the crisis line', (q) => {
     expect(classify(q)).not.toEqual({ kind: 'refuse', refusal: 'crisis' });
   });

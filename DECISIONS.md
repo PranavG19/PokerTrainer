@@ -148,7 +148,7 @@ optional opt-in download, not in the base install.
   text (NFKC, invisible characters removed, Cyrillic and Greek look-alikes folded), a de-leeted copy and a squashed
   copy ("m o n e y"). Learner numbers are never echoed; only a hypothetical price reads them, and the engine computes
   from them.
-- **Nothing about a live hand.** In-hand, the price, the verdict and "should I call" get the in-hand refusal (owner
+- **Nothing about a live hand,** at Play's table or a story chapter's (chat reads whichever table is mounted). In-hand, the price, the verdict and "should I call" get the in-hand refusal (owner
   D7, and the commit-first protocol: the table does not show the price before the commit). Terms, rules and features
   are answered in-hand.
 - **No learner text reaches the model.** The renderer sends `{ templateId, slots }`; main re-renders the template and

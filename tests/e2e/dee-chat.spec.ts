@@ -182,4 +182,26 @@ test.describe('Dee chat', () => {
       await close();
     }
   });
+
+  test('3. at a story chapter table: nothing about a live hand either (final review item 1)', async () => {
+    const { page, close } = await launchApp({ seed: 42 });
+    try {
+      await page.click('[data-testid="tab-story"]');
+      await page.waitForSelector('[data-testid="story-map"]');
+      await page.click('[data-testid="story-venue"][data-venue="library"]');
+      await page.click('[data-testid="story-open-file"]');
+      await page.click('[data-testid="dossier-chapter"]');
+      await page.click('[data-testid="story-beat"][data-beat="table"]');
+      await page.click('[data-testid="story-sit"]');
+      await page.waitForSelector(`${tableScreen}[data-hand-limit="6"]`);
+      expect(await waitForIdle(page)).toBe('hero');
+      await page.keyboard.press('/');
+      await expect(page.locator(chat)).toBeVisible();
+      for (const q of ['What is the price?', 'Should I call?', 'What was my mistake?']) expect((await ask(page, q)).template).toBe('refuse-in-hand');
+      await page.keyboard.press('Escape');
+      await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'hero');
+    } finally {
+      await close();
+    }
+  });
 });

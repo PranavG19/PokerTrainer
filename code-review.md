@@ -396,3 +396,240 @@ Base: 729396997497c30dab168a9305ca1e350189aa4d  Head: d2a5e329257dd2d3b4e6b5acea
   - pinning the binary sha in the manifest;
   - orphan protection if main crashes;
   - the full Tab trap in the consent sheet.
+
+## Final review at 6ca563d (PR #26)
+Verdict: BLOCK. Two Act-on items: chat over a story table treats a live hand as finished, and one crisis exemption
+lets distress phrasings through to a hand explanation.
+Base: 0cc4f03dc815fb9a9bc14d33b3835c05b62bc63a  Head: 6ca563d9c94d15db2e41bb3dfc460ded45804d78 (previous review at f4b361d, before the rebase)
+
+Blast radius: HIGH. I read the rebased diff against origin/main, concentrating on the six conflicted files. I also
+read the story and licensing code they touch: the story table setup and `render()` in src/renderer/main.ts,
+`store.ts` settings, `network.ts`, `features.ts` and `upgradeSheet.ts`. I probed with throwaway
+tests/unit/zz-final-*.test.ts files, all deleted since.
+
+### Act on
+- src/renderer/main.ts:514. **Chat over a story table treats a live hand as finished.**
+  - The cause: `const atTable = tab === 'play' ? table?.chatContext() : undefined;`. Story (#25) added a second
+    owner of `table`, the chapter table, which is mounted while `tab === 'story'`. On that table `atTable` is
+    undefined, so `phase` falls back to the last saved hand: `'after-hand'`, or `'idle'` on a fresh profile. It is
+    never `'in-hand'`.
+  - The path: chat is still reachable mid-hand, from the perch in the nav and from `/` ("from anywhere", as
+    DECISIONS says). The story table passes no `onAskDee`, but that does not stop either entry point.
+  - Measured with `answerQuestion` under the phase this code produces:
+    - "what is the price to call 50 into 150" returns `price-hypo` with the price.
+    - "should i call" and "what was my mistake" explain the previous hand.
+    - In the `'in-hand'` phase all of these give `refuse-in-hand`.
+  - Why it matters: this breaks D7 and the commit-first protocol ("Nothing about a live hand", DECISIONS) on the
+    one surface whose chapters are judged on decision quality. A learner can get the live price before
+    committing.
+  - Not caught: dee-chat.spec test 2 pins the in-hand refusal on the Play table only.
+  - Fix:
+    - Use `const atTable = table?.chatContext();`. `render()` tears `table` down on every other tab, so a
+      non-null `table` is always the one on screen. Or test `tab === 'play' || (tab === 'story' && storyView.at === 'table')`.
+    - Add an e2e step: sit down at a chapter, press `/` mid-hand, and expect `refuse-in-hand` for "What is the
+      price?" and "Should I call?".
+- src/core/dee/chat/gate.ts:120. **The `alive after` exemption in `POKER_DEATH` removes the crisis word from
+  distress phrasings, so they get poker arithmetic.**
+  - The cause: `(?:still |stay(?:s|ing)? )?alive (?:in|on|to|for|after|at) (?:the|this|that|a|my) (?:hand|pot|river|…)`
+    deletes "stay alive after that hand" before `CRISIS_WORDS` runs.
+  - Measured with `classify` and then `answerQuestion` (after-hand context). Each of these gives `explain-hand` /
+    `explain-other`:
+    - "i dont know if i want to stay alive after that hand"
+    - "i dont want to stay alive after this hand"
+    - "do i even want to be alive after this hand"
+    - "not sure i want to be alive after this hand"
+    - "staying alive after that hand is hard"
+
+    "why stay alive after that river" gives `refuse-unknown`.
+  - Why it is Act on and not Consider: this is the fallback's own exemption reaching a non-poker use. It is not a
+    lexicon gap. It was already present in f4b361d (7f152ad here), and the earlier round missed it.
+  - Fix: drop `stay(?:s|ing)? ` and the prepositions `to|for|after`, keeping `(?:still )?alive (?:in|on|at) …`.
+    The poker forms still pass through the newer `(?:hand|draw|…)s? (?:is |are )?(?:still )?alive` branch.
+  - I checked that regex in a probe:
+    - All six strings above reach the crisis line.
+    - These all stay poker: "is my draw alive after the flop", "is my hand still alive after the flop", "still
+      alive in the pot", "alive in the hand", and every string pinned in `dee-chat-review.test.ts`.
+  - Pin the six strings in `dee-chat-review.test.ts`.
+
+### Consider
+- src/core/dee/chat/gate.ts:120 (5e680e6, b092cbc). **The new exemptions turn a few crisis misses into poker
+  refusals.** In b092cbc, `is`/`are` became optional in `(?:hand|draw|button|seat|card)s? (?:is |are )?…(?:dead|alive)`.
+  So "my hand is dead and so am i", "my hand is dead, i wish i was too", "every hand is dead, like me" and "hands
+  dead, me too" now give `refuse-unknown`. Before these commits they reached the crisis line.
+  - None of them reaches arithmetic. "card dead all night, i feel dead" is still caught.
+  - Tradeoff: closing these needs clause awareness, or a CRISIS entry for `so am i` / `like me` after `dead`. That
+    is lexicon breadth against over-refusal.
+- src/core/dee/chat/gate.ts:56-59. **"no will to live after that hand" gets `explain-hand`.** This is a lexicon
+  miss: CRISIS has no `will to live`. Fix: add `(?:no|lost (?:my|the)) will to live`. Tradeoff: none.
+- src/core/entitlements/features.ts:39-44. **`'local-chat'` is still `available: false`.** Its title is "Chat on
+  this Mac" and its blurb is "Ask about a hand with a model that runs locally". This PR ships that feature.
+  - It has no runtime effect. Free features are listed by title in "Always free" whatever their availability,
+    and `can()` grants every Free feature.
+  - It is a stale catalogue entry next to AGENTS' rule to set `available: true` when a feature ships.
+  - Tradeoff: flipping it touches the entitlements file, which this PR otherwise leaves alone. That is correct:
+    chat and phrasing are not, and must not be, gated.
+- src/main/network.ts:21-22. **The seal's header says licensing is "the only in-process egress".** The phrasing
+  download (`node:https` in main) is now a second one.
+  - AGENTS.md's Boundaries line ("no network") is also silent on the consent-click download.
+  - Fix: add one sentence to each, naming download.ts and the no-network.spec test that pins it. Tradeoff: none.
+
+### Noted
+- **The licensing behaviour is intact.**
+  - main.ts and store.ts are additive only. No licensing line was removed, and `loadLicenceMirror`,
+    `saveLicenceMirror`, `resaveLast`, `gated(...)`, `licensingFetch` and the deep-link path are unchanged.
+  - The Dee IPC handlers are registered plainly, not with `gated`.
+  - No renderer Dee surface calls `proGate`.
+  - The entitlements files are unchanged. The Dee download uses `node:https` and never touches the licensing
+    partition, so it does not arm it.
+- **The settings file is safe.** `deePhrasing` merges through `writeSettings` beside `licence`, `tutorEnabled` and
+  `theme`. A probe interleaved `saveLicenceMirror`, `saveDeePhrasing`, `saveTutorEnabled` and `saveTheme`, and
+  every key survived every write. A missing or unparseable file reads as phrasing on. The settings keys have no
+  unit test in `store.test.ts`; this predates the PR.
+- **The story behaviour is intact.**
+  - `cast`, `sittingEnd`, `onHandSettled`, `handLimit` and the story copy in the ended branches all survive in
+    table.ts.
+  - The story table gets no `onAskDee`, so there is no Ask Dee pill and `D` does nothing there.
+  - Enter at a chapter's end finds no `next-hand`, so it cannot skip the Debrief.
+  - After a hand-end verdict, `.controls .pill.primary` (183f584) focuses the planned-complete Debrief pill.
+  - The busted and swept chapter branches have no primary pill, so the fallback focuses Rebuy or Debrief, which
+    come first in DOM order, ahead of Ask Dee.
+- **The ban list has one definition.** `tests/unit/deeLint.ts` re-exports `src/core/dee/bans.ts`, and that list
+  matches main's former copy entry for entry. `dee-bank.test.ts` is byte-identical to main.
+- **The no-network spec:** the licensing tests and the Dee test each launch their own app, oracle file and proxy,
+  so neither sees the other's sockets.
+- src/main/main.ts:510-517. The narration doc comment for `speech:speak` now sits above the Dee block, not above
+  its handler. This was already so before the rebase.
+- Merging overwrites main's code-review.md (the story review). This is the pattern licensing and story followed.
+
+### Re-confirmed at 6ca563d (earlier Act-on items)
+- **#1 crisis:**
+  - The `CRISIS` list and the `CRISIS_WORDS` fallback are in place.
+  - The f4b361d strings stay pinned and pass.
+  - "killing me" is still poker.
+  - New gap: the `alive after` exemption above.
+- **#2 non-ASCII:** `REPERTOIRE` and the `\p{N}` numeral count are present (phrasing.ts:94-98, 126).
+- **#3 role swap:** `BOUND` (phrasing.ts:106) with `short close so from`.
+- **#4 sidecar:**
+  - `rewrite()` throws unless ready (sidecar.ts:185).
+  - The `exit` handler ignores a replaced child (:158).
+  - `warm()`'s catch tears down and counts once, and does not count a stop the learner asked for (service.ts:257-264).
+  - darwin refuses to start without `sandbox-exec`.
+  - The manifest override is ignored when packaged (main.ts passes `app.isPackaged`).
+  - 'review 4' passes.
+- **#5 focus:** `closeSheet` prefers the dock's primary, then Rebuy, then New session (table.ts:720-729). dee.spec
+  test 2 covers Play. Per the author's run, the full e2e suite passed at this head.
+
+### Verification
+- `npx tsc --noEmit -p tsconfig.json`: exit 0.
+- `npx vitest run`: exit 0. 113 files, 2950 tests.
+- Probes (deleted):
+  - 23 dead/alive crisis and poker strings through `classify` and `answerQuestion`;
+  - the in-hand and after-hand answers to the price, call and mistake questions;
+  - the candidate `POKER_DEATH` regex against 19 strings;
+  - the settings-file key interleaving through the real `store.ts`.
+- Not run, as instructed: Playwright. Chat over a live story hand is untested end to end. The finding rests on
+  the code path plus the core probe.
+
+## Final review at 6ca563d (PR #26)
+Verdict: BLOCK
+Base: 0cc4f03dc815fb9a9bc14d33b3835c05b62bc63a  Head: 6ca563d9c94d15db2e41bb3dfc460ded45804d78
+
+This is a second independent pass at the same head. A section with this heading already sat above when I came to
+write. It agrees on both Act-on items. It differs in one place: it records the `hand dead` and `alive in` forms as
+Consider, and I record them as Act on, because two of them reach `explain-hand` (below). This pass reviews the
+committed head. The worktree now holds uncommitted fixes to gate.ts, main.ts, dee-chat.spec and
+dee-chat-review.test; I did not review them, beyond the one probe noted below.
+
+### Act on
+- src/renderer/main.ts:514. **Chat over a live story hand is not `in-hand`.**
+  - The code: `const atTable = tab === 'play' ? table?.chatContext() : undefined;`. Since #25, `table` is also the
+    chapter table, which is mounted under `tab === 'story'` (main.ts:1179).
+  - So mid-hand at a chapter, `phase` is `'after-hand'`, or `'idle'` on a fresh profile. The perch and `/` both open
+    chat there.
+  - The result, measured with `answerQuestion`: "i face a bet of 60 into 90, what is the price" returns
+    `price-hypo` ("…29%…") instead of `refuse-in-hand`. "Explain this hand" and "what was my mistake" answer about
+    the previous saved hand.
+  - That breaks the DECISIONS line "Nothing about a live hand" (D7 and commit-first) on the surface that judges
+    decision quality.
+  - Fix: `const atTable = table?.chatContext();`. `render()` tears the table down on every other tab. Add an e2e
+    step: `/` mid-hand at a chapter gives `refuse-in-hand`.
+- src/core/dee/chat/gate.ts:119-120 (`POKER_DEATH`). **Two exemption forms remove the fallback word from despair,
+  and the message then gets a hand explanation.** Measured with `classify` at 6ca563d:
+  - The subject-less `(?:still |stay(?:s|ing)? )?alive (?:in|on|to|for|after|at) (?:the|this|that|a|my) (?:hand|…)`
+    form, from f4b361d. These give `explain-hand`: "i dont deserve to be alive after this hand", "i dont want to
+    stay alive after this hand", "why stay alive after that hand", "i dont feel alive after this hand".
+  - The subject form with an optional verb, `(?:hand|draw|button|seat|card)s? (?:is |are )?(?:still )?(?:dead|alive)`,
+    from 5e680e6 and b092cbc. "lost that hand dead inside" gives `explain-hand`. "my hand is dead and so am i",
+    "the cards are dead, just like me" and "seats are alive but i dont want to be" give `unknown` or `off-topic`,
+    not the crisis line.
+  - The uncommitted edit in the worktree, which narrows the first form to `alive (?:in|on|at)`, still sends "lost
+    that hand dead inside", "i dont feel alive in this hand anymore" and "hands dead, me too, explain this hand"
+    to `explain-hand`.
+  - Fix (measured in a probe on 30 strings):
+    1. Drop the subject-less form. If "still alive in the pot" must stay poker, keep only
+       `still alive (?:in|on|at) …`.
+    2. Require the verb in the subject form:
+       `(?:hand|draw|button|seat|card)s? (?:(?:is|are) (?:still )?|still )(?:dead|alive)(?: (?:in|on|to|for|after|at) (?:the|this|that|a|my) (?:hand|pot|river|turn|flop|street|showdown))?`.
+    3. Add the question form `(?:is|are) (?:\w+ ){0,2}(?:hand|draw|button|seat|card)s? (?:still )?(?:dead|alive)`.
+    4. Drop `(?:dead|alive) at (?:the )?showdown` and `seats? … alive`. The subject form covers both.
+    5. Treat an exemption as void when the remainder speaks of the learner:
+       `/\b(?:me|myself|so am i|i (?:am|feel|want|should|dont|don't|do not|wish|deserve|hate|can'?t|cant))\b/`.
+
+    With all five, the 16 distress strings above reach the crisis line. These stay poker: every not-crisis string
+    in dee-chat-review.test.ts, plus "am i drawing dead here", "is my flush draw dead on this board", "which cards
+    are dead" and "are both hands still alive at the river".
+  - Pin the strings, each bare and with ", explain this hand".
+
+### Consider
+- src/renderer/main.ts:626. **The story table passes no `onAskDee`.** A chapter's end has no Ask Dee pill, and `D`
+  does nothing, while the perch and `/` still open chat. Pass `onAskDee: () => openChat()` for parity, or record the
+  omission in DECISIONS. Tradeoff: an extra pill on the chapter-end dock.
+- src/renderer/main.ts:514. **A live multiplayer hand is not `in-hand` either.** The Play tab shows the multiplayer
+  screen with `table === null`. This predates the rebase, and the same fix shape applies: the multiplayer screen
+  reports `live`. Tradeoff: one more context source.
+- src/core/dee/chat/gate.ts:127. **`CRISIS_WORDS` reads only the plain text.** It skips the de-leeted and squashed
+  copies, so "i should just d1e" gives `off-topic`. Tradeoff: leetspeak despair is rare, and squashing also widens
+  false hits.
+- src/core/entitlements/features.ts:39-44. **`'local-chat'` is still `available: false` though it ships.** This has
+  no runtime effect, because free features list by title in "Always free".
+
+### Noted
+- **Licensing is intact.** main.ts and store.ts are additive only against origin/main. `loadLicenceMirror`,
+  `saveLicenceMirror`, `resaveLast`, the authority, `gated(...)` and `licensingFetch` are unchanged, and network.ts
+  is untouched.
+- **Dee is not Pro-gated.** The Dee IPC is registered plainly, no Dee surface calls `proGate`, and `dee` and
+  `local-chat` are in `FREE_FEATURES`.
+- **The settings file is safe.** `deePhrasing` goes through the merging `writeSettings`, beside `licence`.
+- **Story is intact in table.ts.** `cast`, `sittingEnd`, `onHandSettled` and `handLimit` all survive. Enter at a
+  chapter's end finds no `next-hand`, so the Debrief cannot be skipped. After a verdict at a chapter's end, focus
+  goes to the Debrief pill (`.pill.primary`), or to Rebuy or Debrief first in DOM order in the busted and swept
+  branches.
+- **bans.ts matches main's former deeLint list** entry for entry, and dee-bank.test.ts equals main's.
+- **The no-network tests are independent.** The Dee test and the licensing tests each use their own app, oracle
+  and proxy.
+- **main.ts:509-517.** The `speech:speak` doc comment sits above the Dee block. This predates the rebase.
+
+### Re-confirmed at 6ca563d
+- #1, the `CRISIS` list plus the `CRISIS_WORDS` fallback: the pinned tests pass. The new gaps are above.
+- #2, `REPERTOIRE` and `\p{N}`: present (phrasing.ts:94-98, 126).
+- #3, `BOUND`: present (phrasing.ts:106).
+- #4, the sidecar:
+  - `rewrite()` throws unless ready (sidecar.ts:185).
+  - The `exit` handler ignores a replaced child (:156).
+  - `warm()`'s catch tears down and counts once (service.ts:259-264).
+  - darwin refuses to start without `sandbox-exec` (sidecar.ts:71).
+- #5, focus: `closeSheet` prefers the primary, then Rebuy, then New session (table.ts:720-726). dee.spec:163
+  asserts `next-hand` is focused.
+
+### Verification
+- At clean 6ca563d:
+  - `npx tsc --noEmit -p tsconfig.json`: exit 0.
+  - `npx vitest run`: exit 0. 113 files and 2950 tests, plus one of my probes that was present during the run.
+- A later rerun gave exit 1: 7 failures, all in dee-chat-review.test.ts. These are the uncommitted red-first tests
+  someone added to the worktree during my review, not a failure at 6ca563d.
+- Probes, in tests/unit/zz-final-*.test.ts, all deleted:
+  - `classify` on 26 dead, alive, hand and seat strings;
+  - `answerQuestion` by phase;
+  - the proposed `POKER_DEATH` on 30 strings;
+  - one probe of the worktree's uncommitted gate.
+- Not run, as instructed: Playwright. Chat over a live story hand is untested end to end.
