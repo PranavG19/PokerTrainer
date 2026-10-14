@@ -1,7 +1,8 @@
 /**
  * Dee's greeting on Home: one line, from what is on file. Scripted, never generated; held to the same lint as
- * every Dee line (DEE_BANS, the guard, the strict tone rules), so it never mentions absence, days missed, the
- * streak, luck or results, and never says something about the learner as a person.
+ * every Dee line (DEE_BANS, the guard, the strict tone rules), so it never guilts an absence (a gap is named only
+ * as good for the spacing), never counts days missed, never names the streak, luck or results, and never says
+ * something about the learner as a person.
  *
  * The salutation ("Evening, Sam.") is built outside the line, so the learner's chosen name is never a template.
  * Lines are chosen by the most specific moment that applies, then seeded by the day, avoiding yesterday's line

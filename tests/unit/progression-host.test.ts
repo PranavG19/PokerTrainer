@@ -84,9 +84,14 @@ describe('the progression host: one diff → award → save', () => {
     const drill = t.items.find((i) => i.kind === 'drill')!;
     for (const spot of spots) s = save(s, s, { spot: { id: spot.ref, correct: 1 } });
     expect(s.progression.streak.current).toBe(0);
-    s = save(s, s, { perception: { mode: drill.ref, answered: DRILL_ANSWERS - 1 } });
+    // Speed answers arrive as the persisted tally; Sight answers (not persisted) as this visit's count.
+    const answer = (st: SessionState, n: number): SessionState =>
+      drill.ref === 'anomaly'
+        ? save(st, { ...st, anomalyTally: { ...st.anomalyTally, attempts: st.anomalyTally.attempts + n } })
+        : save(st, st, { perception: { mode: drill.ref, answered: n } });
+    s = answer(s, DRILL_ANSWERS - 1);
     expect(s.progression.ticket.done).not.toContain(drill.id);
-    s = save(s, s, { perception: { mode: drill.ref, answered: DRILL_ANSWERS } });
+    s = drill.ref === 'anomaly' ? answer(s, 1) : answer(s, DRILL_ANSWERS);
     expect(s.progression.ticket.finishedOn).toBe(dayOf(NOW));
     expect(s.progression.tallies.ticketsFinished).toBe(1);
     expect(s.progression.streak.current).toBe(1);
@@ -94,14 +99,28 @@ describe('the progression host: one diff → award → save', () => {
     expect(save(s, s).progression.tallies.ticketsFinished).toBe(1);
   });
 
-  it('a review item is done when its concept has a graded rep today and is no longer due', () => {
+  it('the first save of the day can be the work on an item: a spot solved before any other save is ticked, not reshuffled', () => {
+    // What Home showed: the Ticket built from the state before the work (nothing saved yet today).
+    const shown = applyProgress(s0, s0, {}, ctx).progression.ticket;
+    const spot = shown.items.find((i) => i.kind === 'spot')!;
+    const steps = SCENARIOS.find((x) => x.id === spot.ref)!.target.length;
+    const next = { ...s0, puzzleProgress: { [spot.ref]: { attempts: 1, bestCorrect: steps } } };
+    const t = save(s0, next, { spot: { id: spot.ref, correct: steps } }).progression.ticket;
+    expect(t.items.map((i) => i.id)).toEqual(shown.items.map((i) => i.id));
+    expect(t.done).toContain(spot.id);
+  });
+
+  it('the first save of the day can be a review rep: the review item stays on the Ticket and is ticked', () => {
     const first = NOW - 2 * MS_PER_DAY;
     const block = Array.from({ length: 10 }, (_, i) => ({ kind: 'graded' as const, conceptId: 'pot-odds', at: first + i, correct: true }));
-    let s = save(s0, { ...s0, fadingLog: block });
-    const review = s.progression.ticket.items.find((i) => i.kind === 'review');
+    // Saved yesterday (day-0 block and the day-1 wave not yet worked), so today's first save is the review.
+    let s = save(s0, { ...s0, fadingLog: block }, {}, { ...ctx, now: first + 1000 });
+    const shown = applyProgress(s, s, {}, ctx).progression.ticket;
+    const review = shown.items.find((i) => i.kind === 'review');
     expect(review?.ref).toBe('pot-odds');
     const wave = Array.from({ length: 4 }, (_, i) => ({ kind: 'graded' as const, conceptId: 'pot-odds', at: NOW - 1000 + i, correct: true }));
     s = save(s, { ...s, fadingLog: [...block, ...wave] });
+    expect(s.progression.ticket.items.map((i) => i.id)).toEqual(shown.items.map((i) => i.id));
     expect(s.progression.ticket.done).toContain(review!.id);
   });
 

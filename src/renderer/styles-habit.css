@@ -312,7 +312,7 @@
 .onboarding-steps > span {
   width: 22px;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: var(--fill-2);
 }
 .onboarding-steps > span[data-on='true'] {

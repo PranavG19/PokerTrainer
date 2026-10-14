@@ -24,8 +24,12 @@ export interface OnboardingProps {
   readonly initial: Personalization;
   readonly tone: Tone;
   readonly spokenVerdicts: boolean;
-  /** Skip or finish: save what was answered. `finished` = the last sheet's button (it deals the first hand). */
+  /** Skip or finish: save what was answered. `finished` = the last sheet's button. */
   readonly onDone: (result: OnboardingResult, finished: boolean) => void;
+  /** Every change, so a sheet left for another tab reopens with the answers kept. */
+  readonly onDraft?: (result: OnboardingResult) => void;
+  /** The last sheet's button. Default "Deal my first hand" (first run); a reopen from settings says "Save". */
+  readonly finishLabel?: string;
 }
 
 const FORMATS = [
@@ -146,6 +150,7 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
       if (detail) b.title = detail;
       b.addEventListener('click', () => {
         toggle(value);
+        props.onDraft?.(result());
         paint();
       });
       row.appendChild(b);
@@ -184,7 +189,10 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
       input.placeholder = 'Optional';
       input.value = a.displayName ?? '';
       input.setAttribute('aria-label', 'What should I call you?');
-      input.addEventListener('input', () => (a.displayName = input.value));
+      input.addEventListener('input', () => {
+        a.displayName = input.value;
+        props.onDraft?.(result());
+      });
       const rows = document.createElement('ul');
       rows.className = 'onboarding-promises g-sub';
       for (const [k, v] of [
@@ -289,6 +297,7 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
       if (a.tone === t) b.append(' ✓');
       b.addEventListener('click', () => {
         a.tone = t;
+        props.onDraft?.(result());
         paint();
       });
       tones.appendChild(b);
@@ -301,6 +310,7 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
     speak.textContent = a.spokenVerdicts ? 'Read verdicts aloud: on' : 'Read verdicts aloud: off';
     speak.addEventListener('click', () => {
       a.spokenVerdicts = !a.spokenVerdicts;
+      props.onDraft?.(result());
       paint();
     });
     const promises = document.createElement('ul');
@@ -371,7 +381,7 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
     next.type = 'button';
     next.className = 'pill primary';
     next.dataset.testid = 'onboarding-next';
-    next.textContent = step === ONBOARDING_STEPS ? 'Deal my first hand' : 'Continue';
+    next.textContent = step === ONBOARDING_STEPS ? (props.finishLabel ?? 'Deal my first hand') : 'Continue';
     next.addEventListener('click', () => {
       if (step === ONBOARDING_STEPS) props.onDone(result(), true);
       else {

@@ -16,20 +16,22 @@ import { chevron } from '../components/glyphs.js';
 export interface TicketProps {
   readonly ticket: TicketState;
   readonly today: DayKey;
+  /** A costliest leak is on file (the spots come from it); without one the spots are a starting mix. */
+  readonly leakOnFile: boolean;
   readonly onStart: (item: TicketItemRecord) => void;
   readonly onBack: () => void;
 }
 
-export function ticketItemTitle(item: TicketItemRecord): { title: string; meta: string } {
+export function ticketItemTitle(item: TicketItemRecord, leakOnFile = true): { title: string; meta: string } {
   if (item.kind === 'review') return { title: `${drillKindLabel(item.ref)} review`, meta: 'Due on the spacing schedule' };
   if (item.kind === 'drill') {
     return item.ref === 'board'
-      ? { title: 'Sight: name the board', meta: 'Perception drill · ten boards' }
-      : { title: 'Speed: spot what is off', meta: 'Perception drill · ten spots' };
+      ? { title: 'Sight: name the board', meta: 'Perception drill · ten boards in one visit' }
+      : { title: 'Speed: spot what is off', meta: 'Perception drill · ten answers today' };
   }
   if (item.kind === 'spot') {
     const s = SCENARIOS.find((x) => x.id === item.ref);
-    return { title: s?.title ?? item.ref, meta: 'A spot from your costliest leak' };
+    return { title: s?.title ?? item.ref, meta: leakOnFile ? 'A spot from your costliest leak' : 'A spot to start with: no leak on file yet' };
   }
   return { title: item.ref, meta: 'From a newer build' };
 }
@@ -69,7 +71,7 @@ export function renderTicket(props: TicketProps): HTMLElement {
   list.dataset.testid = 'ticket-items';
   t.items.forEach((item, i) => {
     const done = t.done.includes(item.id);
-    const { title, meta } = ticketItemTitle(item);
+    const { title, meta } = ticketItemTitle(item, props.leakOnFile);
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'g-row session-card ticket-item';

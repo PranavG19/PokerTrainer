@@ -122,11 +122,19 @@ test.describe('the habit loop', () => {
       await expect(items).toHaveCount(4);
       const refs = await items.evaluateAll((els) => els.map((e) => ({ kind: (e as HTMLElement).dataset.kind!, ref: (e as HTMLElement).dataset.ref! })));
       expect(refs.map((r) => r.kind)).toEqual(['drill', 'spot', 'spot', 'spot']);
-      for (const [i, item] of refs.entries()) {
+      // A spot first: nothing is saved yet today, so this save is the one that freezes the Ticket. The spot it just
+      // solved must be ticked, not reshuffled off (code-review B1).
+      const order = [1, 2, 3, 0];
+      for (const i of order) {
+        const item = refs[i];
         await openTicket(page);
-        await page.locator('[data-testid="ticket-item"]').nth(i).click();
+        await page.locator(`[data-testid="ticket-item"][data-ref="${item.ref}"]`).click();
         if (item.kind === 'spot') await playSpot(page, item.ref);
         else await playDrill(page, item.ref);
+        await openTicket(page);
+        const now = await page.locator('[data-testid="ticket-item"]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.ref));
+        expect(now).toEqual(refs.map((r) => r.ref));
+        await expect(page.locator(`[data-testid="ticket-item"][data-ref="${item.ref}"]`)).toHaveAttribute('data-done', 'true');
       }
       await openTicket(page);
       await expect(page.locator('[data-testid="ticket-screen"]')).toHaveAttribute('data-finished', 'true');
@@ -135,6 +143,18 @@ test.describe('the habit loop', () => {
       await expect(page.locator('[data-testid="home-streak-note"]')).toHaveText('Today counts. Days turn over at 4 am.');
       await expect(page.locator('[data-testid="home-greeting"]')).toHaveAttribute('data-moment', 'done');
       await expect(page.locator('[data-testid="dee-perch"]')).toHaveAttribute('aria-label', /1-day streak/);
+      // The ring: nothing due and graded work today closes "Clear what is due". A counted day and a closed arc are
+      // bone light, never mint (the colour role map).
+      await expect(page.locator('[data-testid="ring-goal-due"]')).toHaveAttribute('data-done', 'true');
+      const mint = 'rgb(61, 220, 151)';
+      const counted = await page.locator('[data-testid="home-streak-week"] .habit-day[data-counted="true"] .habit-dot').first().evaluate((el) => getComputedStyle(el).backgroundColor);
+      const arc = await page.locator('.habit-arc-done').first().evaluate((el) => getComputedStyle(el).stroke);
+      expect(counted).not.toBe(mint);
+      expect(arc).not.toBe(mint);
+      for (const [w, h] of [[900, 640], [1100, 760]]) {
+        await size(app, w, h);
+        await noPageScroll(page);
+      }
       const saved = readState(dir).progression;
       expect(saved.tallies.ticketsFinished).toBe(1);
       expect(saved.reps.total).toBeGreaterThan(0);
@@ -250,6 +270,34 @@ test.describe('the habit loop', () => {
     try {
       await expect(app.page.locator('[data-testid="home-screen"]')).toBeVisible();
       await expect(app.page.locator('[data-testid="onboarding"]')).toHaveCount(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test("5. the answers reopen in Dee's settings, keep the answers on file, and save there", async () => {
+    const dir = freshDir();
+    const app = await open(MON_8PM, dir, { OFFSUIT_E2E_ONBOARDING: '1' });
+    try {
+      const { page } = app;
+      await page.locator('[data-testid="onboarding-name"]').fill('Sam');
+      await page.locator('[data-testid="onboarding-skip"]').click();
+      await page.locator('[data-testid="tab-settings"]').click();
+      await page.locator('[data-testid="open-dee-settings"]').click();
+      await page.locator('[data-testid="dee-redo-onboarding"]').click();
+      await expect(page.locator('[data-testid="onboarding"]')).toBeVisible();
+      await expect(page.locator('[data-testid="onboarding-name"]')).toHaveValue('Sam');
+      await page.locator('[data-testid="onboarding-name"]').fill('Robin');
+      // Leaving for another tab keeps what was typed.
+      await page.locator('[data-testid="tab-learn"]').click();
+      await page.locator('[data-testid="tab-settings"]').click();
+      await page.locator('[data-testid="open-dee-settings"]').click();
+      await expect(page.locator('[data-testid="onboarding-name"]')).toHaveValue('Robin');
+      for (let step = 1; step < 5; step++) await page.locator('[data-testid="onboarding-next"]').click();
+      await expect(page.locator('[data-testid="onboarding-next"]')).toHaveText('Save');
+      await page.locator('[data-testid="onboarding-next"]').click();
+      await expect(page.locator('[data-testid="dee-settings"]')).toBeVisible();
+      expect(readState(dir).progression.personalization.displayName).toBe('Robin');
     } finally {
       await app.close();
     }

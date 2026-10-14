@@ -38,7 +38,7 @@ export interface ProgressExtras {
   readonly storyTableEnded?: boolean;
   /** The one suggestion was taken. */
   readonly suggestionTaken?: boolean;
-  /** Perception answers so far today in the drill the Ticket names (anomaly = Speed, board = Sight). */
+  /** Sight answers so far this visit (Speed's are read from the persisted awards). */
   readonly perception?: { readonly mode: string; readonly answered: number };
   /** Folio cards re-polished. */
   readonly polished?: readonly string[];
@@ -130,26 +130,32 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   }
 
   // ── The Ticket ──
+  // Built (when today's is not frozen yet) from the state BEFORE this save: that is the Ticket Home showed, and the
+  // work in this very save is the work on one of its items. Built from after, a spot just solved clean or a concept
+  // just reviewed would drop off instead of being ticked.
   const concepts = gradedConcepts(next);
   let ticket = ticketFor(p.ticket, {
     day: today,
     now: ctx.now,
-    concepts,
+    concepts: before,
     leakPrinciple: ctx.leakPrinciple,
     scenarios: ctx.scenarios,
-    puzzleProgress: next.puzzleProgress,
+    puzzleProgress: prev.puzzleProgress,
   });
   const wasFinished = ticket.finishedOn === today;
   const dueIds = new Set(dueNow(concepts, ctx.now).map((d) => d.conceptId));
   const repsToday = new Set(
     next.fadingLog.filter((e) => e.kind === 'graded' && ctx.dayOf(e.at) === today).map((e) => e.conceptId),
   );
+  // Speed answers are persisted (each save's tally delta is a keyed award), so today's count survives a relaunch.
+  const speedToday = r.awards.filter((a) => a.key.startsWith(`speed:${today}:`)).reduce((n, a) => n + a.reps, 0) / REPS_PER_PERCEPTION;
   for (const item of ticket.items) {
     if (ticket.done.includes(item.id)) continue;
+    const answered = item.ref === 'anomaly' ? speedToday : extras.perception?.mode === item.ref ? extras.perception.answered : 0;
     const done =
       (item.kind === 'review' && repsToday.has(item.ref) && !dueIds.has(item.ref)) ||
       (item.kind === 'spot' && extras.spot?.id === item.ref) ||
-      (item.kind === 'drill' && extras.perception?.mode === item.ref && extras.perception.answered >= DRILL_ANSWERS);
+      (item.kind === 'drill' && answered >= DRILL_ANSWERS);
     if (done) ticket = markDone(ticket, item.id, today);
   }
   if (!wasFinished && ticket.finishedOn === today) {

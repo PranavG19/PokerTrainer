@@ -143,7 +143,7 @@ import { effectiveTone } from '../core/progression/persist.js';
 import { LEAK_LABELS } from '../core/story/cast.js';
 import { renderTicket } from './screens/ticket.js';
 import { renderFolio } from './screens/folio.js';
-import { renderOnboarding } from './screens/onboarding.js';
+import { renderOnboarding, type OnboardingResult } from './screens/onboarding.js';
 import type { HomeHabit } from './screens/home.js';
 import type { TicketItemRecord } from '../core/progression/types.js';
 import type { DayKey } from '../core/localDay.js';
@@ -430,6 +430,8 @@ async function boot(): Promise<void> {
   /** Onboarding: reopened from Dee's settings, or dismissed this run (Skip saves, so it never returns by itself). */
   let onboardingOpen = false;
   let onboardingDismissed = false;
+  /** Answers typed so far, kept if the learner leaves the sheet for another tab and comes back. */
+  let onboardingDraft: OnboardingResult | null = null;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
   /**
    * Pro: a display copy of main's licence snapshot (pro.ts). Read after loadState, so main has adopted
@@ -787,7 +789,7 @@ async function boot(): Promise<void> {
 
   function onboardingDue(): boolean {
     const p = session.progression.personalization;
-    return onboardingOpen || (hooks.onboarding && p.answeredOn === null && session.hands.length === 0 && !onboardingDismissed);
+    return (hooks.onboarding && p.answeredOn === null && session.hands.length === 0 && !onboardingDismissed);
   }
 
   /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
@@ -1249,6 +1251,10 @@ async function boot(): Promise<void> {
     if (outcome?.deleted === true) {
       session = deserialize({});
       lastSaved = session;
+      // Nothing the deleted profile was owed carries over to the fresh one.
+      extras = {};
+      perception = { day: -1, anomaly: 0, board: 0 };
+      shownGreeting = null;
       teardownTable();
     }
     await refreshSettings();
@@ -1466,6 +1472,7 @@ async function boot(): Promise<void> {
       screen.replaceChildren(
         renderTicket({
           ticket: todaysTicket(),
+          leakOnFile: costliestPrinciple() !== null,
           today: today(),
           onStart: (item) => startTicketItem(item),
           onBack: () => {
@@ -1643,6 +1650,7 @@ async function boot(): Promise<void> {
         },
       });
     }
+    if (which === 'dee' && onboardingOpen) return renderOnboardingSheet(true);
     if (which === 'dee') {
       const remembered = session.progression.dee.ruleSentences;
       phrasingRow = phrasing
@@ -1655,10 +1663,9 @@ async function boot(): Promise<void> {
         : null;
       return renderDeeSettings({
         phrasing: phrasingRow?.root,
+        // Reopened here, in Dee's settings, never over the Play tab: a live table is left exactly as it was.
         onRedoOnboarding: () => {
           onboardingOpen = true;
-          tab = 'play';
-          teardownTable();
           render();
         },
         context: deeContext(),
@@ -1823,15 +1830,20 @@ async function boot(): Promise<void> {
   }
 
   /** Onboarding's five sheets. Skip or finish saves what was answered, once; finishing deals the first hand. */
-  function renderOnboardingSheet(): HTMLElement {
+  function renderOnboardingSheet(fromSettings = false): HTMLElement {
     const p = session.progression;
     return renderOnboarding({
-      initial: p.personalization,
-      tone: effectiveTone(p.dee.personality),
-      spokenVerdicts: session.spokenVerdicts,
+      initial: onboardingDraft ? { ...onboardingDraft.personalization, answeredOn: p.personalization.answeredOn } : p.personalization,
+      tone: onboardingDraft?.tone ?? effectiveTone(p.dee.personality),
+      spokenVerdicts: onboardingDraft?.spokenVerdicts ?? session.spokenVerdicts,
+      finishLabel: fromSettings ? 'Save' : undefined,
+      onDraft: (draft) => {
+        onboardingDraft = draft;
+      },
       onDone: (result, finished) => {
         onboardingOpen = false;
         onboardingDismissed = true;
+        onboardingDraft = null;
         session = setSpokenVerdicts(session, result.spokenVerdicts);
         session = {
           ...session,
@@ -1841,7 +1853,7 @@ async function boot(): Promise<void> {
           },
         };
         void io.saveState(serialize(session));
-        if (finished) startTable();
+        if (finished && !fromSettings) startTable();
         else render();
       },
     });
