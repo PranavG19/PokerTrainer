@@ -35,7 +35,8 @@ import type { Action } from '../core/table.js';
 import { CHECKOUT_URLS, LICENCE_SERVER_URL, MANAGE_URL, PRICE_LABELS } from '../core/entitlements/config.js';
 import { FEATURE_INFO, PRO_FEATURES } from '../core/entitlements/features.js';
 import { devOverrideFrom } from '../core/entitlements/entitlements.js';
-import { checkoutPlans, createLicenceAuthority, licenceEndpoints, tokenFromDeepLink, tokenId } from './licence.js';
+import { checkoutPlans, createLicenceAuthority, gated, licenceEndpoints, tokenFromDeepLink, tokenId } from './licence.js';
+import { createProTools, type ProTools } from './proTools.js';
 import { refreshLicence, restoreLicence } from './licenceClient.js';
 import type { RoomView } from '../core/multiplayer.js';
 import { activeManifest } from './dee/manifest.js';
@@ -44,6 +45,8 @@ import { PhrasingService } from './dee/service.js';
 let mainWindow: BrowserWindow | null = null;
 /** Stops Dee's phrasing sidecar; set once the service exists. */
 let stopPhrasing: () => void = () => undefined;
+/** The Pro tools (import, leak report, push-fold); created in whenReady. */
+let proTools: ProTools | null = null;
 
 /**
  * Resolved once at startup from the environment. With no Bedrock settings this
@@ -415,6 +418,16 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('app:seed', () => seed);
 
+  // ── Pro tools (proTools.ts) ───────────────────────────────────────────────
+  // Gated here, in main: a renderer that draws the surface anyway gets { locked }. The import reads only
+  // what the native dialog returns; the store lives outside the profile, so importing earns nothing.
+  const pro = (proTools = createProTools({ userData: app.getPath('userData'), window: () => mainWindow }));
+  ipcMain.handle('pro:importHands', gated(authority, 'leak-finder', () => pro.importHands()));
+  ipcMain.handle('pro:handsReport', gated(authority, 'leak-finder', () => pro.report()));
+  // Deleting your imported hands is never locked: the data stays yours after Pro ends.
+  ipcMain.handle('pro:clearHands', () => pro.clear());
+  ipcMain.handle('pro:shove', gated(authority, 'icm-tools', (_event: unknown, request: unknown) => pro.shove(request)));
+
   ipcMain.handle('tutor:status', () => {
     const active = activeTutor();
     return {
@@ -601,4 +614,5 @@ app.on('will-quit', () => {
   // A relay socket must not outlive the app that opened it: drop any live host/join on quit.
   void stopRelaySession();
   online.disconnect();
+  proTools?.stop();
 });

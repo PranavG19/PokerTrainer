@@ -1,0 +1,124 @@
+Game Hand #2001300001 - Tournament #23456789 - Holdem(No Limit) - Level 1 (10.00/20.00) - 2021/03/03 12:00:00 UTC
+Table '1' 9-max Seat #2 is the button
+Seat 1: PlayerAlpha (1500.00)
+Seat 2: TightTina (1500.00)
+Seat 3: Hero (1500.00)
+Seat 4: Mr. Bean (1500.00)
+Seat 5: xXslayerXx (1500.00)
+Hero posts the small blind 10.00
+Mr. Bean posts the big blind 20.00
+*** HOLE CARDS ***
+Dealt to Hero [Jh 2s]
+xXslayerXx raises 40.00 to 60.00
+PlayerAlpha folds
+TightTina folds
+Hero folds
+Mr. Bean folds
+Uncalled bet (40.00) returned to xXslayerXx
+xXslayerXx collected 50.00
+*** SUMMARY ***
+Total pot 50.00
+Seat 1: PlayerAlpha folded before Flop (didn't bet)
+Seat 2: TightTina (button) folded before Flop (didn't bet)
+Seat 3: Hero (small blind) folded before Flop
+Seat 4: Mr. Bean (big blind) folded before Flop
+Seat 5: xXslayerXx collected (50.00)
+
+Game Hand #2001300009 - Tournament #23456789 - Holdem(No Limit) - Level 2 (15.00/30.00) - 2021/03/03 12:11:20 UTC
+Table '1' 9-max Seat #3 is the button
+Seat 1: PlayerAlpha (1440.00)
+Seat 2: TightTina (1490.00)
+Seat 3: Hero (1490.00)
+Seat 4: Mr. Bean (1480.00)
+Seat 5: xXslayerXx (1600.00)
+Mr. Bean posts the small blind 15.00
+xXslayerXx posts the big blind 30.00
+*** HOLE CARDS ***
+Dealt to Hero [Kd Qd]
+PlayerAlpha folds
+TightTina folds
+Hero raises 45.00 to 75.00
+Mr. Bean folds
+xXslayerXx calls 45.00
+*** FLOP *** [Qc 7s 3d]
+xXslayerXx checks
+Hero bets 60.00
+xXslayerXx folds
+Uncalled bet (60.00) returned to Hero
+Hero collected 165.00
+*** SUMMARY ***
+Total pot 165.00
+Board [Qc 7s 3d]
+Seat 1: PlayerAlpha folded before Flop (didn't bet)
+Seat 2: TightTina folded before Flop (didn't bet)
+Seat 3: Hero (button) collected (165.00)
+Seat 4: Mr. Bean (small blind) folded before Flop
+Seat 5: xXslayerXx (big blind) folded on the Flop
+
+Game Hand #2001300017 - Tournament #23456789 - Holdem(No Limit) - Level 3 (25.00/50.00) - 2021/03/03 12:22:05 UTC
+Table '1' 9-max Seat #4 is the button
+Seat 1: PlayerAlpha (1400.00)
+Seat 2: TightTina (1480.00)
+Seat 3: Hero (980.00)
+Seat 4: Mr. Bean (1460.00)
+Seat 5: xXslayerXx (1675.00)
+PlayerAlpha posts ante 5.00
+TightTina posts ante 5.00
+Hero posts ante 5.00
+Mr. Bean posts ante 5.00
+xXslayerXx posts ante 5.00
+xXslayerXx posts the small blind 25.00
+PlayerAlpha posts the big blind 50.00
+*** HOLE CARDS ***
+Dealt to Hero [7s 7d]
+TightTina folds
+Hero raises 925.00 to 975.00 and is all-in
+Mr. Bean folds
+xXslayerXx folds
+PlayerAlpha calls 925.00
+*** FLOP *** [Ac 9d 4s]
+*** TURN *** [Ac 9d 4s] [Th]
+*** RIVER *** [Ac 9d 4s Th] [7c]
+*** SHOW DOWN ***
+PlayerAlpha shows [As Jh] (a pair of Aces)
+Hero shows [7s 7d] (three of a kind, Sevens)
+Hero collected 2000.00 from main pot
+*** SUMMARY ***
+Total pot 2000.00
+Board [Ac 9d 4s Th 7c]
+Seat 1: PlayerAlpha (big blind) showed [As Jh] and lost with a pair of Aces
+Seat 2: TightTina folded before Flop (didn't bet)
+Seat 3: Hero showed [7s 7d] and won (2000.00) with three of a kind, Sevens
+Seat 4: Mr. Bean (button) folded before Flop (didn't bet)
+Seat 5: xXslayerXx (small blind) folded before Flop
+
+Game Hand #2001300025 - Tournament #23456789 - Holdem(No Limit) - Level 3 (25.00/50.00) - 2021/03/03 12:26:12 UTC
+Table '1' 9-max Seat #1 is the button
+Seat 1: PlayerAlpha (420.00)
+Seat 2: TightTina (1450.00)
+Seat 3: Hero (2000.00)
+Seat 4: Mr. Bean (1450.00)
+Seat 5: xXslayerXx (1620.00)
+PlayerAlpha posts ante 5.00
+TightTina posts ante 5.00
+Hero posts ante 5.00
+Mr. Bean posts ante 5.00
+xXslayerXx posts ante 5.00
+TightTina posts the small blind 25.00
+Hero posts the big blind 50.00
+*** HOLE CARDS ***
+Dealt to Hero [9c 3d]
+Mr. Bean folds
+xXslayerXx raises 75.00 to 125.00
+PlayerAlpha folds
+TightTina folds
+Hero folds
+Uncalled bet (75.00) returned to xXslayerXx
+xXslayerXx collected 150.00
+*** SUMMARY ***
+Total pot 150.00
+Seat 1: PlayerAlpha (button) folded before Flop (didn't bet)
+Seat 2: TightTina (small blind) folded before Flop
+Seat 3: Hero (big blind) folded before Flop
+Seat 4: Mr. Bean folded before Flop (didn't bet)
+Seat 5: xXslayerXx collected (150.00)

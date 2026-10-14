@@ -90,6 +90,12 @@ contextBridge.exposeInMainWorld('offsuit', {
     ipcRenderer.on('online:event', listener);
     return () => ipcRenderer.removeListener('online:event', listener);
   },
+  // Pro tools. Main opens the file dialog itself and reads only what it returns: nothing here names a path.
+  // Each answers { locked } without Pro, except deleting imported hands, which is never locked.
+  proImportHands: (): Promise<unknown> => ipcRenderer.invoke('pro:importHands'),
+  proHandsReport: (): Promise<unknown> => ipcRenderer.invoke('pro:handsReport'),
+  proClearHands: (): Promise<unknown> => ipcRenderer.invoke('pro:clearHands'),
+  proShove: (request: unknown): Promise<unknown> => ipcRenderer.invoke('pro:shove', request),
   // Subscribe to pushed relay events (state broadcasts + errors). Returns an unsubscribe function.
   onMpEvent: (handler: (event: unknown) => void): (() => void) => {
     const listener = (_e: unknown, event: unknown): void => handler(event);
