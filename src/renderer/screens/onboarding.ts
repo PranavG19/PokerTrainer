@@ -313,13 +313,11 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
       props.onDraft?.(result());
       paint();
     });
-    const promises = document.createElement('ul');
-    promises.className = 'onboarding-promises g-sub';
-    for (const line of ['I never talk while you are to act.', 'I quote your rules back in your words.', 'You can turn the character off any time.']) {
-      const li = document.createElement('li');
-      li.textContent = line;
-      promises.appendChild(li);
-    }
+    const promises = document.createElement('p');
+    promises.className = 'g-sub';
+    promises.dataset.testid = 'onboarding-promises';
+    promises.style.margin = '0';
+    promises.textContent = 'I never talk while you are to act. I quote your rules back in your words. The character turns off any time.';
     return [
       ...heading('How should I sound?', 'The numbers and the grade never change with it.'),
       q('Voice', tones, uses('choose the words around a verdict')),
