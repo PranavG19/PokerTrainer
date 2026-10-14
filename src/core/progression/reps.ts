@@ -5,7 +5,7 @@
  * `award` is idempotent on it: the same event delivered twice (a re-render, a retried save, a replayed callback)
  * pays once. The rules below take only the learning facts they pay for. Table stacks, pots, showdowns and a correct
  * verdict are not parameters of any rule, so nothing here can pay for a result (the "stacks earn 0" rule holds by
- * type; progression-reps.test pins it).
+ * type; habit-core.test pins it).
  *
  * Pure: no clock. The caller passes the day the award belongs to.
  */
