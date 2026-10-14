@@ -55,7 +55,7 @@ export function renderFolio(props: FolioProps): HTMLElement {
 
     const sub = document.createElement('p');
     sub.className = 'g-sub';
-    sub.style.margin = '0';
+    sub.classList.add('habit-flush');
     const dull = props.cards.filter((c) => c.tarnished).length;
     sub.dataset.testid = 'folio-summary';
     sub.textContent =

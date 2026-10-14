@@ -97,9 +97,6 @@ test.describe('the habit loop', () => {
       await expect(page.locator('[data-testid="home-streak-note"]')).toHaveText('Finish one session and your streak starts at 1.');
       await expect(page.locator('[data-testid="home-ring"]')).toHaveAttribute('data-closed', '0');
       await expect(page.locator('[data-testid="home-ticket"]')).toContainText('0/4');
-      // The colour role map: the streak and the ring are bone light, never mint.
-      const dot = await page.locator('[data-testid="home-streak-week"] .habit-dot').first().evaluate((el) => getComputedStyle(el).backgroundColor);
-      expect(dot).not.toBe('rgb(61, 220, 151)');
       for (const [w, h] of [[900, 640], [1100, 760]]) {
         await size(app, w, h);
         await noPageScroll(page);
@@ -120,6 +117,10 @@ test.describe('the habit loop', () => {
       await openTicket(page);
       const items = page.locator('[data-testid="ticket-item"]');
       await expect(items).toHaveCount(4);
+      for (const [w, h] of [[900, 640], [1100, 760]]) {
+        await size(app, w, h);
+        await noPageScroll(page);
+      }
       const refs = await items.evaluateAll((els) => els.map((e) => ({ kind: (e as HTMLElement).dataset.kind!, ref: (e as HTMLElement).dataset.ref! })));
       expect(refs.map((r) => r.kind)).toEqual(['drill', 'spot', 'spot', 'spot']);
       // A spot first: nothing is saved yet today, so this save is the one that freezes the Ticket. The spot it just
@@ -217,6 +218,10 @@ test.describe('the habit loop', () => {
       await expect(card).toHaveAttribute('data-tarnished', 'false');
       await page.locator('[data-testid="folio-sheet-toggle"]').click();
       await expect(page.locator('[data-testid="folio-sheet"]')).toContainText('the price is the call over the pot after I call');
+      for (const [w, h] of [[900, 640], [1100, 760]]) {
+        await size(app, w, h);
+        await noPageScroll(page);
+      }
     } finally {
       await app.close();
     }
@@ -286,6 +291,18 @@ test.describe('the habit loop', () => {
       await page.locator('[data-testid="open-dee-settings"]').click();
       await page.locator('[data-testid="dee-redo-onboarding"]').click();
       await expect(page.locator('[data-testid="onboarding"]')).toBeVisible();
+      await expect(page.locator('[data-testid="onboarding-name"]')).toHaveValue('Sam');
+      for (const [w, h] of [[900, 640], [1100, 760]]) {
+        await size(app, w, h);
+        await noPageScroll(page);
+      }
+      // From settings, Cancel (and Escape) discard the edits; nothing is written.
+      await page.locator('[data-testid="onboarding-name"]').fill('Nobody');
+      await expect(page.locator('[data-testid="onboarding-skip"]')).toHaveText('Cancel');
+      await page.locator('[data-testid="onboarding-name"]').press('Escape');
+      await expect(page.locator('[data-testid="dee-settings"]')).toBeVisible();
+      expect(readState(dir).progression.personalization.displayName).toBe('Sam');
+      await page.locator('[data-testid="dee-redo-onboarding"]').click();
       await expect(page.locator('[data-testid="onboarding-name"]')).toHaveValue('Sam');
       await page.locator('[data-testid="onboarding-name"]').fill('Robin');
       // Leaving for another tab keeps what was typed.

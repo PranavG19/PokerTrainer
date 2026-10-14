@@ -60,7 +60,7 @@ export function renderTicket(props: TicketProps): HTMLElement {
   const sub = document.createElement('p');
   sub.className = 'g-sub';
   sub.dataset.testid = 'ticket-summary';
-  sub.style.margin = '0';
+  sub.classList.add('habit-flush');
   const minutes = Math.round(ticketMinutes(t.items));
   sub.textContent = finished
     ? 'Done for today. It counts for your streak. Anything more is extra.'

@@ -24,10 +24,12 @@ import { syncSeals } from './seals.js';
 import { syncMilestones, type MilestoneFacts } from './milestones.js';
 import { markDone, ticketFor } from '../ticket.js';
 import { polish } from '../folio.js';
-import type { ProgressionState } from './types.js';
+import type { ProgressionState, TicketState } from './types.js';
 
 /** Perception answers in one visit that finish the Ticket's drill item (about the warm-up block's length). */
 export const DRILL_ANSWERS = 10;
+/** A save carries a few answers at most; a jump larger than this (a tally restored from elsewhere) pays only this many. */
+const MAX_SPEED_PER_SAVE = 200;
 
 export interface ProgressExtras {
   /** A puzzle spot finished, with the steps played right. */
@@ -42,8 +44,10 @@ export interface ProgressExtras {
   readonly perception?: { readonly mode: string; readonly answered: number };
   /** Folio cards re-polished. */
   readonly polished?: readonly string[];
-  /** Today's greeting, so it holds all day and tomorrow avoids it. */
-  readonly greeting?: { readonly lineId: string };
+  /** Today's greeting, so it holds all day and tomorrow avoids it. Ignored unless it was shown on `day` = today. */
+  readonly greeting?: { readonly lineId: string; readonly day: DayKey };
+  /** The Ticket Home showed today: the first save of the day freezes exactly this one. */
+  readonly shownTicket?: TicketState;
 }
 
 export interface ApplyContext {
@@ -94,11 +98,9 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   }
 
   const priorAttempts = new Set(prev.lexicon.map((a) => `${a.at}:${a.conceptId}`));
-  const ruleDaysNew: DayKey[] = [];
   for (const a of next.lexicon) {
     if (priorAttempts.has(`${a.at}:${a.conceptId}`)) continue;
     r = award(r, keys.rule(a.conceptId, a.at), repsForRule(a.outcome === 'accepted'), ctx.dayOf(a.at));
-    ruleDaysNew.push(ctx.dayOf(a.at));
   }
   const priorRules = new Set(prev.progression.dee.ruleSentences.map((s) => `${s.day}:${s.conceptId}:${s.text}`));
   for (const s of next.progression.dee.ruleSentences) {
@@ -111,8 +113,10 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   for (const at of newBlocks) r = award(r, keys.assessment(at), REPS_ASSESSMENT, ctx.dayOf(at));
   if (newBlocks.length > 0) finished.push('assessment');
 
-  const speedDelta = next.anomalyTally.attempts - prev.anomalyTally.attempts;
-  if (speedDelta > 0) r = award(r, keys.perception(today, next.anomalyTally.attempts), speedDelta * REPS_PER_PERCEPTION, today);
+  // One keyed award per Speed answer (its lifetime index), so a stale base (a failed or overlapping save) re-diffs
+  // into keys already paid instead of paying the whole delta again under a new key.
+  const firstNew = Math.max(prev.anomalyTally.attempts, next.anomalyTally.attempts - MAX_SPEED_PER_SAVE) + 1;
+  for (let n = firstNew; n <= next.anomalyTally.attempts; n++) r = award(r, keys.perception(today, n), REPS_PER_PERCEPTION, today);
 
   if (extras.spot) r = award(r, keys.spot(extras.spot.id, today), repsForSpot(extras.spot.correct), today);
 
@@ -125,7 +129,7 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   let folio = p.folio;
   for (const id of extras.polished ?? []) folio = polish(folio, id, ctx.now);
   let dee = p.dee;
-  if (extras.greeting && (dee.lastGreeting?.day !== today || dee.lastGreeting.lineId !== extras.greeting.lineId)) {
+  if (extras.greeting && extras.greeting.day === today && (dee.lastGreeting?.day !== today || dee.lastGreeting.lineId !== extras.greeting.lineId)) {
     dee = { ...dee, lastGreeting: { day: today, lineId: extras.greeting.lineId } };
   }
 
@@ -134,7 +138,8 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   // work in this very save is the work on one of its items. Built from after, a spot just solved clean or a concept
   // just reviewed would drop off instead of being ticked.
   const concepts = gradedConcepts(next);
-  let ticket = ticketFor(p.ticket, {
+  const shown = extras.shownTicket;
+  let ticket = p.ticket.day !== today && shown?.day === today && shown.items.length > 0 ? { ...shown, done: [] } : ticketFor(p.ticket, {
     day: today,
     now: ctx.now,
     concepts: before,
@@ -148,7 +153,7 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
     next.fadingLog.filter((e) => e.kind === 'graded' && ctx.dayOf(e.at) === today).map((e) => e.conceptId),
   );
   // Speed answers are persisted (each save's tally delta is a keyed award), so today's count survives a relaunch.
-  const speedToday = r.awards.filter((a) => a.key.startsWith(`speed:${today}:`)).reduce((n, a) => n + a.reps, 0) / REPS_PER_PERCEPTION;
+  const speedToday = r.awards.filter((a) => a.key.startsWith(`speed:${today}:`)).length;
   for (const item of ticket.items) {
     if (ticket.done.includes(item.id)) continue;
     const answered = item.ref === 'anomaly' ? speedToday : extras.perception?.mode === item.ref ? extras.perception.answered : 0;

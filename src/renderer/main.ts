@@ -348,11 +348,13 @@ async function boot(): Promise<void> {
       const applied = applyProgress(lastSaved, session, takeExtras(), applyContext());
       session = { ...session, progression: applied.progression };
       const toSave = session;
+      // A profile delete while this save is in flight must not make the deleted session the next diff's base.
+      const generation = profileGeneration;
       paintDee();
       let outcome: Awaited<ReturnType<OffsuitBridge['saveState']>>;
       try {
         outcome = await base.saveState(serialize(toSave));
-        if (!outcome || outcome.saved) lastSaved = toSave;
+        if ((!outcome || outcome.saved) && generation === profileGeneration) lastSaved = toSave;
       } catch {
         outcome = { saved: false, readOnly: null, failed: 'ipc' };
       }
@@ -379,14 +381,22 @@ async function boot(): Promise<void> {
     extras = { ...extras, ...more, priceHeld: (extras.priceHeld ?? 0) + (more.priceHeld ?? 0), polished: [...(extras.polished ?? []), ...(more.polished ?? [])] };
   };
   function takeExtras(): ProgressExtras {
-    const e = { ...extras, ...(shownGreeting ? { greeting: { lineId: shownGreeting.lineId } } : {}) };
+    const e: ProgressExtras = {
+      ...extras,
+      ...(shownGreeting ? { greeting: { lineId: shownGreeting.greeting.lineId, day: shownGreeting.day } } : {}),
+      ...(shownTicket ? { shownTicket } : {}),
+    };
     extras = {};
     return e;
   }
-  /** Perception answers today in each drill (the Ticket's drill item), counted in memory, keyed by day. */
-  let perception: { day: number; anomaly: number; board: number } = { day: -1, anomaly: 0, board: 0 };
-  /** The greeting on Home today (kept all day, persisted with the next save). */
-  let shownGreeting: Greeting | null = null;
+  /** Sight answers today (the Ticket's drill item when it is Sight), counted in memory, keyed by day. */
+  let perception: { day: number; board: number } = { day: -1, board: 0 };
+  /** The greeting on Home and the day it was shown (kept all day, persisted with the next save). */
+  let shownGreeting: { greeting: Greeting; day: DayKey } | null = null;
+  /** The Ticket Home or the Ticket screen last showed: the day's first save freezes exactly this one. */
+  let shownTicket: SessionState['progression']['ticket'] | null = null;
+  /** Bumped by a profile delete, so a save resolving afterwards cannot restore the deleted diff base. */
+  let profileGeneration = 0;
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
   const soundPlayer = createSoundPlayer();
 
@@ -741,7 +751,8 @@ async function boot(): Promise<void> {
           lastGreeting: p.dee.lastGreeting,
         })
       : null;
-    shownGreeting = greeting;
+    shownGreeting = greeting ? { greeting, day: d } : null;
+    shownTicket = ticket;
     return {
       greeting,
       streak: { ...streak, countedDays: p.streak.countedDays, today: d, boundaryHour: p.streak.boundaryHour },
@@ -779,12 +790,13 @@ async function boot(): Promise<void> {
   }
 
   /** A perception answer, counted toward the Ticket's drill item; a board answer saves only when it completes it. */
-  function onPerception(mode: 'anomaly' | 'board'): boolean {
+  /** A Sight answer, counted toward the Ticket's drill item (Speed's count is read from the saved awards). */
+  function onSightAnswer(): boolean {
     const d = today();
-    if (perception.day !== d) perception = { day: d, anomaly: 0, board: 0 };
-    perception[mode] += 1;
-    addExtras({ perception: { mode, answered: perception[mode] } });
-    return perception[mode] === DRILL_ANSWERS_FOR_TICKET;
+    if (perception.day !== d) perception = { day: d, board: 0 };
+    perception.board += 1;
+    addExtras({ perception: { mode: 'board', answered: perception.board } });
+    return perception.board === DRILL_ANSWERS_FOR_TICKET;
   }
 
   function onboardingDue(): boolean {
@@ -1251,10 +1263,18 @@ async function boot(): Promise<void> {
     if (outcome?.deleted === true) {
       session = deserialize({});
       lastSaved = session;
-      // Nothing the deleted profile was owed carries over to the fresh one.
+      // Nothing the deleted profile was owed or had open carries over to the fresh one.
+      profileGeneration += 1;
       extras = {};
-      perception = { day: -1, anomaly: 0, board: 0 };
+      perception = { day: -1, board: 0 };
       shownGreeting = null;
+      shownTicket = null;
+      onboardingDraft = null;
+      onboardingOpen = false;
+      onboardingDismissed = false;
+      ticketActive = false;
+      drillKindNext = null;
+      puzzleNext = null;
       teardownTable();
     }
     await refreshSettings();
@@ -1471,7 +1491,7 @@ async function boot(): Promise<void> {
     if (ticketActive) {
       screen.replaceChildren(
         renderTicket({
-          ticket: todaysTicket(),
+          ticket: (shownTicket = todaysTicket()),
           leakOnFile: costliestPrinciple() !== null,
           today: today(),
           onStart: (item) => startTicketItem(item),
@@ -1560,10 +1580,7 @@ async function boot(): Promise<void> {
           falseAlarm: t.falseAlarm,
           slow: t.slow,
         },
-        onResponse: (scored) => {
-          onPerception('anomaly');
-          void onAnomalyResponse(scored);
-        },
+        onResponse: (scored) => void onAnomalyResponse(scored),
       });
     }
     if (mode === 'reading') return renderHandReadingDrill();
@@ -1571,7 +1588,7 @@ async function boot(): Promise<void> {
       return renderBoardReadingDrill({
         // Sight answers are not persisted; the one that completes the Ticket's drill item saves it.
         onAnswer: () => {
-          if (onPerception('board')) void io.saveState(serialize(session));
+          if (onSightAnswer()) void io.saveState(serialize(session));
         },
       });
     }
@@ -1840,6 +1857,13 @@ async function boot(): Promise<void> {
       onDraft: (draft) => {
         onboardingDraft = draft;
       },
+      onCancel: fromSettings
+        ? () => {
+            onboardingOpen = false;
+            onboardingDraft = null;
+            render();
+          }
+        : undefined,
       onDone: (result, finished) => {
         onboardingOpen = false;
         onboardingDismissed = true;

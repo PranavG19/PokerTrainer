@@ -3,7 +3,7 @@ import { emptySession, type HandRecord, type SessionState } from '../../src/core
 import { fixedOffsetDayKeyOf } from '../../src/core/localDay.js';
 import { SCENARIOS } from '../../src/core/puzzleScenarios.js';
 import { applyProgress, DRILL_ANSWERS, type ApplyContext } from '../../src/core/progression/apply.js';
-import { REPS_ASSESSMENT, REPS_PER_DECISION, REPS_PER_REASON } from '../../src/core/progression/reps.js';
+import { REPS_ASSESSMENT, REPS_PER_DECISION, REPS_PER_PERCEPTION, REPS_PER_REASON } from '../../src/core/progression/reps.js';
 import { SESSION_HANDS } from '../../src/core/progression/streak.js';
 import { MS_PER_DAY } from '../../src/core/schedule.js';
 import { chips } from '../../src/core/units.js';
@@ -76,6 +76,28 @@ describe('the progression host: one diff → award → save', () => {
     expect(s1.progression.milestones.achieved['price-held-first']).toEqual({ day: dayOf(NOW) });
   });
 
+  it('Speed answers pay once each even when the save base is stale (a failed or overlapping save)', () => {
+    const tally = (n: number): SessionState => ({ ...s0, anomalyTally: { ...s0.anomalyTally, attempts: n } });
+    // The first save fails, so the base stays s0; the next save carries both answers.
+    const s1 = save(s0, tally(1));
+    const s2 = save(s0, { ...tally(2), progression: s1.progression });
+    expect(s2.progression.reps.total).toBe(2 * REPS_PER_PERCEPTION);
+    // Five answers, every save failing: still five answers' worth.
+    let st = s0;
+    for (let n = 1; n <= 5; n++) st = save(s0, { ...tally(n), progression: st.progression });
+    expect(st.progression.reps.total).toBe(5 * REPS_PER_PERCEPTION);
+  });
+
+  it('Speed answers count across a relaunch: six, then four more after a restart, finish the drill item', () => {
+    let s = save(s0, s0);
+    const drill = s.progression.ticket.items.find((i) => i.kind === 'drill')!;
+    expect(drill.ref).toBe('anomaly'); // NOW's day draws Speed; Sight's answers are per visit by design.
+    s = save(s, { ...s, anomalyTally: { ...s.anomalyTally, attempts: 6 } });
+    // A relaunch: a fresh host with no in-memory counts, the same saved profile.
+    s = save(s, { ...s, anomalyTally: { ...s.anomalyTally, attempts: 10 } });
+    expect(s.progression.ticket.done).toContain(drill.id);
+  });
+
   it("works today's Ticket item by item and counts the day when the last one is done", () => {
     let s = save(s0, s0);
     const t = s.progression.ticket;
@@ -122,6 +144,24 @@ describe('the progression host: one diff → award → save', () => {
     s = save(s, { ...s, fadingLog: [...block, ...wave] });
     expect(s.progression.ticket.items.map((i) => i.id)).toEqual(shown.items.map((i) => i.id));
     expect(s.progression.ticket.done).toContain(review!.id);
+  });
+
+  it('the first save of the day freezes the Ticket Home showed, even when that save moves the costliest leak', () => {
+    const shown = applyProgress(s0, s0, {}, ctx).progression.ticket;
+    const moved = save(s0, s0, { shownTicket: shown }, { ...ctx, leakPrinciple: 'ranges' }).progression.ticket;
+    expect(moved.items.map((i) => i.id)).toEqual(shown.items.map((i) => i.id));
+    // A shown Ticket from another day is never adopted.
+    const stale = { ...shown, day: (shown.day! - 1) as typeof shown.day };
+    const fresh = save(s0, s0, { shownTicket: stale }, { ...ctx, leakPrinciple: 'ranges' }).progression.ticket;
+    expect(fresh.day).toBe(dayOf(NOW));
+  });
+
+  it("yesterday's greeting, still on screen after 4 am, is not stamped as today's", () => {
+    const today = dayOf(NOW);
+    const s1 = save(s0, s0, { greeting: { lineId: 'greet.due.1', day: (today - 1) as typeof today } });
+    expect(s1.progression.dee.lastGreeting).toBeNull();
+    const s2 = save(s0, s0, { greeting: { lineId: 'greet.due.1', day: today } });
+    expect(s2.progression.dee.lastGreeting).toEqual({ day: today, lineId: 'greet.due.1' });
   });
 
   it('the suggestion taken and a Folio polish are recorded for today', () => {

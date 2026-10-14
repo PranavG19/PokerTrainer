@@ -69,6 +69,9 @@ locked). Review: [`code-review.md`](code-review.md).
   local days, and a late polish counts. It opens from Learn's heading, and the one-page sheet has Copy.
 - **Onboarding:** five skippable sheets in the Play region, so the tabs stay live. The copy claims only uses that
   exist (the name, the session length, the voice, narration). It can be reopened in Dee's settings.
+- **Colour:** the streak dots, the ring arcs and the Ticket's done marks are bone (`--ring-fill`), never mint and never
+  amber. VISION §5 asks for "white light plus `--chip-a`", and this build has no `--chip-a`, so bone stands in. It is
+  a recorded exception to "bone is cards and the one primary action".
 - **Schema:** `progression.ticket`, `folio` and `tallies` are additive, with no version bump.
 - **The e2e test clock:** `OFFSUIT_NOW` through `app:testHooks`, honoured only under e2e and never packaged. Onboarding
   appears under e2e only with `OFFSUIT_E2E_ONBOARDING=1`.

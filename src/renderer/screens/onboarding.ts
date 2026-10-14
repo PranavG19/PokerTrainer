@@ -30,6 +30,8 @@ export interface OnboardingProps {
   readonly onDraft?: (result: OnboardingResult) => void;
   /** The last sheet's button. Default "Deal my first hand" (first run); a reopen from settings says "Save". */
   readonly finishLabel?: string;
+  /** A reopen from settings: Skip reads "Cancel" and it, like Escape, discards the edits instead of saving them. */
+  readonly onCancel?: () => void;
 }
 
 const FORMATS = [
@@ -174,7 +176,7 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
     h.textContent = text;
     const p = document.createElement('p');
     p.className = 'g-sub';
-    p.style.margin = '0';
+    p.classList.add('habit-flush');
     p.textContent = sub;
     return [h, p];
   };
@@ -316,7 +318,7 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
     const promises = document.createElement('p');
     promises.className = 'g-sub';
     promises.dataset.testid = 'onboarding-promises';
-    promises.style.margin = '0';
+    promises.classList.add('habit-flush');
     promises.textContent = 'I never talk while you are to act. I quote your rules back in your words. The character turns off any time.';
     return [
       ...heading('How should I sound?', 'The numbers and the grade never change with it.'),
@@ -349,8 +351,8 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
     skip.type = 'button';
     skip.className = 'pill quiet';
     skip.dataset.testid = 'onboarding-skip';
-    skip.textContent = 'Skip';
-    skip.addEventListener('click', () => props.onDone(result(), false));
+    skip.textContent = props.onCancel ? 'Cancel' : 'Skip';
+    skip.addEventListener('click', () => (props.onCancel ? props.onCancel() : props.onDone(result(), false)));
     head.append(renderDee('rest', 24), name, count, bar, skip);
 
     const main = document.createElement('div');
@@ -392,7 +394,7 @@ export function renderOnboarding(props: OnboardingProps): HTMLElement {
   }
 
   root.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') props.onDone(result(), false);
+    if (e.key === 'Escape') (props.onCancel ? props.onCancel() : props.onDone(result(), false));
   });
   paint();
   return root;

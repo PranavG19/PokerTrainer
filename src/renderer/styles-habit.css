@@ -365,9 +365,9 @@
 .onboarding-foot .g-caption {
   flex: 1;
 }
-.onboarding-promises {
+/* A paragraph that sits flush in a flex column (the column's gap does the spacing). */
+.habit-flush {
   margin: 0;
-  padding-left: 18px;
 }
 
 /* Learn's list heading carries the Rulebook entry on the title's line, so it costs no height. */
@@ -395,4 +395,8 @@
 }
 .ticket-items .session-card-title {
   color: var(--ink-1);
+}
+.onboarding-promises {
+  margin: 0;
+  padding-left: 18px;
 }
