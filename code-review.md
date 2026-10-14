@@ -637,3 +637,31 @@ dee-chat-review.test; I did not review them, beyond the one probe noted below.
   - the proposed `POKER_DEATH` on 30 strings;
   - one probe of the worktree's uncommitted gate.
 - Not run, as instructed: Playwright. Chat over a live story hand is untested end to end.
+
+## Re-verification at c46d75b
+Verdict: PASS WITH NOTES. I checked c46d75b, then ee49e8e (AGENTS.md only) and 1478219 (`life is too/over/done`
+added to CRISIS), which landed while I was checking.
+- **#1 is fixed.** `chatContext` reads `table?.chatContext()` (main.ts:514). dee-chat.spec test 3 asks the price,
+  call and mistake questions mid-hand at a chapter table and expects `refuse-in-hand` (e2e not run by me).
+- **#2 is fixed.**
+  - `POKER_DEATH` follows the 5 steps, and `ABOUT_ME` voids every exemption.
+  - 27 of the 28 distress strings I tried reach the crisis line. These include all of mine and the other pass's.
+  - All 19 poker strings stay off the crisis line.
+- **The swept-in changes are fine.**
+  - `local-chat` is free and now `available: true`. Nothing gates it, and the "Coming in an update" tag applies
+    only to Pro features.
+  - The network.ts and AGENTS.md lines describing the download as an allowed egress are accurate.
+- **Consider, which is lexicon breadth.** When the exemption has a real poker subject but the despair sits in other
+  words, the message still gets a hand explanation:
+  - "the hand is dead and so is my soul"
+  - "that hand is dead like my future, explain this hand"
+  - "my hand is dead. explain this hand, im done with life"
+
+  These get `unknown`:
+  - "is my hand still alive? because im not"
+  - "my hand is dead, my life too"
+
+  Adding `\bi'?m\b|\bmy (?:life|soul|future)\b` to `ABOUT_ME`, and `done with (?:life|living|it all)` to `CRISIS`,
+  would close them. Tradeoff: "i'm drawing dead" would then get the crisis line, which is the safe direction.
+- **Verification at 1478219:** `npx tsc --noEmit -p tsconfig.json` exit 0. `npx vitest run` exit 0, 113 files and
+  2976 tests. Probes are deleted, and I ran no e2e.
