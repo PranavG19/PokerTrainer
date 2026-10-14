@@ -36,7 +36,18 @@ import {
   type DealtMessage,
   type EntropySetMessage,
 } from './dealCommit.js';
-import type { ClientMessage, RoomView, SeatView, ServerMessage } from './multiplayer.js';
+import type { ClientMessage, ResyncMessage, RoomView, SeatView, ServerMessage } from './multiplayer.js';
+
+/**
+ * What a guest remembers across connections to one server: the entropy it committed to per deal, kept
+ * from the moment it commits (not when it reveals, or a server could drop the connection in between and
+ * replay a deal without it). An online client reconnects with a fresh protocol, and a `resync` for a deal
+ * it committed to must carry that entropy, or the server dealt that hand without it.
+ */
+export interface GuestMemory {
+  readonly revealed: (nonce: string) => string | undefined;
+  readonly remember: (nonce: string, entropy: string) => void;
+}
 
 export type GuestEvent =
   | { readonly type: 'welcome'; readonly v: number }
@@ -78,7 +89,10 @@ export class GuestProtocol {
   private readonly usedNonces = new Set<string>();
   private broken = false;
 
-  constructor(private readonly crypto: DealCrypto) {}
+  constructor(
+    private readonly crypto: DealCrypto,
+    private readonly memory?: GuestMemory,
+  ) {}
 
   /** True once a violation was found; every later message is ignored. */
   isBroken(): boolean {
@@ -113,7 +127,42 @@ export class GuestProtocol {
         return this.onSet(message);
       case 'dealt':
         return this.onDealt(message);
+      case 'resync':
+        return this.onResync(message);
     }
+  }
+
+  /**
+   * A reconnect into a hand already dealt. Taken only by a fresh protocol: a server that resyncs a guest
+   * mid-session is trying to replace a deal the guest already holds.
+   */
+  private onResync(resync: ResyncMessage): GuestStep {
+    if (this.pending !== null || this.live !== null || this.usedNonces.size > 0) {
+      return events(violation('the server replayed a deal into a live session'));
+    }
+    const { commit, set, dealt } = resync;
+    if (!isObject(commit) || !isObject(dealt) || !wellFormedCommit(commit, MAX_SEATS)) {
+      return events(violation('the server sent a malformed deal replay'));
+    }
+    if (dealt.nonce !== commit.nonce || dealt.hand !== commit.hand || (set !== null && (!isObject(set) || set.nonce !== commit.nonce))) {
+      return events(violation('the deal replay does not belong to one deal'));
+    }
+    // Every online deal has guest entropy; a deal with none is the server's choice alone, as on the live path.
+    if (set === null) return events(violation('the host dealt without publishing the entropy commitments'));
+    const problem = openingProblem(this.crypto, set, dealt);
+    if (problem !== null) return events(violation(problem));
+    const mine = this.memory?.revealed(commit.nonce);
+    if (mine !== undefined && !dealt.reveals.some((r) => r.entropy === mine)) {
+      return events(violation('the host dealt without the entropy you revealed'));
+    }
+    this.usedNonces.add(commit.nonce);
+    this.live = { commit, sigma: deriveSigma(this.crypto.sha256, commit, dealt.reveals), opened: new Map(), audited: false };
+    // Nothing remembered for this deal (the app restarted, or never saw its commitment): the cards are still
+    // checked against the commitment, but not that this player's entropy shaped them. Said, every time.
+    if (mine === undefined) {
+      return events({ type: 'warning', reason: 'You rejoined a hand dealt before you reconnected, so Offsuit could not check your shuffle went into it.' });
+    }
+    return events();
   }
 
   private onCommit(commit: CommitMessage): GuestStep {
@@ -131,6 +180,7 @@ export class GuestProtocol {
     }
     this.usedNonces.add(commit.nonce);
     const { entropy, commitment } = freshEntropy(this.crypto, commit.nonce, commit.hand);
+    this.memory?.remember(commit.nonce, entropy);
     this.pending = { commit, entropy, commitment, set: null, revealed: false };
     return { send: [{ type: 'entropy-commit', hand: commit.hand, nonce: commit.nonce, commitment }], events: out };
   }
@@ -162,16 +212,9 @@ export class GuestProtocol {
     this.pending = null;
     const set = pending.set;
     if (set === null) return events(violation('the host dealt without publishing the entropy commitments'));
-    const reveals = Array.isArray(dealt.reveals) ? dealt.reveals.filter(isObject) : [];
-    // The reveals must open exactly the published commitments, seat for seat.
-    const bySeat = new Map(set.commitments.map((c) => [c.seat, c.commitment]));
-    const opensAll =
-      reveals.length === bySeat.size &&
-      new Set(reveals.map((r) => r.seat)).size === reveals.length &&
-      reveals.every(
-        (r) => isHex64(r.entropy) && bySeat.get(r.seat) === entropyCommitment(this.crypto.sha256, dealt.nonce, dealt.hand, r.entropy),
-      );
-    if (!opensAll) return events(violation('the revealed entropy does not match the published commitments'));
+    const problem = openingProblem(this.crypto, set, dealt);
+    if (problem !== null) return events(violation(problem));
+    const reveals = dealt.reveals;
     if (pending.revealed && !reveals.some((r) => r.entropy === pending.entropy)) {
       return events(violation('the host dealt without the entropy you revealed'));
     }
@@ -251,6 +294,25 @@ export class GuestProtocol {
     }
     return null;
   }
+}
+
+/** The reveals must open exactly the published commitments, seat for seat (none when nobody committed). */
+function openingProblem(crypto: DealCrypto, set: EntropySetMessage | null, dealt: DealtMessage): string | null {
+  const reveals = Array.isArray(dealt.reveals) ? dealt.reveals.filter(isObject) : null;
+  if (reveals === null || reveals.length !== (Array.isArray(dealt.reveals) ? dealt.reveals.length : -1)) {
+    return 'the revealed entropy does not match the published commitments';
+  }
+  if (set !== null && (!Array.isArray(set.commitments) || !set.commitments.every((c) => isObject(c) && isHex64(c.commitment)))) {
+    return 'the host published malformed commitments';
+  }
+  const bySeat = new Map((set?.commitments ?? []).map((c) => [c.seat, c.commitment]));
+  const opensAll =
+    reveals.length === bySeat.size &&
+    new Set(reveals.map((r) => r.seat)).size === reveals.length &&
+    reveals.every(
+      (r) => isHex64(r.entropy) && bySeat.get(r.seat) === entropyCommitment(crypto.sha256, dealt.nonce, dealt.hand, r.entropy),
+    );
+  return opensAll ? null : 'the revealed entropy does not match the published commitments';
 }
 
 const isObject = (v: unknown): boolean => typeof v === 'object' && v !== null;

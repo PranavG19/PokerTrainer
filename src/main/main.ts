@@ -14,12 +14,15 @@ import {
   saveLicenceMirror,
   loadDeePhrasing,
   loadMultiplayerEnabled,
+  loadOnlineSettings,
   loadTheme,
+  ONLINE_IDENTITY_FILE,
   loadTutorEnabled,
   profileStatus,
   save,
   saveDeePhrasing,
   saveMultiplayerEnabled,
+  saveOnlineSettings,
   saveTheme,
   saveTutorEnabled,
 } from './store.js';
@@ -27,6 +30,7 @@ import { askTutor, resolveTutor, type AskInput, type ResolvedTutor } from './tut
 import { nullModelClient, nullTutor } from './tutor/nullTutor.js';
 import { hostSession, joinSession, type RelaySession } from './relaySession.js';
 import { parseInvite } from '../core/relayClient.js';
+import { OnlineController } from './onlineMain.js';
 import type { Action } from '../core/table.js';
 import { CHECKOUT_URLS, LICENCE_SERVER_URL, MANAGE_URL, PRICE_LABELS } from '../core/entitlements/config.js';
 import { FEATURE_INFO, PRO_FEATURES } from '../core/entitlements/features.js';
@@ -64,6 +68,22 @@ let tutorEnabled = loadTutorEnabled();
  */
 let multiplayerEnabled = loadMultiplayerEnabled();
 let relaySession: RelaySession | null = null;
+
+/**
+ * Online play (an Offsuit server, opt-in, off by default). The controller owns the only online socket and
+ * opens it only from connect(); see onlineMain.ts for the gate.
+ */
+/** Set once the licence authority exists (whenReady); until then nothing is Pro. */
+let rankedAllowed: () => boolean = () => false;
+const online = new OnlineController({
+  canRanked: () => rankedAllowed(),
+  load: loadOnlineSettings,
+  save: saveOnlineSettings,
+  identityFile: ONLINE_IDENTITY_FILE,
+  push: (event) => {
+    if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.webContents.send('online:event', event);
+  },
+});
 
 /**
  * Push a multiplayer event to the renderer. The relay server BROADCASTS unprompted (a remote player
@@ -292,6 +312,7 @@ app.whenReady().then(() => {
     loadMirror: loadLicenceMirror,
     saveMirror: saveLicenceMirror,
   });
+  rankedAllowed = () => authority.can('ranked-play');
   // Windows/Linux cold start from a link: the URL is an argument of this launch.
   for (const arg of process.argv) if (arg.startsWith('offsuit:')) receiveDeepLink(arg);
 
@@ -501,6 +522,18 @@ app.whenReady().then(() => {
     await stopRelaySession();
   });
 
+  // ── Online play (an Offsuit server) ─────────────────────────────────────────
+  // Every handler re-checks in OnlineController; the renderer's checks are only for the notice.
+  ipcMain.handle('online:status', () => online.view());
+  ipcMain.handle('online:configure', (_event, patch: { enabled?: unknown; server?: unknown; pin?: unknown }) => online.configure(patch ?? {}));
+  ipcMain.handle('online:connect', (_event, request: { name?: unknown; adult?: unknown }) => online.connect(request ?? {}));
+  ipcMain.handle('online:request', (_event, op: unknown, fields: unknown) => online.request(op, fields));
+  ipcMain.handle('online:action', (_event, action: unknown) => online.action(action));
+  ipcMain.handle('online:emote', (_event, emote: unknown) => online.emote(emote));
+  ipcMain.handle('online:leave', () => online.leave());
+  ipcMain.handle('online:disconnect', () => online.disconnect());
+  ipcMain.handle('online:exportIdentity', () => online.exportIdentity());
+
   // The gate is here and in core/backup.ts, never in the renderer: a UI bug must
   // not be able to destroy the decision log.
   ipcMain.handle('settings:deleteProfile', (_event, confirmation: unknown) =>
@@ -567,4 +600,5 @@ app.on('will-quit', () => {
   stopPhrasing();
   // A relay socket must not outlive the app that opened it: drop any live host/join on quit.
   void stopRelaySession();
+  online.disconnect();
 });

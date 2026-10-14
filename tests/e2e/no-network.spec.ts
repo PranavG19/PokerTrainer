@@ -586,3 +586,49 @@ test('Dee chat makes no network call; the phrasing download is the only one, and
     await new Promise<void>((r) => server.close(() => r()));
   }
 });
+
+test('online play: off by default, a typed server is only text, and going online reaches that server alone', async () => {
+  /*
+   * The online opt-in, observed from outside like everything above: the proxy for the browser process and
+   * the main-process oracle for main. A real Offsuit server runs here on loopback (self-signed, pinned).
+   * Off by default and with a server typed in, the oracle must hold no egress at all; after Go online, the
+   * only destination is that server, and the browser process still makes no request.
+   */
+  const { startTestServer } = await import('../unit/onlineHarness.js');
+  const online = await startTestServer();
+  const proxy = await startProxy();
+  const oracle = oracleFile();
+  const { page, close } = await launchApp({ seed: 42, extraArgs: proxyArgs(proxy.port), env: { OFFSUIT_NET_ORACLE: oracle } });
+  type Bridge = Record<string, (...a: unknown[]) => Promise<Record<string, unknown>>>;
+  try {
+    await page.waitForSelector('[data-testid="home-screen"]');
+    const status = await page.evaluate(() => (window as unknown as { offsuit: Bridge }).offsuit.onlineStatus());
+    expect(status).toMatchObject({ enabled: false, server: '', status: 'offline', keyId: null });
+
+    const address = `127.0.0.1:${online.server.port}`;
+    const configured = await page.evaluate(
+      ([server, pin]) => (window as unknown as { offsuit: Bridge }).offsuit.onlineConfigure({ enabled: true, server, pin }),
+      [address, online.target.pin] as const,
+    );
+    expect(configured.ok).toBe(true);
+    // Refused without the 18+ confirmation, before any socket.
+    const refused = await page.evaluate(() => (window as unknown as { offsuit: Bridge }).offsuit.onlineConnect({ name: 'Ada', adult: false }));
+    expect(refused.ok).toBe(false);
+    await page.waitForTimeout(1500);
+    expect(readOracle(oracle).filter(isOutbound), 'main connected before the player went online').toEqual([]);
+
+    const connected = await page.evaluate(() => (window as unknown as { offsuit: Bridge }).offsuit.onlineConnect({ name: 'Ada', adult: true }));
+    expect(connected.ok, JSON.stringify(connected)).toBe(true);
+    const targets = new Set(readOracle(oracle).filter(isOutbound).map((r) => r.target));
+    expect(targets).toEqual(new Set([address]));
+    expect(proxy.seen, 'the browser process reached the network').toEqual([]);
+
+    // Off again: the connection drops and the server sees nobody signed in.
+    await page.evaluate(() => (window as unknown as { offsuit: Bridge }).offsuit.onlineConfigure({ enabled: false }));
+    await expect.poll(() => online.server.stats().signedIn).toBe(0);
+  } finally {
+    await close();
+    await proxy.close();
+    await online.close();
+  }
+});

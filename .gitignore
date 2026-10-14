@@ -12,3 +12,5 @@ demo/gallery/.anchor-ref/
 DONE.md
 HANDOFF.md
 SKIPPED.md
+dist-server/
+.offsuit-server/

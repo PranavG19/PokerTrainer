@@ -61,22 +61,67 @@ export function certFingerprint(certDer: Buffer): string {
 }
 
 export function createTableCertificate(now: Date = new Date()): TableCertificate {
+  return issueCertificate({ now });
+}
+
+export interface IssueOptions {
+  readonly now?: Date;
+  /** Subject common name; the issuer's too when self-signed. */
+  readonly commonName?: string;
+  readonly days?: number;
+  /** subjectAltName entries: DNS names, and IPv4 literals. Needed for a CA-validated server certificate. */
+  readonly altNames?: readonly string[];
+  /** Mark the certificate a CA (basicConstraints CA:TRUE), for a test authority. */
+  readonly isCa?: boolean;
+  /** Sign with this authority instead of self-signing. */
+  readonly issuer?: { readonly commonName: string; readonly keyPem: string };
+}
+
+const nameOf = (cn: string): Buffer => seq(der(0x31, seq(oid('2.5.4.3'), der(0x0c, Buffer.from(cn, 'utf8')))));
+
+function extension(id: string, critical: boolean, value: Buffer): Buffer {
+  return seq(oid(id), ...(critical ? [der(0x01, Buffer.from([0xff]))] : []), der(0x04, value));
+}
+
+/**
+ * Issue a P-256 certificate. With no options it is the table certificate: self-signed, CN "Offsuit table",
+ * 30 days. The online server's self-signed mode asks for a longer life; tests use `isCa` and `issuer` to
+ * build a private authority and a server certificate it signs, to exercise the CA-validated path.
+ */
+export function issueCertificate(opts: IssueOptions = {}): TableCertificate {
+  const now = opts.now ?? new Date();
   const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const spki = publicKey.export({ type: 'spki', format: 'der' });
   const serial = crypto.randomBytes(16);
   serial[0] = (serial[0] & 0x7f) | 0x40; // positive and minimal: no sign bit, no leading zero
   const notBefore = new Date(now.getTime() - 24 * 3600 * 1000);
-  const notAfter = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
+  const notAfter = new Date(now.getTime() + (opts.days ?? 30) * 24 * 3600 * 1000);
+  const subject = opts.commonName === undefined ? NAME : nameOf(opts.commonName);
+  const issuerName = opts.issuer === undefined ? subject : nameOf(opts.issuer.commonName);
+  const extensions: Buffer[] = [];
+  if (opts.altNames !== undefined && opts.altNames.length > 0) {
+    const names = opts.altNames.map((n) =>
+      /^\d+\.\d+\.\d+\.\d+$/.test(n)
+        ? der(0x87, Buffer.from(n.split('.').map(Number)))
+        : der(0x82, Buffer.from(n, 'ascii')),
+    );
+    extensions.push(extension('2.5.29.17', false, seq(...names)));
+  }
+  if (opts.isCa !== undefined) {
+    extensions.push(extension('2.5.29.19', true, opts.isCa ? seq(der(0x01, Buffer.from([0xff]))) : seq()));
+  }
   const tbs = seq(
     der(0xa0, der(0x02, Buffer.from([2]))), // [0] EXPLICIT version v3
     der(0x02, serial),
     ECDSA_SHA256,
-    NAME,
+    issuerName,
     seq(utcTime(notBefore), utcTime(notAfter)),
-    NAME,
+    subject,
     spki,
+    ...(extensions.length > 0 ? [der(0xa3, seq(...extensions))] : []),
   );
-  const signature = crypto.sign('sha256', tbs, privateKey); // DER-encoded ECDSA signature
+  const signer = opts.issuer === undefined ? privateKey : crypto.createPrivateKey(opts.issuer.keyPem);
+  const signature = crypto.sign('sha256', tbs, signer); // DER-encoded ECDSA signature
   const certDer = seq(tbs, ECDSA_SHA256, der(0x03, Buffer.concat([Buffer.from([0]), signature])));
   const b64 = certDer.toString('base64').replace(/(.{64})/g, '$1\n');
   return {

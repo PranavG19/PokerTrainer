@@ -279,6 +279,50 @@ export function saveMultiplayerEnabled(enabled: boolean): void {
 }
 
 /**
+ * Online play's settings: the opt-in, the server, an optional certificate pin, the display name and the
+ * 18+ confirmation. Device preferences like the multiplayer switch, so they live here and not in the
+ * profile. Defaults: OFF and no server, so a profile that never chose online play has nowhere to connect
+ * to. The device key itself is in its own file (onlineIdentity.ts), created on first use.
+ */
+export interface OnlineSettings {
+  readonly enabled: boolean;
+  readonly server: string;
+  readonly pin: string;
+  readonly name: string;
+  /** The day the player confirmed they are 18 or over, or '' when they have not. */
+  readonly adultOn: string;
+}
+
+export const ONLINE_DEFAULTS: OnlineSettings = { enabled: false, server: '', pin: '', name: '', adultOn: '' };
+
+export function loadOnlineSettings(): OnlineSettings {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    const o = (parsed as { online?: Record<string, unknown> })?.online;
+    if (typeof o !== 'object' || o === null) return ONLINE_DEFAULTS;
+    const text = (v: unknown, max: number): string => (typeof v === 'string' ? v.slice(0, max) : '');
+    return {
+      enabled: o.enabled === true,
+      server: text(o.server, 300),
+      pin: text(o.pin, 64),
+      name: text(o.name, 32),
+      adultOn: /^\d{4}-\d{2}-\d{2}$/.test(text(o.adultOn, 10)) ? text(o.adultOn, 10) : '',
+    };
+  } catch {
+    return ONLINE_DEFAULTS;
+  }
+}
+
+export function saveOnlineSettings(patch: Partial<OnlineSettings>): OnlineSettings {
+  const next = { ...loadOnlineSettings(), ...patch };
+  writeSettings({ online: next });
+  return next;
+}
+
+/** The device key's file, beside the settings. */
+export const ONLINE_IDENTITY_FILE = path.join(app.getPath('userData'), 'offsuit-online-identity.json');
+
+/**
  * The visual theme is a device/display preference (like the tutor switch), not learner profile state,
  * so it lives in the settings file rather than the profile. Graphite is the default: an absent or
  * unreadable file, or an unknown value, resolves to graphite — the same value :root paints before any

@@ -36,6 +36,7 @@ import {
 import { freshDeck } from './cards.js';
 import {
   applyPlayerAction,
+  type ResyncMessage,
   createRoom,
   dealRoomHand,
   foldAbsent,
@@ -50,7 +51,7 @@ import {
   type RoomView,
   type ServerMessage,
 } from './multiplayer.js';
-import { startHand, type TableState } from './table.js';
+import { legalActions, startHand, type Action, type TableState } from './table.js';
 
 /** One message the transport must deliver to exactly one connected player. */
 export interface Outbound {
@@ -69,6 +70,40 @@ export interface RelayServerDeps {
   readonly now?: () => number;
   /** How long a guest has to commit, and then to reveal, before it is removed from the table. */
   readonly entropyTimeoutMs?: number;
+  /**
+   * Every action applied to a seat, with the engine state before it: the online server grades these for
+   * the ladder from its own state, never from anything a client reports. `auto` marks an action the
+   * server took for the seat (its clock ran out, or its player left).
+   */
+  readonly onDecision?: (decision: DecisionRecord) => void;
+  /** A hand settled: who it was dealt to, and each seat's stack before the blinds and after the pot. */
+  readonly onHandEnd?: (hand: HandSummary) => void;
+  /**
+   * Buy a busted player back in at the next deal. Online chips are play money that score nothing (the
+   * ladder grades decisions), so a bust should not end anyone's evening; the LAN table keeps them out.
+   */
+  readonly rebuyBusted?: boolean;
+}
+
+export interface DecisionRecord {
+  readonly playerId: PlayerId;
+  readonly seat: number;
+  readonly before: TableState;
+  readonly action: Action;
+  readonly hand: number;
+  /** The deal's commitment nonce: unique per deal, so (nonce, index) names a decision for good. */
+  readonly nonce: string;
+  /** This decision's position in its hand, from 0. */
+  readonly index: number;
+  readonly auto: boolean;
+}
+
+export interface HandSummary {
+  readonly hand: number;
+  readonly nonce: string;
+  readonly dealtTo: Readonly<Record<number, PlayerId>>;
+  readonly startStacks: readonly number[];
+  readonly endStacks: readonly number[];
 }
 
 export const ENTROPY_TIMEOUT_MS = 10_000;
@@ -93,12 +128,28 @@ interface LiveDeal {
   readonly hand: number;
   readonly sealed: SealedDeck;
   readonly sigma: readonly number[];
+  /** The handshake as sent, for a reconnecting player's resync. */
+  readonly set: ResyncMessage['set'];
+  readonly reveals: ResyncMessage['dealt']['reveals'];
+  readonly startStacks: readonly number[];
+  decisions: number;
+  reported: boolean;
 }
 
 export class RelayServer {
   private room: RoomState;
   /** Players with a live connection right now — the recipients of every state broadcast. */
   private readonly connected = new Set<PlayerId>();
+  /**
+   * Seated players whose connection dropped and who may come back (the online server's grace window).
+   * They keep their seat and count as present, so their turn waits on the clock instead of folding at once.
+   */
+  private readonly held = new Set<PlayerId>();
+  private readonly onDecision: RelayServerDeps['onDecision'];
+  private readonly onHandEnd: RelayServerDeps['onHandEnd'];
+  private readonly rebuyBusted: boolean;
+  /** Bumped on every applied action: with the hand number it names one turn, for the server's clock. */
+  private actionCount = 0;
   private readonly crypto: DealCrypto;
   private readonly dealerPlayerId: PlayerId | undefined;
   private readonly now: () => number;
@@ -114,6 +165,72 @@ export class RelayServer {
     this.dealerPlayerId = deps.dealerPlayerId;
     this.now = deps.now ?? Date.now;
     this.timeoutMs = deps.entropyTimeoutMs ?? ENTROPY_TIMEOUT_MS;
+    this.onDecision = deps.onDecision;
+    this.onHandEnd = deps.onHandEnd;
+    this.rebuyBusted = deps.rebuyBusted === true;
+  }
+
+  /**
+   * The turn the table is waiting on — the hand, its action count and the player who owns the seat — or
+   * null when no live hand waits on anyone. A changed `key` means a new turn, so the clock restarts.
+   */
+  turn(): { readonly key: string; readonly playerId: PlayerId } | null {
+    const table = this.room.table;
+    if (table === null || table.winners !== null || this.pending !== null) return null;
+    const owner = this.room.dealtTo[table.toAct];
+    if (owner === undefined) return null;
+    return { key: `${table.handNumber}:${this.actionCount}`, playerId: owner };
+  }
+
+  /** True when the last hand has settled (or none was dealt) and no deal is pending. */
+  between(): boolean {
+    return this.pending === null && (this.room.table === null || this.room.table.winners !== null);
+  }
+
+  /** Connected and held players: everyone who still owns a seat's connection or may reclaim it. */
+  isHeld(playerId: PlayerId): boolean {
+    return this.held.has(playerId);
+  }
+
+  /**
+   * The online server's clock ran out on the seat to act: check when that is free, else fold, through
+   * the same validation a player's own action takes. Recorded as an automatic decision.
+   */
+  autoAct(): Outbound[] {
+    const turn = this.turn();
+    const table = this.room.table;
+    if (turn === null || table === null) return [];
+    const kind = legalActions(table).includes('check') ? 'check' : 'fold';
+    return this.apply(turn.playerId, { kind }, true);
+  }
+
+  /**
+   * A seated player's connection dropped but they may return: keep the seat, stop sending to them. A deal
+   * waiting on their entropy starts again without them, as when anyone leaves mid-handshake.
+   */
+  hold(playerId: PlayerId): Outbound[] {
+    if (!this.connected.delete(playerId)) return [];
+    this.held.add(playerId);
+    const state = this.broadcastState();
+    if (this.pending?.participants.has(playerId)) return [...state, ...this.restartDeal()];
+    return state;
+  }
+
+  /**
+   * A held player is back. They get the live hand's handshake (so a fresh connection can check its
+   * cards) and then the state. False when they were not held.
+   */
+  resume(playerId: PlayerId): Outbound[] | null {
+    if (!this.held.delete(playerId)) return null;
+    this.connected.add(playerId);
+    const out: Outbound[] = [];
+    const live = this.live;
+    const table = this.room.table;
+    if (live !== null && table !== null && table.handNumber === live.hand) {
+      const { hand, nonce } = live.sealed.commit;
+      out.push({ to: playerId, message: { type: 'resync', commit: live.sealed.commit, set: live.set, dealt: { type: 'dealt', hand, nonce, reveals: live.reveals } } });
+    }
+    return [...out, ...this.broadcastState()];
   }
 
   /** The current room (read-only view for tests/host UI); callers must not mutate it. */
@@ -143,9 +260,10 @@ export class RelayServer {
   /** A fresh state broadcast to every connected player — the redacted view each is allowed to see. */
   private broadcastState(): Outbound[] {
     // Every broadcast follows a change; first fold any seat whose absent player holds the turn.
-    const present = new Set(this.connected);
+    const present = new Set([...this.connected, ...this.held]);
     if (this.dealerPlayerId !== undefined) present.add(this.dealerPlayerId);
-    this.room = foldAbsent(this.room, present);
+    this.room = foldAbsent(this.room, present, (before, owner) => this.record(owner, before, { kind: 'fold' }, true));
+    this.reportHandEnd();
     const out: Outbound[] = [];
     for (const playerId of this.connected) {
       const view = viewFor(this.room, playerId);
@@ -154,6 +272,45 @@ export class RelayServer {
       out.push({ to: playerId, message: { type: 'state', view, openings: this.openingsFor(view) } });
     }
     return out;
+  }
+
+  /** Hand an applied action to the decision hook. */
+  private record(playerId: PlayerId, before: TableState, action: Action, auto: boolean): void {
+    this.actionCount += 1;
+    const live = this.live;
+    if (live === null || this.onDecision === undefined) return;
+    const index = live.decisions;
+    live.decisions += 1;
+    this.onDecision({ playerId, seat: before.toAct, before, action, hand: before.handNumber, nonce: live.sealed.commit.nonce, index, auto });
+  }
+
+  /** Report a settled hand once. */
+  private reportHandEnd(): void {
+    const live = this.live;
+    const table = this.room.table;
+    if (live === null || live.reported || table === null || table.winners === null || table.handNumber !== live.hand) return;
+    live.reported = true;
+    this.onHandEnd?.({
+      hand: live.hand,
+      nonce: live.sealed.commit.nonce,
+      dealtTo: { ...this.room.dealtTo },
+      startStacks: live.startStacks,
+      endStacks: table.seats.map((s) => s.stack),
+    });
+  }
+
+  /** Validate and apply one action for a player, record it, and broadcast. */
+  private apply(playerId: PlayerId, action: Action, auto: boolean): Outbound[] {
+    if (this.pending !== null) return this.errorTo(playerId, 'the next hand is still being dealt');
+    const before = this.room.table;
+    const next = applyPlayerAction(this.room, playerId, action);
+    if ('error' in next) return this.errorTo(playerId, next.error);
+    this.room = next;
+    if (before !== null) this.record(playerId, before, action, auto);
+    // The action may have ended and settled the hand; the result (winners, revealed cards) is
+    // broadcast now and STAYS on screen until someone deals the next hand — dealing here would
+    // wipe the showdown before anyone saw it.
+    return this.broadcastState();
   }
 
   private toAll(message: ServerMessage): Outbound[] {
@@ -182,6 +339,7 @@ export class RelayServer {
   disconnect(playerId: PlayerId): Outbound[] {
     this.room = playerLeaves(this.room, playerId);
     this.connected.delete(playerId);
+    this.held.delete(playerId);
     const state = this.broadcastState();
     // A participant leaving mid-handshake can never reveal: start the deal again without them.
     if (this.pending?.participants.has(playerId)) return [...state, ...this.restartDeal()];
@@ -197,16 +355,10 @@ export class RelayServer {
     switch (msg.type) {
       case 'leave':
         return this.disconnect(playerId);
-      case 'action': {
-        if (this.pending !== null) return this.errorTo(playerId, 'the next hand is still being dealt');
-        const next = applyPlayerAction(this.room, playerId, msg.action);
-        if ('error' in next) return this.errorTo(playerId, next.error);
-        this.room = next;
-        // The action may have ended and settled the hand; the result (winners, revealed cards) is
-        // broadcast now and STAYS on screen until someone deals the next hand — dealing here would
-        // wipe the showdown before anyone saw it.
-        return this.broadcastState();
-      }
+      case 'action':
+        // A held player's socket is gone; nothing may arrive in their name until they resume.
+        if (!this.connected.has(playerId) && playerId !== this.dealerPlayerId) return [];
+        return this.apply(playerId, msg.action, false);
       case 'deal':
         // Any seated player may ask for the next hand once the current one is settled; dealNext is a
         // no-op while a hand is still live, so this cannot interrupt play.
@@ -249,6 +401,7 @@ export class RelayServer {
     for (const id of players) {
       this.room = playerLeaves(this.room, id);
       this.connected.delete(id);
+      this.held.delete(id);
     }
     return [...notices, ...this.broadcastState(), ...this.restartDeal()];
   }
@@ -269,7 +422,7 @@ export class RelayServer {
       seats: handed.seats.map((seat) => {
         const who = occupant.get(seat.id);
         if (who === undefined) return { ...seat, stack: 0 };
-        const newcomer = handed.handNumber > 0 && this.seatedAt.get(seat.id) !== who;
+        const newcomer = handed.handNumber > 0 && (this.seatedAt.get(seat.id) !== who || (this.rebuyBusted && seat.stack === 0));
         return newcomer ? { ...seat, name: this.room.players.find((p) => p.playerId === who)!.name, stack: this.room.startStack } : seat;
       }),
     };
@@ -354,10 +507,23 @@ export class RelayServer {
     const reveals = [...pending.reveals].map(([id, entropy]) => ({ seat: pending.participants.get(id)!, entropy }));
     const sigma = deriveSigma(this.crypto.sha256, pending.sealed.commit, reveals);
     this.room = dealRoomHand(this.room, pending.base, engineDeck(pending.sealed, sigma), pending.recipients);
-    this.live = { hand: pending.sealed.commit.hand, sealed: pending.sealed, sigma };
+    const { hand, nonce } = pending.sealed.commit;
+    const set: ResyncMessage['set'] =
+      pending.commitments.size === 0
+        ? null
+        : { type: 'entropy-set', hand, nonce, commitments: [...pending.commitments].map(([id, c]) => ({ seat: pending.participants.get(id)!, commitment: c })) };
+    this.live = {
+      hand,
+      sealed: pending.sealed,
+      sigma,
+      set,
+      reveals,
+      startStacks: pending.base.seats.map((s) => s.stack),
+      decisions: 0,
+      reported: false,
+    };
     this.seatedAt = new Map(pending.occupants);
     this.pending = null;
-    const { hand, nonce } = pending.sealed.commit;
     return [...this.toAll({ type: 'dealt', hand, nonce, reveals }), ...this.broadcastState()];
   }
 }

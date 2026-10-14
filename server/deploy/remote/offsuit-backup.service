@@ -1,0 +1,9 @@
+# Daily snapshot of the Offsuit state; triggered by offsuit-backup.timer.
+[Unit]
+Description=Offsuit state backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/offsuit-backup
+Nice=10
+IOSchedulingClass=idle
