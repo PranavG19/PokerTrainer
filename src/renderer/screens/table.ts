@@ -717,11 +717,12 @@ export function renderTable(opts: {
     if (state.winners !== null) renderControlsInner();
     // Focus returns to the first live control below the table, never to <body>.
     if (hadFocus) {
-      // At hand end the dock's primary takes the focus (Next hand, else Rebuy or New session), never "Ask Dee".
+      // At hand end the dock's primary takes the focus (Next hand, a story chapter's end, else Rebuy or New session),
+      // never "Ask Dee".
       const primary =
         state.winners === null
           ? null
-          : root.querySelector<HTMLElement>('[data-testid="next-hand"], [data-testid="btn-rebuy"], [data-testid="new-session"]');
+          : root.querySelector<HTMLElement>('.controls .pill.primary, [data-testid="btn-rebuy"], [data-testid="new-session"]');
       const next = primary ?? [...root.querySelectorAll<HTMLElement>('.predict button, .controls button, .controls input')].find(
         (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
       );
