@@ -708,7 +708,7 @@ async function boot(): Promise<void> {
   }
 
   function currentFolio(): ReturnType<typeof folioCards> {
-    return folioCards({ lexicon: session.lexicon, rules: session.progression.dee.ruleSentences, folio: session.progression.folio, now: now() });
+    return folioCards({ lexicon: session.lexicon, rules: session.progression.dee.ruleSentences, folio: session.progression.folio, now: now(), dayOf: dayOf() });
   }
 
   function homeHabit(): HomeHabit {

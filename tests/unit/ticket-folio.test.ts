@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DayKey } from '../../src/core/localDay.js';
+import { fixedOffsetDayKeyOf, type DayKey } from '../../src/core/localDay.js';
 import { MS_PER_DAY, type ConceptState } from '../../src/core/schedule.js';
 import { SCENARIOS } from '../../src/core/puzzleScenarios.js';
 import {
@@ -97,47 +97,57 @@ describe("Today's Ticket (D16): due + one drill + three leak spots, under 30 min
 });
 
 describe('Folio: tarnish follows the schedule waves, re-polish satisfies them', () => {
-  const written = T0;
+  const D = day(20000);
+  const dayOf = fixedOffsetDayKeyOf(0);
+  const at = (d: number) => d * MS_PER_DAY + 12 * 3_600_000;
 
   it('is bright on the day it is written and tarnished from day 1 until polished', () => {
-    expect(wear(written, [], written + 3_600_000)).toMatchObject({ tarnished: false, waveDay: 1, dueInDays: 1 });
-    const d1 = wear(written, [], written + MS_PER_DAY);
+    expect(wear(D, [], D)).toMatchObject({ tarnished: false, waveDay: 1, dueInDays: 1 });
+    const d1 = wear(D, [], day(D + 1));
     expect(d1).toMatchObject({ tarnished: true, waveDay: 1, dueInDays: 0 });
     expect(d1.tarnish).toBeGreaterThan(0);
   });
 
   it('a polish on day 1 satisfies it until day 7; a late polish still counts', () => {
-    const p1 = written + MS_PER_DAY + 1000;
-    expect(wear(written, [p1], written + 3 * MS_PER_DAY)).toMatchObject({ tarnished: false, waveDay: 7, dueInDays: 4 });
-    expect(wear(written, [p1], written + 7 * MS_PER_DAY)).toMatchObject({ tarnished: true, waveDay: 7 });
-    // Late: polished on day 10 for the day-7 wave.
-    const late = written + 10 * MS_PER_DAY;
-    expect(wear(written, [p1, late], written + 11 * MS_PER_DAY)).toMatchObject({ tarnished: false, waveDay: 21 });
+    const p1 = day(D + 1);
+    expect(wear(D, [p1], day(D + 3))).toMatchObject({ tarnished: false, waveDay: 7, dueInDays: 4 });
+    expect(wear(D, [p1], day(D + 7))).toMatchObject({ tarnished: true, waveDay: 7 });
+    expect(wear(D, [p1, day(D + 10)], day(D + 11))).toMatchObject({ tarnished: false, waveDay: 21 });
   });
 
   it('two polishes on the same wave satisfy it once (the next wave still needs its own)', () => {
-    const p = [written + MS_PER_DAY, written + MS_PER_DAY + 5];
-    expect(wear(written, p, written + 7 * MS_PER_DAY)).toMatchObject({ tarnished: true, waveDay: 7 });
+    expect(wear(D, [day(D + 1), day(D + 1)], day(D + 7))).toMatchObject({ tarnished: true, waveDay: 7 });
   });
 
   it('after the last wave it stays bright', () => {
-    const ps = [1, 7, 21, 30].map((d) => written + d * MS_PER_DAY);
-    expect(wear(written, ps, written + 90 * MS_PER_DAY)).toMatchObject({ tarnished: false, waveDay: null });
+    const ps = [1, 7, 21, 30].map((d) => day(D + d));
+    expect(wear(D, ps, day(D + 90))).toMatchObject({ tarnished: false, waveDay: null });
   });
 
   it('builds one card per concept from the lexicon and saved lesson rules, newest sentence on top', () => {
     const lexicon: LexiconAttempt[] = [
-      { seq: 1, conceptId: 'river-bluff-catch', sentence: 'old words', at: written, flippingAxis: null, outcome: 'accepted', frame: 'range-asymmetry', decidedBy: 'keyword-check' },
-      { seq: 2, conceptId: 'river-bluff-catch', sentence: 'new words', at: written + 10, flippingAxis: null, outcome: 'accepted', frame: 'range-asymmetry', decidedBy: 'keyword-check' },
-      { seq: 3, conceptId: 'turn-probe', sentence: 'rejected', at: written, flippingAxis: null, outcome: 'rejected', reason: 'cached-cell', reasonText: 'x', pushback: true },
+      { seq: 1, conceptId: 'river-bluff-catch', sentence: 'old words', at: at(D), flippingAxis: null, outcome: 'accepted', frame: 'range-asymmetry', decidedBy: 'keyword-check' },
+      { seq: 2, conceptId: 'river-bluff-catch', sentence: 'new words', at: at(D) + 10, flippingAxis: null, outcome: 'accepted', frame: 'range-asymmetry', decidedBy: 'keyword-check' },
+      { seq: 3, conceptId: 'turn-probe', sentence: 'rejected', at: at(D), flippingAxis: null, outcome: 'rejected', reason: 'cached-cell', reasonText: 'x', pushback: true },
     ];
-    const rules = [{ conceptId: 'pot-odds-as-a-price', text: 'the price is the call over the pot after I call', day: day(Math.floor(written / MS_PER_DAY)) }];
-    const cards = folioCards({ lexicon, rules, folio: defaultProgression().folio, now: written + 3_600_000 });
+    const rules = [{ conceptId: 'pot-odds-as-a-price', text: 'the price is the call over the pot after I call', day: D }];
+    const cards = folioCards({ lexicon, rules, folio: defaultProgression().folio, now: at(D) + 3_600_000, dayOf });
     expect(cards.map((c) => c.conceptId).sort()).toEqual(['pot-odds-as-a-price', 'river-bluff-catch']);
     const river = cards.find((c) => c.conceptId === 'river-bluff-catch')!;
     expect(river.text).toBe('new words');
     expect(river.earlier).toEqual(['old words']);
     expect(folioSheet(cards, (id) => id)).toContain('river-bluff-catch: new words');
+  });
+
+  it('a lesson rule saved today is bright this evening in any timezone (days are local DayKeys, not UTC ms)', () => {
+    // UTC−4, 8:15 pm local on day D: the instant is already past UTC midnight of D + 1.
+    const local = fixedOffsetDayKeyOf(-240);
+    const evening = Date.parse('2026-10-14T20:15:00-04:00');
+    const today = local(evening);
+    const rules = [{ conceptId: 'combos-not-hands', text: 'count the combos left', day: today }];
+    const [card] = folioCards({ lexicon: [], rules, folio: defaultProgression().folio, now: evening, dayOf: local });
+    expect(card.tarnished).toBe(false);
+    expect(card.dueInDays).toBe(1);
   });
 
   it('polish is bounded, idempotent at an instant, and refuses __proto__', () => {
@@ -150,11 +160,11 @@ describe('Folio: tarnish follows the schedule waves, re-polish satisfies them', 
 
   it('a polish before the newest sentence was written does not count for it', () => {
     const lexicon: LexiconAttempt[] = [
-      { seq: 1, conceptId: 'c', sentence: 's', at: written + 5 * MS_PER_DAY, flippingAxis: null, outcome: 'accepted', frame: 'range-asymmetry', decidedBy: 'keyword-check' },
+      { seq: 1, conceptId: 'c', sentence: 's', at: at(D + 5), flippingAxis: null, outcome: 'accepted', frame: 'range-asymmetry', decidedBy: 'keyword-check' },
     ];
-    const folio = { polished: { c: [written + MS_PER_DAY] } };
-    const [card] = folioCards({ lexicon, rules: [], folio, now: written + 6 * MS_PER_DAY });
-    expect(card.lastPolished).toBe(written + 5 * MS_PER_DAY);
+    const folio = { polished: { c: [at(D + 1)] } };
+    const [card] = folioCards({ lexicon, rules: [], folio, now: at(D + 6), dayOf });
+    expect(card.lastPolishedOn).toBe(D + 5);
     expect(card.tarnished).toBe(true);
   });
 });
