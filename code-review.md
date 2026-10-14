@@ -1,482 +1,509 @@
-# Review: feat/online-server (e3e58df; round 2 at 402e54e, re-verified at 0f37e2d)
-Verdict: PASS WITH NOTES. Round 2 (licence host + Pro gate) was reviewed at 402e54e and re-verified at 0f37e2d: L1 and L2 are fixed, and no Act-on remains.
-Round 1 (the online server) ended PASS WITH NOTES at 894080a, which is f0745ba after the rebase onto origin/main 592a896.
-Base: 0e9fd0780faecf7314c2bda1ad73cb570e0e9bd7  Head reviewed: e3e58dfe247aa5b5e8238349208f107e87c4a9a8  Re-verified: ff5c28a, 1ec6c3d, then 894080a
+# Code review — Pro tools (branch `feat-pro-tools`)
 
-Round 1 Act-on items are numbered A1-A8, and A9 is new at 1ec6c3d (Round 1 section below). Each carries its end state; the latest check is at 894080a.
+Independent adversarial review at HIGH radius by a reviewer subagent with no authoring context, including an independent Malmuth-Harville ICM and side-pot model (its scratch scripts lived in /tmp/prorev). Verdict history: round 1 FAIL (1 blocker, 3 major) → round 2 FAIL (1 new major) → **round 3 PASS WITH NOTES** at 5d86208; the round-3 copy notes are fixed in ed20b9a. The blocker (B1, the shipped flag) is held for the owner's checkout answer, which the reviewer judged an honest holding state.
 
-Probes were written under `tests/tmp/` (git-ignored) and run with `npx vitest run --config /tmp/osv-review/vitest.config.mjs --root .`.
-Copies are kept in `/tmp/osv-review/*.test.ts`, and `tests/tmp/` has been removed. Note: while this review ran, another agent
-committed 680886c (renderer only: `src/renderer/**`, `tests/e2e/online.spec.ts`, `tests/unit/online-screen.test.ts`) on top
-of e3e58df in this worktree. No file under `server/`, `src/core/` or `src/main/` changed, so every probe below exercises e3e58df's code.
+## Pro tools review, round 3 (feat-pro-tools at 5d86208 vs origin/main, HIGH radius)
 
-## Round 2: licence server on the game port, and the Pro gate (402e54e, re-verified at 0f37e2d)
-Reviewed: `git show 402e54e`, plus the rebase resolution of src/main/preload.ts. Every `ipcRenderer.invoke` channel in
-preload has a matching `ipcMain.handle` in main.ts. The licensing and online blocks both survived the merge, with one
-`exposeInMainWorld`. Probes: `/tmp/osv-review/http-host.test.ts`, run as before under a temporary `tests/tmp/`, since
-deleted.
+Re-reviewed the fix diff `e9f52bc..5d86208` (10 files, +120/−25) and re-checked the whole branch for regressions.
+The worktree is clean at 5d86208.
 
-### Act on (both resolved at 0f37e2d)
-- **L1. server/transport.ts:179-191 + :199-217. The HTTP path has no timeouts, so a slow client holds a socket forever.**
-  When the first chunk is an HTTP request line, the hello timer is cleared and the socket is handed to
-  `httpServer.emit('connection', secure)`. The commit relies on `requestTimeout`/`headersTimeout`, but node:http
-  enforces those from its `connectionsCheckingInterval` sweep, which starts in `listen()`. This server is never
-  listened, so nothing enforces them. `keepAliveTimeout` does work (it is a per-socket timer), so only idle
-  connections between requests are closed.
-  Probe `http-host.test.ts` "slow HTTP clients" (Node 26.11.1), timing each kind of socket:
-  - TLS, then nothing (closed by the game's hello timer): `silent 10.0` s;
-  - `GET / HTTP/1.1\r\n` and nothing more: `request line only STILL OPEN at 150s`;
-  - one header byte every 2 s: `header trickle STILL OPEN at 150s`;
-  - idle after one response: `keep-alive idle 6.0` s.
-
-  Before this commit every socket had to sign in within 10 s. Now a client holds its 8 per-address slots with one
-  write each and no reconnects. About 500 addresses hold all 4,000 sockets indefinitely, and a NAT's own players
-  are shut out by any one of them. This also contradicts the transport header ("Stall: a socket must sign in within
-  HELLO_MS").
-  Fix:
-  - On the HTTP branch, set a hard per-connection deadline (`setTimeout(() => secure.destroy(), 30_000)`, cleared on
-    close), plus an idle timeout (`httpServer.timeout = 10_000`; node:http applies it per socket, without `listen`).
-  - Or keep a manual check for header and request deadlines.
-  - Add a test that holds a request line and expects a close.
-  - **L1, fixed (verified at 0f37e2d).** Each HTTP connection now gets a hard deadline (`httpDeadlineMs`, 20 s) plus
-    `httpServer.timeout = 10_000` for inactivity. Re-run: `silent 10.0 | request line only 10.0 | header trickle 20.0 |
-    keep-alive idle 6.0` (seconds). The request line used to stay open past 150 s, and so did the trickle.
-- **L2. server/transport.ts:204-213. The `/v1/*` rate limit is bypassed by spelling the request target differently.**
-  The limiter tests `req.url.startsWith('/v1/')` on the raw target, but the handler routes on
-  `new URL(request.url, 'http://x').pathname` (src/server/licensing/handler.ts:263). That parse normalises dot
-  segments, and it accepts absolute-form and scheme-relative targets.
-  Probe `http-host.test.ts` "/v1 limit bypass": 30 pipelined POSTs per target on one connection, through a handler
-  that routes exactly as handler.ts does:
-  - `/v1/licence/restore`: reached the handler 20/30 times, with 10 × 429;
-  - `/./v1/licence/restore`, `//h/v1/licence/restore`, `http://h/v1/licence/restore` and `/x/../v1/licence/restore`:
-    each reached it 30/30 times, with 0 × 429.
-
-  The handler's own header says "The host must add rate limiting on /v1/* (restore takes a guessable-looking order
-  id)". `restore` returns the Pro token for a matching order id and email, so this is the spray the limit exists to
-  stop.
-  Fix:
-  - Rate-limit on `new URL(req.url ?? '/', 'http://x').pathname`, the same parse the handler uses. Better, compute
-    it once and pass the normalised path to the handler.
-  - Or refuse any target that is not origin-form, or does not equal its normalised path, with 400.
-  - Consider one bucket for every HTTP request per address, not only `/v1/*`.
-
-  - **L2, fixed (verified at 0f37e2d).** The limits now run on the normalised pathname. A target that does not start
-    with `/`, starts with `//`, or whose pathname differs from its raw path part gets 400. There is also a bucket of
-    120 HTTP requests a minute per address over every path.
-    Re-run, handler hits out of 30 per target:
-    - `/v1/licence/restore`: 20/30, then 429s;
-    - `/./v1/…`, `//h/v1/…`, `http://h/v1/…`, `/x/../v1/…`, `/%2e/v1/…`, `/\v1/…` and `/v1/…#f`: 0/30 each, refused
-      with 400, or 429 once the all-HTTP bucket ran out;
-    - `/v1/…?a=1` reaches the handler only within the same limit.
-### Consider
-- **Resolved at 0f37e2d** (licence faults log `licence.failed` and start the game with licensing off; the store is
-  shape-checked; deploy.sh accepts a quoted `"1"`; checked by reading and by the new licence-host tests):
-  server/licenceStore.ts:35 + server/main.ts:115-121. A bad licences.json took the game down. The constructor
-  `JSON.parse`s with no try and no shape check. A corrupt or half-restored `licences.json` throws in
-  `licenceFromEnv`, main exits 2, and `Restart=on-failure` restarts the process in a loop. So a licence file stops
-  every table. Likewise, any enabled-but-incomplete env exits the whole server. An example: deploy.sh only checks
-  `^OFFSUIT_LICENCE_ENABLED=1`, so `OFFSUIT_LICENCE_ENABLED="1"` skips the placeholder check and the key upload, yet
-  it is enabled at runtime. A shape that parses but is wrong (no `events`) only fails later, inside the write chain.
-  Tradeoff: refusing to run without a working licence server is deliberate (state.json is treated the same way).
-  Starting the game with licensing off and a loud log instead would keep tables up.
-- **Resolved at 0f37e2d** (120 a minute per address over every path): server/transport.ts:199-217. HTTP requests
-  outside `/v1/*` were unmetered. One keep-alive connection can pipeline
-  404s or webhook POSTs (up to 64 KB of HMAC each) as fast as it can write. The frame bucket does not apply.
-  Tradeoff: a per-address bucket over every HTTP request costs one Map lookup.
-- **In part at 0f37e2d** (a resumed ranked seat without Pro is now left, on `welcome` or `room`; the brief seat on a
-  non-Pro join is unchanged and recorded as an open question): src/main/onlineMain.ts:153-162. The Pro gate is client-side, as DECISIONS says (the server cannot check a
-  licence).** Two more ways round it:
-  - A held ranked seat resumes on reconnect with no `canRanked` check, so a licence that lapses mid-session keeps
-    playing ranked.
-  - A non-Pro `room-join` to a ranked code is really seated on the server before main leaves. The seat can start
-    the deal and take part in its handshake, restarting the deal for the others; a click loop repeats this.
-
-  Tradeoff: check `canRanked` on the welcome's `room`, and refuse unknown or ranked codes before joining (needs a
-  server peek), or accept and note it.
-
-### Noted
-- 0f37e2d: when licensing fails, the server runs with every HTTP path returning 404. Stripe webhooks then fail until
-  someone reads `licence.failed` in the journal; Stripe retries for 3 days, then disables the endpoint. This is the
-  chosen tradeoff, and it is logged loudly.
-- 0f37e2d: the 120-a-minute HTTP bucket is per address, so a burst of Stripe webhooks from one Stripe IP above 120 a
-  minute gets 429s and is retried later by Stripe.
-- The daily backup (`/var/lib/offsuit` minus `tls/`) now includes `licences.json`, which holds the live Pro tokens
-  (bearer keys), Stripe subscription ids and email hashes. Teardown downloads it to the Mac. The signing key stays in
-  `/etc/offsuit`, outside the backup.
-- The payments-setup output prints `OFFSUIT_LICENCE_PUBLIC_KEYS='{…}'  # comment` with trailing comments. Copied
-  verbatim into an EnvironmentFile line, the comment may become part of the value (systemd does not strip a trailing
-  `#` mid-line). `licence.env.example`, the documented path, has the safe shape: unquoted JSON, comments on their
-  own lines. This was not executed here (no systemd on macOS).
-- deploy.sh handles a signing-key path with spaces: every use is quoted, and `~` is expanded. A quoted value
-  (`"…"`) is taken literally and fails the `-f` check, with a clear error. The env goes into the tarball as 0600,
-  then 0640 root:offsuit under a 0750 `/etc/offsuit`.
-
-### Dismissed
-- **A game client sending "GET " to dodge the hello timeout or reach the game.** Proof: the HTTP branch never calls
-  `serve()`, so nothing on that socket reaches the lobby. The dodge only holds a socket, which is L1.
-- **Smuggling into the game through pipelining, `Upgrade`, `CONNECT`, or a split first chunk ("GE" + "T /").**
-  Proof: once the socket is handed to node:http it never returns to `serve()`. `CONNECT` and a split request line do
-  not match the sniff regex, so they go to the game path, whose `parseHello` refuses them with a bye.
-- **Secrets in logs.** Proof: the handler logs only `event.type`, `event.id`, the licence id and error messages. The
-  Stripe client's errors are `stripe <path>: <status>`, with the query stripped. `licenceFromEnv` truncates each line
-  to 200 characters. No token, key, email or pepper reaches a log line.
-- **FileLicenceStore races.** Proof: every mutation goes through one promise chain, and every read awaits it. The
-  file is written temp, fsync, rename. One process (one unit).
-- **Ranked without Pro through renderer request shapes.** Proof: `ranked: 1` or `"true"` passes main's
-  `=== true` check, but the server parser requires a boolean (protocol.ts room-create). `rankedAllowed` is false
-  until the authority exists, and the IPC handlers are registered after it.
-
-### Verification (round 2)
-- At 0f37e2d:
-  - The five online test files: exit 0, 102 passed (22 + 53 + 4 + 17 + 6).
-  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
-  - `npm run typecheck`: exit 0.
-  - `http-host.test.ts` re-run with four extra spellings (`/%2e/`, `/\`, `#f`, `?a=1`); outputs are quoted under L1
-    and L2.
-  - Deploy and systemd are still not run.
-- At 402e54e:
-- Online tests (server, core, gate, review-fixes, licence-host): exit 0, 100 passed (22 + 53 + 4 + 17 + 4).
-- relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
-- `npm run typecheck`: exit 0, with the probes removed.
-- Probe `http-host.test.ts` (2 tests, real server over TLS on 127.0.0.1); outputs are quoted above.
-- Not run: the deploy scripts and systemd (no VPS); the real Stripe paths.
-- The worktree's modified `screenshots/` files are not this review's.
-
-# Round 1: the online server (e3e58df → 894080a)
-
-## Act on (all resolved at 894080a; kept with their end states for the record)
-
-- **src/core/relayGuest.ts:138-157 (onResync) + src/main/onlineClient.ts:141. A server can stack the deck against a player by
-  forcing one reconnect.** `open()` builds a fresh `GuestProtocol` on every connection, and a fresh protocol accepts any
-  internally consistent `resync`. The only own-entropy check is `memory.revealed(nonce)`, and `remember` runs only at REVEAL
-  time (:196). So a server that drops the player's socket after the player commits but before it reveals (or one talking to an
-  app that was restarted, which empties the in-memory `revealed` map) can deal the player a hand with no entropy from the player,
-  grind that deal until it likes the outcome, and replay it. The live path rejects `set === null` (:207, "dealt without
-  publishing the entropy commitments"), but onResync accepts `set: null, reveals: []`, a deal the server chose alone. This
-  breaks the guarantee DECISIONS.md "Protocol" gives: "protects players from an operator or a compromised server stacking a
-  deck". An honest server never needs this, because a held player is not a deal recipient (relayServer.ts beginDeal:
-  `recipients: new Set(this.connected)`).
-  Probe `resync-stack.test.ts`: it ground deals until the victim held two cards below 9, then fed the resync and the state to a
-  fresh guest:
-  `tries 5 victim hole 8s 5s resync events [] state events state` (no violation). With `set=null, reveals=[]` the output is
-  `resync: []` (accepted).
-  Fix: remember entropy at COMMIT time (nonce → entropy), and persist it across app restarts or bound it per server. When a
-  resync's nonce has no remembered entropy, accept it as watch-only, like the `live === null` branch at :232-240: no own hole
-  before showdown, never `yourTurn`. Reject `set === null` whenever `reveals` is non-empty or the view deals this guest in.
-  - **A1, fixed (verified at ff5c28a).** Entropy is now remembered at commit (relayGuest.ts:183), `set === null` is a
-    violation, and a resync with no remembered entropy plays on with a visible `warning` (relayGuest.ts:162).
-    Re-run of `resync-stack.test.ts`:
-    - unremembered resync gives `[{"type":"warning","reason":"You rejoined a hand dealt before you reconnected…"}]`;
-    - `set=null` gives `violation … dealt without publishing the entropy commitments`;
-    - `remembered at commit? true`;
-    - committed-but-left-out gives `violation … the host dealt without the entropy you revealed`.
-
-    The remaining limit is in Noted.
-
-- **server/store.ts:266-285 and :291-307, reached from server/lobby.ts:379-386 before the profile check (:388). Export and
-  forget are synchronous full-ledger passes that any signed-in key can trigger.** A key that has never set a name can send
-  `export` 10 times a second (burst 30). Each request runs `readFileSync` + `JSON.parse` on every line of both ledgers on the
-  event loop. Each `forget` also rewrites and fsyncs every ledger, even for a key that has nothing stored, then the client
-  reconnects (30 a minute per address) and repeats. Every table's clock, deal handshake and socket stalls meanwhile.
-  Probe `store-scale.test.ts`: a 95.5 MB ledger (200k decisions) gives `export ms 233` and `forget (unknown key) ms 409`.
-  Probe `export-dos.test.ts`, on the real server: a 53 MB ledger and one unnamed key sending a 30-frame burst of `export` gives
-  `bystander ladder reply after 3656 ms`.
-  At about 1.1M decision lines (about 475 B each) `readFileSync(..., 'utf8')` exceeds V8's string limit and throws. The throw
-  happens in the Rankings constructor too (rankings.ts:103), so startup would crash-loop.
-  Fix: require a player row and add a per-key cooldown for export and forget (for example one per minute). Keep a per-key
-  index or per-key files instead of rescanning. Stream the ledger by line (readline) rather than reading it as one string.
-  Do the forget rewrite off the hot path, or batch it.
-  - **A2, fixed (verified at 1ec6c3d).** At ff5c28a it was fixed only in part, history below.
-    1ec6c3d does one scan at page 0 and caches it per key for 5 minutes. Later pages come only from that cache, in order,
-    each once. Export starts and erasures are limited per key and per network, within a server-wide budget of 4 scans a
-    minute.
-    Re-run of `export-dos.test.ts` (53 MB, a 30-frame burst of pages 5000, 5001, 1, 1, 3, 2, 7000…7023 after page 0):
-    - `bystander ladder reply after 21 ms` (it was 4170 ms);
-    - `5000:refused 5001:refused 1:served 1:refused 3:refused 2:served 7000…7023:refused`.
-
-    Re-run of `forget-sybil.test.ts` (6 fresh keys, one network): `ok,Try that again in a minute.×5 took 763 ms` (it
-    was 4371 ms). The budget brings in a new problem: see A9.
-    History at ff5c28a:
-    - Fixed: export and forget now need a player row; page 0 and forget may each start once a minute per key; ledgers are
-      streamed. Re-run: `unnamed export -> This server holds nothing about this key.` and
-      `second page 0 -> Try that again in a minute.`
-    - **New bypass: page > 0 is not limited at all.** For 5 minutes after any page 0, `continuing` skips the limiter
-      (lobby.ts:402-405). `page` may be anything up to 10,000, and every page is a full scan of both ledgers. One named
-      key does page 0 once, then floods page 5000, 5001, … at the frame rate.
-      Probe `export-dos.test.ts` (53 MB ledger, 30 frames): `page>0 burst: bystander ladder reply after 4170 ms` and
-      `page>0 burst replies ok: 30 of 30`. That is the same 3.7 s stall as before the fix.
-    - **Per-key limits do not bound the work, because keys and names are free.** Each new connection (30 a minute per
-      address) can be a fresh key that sets a name and forgets once. The streamed rewrite is also slower than before:
-      `forget (unknown key) ms 1213` on 95 MB (`store-scale.test.ts`; it was 409 ms).
-      Probe `forget-sybil.test.ts`: `6 fresh-key forgets: ok,… took 4371 ms of event loop (ledger 52 MB)`.
-      At 30 a minute from one address that is about 22 s of blocked loop per minute.
-    - Fix:
-      - Accept only `page < pages`, each page once, in order, after its own page 0 (or cache the page-0 scan per key for
-        the window and serve later pages from it).
-      - Add a server-wide budget on concurrent or per-minute scans, plus a per-address limit for export and forget.
-      - Move the forget rewrite and the export scan off the event loop (a worker, or a queued job that replies when
-        done).
-
-- **src/core/online/protocol.ts:35 + server/store.ts:266 (`limit = 3000`) + src/main/onlineClient.ts:165. A regular player
-  cannot export their data.** One decision row with its `GradeInput` is about 380 B, so 3,000 decisions alone exceed
-  `MAX_SERVER_FRAME` (1 MiB). The client then treats the reply as hostile: "The server sent a message too large to read".
-  It drops the connection and reconnects, and the export promise rejects. The right of access in docs/PRIVACY-ONLINE.md
-  ("Export your server data") fails for anyone with roughly 2,700 or more ranked decisions in the two kept seasons.
-  Probe `export-dos.test.ts` part 1 (3,000 decisions + 1,500 hands for the player):
-  `heavy player export -> rejected: The connection to the server closed. | ... "reconnecting:The server sent a message too large to read."`
-  (`store-scale.test.ts`: `reply chars 1403258 MAX_SERVER_FRAME 1048576 over? true`).
-  Fix: page the export (a cursor request) or bound it by bytes, with a test at the cap.
-  - **A3, fixed (verified at ff5c28a).** The export is paged (`EXPORT_PAGE` 1000) and main joins the pages (onlineMain.ts
-    `exportAll`).
-    Re-run of `export-dos.test.ts`: `heavy: decisionCount 3750 pages 4 largest page chars 467256`.
-    `store-scale.test.ts`: `pages 4 reply chars 523294 … over? false`.
-
-- **server/rankings.ts:95-96, :104, :109-118. A restart across a month boundary loses the finished season.** The constructor
-  sets `this.season = seasonOf(now())` directly. The previous season's results are saved only by `rollover()`, which runs
-  lazily on a request or a grade in a process that was already running when the month turned. If the server restarts before
-  any such call (a deploy, the 04:30 unattended-upgrade reboot, a crash), those results are never saved. Next month `prune()`
-  then deletes that season's ledger. That breaks the store's documented invariant "Their results must already be saved"
-  (store.ts:240) and the privacy doc's "keeping only each player's final figure for each finished season".
-  Probe `rollover.test.ts` (250 rated decisions in 2026-09, restart at 2026-10-01 00:30):
-  `after restart in Oct: results(2026-09) = undefined | seasonView.last = null`. Then:
-  `Nov: ledger files =  | results keys = 2026-10 | Sept result for k = undefined`.
-  Fix: at startup, for every ledger season older than the current one with no `results` row, compute the results from its
-  ledger and save them before `prune` runs. Add the restart-across-boundary test.
-  - **A4, fixed (verified at ff5c28a).** `openSeason` closes every earlier season that has no results, from its own ledger,
-    before `prune` runs.
-    Re-run of `rollover.test.ts`:
-    - `after restart in Oct: results(2026-09) = {"AAAA…":{"decisions":250,…,"rated":true}} | seasonView.last = {…250…}`;
-    - `Nov: ledger files =  | results keys = 2026-09,2026-10 | Sept result for k = {"decisions":250,…}`.
-
-- **server/lobby.ts:136-141 + server/rankings.ts:172, :188. `forget` does not erase "every ledger line naming the key".**
-  The opponents list is read from `dealtTo` at each decision. When a player forgets mid-hand, the others' later decisions in
-  that hand are graded after the rewrite and store the forgotten key in `opp`. `ingest` also puts the key back into the
-  in-memory `pairs`. `grade()` checks only `job.key`.
-  Probe `ranked-cheats.test.ts` #2 (3-handed ranked, Di forgets on the first live state):
-  `ledger lines naming the forgotten key after forget: 7 {"k":"8WWP…","opp":[…]}` and `in-memory pairs still naming it: true`.
-  This contradicts DECISIONS.md "Identity" and docs/PRIVACY-ONLINE.md "every ranked record naming you".
-  Fix: in `grade()`, filter `job.opponents` to known keys, and do the same in `submit` or `ingest`. Add a mid-hand forget test.
-  - **A5, fixed (verified at ff5c28a).** Opponents erased before grading are filtered out (rankings.ts `grade`).
-    Re-run of `ranked-cheats.test.ts` #2: `ledger lines naming the forgotten key after forget: 0` and
-    `in-memory pairs still naming it: false`.
-
-- **src/core/online/ranked.ts (score) + src/core/coach.ts:65-130. A ~15-line bot that applies the shipped grader's thresholds
-  takes first place on the ladder.** The grader charges nothing for: calling or raising when equity ≥ the pot-odds price,
-  folding when equity ≤ the price, betting or shoving any size with equity ≥ 0.35 when no bet is faced, and checking otherwise
-  (except a late-street check above 0.55). Bet size is never graded. The client has every input:
-  - its hole, the board, the pot and the price, from the view;
-  - `VILLAIN_BETTING_RANGE` and the equity code, shipped in the app;
-  - the exact Monte Carlo seed, which `decisionSeed(nonce, index)` (ranked.ts:82) derives from the commit nonce the client
-    receives.
-  So an automated client scores exactly 0 bb/100, with low = high = 0. The ladder sorts on `high` (ranked.ts:219), so that
-  bot is first. MIN_OPPONENTS and PAIR_CAP do not stop it, because keys are free: three throwaway keys cover MIN_OPPONENTS, and
-  the shared-network signal is per exact IP, flag-only.
-  Probe `ranked-cheats.test.ts` #1 (25 hands each, real server; the bot uses its own seed rather than the server's, so
-  borderline spots add noise):
-  `BOT decisions 58 nonzero 0 bb/100 0.00`, `BOT decisions 54 nonzero 1 bb/100 5.26`, against
-  `HUMAN decisions 96 nonzero 22 bb/100 4.73` (check/call players).
-  The DECISIONS "Ranked" section says no client value enters the score, but it never considers a client that simply plays the
-  grader. A public ladder that measures "agreement with an open grader" is won by automation or real-time assistance. The
-  app's own solo coach already shows these verdicts.
-  Fix, owner decision required: at minimum, record this limitation in DECISIONS.md and the ladder copy. Stop exposing the exact
-  seed (derive it from a server-secret salt). Consider showing the season ladder only within leagues, or grading against a
-  stronger, hidden evaluation.
-  - **A6, now Noted (recorded at 1ec6c3d).** The seed is an HMAC under `gradeSecret` (ff5c28a). DECISIONS.md "Ranked"
-    now states "Known limit, the owner's call: a scripted player can sit near 0 bb/100", with the default taken (no
-    prizes, invite-only) and what a public ladder would need. The ff5c28a re-run of the bot is unchanged:
-    `BOT … 0.00` twice, against `HUMAN … 4.28 / 3.46`. That result is what is recorded; there is no code defect left.
-
-- **server/transport.ts:129-130, :139-140, :218-219 + server/lobby.ts:95-107. Raw IP addresses stay in memory forever, which
-  contradicts docs/PRIVACY-ONLINE.md** ("Held in memory only while connected") **and grows the heap without bound.** Every
-  connecting address gets an `attempts` Bucket and every failed sign-in an `authFailures` row. Neither is ever deleted, so a
-  visitor's IP stays in process memory until the next restart. The lobby's `failedJoins` and `created` Windows keep one entry
-  per key and per netTag, and an entry is cleaned only if that same id is counted again. Keys are free, so every Sybil key
-  leaves an entry. Under the 400 MB `MemoryMax`, growth ends in an OOM restart that drops every table.
-  Fix: sweep these maps on the existing ticker. Drop a bucket once it is full again, an authFailures row once `until` has
-  passed, and Window ids with no hits inside the window. Correct the doc if any of this is kept.
-  - **A7, fixed (verified at ff5c28a; checked by code reading and the red-to-green test, with no new probe).**
-    `sweepAddresses` runs once a second: it drops an `attempts` bucket once no socket from that address is open and the
-    bucket is full again, and an `authFailures` row once `until` has passed. `Lobby.sweep` clears the Windows and
-    `exporting`. Strikes decay by 10 a minute. The privacy doc now says "dropped within a few minutes".
-    online-review-fixes.test.ts "7. addresses are not kept…" passes.
-
-- **src/main/onlineIdentity.ts:53-55. Any load failure silently overwrites the irreplaceable identity.** `loadIdentity` returns
-  null for a missing file, and also for an unreadable, truncated or hand-edited one, or for the EXPORT format the app itself
-  produces (`{what, identity: {...}, server, name, adultOn}`, onlineMain.ts:180-195). `loadOrCreateIdentity` then writes a new
-  key over it. A player who "restores" their exported identity by copying it into place, which is the only restore path the doc
-  implies ("Export it to keep it"), loses the account at their next Go online. The doc admits "There is no account recovery".
-  Probe `identity.test.ts`: `restored export -> same key? false | file now holds original? false` and
-  `truncated file -> same key? false`.
-  Fix: create a key only on ENOENT. Otherwise refuse with the reason and leave the file alone. Accept the export wrapper, or
-  ship an import.
-  - **A8, fixed (verified at ff5c28a).** A key is created only when the file is missing. An unreadable file throws
-    `IDENTITY_UNREADABLE`, which `connect` surfaces. The export wrapper loads back.
-    Re-run of `identity.test.ts`: `restored export -> same key? true` (the file still holds the wrapper and is not
-    rewritten). The truncated file now throws "could not be read, so Offsuit did not replace it" instead of being
-    replaced.
-
-- **A9, fixed (verified at 894080a).** Forget no longer touches the scan budget or any limit. It needs a player row, then
-  at once removes the row, leagues, results, rankings tallies and any cached export, and queues the key in `erasing`
-  (persisted). `Lobby.sweep` runs one streamed `eraseLedgers` pass for all pending keys at most every `erasePassMs` (60 s).
-  `Store.open` finishes a pending pass before anything reads a ledger. Later export pages require the player row.
-  Re-runs:
-  - `budget-lockout.test.ts`, the same two-network attack: `min0: export ok | forget ok`, and the same at `min1` and
-    `min2`. Export denial now needs 4 networks; it can be retried and is recorded in DECISIONS "Limits".
-  - `forget-sybil.test.ts`: `6 fresh-key forgets: ok,ok,ok,ok,ok,ok took 37 ms of event loop`. The ledger work moves
-    into one pass a minute, about 0.7-1.2 s on a 52-95 MB ledger.
-  - `ranked-cheats.test.ts` #2 (mid-hand forget, after the pass): `ledger lines naming the forgotten key after forget: 0`
-    and `in-memory pairs still naming it: false`.
-
-  Original finding at 1ec6c3d:
-  server/lobby.ts:415-421, the shared scan budget: anyone with two networks can deny every
-  player's export and erasure, indefinitely.** `scansPerMinute: 4` is one counter for the whole server, and keys and names
-  are free. Per network, a fresh key can start one export and another fresh key one forget each minute. Two networks
-  therefore spend all 4 scans every minute, and every other player gets "The server is busy. Try that again in a minute."
-  for both rights. Erasure is the serious half: "Delete your server data" (docs/PRIVACY-ONLINE.md) can be held off as long
-  as the attacker keeps it up, and the data stays stored meanwhile.
-  Probe `budget-lockout.test.ts` (Lobby driven directly with two attacker netTags, fresh named keys, one victim on a third
-  network, over 3 consecutive minutes):
-  `min0: export The server is busy… | forget The server is busy…`, the same at `min1` and at `min2`.
-  Fix: never refuse an erasure because of other people's traffic. Apply its cheap part at once (delete the player row,
-  `rankings.forget`, record the key as erased, drop any cached export). Queue the ledger rewrites and run them in batches,
-  several keys per scan, within the budget. Give exports their own budget, shared fairly per network (for example, one
-  network may not take more than 1 of the 4).
-
-## Consider
-- **server/store.ts `Store.open` (pending pass) + server/admin.ts:1-3 (new at 894080a). The "read-only" admin commands
-  can now lose live ledger lines.** Every `Store.open` runs `eraseLedgers()` when `erasing` is non-empty. The admin
-  header says `stats`, `signals`, `regrade` and `export` may run while the server is up. If one runs within about a minute
-  of a player's forget, the admin process rewrites and renames the ledgers while the server is appending. Any line the
-  server appends between the admin's scan and its rename goes to the replaced file and is lost. The server's in-memory
-  tallies still count it, until the next restart. The admin also writes its own `state.json` snapshot.
-  Tradeoff: one flag. `Store.open(dir, { finishErasures: true })` from the server only, and read-only opens from admin;
-  `admin forget` already says to stop the service.
-  Fixed at 0f8e41a: `Store.open(dir, { readOnly })`; admin opens read-only for every command but `forget`
-  (test "review notes at 894080a").
-
-- **server/rankings.ts:149-167. The grading queue has no bound** (at ff5c28a this is in part addressed: new ranked tables are refused while more than 1,000 grades are queued, but rooms already open keep adding to it). One grade costs 5-13 ms here (`grade-cost.test.ts`: preflop
-  5-way 7.99 ms, turn heads-up 5.09 ms, flop 5-way check 12.59 ms), so one core manages roughly 100-200 grades a second. A
-  6-max ranked room of instant-acting bots produces about 6 decisions a second, so roughly 25-30 such rooms saturate the
-  grader. Every queued job holds a full `TableState`. Tradeoff: a per-room or per-key decision-rate cap, or a queue bound
-  that sheds and logs, costs a little code; without one, ranked capacity is set by whoever brings bots.
-- **Resolved at ff5c28a (strikes decay by 10 a minute):** server/transport.ts:192-198, :281-283. Strikes never decay, and over-rate frames are dropped silently.** A long-lived
-  honest connection that mashes the emote button (or sends a few bursts over an evening) collects 20 strikes and gets `bye`.
-  The client treats any non-"restarting" bye as final (onlineClient.ts:181), so the player is offline and loses the held seat
-  after 60 s. A dropped request frame also leaves its promise waiting 15 s. Tradeoff: decay strikes over time, or answer an
-  over-rate request with an error reply.
-- **server/transport.ts:146, server/lobby.ts:356-366. Per-address auth blocks and per-network failed-join limits let one
-  person lock out a shared NAT** (a dorm, CGNAT, a household of friends) for 10 minutes with 10 bad signatures or 10 bad codes.
-  Tradeoff: key the auth block on the key as well as the address, or raise the address threshold.
-- **server/lobby.ts:149-150 (netTag = full address). The shared-network signal is evaded by any second network** (mobile
-  hotspot, VPN). It is also asymmetric: `shareOfA` (rankings.ts:283) is computed only for the key that sorts first, and the
-  multiway `flow` (:271-275) counts one loss against several winners. Tradeoff: these are operator hints, so document how
-  weak they are, or compute both shares.
-- **Resolved at ff5c28a (hand rows no longer carry `shared`):** server/store.ts:283. The export leaked other players' shared-network signal. `shared: h.shared.length` counts pairs that
-  do not include the requester, so a player learns that two other people at their hand were on one network. This contradicts
-  "never shown to other players". Tradeoff: count only pairs that include the requester, or omit the field.
-- **server/rankings.ts:212-221, server/store.ts:183-187. `ladder` and `leagues` are O(players) and O(leagues × members) on
-  every request**, at 10 requests a second per connection, and keys and leagues are free to make. Tradeoff: cache the sorted
-  board per graded batch, and index leagues by member.
-- **src/core/online/ranked.ts:123-147. The fingerprint corpus has 9 spots.** A grader change outside those branches (multiway
-  equity, villain range content, rounding) passes the pin, and two graders mix in one season. `regrade` would catch it only
-  if someone ran it. Tradeoff: a larger corpus (all street × price × opponents buckets), or fingerprint `VILLAIN_BETTING_RANGE`
-  and `DISPLAY_ITERATIONS` too.
-- **server/store.ts:265-285. The export omits ledger lines that name the player as an opponent**, although forget strips
-  them. "Everything the server holds about your key" is not quite literal. Tradeoff: include the count, or the lines with
-  prefixes.
-
-## Noted
-- 894080a: a key that forgets and then sets a name again before the next pass loses its new ledger lines. The pass
-  deletes every line whose `k` is in `erasing`, whenever it was written. Probe `erase-window.test.ts`:
-  `before pass: old0…old4,new0,new1,new2 | after pass: (none) | player row exists: true`. In-memory tallies would keep
-  any graded ones until a restart. This only happens when the player re-registers within about a minute; a fix is to
-  refuse `profile` for a key while it is in `erasing`, or to record the erase time and keep later lines.
-  Fixed at 0f8e41a: `profile` is refused while the key is in `erasing` (same test).
-- 894080a: until the pass, another player's export can still show the erased key's 10-character prefix in shared hands
-  (up to about 60 s). This is within the privacy doc's "within about a minute".
-- Resolved at 894080a (forget drops the cached export; later pages need the row): 1ec6c3d: the export cache outlived an erasure. `forget` (lobby.ts:433-438) does not delete `exporting.get(key)`, and the
-  page > 0 path checks no player row. A key that exports and then forgets can, after reconnecting, fetch the remaining
-  pages of its erased data for up to 5 minutes. This is the requester's own data, held in memory only; the A9 fix
-  (dropping the cached export on forget) closes it.
-- 1ec6c3d: the per-network limit also means two people on one home network cannot both export, or both erase, within
-  the same minute.
-- New at ff5c28a: a resync with nothing remembered still lets the player play that hand (warned, not refused). A
-  malicious server can reach this state by never sending the player the commit, or by evicting the guest's 16-entry
-  memory with repeated commits, so a ground deal is visible but not prevented. The honest server sends the same warning
-  when a player held during a deal resumes into a hand they were not dealt, which may confuse them. This is the design
-  accepted in DECISIONS.md ("plays on with a warning").
-- New at ff5c28a: `exportAll` (onlineMain.ts) makes `pages` sequential requests, and each one scans the full ledger
-  server-side. This is bounded by the player's own pages, but it feeds the A2 cost.
-- Action frames carry no turn id. A late click that lands after the clock auto-acted is applied to the player's next spot if
-  they are first to act on the next street, and graded as their own decision.
-- A hold that expires during the player's own turn folds through `foldAbsent` even when checking was free, and is graded as a
-  fold-for-free penalty. Before expiry, `autoAct` would have checked.
-- A server that welcomes and then closes keeps the client reconnecting every 250 ms forever (attempt resets on welcome).
-- Base64url keys of 43 characters are not canonical: one Ed25519 key can register up to 4 key strings. Harmless while keys
-  are free.
-- `admin.js signals` constructs `Rankings`, which runs `openSeason` and `prune`, so a command described as read-only can delete
-  ledgers.
-- `OnlineController.exportIdentity` returns the private key PEM to the renderer, which contradicts the onlineIdentity.ts
-  header ("The renderer never sees the private key"). This is intended for the export button, but the header should say so.
-- Decisions from a hand that straddles the month are graded into the new season.
-- Forget-and-recreate resets a bad season, which is equivalent to a fresh key. With optional stopping, a player can "reroll" a
-  thin sample. Inherent to the design.
-
-## Dismissed
-- **A middleman that terminates TLS on each side relays the sign-in.** Proof: `mitm.test.ts` relayed every byte between a
-  client pinned to the middleman and the real server, and got `refused: Sign-in failed.` with the server replying `bye
-  "Sign-in failed."`. The EKM binding holds.
-- **Frames before auth, or acting for another seat, while held, after leaving, or in another room.** Proof: transport.ts:200-253
-  accepts only hello and then auth before `ready`. lobby.ts:334-341 routes by the connection's own key, and only for the live
-  conn of the room it is seated in. relayServer.ts `message('action')` refuses a non-connected (held) player. `apply` refuses
-  during a pending deal, and `applyPlayerAction` checks the turn and legality. Amounts are bounded in protocol.ts:198.
-- **Hole cards in resync, resume, rebuy or newcomer seats, kick, export, boards or logs.** Proof: the resync carries only
-  hashes and entropy (the commit `leaves` are salted, dealCommit.ts:202). Views go through `viewFor`, whose hole visibility is
-  gated on `dealtTo` (multiplayer.ts:398). The export filters to `d.k === key`, and hand rows hold stacks only. Logs take no
-  card field. online-server.test's wire test covers 3-handed play to hand 3.
-- **The turn clock is not reset when the same player acts on consecutive streets.** Proof: `turn().key` is
-  `${handNumber}:${actionCount}`, and every recorded action bumps `actionCount` (relayServer.ts `record`).
-- **The LAN path regressed.** Proof: `held` is empty, `rebuyBusted` is false and `onDecision` is undefined on LAN.
-  relay*/multiplayer/mp-deal-secrecy suites pass (82/82).
-
-## Verification
-- At 894080a:
-  - The four online test files: exit 0, 94 passed (22 + 53 + 3 + 16).
-  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
-  - `npm run typecheck`: exit 0, with the probes removed.
-  - Probes re-run: budget-lockout, forget-sybil, and ranked-cheats #2 (the bot test skipped; it is unchanged and
-    recorded). New probe: erase-window. Copies are in /tmp/osv-review; `tests/tmp/` has been deleted.
-  - Checked by reading:
-    - a crash mid-pass is safe: each rewrite is temp-then-rename, and `erasing` is cleared only after every file, so
-      the pass repeats idempotently at startup;
-    - queued grades of an erased key are still skipped (`store.player` check), and its opponents are filtered;
-    - `recordHand` drops unknown keys;
-    - rollover during a pending pass closes the season from in-memory tallies that already exclude the key;
-    - forget closes the socket (transport `bye`), so the free per-forget `writeNow` is bounded by the connection rate.
-- At 1ec6c3d:
-  - The four online test files: exit 0, 92 passed (22 + 53 + 3 + 14).
-  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
-  - `npm run typecheck`: exit 0, run after the probes were removed. A probe file under `tests/tmp/` is picked up by
-    tsconfig's `tests` include while it exists.
-  - Probes re-run: export-dos (the page>0 burst, rewritten for in-order paging), forget-sybil, and the new
-    budget-lockout. Copies are in /tmp/osv-review; `tests/tmp/` has been deleted.
-- At ff5c28a:
-  - `npx vitest run tests/unit/online-server.test.ts tests/unit/online-core.test.ts tests/unit/online-gate.test.ts tests/unit/online-review-fixes.test.ts`
-    exit 0, 90 passed (22 + 53 + 3 + 12; online-core lost the removed `decisionSeed` test).
-  - relay*/multiplayer/mp-deal-secrecy: exit 0, 82 passed.
-  - `npm run typecheck`: exit 0.
-  - Probes re-run from /tmp/osv-review, adapted to the paged API, under a temporary `tests/tmp/` that has since been
-    deleted: resync-stack, store-scale, export-dos (adds the page>0 burst), rollover, ranked-cheats (2 tests),
-    identity, mitm (still `refused: Sign-in failed.`).
-  - New probe forget-sybil (fresh keys each forget once). Outputs are quoted in each item.
-- At e3e58df (original review):
-- `npx vitest run tests/unit/online-server.test.ts tests/unit/online-core.test.ts tests/unit/online-gate.test.ts`: exit 0,
-  79 passed (22 + 54 + 3).
-- `npx vitest run tests/unit/relay* tests/unit/multiplayer.test.ts tests/unit/mp-deal-secrecy.test.ts`: exit 0, 6 files,
-  82 passed.
 - `npm run typecheck`: exit 0.
-- Probes, all against the real code (`/tmp/osv-review/`): resync-stack, store-scale, export-dos (real server over TLS),
-  rollover, ranked-cheats (real server, 2 tests), identity, mitm (real server), grade-cost. Outputs are quoted above.
-- Untested by the suite: export size at the cap; restart across a month; forget mid-hand with others still acting; resync
-  for a deal the guest committed to but did not reveal; any load or flood against export, forget or ladder; identity file
-  corruption or restore. A run of `npm run test:full` was not done: this is review only.
+- `npx vitest run tests/unit/pro-*.test.ts tests/unit/profileSchema.test.ts`: 8 files, 141 tests passed.
+- No e2e and no repo edits.
+
+VERDICT: PASS WITH NOTES
+
+N1 through N5 hold. No round-1 or round-2 fix regressed. The notes below are copy and edge cases, plus the standing
+caveat that no screen is verified while `available` is held false.
+
+## Round-2 findings: status
+
+| # | Status | Evidence |
+|---|---|---|
+| N1, forced player ahead of a live caller | **Fixed** | `shapeOf` throws when any non-last caller is forced (`pushFold.ts:96`) |
+| N2, all-in hero gave "failed", not "invalid" | **Fixed** | `parseShoveRequest` now runs `shapeOf` and returns `null`, so main answers `{invalid:true}` before any worker job |
+| N3, stuck store was a UI dead end | **Fixed** | The report carries `status`. A status other than `ok` shows `pro-store-status` copy and keeps Delete visible with zero hands (unit-tested) |
+| N4, newer build's lines dropped | **Fixed (by contract)** | `meta.json` now carries `storeVersion: 1`; `storeVersion > 1` gives status `newer`, writes are refused, and the file and meta are untouched |
+| N5, DECISIONS.md said both "enumeration" and "subset DP" | **Fixed** | One ICM line ("exact, by a DP over who has already placed"); the duplicate is removed |
+
+## Repro reruns (/tmp/prorev/r3.ts, pf2c.ts, store2.ts, n4.ts, icmrand.ts)
+
+**N1 and N2: each spot now gives the expected answer.**
+- [10, 0.5, 10], BTN shoves into an all-in SB: refused (`null`). This was round 2's repro.
+- "Three left" with the SB at 0.5 and ante 1/8 ([15,0.5,20]): refused.
+- "Bubble" with the SB seat at 0.5 ([27,13,0.5,14]): refused.
+- Hero SB with 0.3: refused. Hero all in from a 0.5 ante: refused.
+- An SB whose post covers a 0.4 hero, with the BB behind: refused (correct: the SB is forced and not last).
+- Still accepted, and still right:
+  - [10,10,0.8] (BB forced and last): top 10% gives push 29.3%, 72o −0.589 bb; equilibrium push 24.1%. Unchanged
+    from round 2.
+  - Heads-up with the BB at 0.8.
+  - A 0.9 hero against the BB's covering post.
+  - The three presets are unchanged.
+- The BB first in is still refused.
+- Heads-up 10 bb Nash is still SB 58.4% / BB 37.3%.
+
+**`settle()` against my independent side-pot model.** All ten spots that are still accepted match:
+max |gain diff| ≤ 1.8e-15, no shove/fold flips. The two spots this round now refuses ([10,0.3,10] and [10,0.5,10])
+throw, as designed.
+
+**ICM DP.** 300 random spots: max |mine − code| = 6.9e-16. The fixed cases and bubble factors are unchanged from
+round 2.
+
+**M1 store.**
+- 10 hands of 27 KB come back as `tooLarge: 10`.
+- 9,000 hands of 14 KB give `added: 7303, overCap: 1697`. The file is 104,856,474 bytes, at or under the cap, and
+  reloads with status `ok`.
+- A file padded over the cap by hand gives `too-large` and refuses writes. The file is untouched.
+
+**m5 junk file.** 1,000 skip records kept, 8,738,133 skips counted by reason, heap grew by 82 MB.
+
+**N4.**
+- A store with `storeVersion: 2` in meta plus a line this build cannot parse gives status `newer`.
+- `add` returns `refused`. `hands.ndjson` is byte-identical afterwards and meta still says 2.
+
+## Notes (none blocking)
+
+1. **minor: the "newer" copy says Offsuit "only reads" the hands, but it reads none.**
+   - `proHands.ts` paint, with `hhStore.ts read()`. For status `newer`, `read()` empties `hands`, so the report
+     has 0 hands. The screen then shows both the "No hands imported yet" empty state and "this one only reads them
+     and will not add to them".
+   - The same happens for `too-large` and `unreadable`: the empty state is visible next to a notice saying the
+     hands exist.
+   - Fix:
+     - Hide `pro-empty` when `stuck`.
+     - Either reword "newer" to say the hands are kept as they are and not shown, or read the lines this build can
+       still validate for display only (writes stay refused).
+2. **nit: the import refusal notice is generic.**
+   - A `newer` store answers `refused: 'store-unreadable'`, so the import notice says the file "could not be read
+     whole", while the status line correctly says "saved by a newer Offsuit".
+   - Fix: carry the status in `refused` (`'newer'`).
+3. **nit: N4 holds only while `meta.json` exists, and only if a future build bumps the version.**
+   - A store with no `meta.json` reads as version 1 (verified: deleting meta gives status `ok`). Without meta, a
+     newer build's store would be rewritten by this one.
+   - With version 1 in meta, lines this build cannot parse are still dropped on the next add (verified). That is
+     right by the contract, but only if every future change to the line format bumps `STORE_VERSION`.
+   - Fix: add one sentence to the DECISIONS.md store line ("change the line format, bump `STORE_VERSION`").
+     Optionally, treat an `.ndjson` with no meta as read-only until the user imports or deletes.
+4. **nit: the "invalid" copy now names one cause for every refusal.**
+   - "you, or a player ahead of another, are already all in from the blinds" is now the message for every
+     `invalid`, including out-of-range stacks or payouts sent by something other than this screen.
+   - The screen's own inputs can only produce the all-in case, so this is fine in practice.
+
+## B1 holding state (unchanged, still honest)
+- `available` is false for both tools.
+- A licence holder sees "Coming in an update" (pinned by a spec).
+- The licensed specs skip on a reason derived from `FEATURE_INFO`.
+- Main serves only licensed calls.
+
+The standing caveat: no screen-level behaviour is verified on this branch. That covers no-scroll at 900x640 and
+1100x760, the import flow and the profile staying byte-identical, the ICM screen, and the new `pro-store-status`
+layout in the side column at 640 px height. Run the licensed specs with the local flip at both sizes before the
+flag ships, and before calling the screens done.
+
+## Pro tools review, round 2 (feat-pro-tools at e9f52bc vs origin/main, HIGH radius)
+
+Re-reviewed the whole branch (`origin/main...e9f52bc`) plus the fix diff `e61b848..e9f52bc` (19 files, +580/−161).
+The worktree is clean at e9f52bc.
+
+- `npm run typecheck`: exit 0.
+- `npx vitest run tests/unit/pro-*.test.ts tests/unit/profileSchema.test.ts`: 8 files, 137 tests passed.
+- No e2e and no repo edits.
+
+VERDICT: FAIL
+
+One new major finding: N1, which the M2 fix introduced. Everything else from round 1 is fixed or acceptably
+justified. If N1 is fixed (or refused honestly, see below), I expect PASS WITH NOTES.
+
+## Round-1 findings: status
+
+| # | Round 1 | Status | Evidence |
+|---|---|---|---|
+| B1 | `available: false`, so the licensed e2e cannot pass | **Justified (holding state)**, see below | Blurb reworded; DECISIONS.md committed; specs gated on `SHIPPED` |
+| M1 | Store over cap read as empty, then overwritten | **Fixed** | Repro below |
+| M2 | Player all in from the blinds treated as able to fold | **Fixed for a forced player BEHIND live callers; it moved the bug for a forced player IN FRONT of one** | See N1 |
+| M3 | Tournament and short-stack hands held to 100bb cash charts | **Fixed** | `leaks.ts`: `chartable` needs cash, no ante, hero ≥ 60bb; spots also need a deep opener or 3-bettor; the method line counts excluded hands |
+| m1 | Fold-to-3-bet confounds | **Fixed / justified** | Squeezes and all-in 3-bets skipped; all-in opens skipped for BB defence; the explain sentence states the opening-range assumption |
+| m2 | Side pots under 1 bb | **Fixed** | `settle()` matches my independent model exactly (below) |
+| m3 | Worker race, no timeout or cancel | **Fixed** | Pending jobs per worker; `retire(w)` nulls `worker` only if it is still `w`; a 60 s timeout ends the worker; solves coalesced; validated in main first |
+| m4 | Stale byte budget, synchronous reads | **Fixed** | `readPicked` is async, the budget is the remainder, and `bytes` is what was really read |
+| m5 | Skip-object amplification | **Fixed** | Repro below |
+| m6 | Clear during an import | **Fixed** | `clear` returns `busy` while `importing` |
+| m7 | Unhandled rejections | **Fixed** | Import and clear both `.catch` and show a notice |
+| m8 | Doctored lines, `meta.json` | **Fixed** | `cleanHand` keeps known keys only; `meta()` checks `lstat`, regular file and ≤ 4 KB; store lines over 16 KB skipped before `JSON.parse` |
+| m9 | Picker on Windows and Linux | **Fixed** | Not macOS: `openFile` only |
+| n1 | CSS literals | **Fixed** (mostly) | rgba replaced by `--ink-2`; radii use `--r-xs`; `--h-lg` for heights. A few px remain (18/8/10/14 px marks, `3px` swatch radius): nit |
+| n2 | Practise button | **Justified** | Relabelled "Open the charts", which matches what it does |
+
+## Reruns
+
+### M1: the store with long hands (/tmp/prorev/store2.ts)
+- **Oversized hands:** ten 27 KB hands (385 actions) give `{added: 0, tooLarge: 10}` (`MAX_HAND_BYTES` = 16 KB).
+- **Byte cap:** 9,000 hands of 14 KB give `{added: 7303, overCap: 1697}`. The file is 104,856,474 bytes, under
+  `MAX_STORE_BYTES` (104,857,600). A fresh store reads 7,303 hands with status `ok`. Took 233 ms.
+- **Over-cap file:** padded past the cap by hand, the store opens with `count 0, status too-large`.
+  - `add` returns `refused: 'store-unreadable'`.
+  - The file is byte-for-byte untouched.
+- Data loss: fixed.
+
+### M2: [10, 10, 0.8], BTN shoves, BB all in for 0.8 (/tmp/prorev/pf4.ts)
+- Top 10% callers: push 29.3%, 72o gain −0.589 bb. The BB is forced to 100%. That matches my round-1 forced-in
+  answer exactly.
+- Equilibrium: push 24.1%, SB calls 14%, BB 100%.
+- Fixed for this spot.
+
+### m5: 25 MB junk file of `"x\n\n"`
+- 744 ms; 1,000 skip records kept; `skipCounts {"unknown-site": 8738133}`.
+- Heap grew by 82 MB, down from 600 MB.
+- Fixed.
+
+### `settle()` side pots, against my independent layered-pot model (/tmp/prorev/pf2b.ts)
+- My model: ante dead, blinds capped by stack, a folder's money above an all-in's match returned to whoever covers
+  it. It shares no code with `settle()`.
+- Compared per-class hero gain, with forced callers given a full range in both models. Max |diff| ≤ 4e-15 and no
+  push flips on every spot:
+  - [12,8,20,15] with ante 0.125, chips and ICM, heroes on three seats;
+  - [5,30,10,7,9,12] ICM with ante 0.1;
+  - [10,10,0.8] chips and ICM;
+  - [10,0.3,10] (round 1 differed by 0.0565 bb here; now exact);
+  - [10,0.5,10] with ante 0.125;
+  - [10,6,0.7,12] ICM;
+  - [0.9,10,10].
+- A hero all in from the posts (`[10,10,10,0.1]`, ante 0.5) now throws `hero is already all in`.
+
+## New findings
+
+### N1. major: a forced (all-in) player in front of a live caller ends the action, so everyone behind it is ignored
+- `src/core/pro/pushFold.ts:89-91` (`forced`), `:298-299` (forced range set to all ones), `shoveGains`
+  `:205-219`.
+- `reach *= 1 − pCall`. A forced caller's range is all ones, so its `pCall` is exactly 1 and `reach` becomes 0 for
+  every later seat. The one-caller model then says "the forced player called, so everyone after folds". But a
+  player all in from the small blind has made no decision. The big blind behind it still chooses to call or fold
+  hero's shove.
+- Repro: stacks [10, 0.5, 10], BTN shoves, SB all in for 0.5, BB 10 deep.
+  - BB calling top 5% and BB calling 100% give the identical answer: push 100%, 72o gain +0.519 bb.
+  - In equilibrium the screen shows the BB "calling 69.5%", a range that has no effect on anything.
+  - In reality a 72o shove into a 10 bb BB that can call is far from +0.5 bb. The more the BB calls, the worse it
+    gets (three-way, with 10 bb at risk against the BB).
+- Reachable from the UI. Stack inputs go down to 0.5. Set the SB to 0.5 in the "Three left" preset (ante 1/8: the
+  ante plus 0.375 puts it all in), or the SB seat in "Bubble".
+- Round 1's M2 was a forced player BEHIND the live callers, and that is now right. This is the same root cause in
+  the other seat order, introduced by the fix.
+- The header (`pushFold.ts:20-21`) and DECISIONS.md describe only the "earlier caller calls, forced money dead"
+  case, so the docs do not admit this one.
+- Fix: there is no three-way equity, so the honest options are:
+  - (a) refuse the spot as `invalid` with a message ("a player all in from the blinds with someone left to act
+    behind it is a three-way pot this model doesn't price"); or
+  - (b) model a forced player as always in the showdown without consuming `reach`, which needs three-way equity
+    the table does not have.
+- Do (a) in `parseShoveRequest` (so the screen shows "That spot cannot happen…"-style copy, reworded) and in
+  `shapeOf`. Pin it with a test: SB forced with a live BB behind gives `invalid`.
+
+### N2. minor: a hero all in from the posts comes back as "Could not work this spot out", not `invalid`
+- `analysis.ts` `parseShoveRequest` still accepts `{stacks:[10,0.3,10], hero:1}` (verified). The refusal is a
+  throw in `shapeOf`, inside the worker. The worker posts `ok:false`, `shove()` maps that to `{failed:true}`, and
+  the screen shows the generic failure.
+- DECISIONS.md says such a hero "is refused".
+- Fix: apply the same posted-stack check in `parseShoveRequest` and return `null`, so the reply is
+  `{invalid:true}`. Put N1's refusal in the same place.
+
+### N3. minor: an over-cap or unreadable store is a dead end in the UI
+- The `too-large` state is protected on disk. But:
+  - the worker's report sees 0 hands, so the screen says "No hands imported yet";
+  - the Delete button is hidden whenever there are no hands (`proHands.ts` paint: `clear.hidden = !has`);
+  - the refusal notice tells the user to "Delete imported hands to start over", which they cannot do from the UI.
+- This build cannot reach the state by itself any more (`add` never writes past the cap). It can be reached through
+  a read error (`unreadable`), a hand edit, or a future build with a larger cap.
+- Fix: return `store.status()` with the report, show "The imported-hands file could not be read; it was left as it
+  is", and keep Delete visible in that state.
+
+### N4. minor: the store silently drops lines a newer build wrote
+- `hhStore.ts:234-245`. A line that fails `isParsedHand` (a new site, a new action kind) or carries new keys is
+  dropped or stripped on read. The next `add` rewrites the file without it.
+- There is no version on the store. A newer build's hands are lost the first time an older build imports.
+- This is the profile-schema rule ("an older build never overwrites a newer value"), applied to a file that is
+  outside the profile but just as much the user's data.
+- Fix: keep unparsed lines verbatim in `lines` (count them, don't analyse them), or put a `v` in `meta.json` and
+  open read-only when it is newer.
+
+### N5. nit
+- DECISIONS.md, the ICM line, still says "Malmuth-Harville by exact enumeration". A later line says "ICM is a
+  subset DP". Edit the line rather than add another; the record says "edit the line, do not append history".
+- The job timeout clock starts at `post`, so it includes time spent queued behind other jobs. That is harmless
+  with coalescing, as worst cases are ~2 s per solve.
+
+## B1 holding state: honest and consistent?
+Yes, with one caveat.
+
+What holds:
+- A licence holder sees "Included in your Pro. Coming in an update." (`proGate`), and a new spec pins it.
+- The two licensed specs skip with a stated reason derived from `FEATURE_INFO` itself, so a flip un-skips them
+  automatically and they cannot silently stay skipped.
+- Main still serves the gated IPC to a licence holder. That is consistent with "main is the only authority", since
+  the Pro user is paid up, and nothing is reachable without a licence (spec 1).
+- The blurb no longer promises "costliest". DECISIONS.md records the hold and why.
+
+The caveat:
+- With the flag held, NO screen-level behaviour of this branch is verified: no-scroll at 900x640 and 1100x760, the
+  import flow, the profile byte-identity after an import, and the ICM screen.
+- The merge must not be described as "screens verified". The licensed specs have to run with the local flip, at
+  both sizes, before the flag ships.
+- N1 is reachable only through the ICM screen, so it is latent while the flag is held. It still has to be fixed
+  before the flip.
+
+## Independent ICM check (subset DP)
+My Malmuth-Harville is an independent recursion over finishing orders; just-busted players take the next places,
+split evenly. Against the new DP in `icm.ts`:
+- **The round-1 fixed cases** ([50,30,20], [27,13,6,14], 5-, 6- and 10-player, one and two just busted, two-place
+  payouts) all agree to ≤ 4.3e-15.
+  - Example: [50,30,20] with [.5,.3,.2] gives .383929 / .327500 / .288571 from both.
+  - [27,13,6,14] gives .354201 / .249743 / .135530 / .260526 from both.
+- **300 random spots** (2 to 8 players, about 12% zero stacks, 1 to n paid places, random payouts): max |mine −
+  code| = 6.9e-16.
+- **Bubble factors** are unchanged from round 1 and still match mine to 5 decimal places: 1.34783, 1.08917,
+  1.63060, 1.29356, 1.38044, 1.33347; heads-up winner-take-all gives 1.
+- **The DP's correctness argument holds.** Masks are visited in increasing order and every successor has a larger
+  mask, so `reach[mask]` is complete before it is expanded. `left` and `count` depend only on the mask.
+- **Speed:** 10 players with 10 paid takes 0.03 ms per call (100 calls in 3 ms). A full 10-handed equilibrium
+  request went from 4.8 s to 1.6 s.
+
+The push-fold sanity results from round 1 still stand. Heads-up 10 bb gives SB 58.4% / BB 37.3%. The BB call
+threshold against any two is exactly (S−1)/(2S); the code path it goes through is unchanged.
+
+## Pro tools review, round 1 (feat-pro-tools vs origin/main, HIGH radius)
+
+Reviewed: e61b848 and 2746486, `git diff origin/main...HEAD` (48 files, +6993). Also noted: the worktree has an
+uncommitted `DECISIONS.md` edit, and an ignored, untracked `tests/tmp/pro-preview.ts`.
+
+VERDICT: FAIL
+
+Run: `npx vitest run tests/unit/pro-*.test.ts` gave 7 files and 113 tests, all passing. `npm run typecheck` exits 2,
+but only on the ignored local file `tests/tmp/pro-preview.ts` (8 errors). The committed tree has no type errors.
+e2e and Playwright were not run, as instructed. So no-scroll at 900x640 and 1100x760 is NOT verified here.
+
+## Findings
+
+### B1. blocker: both features are still `available: false`, so a Pro user never reaches either screen and the committed e2e cannot pass
+- `src/core/entitlements/features.ts:58-69` (unchanged by the branch) and `src/renderer/pro.ts:266-268`.
+- With a valid licence, `proGate` returns "Included in your Pro. Coming in an update." and does not call
+  `render()`. `renderProHands` and `renderProIcm` are unreachable in the shipped app.
+- `tests/e2e/pro-tools.spec.ts` specs 2 and 3 expect `pro-empty`, `pro-import`, `pro-cell` and so on after
+  `activatePro`. They time out at the first locator. The spec has evidently never run: there is no
+  `test-results/pro-tools-shots`.
+- That also means the Done criterion (screenshots of the running app at both sizes) cannot be met.
+- The uncommitted DECISIONS.md line says `available` stays false on purpose. If that is the decision, the spec and
+  the screens contradict it. Either way the branch is not consistent.
+- The blurb at `features.ts:61`, "see your costliest patterns", contradicts D10. leaks.ts says: no "costliest" by
+  money. The upgrade sheet shows this copy.
+- Fix: pick one.
+  - Ship it: set `available: true`, then rerun the e2e at both sizes.
+  - Keep it hidden: add an explicit e2e/dev override (main-authorised, not renderer state), or mark specs 2 and 3
+    as pending with the reason in DECISIONS.md.
+  - Either way, reword the blurb (e.g. "see where your frequencies leave the charts") and commit the DECISIONS.md
+    section.
+
+### M1. major: data loss. The store can grow past `MAX_STORE_BYTES`; the next read sees zero hands and the next import overwrites the whole store
+- `src/main/hhStore.ts:31-32,171-172,200-224`.
+- `add()` caps hands (50,000) but never bytes. `read()` silently returns `[]` when the file is over 120 MB.
+- A valid hand can be about 27 KB: up to 400 lines, about 390 actions. Every one passes `isParsedHand`.
+- Reproduced in /tmp/prorev/store.ts:
+  - 6,001 such hands give a 164 MB `hands.ndjson`;
+  - a fresh `createHandStore` sees `0` hands;
+  - the next `add` of one hand rewrites the file to 27 KB. 6,000 hands are gone without a word.
+- About 35 MB of hostile or synthetic files (or a long run of unusually long tournament hands) gets there.
+- At the hand cap, `next.map(JSON.stringify).join('\n')` reaches about 1.4 GB, past V8's maximum string length.
+  `add` then throws `RangeError` after the parse, on main's thread.
+- Fix: cap bytes, not just hands.
+  - Reject a hand whose JSON is over a few KB, or cap actions at e.g. 120.
+  - Track the running byte size in `add` and count anything past the budget as `overCap`.
+  - On a read that hits the size cap, open the store read-only (refuse writes, surface a notice) and never treat
+    "too big" as "empty".
+  - Stream the write (`fs.writeSync` per line to the temp file) instead of building one giant string.
+
+### M2. major: push-fold treats a player who is already all in from the blinds or ante as able to fold, so the fixed top-N% caller model gives badly wrong charts, and the UI can reach it
+- `src/core/pro/pushFold.ts:75-79` (callers), `:95-98,142-153` (callerFold = noCall), `:172-199`.
+- Any seat behind hero with `after[j] === 0` (stack ≤ posted) is still a "caller". With a fixed range it "folds"
+  most of the time, and hero is credited the dead chips uncontested. In reality it is a forced showdown.
+- Reproduced (/tmp/prorev/pf3.ts): stacks `[10, 10, 0.8]`, hero on the BTN, BB all in for 0.8, callers top 10%.
+  The code says shove 100% of hands; 72o's gain is +0.49 bb. With the BB correctly forced in, it is −0.59 bb and
+  the shove range is 29%.
+- The ICM screen allows stacks from 0.5 (`proIcm.ts:293-300`) with presets of 6 bb. Setting the BB to 0.5 to 1 bb
+  with "Top 10%" reaches this.
+- The equilibrium mode happens to call 100% (fold leaves the stack at 0), so it is right by accident.
+- Also related: hero with stack ≤ posted (e.g. SB with 0.3, accepted by `parseShoveRequest`) gets a "push"
+  chart for a spot with no decision.
+- Fix:
+  - In `shapeOf`, mark callers with `after[j] <= 0` as forced: calling range of all ones, never updated by fictitious play.
+  - Refuse (`invalid`) a hero with `stacks[hero] <= posted[hero]`.
+  - Add a test: BB all in from the blind, fixed range, push range equals the forced-call answer.
+
+### M3. major: the leak finder holds tournament and short-stack hands to 100bb cash charts, with no depth or game filter
+- `src/core/pro/leaks.ts:162-221,233-259`. `factsOf` and `leakReport` never read `hand.game`, stacks or `ante`.
+- A tournament player at 15 to 25 bb defends the BB much wider with antes, and opens or shoves differently. At
+  hundreds of hands the bands are narrow, so the gates (n ≥ 20, 15 points, band clear) fire. The report then calls
+  correct short-stack play a "leak".
+- The Pro tab pairs this with an ICM tool, so tournament imports are the expected case. The fixtures include
+  tournaments on all three sites.
+- Fix:
+  - Count only hands whose effective stack (hero against the opener, or hero against the table for opens) is at
+    least about 60 to 80 bb and with no ante, or report tournament and short-stack hands separately.
+  - Say so in the method caption.
+
+### m1. minor: fold-to-3-bet is conditional on the chart's opening range, but hero's number is conditional on hero's own
+- `leaks.ts:90-95,199-203`.
+- The chart number is `folded∩RFI / RFI`, which is the right construction. But hero's observed rate depends on
+  hero's actual opening range. A player who opens wider than the chart should fold more to 3-bets.
+- The spot also mixes:
+  - 3-bet shoves from short stacks,
+  - squeezes (callers between),
+  - in-position against out-of-position 3-bettors.
+- The two "leaks" (open too wide, fold to 3-bet too much) can be one leak counted twice.
+- Fix:
+  - Only read the fold-to-3-bet gap when the matching open spot is in line.
+  - Or say in the explain sentence that it assumes the chart's opening range.
+  - Exclude spots where the 3-bet was all in, or where someone called between.
+  - The same sizing and all-in caveat applies to `bb-defend` (an open-shove is not a standard open).
+
+### m2. minor: side pots are wrong when a caller's stack is below other players' posted money
+- `pushFold.ts:101-112`. `dead` is given whole to the winner even when the winner could not match it.
+- Example: SB with 0.3 total, BB folds its 1.0. The code gives the SB 1.6 when it wins; the real main pot is 0.9.
+- The same applies to an ante bigger than a stack: `parseShoveRequest` accepts a 0.1 stack with ante 1.
+- Only reachable with stacks under 1 bb. Fix: cap each folder's dead contribution at the all-in amount, for the
+  main pot; the excess goes to hero's side pot. Or refuse stacks below 1 bb plus ante.
+
+### m3. minor: worker lifecycle races and no timeout or cancel
+- `src/main/proTools.ts:52-66`. `'error'` and `'exit'` both call `failAll`, which nulls `worker` unconditionally.
+- If a new job arrives between the old worker's `error` and `exit`, a new worker `w2` is created. Then the stale
+  `exit` rejects `w2`'s pending jobs and orphans `w2`: a leaked thread, results dropped.
+- Fix: guard with `if (worker === w)` and reject only that worker's jobs.
+- There is no per-job timeout and no cancellation:
+  - A 10-handed, 10-paid equilibrium request takes 4.8 s in the worker (measured), and two solves run per request.
+  - Each stack edit queues another one. `generation` in `proIcm.ts:396` drops stale answers but not the work,
+    so N edits mean N×5 s of "Working it out…" and imports queue behind them.
+- Fix: coalesce shove jobs (keep only the latest pending), validate in main before posting, and add a timeout that
+  terminates and recreates the worker.
+
+### m4. minor: the import's byte budget uses stale `lstat` sizes, and main does all reading synchronously
+- `proTools.ts:106-118` adds `f.size` from `expandPicked`'s `lstat`, not the size `readPicked` actually read
+  (from `fstat`).
+- A file that grows between pick and read is still capped at 25 MB, but the 200 MB per-import budget is not
+  enforced: up to 400×25 MB.
+- Up to 200 MB is read with `readSync` on main's thread (UI stalls), then cloned to the worker, so it sits in
+  memory twice.
+- Fix: count `Buffer.byteLength` or the fstat size returned by `readPicked`. Read in the worker (main already
+  vetted the paths, so pass `PickedFile[]`).
+
+### m5. minor: hostile-input memory amplification in the parse
+- `src/core/pro/parse.ts:47-58`. Every non-blank block that no site claims adds a `{id, reason}` object.
+- A 25 MB file of `"x\n\n"` gives 8.7M skip objects and about 600 MB of heap in the worker (measured, 0.9 s).
+- Eight such files run one after another. It probably survives, but it is 24× amplification.
+- Fix: count reasons in `parseHandHistories` instead of pushing one object per skip (the worker only counts them
+  anyway). Or stop pushing after e.g. 10,000.
+
+### m6. minor: imports and deletes can interleave
+- `proTools.ts:123,138-141`. `clear()` during an in-flight import empties the cache; the import's `store.add`
+  then writes the new hands. Hands appear right after "Imported hands deleted".
+- Fix: refuse `clear` while `importing` (return `busy`), or drop the import result if a clear happened.
+
+### m7. minor: error paths reach the renderer as unhandled rejections
+- `proHands.ts:326` (`proImportHands` has no `catch`) and `:357` (`proClearHands`).
+- A worker crash, a disk-full `atomicWrite`, or a thrown `rmSync` leaves the button re-enabled with no notice.
+- Fix: catch, and show "Import failed; nothing was changed".
+
+### m8. minor: hand-edited store and meta files
+- `hhStore.ts:182,234-235`.
+  - `isParsedHand` accepts extra keys, so a doctored line keeps arbitrary fields (names, money, megabyte strings).
+    They are rewritten on every `add`.
+  - `meta()` does `readFileSync(metaFile)` with no `lstat`, regular-file or size check. A FIFO or a link to
+    `/dev/zero` at `meta.json` hangs or OOMs the worker, and with it every later Pro job.
+  - Both need same-user write access to userData.
+- Fix: rebuild each hand from the known keys only. Give meta the same `lstat`/size check as the store.
+
+### m9. minor: the open-or-folder dialog is macOS-only
+- `proTools.ts:96`. `['openFile', 'openDirectory']` together makes Windows and Linux show a folder-only picker.
+  Electron documents this.
+- If those platforms are ever built, single-file import is gone. Fix: two buttons, or by platform.
+
+### n1. nit: CSS has colour literals and orphan sizes in a screen sheet
+- `styles-pro-tools.css`:
+  - `rgba(255,255,255,.5/.6)` at lines 159, 241, 291;
+  - `border-radius: 4px` at 115 and 189 (should be `var(--r-xs)`);
+  - `3px` at 249 and `1px` at 184;
+  - `height: 36px` and `min-height: 46px/40px` instead of `--h-*`.
+- Older sheets do the same, but AGENTS.md says no literals or orphan sizes.
+
+### n2. nit: other small issues
+- `main.ts` `onPractise: () => { tab = 'charts' }` ignores the spot's position, so "Practise this chart" does not
+  open the chart for the spot.
+- The ICM busted-player convention splits places evenly when two bust at once. The common convention gives the
+  bigger starting stack the higher place. It never matters inside push-fold, where at most one player busts per
+  outcome. Document it, or order by stack.
+- 9-max: LJ and UTG+1/UTG+2 all use the 6-max UTG chart (documented). Real 9-max UTG is tighter. That is fine
+  under the 15-point gate, but say so in the method line.
+- `DECISIONS.md` is edited but not committed; the branch carries no decision record.
+- The stored hands do contain money: stacks and blinds in currency hundredths. DECISIONS.md says "no money". It is
+  never shown, but reword it ("no results").
+
+## What I checked and found sound
+- **Paths.** The renderer can name no path. `preload` exposes four no-path calls, and import reads only
+  `dialog.showOpenDialog` output. A folder gives its top-level `.txt` files only. Links are skipped at expansion,
+  `O_NOFOLLOW` plus `fstat` is used at open, and size is re-checked on the open handle. A FIFO is rejected by
+  `lstat` (only a contrived lstat-to-open swap could block on `openSync`).
+- **Gating.** `pro:importHands`, `pro:handsReport` and `pro:shove` are wrapped in `gated()`, and the licence is
+  checked before any dialog or worker job. `pro:clearHands` is ungated, as intended. The shove argument is fully
+  validated in `parseShoveRequest`: finite numbers, ranges, integer seats, hero not BB, payouts summing to 1,
+  ≤ 10 players.
+- **ReDoS.** Every regex is bounded or anchored, and lines over 400 characters are rejected before any regex.
+  A 25 MB single line parses in 3 ms. Header spam (25 MB) takes 207 ms; a lone-CR file takes 570 ms.
+- **Prototype pollution.** `JSON.parse` `__proto__` creates an own key only, and all count maps use fixed enums.
+- **Earns nothing.** No pro module imports progression, session or story. The store is outside the profile. The
+  renderer screens never save. No dependency, network or schema change.
+- **Leak finder.**
+  - 6-max positions are right (BTN/SB/BB/CO/HJ/UTG).
+  - Limps and cold-calls exclude defend spots (squeeze spots are excluded).
+  - 3-bet detection (`raises === raisesAtHeroOpen + 1` on hero's next action) is right.
+  - The BB-defend chart is the unconditional share, which is right for a randomly dealt BB.
+  - Fold-to-3-bet is conditional on the opening range (yes: `folded∩RFI / RFI`).
+  - Clopper-Pearson by bisection, and the gates match reads.ts.
+- **Push-fold.** `outcomes()` is right for all normal spots: dead money, blinds, antes (equal antes cancel inside
+  `matched`), the uncalled excess returned, and hero folding giving everything to the BB. My independent
+  side-pot model matched the code to 0 on five spots (4 to 6 handed, antes, ICM and chips). It differed only for
+  stacks under 1 bb (m2).
+- **One-caller probability accounting.** `reach × pCall` with `pCall = Σ COMPAT·range / (size·1225)`, conditioned
+  on hero's class. It is exact within the stated model; card removal between callers is ignored, as documented.
+- **Equity table spot checks.** Against any hand: AA 85.21%, 72o 34.59%, 32o 32.30%, AKs 67.05%, all right.
+  AA vs KK is 82.31% (true ≈ 82.2%, inside Monte Carlo noise at 100k samples).
+
+## Independent ICM check
+My own Malmuth-Harville (/tmp/prorev/icm.ts): recursive over remaining players, then busted players take the next
+places, split evenly. It shares no code with `icm.ts`.
+
+| Stacks | Payouts | Mine | Code | max diff |
+|---|---|---|---|---|
+| 50,30,20 | .5,.3,.2 | .383929 .327500 .288571 | .383929 .327500 .288571 | 0 |
+| 27,13,6,14 | .5,.3,.2 | .354201 .249743 .135530 .260526 | same | 0 |
+| 40,25,15,12,8 | .5,.3,.2 | .325231 .252376 .175752 .145565 .101076 | same | 0 |
+| 3000,2500,2000,1500,1000,500 | .4,.3,.2,.1 | .244562 .222348 .194878 .160222 .115880 .062110 | same | 0 |
+| 10..1 (10 players) | 9 places | .146093 … .030970 | same | 0 |
+| 20,0,10 (one just busted) | .5,.3,.2 | .433333 .200000 .366667 | same | 0 |
+| 20,0,0,10 (two just busted) | .5,.3,.2 | .433333 .100000 .100000 .366667 | same | 0 |
+| 20,0,10 | .65,.35 | .55 0 .45 | same | 0 |
+
+A hand check of [50,30,20] for player 1: .5·.5 + (.3·50/70 + .2·50/80)·.3 + (rest)·.2 = .3839. It matches.
+
+Bubble factors (mine / code): [50,30,20] 20-stack vs 50-stack 1.34783 / 1.34783; 50 vs 20 1.08917 / 1.08917;
+[27,13,6,14] 6 vs 27 1.63060 / 1.63060; 27 vs 13 1.29356 / 1.29356; [40,25,15,12,8] 8 vs 40 1.38044 / 1.38044;
+25 vs 15 1.33347 / 1.33347. Heads-up winner-take-all: 1, as expected. Chip EV (no payouts): null, as designed.
+
+"Just busted takes the next place": verified. A 0 stack gets the places after the live players, and two at once
+split them evenly (see n2 for the tie-break convention).
+
+### Push-fold sanity
+- **Heads-up chip EV Nash (fictitious play, 2,000 rounds).**
+  - 10 bb: SB shoves 58.4%, BB calls 37.3%, exploitability 6.7e-4 bb a hand. That matches the reference
+    ≈ 58% / 37%.
+  - 5 bb: 71.5 / 62.1. 15 bb: 45.7 / 28.5. 20 bb: 40.2 / 21.8. All plausible.
+- **BB call threshold against any two.** For S = 10, 4 and 20, `callGainsFor` equals my 2S·eq − (S−1) exactly
+  (max diff 0, no sign flips), so the threshold is (S−1)/(2S): 0.45, 0.375, 0.475.
+- **outcomes() and chips/ICM stacks:** see "found sound" above. Exact, except m2 (stacks under 1 bb) and M2
+  (players all in from the blinds treated as able to fold).
