@@ -47,7 +47,8 @@ interface Feedback {
   readonly rtMs: number;
 }
 
-export function renderBoardReadingDrill(): HTMLElement {
+/** `onAnswer`: one graded board answered (the habit loop counts them for the Ticket's perception drill). */
+export function renderBoardReadingDrill(opts: { readonly onAnswer?: (correct: boolean) => void } = {}): HTMLElement {
   const root = document.createElement('div');
   root.className = 'defense-drill board-reading-drill';
   root.dataset.testid = 'board-reading-drill';
@@ -74,6 +75,7 @@ export function renderBoardReadingDrill(): HTMLElement {
     const verdict = grade(question, chosen, rtMs);
     feedback = { question, verdict, rtMs };
     answered += 1;
+    opts.onAnswer?.(verdict.correct);
     question = nextQuestion(rng);
     shownAt = now();
     paint();

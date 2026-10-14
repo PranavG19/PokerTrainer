@@ -55,6 +55,8 @@ export interface PuzzleOptions {
   readonly progress?: Record<string, { attempts: number; bestCorrect: number }>;
   /** Persist one completed scenario. Called once per completion; main.ts folds it in and saves. */
   readonly onComplete?: (scenarioId: string, correct: number) => void;
+  /** Open on this scenario (the Ticket's spots). Unknown or absent: the first scenario, as before. */
+  readonly initialScenarioId?: string;
 }
 
 /** The key that takes each action — the inverse of onKey's ACTION_KEYS, shown as each button's keycap. */
@@ -83,8 +85,8 @@ export function renderPuzzleScreen(options: PuzzleOptions = {}): HTMLElement {
     ...(options.progress ?? {}),
   };
 
-  let scenarioIndex = 0;
-  let state: TableState = buildScenarioTable(SCENARIOS[0]);
+  let scenarioIndex = Math.max(0, SCENARIOS.findIndex((s) => s.id === options.initialScenarioId));
+  let state: TableState = buildScenarioTable(SCENARIOS[scenarioIndex]);
   let stepIndex = 0;
   let villainAt = 0;
   let lastVerdict: StepVerdict | null = null;

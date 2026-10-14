@@ -6,6 +6,22 @@ import { renderCard } from '../components/card.js';
 import { renderRecommendation, type RecommendationHandlers } from '../components/recommendation.js';
 import { renderSessionPlanner } from './sessionPlan.js';
 import { chevron, iconTile, peopleIcon, spadeIcon } from '../components/glyphs.js';
+import { renderGreeting, renderStreakCard, renderTicketRow, type StreakView } from '../components/habit.js';
+import type { Greeting } from '../../core/progression/greeting.js';
+import type { Ring } from '../../core/progression/ring.js';
+import type { TicketState } from '../../core/progression/types.js';
+import type { DayKey } from '../../core/localDay.js';
+
+/** The habit loop on Home (1.5): Dee's greeting, the streak and today's ring, and the Ticket's row. */
+export interface HomeHabit {
+  /** Null with Character off: Dee's own words hide. */
+  readonly greeting: Greeting | null;
+  readonly streak: StreakView;
+  readonly ring: Ring;
+  readonly ticket: TicketState;
+  readonly today: DayKey;
+  readonly onOpenTicket: () => void;
+}
 
 const RECENT_LIMIT = 5;
 
@@ -39,6 +55,8 @@ export function renderHome(opts: {
    */
   recommendation?: { suggestion: Suggestion | null; askPreference: boolean };
   recommendationHandlers?: RecommendationHandlers;
+  /** The habit loop. Absent: Home as it was (no greeting, streak, ring or Ticket). */
+  habit?: HomeHabit;
 }): HTMLElement {
   const root = document.createElement('div');
   root.className = 'home-screen';
@@ -50,6 +68,7 @@ export function renderHome(opts: {
   col.className = 'home-col';
   root.appendChild(col);
 
+  if (opts.habit?.greeting) col.appendChild(renderGreeting(opts.habit.greeting));
   col.appendChild(renderHeadline(opts.session.bankroll, opts.standing));
 
   /*
@@ -70,6 +89,7 @@ export function renderHome(opts: {
   // One inset group of launch rows (the mock's grouped list): New session, then Play with friends.
   const launch = document.createElement('div');
   launch.className = 'g-group home-launch';
+  if (opts.habit) launch.appendChild(renderTicketRow(opts.habit.ticket, opts.habit.today, opts.habit.onOpenTicket));
   launch.appendChild(renderNewSessionCard(opts.onNewSession));
   if (opts.onPlayWithFriends) launch.appendChild(renderPlayWithFriendsCard(opts.onPlayWithFriends));
   if (opts.storyStrip) launch.appendChild(opts.storyStrip);
@@ -81,7 +101,12 @@ export function renderHome(opts: {
    * bankroll and the one-click "New session" the rest of the suite drives stay exactly where they
    * were; the planner takes its own column (styles-session-plan.css).
    */
-  root.appendChild(
+  // The second column: the streak and the ring over the planner (the planner keeps its own column order).
+  const side = document.createElement('div');
+  side.className = 'home-side';
+  root.appendChild(side);
+  if (opts.habit) side.appendChild(renderStreakCard(opts.habit.streak, opts.habit.ring));
+  side.appendChild(
     renderSessionPlanner({
       // Thread the assembled plan into session start. Before this, Start discarded the plan and
       // opened the ordinary default table (the planner "lied"). When no planned-start handler is
