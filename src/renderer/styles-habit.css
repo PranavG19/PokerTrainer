@@ -400,3 +400,283 @@
   margin: 0;
   padding-left: 18px;
 }
+
+/* ─── Sub-navs (Study, You): a title and the kit's segmented control over the section's screen ─── */
+:root {
+  --subnav-h: 44px;
+}
+.subnav-host {
+  height: var(--screen-h);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.subnav-bar {
+  flex: none;
+  height: var(--subnav-h);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px;
+}
+.subnav-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.subnav-body {
+  /* The screen below sees the height that is left under the bar. */
+  --screen-h: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y) - var(--subnav-h));
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+@media (max-width: 1000px) {
+  .subnav-head .g-caption {
+    display: none;
+  }
+}
+
+/* ─── You: Profile, the Trophy room, Rivals ─── */
+.you-screen {
+  box-sizing: border-box;
+  height: var(--screen-h);
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 4px 24px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+.you-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.you-cols {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.you-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+.you-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.you-head-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.you-row {
+  padding: 7px 14px;
+}
+.you-row-k {
+  flex: none;
+  width: 104px;
+}
+.you-row-v {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-1);
+  font-size: var(--t-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.you-rules {
+  min-height: 0;
+  overflow: hidden;
+}
+.you-rule {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+}
+.you-rule-text {
+  font-size: var(--t-body);
+  color: var(--ink-1);
+}
+.you-card {
+  padding: 12px 14px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.you-trend {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--ink-1);
+}
+.you-weeks {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 40px;
+  width: 100%;
+}
+.you-week {
+  flex: 1;
+  height: calc(var(--h) * 100%);
+  border-radius: var(--r-xs);
+  background: var(--fill-3);
+}
+.you-sure {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--ink-1);
+}
+.you-built {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.you-stat .t-t3 {
+  color: var(--ink-1);
+}
+.trophy-shelf {
+  min-height: 0;
+  overflow-y: auto;
+  align-items: stretch;
+}
+.trophy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 8px;
+}
+.trophy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 0;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  color: var(--ink-1);
+  font: inherit;
+  cursor: pointer;
+}
+.trophy[aria-pressed='true'] {
+  background: var(--fill-2);
+}
+.trophy-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--fill-2);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.trophy[data-family='decision'] .trophy-mark {
+  background: var(--bone);
+}
+.trophy[data-family='depth'] .trophy-mark {
+  background: var(--fill-3);
+}
+.trophy-name {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  text-align: center;
+}
+.trophy-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.trophy-next-row {
+  cursor: default;
+}
+.trophy-progress {
+  flex: none;
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.trophy-bar {
+  width: 100%;
+  height: 4px;
+  border-radius: var(--r-xs);
+  background: linear-gradient(to right, var(--ring-fill) calc(var(--p) * 100%), var(--ring-track) 0);
+}
+.you-rivals {
+  max-width: 720px;
+}
+
+/* ─── The title bar's Settings button (Settings is not a section of the 7-tab bar) ─── */
+.nav-settings {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.nav-settings:hover,
+.nav-settings[data-active='true'] {
+  color: var(--ink-1);
+  background: var(--fill-1);
+}
+.nav-settings:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.nav-settings .g-gear {
+  width: 16px;
+  height: 16px;
+}
+/* With the character off the perch is gone, so the button takes the right edge itself. */
+html[data-character='off'] .nav-settings {
+  margin-left: auto;
+}
+.home-week {
+  flex: none;
+}
+.home-week .session-card-text,
+.trophy-next .session-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.home-week .session-card-title {
+  color: var(--ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

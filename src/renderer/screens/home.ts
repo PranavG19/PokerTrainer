@@ -57,6 +57,12 @@ export function renderHome(opts: {
   recommendationHandlers?: RecommendationHandlers;
   /** The habit loop. Absent: Home as it was (no greeting, streak, ring or Ticket). */
   habit?: HomeHabit;
+  /**
+   * The session planner in Home's second column (the default). The 7-tab nav moves it to Play, and Home's second
+   * column then carries `side` under the streak card instead.
+   */
+  planner?: boolean;
+  side?: readonly HTMLElement[];
 }): HTMLElement {
   const root = document.createElement('div');
   root.className = 'home-screen';
@@ -106,6 +112,8 @@ export function renderHome(opts: {
   side.className = 'home-side';
   root.appendChild(side);
   if (opts.habit) side.appendChild(renderStreakCard(opts.habit.streak, opts.habit.ring));
+  for (const el of opts.side ?? []) side.appendChild(el);
+  if (opts.planner === false) return root;
   side.appendChild(
     renderSessionPlanner({
       // Thread the assembled plan into session start. Before this, Start discarded the plan and
@@ -218,7 +226,7 @@ function renderBankroll(bankroll: number): HTMLElement {
 }
 
 /** A launcher row: icon tile, title over a one-line caption, trailing chevron. */
-function launchRow(testid: string, icon: SVGSVGElement, title: string, meta: string, onClick: () => void): HTMLElement {
+export function launchRow(testid: string, icon: SVGSVGElement, title: string, meta: string, onClick: () => void): HTMLElement {
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'g-row session-card';
@@ -239,11 +247,11 @@ function launchRow(testid: string, icon: SVGSVGElement, title: string, meta: str
   return row;
 }
 
-function renderNewSessionCard(onNewSession: () => void): HTMLElement {
+export function renderNewSessionCard(onNewSession: () => void): HTMLElement {
   return launchRow('new-hand', spadeIcon(), 'New session', 'Sit down and play a hand with the coach watching', onNewSession);
 }
 
-function renderPlayWithFriendsCard(onPlayWithFriends: () => void): HTMLElement {
+export function renderPlayWithFriendsCard(onPlayWithFriends: () => void): HTMLElement {
   return launchRow(
     'play-with-friends',
     peopleIcon(),
