@@ -3,8 +3,8 @@
  *
  * Every award carries a KEY naming the one event it pays for (`hand:<playedAt>`, `puzzle:<id>:<day>` …), and
  * `award` is idempotent on it: the same event delivered twice (a re-render, a retried save, a replayed callback)
- * pays once. The rules below take only the learning facts they pay for. Chips, pots, showdowns and a correct
- * verdict are not parameters of any rule, so nothing here can pay for a result (the "chips earn 0" rule holds by
+ * pays once. The rules below take only the learning facts they pay for. Table stacks, pots, showdowns and a correct
+ * verdict are not parameters of any rule, so nothing here can pay for a result (the "stacks earn 0" rule holds by
  * type; progression-reps.test pins it).
  *
  * Pure: no clock. The caller passes the day the award belongs to.
