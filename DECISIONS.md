@@ -16,7 +16,8 @@ Owner decisions in force: D10 (import for review and counting stats only, no pro
 - **The store is outside the profile:** `<userData>/hand-histories/hands.ndjson` + `meta.json`, atomic whole-file
   writes streamed line by line, de-duplicated by site and hand id, capped at 50,000 hands AND 100 MB (a hand over
   16 KB is refused). A store found over the cap or unreadable is left untouched and refuses writes, never read as
-  empty and overwritten. Lines are rebuilt from known keys. No raw text, no opponent names, no results (stacks and
+  empty and overwritten; so is one whose `meta.json` `storeVersion` is newer than this build's. Lines are rebuilt
+  from known keys. No raw text, no opponent names, no results (stacks and
   blinds stay, never shown). Deleting the profile leaves it; "Delete imported hands" removes it (refused mid-import).
 - **Imports earn nothing:** no Pro module reaches the store, session, progression, story, gifts or Dee
   (`pro-store.test` reads the import graph); the e2e checks the profile file is byte-identical after an import.
@@ -28,18 +29,19 @@ Owner decisions in force: D10 (import for review and counting stats only, no pro
   15 points) and a band clear of the chart. Positions count back from the button; 7-9 handed early seats read as UTG.
   Chart spots count only cash hands with no ante where hero (and the opener or 3-bettor faced) has 60bb or more;
   all-in opens and 3-bets and squeezes are skipped. Every hand counts in the summary.
-- **ICM** is Malmuth-Harville by exact enumeration (10 players max); a stack of 0 has just busted and takes the
+- **ICM** is Malmuth-Harville, exact, by a DP over who has already placed (10 players max); a stack of 0 has just busted and takes the
   places below everyone alive (two at once share those places evenly; push-fold never busts two). Bubble factor = ICM lost on losing a full-risk all-in / ICM gained on winning it.
 - **Push-fold** (`pushFold.ts`) prices a first-in shove against EXPLICIT calling ranges: the equilibrium's own (by
   fictitious play, 2,000 rounds) or a fixed top-N%. Never the grader's QQ+/AK deep-shove caller. One caller at most;
   a fold gives the blinds to the big blind. A player all in from the blinds (or whose post covers the shove) is a
-  forced caller; a hero all in from the blinds is refused. Pots settle in layers, so dead money above what an all-in
+  forced caller when it acts last; one all in ahead of a live player (three-way) and a hero all in from the blinds
+  are refused as outside the model. Pots settle in layers, so dead money above what an all-in
   can match goes back to the player who covers it.
 - **Preflop equity** is a 169x169 table generated offline (`scripts/gen-preflop-equity.ts`, 100k samples per pair,
   seed fixed) over `eval7.ts`, an evaluator bit-identical to `evaluate()`.
 - **The heavy work runs in a `worker_threads` worker** (`proWorker.ts`): an ICM solve takes ~370 ms (two solves),
   so main's thread stays free. Parsing 25 MB takes ~260 ms and a 50k-hand report ~75 ms. File reads are async.
-  Solves are coalesced (only the newest waiting request runs); a job over 60 s ends the worker. ICM is a subset DP.
+  Solves are coalesced (only the newest waiting request runs); a job over 60 s ends the worker.
 - **`FEATURE_INFO.available` stays false** for both features until the owner answers the checkout question (marking
   them shipped also opens checkout once URLs and prices exist); until then Pro users see "Coming in an update".
 

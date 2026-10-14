@@ -201,3 +201,19 @@ describe('review round 1: the store never loses hands to its own caps', () => {
     expect(createHandStore(dir).meta()).toBeNull();
   });
 });
+
+describe('review round 2: a store this build cannot write is never a dead end, and a newer one is not rewritten', () => {
+  it('N4: a store written by a newer build (meta storeVersion above this one) is read-only', () => {
+    const dir = tmp();
+    const hands = fixtureHands();
+    createHandStore(dir).add(hands, { at: '2026-10-14T05:00:00.000Z', files: 1 });
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'));
+    expect(meta.storeVersion).toBe(1);
+    fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ ...meta, storeVersion: 2 }));
+    const before = fs.readFileSync(path.join(dir, 'hands.ndjson'));
+    const store = createHandStore(dir);
+    expect(store.status()).toBe('newer');
+    expect(store.add([{ ...hands[0], id: '31337' }], { at: '2026-10-14T05:01:00.000Z', files: 1 }).refused).toBe('store-unreadable');
+    expect(fs.readFileSync(path.join(dir, 'hands.ndjson')).equals(before)).toBe(true);
+  });
+});

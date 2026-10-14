@@ -31,7 +31,7 @@ function run(job: Job): unknown {
   }
   if (job.kind === 'report') {
     const store = createHandStore(job.dir);
-    return { report: leakReport(store.all()), meta: store.meta() };
+    return { report: leakReport(store.all()), meta: store.meta(), status: store.status() };
   }
   const request = parseShoveRequest(job.request);
   return request === null ? { invalid: true } : { answer: answerShove(request) };

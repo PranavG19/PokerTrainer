@@ -159,8 +159,14 @@ export interface AddOutcome {
   readonly refused?: 'store-unreadable';
 }
 
-/** 'too-large' / 'unreadable': the file on disk is kept untouched and every write is refused. */
-export type StoreStatus = 'ok' | 'too-large' | 'unreadable';
+/**
+ * 'too-large' / 'unreadable' / 'newer' (written by a newer build: its lines may hold fields this one would
+ * drop): the file on disk is kept untouched and every write is refused. Deleting is always allowed.
+ */
+export type StoreStatus = 'ok' | 'too-large' | 'unreadable' | 'newer';
+
+/** The store's format, written to meta.json. A newer one opens read-only (the profile's rule, kept here). */
+export const STORE_VERSION = 1;
 
 export interface HandStore {
   readonly dir: string;
@@ -212,6 +218,23 @@ export function createHandStore(dir: string, opts: { maxStoreBytes?: number } = 
   const metaFile = path.join(dir, 'meta.json');
   let cache: { hands: ParsedHand[]; lines: string[]; bytes: number; status: StoreStatus } | null = null;
 
+  /** The version in meta.json; 1 when there is none (this build's first format). */
+  const storeVersion = (): number => {
+    const o = readMeta();
+    const v = o?.storeVersion;
+    return typeof v === 'number' && Number.isSafeInteger(v) && v >= 1 ? v : 1;
+  };
+  const readMeta = (): Record<string, unknown> | null => {
+    try {
+      const st = fs.lstatSync(metaFile);
+      if (!st.isFile() || st.size > MAX_META_BYTES) return null;
+      const o = JSON.parse(fs.readFileSync(metaFile, 'utf8')) as unknown;
+      return typeof o === 'object' && o !== null ? (o as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const read = (): NonNullable<typeof cache> => {
     if (cache !== null) return cache;
     const hands: ParsedHand[] = [];
@@ -225,7 +248,8 @@ export function createHandStore(dir: string, opts: { maxStoreBytes?: number } = 
       st = null; // no store yet: empty
     }
     if (st !== null) {
-      if (!st.isFile()) status = 'unreadable';
+      if (storeVersion() > STORE_VERSION) status = 'newer';
+      else if (!st.isFile()) status = 'unreadable';
       else if (st.size > maxStoreBytes) status = 'too-large';
       else {
         try {
@@ -312,15 +336,14 @@ export function createHandStore(dir: string, opts: { maxStoreBytes?: number } = 
         fs.mkdirSync(dir, { recursive: true });
         const all = read().hands;
         const sites = SITES.filter((site) => all.some((h) => h.site === site));
-        atomicWrite(metaFile, JSON.stringify({ at: meta.at, files: meta.files, sites }));
+        atomicWrite(metaFile, JSON.stringify({ storeVersion: STORE_VERSION, at: meta.at, files: meta.files, sites }));
       }
       return { added: fresh.length, duplicates, overCap, tooLarge, total };
     },
     meta() {
       try {
-        const st = fs.lstatSync(metaFile);
-        if (!st.isFile() || st.size > MAX_META_BYTES) return null;
-        const o = JSON.parse(fs.readFileSync(metaFile, 'utf8')) as Record<string, unknown>;
+        const o = readMeta();
+        if (o === null) return null;
         const at = typeof o.at === 'string' && !Number.isNaN(Date.parse(o.at)) ? o.at : null;
         const files = typeof o.files === 'number' && Number.isSafeInteger(o.files) && o.files >= 0 ? o.files : null;
         const sites = Array.isArray(o.sites) ? SITES.filter((x) => (o.sites as unknown[]).includes(x)) : [];

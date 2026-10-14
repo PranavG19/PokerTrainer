@@ -7,7 +7,7 @@
 import { ALL_COMBOS } from '../preflop.js';
 import { bubbleFactor, icmEquities, MAX_ICM_PLAYERS, requiredEquity } from './icm.js';
 import { rangeVsRange, topRange } from './preflopEquity.js';
-import { MAX_SPOT_STACK_BB, solveShove, type ShoveResult, type ShoveSpot } from './pushFold.js';
+import { MAX_SPOT_STACK_BB, shapeOf, solveShove, type ShoveResult, type ShoveSpot } from './pushFold.js';
 
 /** How the players behind call: the equilibrium's own ranges, or everyone with the top `share` of hands. */
 export type CallerModel = { readonly kind: 'equilibrium' } | { readonly kind: 'top'; readonly share: number };
@@ -46,9 +46,13 @@ export function parseShoveRequest(raw: unknown): ShoveRequest | null {
     callers = { kind: 'top', share };
   } else return null;
   const spot: ShoveSpot = { stacks: stacks as number[], button, hero, ante, payouts: payouts as number[] };
-  // The big blind cannot be first in, and heads-up the button posts the small blind.
-  const sb = n === 2 ? button : (button + 1) % n;
-  if (hero === (sb + 1) % n) return null;
+  // Everything shapeOf refuses (the big blind first in, a hero or a non-last player already all in from
+  // the blinds) is refused here, so main answers `invalid` instead of a solve failing in the worker.
+  try {
+    shapeOf(spot);
+  } catch {
+    return null;
+  }
   return { spot, callers };
 }
 

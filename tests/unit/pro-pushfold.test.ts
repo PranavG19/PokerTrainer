@@ -3,6 +3,7 @@ import { ALL_COMBOS, type Combo } from '../../src/core/preflop.js';
 import { classEquity, equityVsAny, handVsRange, rangeShare, rangeVsRange, strengthOrdering, topRange } from '../../src/core/pro/preflopEquity.js';
 import { callGainsFor, shapeOf, solveShove, type ShoveSpot } from '../../src/core/pro/pushFold.js';
 import { classIndex } from '../../src/core/pro/handClasses.js';
+import { parseShoveRequest } from '../../src/core/pro/analysis.js';
 import { equityVsRange } from '../../src/core/equity.js';
 
 const at = (c: Combo): number => ALL_COMBOS.indexOf(c);
@@ -161,8 +162,9 @@ describe('spot shape', () => {
   });
 
   it('a short blind posts what it has', () => {
-    const s = shapeOf({ stacks: [10, 0.3, 0.8], button: 0, hero: 0, ante: 0.1, payouts: [] });
-    expect(s.posted.map((x) => Math.round(x * 100) / 100)).toEqual([0.1, 0.3, 0.8]);
+    const s = shapeOf({ stacks: [10, 10, 0.8], button: 0, hero: 0, ante: 0.1, payouts: [] });
+    expect(s.posted.map((x) => Math.round(x * 100) / 100)).toEqual([0.1, 0.6, 0.8]);
+    expect(s.forced).toEqual([false, true]);
   });
 });
 
@@ -191,5 +193,21 @@ describe('review round 1: players all in from the blinds, and side pots', () => 
     const r = solveShove(spot, [new Float64Array(169), new Float64Array(169)]);
     const eq = handVsRange(classIndex('AA'), new Float64Array(169).fill(1)).equity!;
     expect(r.gain[classIndex('AA')]).toBeCloseTo(eq * 10.8 + (1 - eq) * 9.9 - 10, 9);
+  });
+});
+
+describe('review round 2: spots the one-caller model cannot price are refused', () => {
+  it('N1: a player all in from the blinds AHEAD of a live caller would make it three-way, so it is refused', () => {
+    // BTN shoves, SB all in for 0.5, BB 10 deep: the BB's decision would be skipped by a one-caller model.
+    expect(() => shapeOf({ stacks: [10, 0.5, 10], button: 0, hero: 0, ante: 0, payouts: [] })).toThrow();
+    // The big blind all in from its post is the LAST to act, so it is still priced.
+    expect(() => shapeOf({ stacks: [10, 10, 0.8], button: 0, hero: 0, ante: 0, payouts: [] })).not.toThrow();
+  });
+
+  it('N1/N2: the request parser refuses both, so the screen says the spot is out of range', () => {
+    const req = (stacks: number[]) => ({ stacks, button: 0, hero: 0, ante: 0, payouts: [], callers: { kind: 'equilibrium' } });
+    expect(parseShoveRequest(req([10, 0.5, 10]))).toBeNull();
+    expect(parseShoveRequest({ ...req([10, 10, 10]), hero: 0, button: 2, stacks: [0.4, 10, 10] })).toBeNull();
+    expect(parseShoveRequest(req([10, 10, 0.8]))).not.toBeNull();
   });
 });

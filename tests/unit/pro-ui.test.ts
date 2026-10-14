@@ -104,6 +104,18 @@ describe('Pro · ICM', () => {
     const root = renderProIcm({ bridge: { proShove: async () => ({ invalid: true }) } });
     await flush();
     await flush();
-    expect(root.querySelector('[data-testid="pro-solving"]')!.textContent).toContain('cannot happen');
+    expect(root.querySelector('[data-testid="pro-solving"]')!.textContent).toContain('outside the model');
+  });
+});
+
+describe('review round 2: a store main cannot write shows a way out', () => {
+  it('N3: status other than ok shows why, and the delete button, even with no hands', async () => {
+    const root = renderProHands({
+      bridge: { proHandsReport: async () => ({ report: leakReport([]), meta: null, status: 'too-large' }) },
+      onPractise: () => undefined,
+    });
+    await flush();
+    expect((root.querySelector('[data-testid="pro-clear"]') as HTMLElement).hidden).toBe(false);
+    expect(root.querySelector('[data-testid="pro-store-status"]')!.textContent).toContain('could not be read');
   });
 });

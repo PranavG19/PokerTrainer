@@ -43,6 +43,8 @@ interface ReportView {
   excluded: number;
   spots: SpotView[];
   meta: { at: string; files: number; sites: string[] } | null;
+  /** main's store status: anything but 'ok' means imports are refused until the hands are deleted. */
+  status: string;
 }
 interface Ratio {
   k: number;
@@ -70,9 +72,10 @@ const SKIP_WORDS: Readonly<Record<string, string>> = {
 
 function parseReport(raw: unknown): ReportView | null {
   if (typeof raw !== 'object' || raw === null || 'locked' in raw) return null;
-  const o = raw as { report?: { summary?: ReportView['summary']; spots?: SpotView[]; excluded?: number }; meta?: ReportView['meta'] };
+  const o = raw as { report?: { summary?: ReportView['summary']; spots?: SpotView[]; excluded?: number }; meta?: ReportView['meta']; status?: unknown };
   if (!o.report || !Array.isArray(o.report.spots) || !o.report.summary) return null;
-  return { summary: o.report.summary, excluded: Number(o.report.excluded) || 0, spots: o.report.spots, meta: o.meta ?? null };
+  const status = typeof o.status === 'string' ? o.status : 'ok';
+  return { summary: o.report.summary, excluded: Number(o.report.excluded) || 0, spots: o.report.spots, meta: o.meta ?? null, status };
 }
 
 const pct = (x: number): string => `${Math.round(x * 100)}`;
@@ -142,6 +145,9 @@ export function renderProHands(props: HandsProps): HTMLElement {
   choose.textContent = 'Choose files…';
   drop.append(icon, text('div', 't-head', 'Import hand histories'), text('div', 'g-sub', 'PokerStars, GGPoker or ACR text files, or a folder'), local, choose);
 
+  const storeStatus = text('div', 'pro-notice g-caption', '');
+  storeStatus.dataset.testid = 'pro-store-status';
+  storeStatus.hidden = true;
   const notice = text('div', 'pro-notice g-caption', '');
   notice.dataset.testid = 'pro-import-notice';
   notice.setAttribute('role', 'status');
@@ -168,7 +174,7 @@ export function renderProHands(props: HandsProps): HTMLElement {
   clear.textContent = 'Delete imported hands';
   clear.hidden = true;
 
-  side.append(drop, notice, last, stats, reviewOnly, clear);
+  side.append(drop, storeStatus, notice, last, stats, reviewOnly, clear);
 
   // ── Main column: leaks by spot ──
   const main = document.createElement('div');
@@ -230,7 +236,14 @@ export function renderProHands(props: HandsProps): HTMLElement {
     method.hidden = !has;
     legend.hidden = !has;
     empty.hidden = has;
-    clear.hidden = !has;
+    const stuck = r !== null && r.status !== 'ok';
+    clear.hidden = !has && !stuck;
+    storeStatus.hidden = !stuck;
+    storeStatus.textContent = !stuck
+      ? ''
+      : r!.status === 'newer'
+        ? 'Your imported hands were saved by a newer Offsuit, so this one only reads them and will not add to them. Update Offsuit, or delete them to start over.'
+        : 'Your imported-hands file could not be read whole, so it is left as it is and nothing new is added. Delete imported hands to start over.';
     const excluded = r?.excluded ?? 0;
     method.textContent =
       'Counted, not graded: exact binomial bands against 100bb 6-max cash charts (seats before UTG use UTG’s). Nothing is called a leak under 20 hands or a 15-point gap.' +

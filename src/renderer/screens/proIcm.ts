@@ -415,7 +415,9 @@ export function renderProIcm(props: { bridge: IcmBridge }): HTMLElement {
       answer = o.answer;
       status.textContent = '';
     } else {
-      status.textContent = o.invalid ? 'That spot cannot happen; check the stacks.' : 'Could not work this spot out.';
+      status.textContent = o.invalid
+        ? 'This spot is outside the model: you, or a player ahead of another, are already all in from the blinds. Change the stacks.'
+        : 'Could not work this spot out.';
     }
     paintAnswer();
   }

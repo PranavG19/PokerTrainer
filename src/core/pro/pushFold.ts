@@ -18,7 +18,9 @@
  *   usual push-fold model; it misprices spots where two players behind both like to call.
  * - Hero folding gives the posted money to the big blind (the rest of the hand is not played out).
  * - A player already all in from the blinds or ante (or whose post covers the shove) is FORCED: it is in
- *   the showdown with any hand. If an earlier player calls, a forced player's money is treated as dead.
+ *   the showdown with any hand. It must be the last to act (the big blind): one all in ahead of a live
+ *   player would make the pot three-way, so that spot is refused rather than mispriced. If an earlier player
+ *   calls, a forced big blind's money is treated as dead.
  * - Pots are settled in layers (`settle`): a folder's post above what an all-in can match goes back to the
  *   player who covers it, never to a winner who could not have won it.
  * - A caller's fold is valued as hero winning the pot uncontested, which is exact for the last player
@@ -89,6 +91,9 @@ export function shapeOf(spot: ShoveSpot): SpotShape {
     if (i === bb) break;
   }
   const forced = callers.map((j) => spot.stacks[j] - posted[j] <= 1e-9 || posted[j] >= spot.stacks[spot.hero] - 1e-9);
+  // A forced player with someone still to act behind it would make the pot three-way, which this one-caller
+  // model cannot price (it would silently skip the later player's decision), so such a spot is refused.
+  if (forced.slice(0, -1).some((f) => f)) throw new RangeError('a player all in from the blinds ahead of another: three-way');
   return { n, sb, bb, callers, posted, forced };
 }
 
