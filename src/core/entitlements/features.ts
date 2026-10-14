@@ -59,13 +59,13 @@ export const FEATURE_INFO: Readonly<Record<Feature, FeatureInfo>> = {
     tier: 'pro',
     title: 'Leak finder',
     blurb: 'Import hand histories from where you play and see where your frequencies leave the charts.',
-    available: false,
+    available: true,
   },
   'icm-tools': {
     tier: 'pro',
     title: 'ICM and push-fold',
     blurb: 'Tournament equity and shove charts for short stacks.',
-    available: false,
+    available: true,
   },
   'cloud-sync': {
     tier: 'pro',

@@ -156,7 +156,15 @@ export function openUpgradeSheet(pro: ProClient, opts: UpgradeSheetOptions): HTM
 
     const parts: HTMLElement[] = [head, adds, free, planRow, terms];
     if (anyComing) {
-      const coming = el('p', 'g-caption', 'Pro’s features arrive in updates; checkout stays closed until the first one ships.');
+      // Checkout opens once any Pro feature has shipped (main's checkoutPlans), so the note says which case this is.
+      const anyShipped = PRO_FEATURES.some((f) => FEATURE_INFO[f].available);
+      const coming = el(
+        'p',
+        'g-caption',
+        anyShipped
+          ? 'Features marked “Coming in an update” are part of Pro and arrive in later updates.'
+          : 'Pro’s features arrive in updates; checkout stays closed until the first one ships.',
+      );
       coming.dataset.testid = 'upgrade-coming-note';
       parts.push(coming);
     }

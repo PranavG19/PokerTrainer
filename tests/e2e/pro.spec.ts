@@ -62,8 +62,9 @@ test('Free: learning is never locked, and the upgrade sheet is honest', async ()
     await expect(sheet).toContainText('Learning is never locked');
     await expect(page.locator('[data-testid="upgrade-terms"]')).toContainText('Cancel any time');
     await expect(page.locator('[data-testid="upgrade-free-features"]')).toContainText('Dee');
-    // Nothing has shipped yet, so every Pro feature says so and checkout is closed (no URL in this build).
-    await expect(page.locator('[data-testid="coming-tag"]')).toHaveCount(4);
+    // The leak finder and ICM tools have shipped; ranked play and cloud sync say they are coming. Checkout
+    // is still closed: this build has no checkout URL or price.
+    await expect(page.locator('[data-testid="coming-tag"]')).toHaveCount(2);
     await expect(page.locator('[data-testid="upgrade-checkout"]')).toBeDisabled();
     await expect(page.locator('[data-testid="upgrade-plan-monthly"]')).toHaveAttribute('aria-pressed', 'true');
     // No fake urgency anywhere on it.
@@ -192,15 +193,27 @@ test('a deep link only PROPOSES a key: declined, nothing changes; accepted, Pro 
   }
 });
 
-test('checkout stays closed while nothing has shipped, even with a checkout URL', async () => {
-  const { page, close } = await launchApp({ env: { OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m', OFFSUIT_PRICE_MONTHLY: '$6 a month' } });
+test('with Pro features shipped, checkout still needs both a URL and a price shown before it', async () => {
+  // Owner decision: the leak finder and ICM tools are shipped, so "something has shipped" holds. A checkout
+  // URL alone still opens nothing: the price must be on the sheet before anyone clicks through.
+  const urlOnly = await launchApp({ env: { OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m' } });
   try {
-    await openSettings(page);
-    await page.locator('[data-testid="pro-see"]').click();
-    await expect(page.locator('[data-testid="upgrade-checkout"]')).toBeDisabled();
-    expect(await page.evaluate(() => window.offsuit!.licenceOpenCheckout!('monthly'))).toEqual({ opened: false });
+    await openSettings(urlOnly.page);
+    await urlOnly.page.locator('[data-testid="pro-see"]').click();
+    await expect(urlOnly.page.locator('[data-testid="upgrade-checkout"]')).toBeDisabled();
+    expect(await urlOnly.page.evaluate(() => window.offsuit!.licenceOpenCheckout!('monthly'))).toEqual({ opened: false });
   } finally {
-    await close();
+    await urlOnly.close();
+  }
+  // With a URL and a price (and no dev "sellable" override), checkout is open.
+  const priced = await launchApp({ env: { OFFSUIT_CHECKOUT_MONTHLY: 'https://checkout.example/m', OFFSUIT_PRICE_MONTHLY: '$6 a month' } });
+  try {
+    await openSettings(priced.page);
+    await priced.page.locator('[data-testid="pro-see"]').click();
+    await expect(priced.page.locator('[data-testid="upgrade-checkout"]')).toBeEnabled();
+    await expect(priced.page.locator('[data-testid="upgrade-coming-note"]')).toContainText('later updates');
+  } finally {
+    await priced.close();
   }
 });
 
