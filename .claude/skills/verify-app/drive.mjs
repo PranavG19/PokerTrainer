@@ -20,7 +20,7 @@ try {
   // Health: the right build answered — Home renders and the tab bar has its twelve tabs.
   await page.waitForSelector('[data-testid="home-screen"]');
   const tabs = await page.locator('nav.tabs button.tab').count();
-  if (tabs !== 12) throw new Error(`expected 12 tabs, found ${tabs}`);
+  if (tabs !== 13) throw new Error(`expected 13 tabs, found ${tabs}`);
   const size = async (w, h) => {
     await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h]);
     await page.waitForTimeout(350);
