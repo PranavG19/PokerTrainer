@@ -305,10 +305,12 @@ test.describe('the habit loop', () => {
       await page.locator('[data-testid="dee-redo-onboarding"]').click();
       await expect(page.locator('[data-testid="onboarding-name"]')).toHaveValue('Sam');
       await page.locator('[data-testid="onboarding-name"]').fill('Robin');
-      // Leaving for another tab keeps what was typed.
+      // Leaving for another section closes the sheet but keeps what was typed: reopening shows it.
       await page.locator('[data-testid="tab-learn"]').click();
       await page.locator('[data-testid="tab-settings"]').click();
       await page.locator('[data-testid="open-dee-settings"]').click();
+      await expect(page.locator('[data-testid="dee-settings"]')).toBeVisible();
+      await page.locator('[data-testid="dee-redo-onboarding"]').click();
       await expect(page.locator('[data-testid="onboarding-name"]')).toHaveValue('Robin');
       for (let step = 1; step < 5; step++) await page.locator('[data-testid="onboarding-next"]').click();
       await expect(page.locator('[data-testid="onboarding-next"]')).toHaveText('Save');
