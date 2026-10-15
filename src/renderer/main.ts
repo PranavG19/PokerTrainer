@@ -508,6 +508,9 @@ async function boot(): Promise<void> {
     profileView = { at: 'profile' };
     learnView = 'lessons';
     ticketActive = false;
+    rivalOpen = null;
+    // Leaving closes an open answers sheet; what was typed stays in the draft.
+    onboardingOpen = false;
     render();
     // Backup count and guard failures move while the learner is elsewhere, so opening Settings re-reads.
     if (leaf === 'settings') void refreshSettings();
@@ -1278,6 +1281,7 @@ async function boot(): Promise<void> {
       onboardingOpen = false;
       onboardingDismissed = false;
       ticketActive = false;
+      rivalOpen = null;
       drillKindNext = null;
       puzzleNext = null;
       teardownTable();
@@ -1334,6 +1338,11 @@ async function boot(): Promise<void> {
   function startTable(plan?: SessionPlan): void {
     teardownTable();
     // A table lives under Play, wherever it was started from (Home's New session, Play's planner, onboarding).
+    // A panel left open (friends, online, the assessment, variance) must not cover it (review B1).
+    multiplayerActive = false;
+    onlineActive = false;
+    assessmentActive = false;
+    varianceActive = false;
     tab = 'play';
     paintTabs();
     // The session planner (when the learner started from it) models a whole-task live-hand count; a
@@ -1690,6 +1699,8 @@ async function boot(): Promise<void> {
 
   function renderLeaf(which: Exclude<Tab, 'play' | 'home'>): HTMLElement {
     if (which === 'hands') return renderProfileTab();
+    // Profile's Edit opens the answers in place, so Save and Cancel come back to Profile (review N2).
+    if (which === 'profile' && onboardingOpen) return renderOnboardingSheet(true);
     if (which === 'profile') return renderYouProfileTab();
     if (which === 'trophies') {
       const facts = milestoneFacts(session, session.progression, SCENARIOS, masteredIds(deriveConcepts(), now()).length);
@@ -1994,7 +2005,7 @@ async function boot(): Promise<void> {
     const t = now();
     const concepts = deriveConcepts();
     const activity = [...session.hands.map((h) => h.playedAt).filter((x): x is number => typeof x === 'number'), ...session.assessments.map((a) => a.at)];
-    const since = activity.length > 0 ? dayOf()(Math.min(...activity)) : null;
+    const since = activity.length > 0 ? dayOf()(activity.reduce((a, b) => Math.min(a, b))) : null;
     const graded = session.hands.reduce((n, h) => n + (h.decisions ?? []).filter((d) => d.verdict !== null).length, 0) + session.assessments.length;
     const streak = streakToday(p, today());
     return renderYouProfile(
@@ -2016,7 +2027,7 @@ async function boot(): Promise<void> {
       {
         onEdit: () => {
           onboardingOpen = true;
-          go('dee');
+          render();
         },
         onOpenFolio: () => {
           go('learn');

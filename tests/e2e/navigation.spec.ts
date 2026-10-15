@@ -321,3 +321,66 @@ test('Profile (1.13) shows decisions, never results: no bankroll, chips, won or 
     await close();
   }
 });
+
+test('a panel left open never hides a table started from Home (review B1)', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    // Open Play's friends panel, then leave by Home instead of the panel's own exit.
+    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="play-with-friends"]').click();
+    await page.locator('[data-testid="tab-home"]').click();
+    await page.waitForSelector(homeScreen);
+    // New session from Home lands on Play with the table, and Play keeps showing it.
+    await page.locator(sel.newHand).click();
+    await expect(page.locator('[data-testid="table-screen"]')).toBeVisible();
+    await page.locator('[data-testid="tab-play"]').click();
+    await expect(page.locator('[data-testid="table-screen"]')).toBeVisible();
+  } finally {
+    await close();
+  }
+});
+
+test('every Study and You screen fits under its sub-nav at 900x640 and 1100x760, nothing clipped (review S2)', async () => {
+  const { app, page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    const leaves: [string, string][] = [
+      ['tab-chart-bank', 'tab-study'],
+      ['tab-equity', 'tab-study'],
+      ['tab-ranges', 'tab-study'],
+      ['tab-dossier', 'tab-study'],
+      ['tab-pro', 'tab-study'],
+      ['tab-profile', 'tab-you'],
+      ['tab-trophies', 'tab-you'],
+      ['tab-style', 'tab-you'],
+      ['tab-hands', 'tab-you'],
+      ['tab-letters', 'tab-you'],
+      ['tab-rivals', 'tab-you'],
+      ['tab-locker', 'tab-you'],
+      ['tab-dee', 'tab-you'],
+    ];
+    for (const [w, h] of [[900, 640], [1100, 760]]) {
+      await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h]);
+      await page.waitForFunction(([w, h]) => window.innerWidth === w && window.innerHeight === h, [w, h]);
+      for (const [leaf, section] of leaves) {
+        await page.locator(`[data-testid="${section}"]`).click();
+        await page.locator(`[data-testid="${leaf}"]`).click();
+        const fit = await page.evaluate(() => {
+          const body = document.querySelector('.subnav-body') as HTMLElement | null;
+          const screen = body?.firstElementChild as HTMLElement | null;
+          const cols = [...document.querySelectorAll<HTMLElement>('.you-col')];
+          return {
+            page: document.documentElement.scrollHeight <= window.innerHeight && document.documentElement.scrollWidth <= window.innerWidth,
+            bottom: screen ? screen.getBoundingClientRect().bottom <= window.innerHeight + 1 : false,
+            clipped: body ? body.scrollHeight > body.clientHeight + 1 : true,
+            cols: cols.every((c) => c.scrollHeight <= c.clientHeight + 1),
+          };
+        });
+        expect(fit, `${leaf} at ${w}x${h}`).toEqual({ page: true, bottom: true, clipped: false, cols: true });
+      }
+    }
+  } finally {
+    await close();
+  }
+});

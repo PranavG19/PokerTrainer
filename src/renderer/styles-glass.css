@@ -125,7 +125,8 @@
   --nav-h: 44px;       /* the titlebar nav; the table screen's fixed height is derived from it */
   --screen-pad-y: 8px;
   /* The height a screen has under the title bar (1px: the bar's hairline). */
-  --screen-h: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y));
+  --screen-h-full: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y));
+  --screen-h: var(--screen-h-full);
 
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

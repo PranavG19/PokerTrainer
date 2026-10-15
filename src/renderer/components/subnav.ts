@@ -34,19 +34,20 @@ export function renderSubNav(opts: {
     n.textContent = opts.note;
     head.appendChild(n);
   }
+  // Plain buttons with aria-current, like the section bar: each opens a destination, not a tab panel.
   const seg = document.createElement('div');
   seg.className = 'g-seg subnav-seg';
-  seg.setAttribute('role', 'tablist');
+  seg.setAttribute('role', 'group');
+  seg.setAttribute('aria-label', `${opts.title} sections`);
   for (const item of opts.items) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'subnav-item';
     b.dataset.testid = item.testid;
-    b.setAttribute('role', 'tab');
     b.textContent = item.label;
     const on = item.leaf === opts.lit;
     b.dataset.active = String(on);
-    b.setAttribute('aria-selected', String(on));
+    if (on) b.setAttribute('aria-current', 'page');
     b.addEventListener('click', () => opts.onPick(item.leaf));
     seg.appendChild(b);
   }

@@ -429,7 +429,7 @@
 }
 .subnav-body {
   /* The screen below sees the height that is left under the bar. */
-  --screen-h: calc(100vh - var(--nav-h) - 1px - 2 * var(--screen-pad-y) - var(--subnav-h));
+  --screen-h: calc(var(--screen-h-full) - var(--subnav-h));
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;

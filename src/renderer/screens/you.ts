@@ -213,7 +213,8 @@ export function renderTrophies(views: readonly MilestoneView[], next: readonly M
 
   const shelf = el('section', 'you-card trophy-shelf');
   const detail = el('section', 'trophy-detail');
-  const nextList = el('div', 'g-group trophy-next');
+  // Informational rows, so a flat hairline list (the kit keeps .g-group for actionable ones).
+  const nextList = el('div', 'g-sect g-flat trophy-next');
   nextList.dataset.testid = 'trophy-next';
 
   function paintShelf(): void {

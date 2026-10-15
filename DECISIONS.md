@@ -70,6 +70,11 @@ destination is reachable at 900 px), Locker left to MVP B3, and a Profile of dec
   - Style, Letters and Locker are honest "not built" pages.
 - **Sub-navs** use the kit's segmented control under a title. The screen below gets the height that is left
   (`.subnav-body` lowers `--screen-h`).
+- **Home mid-hand leaves the table.** Clicking Home tears a live hand down, as every other non-Play section does.
+  The old Play tab kept the hand because the launcher and the table were one tab. Starting a table closes any open
+  panel, so nothing covers it.
+- **The decision family's trophy mark is bone** (the mock's "ceramic bone"). It is a recorded exception to "bone is
+  cards and the one primary action", like the streak's bone light.
 - **Specs** reach a folded tab through `goTo(page, oldTestid)` (tests/e2e/helpers.ts, driven by `OLD_TABS`).
   `sel.tabPlay` now means Home, the launcher; the planner specs open Play.
 
