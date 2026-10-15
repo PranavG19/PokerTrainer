@@ -43,8 +43,10 @@ Owner decisions in force: D10 (import for review and counting stats only, no pro
 - **The heavy work runs in a `worker_threads` worker** (`proWorker.ts`): an ICM solve takes ~370 ms (two solves),
   so main's thread stays free. Parsing 25 MB takes ~260 ms and a 50k-hand report ~75 ms. File reads are async.
   Solves are coalesced (only the newest waiting request runs); a job over 60 s ends the worker.
-- **`FEATURE_INFO.available` stays false** for both features until the owner answers the checkout question (marking
-  them shipped also opens checkout once URLs and prices exist); until then Pro users see "Coming in an update".
+- **Both tools are marked shipped** (`FEATURE_INFO.available`, owner decision 2026-10-14): Pro users get the screens,
+  and "something has shipped" now holds for checkout, which still opens only with a checkout URL AND a price shown
+  before it (`checkoutPlans`, unchanged). The upgrade sheet's "checkout stays closed until the first one ships" note
+  now reads only when nothing has shipped. Supersedes: held unshipped pending that answer.
 
 ## Story: the Long Orbit (branch `feat/story-campaign`)
 Owner decisions in force: D1 (character, story in scope; the tutor never authors a number; no trait insults), D17

@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FEATURE_INFO } from '../../src/core/entitlements/features.js';
 import { encodeToken } from '../../src/core/entitlements/token.js';
 import { launchApp } from './helpers.js';
 
@@ -21,13 +20,6 @@ const DEV = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/dev-licence-key.
 const DEV_PRIVATE = crypto.createPrivateKey({ key: { kty: 'OKP', crv: 'Ed25519', x: DEV.x, d: DEV.d }, format: 'jwk' });
 const SHOTS = path.join(ROOT, 'test-results', 'pro-tools-shots');
 const now = () => Math.floor(Date.now() / 1000);
-/**
- * Whether this build ships the two tools (FEATURE_INFO.available). Until the owner's checkout answer
- * lands they are "Coming in an update" even with a licence; the licensed specs then skip, and the
- * not-yet-shipped spec pins what a licence holder sees instead.
- */
-const SHIPPED = FEATURE_INFO['leak-finder'].available && FEATURE_INFO['icm-tools'].available;
-const UNSHIPPED_REASON = 'leak-finder and icm-tools are not marked shipped in this build (the owner’s checkout answer)';
 
 function testKey(): string {
   return encodeToken(
@@ -108,24 +100,7 @@ test('without Pro both tools are locked, in the window AND in main; deleting han
   }
 });
 
-test('with a test licence before the tools ship: an honest "Coming in an update", and main still serves them', async () => {
-  test.skip(SHIPPED, 'the tools are shipped in this build');
-  const { page, close } = await launchApp();
-  try {
-    await activatePro(page);
-    await page.locator('[data-testid="tab-pro"]').click();
-    const gate = page.locator('[data-testid="pro-gate"]');
-    await expect(gate).toHaveAttribute('data-locked', 'false');
-    await expect(gate).toContainText('Coming in an update');
-    const shove = await page.evaluate(() => window.offsuit!.proShove!({ stacks: [10, 10], button: 0, hero: 0, ante: 0, payouts: [], callers: { kind: 'equilibrium' } }));
-    expect(shove).toHaveProperty('answer');
-  } finally {
-    await close();
-  }
-});
-
 test('with a test licence: import through the dialog, read the leaks, and the import earns nothing', async () => {
-  test.skip(!SHIPPED, UNSHIPPED_REASON);
   const { app, page, userDataDir, close } = await launchApp();
   // A folder of fixtures plus a file inside a temp folder that also holds a link and a non-.txt file.
   const extra = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-hh-pick-'));
@@ -196,7 +171,6 @@ test('with a test licence: import through the dialog, read the leaks, and the im
 });
 
 test('with a test licence: ICM and push-fold, priced against named callers, at both sizes', async () => {
-  test.skip(!SHIPPED, UNSHIPPED_REASON);
   const { page, close } = await launchApp();
   try {
     await activatePro(page);
