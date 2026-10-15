@@ -62,6 +62,7 @@ import type { PredictedAction } from '../../core/predict.js';
 import {
   NEW_SITTING,
   handEndEvent,
+  isPriceHeld,
   recordHandInSitting,
   rememberLine,
   selectLine,
@@ -205,6 +206,12 @@ export function renderTable(opts: {
   sittingEnd?: { readonly note: string; readonly label: string; readonly testid: string };
   /** Open Dee chat (the handover's "Ask Dee", or `D` at handover). Absent: no chat entry at this table. */
   onAskDee?: () => void;
+  /**
+   * The habit loop: how many "Price held" decisions the hand just settled had, read on the grader's close band
+   * only (`Grade.close`, never the engine's 10-point fallback). Fired at settle, before onHandComplete, and only
+   * when the count is above zero.
+   */
+  onPriceHeld?: (count: number) => void;
 }): TableHandle {
   // The depth-driven starting stack, defaulting to the classic 100bb table. A single local so the
   // initial deal, the bust top-up and the rebuy prompt all agree — a rebuy must match the table's depth.
@@ -887,6 +894,8 @@ export function renderTable(opts: {
     state = settle(state);
     rememberHandForChat();
     deeAtSettle();
+    const held = beatDecisions.filter((d) => isPriceHeld(d, d.grade.close === true)).length;
+    if (held > 0) opts.onPriceHeld?.(held);
     setAwaiting('handover');
     // The hand's outcome reaches screen readers via its own polite region. Written once here at settle
     // (not in the per-render controls, which would re-announce every re-render) and cleared on nextHand.

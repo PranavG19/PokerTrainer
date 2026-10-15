@@ -114,6 +114,8 @@ export interface SessionPlannerOpts {
    * Absent → the view shows its honest empty state (nothing graded yet).
    */
   interleavingSpots?: Record<string, { module: string; attempts: number; correct: number }>;
+  /** The learner's own session length (onboarding's "A session is"), when it is a session length. */
+  defaultMinutes?: number | null;
 }
 
 /** The real ModuleIds, so a spot's stored module string is validated rather than trusted. */
@@ -140,7 +142,8 @@ export function renderSessionPlanner(opts: SessionPlannerOpts = {}): HTMLElement
   const dueProbes = dueNow(states, opts.now ?? Date.now()).length;
   const spots = opts.interleavingSpots ?? {};
 
-  let minutes: number = DEFAULT_SESSION_MINUTES;
+  let minutes: number =
+    opts.defaultMinutes != null && (SESSION_LENGTHS as readonly number[]).includes(opts.defaultMinutes) ? opts.defaultMinutes : DEFAULT_SESSION_MINUTES;
   let mode: SessionMode = 'session';
   /**
    * The panel has two views: 'plan' (the sitting planner, the default and original behaviour) and

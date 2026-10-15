@@ -7,6 +7,7 @@ import './styles-settings.css';
 import './styles-glass.css';
 import './styles-dee.css';
 import './styles-pro.css';
+import './styles-habit.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
 import type { SavedRange } from '../core/rangeEditor.js';
@@ -130,6 +131,22 @@ import {
 } from '../core/story/campaign.js';
 import { effectiveResult } from '../core/progression/persist.js';
 import type { DecisionRecord } from '../core/session.js';
+import { localHour, now, startClockAt } from './clock.js';
+import { REAL as REAL_HOOKS, type TestHooks } from '../core/testHooks.js';
+import { applyProgress, DRILL_ANSWERS as DRILL_ANSWERS_FOR_TICKET, streakToday, type ApplyContext, type ProgressExtras } from '../core/progression/apply.js';
+import { repsOn } from '../core/progression/reps.js';
+import { todaysRing } from '../core/progression/ring.js';
+import { greetingFor, type Greeting } from '../core/progression/greeting.js';
+import { ticketFor } from '../core/ticket.js';
+import { folioCards } from '../core/folio.js';
+import { effectiveTone } from '../core/progression/persist.js';
+import { LEAK_LABELS } from '../core/story/cast.js';
+import { renderTicket } from './screens/ticket.js';
+import { renderFolio } from './screens/folio.js';
+import { renderOnboarding, type OnboardingResult } from './screens/onboarding.js';
+import type { HomeHabit } from './screens/home.js';
+import type { TicketItemRecord } from '../core/progression/types.js';
+import type { DayKey } from '../core/localDay.js';
 
 const DEFAULT_SEED = 42;
 
@@ -143,6 +160,8 @@ interface OffsuitBridge extends ProBridge, HandsBridge, IcmBridge {
   /** Main answers `{ saved: false, readOnly }` when it refused the write; the in-memory bridge answers nothing. */
   saveState: (obj: Record<string, unknown>) => Promise<{ saved: boolean; readOnly: string | null; failed?: string } | void>;
   getSeed: () => Promise<number | null>;
+  /** e2e only: the test clock and the onboarding switch (core/testHooks.ts). Absent outside Electron. */
+  testHooks?: () => Promise<TestHooks>;
   readSettings?: () => Promise<SettingsStatus>;
   setTutorEnabled?: (enabled: boolean) => Promise<boolean>;
   setTheme?: (theme: string) => Promise<string>;
@@ -323,9 +342,21 @@ async function boot(): Promise<void> {
   const io: OffsuitBridge = {
     ...base,
     saveState: async (obj) => {
+      // THE PROGRESSION HOST (1.5): every save is one diff → award → save. What changed since the last save
+      // pays (core/progression/apply.ts); the session saved is the one with its progression applied.
+      void obj;
+      // While a delete is in flight nothing is written: a save of the old session landing after it would undo it.
+      if (deleting) return { saved: false, readOnly: null, failed: 'deleting' };
+      const applied = applyProgress(lastSaved, session, takeExtras(), applyContext());
+      session = { ...session, progression: applied.progression };
+      const toSave = session;
+      // A profile delete while this save is in flight must not make the deleted session the next diff's base.
+      const generation = profileGeneration;
+      paintDee();
       let outcome: Awaited<ReturnType<OffsuitBridge['saveState']>>;
       try {
-        outcome = await base.saveState(obj);
+        outcome = await base.saveState(serialize(toSave));
+        if ((!outcome || outcome.saved) && generation === profileGeneration) lastSaved = toSave;
       } catch {
         outcome = { saved: false, readOnly: null, failed: 'ipc' };
       }
@@ -341,7 +372,35 @@ async function boot(): Promise<void> {
     },
   };
   const seed = (await io.getSeed()) ?? DEFAULT_SEED;
+  const hooks: TestHooks = (await io.testHooks?.().catch(() => REAL_HOOKS)) ?? REAL_HOOKS;
+  startClockAt(hooks.now);
   let session: SessionState = deserialize(await io.loadState());
+  /** The session as last saved: the base of the next save's diff. */
+  let lastSaved: SessionState = session;
+  /** Facts a save cannot see, from the screen that saw them; consumed by the next save. */
+  let extras: ProgressExtras = {};
+  const addExtras = (more: ProgressExtras): void => {
+    extras = { ...extras, ...more, priceHeld: (extras.priceHeld ?? 0) + (more.priceHeld ?? 0), polished: [...(extras.polished ?? []), ...(more.polished ?? [])] };
+  };
+  function takeExtras(): ProgressExtras {
+    const e: ProgressExtras = {
+      ...extras,
+      ...(shownGreeting ? { greeting: { lineId: shownGreeting.greeting.lineId, day: shownGreeting.day } } : {}),
+      ...(shownTicket ? { shownTicket } : {}),
+    };
+    extras = {};
+    return e;
+  }
+  /** Sight answers today (the Ticket's drill item when it is Sight), counted in memory, keyed by day. */
+  let perception: { day: number; board: number } = { day: -1, board: 0 };
+  /** The greeting on Home and the day it was shown (kept all day, persisted with the next save). */
+  let shownGreeting: { greeting: Greeting; day: DayKey } | null = null;
+  /** The Ticket Home or the Ticket screen last showed: the day's first save freezes exactly this one. */
+  let shownTicket: SessionState['progression']['ticket'] | null = null;
+  /** Bumped by a profile delete, so a save resolving afterwards cannot restore the deleted diff base. */
+  let profileGeneration = 0;
+  /** A profile delete is awaiting main. */
+  let deleting = false;
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
   const soundPlayer = createSoundPlayer();
 
@@ -375,6 +434,18 @@ async function boot(): Promise<void> {
    * it returns to Progress, where the learner came from.
    */
   let varianceActive = false;
+  /** Today's Ticket is a PANEL within the Play tab, like the assessment block; leaving it returns to Home. */
+  let ticketActive = false;
+  /** Learn shows the lessons or the Folio (the Rulebook). */
+  let learnView: 'lessons' | 'folio' = 'lessons';
+  /** One-shot deep links from a Ticket item into Train's Math and Spots. */
+  let drillKindNext: string | null = null;
+  let puzzleNext: string | null = null;
+  /** Onboarding: reopened from Dee's settings, or dismissed this run (Skip saves, so it never returns by itself). */
+  let onboardingOpen = false;
+  let onboardingDismissed = false;
+  /** Answers typed so far, kept if the learner leaves the sheet for another tab and comes back. */
+  let onboardingDraft: OnboardingResult | null = null;
   let settings: SettingsStatus = (await io.readSettings?.()) ?? LOCAL_ONLY_SETTINGS;
   /**
    * Pro: a display copy of main's licence snapshot (pro.ts). Read after loadState, so main has adopted
@@ -461,6 +532,9 @@ async function boot(): Promise<void> {
       // Leaving Profile drops the replay: coming back to a half-stepped hand from another tab is
       // state the learner did not ask to keep, and the picker is one click away.
       profileView = { at: 'profile' };
+      // A tab click lands on that tab's front: Learn's lessons, Play's Home (not the Ticket panel).
+      learnView = 'lessons';
+      ticketActive = false;
       render();
       // Backup count and guard failures move while the learner is elsewhere, so opening the tab
       // re-reads rather than showing what was true at boot.
@@ -499,7 +573,7 @@ async function boot(): Promise<void> {
   function paintDee(): void {
     document.documentElement.dataset.character = session.progression.dee.character ? 'on' : 'off';
     const streak = session.progression.streak;
-    perch.setStreak(currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(Date.now())));
+    perch.setStreak(currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())));
   }
   paintDee();
 
@@ -606,7 +680,7 @@ async function boot(): Promise<void> {
   }
 
   // ── Story ───────────────────────────────────────────────────────────────────────────────────────
-  const today = (): ReturnType<ReturnType<typeof systemDayKeyOf>> => systemDayKeyOf(session.progression.streak.boundaryHour)(Date.now());
+  const today = (): ReturnType<ReturnType<typeof systemDayKeyOf>> => systemDayKeyOf(session.progression.streak.boundaryHour)(now());
 
   /** The orbit for this learner: reordered by their own reach-weighted leaks (story/route.ts). */
   function storyRoute(): StoryRoute {
@@ -619,6 +693,119 @@ async function boot(): Promise<void> {
 
   function storyDee(): { tone: DeeContext['tone']; character: boolean } {
     return { tone: deeContext().tone, character: session.progression.dee.character };
+  }
+
+  // ── The habit loop: the host's context, Home's pieces, the Ticket and the Folio ─────────────────────
+  const dayOf = (): ReturnType<typeof systemDayKeyOf> => systemDayKeyOf(session.progression.streak.boundaryHour);
+
+  /** The costliest leak's coach principle (by bb lost), for the Ticket's spots. */
+  function costliestPrinciple(): string | null {
+    let leak: string | null = null;
+    for (const [principle, cost] of Object.entries(session.stats.leakCostBb ?? {})) {
+      if (cost > 0 && (leak === null || cost > (session.stats.leakCostBb[leak] ?? 0))) leak = principle;
+    }
+    return leak;
+  }
+
+  function applyContext(): ApplyContext {
+    return { now: now(), dayOf: dayOf(), scenarios: SCENARIOS, leakPrinciple: costliestPrinciple() };
+  }
+
+  /** Today's Ticket: the frozen one, or the one the next save will freeze (built the same way). */
+  function todaysTicket(): SessionState['progression']['ticket'] {
+    return ticketFor(session.progression.ticket, {
+      day: today(),
+      now: now(),
+      concepts: deriveConcepts(),
+      leakPrinciple: costliestPrinciple(),
+      scenarios: SCENARIOS,
+      puzzleProgress: session.puzzleProgress,
+    });
+  }
+
+  function currentFolio(): ReturnType<typeof folioCards> {
+    return folioCards({ lexicon: session.lexicon, rules: session.progression.dee.ruleSentences, folio: session.progression.folio, now: now(), dayOf: dayOf() });
+  }
+
+  function homeHabit(): HomeHabit {
+    const p = session.progression;
+    const d = today();
+    const streak = streakToday(p, d);
+    const dueCount = dueNow(deriveConcepts(), now()).length;
+    const ruleDays = [
+      ...session.lexicon.map((a) => dayOf()(a.at)),
+      ...p.dee.ruleSentences.map((r) => r.day),
+    ];
+    const ticket = todaysTicket();
+    const topLeak = storyRoute().leaks[0];
+    const rules = p.dee.ruleSentences;
+    const newest = rules.length > 0 ? rules[rules.length - 1].text : null;
+    const greeting = p.dee.character
+      ? greetingFor({
+          day: d,
+          hour: localHour(),
+          name: p.personalization.displayName,
+          tone: effectiveTone(p.dee.personality),
+          handsPlayed: session.stats.handsPlayed,
+          dueCount,
+          leak: topLeak ? LEAK_LABELS[topLeak.kind] : null,
+          rule: newest !== null && newest.split(/\s+/).length <= 14 ? newest : null,
+          ticketDoneToday: ticket.finishedOn === d,
+          daysSinceLastSession: p.streak.lastCountedDay === null ? null : d - p.streak.lastCountedDay,
+          lastGreeting: p.dee.lastGreeting,
+        })
+      : null;
+    shownGreeting = greeting ? { greeting, day: d } : null;
+    shownTicket = ticket;
+    return {
+      greeting,
+      streak: { ...streak, countedDays: p.streak.countedDays, today: d, boundaryHour: p.streak.boundaryHour },
+      ring: todaysRing({
+        today: d,
+        dueNow: dueCount,
+        repsToday: repsOn(p.reps, d),
+        suggestionTakenOn: p.tallies.suggestionTakenOn,
+        suggestionOffered: currentRecommendation().suggestion !== null,
+        ruleDays,
+      }),
+      ticket,
+      today: d,
+      onOpenTicket: () => {
+        ticketActive = true;
+        render();
+      },
+    };
+  }
+
+  /** Open the surface that works one Ticket item. The item ticks itself off when the work is on file. */
+  function startTicketItem(item: TicketItemRecord): void {
+    ticketActive = false;
+    tab = 'train';
+    if (item.kind === 'review') {
+      trainMode = 'drill';
+      drillKindNext = item.ref;
+    } else if (item.kind === 'drill') {
+      trainMode = item.ref === 'board' ? 'board' : 'anomaly';
+    } else {
+      trainMode = 'puzzle';
+      puzzleNext = item.ref;
+    }
+    render();
+  }
+
+  /** A perception answer, counted toward the Ticket's drill item; a board answer saves only when it completes it. */
+  /** A Sight answer, counted toward the Ticket's drill item (Speed's count is read from the saved awards). */
+  function onSightAnswer(): boolean {
+    const d = today();
+    if (perception.day !== d) perception = { day: d, board: 0 };
+    perception.board += 1;
+    addExtras({ perception: { mode: 'board', answered: perception.board } });
+    return perception.board === DRILL_ANSWERS_FOR_TICKET;
+  }
+
+  function onboardingDue(): boolean {
+    const p = session.progression.personalization;
+    return (hooks.onboarding && p.answeredOn === null && session.hands.length === 0 && !onboardingDismissed);
   }
 
   /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
@@ -643,6 +830,7 @@ async function boot(): Promise<void> {
     const finish = async (): Promise<void> => {
       const judgement = judgeTable(decisions, venue);
       teardownTable();
+      addExtras({ storyTableEnded: true });
       storyView = { at: 'chapter', id: venue.id, stage: 'debrief', justPlayed: { judgement, wasUnmasked } };
       await saveStory(recordTable(session.progression.story, venue, judgement, today()));
       render();
@@ -692,6 +880,7 @@ async function boot(): Promise<void> {
         onPerch: (source, pose) => perch.setPose(source, pose),
         onActing: (on) => perch.setActing(on),
       },
+      onPriceHeld: (count) => addExtras({ priceHeld: count }),
       // Busted, swept or the planned hands played: the debrief judges what was played.
       onSessionOver: () => void finish(),
     });
@@ -818,6 +1007,7 @@ async function boot(): Promise<void> {
   /** Persist one completed puzzle scenario so its best score survives a restart. */
   async function onPuzzleComplete(scenarioId: string, correct: number): Promise<void> {
     session = recordPuzzleResult(session, scenarioId, correct);
+    addExtras({ spot: { id: scenarioId, correct } });
     await io.saveState(serialize(session));
   }
 
@@ -1023,6 +1213,7 @@ async function boot(): Promise<void> {
    */
   async function onAcceptSuggestion(suggestion: Suggestion): Promise<void> {
     session = { ...session, recommender: acceptSuggestion(session.recommender) };
+    addExtras({ suggestionTaken: true });
     // The non-error-tag route lands on the Math (drill) rung of the Train hub — the arithmetic trainer
     // that used to be its own tab. error-tag routes to Learn as before.
     if (suggestion.source === 'error-tag') {
@@ -1069,12 +1260,32 @@ async function boot(): Promise<void> {
   }
 
   async function onDeleteProfile(confirmation: string): Promise<void> {
-    const outcome = await io.deleteProfile?.(confirmation);
+    deleting = true;
+    profileGeneration += 1;
+    let outcome: { deleted: boolean } | undefined;
+    try {
+      outcome = await io.deleteProfile?.(confirmation);
+    } finally {
+      deleting = false;
+    }
     // Only on a real delete: main refuses an unconfirmed call, and dropping the session anyway would
     // destroy in memory exactly what the gate just refused to destroy on disk. On a real delete the
     // session MUST go, or the next save would write the deleted log straight back.
     if (outcome?.deleted === true) {
       session = deserialize({});
+      lastSaved = session;
+      // Nothing the deleted profile was owed or had open carries over to the fresh one.
+      profileGeneration += 1;
+      extras = {};
+      perception = { day: -1, board: 0 };
+      shownGreeting = null;
+      shownTicket = null;
+      onboardingDraft = null;
+      onboardingOpen = false;
+      onboardingDismissed = false;
+      ticketActive = false;
+      drillKindNext = null;
+      puzzleNext = null;
       teardownTable();
     }
     await refreshSettings();
@@ -1168,6 +1379,7 @@ async function boot(): Promise<void> {
         onActing: (on) => perch.setActing(on),
       },
       onAskDee: () => openChat(),
+      onPriceHeld: (count) => addExtras({ priceHeld: count }),
       // Hero busted out: drop back to home, where a fresh table can be started.
       onSessionOver: () => {
         teardownTable();
@@ -1283,8 +1495,28 @@ async function boot(): Promise<void> {
       screen.replaceChildren(table.root);
       return;
     }
+    if (onboardingDue()) {
+      screen.replaceChildren(renderOnboardingSheet());
+      return;
+    }
+    if (ticketActive) {
+      screen.replaceChildren(
+        renderTicket({
+          ticket: (shownTicket = todaysTicket()),
+          leakOnFile: costliestPrinciple() !== null,
+          today: today(),
+          onStart: (item) => startTicketItem(item),
+          onBack: () => {
+            ticketActive = false;
+            render();
+          },
+        }),
+      );
+      return;
+    }
     screen.replaceChildren(
       renderHome({
+        habit: homeHabit(),
         session,
         standing: currentStanding(Date.now()),
         onNewSession: () => startTable(),
@@ -1324,9 +1556,12 @@ async function boot(): Promise<void> {
    */
   function renderTrainMode(mode: TrainMode): HTMLElement {
     if (mode === 'puzzle') {
+      const initialScenarioId = puzzleNext ?? undefined;
+      puzzleNext = null;
       return renderPuzzleScreen({
         progress: session.puzzleProgress,
         onComplete: (scenarioId, correct) => void onPuzzleComplete(scenarioId, correct),
+        initialScenarioId,
       });
     }
     if (mode === 'repair') {
@@ -1337,9 +1572,12 @@ async function boot(): Promise<void> {
       });
     }
     if (mode === 'drill') {
+      const initialKind = drillKindNext ?? undefined;
+      drillKindNext = null;
       return renderDrillScreen({
         fadingLog: session.fadingLog,
         onFadingEvents: (events) => void onFadingEvents(events),
+        initialKind,
       });
     }
     if (mode === 'anomaly') {
@@ -1357,7 +1595,14 @@ async function boot(): Promise<void> {
       });
     }
     if (mode === 'reading') return renderHandReadingDrill();
-    if (mode === 'board') return renderBoardReadingDrill();
+    if (mode === 'board') {
+      return renderBoardReadingDrill({
+        // Sight answers are not persisted; the one that completes the Ticket's drill item saves it.
+        onAnswer: () => {
+          if (onSightAnswer()) void io.saveState(serialize(session));
+        },
+      });
+    }
     if (mode === 'robustness') return renderRobustnessScreen();
     // 'spacing' (Upkeep): real graded history grouped into per-concept states (see deriveConcepts). On a
     // fresh profile the log is empty and the screen says so.
@@ -1401,7 +1646,30 @@ async function boot(): Promise<void> {
   function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
     if (which === 'profile') return renderProfileTab();
     if (which === 'learn') {
+      if (learnView === 'folio') {
+        return renderFolio({
+          cards: currentFolio(),
+          onPolish: (conceptId) => {
+            addExtras({ polished: [conceptId] });
+            void io.saveState(serialize(session)).then(() => render());
+          },
+          onWrite: () => {
+            learnView = 'lessons';
+            render();
+          },
+          copy: navigator.clipboard ? (text) => navigator.clipboard.writeText(text) : undefined,
+        });
+      }
+      const cards = currentFolio();
       return renderLessonScreen({
+        folio: {
+          count: cards.length,
+          toPolish: cards.filter((c) => c.tarnished).length,
+          onOpen: () => {
+            learnView = 'folio';
+            render();
+          },
+        },
         dee: {
           tone: deeContext().tone,
           character: session.progression.dee.character,
@@ -1410,6 +1678,7 @@ async function boot(): Promise<void> {
         },
       });
     }
+    if (which === 'dee' && onboardingOpen) return renderOnboardingSheet(true);
     if (which === 'dee') {
       const remembered = session.progression.dee.ruleSentences;
       phrasingRow = phrasing
@@ -1422,6 +1691,11 @@ async function boot(): Promise<void> {
         : null;
       return renderDeeSettings({
         phrasing: phrasingRow?.root,
+        // Reopened here, in Dee's settings, never over the Play tab: a live table is left exactly as it was.
+        onRedoOnboarding: () => {
+          onboardingOpen = true;
+          render();
+        },
         context: deeContext(),
         rulesRemembered: remembered.length,
         newestRule: remembered.length > 0 ? remembered[remembered.length - 1].text : null,
@@ -1580,6 +1854,43 @@ async function boot(): Promise<void> {
       session,
       onOpenReview: () => goto({ at: 'picker' }),
       onOpenCareer: () => goto({ at: 'career' }),
+    });
+  }
+
+  /** Onboarding's five sheets. Skip or finish saves what was answered, once; finishing deals the first hand. */
+  function renderOnboardingSheet(fromSettings = false): HTMLElement {
+    const p = session.progression;
+    return renderOnboarding({
+      initial: onboardingDraft ? { ...onboardingDraft.personalization, answeredOn: p.personalization.answeredOn } : p.personalization,
+      tone: onboardingDraft?.tone ?? effectiveTone(p.dee.personality),
+      spokenVerdicts: onboardingDraft?.spokenVerdicts ?? session.spokenVerdicts,
+      finishLabel: fromSettings ? 'Save' : undefined,
+      onDraft: (draft) => {
+        onboardingDraft = draft;
+      },
+      onCancel: fromSettings
+        ? () => {
+            onboardingOpen = false;
+            onboardingDraft = null;
+            render();
+          }
+        : undefined,
+      onDone: (result, finished) => {
+        onboardingOpen = false;
+        onboardingDismissed = true;
+        onboardingDraft = null;
+        session = setSpokenVerdicts(session, result.spokenVerdicts);
+        session = {
+          ...session,
+          progression: {
+            ...setTone(session.progression, result.tone),
+            personalization: { ...result.personalization, answeredOn: p.personalization.answeredOn ?? today() },
+          },
+        };
+        void io.saveState(serialize(session));
+        if (finished && !fromSettings) startTable();
+        else render();
+      },
     });
   }
 

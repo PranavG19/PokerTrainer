@@ -75,6 +75,8 @@ interface LessonScreenOpts {
    * sentence so Dee can quote it back at the table.
    */
   dee?: { tone: Tone; character: boolean; onRule?: (lessonId: string, text: string) => void };
+  /** The Rulebook (Folio): the rules written here, as cards. Absent: no entry. */
+  folio?: { readonly count: number; readonly toPolish: number; readonly onOpen: () => void };
 }
 
 declare global {
@@ -276,7 +278,20 @@ export function renderLessonScreen(opts: LessonScreenOpts = {}): HTMLElement {
 
     const heading = document.createElement('div');
     heading.className = 'lesson-list-heading';
-    heading.appendChild(text('div', 'lesson-list-title t-t2', 'Lessons'));
+    const titleRow = document.createElement('div');
+    titleRow.className = 'lesson-list-titlerow';
+    titleRow.appendChild(text('div', 'lesson-list-title t-t2', 'Lessons'));
+    if (opts.folio) {
+      const f = opts.folio;
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'pill quiet';
+      open.dataset.testid = 'open-folio';
+      open.textContent = f.toPolish > 0 ? `Rulebook · ${f.toPolish} to re-polish` : `Rulebook · ${f.count}`;
+      open.addEventListener('click', f.onOpen);
+      titleRow.appendChild(open);
+    }
+    heading.appendChild(titleRow);
     heading.appendChild(
       text(
         'div',

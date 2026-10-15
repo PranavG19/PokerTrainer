@@ -18,7 +18,7 @@
  * correct wherever the planner is absent, and scoping the override to "home WITH a planner in it"
  * keeps this file from silently owning a layout it does not render.
  */
-.home-screen:has(> .session-planner) {
+.home-screen:has(> .home-side > .session-planner) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 32px;

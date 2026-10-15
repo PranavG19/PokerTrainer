@@ -115,6 +115,13 @@ export interface DrillOptions {
   readonly fadingLog?: readonly FadingEvent[];
   /** Persist newly-appended fading events. Called on each commit; main.ts folds them in and saves. */
   readonly onFadingEvents?: (events: readonly FadingEvent[]) => void;
+  /** Open on this kind (the Ticket's review of a due concept). Unknown or absent: the first kind, as before. */
+  readonly initialKind?: string;
+}
+
+/** A drill concept's display name ("Pot odds"), or the id itself for a concept this build does not know. */
+export function drillKindLabel(conceptId: string): string {
+  return (KINDS as Record<string, { label: string }>)[conceptId]?.label ?? conceptId;
 }
 
 export function renderDrillScreen(options: DrillOptions = {}): HTMLElement {
@@ -146,7 +153,9 @@ export function renderDrillScreen(options: DrillOptions = {}): HTMLElement {
     DRILL_KINDS.map((kind) => [kind, deriveState(kind, fadingLog)]),
   );
 
-  let kind: DrillKind = DRILL_KINDS[0];
+  let kind: DrillKind = (DRILL_KINDS as readonly string[]).includes(options.initialKind ?? '')
+    ? (options.initialKind as DrillKind)
+    : DRILL_KINDS[0];
   let index = 0;
   let problem = generateProblem(seedFor(index), kind);
   let committed: Committed | null = null;
