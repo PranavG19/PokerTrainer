@@ -805,6 +805,17 @@ async function boot(): Promise<void> {
     return (hooks.onboarding && p.answeredOn === null && session.hands.length === 0 && !onboardingDismissed);
   }
 
+  /**
+   * Play's panels are exclusive: opening one closes any other left open, so a launcher always lands on its own
+   * panel whatever was open before (re-review S-A). The caller renders.
+   */
+  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance'): void {
+    multiplayerActive = kind === 'friends';
+    onlineActive = kind === 'online';
+    assessmentActive = kind === 'assessment';
+    varianceActive = kind === 'variance';
+  }
+
   /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
   function openChapter(id: ChapterId): void {
     const route = storyRoute();
@@ -1448,7 +1459,7 @@ async function boot(): Promise<void> {
           onOpenPro: () => openProSheet('ranked-play'),
           onExit: () => {
             onlineActive = false;
-            multiplayerActive = true;
+            openPanel('friends');
             render();
           },
         }),
@@ -1465,7 +1476,7 @@ async function boot(): Promise<void> {
           },
           onPlayOnline: () => {
             multiplayerActive = false;
-            onlineActive = true;
+            openPanel('online');
             render();
           },
         }),
@@ -1509,11 +1520,11 @@ async function boot(): Promise<void> {
         onNewSession: () => startTable(),
         onStartPlanned: (plan) => startTable(plan),
         onPlayWithFriends: () => {
-          multiplayerActive = true;
+          openPanel('friends');
           render();
         },
         onStartAssessment: () => {
-          assessmentActive = true;
+          openPanel('assessment');
           render();
         },
       }),
@@ -1550,7 +1561,7 @@ async function boot(): Promise<void> {
         onStartPlanned: (plan) => startTable(plan),
         onPlayWithFriends: () => {
           tab = 'play';
-          multiplayerActive = true;
+          openPanel('friends');
           render();
         },
         planner: false,
@@ -1837,12 +1848,12 @@ async function boot(): Promise<void> {
         onOpenVariance: () => {
           // The refusal's promised route now lands on the honest variance explainer (a Play-tab panel),
           // not the generic Learn list — the alternative the refusal names is a real page, not a shrug.
-          varianceActive = true;
+          openPanel('variance');
           tab = 'play';
           render();
         },
         onStartAssessment: () => {
-          assessmentActive = true;
+          openPanel('assessment');
           tab = 'play';
           render();
         },

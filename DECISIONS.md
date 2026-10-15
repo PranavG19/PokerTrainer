@@ -73,6 +73,8 @@ destination is reachable at 900 px), Locker left to MVP B3, and a Profile of dec
 - **Home mid-hand leaves the table.** Clicking Home tears a live hand down, as every other non-Play section does.
   The old Play tab kept the hand because the launcher and the table were one tab. Starting a table closes any open
   panel, so nothing covers it.
+- **Leaving a section closes an open answers sheet** (onboarding reopened from Dee or Profile). What was typed stays
+  as a draft, so reopening shows it. Play's panels are exclusive: opening one closes any other.
 - **The decision family's trophy mark is bone** (the mock's "ceramic bone"). It is a recorded exception to "bone is
   cards and the one primary action", like the streak's bone light.
 - **Specs** reach a folded tab through `goTo(page, oldTestid)` (tests/e2e/helpers.ts, driven by `OLD_TABS`).

@@ -384,3 +384,40 @@ test('every Study and You screen fits under its sub-nav at 900x640 and 1100x760,
     await close();
   }
 });
+
+test('each launcher opens its own panel, whatever was left open (re-review S-A)', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    // Leave the friends panel open by going Home, then start the assessment from Play: the assessment shows.
+    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="play-with-friends"]').click();
+    await page.locator('[data-testid="tab-home"]').click();
+    await page.waitForSelector(homeScreen);
+    await goTo(page, 'tab-progress');
+    await page.locator('[data-testid="progress-start-assessment"]').click();
+    await expect(page.locator('[data-testid="assessment-screen"]')).toBeVisible();
+  } finally {
+    await close();
+  }
+});
+
+test("Profile's Edit opens the answers in place, and Save and Cancel come back to Profile (re-review N-B)", async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    await page.locator('[data-testid="tab-you"]').click();
+    await page.locator('[data-testid="you-game"] button').first().click();
+    await expect(page.locator('[data-testid="onboarding"]')).toBeVisible();
+    await expect(page.locator('[data-testid="tab-profile"]')).toHaveAttribute('data-active', 'true');
+    await page.locator('[data-testid="onboarding-skip"]').click(); // Cancel from here
+    await expect(page.locator('[data-testid="you-profile"]')).toBeVisible();
+    await page.locator('[data-testid="you-game"] button').first().click();
+    await page.locator('[data-testid="onboarding-name"]').fill('Robin');
+    for (let step = 1; step < 5; step++) await page.locator('[data-testid="onboarding-next"]').click();
+    await page.locator('[data-testid="onboarding-next"]').click(); // Save
+    await expect(page.locator('[data-testid="you-name"]')).toHaveText('Robin');
+  } finally {
+    await close();
+  }
+});
