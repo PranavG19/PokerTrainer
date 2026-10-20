@@ -121,12 +121,58 @@ describe('Teach Dee screen', () => {
     expect(holes(first.finished)).not.toBe(holes([]));
   });
 
+  it('after a rewrite, the rule list shows the new sentence and teaching it again uses it (no stale card)', () => {
+    const m = mount({ initialConcept: CARD.conceptId });
+    playThrough(m);
+    m.qa('teach-diagnose-option')[0].click();
+    (m.q('teach-rewrite-input') as HTMLTextAreaElement).value = 'Suited connectors realise their equity well enough to bet';
+    m.q('teach-rewrite-submit')!.click();
+    m.q('teach-back')!.click();
+    expect(m.root.dataset.phase).toBe('pick');
+    expect(m.root.dataset.finding).toBeUndefined();
+    expect(m.q('teach-rule')!.textContent).toContain('Suited connectors realise');
+    expect(m.q('teach-rule-meta')!.textContent).not.toContain('rewrite it');
+    m.q('teach-rule')!.click();
+    playThrough(m);
+    expect(m.finished[1].text).toBe('Suited connectors realise their equity well enough to bet');
+  });
+
+  it('a set that asks for a rewrite flags its rule in the list at once', () => {
+    const m = mount({ initialConcept: CARD.conceptId });
+    playThrough(m);
+    m.q('teach-back')!.click();
+    expect(m.q('teach-rule-meta')!.textContent).toContain('rewrite it');
+  });
+
+  it('keeps keyboard focus on the next step across repaints', () => {
+    const m = mount({ initialConcept: CARD.conceptId });
+    m.q('teach-start')!.click();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('teach-move');
+    m.qa('teach-move')[1].click();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('teach-next');
+    m.q('teach-next')!.click();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('teach-move');
+  });
+
+  it('“everywhere else” never offers the rule’s own play', () => {
+    const m = mount({ initialConcept: CARD.conceptId });
+    const values = [...m.q('teach-otherwise')!.querySelectorAll('button')].map((b) => b.dataset.value);
+    expect(values).not.toContain(m.q('teach-reading')!.dataset.action);
+    expect(values).toHaveLength(2);
+  });
+
   it('Character off: no Dee mark or line, and the plays read as the rule’s', () => {
     const m = mount({ initialConcept: CARD.conceptId, dee: { tone: 'warm', character: false } });
     expect(m.q('teach-dee-line')).toBeNull();
     m.q('teach-start')!.click();
     m.qa('teach-move')[0].click();
     expect(m.q('teach-dee-move')!.textContent).toMatch(/^The rule:/);
+    const total = Number(m.q('teach-play')!.dataset.total);
+    for (let i = 0; i < total; i++) {
+      if (m.q('teach-reveal') === null) m.qa('teach-move')[0].click();
+      m.q('teach-next')!.click();
+    }
+    expect(m.q('teach-summary')!.textContent).toMatch(/^The rule’s play held up/);
     expect(m.root.querySelector('[data-testid="dee-mark"]')).toBeNull();
   });
 

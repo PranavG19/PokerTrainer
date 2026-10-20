@@ -219,6 +219,14 @@ describe('the contrast set: real deals, one variable apart, judged by the grader
           for (const pair of byPair.values()) {
             expect(pair).toHaveLength(2);
             expect(differingAxes(pair[0].variant.features, pair[1].variant.features)).toEqual([a.axis]);
+            // The cards a learner can see move no more than the variable needs: the board and seats never; for
+            // suitedness both ranks stay; for the gap one card stays exactly.
+            const [x, y] = pair.map((p) => p.variant.spot);
+            expect(y.board).toEqual(x.board);
+            const ranks = (h: readonly string[]) => h.map((c) => c[0]).sort().join('');
+            if (a.axis === 'suitedness') expect(ranks(y.hole)).toBe(ranks(x.hole));
+            else if (a.axis === 'kickerGap') expect(y.hole.some((c) => x.hole.includes(c))).toBe(true);
+            else expect(y.hole).toEqual(x.hole);
           }
         }
       }
@@ -333,17 +341,21 @@ describe('taught sets: recorded once, bounded, and read tolerantly', () => {
 
   it('a rewrite is due until a sentence for the rule lands after the set', () => {
     const sets = [taught(NOW - 5000, 'r1', 'too-broad'), taught(NOW - 4000, 'r2', 'holds'), taught(NOW - 3000, 'r3', 'a-newer-finding')];
-    expect(rewritesDue({ sets, lexicon: [], rules: [], dayOf }).map((s) => s.conceptId)).toEqual(['r1']);
+    const onCards = ['r1', 'r2', 'r3'].map((conceptId) => ({ conceptId, text: 'a lesson rule', day: (dayOf(NOW) - 3) as DayKey }));
+    expect(rewritesDue({ sets, lexicon: [], rules: onCards, dayOf }).map((s) => s.conceptId)).toEqual(['r1']);
+    // A rule no longer on any card (its lesson rules forgotten) is not asked for: it could never be taught again.
+    expect(rewritesDue({ sets, lexicon: [], rules: [], dayOf })).toEqual([]);
     const lex = createLexicon();
     const early = lex.record({ conceptId: 'r1', sentence: 'the kicker is dominated more often', at: NOW - 9000 });
     expect(early.outcome).toBe('accepted');
     expect(rewritesDue({ sets, lexicon: lex.attempts(), rules: [], dayOf })).toHaveLength(1);
+    expect(rewritesDue({ sets, lexicon: lex.attempts(), rules: [], dayOf })[0].conceptId).toBe('r1');
     lex.record({ conceptId: 'r1', sentence: 'suited hands realise equity only with nobody behind', at: NOW - 1000 });
     expect(rewritesDue({ sets, lexicon: lex.attempts(), rules: [], dayOf })).toEqual([]);
     const lesson = [{ conceptId: 'r1', text: 'a lesson rule', day: (dayOf(NOW) + 1) as DayKey }];
     expect(rewritesDue({ sets, lexicon: [], rules: lesson, dayOf })).toEqual([]);
     // The newest set is the one that counts: a later set that held closes it.
-    expect(rewritesDue({ sets: [...sets, taught(NOW - 500, 'r1', 'holds')], lexicon: [], rules: [], dayOf })).toEqual([]);
+    expect(rewritesDue({ sets: [...sets, taught(NOW - 500, 'r1', 'holds')], lexicon: [], rules: onCards, dayOf })).toEqual([]);
   });
 
   it('teachSeed moves with each set taught, and is stable for the same count', () => {
@@ -383,7 +395,9 @@ describe('the progression host pays a finished set once, polishes a rule that he
     expect(buildTicket({ day: dayOf(NOW), now: NOW, concepts: [], leakPrinciple: null, scenarios: SCENARIOS, puzzleProgress: {} }).some((i) => i.kind === 'teach')).toBe(false);
 
     // Yesterday's set found the rule wrong: today's Ticket asks for it, and teaching it again ticks the item.
-    const s0 = withSets(emptySession(), [taught(NOW - 86_400_000, 'r1', 'wrong')]);
+    const e = emptySession();
+    const onCard = { ...e, progression: { ...e.progression, dee: { ...e.progression.dee, ruleSentences: [{ conceptId: 'r1', text: 'a rule', day: (dayOf(NOW) - 3) as DayKey }] } } };
+    const s0 = withSets(onCard, [taught(NOW - 86_400_000, 'r1', 'wrong')]);
     const s1 = save(s0, withSets(s0, [...s0.progression.teachDee.sets, taught(NOW - 100, 'r1', 'holds')]));
     expect(s1.progression.ticket.items.some((i) => i.id === 'teach:r1')).toBe(true);
     expect(s1.progression.ticket.done).toContain('teach:r1');
@@ -441,6 +455,20 @@ describe('Teach Dee’s lines pass Dee’s bank lint, in every tone', () => {
     if (text !== line.text) problems.push(...variantProblems(text, line.text).map((p) => `strict:${p}`));
     if (line.pose === 'price-held') problems.push('D6: the price-held pose outside the price-held beat');
     expect(problems).toEqual([]);
+  });
+
+  it('every level label Dee can be handed passes the guard in every line that quotes it (no number of Dee’s own)', () => {
+    for (const axis of ['suitedness', 'kickerGap', 'position', 'playersBehind'] as const) {
+      for (const level of axisLevels(axis)) {
+        const facts = { ...FIXTURE, value: levelLabel(axis, level) };
+        for (const line of TEACH_LINES.filter((l) => l.text.includes('{value}'))) {
+          for (const t of [line.text, line.dry, line.blunt].filter((x): x is string => x !== undefined)) {
+            const filled = renderLine(t, facts as Facts)!;
+            expect(checkTutorOutput({ text: filled, kind: 'correction' }, request({ ...FIXTURE, value: '' } as Facts)).violations.filter((v) => v.check !== 'number-provenance' || axis !== 'playersBehind'), `${line.id} ${level}`).toEqual([]);
+          }
+        }
+      }
+    }
   });
 
   it('every event the screen raises has a line that renders, in every tone', () => {

@@ -23,8 +23,11 @@
  * Pure: the caller passes the seed and the clock values.
  */
 
+import { RANKS, SUITS, rankOf, rankValue, suitOf, type Card } from './cards.js';
 import {
   AXIS_MAX_SET_SIZE,
+  buildSpot,
+  duplicateCards,
   GAP_BANDS,
   POSITIONS,
   PRODUCIBLE_AXES,
@@ -126,9 +129,9 @@ export function levelLabel(axis: ContrastAxis, value: string): string {
     const gap: Record<string, string> = {
       pair: 'a pocket pair',
       connected: 'connected cards',
-      'one-gap': 'a 1-rank gap',
-      'two-gap': 'a 2-rank gap',
-      wide: 'a wide gap',
+      'one-gap': 'gapped cards',
+      'two-gap': 'wider-gapped cards',
+      wide: 'far-apart cards',
     };
     return gap[value] ?? value;
   }
@@ -209,24 +212,121 @@ const COVERAGE_SEED = 19;
 
 let basesCache: readonly TeachBase[] | null = null;
 
-/** Every manifested spot a rule can be taught on: the ones with at least one buildable axis. */
+/** Every manifested spot a rule can be taught on: the ones with at least one axis it can move. */
 export function teachableBases(): readonly TeachBase[] {
   if (basesCache !== null) return basesCache;
   const out: TeachBase[] = [];
   for (const entry of CONTRAST_MANIFEST) {
-    const coverage = axisCoverage(entry.base, COVERAGE_SEED);
     const axes: TeachAxis[] = [];
     for (const axis of PRODUCIBLE_AXES) {
-      if (coverage[axis] < 2) continue;
-      const result = generateContrastSet(entry.base, axis, { seed: COVERAGE_SEED, size: Math.min(coverage[axis], AXIS_MAX_SET_SIZE[axis]) });
-      if (!result.ok) continue;
-      const seen = new Set([result.set.base, ...result.set.variants].map((v) => levelOf(v.features, axis)));
-      axes.push({ axis, values: axisLevels(axis).filter((l) => seen.has(l)) });
+      const values = levelsOn(entry.base, axis);
+      if (values.length >= 2) axes.push({ axis, values });
     }
     if (axes.length > 0) out.push({ entry, axes });
   }
   basesCache = out;
   return out;
+}
+
+// ── Neighbours that move one variable and as little else as it allows ───────
+
+/**
+ * contrast.ts's own neighbours re-deal both hole cards for a suitedness or gap change, so the ranks move too: a
+ * pair it calls one variable apart can be J9 offsuit beside QT suited. The feature vector cannot see ranks, but a
+ * learner can, and a rule about suitedness must not be judged on spots whose ranks also changed. So Teach Dee
+ * builds those neighbours itself: a suitedness change keeps both ranks and changes suits only; a gap change keeps
+ * one card exactly and moves the other's rank by the band's distance, keeping suitedness. Position and players
+ * behind never touch the cards, so contrast.ts's neighbours are used as they are.
+ */
+function dealt(spot: ContrastSpot): ContrastVariant | null {
+  const built = buildSpot(spot);
+  if (!built.ok || duplicateCards(built.state).length > 0) return null;
+  return { spot, features: featuresOf(spot), state: built.state };
+}
+
+const GAP_DISTANCES: Readonly<Record<string, readonly number[]>> = {
+  pair: [0],
+  connected: [1],
+  'one-gap': [2],
+  'two-gap': [3],
+  wide: [4, 5, 6, 7, 8, 9, 10, 11, 12],
+};
+
+function holeAt(spot: ContrastSpot, axis: ContrastAxis, level: string, rng: () => number): Card[] | null {
+  const taken = new Set(spot.board);
+  const free = (c: Card): boolean => !taken.has(c);
+  const [a, b] = spot.hole;
+  if (axis === 'suitedness') {
+    if (rankOf(a) === rankOf(b)) return null;
+    const wantSuited = level === 'suited';
+    // Keep the first card when a fitting second card exists, else the second; else re-suit both.
+    const tries: Card[][] = [];
+    for (const keep of [a, b]) {
+      const other = keep === a ? b : a;
+      const options = SUITS.map((x) => `${rankOf(other)}${x}`).filter((c) => free(c) && (suitOf(c) === suitOf(keep)) === wantSuited);
+      for (const c of options) tries.push(keep === a ? [a, c] : [c, b]);
+      if (tries.length > 0) break;
+    }
+    if (tries.length === 0) {
+      for (const x of SUITS) for (const y of SUITS) {
+        const pairOf = [`${rankOf(a)}${x}`, `${rankOf(b)}${y}`];
+        if (pairOf.every(free) && (x === y) === wantSuited) tries.push(pairOf);
+      }
+    }
+    return tries.length === 0 ? null : tries[Math.floor(rng() * tries.length)];
+  }
+  if (axis === 'kickerGap') {
+    const suited = suitOf(a) === suitOf(b);
+    const high = rankValue(a) >= rankValue(b) ? a : b;
+    const low = high === a ? b : a;
+    for (const d of GAP_DISTANCES[level] ?? []) {
+      // Keep the high card and move the low one down; failing that, keep the low card and move the high one up.
+      for (const [keep, moved, r] of [
+        [high, low, rankValue(high) - d],
+        [low, high, rankValue(low) + d],
+      ] as const) {
+        if (r < 0 || r >= RANKS.length) continue;
+        const suits = suited ? [suitOf(keep)] : [suitOf(moved), ...SUITS.filter((x) => x !== suitOf(moved))].filter((x) => x !== suitOf(keep));
+        if (d === 0 && suited) continue;
+        const card = suits.map((x) => `${RANKS[r]}${x}`).find((c) => free(c) && c !== keep);
+        if (card !== undefined) return keep === a ? [a, card] : [card, b];
+      }
+    }
+    return null;
+  }
+  return null;
+}
+
+/** The spot moved to `level` on `axis` and nothing else, dealt on the engine; null when no such deal exists. */
+export function neighbourAt(spot: ContrastSpot, axis: ContrastAxis, level: string, seed: number): ContrastVariant | null {
+  const own = featuresOf(spot);
+  let variant: ContrastVariant | null = null;
+  if (levelOf(own, axis) === level) variant = dealt(spot);
+  else if (axis === 'suitedness' || axis === 'kickerGap') {
+    const hole = holeAt(spot, axis, level, mulberry32(seed));
+    variant = hole === null ? null : dealt({ ...spot, hole });
+  } else if (PRODUCIBLE_AXES.includes(axis)) {
+    const size = Math.min(axisCoverage(spot, seed)[axis], AXIS_MAX_SET_SIZE[axis]);
+    const result = size < 2 ? null : generateContrastSet(spot, axis, { seed, size });
+    variant = result !== null && result.ok ? ([result.set.base, ...result.set.variants].find((m) => levelOf(m.features, axis) === level) ?? null) : null;
+  }
+  if (variant === null || levelOf(variant.features, axis) !== level) return null;
+  const moved = differingAxes(own, variant.features);
+  if (moved.some((x) => x !== axis)) throw new Error(`teachDee: a ${axis} neighbour moved [${moved.join(', ')}]`);
+  return variant;
+}
+
+/** The levels `spot` can be dealt at on `axis`, in axis order (its own level included). */
+export function levelsOn(spot: ContrastSpot, axis: ContrastAxis): string[] {
+  if (!PRODUCIBLE_AXES.includes(axis)) return [];
+  return axisLevels(axis).filter((l) => neighbourAt(spot, axis, l, COVERAGE_SEED) !== null);
+}
+
+/** How far a level is from another: seats round the table, every other axis along its order. */
+function levelDistance(axis: ContrastAxis, a: string, b: string): number {
+  const order = axisLevels(axis);
+  const d = Math.abs(order.indexOf(a) - order.indexOf(b));
+  return axis === 'position' ? Math.min(d, order.length - d) : d;
 }
 
 const STREET_NAMES: Readonly<Record<string, string>> = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' };
@@ -310,28 +410,32 @@ export function engineVerdict(variant: ContrastVariant, seed: number): SpotVerdi
 export function buildTeachSet(base: ContrastSpot, reading: RuleReading, seed: number, maxSpots: number = TEACH_MAX_SPOTS): TeachSetResult {
   if (!PRODUCIBLE_AXES.includes(reading.axis)) return { ok: false, reason: `${reading.axis} cannot be dealt in this build` };
   const rng = mulberry32(seed);
-  const coverage = axisCoverage(base, seed);
-  const others = PRODUCIBLE_AXES.filter((a) => a !== reading.axis && coverage[a] >= 2);
+  const baseFeatures = featuresOf(base);
+  const levels = new Map(PRODUCIBLE_AXES.map((a) => [a, levelsOn(base, a)] as const));
+  const others = PRODUCIBLE_AXES.filter((a) => a !== reading.axis && (levels.get(a)?.length ?? 0) >= 2);
   const anchorAxis = others.length === 0 ? null : others[Math.floor(rng() * others.length)];
-  const anchors: ContrastSpot[] = [base];
+  const anchors: ContrastVariant[] = [];
+  const own = dealt(base);
+  if (own !== null) anchors.push(own);
   if (anchorAxis !== null) {
-    const result = generateContrastSet(base, anchorAxis, { seed, size: Math.min(coverage[anchorAxis], 3) });
-    if (result.ok) anchors.push(...shuffle(result.set.variants.map((v) => v.spot), rng));
+    const moves = shuffle((levels.get(anchorAxis) ?? []).filter((l) => l !== levelOf(baseFeatures, anchorAxis)), rng);
+    for (const [i, l] of moves.entries()) {
+      if (anchors.length >= Math.ceil(maxSpots / 2)) break;
+      const v = neighbourAt(base, anchorAxis, l, seed + 31 * (i + 1));
+      if (v !== null) anchors.push(v);
+    }
   }
 
-  const order = axisLevels(reading.axis);
   const spots: Omit<TeachSpot, 'verdict'>[] = [];
   for (const [pair, anchor] of anchors.entries()) {
     if (spots.length + 2 > maxSpots) break;
-    const size = Math.min(axisCoverage(anchor, seed + pair)[reading.axis], AXIS_MAX_SET_SIZE[reading.axis]);
-    if (size < 2) continue;
-    const result = generateContrastSet(anchor, reading.axis, { seed: seed + pair, size });
-    if (!result.ok) continue;
-    const members = [result.set.base, ...result.set.variants];
-    const at = members.find((m) => levelOf(m.features, reading.axis) === reading.value);
-    if (at === undefined) continue;
-    const distance = (m: ContrastVariant): number => Math.abs(order.indexOf(levelOf(m.features, reading.axis)) - order.indexOf(reading.value));
-    const near = members.filter((m) => m !== at).sort((a, b) => distance(a) - distance(b))[0];
+    const at = neighbourAt(anchor.spot, reading.axis, reading.value, seed + pair);
+    if (at === null) continue;
+    const near = axisLevels(reading.axis)
+      .filter((l) => l !== reading.value)
+      .sort((a, b) => levelDistance(reading.axis, a, reading.value) - levelDistance(reading.axis, b, reading.value))
+      .map((l) => neighbourAt(at.spot, reading.axis, l, seed + 7 * (pair + 1)))
+      .find((v): v is ContrastVariant => v !== null);
     if (near === undefined) continue;
     spots.push({ id: `p${pair}-in`, variant: at, applies: true, pair });
     spots.push({ id: `p${pair}-out`, variant: near, applies: false, pair });
@@ -495,7 +599,9 @@ export function latestSets(sets: readonly TaughtSet[]): Map<string, TaughtSet> {
 
 /**
  * Rules whose newest set asked for a rewrite that has not been written: no sentence for the rule landed after
- * the set (an accepted lexicon sentence after its moment, or a lesson rule on a later day). Oldest set first.
+ * the set (an accepted lexicon sentence after its moment, or a lesson rule on a later day: a lesson rule is saved
+ * with its day only, so a same-day lesson rewrite is not told apart from the rule taught). Only rules still on a
+ * Folio card count. Oldest set first.
  */
 export function rewritesDue(input: {
   readonly sets: readonly TaughtSet[];
@@ -507,6 +613,11 @@ export function rewritesDue(input: {
   for (const set of latestSets(input.sets).values()) {
     const finding = findingOf(set.finding);
     if (finding === null || !REWRITE_FINDINGS.includes(finding)) continue;
+    // A rule with no card left (its lesson rules forgotten) cannot be taught again, so it is not asked for.
+    const onCard =
+      input.lexicon.some((x) => x.conceptId === set.conceptId && x.outcome === 'accepted') ||
+      input.rules.some((r) => r.conceptId === set.conceptId);
+    if (!onCard) continue;
     const rewritten =
       input.lexicon.some((a) => a.conceptId === set.conceptId && a.outcome === 'accepted' && a.at > set.at) ||
       input.rules.some((r) => r.conceptId === set.conceptId && r.day > input.dayOf(set.at));

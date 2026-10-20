@@ -803,7 +803,7 @@ const TEACH_AXIS_LABELS: Partial<Record<ContrastAxis, string>> = {
 /** Short chip labels for a level. The long form (levelLabel) is what Dee and the tag line say. */
 function levelChip(axis: ContrastAxis, value: string): string {
   if (axis === 'kickerGap') {
-    const chips: Record<string, string> = { pair: 'Pair', connected: 'Connected', 'one-gap': '1-gap', 'two-gap': '2-gap', wide: 'Wide' };
+    const chips: Record<string, string> = { pair: 'Pair', connected: 'Connected', 'one-gap': 'Gapped', 'two-gap': 'Wider gap', wide: 'Far apart' };
     return chips[value] ?? value;
   }
   if (axis === 'playersBehind') return `${value} behind`;
@@ -825,6 +825,12 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
   const lexicon = createLexicon(props.lexicon);
   const sets = [...props.taught];
   const latest = latestSets(sets);
+  /**
+   * The rule list and the rewrite flags, kept current by this screen: the host mounts it once per visit, so a rewrite
+   * made here must show here (and be what is taught next) without a remount.
+   */
+  let cards: FolioCard[] = [...props.cards];
+  const due = new Set(props.rewritesDue);
 
   let phase: TeachPhase = 'pick';
   let card: FolioCard | null = null;
@@ -850,8 +856,18 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     sentence = text;
     base = defaultBaseFor(c.conceptId, props.principleOf(c.conceptId));
     reading = base === null ? null : readingFor(base, suggestReading(text));
+    buildError = null;
+    repair = null;
+    diagnosis = null;
+    rewrite = null;
     phase = 'read';
-    paint();
+    paint('.teach-title');
+  }
+
+  function toPick(): void {
+    phase = 'pick';
+    repair = null;
+    paint('.teach-title');
   }
 
   function deal(): void {
@@ -860,7 +876,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     const result = buildTeachSet(base.entry.base, reading, seed);
     buildError = result.ok ? null : result.reason;
     if (!result.ok) {
-      paint();
+      paint('[data-testid="teach-build-error"]');
       return;
     }
     spots = result.spots;
@@ -871,7 +887,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     rewrite = null;
     recorded = false;
     phase = 'play';
-    paint();
+    paint('[data-testid="teach-move"]');
   }
 
   function finish(): void {
@@ -895,12 +911,15 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
       };
       sets.push(set);
       latest.set(set.conceptId, set);
+      if (repair.needsRewrite) due.add(set.conceptId);
+      else due.delete(set.conceptId);
       props.onFinished(set);
     }
-    paint();
+    paint('.teach-title');
   }
 
-  function paint(): void {
+  /** Repaint the phase, then put focus where the learner's next step is (a repaint replaces every node). */
+  function paint(focus?: string): void {
     root.dataset.phase = phase;
     if (card === null) delete root.dataset.concept;
     else root.dataset.concept = card.conceptId;
@@ -910,6 +929,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
       phase === 'pick' ? renderPick() : phase === 'read' ? renderRead() : phase === 'play' ? renderPlay() : renderRepairPhase();
     root.replaceChildren(announcer, body);
     root.scrollTop = 0;
+    if (focus !== undefined) root.querySelector<HTMLElement>(focus)?.focus();
   }
 
   function head(title: string, back: () => void, backText: string): HTMLElement {
@@ -922,6 +942,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     b.textContent = backText;
     b.addEventListener('click', back);
     const h = text('h1', 'teach-title t-t2', title);
+    h.tabIndex = -1;
     wrap.append(b, h);
     return wrap;
   }
@@ -958,7 +979,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
         'Pick a rule from your Rulebook. Dee plays a contrast set from it, spots where it applies beside near-misses where it does not, and the engine judges every play.',
       ),
     );
-    if (props.cards.length === 0) {
+    if (cards.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
       empty.dataset.testid = 'teach-empty';
@@ -976,7 +997,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     }
     const list = document.createElement('div');
     list.className = 'teach-rules g-group';
-    for (const c of props.cards) {
+    for (const c of cards) {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'teach-rule g-row';
@@ -987,11 +1008,10 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
       body.appendChild(text('span', 'teach-rule-text', `“${c.text}”`));
       const last = latest.get(c.conceptId);
       const finding = last === undefined ? null : findingOf(last.finding);
-      const due = props.rewritesDue.includes(c.conceptId);
       const meta = text(
         'span',
         'g-caption',
-        `${props.label(c.conceptId)}${finding === null ? ' · not taught yet' : ` · last set: ${FINDING_TITLES[finding].toLowerCase()}`}${due ? ' · rewrite it' : ''}`,
+        `${props.label(c.conceptId)}${finding === null ? ' · not taught yet' : ` · last set: ${FINDING_TITLES[finding].toLowerCase()}`}${due.has(c.conceptId) ? ' · rewrite it' : ''}`,
       );
       meta.dataset.testid = 'teach-rule-meta';
       body.appendChild(meta);
@@ -1007,7 +1027,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
   function renderRead(): HTMLElement {
     const panel = document.createElement('section');
     panel.className = 'teach-panel';
-    panel.appendChild(head('Teach Dee', () => ((phase = 'pick'), paint()), 'All rules'));
+    panel.appendChild(head('Teach Dee', toPick, 'All rules'));
     panel.appendChild(quote());
     if (base === null || reading === null) {
       panel.appendChild(text('p', 'g-sub', 'No spot in this build can be dealt as a contrast set, so there is nothing to play this rule on yet.'));
@@ -1045,7 +1065,8 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
       if (next === undefined) return;
       base = next;
       reading = readingFor(next, r);
-      paint();
+      buildError = null;
+      paint('[data-testid="teach-base"]');
     });
     grid.appendChild(field('Spot', select));
 
@@ -1055,7 +1076,8 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
         'The rule turns on',
         seg('teach-axis', 'The rule turns on', b.axes.map((a) => [a.axis, TEACH_AXIS_LABELS[a.axis] ?? a.axis] as const), r.axis, (v) => {
           reading = readingFor(b, { ...r, axis: v, value: undefined });
-          paint();
+          buildError = null;
+          paint(`[data-testid="teach-axis"] [data-value="${v}"]`);
         }),
       ),
     );
@@ -1064,7 +1086,8 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
         'It applies at',
         seg('teach-value', 'It applies at', axis.values.map((v) => [v, levelChip(r.axis, v)] as const), r.value, (v) => {
           reading = { ...r, value: v };
-          paint();
+          buildError = null;
+          paint(`[data-testid="teach-value"] [data-value="${v}"]`);
         }),
       ),
     );
@@ -1072,19 +1095,21 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     grid.appendChild(
       field(`There, ${deeOn ? 'Dee' : 'the rule'} plays`, seg('teach-action', 'Play where the rule applies', moves, r.action, (v) => {
         reading = { ...r, action: v, otherwise: v === r.otherwise ? oppositeOf(v) : r.otherwise };
-        paint();
+        paint(`[data-testid="teach-action"] [data-value="${v}"]`);
       })),
     );
     grid.appendChild(
-      field('Everywhere else', seg('teach-otherwise', 'Play everywhere else', moves, r.otherwise, (v) => {
+      // "Everywhere else" is a different play by definition: the same play on both sides is not a contrast.
+      field('Everywhere else', seg('teach-otherwise', 'Play everywhere else', moves.filter(([m]) => m !== r.action), r.otherwise, (v) => {
         reading = { ...r, otherwise: v };
-        paint();
+        paint(`[data-testid="teach-otherwise"] [data-value="${v}"]`);
       })),
     );
     panel.appendChild(grid);
 
     if (buildError !== null) {
       const err = text('p', 'teach-error', `This reading cannot be dealt here: ${buildError}. Pick another value or spot.`);
+      err.tabIndex = -1;
       err.dataset.testid = 'teach-build-error';
       panel.appendChild(err);
     }
@@ -1110,7 +1135,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     panel.dataset.index = String(at);
     panel.dataset.total = String(spots.length);
 
-    const top = head('Teach Dee', () => ((phase = 'read'), paint()), 'Reading');
+    const top = head('Teach Dee', () => ((phase = 'read'), paint('.teach-title')), 'Reading');
     const progress = text('span', 'g-label teach-progress', `Spot ${at + 1} of ${spots.length}`);
     progress.dataset.testid = 'teach-progress';
     top.appendChild(progress);
@@ -1183,7 +1208,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
         btn.textContent = MOVE_LABELS[m];
         btn.addEventListener('click', () => {
           learner[spot.id] = m;
-          paint();
+          paint('[data-testid="teach-next"]');
         });
         row.appendChild(btn);
       }
@@ -1230,7 +1255,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
 
     const enginePlays = spot.verdict.holds.map((m) => MOVE_WORDS[m]).join(' or ');
     const event: TeachEvent = !spot.verdict.decisive ? 'no-verdict' : spot.verdict.holds.includes(dee) ? 'agree' : 'disagree';
-    const line = deeSays(event, { dee: MOVE_WORDS[dee], engine: enginePlays || 'neither' }, at + 1);
+    const line = deeSays(event, { dee: MOVE_WORDS[dee], engine: enginePlays || 'something else' }, at + 1);
     if (line) panel.appendChild(line);
     announcer.textContent = `${deeRow.textContent}. ${engine.textContent}.`;
 
@@ -1242,7 +1267,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     next.addEventListener('click', () => {
       if (at + 1 < spots.length) {
         at += 1;
-        paint();
+        paint('[data-testid="teach-move"]');
       } else finish();
     });
     panel.appendChild(next);
@@ -1256,14 +1281,14 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     const panel = document.createElement('section');
     panel.className = 'teach-panel teach-repair';
     panel.dataset.testid = 'teach-repair';
-    panel.appendChild(head('Teach Dee', () => ((phase = 'pick'), paint()), 'All rules'));
+    panel.appendChild(head('Teach Dee', toPick, 'All rules'));
     panel.appendChild(quote());
 
     const held = rep.judged - rep.misses.length;
     const summary = text(
       'p',
       'g-sub teach-summary',
-      `${who}’s play from the rule held up on ${held} of ${rep.judged} ${rep.judged === 1 ? 'spot' : 'spots'} with a verdict${rep.offRule > 0 ? `. Your own play left the rule on ${rep.offRule} ${rep.offRule === 1 ? 'spot' : 'spots'}` : ''}.`,
+      `${deeOn ? 'Dee’s play from the rule' : 'The rule’s play'} held up on ${held} of ${rep.judged} ${rep.judged === 1 ? 'spot' : 'spots'} with a verdict${rep.offRule > 0 ? `. Your own play left the rule on ${rep.offRule} ${rep.offRule === 1 ? 'spot' : 'spots'}` : ''}.`,
     );
     summary.dataset.testid = 'teach-summary';
     summary.dataset.judged = String(rep.judged);
@@ -1292,7 +1317,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
         b.textContent = label;
         b.addEventListener('click', () => {
           diagnosis = f;
-          paint();
+          paint('[data-testid="teach-finding"]');
         });
         opts.appendChild(b);
       }
@@ -1301,6 +1326,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     }
 
     const title = text('h2', 'teach-finding t-t3', FINDING_TITLES[rep.finding]);
+    title.tabIndex = -1;
     title.dataset.testid = 'teach-finding';
     title.dataset.finding = rep.finding;
     panel.appendChild(title);
@@ -1315,7 +1341,7 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     const facts: TeachFacts = {
       action: MOVE_WORDS[r.action],
       otherwise: MOVE_WORDS[r.otherwise],
-      engine: rep.enginePlays.map((m) => MOVE_WORDS[m]).join(' or ') || 'another play',
+      engine: rep.enginePlays.map((m) => MOVE_WORDS[m]).join(' or ') || 'something else',
       variable: AXIS_NAMES[rep.variable ?? r.axis],
     };
     const line = deeSays(`finding-${rep.finding}`, facts, 60);
@@ -1347,7 +1373,8 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     other.textContent = 'Try it on another spot';
     other.addEventListener('click', () => {
       phase = 'read';
-      paint();
+      repair = null;
+      paint('.teach-title');
     });
     const done = document.createElement('button');
     done.type = 'button';
@@ -1414,7 +1441,15 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
       const attempt = lexicon.record({ conceptId: card.conceptId, sentence: box.value, at: props.now(), flippingAxis: rep.variable ?? r.axis });
       rewrite = attempt;
       props.onLexiconAttempt(attempt);
-      paint();
+      if (attempt.outcome === 'accepted') {
+        // The rewrite is now the card's rule, and the rewrite it asked for is written.
+        const prior = card;
+        card = { ...prior, text: attempt.sentence, earlier: [...prior.earlier, prior.text] };
+        const updated = card;
+        cards = [updated, ...cards.filter((c) => c.conceptId !== updated.conceptId)];
+        due.delete(updated.conceptId);
+      }
+      paint(attempt.outcome === 'accepted' ? '[data-testid="teach-again"]' : '[data-testid="teach-rewrite-input"]');
     });
     if (rewrite === null || rewrite.outcome === 'rejected') section.appendChild(submit);
     if (rewrite !== null) {

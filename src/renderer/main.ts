@@ -459,6 +459,8 @@ async function boot(): Promise<void> {
   /** Teach Dee: the rule it opens on (null = the rule list), and the mounted screen, kept across re-renders. */
   let teachConcept: string | null = null;
   let teachMount: HTMLElement | null = null;
+  /** Where Teach Dee was opened from: its Back returns there. */
+  let teachFrom: 'folio' | 'leaks' | 'ticket' = 'folio';
   /** You › Rivals: a rival's file open, or the list. */
   let rivalOpen: ChapterId | null = null;
   /** The Locker's slot on show; kept across re-renders (an equip, a tab change). */
@@ -886,10 +888,11 @@ async function boot(): Promise<void> {
   }
 
   /** Open Teach Dee under Learn, on one rule or on the rule list. */
-  function openTeach(conceptId: string | null): void {
+  function openTeach(conceptId: string | null, from: 'folio' | 'leaks' | 'ticket'): void {
     go('learn');
     learnView = 'teach';
     teachConcept = conceptId;
+    teachFrom = from;
     teachMount = null;
     render();
   }
@@ -969,7 +972,7 @@ async function boot(): Promise<void> {
     ticketActive = false;
     tab = 'train';
     if (item.kind === 'teach') {
-      openTeach(item.ref);
+      openTeach(item.ref, 'ticket');
       return;
     }
     if (item.kind === 'review') {
@@ -1863,7 +1866,7 @@ async function boot(): Promise<void> {
         hands: session.hands,
         lexicon: session.lexicon,
         onLexiconAttempt: (attempt) => void onLexiconAttempt(attempt),
-        onTeach: () => openTeach(null),
+        onTeach: () => openTeach(null, 'leaks'),
         rules: currentFolio().length,
       });
     }
@@ -1993,11 +1996,21 @@ async function boot(): Promise<void> {
           onFinished: (set) => void saveProgression({ ...session.progression, teachDee: recordTaught(session.progression.teachDee, set) }),
           onLexiconAttempt: (attempt) => void onLexiconAttempt(attempt),
           onBack: () => {
-            learnView = 'folio';
             teachMount = null;
-            render();
+            if (teachFrom === 'leaks') {
+              go('train');
+              trainMode = 'repair';
+              render();
+            } else if (teachFrom === 'ticket') {
+              go('home');
+              ticketActive = true;
+              render();
+            } else {
+              learnView = 'folio';
+              render();
+            }
           },
-          backLabel: 'Rulebook',
+          backLabel: teachFrom === 'leaks' ? 'Leaks' : teachFrom === 'ticket' ? 'Ticket' : 'Rulebook',
           onWriteRule: () => {
             learnView = 'lessons';
             teachMount = null;
@@ -2019,7 +2032,7 @@ async function boot(): Promise<void> {
             render();
           },
           copy: navigator.clipboard ? (text) => navigator.clipboard.writeText(text) : undefined,
-          onTeach: (conceptId) => openTeach(conceptId),
+          onTeach: (conceptId) => openTeach(conceptId, 'folio'),
           teachNotes: teachNotes(),
         });
       }

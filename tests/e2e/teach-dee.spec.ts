@@ -45,8 +45,11 @@ async function size(app: Awaited<ReturnType<typeof launchApp>>, w: number, h: nu
   await app.page.waitForFunction(([w, h]) => window.innerWidth === w && window.innerHeight === h, [w, h]);
 }
 
-/** Both documented sizes, no page scroll, and a screenshot at each. */
-async function bothSizes(app: Awaited<ReturnType<typeof launchApp>>, name: string): Promise<void> {
+/**
+ * Both documented sizes, no page scroll, and a screenshot at each. `mustSee` is the phase's next step: the column
+ * scrolls itself, so "no page scroll" alone would pass with the button below the fold.
+ */
+async function bothSizes(app: Awaited<ReturnType<typeof launchApp>>, name: string, mustSee?: string): Promise<void> {
   for (const [w, h] of [[900, 640], [1100, 760]] as const) {
     await size(app, w, h);
     const [sh, ih, sw, iw] = await app.page.evaluate(() => [
@@ -57,6 +60,7 @@ async function bothSizes(app: Awaited<ReturnType<typeof launchApp>>, name: strin
     ]);
     expect(sh, `${name} ${w}x${h} height`).toBeLessThanOrEqual(ih);
     expect(sw, `${name} ${w}x${h} width`).toBeLessThanOrEqual(iw);
+    if (mustSee) await expect(app.page.locator(mustSee).first(), `${name} ${w}x${h}: ${mustSee} on screen`).toBeInViewport({ ratio: 1 });
     await shot(app.page, `${name}-${w}x${h}`);
   }
 }
@@ -112,7 +116,7 @@ test.describe('Teach Dee', () => {
       await page.locator('[data-testid="teach-axis"] [data-value="suitedness"]').click();
       await page.locator('[data-testid="teach-value"] [data-value="suited"]').click();
       await expect(reading).toHaveAttribute('data-value', 'suited');
-      await bothSizes(app, 'teach-read');
+      await bothSizes(app, 'teach-read', '[data-testid="teach-start"]');
 
       await page.locator('[data-testid="teach-start"]').click();
       await expect(root).toHaveAttribute('data-phase', 'play');
@@ -120,7 +124,7 @@ test.describe('Teach Dee', () => {
       const tags = page.locator('[data-testid="teach-tag"]');
       await expect(tags).toContainText(/Suitedness: (suited|offsuit)/);
       await page.locator('[data-testid="teach-move"][data-move="passive"]').click();
-      await bothSizes(app, 'teach-contrast-set');
+      await bothSizes(app, 'teach-contrast-set', '[data-testid="teach-next"]');
       await page.locator('[data-testid="teach-next"]').click();
       // The rest of the set (the first spot is already committed).
       const play = page.locator('[data-testid="teach-play"]');
@@ -144,12 +148,12 @@ test.describe('Teach Dee', () => {
       await expect(page.locator('[data-testid="teach-miss"]').first()).toBeVisible();
       await expect(page.locator('[data-testid="teach-finding"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="teach-diagnose-option"]')).toHaveCount(5);
-      await bothSizes(app, 'teach-repair-prompt');
+      await bothSizes(app, 'teach-repair-prompt', '[data-testid="teach-diagnose-option"]');
       await page.locator('[data-testid="teach-diagnose-option"][data-finding="too-broad"]').click();
       await expect(page.locator('[data-testid="teach-finding"]')).toHaveAttribute('data-finding', 'too-broad');
       await expect(page.locator('[data-testid="teach-diagnosis"]')).toHaveAttribute('data-match', 'true');
       await expect(page.locator('[data-testid="teach-variable"]')).toHaveAttribute('data-axis', 'kickerGap');
-      await bothSizes(app, 'teach-repair-rewrite');
+      await bothSizes(app, 'teach-repair-rewrite', '[data-testid="teach-rewrite-submit"]');
 
       // The set is on file the moment it finished, and it paid its Reps once.
       await expect.poll(() => readState(dir).progression?.teachDee?.sets?.length ?? 0).toBe(1);
