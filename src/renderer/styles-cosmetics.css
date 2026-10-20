@@ -188,7 +188,7 @@
 [data-celebration='ink-ring'] {
   --moment-anim: moment-stars;
   --moment-origin: center;
-  --moment-mark: radial-gradient(circle at 50% 50%, transparent 0 30%, var(--ring-fill) 34% 46%, transparent 50%);
+  --moment-mark: repeating-linear-gradient(90deg, var(--ring-fill) 0 6px, transparent 6px 10px);
 }
 [data-celebration='two-lights'] {
   --moment-anim: moment-sweep;
@@ -221,11 +221,12 @@
 
 /* ─── The moment (components/moment.ts, 1.10): session end only, at most --dur-moment, click-through ───
  * Fixed and out of flow, so it lays nothing out under it; the coat's own type, no glass, no gold. */
+/* Top left, under the bar: the table keeps nothing there but the blinds caption, so no seat, stack or control is
+ * covered while it plays. Opaque, so nothing reads through it. */
 .moment {
   position: fixed;
-  left: 50%;
-  top: calc(var(--nav-h) + 18px);
-  translate: -50% 0;
+  left: 20px;
+  top: calc(var(--nav-h) + 40px);
   z-index: 60;
   display: flex;
   flex-direction: column;
@@ -233,7 +234,8 @@
   gap: 6px;
   padding: 12px 22px;
   border-radius: var(--r-sheet);
-  background: var(--float);
+  background: var(--float-solid);
+  border: 1px solid var(--float-rim);
   box-shadow: var(--float-shadow), var(--float-highlight);
   pointer-events: none;
   animation: moment-fade var(--dur-moment) linear both;

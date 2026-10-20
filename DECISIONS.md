@@ -113,10 +113,10 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
   cannot spend or wear. The receipt records the Chalk spent. No sales, discounts, bundles, timers or random drops;
   Chalk is never bought with money.
 - **The balance is ink, never mint**, with "N of 225 earned today" beside it, and the curve is printed in the Locker.
-- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 5 table tints, 4 chip sets, 4 Dee finishes, 4
-  celebrations. Each slot's first item is the day-one default. Every other item is earned by a ratchet the habit loop
-  already keeps: a milestone receipt, 3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season
-  stamp finish are the Ghost Rail's and the Seasons' (below). Never chips, pots or results
+- **Catalogue** (`src/core/cosmetics/catalogue.ts`): COUNTS. Each slot's first item is the day-one default. The 13
+  priced items cost Chalk. Every other item is earned by a ratchet the habit loop already keeps: a milestone receipt,
+  3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season stamp finish are the
+  Ghost Rail's and the Seasons' (below). Never chips, pots or results
   (`cosmetics.test` scans the source and pays a big bankroll nothing).
 - **Owned is a receipt, filed on save** (`syncCosmetics` in `progression/apply.ts`), dated the day the fact first held,
   `chalk: 0`. It is never taken back. Day-one items are never stored, and wearing one clears the slot. An equipped id

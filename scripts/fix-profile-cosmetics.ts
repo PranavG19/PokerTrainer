@@ -3,7 +3,8 @@
  * there are no customers yet, so schema changes are edited in place and existing local profiles are repaired by a
  * script like this one; AGENTS.md "Profile schema").
  *
- * What it repairs, and only in `progression.cosmetics` (every other byte of the file is left as it was):
+ * What it repairs, and only in `progression.cosmetics` (every other value is left as it was; the file is written in
+ * the app's own format, two-space JSON, as store.ts writes it):
  *  - parses the section with this build's parser: duplicate owned ids, equips of items not owned, malformed receipts
  *    and an out-of-range Chalk ledger are normalised exactly as the app would on its next save;
  *  - keeps an equip in a slot only a newer build knows (the parser now carries it);
@@ -16,8 +17,10 @@
  *   node --import ./scripts/ts-js-resolve.mjs scripts/fix-profile-cosmetics.ts --file <path>   # dry run, that file
  *   node --import ./scripts/ts-js-resolve.mjs scripts/fix-profile-cosmetics.ts --write [--file <path>]
  * A dry run (the default) prints what would change and writes nothing. --write first copies the file to
- * `<file>.pre-fix-cosmetics-<stamp>`, checks the copy byte for byte, and only then replaces the file atomically
- * (temp file, then rename). Quit Offsuit first: a profile changed under a running app opens read-only.
+ * `<file>.pre-fix-cosmetics-<stamp>`, checks the copy byte for byte, re-reads the file just before replacing it (and
+ * stops if anything changed it meanwhile), then replaces it atomically (temp file, fsync, rename). Any other argument
+ * is refused, so a mistyped flag can never fall through to the real profile. Quit Offsuit first: a profile changed
+ * under a running app opens read-only.
  */
 
 import * as fs from 'node:fs';
@@ -79,12 +82,35 @@ function realProfilePath(): string {
   return path.join(os.homedir(), 'Library', 'Application Support', 'offsuit-desktop', 'offsuit-state.json');
 }
 
+/** `--write`, `--file <path>` or `--file=<path>`; anything else is an error, never ignored. */
+export function parseArgs(argv: readonly string[]): { write: boolean; file: string | null; error: string | null } {
+  let write = false;
+  let file: string | null = null;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--write') write = true;
+    else if (a === '--file') {
+      const v = argv[++i];
+      if (!v || v.startsWith('--')) return { write, file, error: '--file needs a path' };
+      file = v;
+    } else if (a.startsWith('--file=')) {
+      file = a.slice('--file='.length);
+      if (!file) return { write, file: null, error: '--file= needs a path' };
+    } else return { write, file, error: `unknown argument ${a}` };
+  }
+  return { write, file, error: null };
+}
+
 function main(argv: readonly string[]): number {
-  const write = argv.includes('--write');
-  const at = argv.indexOf('--file');
-  const file = at >= 0 ? argv[at + 1] : realProfilePath();
-  if (!file || !fs.existsSync(file)) {
-    console.error(`no profile at ${file ?? '(missing --file value)'}`);
+  const args = parseArgs(argv);
+  if (args.error !== null) {
+    console.error(`${args.error}; usage: fix-profile-cosmetics.ts [--file <path>] [--write]`);
+    return 2;
+  }
+  const write = args.write;
+  const file = args.file ?? realProfilePath();
+  if (!fs.existsSync(file)) {
+    console.error(`no profile at ${file}`);
     return 2;
   }
   const text = fs.readFileSync(file, 'utf-8');
@@ -123,8 +149,23 @@ function main(argv: readonly string[]): number {
     return 1;
   }
   const temp = `${file}.fix-tmp-${process.pid}`;
-  fs.writeFileSync(temp, JSON.stringify(result.fixed, null, 2), { flag: 'wx' });
-  fs.renameSync(temp, file);
+  try {
+    const fd = fs.openSync(temp, 'wx');
+    try {
+      fs.writeFileSync(fd, JSON.stringify(result.fixed, null, 2));
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    // The app (or anything) may have saved since the read: then this fix is stale, and the file is left as it is.
+    if (fs.readFileSync(file, 'utf-8') !== text) {
+      console.error('  the profile changed while fixing (is Offsuit running?); nothing written. Quit it and run again.');
+      return 1;
+    }
+    fs.renameSync(temp, file);
+  } finally {
+    if (fs.existsSync(temp)) fs.rmSync(temp);
+  }
   console.log(`  backed up to ${backup}; profile written`);
   return 0;
 }

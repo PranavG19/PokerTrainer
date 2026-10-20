@@ -89,10 +89,12 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
   that pinned the old reading, and repair existing local profiles with a one-time script
   `scripts/fix-profile-<what>.ts`:
   - it is a pure `fixProfile(raw, today)` plus a CLI, dry run by default;
-  - it touches only the section it repairs and leaves every other byte as it was;
+  - it touches only the section it repairs, leaves every other value as it was, writes the app's own JSON format, and
+    refuses any argument it does not know;
   - it is idempotent, and skips a newer build's file;
-  - `--write` first copies the file to `<file>.pre-fix-<what>-<stamp>`, checks the copy byte for byte, then replaces
-    the file atomically;
+  - `--write` first copies the file to `<file>.pre-fix-<what>-<stamp>` and checks the copy byte for byte. It then
+    re-reads the file, stopping if anything changed it meanwhile, and replaces it atomically (temp file, fsync,
+    rename);
   - test it over `tests/fixtures/profiles/` (`fix-profile-cosmetics` is the model). Dry-run it on the owner's real
     profile and report what it would change; never write the real profile without the backup.
   Once there are customers, this reverts to a `{ from, to, run }` migration step with a version bump.

@@ -182,7 +182,7 @@ import { renderRail } from './screens/rail.js';
 import { renderSeason, type SeasonPane } from './screens/season.js';
 import { railBoard, settleRail } from '../core/progression/rail.js';
 import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
-import { playMoment } from './components/moment.js';
+import { cancelMoment, playMoment } from './components/moment.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { CHALK_DAILY_CAP, COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
 import { chalkLeftToday, earnChalk, spendItem } from '../core/economy/chalk.js';
@@ -362,6 +362,8 @@ async function boot(): Promise<void> {
   // whichever of the ~20 save sites hit it.
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
   const soundPlayer = createSoundPlayer();
+  /** `${day}:${session kind}` for every moment played this run: one per session, however often it re-diffs. */
+  const momentsPlayed = new Set<string>();
   const io: OffsuitBridge = {
     ...base,
     saveState: async (obj) => {
@@ -388,16 +390,6 @@ async function boot(): Promise<void> {
         const letters = fileLetters(session.progression.letters, letterInput(), today());
         if (letters !== session.progression.letters) session = { ...session, progression: { ...session.progression, letters } };
       }
-      // The celebration moment (1.10): a session just ended. It waits out any verdict on screen, and is silent unless
-      // sound is on.
-      if (applied.finished.length > 0) {
-        const streak = session.progression.streak;
-        playMoment({
-          finished: applied.finished,
-          streak: currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())),
-          sound: session.soundCues ? () => soundPlayer.clack() : undefined,
-        });
-      }
       const toSave = session;
       // A profile delete while this save is in flight must not make the deleted session the next diff's base.
       const generation = profileGeneration;
@@ -405,7 +397,25 @@ async function boot(): Promise<void> {
       let outcome: Awaited<ReturnType<OffsuitBridge['saveState']>>;
       try {
         outcome = await base.saveState(serialize(toSave));
-        if ((!outcome || outcome.saved) && generation === profileGeneration) lastSaved = toSave;
+        if ((!outcome || outcome.saved) && generation === profileGeneration) {
+          lastSaved = toSave;
+          // The celebration moment (1.10): only for a session this save actually kept, and once per session per day,
+          // so a read-only profile or a failed save (which re-diffs the same session) never replays it.
+          const day = dayOf()(now());
+          const fresh = applied.finished.filter((f) => !momentsPlayed.has(`${day}:${f}`));
+          if (fresh.length > 0) {
+            for (const f of fresh) momentsPlayed.add(`${day}:${f}`);
+            const streak = toSave.progression.streak;
+            playMoment({
+              finished: fresh,
+              streak: currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())),
+              // Read at show time, so turning sound off while it waits keeps it silent.
+              sound: () => {
+                if (session.soundCues) soundPlayer.clack();
+              },
+            });
+          }
+        }
       } catch {
         outcome = { saved: false, readOnly: null, failed: 'ipc' };
       }
@@ -1630,6 +1640,7 @@ async function boot(): Promise<void> {
 
   async function onDeleteProfile(confirmation: string): Promise<void> {
     deleting = true;
+    cancelMoment();
     profileGeneration += 1;
     let outcome: { deleted: boolean } | undefined;
     try {

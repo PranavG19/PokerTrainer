@@ -221,3 +221,77 @@ for (const soundCues of [false, true]) {
     }
   });
 }
+
+test('the moment covers no seat, stack or control, at 900x640 and 1100x760', async () => {
+  for (const [w, h] of [[900, 640], [1100, 760]]) {
+    const app = await launchApp({ userDataDir: profileWithHandsToday(11), env: { OFFSUIT_NOW: String(NOW) } });
+    try {
+      const { page } = app;
+      await page.waitForSelector('[data-testid="home-screen"]');
+      await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h]);
+      await page.waitForFunction(([w, h]) => innerWidth === w && innerHeight === h, [w, h]);
+      await recordMoments(page);
+      await endSession(page);
+      await page.waitForSelector('[data-testid="moment"]');
+      const hits = await page.evaluate(() => {
+        const m = (document.querySelector('[data-testid="moment"]') as HTMLElement).getBoundingClientRect();
+        const overlaps = (r: DOMRect) => r.width > 0 && r.left < m.right && r.right > m.left && r.top < m.bottom && r.bottom > m.top;
+        return [...document.querySelectorAll('.table-screen .seat, .table-screen .seat-committed, .table-screen .controls button, .table-screen .pot, .table-screen button')]
+          .filter((e) => overlaps(e.getBoundingClientRect()))
+          .map((e) => (e as HTMLElement).dataset.testid ?? e.className);
+      });
+      expect(hits, `${w}x${h}`).toEqual([]);
+    } finally {
+      await app.close();
+    }
+  }
+});
+
+test('a read-only profile (a newer build’s file) never plays the moment, however many hands follow', async () => {
+  const app = await launchApp({ userDataDir: profileWithHandsToday(11, { schemaVersion: 99 }), env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await recordMoments(page);
+    await playOneHand(page);
+    for (let i = 0; i < 2; i++) {
+      await page.click('[data-testid="next-hand"]');
+      await playToShowdown(page);
+    }
+    await page.waitForTimeout(1000);
+    expect(await moments(page)).toHaveLength(0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('a verdict on another screen holds it too, and a verdict raised while it plays removes it at once', async () => {
+  const app = await launchApp({ userDataDir: profileWithHandsToday(11), env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await recordMoments(page);
+    // Stand in for a drill or puzzle verdict (their roots carry data-phase="graded").
+    await page.evaluate(() => {
+      const v = document.createElement('div');
+      v.id = 'fake-graded';
+      v.dataset.phase = 'graded';
+      document.body.appendChild(v);
+    });
+    await playOneHand(page);
+    if (await verdictUp(page)) await page.click('[data-testid="next-hand"]');
+    await page.waitForTimeout(1200);
+    expect(await moments(page)).toHaveLength(0);
+    await page.evaluate(() => document.getElementById('fake-graded')?.remove());
+    await page.waitForSelector('[data-testid="moment"]');
+    // A verdict arrives mid-moment: it goes at once, well inside its 1600 ms.
+    await page.evaluate(() => {
+      const v = document.createElement('div');
+      v.dataset.sheet = 'verdict';
+      document.body.appendChild(v);
+    });
+    await expect(page.locator('[data-testid="moment"]')).toHaveCount(0, { timeout: 400 });
+  } finally {
+    await app.close();
+  }
+});

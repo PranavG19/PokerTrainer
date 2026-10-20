@@ -6,9 +6,11 @@ import type { FinishedSession } from '../../core/progression/streak.js';
  * - **Session end only.** The host calls it with the sessions a save just finished (`applyProgress` → `finished`): the
  *   whole Ticket, an assessment block, a story table played to its end, or the day's twelfth hand. Never a verdict,
  *   a pot, a win or a grade.
- * - **Never over a verdict.** While a verdict is on screen (the table's sheet, or the coach panel holding a costly
- *   verdict) the moment waits, and plays the moment it closes (often as the next hand deals; it is click-through and
- *   covers no control). If one is still up after WAIT_MS the moment is dropped.
+ * - **Never over a verdict.** While any verdict is on screen (the table's sheet or a costly verdict in its coach panel,
+ *   a drill's verdict, a graded puzzle step or a finished puzzle, an assessment's reveal) the moment waits, and plays
+ *   the moment it closes (often as the next hand deals; it sits clear of every seat and control). If one is still up
+ *   after WAIT_MS it is dropped, and if one appears while it plays, it goes at once.
+ * - **Once per session, and only for a session that was saved:** the host calls it after the save lands.
  * - **At most 1600 ms** (`--dur-moment`), transform and opacity only, click-through, factual copy, no confetti, coins,
  *   gold or count-ups. Reduced motion: the words show, still, for the same time.
  * - **Sound only behind the switch:** the host passes `sound` only when the learner turned sound on.
@@ -18,7 +20,7 @@ import type { FinishedSession } from '../../core/progression/streak.js';
 
 export const MOMENT_MS = 1600;
 /** How long a moment waits for a verdict to close before it is dropped. */
-export const WAIT_MS = 30_000;
+export const WAIT_MS = 120_000;
 const POLL_MS = 250;
 
 const WHAT: Record<FinishedSession, string> = {
@@ -28,14 +30,26 @@ const WHAT: Record<FinishedSession, string> = {
   'table-hands': 'Twelve hands today',
 };
 
-/** A verdict the learner is reading: the table's sheet, or a costly verdict in the coach panel. */
+/** A verdict the learner is reading, on any screen. */
 export function verdictOnScreen(doc: Document = document): boolean {
-  if (doc.querySelector('[data-sheet="verdict"]')) return true;
+  if (doc.querySelector('[data-sheet="verdict"], [data-phase="graded"], [data-phase="reveal"], [data-testid="puzzle-screen"][data-phase="complete"]')) return true;
+  const drill = doc.querySelector<HTMLElement>('[data-testid="drill-verdict"]');
+  if (drill !== null && !drill.hidden && drill.offsetParent !== null) return true;
   const coach = doc.querySelector<HTMLElement>('.table-screen .coach[data-severity="notable"], .table-screen .coach[data-severity="serious"]');
   return coach !== null && !coach.hidden && coach.offsetParent !== null;
 }
 
 let pending: number | null = null;
+let watch: number | null = null;
+
+/** Forget a moment still waiting or playing (a profile delete): it never plays for a profile that is gone. */
+export function cancelMoment(): void {
+  if (pending !== null) window.clearTimeout(pending);
+  if (watch !== null) window.clearInterval(watch);
+  pending = null;
+  watch = null;
+  document.querySelector('[data-testid="moment"]')?.remove();
+}
 
 /**
  * Play the moment for what just finished, once. A second call while one waits or plays replaces it (two sessions
@@ -75,5 +89,14 @@ function show(opts: { readonly finished: readonly FinishedSession[]; readonly st
   root.append(title, mark, line);
   document.body.appendChild(root);
   opts.sound?.();
-  window.setTimeout(() => root.remove(), MOMENT_MS);
+  // A verdict raised while it plays (a fast next hand) takes the screen back at once.
+  if (watch !== null) window.clearInterval(watch);
+  const until = Date.now() + MOMENT_MS;
+  watch = window.setInterval(() => {
+    if (verdictOnScreen() || Date.now() >= until || !root.isConnected) {
+      root.remove();
+      if (watch !== null) window.clearInterval(watch);
+      watch = null;
+    }
+  }, 100);
 }

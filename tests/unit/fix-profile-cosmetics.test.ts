@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { DayKey } from '../../src/core/localDay.js';
-import { fixProfile } from '../../scripts/fix-profile-cosmetics.js';
+import { fixProfile, parseArgs } from '../../scripts/fix-profile-cosmetics.js';
 
 const ROOT = path.resolve(__dirname, '../..');
 const FIX = path.join(ROOT, 'tests/fixtures/profiles');
@@ -51,6 +51,23 @@ describe('the cosmetics fix-up script, over the fixture profiles', () => {
     expect(fixProfile(newer, TODAY).fixed).toBe(newer);
     expect(fixProfile(newer, TODAY).skipped).toMatch(/newer/);
     expect(fixProfile(load('v1-no-progression.json'), TODAY).skipped).toMatch(/no progression/);
+  });
+
+  it('refuses any argument it does not know, so a mistyped flag never falls through to the real profile', () => {
+    expect(parseArgs(['--write', '--file=/tmp/x.json'])).toEqual({ write: true, file: '/tmp/x.json', error: null });
+    expect(parseArgs(['--file', '/tmp/y.json'])).toEqual({ write: false, file: '/tmp/y.json', error: null });
+    expect(parseArgs(['--write', '--fiel=/tmp/x.json']).error).toMatch(/unknown argument/);
+    expect(parseArgs(['--file']).error).toMatch(/needs a path/);
+    expect(parseArgs(['--file', '--write']).error).toMatch(/needs a path/);
+    const out = (() => {
+      try {
+        execFileSync(process.execPath, ['--import', './scripts/ts-js-resolve.mjs', 'scripts/fix-profile-cosmetics.ts', '--write', '--fiel=/tmp/nope.json'], { cwd: ROOT, encoding: 'utf-8', stdio: 'pipe' });
+        return 'exit 0';
+      } catch (e) {
+        return String((e as { stderr?: string }).stderr);
+      }
+    })();
+    expect(out).toContain('unknown argument --fiel=');
   });
 
   it('the CLI: a dry run writes nothing; --write backs up byte for byte first, then writes the fix', () => {
