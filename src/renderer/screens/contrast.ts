@@ -1399,8 +1399,9 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
       row.dataset.testid = 'teach-miss';
       row.dataset.spot = id;
       row.dataset.applies = String(spot.applies);
+      // The kit's 24px mini cards: the misses are evidence beside the finding, not the spot itself.
       const hole = document.createElement('div');
-      hole.className = 'contrast-hole';
+      hole.className = 'g-mini';
       for (const c of spot.variant.spot.hole) hole.appendChild(renderCard(c, { small: true }));
       row.appendChild(hole);
       const level = levelOf(spot.variant.features, r.axis);
@@ -1420,9 +1421,12 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
     const section = document.createElement('section');
     section.className = 'teach-rewrite';
     section.dataset.testid = 'teach-rewrite';
-    const ask = deeSays('rewrite', {}, 70);
-    if (ask) section.appendChild(ask);
-    else section.appendChild(text('p', 't-head', 'Rewrite it so these spots play right, and name the variable that moved the answer.'));
+    // One Dee mark per phase (the finding's): the ask is Dee's line, set as the prompt above the box.
+    const ask = deeOn ? teachLine('rewrite', props.dee.tone, {}, seed + 70) : null;
+    const prompt = text('p', 'teach-ask t-head', ask?.text ?? 'Rewrite it so these spots play right, and name the variable that moved the answer.');
+    prompt.dataset.testid = 'teach-ask';
+    if (ask) prompt.dataset.lineId = ask.lineId;
+    section.appendChild(prompt);
     const box = document.createElement('textarea');
     box.className = 'lexicon-input';
     box.dataset.testid = 'teach-rewrite-input';
