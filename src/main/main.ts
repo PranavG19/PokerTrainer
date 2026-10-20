@@ -38,6 +38,7 @@ import { FEATURE_INFO, PRO_FEATURES } from '../core/entitlements/features.js';
 import { devOverrideFrom } from '../core/entitlements/entitlements.js';
 import { checkoutPlans, createLicenceAuthority, gated, licenceEndpoints, tokenFromDeepLink, tokenId } from './licence.js';
 import { createProTools, type ProTools } from './proTools.js';
+import { saveStyleCard } from './styleCard.js';
 import { refreshLicence, restoreLicence } from './licenceClient.js';
 import type { RoomView } from '../core/multiplayer.js';
 import { activeManifest } from './dee/manifest.js';
@@ -418,6 +419,8 @@ app.whenReady().then(() => {
     return { ok: true, serverStatus: reply.status, status: persistLicence() };
   });
   ipcMain.handle('app:seed', () => seed);
+  // You › Style: the card as a PNG, through the native save dialog only.
+  ipcMain.handle('style:saveCard', (_event, rect: unknown) => saveStyleCard(mainWindow, rect, app.getPath('pictures')));
   // The test clock and the onboarding switch: e2e only, never packaged (core/testHooks.ts).
   ipcMain.handle('app:testHooks', () => testHooksFrom(process.env, app.isPackaged));
 

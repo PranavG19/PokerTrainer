@@ -29,6 +29,7 @@ export interface ProgressionState {
   ticket: TicketState;
   folio: FolioState;
   tallies: TalliesState;
+  letters: LettersState;
 }
 
 /**
@@ -330,3 +331,44 @@ export interface TalliesState {
   /** The day the learner last took the one suggestion (today's ring); null before the first. */
   suggestionTakenOn: DayKey | null;
 }
+
+/**
+ * Dee's letters (src/core/letters.ts): one filed letter per ended week, its numbers and line ids, never its text. Additive
+ * (no version bump): an older build carries the key through untouched. Kept: two years of weeks.
+ */
+export const MAX_LETTERS = 104;
+
+/** The decision the week is remembered by: the biggest pot faced with a bet and answered right. */
+export interface HandOfWeek {
+  hole: string[];
+  /** The board when the decision was made. */
+  board: string[];
+  street: string;
+  action: string;
+  toCall: number;
+  pot: number;
+}
+
+/** One filed letter. Persisted whole in `progression.letters.filed`. */
+export interface LetterRecord {
+  /** The Monday the week starts. */
+  week: DayKey;
+  /** 1 for the learner's first week with a letter. */
+  n: number;
+  /** Line ids from the letter bank, in reading order. An id this build does not know is skipped when read. */
+  lines: string[];
+  /** The filled slot values, formatted with their nouns. */
+  slots: Record<string, string>;
+  /** The week's counts, for the figures beside the letter. */
+  figures: Record<string, number>;
+  /** The style the week's hands read as, or null under the gate. */
+  style: string | null;
+  hand: HandOfWeek | null;
+  /** Milestone ids earned in the week. */
+  shelf: string[];
+}
+
+export interface LettersState {
+  filed: LetterRecord[];
+}
+
