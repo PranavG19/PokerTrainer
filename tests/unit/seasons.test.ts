@@ -146,8 +146,8 @@ describe('a season, travelled through with the test clock', () => {
 
   it('is archived the day after its finale week, with the tier held at its close', () => {
     let s = emptySession();
-    // Four free hands a day for a week of Season 6: a rated week, settled up the next Monday.
-    for (const d of ['07', '08', '09', '10', '14', '15', '16']) s = play(s, launchAt(`2026-09-${d}T19:00:00Z`), 1);
+    // Six free hands in Season 6's first week (60 decisions): a judged week, settled up the next Monday.
+    for (const d of ['07', '08', '09', '10', '11', '12', '14']) s = play(s, launchAt(`2026-09-${d}T19:00:00Z`), 1);
     s = block(s, launchAt('2026-10-21T19:00:00Z'), 1);
     const lastDay = dayOf(launchAt('2026-10-25T19:00:00Z'));
     expect(seasonArchive(s.progression.seasons, s.progression.rail, [], lastDay)).toEqual([]);

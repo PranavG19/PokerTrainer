@@ -76,9 +76,14 @@
 
 /* Board and list rows: informational, so a flat hairline list (.g-sect.g-flat), never a .g-group. */
 .league-board,
-.league-past,
 .league-rules {
   flex: none;
+}
+/* The last list on the Rail takes what is left and scrolls inside itself, so nothing is clipped at 900x640. */
+.league-past {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 .league-row {
   display: flex;

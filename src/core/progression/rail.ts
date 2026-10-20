@@ -27,8 +27,12 @@ import type { LossTally, RailState, RailWeek } from './types.js';
 
 /** Above this many Reps in one local day, Reps count 0 for the Rail and for Seasons (VISION §4). */
 export const RAIL_DAILY_REPS = 400;
-/** Scored decisions a week needs before it is rated (standing.ts MIN_CONTESTED: the same floor Depth uses). */
-export const RAIL_MIN_DECISIONS = 40;
+/**
+ * A week is judged on exactly its first this-many scored decisions, and is rated only once it has them all. A fixed
+ * count, so stopping the week the moment the number looks good cannot buy a move (optional stopping), and practice
+ * after the count still pays Reps without moving the number. Above Depth's floor (standing.ts MIN_CONTESTED, 40).
+ */
+export const RAIL_WEEK_DECISIONS = 60;
 /** Past weeks shown on the board as ghosts. */
 export const GHOST_WEEKS = 4;
 
@@ -98,10 +102,13 @@ export function weekOf(day: DayKey): DayKey {
 
 export const EMPTY_LOSS: LossTally = { n: 0, sum: 0, sumSq: 0 };
 
-export function addLosses(t: LossTally, losses: readonly number[]): LossTally {
+/** Add losses, at most up to `cap` decisions. A non-finite grade is skipped: a broken grade is no decision. */
+export function addLosses(t: LossTally, losses: readonly number[], cap = Number.POSITIVE_INFINITY): LossTally {
   let { n, sum, sumSq } = t;
   for (const raw of losses) {
-    const x = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+    if (n >= cap) break;
+    if (!Number.isFinite(raw)) continue;
+    const x = Math.max(0, raw);
     n += 1;
     sum += x;
     sumSq += x * x;
@@ -109,9 +116,9 @@ export function addLosses(t: LossTally, losses: readonly number[]): LossTally {
   return { n, sum, sumSq };
 }
 
-/** bb per 100 decisions with its 95% interval (ranked.ts `rate`), rated at RAIL_MIN_DECISIONS. */
+/** bb per 100 decisions with its 95% interval (ranked.ts `rate`), rated at RAIL_WEEK_DECISIONS. */
 export function railRating(t: LossTally): Rating {
-  return { ...rate(t), rated: t.n >= RAIL_MIN_DECISIONS };
+  return { ...rate(t), rated: t.n >= RAIL_WEEK_DECISIONS };
 }
 
 // ── The ledger's share ──────────────────────────────────────────────────────────────────────────────
@@ -160,7 +167,7 @@ export function recordRail(state: RailState, events: readonly CountedEvent[], gr
     const was: RailWeek = i >= 0 ? weeks[i] : { week, loss: EMPTY_LOSS, reps: 0, grader, mixed: false, outcome: null };
     const next: RailWeek = {
       ...was,
-      loss: addLosses(was.loss, e.losses),
+      loss: addLosses(was.loss, e.losses, RAIL_WEEK_DECISIONS),
       reps: was.reps + e.reps,
       // A week begun by one grader and continued by another is shown, never settled up (one week, one grader).
       mixed: was.mixed || (e.losses.length > 0 && was.loss.n > 0 && was.grader !== grader),
@@ -193,8 +200,10 @@ export function settleRail(state: RailState, today: DayKey): RailState {
   const weeks = state.weeks.map((w) => {
     if (w.outcome !== null || w.week >= thisWeek) return w;
     const at = tierIndex(tier);
+    // A newer build's tier: this build cannot judge the week against it, so it stays open for that build.
+    if (at === null) return w;
     const outcome = weekOutcome(w, at);
-    if (outcome === 'up' && at !== null) {
+    if (outcome === 'up') {
       const to = RAIL_TIERS[at + 1].id;
       promotions.push({ week: w.week, from: tier, to });
       tier = to;
@@ -204,10 +213,13 @@ export function settleRail(state: RailState, today: DayKey): RailState {
   return { tier, weeks, promotions: promotions.slice(-MAX_RAIL_PROMOTIONS) };
 }
 
-/** The tier held at the end of `day` (from the promotions on file), for the season archive. */
+/**
+ * The tier held on `day` (from the promotions on file), for the season archive. A move is dated by the week that
+ * earned it and granted when that week ends, so it is held from the next Monday.
+ */
 export function tierOn(state: RailState, day: DayKey): RailTier {
   let id = RAIL_TIERS[0].id;
-  for (const p of state.promotions) if (p.week <= day) id = p.to;
+  for (const p of state.promotions) if (p.week + 7 <= day) id = p.to;
   return RAIL_TIERS[tierIndex(id) ?? 0];
 }
 

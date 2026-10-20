@@ -1,7 +1,7 @@
 import '../styles-league.css';
 import type { DayKey } from '../../core/localDay.js';
 import type { Rating } from '../../core/online/ranked.js';
-import { FICTIONAL_LABEL, RAIL_MIN_DECISIONS, RAIL_TIERS, railBoard, type RailRow } from '../../core/progression/rail.js';
+import { FICTIONAL_LABEL, RAIL_DAILY_REPS, RAIL_WEEK_DECISIONS, RAIL_TIERS, railBoard, type RailRow } from '../../core/progression/rail.js';
 import type { RailState, RailWeek } from '../../core/progression/types.js';
 import { dayLabel } from './you.js';
 
@@ -24,16 +24,20 @@ export function bbFigure(x: number): string {
   return x < 10 ? x.toFixed(1) : String(Math.round(x));
 }
 
-function ratingLine(r: Rating, min = RAIL_MIN_DECISIONS): string {
+function ratingLine(r: Rating, min = RAIL_WEEK_DECISIONS): string {
   if (r.decisions === 0) return 'No scored decisions yet this week';
   if (r.decisions < min) return `Calibrating · ${r.decisions} of ${min} decisions to be rated`;
   return `95% interval ${bbFigure(r.low)}–${bbFigure(r.high)} · ${r.decisions} decisions`;
 }
 
+const RUNG = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+/** Settled weeks listed: the board already shows the last four as ghosts. */
+const PAST_WEEKS = 3;
+
 const OUTCOME: Record<string, (w: RailWeek, to: string | null) => string> = {
   up: (_w, to) => `Moved up${to ? ` to ${to}` : ''}`,
   held: () => 'Held the tier',
-  unrated: (w) => `Unrated: ${w.loss.n} of ${RAIL_MIN_DECISIONS} decisions`,
+  unrated: (w) => `Unrated: ${w.loss.n} of ${RAIL_WEEK_DECISIONS} decisions`,
   mixed: () => 'Graded by two grader versions: not settled',
 };
 
@@ -78,7 +82,10 @@ export function renderRail(opts: RailScreenOptions): HTMLElement {
   ladder.setAttribute('aria-label', 'Rail tiers, Deuce to Ace');
   const at = RAIL_TIERS.indexOf(board.tier);
   RAIL_TIERS.forEach((t, i) => {
-    const li = el('li', 'league-rung', t.name);
+    // The rung shows the card's rank (2 … A); its full name is the label, so nothing is clipped at 900 px.
+    const li = el('li', 'league-rung', RUNG[i]);
+    li.setAttribute('aria-label', t.name);
+    li.title = t.name;
     li.dataset.state = i < at ? 'passed' : i === at ? 'current' : 'ahead';
     if (i === at) li.setAttribute('aria-current', 'step');
     ladder.appendChild(li);
@@ -88,7 +95,7 @@ export function renderRail(opts: RailScreenOptions): HTMLElement {
   play.type = 'button';
   play.dataset.testid = 'rail-play';
   play.addEventListener('click', opts.onPlay);
-  const foot = el('p', 'g-caption habit-flush', 'Scored on decisions, never chips: the contested spots Depth reads, graded by the coach. Above 400 Reps a day, play counts 0 for the Rail.');
+  const foot = el('p', 'g-caption habit-flush', `Scored on decisions, never chips: a week is its first ${RAIL_WEEK_DECISIONS} contested decisions, the ones Depth reads, graded by the coach. Above ${RAIL_DAILY_REPS} Reps a day, play counts 0 for the Rail.`);
   left.append(card, ladder, play, foot);
 
   // ── Right: the board, then how the last weeks settled ──
@@ -107,7 +114,7 @@ export function renderRail(opts: RailScreenOptions): HTMLElement {
   pastHead.appendChild(pt);
   const past = el('div', 'g-sect g-flat league-past');
   past.dataset.testid = 'rail-past';
-  const settled = opts.rail.weeks.filter((w) => w.outcome !== null).slice(-4).reverse();
+  const settled = opts.rail.weeks.filter((w) => w.outcome !== null).slice(-PAST_WEEKS).reverse();
   if (settled.length === 0) past.appendChild(el('p', 'g-caption habit-flush league-empty', 'None settled yet. The first settles the Monday after it.'));
   for (const w of settled) {
     const promo = opts.rail.promotions.find((p) => p.week === w.week);
@@ -136,7 +143,7 @@ function boardRow(r: RailRow): HTMLElement {
   const name = el('span', 'league-row-name', r.kind === 'ghost' && r.week !== null ? `You · week of ${dayLabel(r.week)}` : r.name);
   let sub: string;
   if (r.kind === 'bot' && r.tier) sub = `${r.tier.bot.label} · ${r.tier.name}’s pace`;
-  else if (r.rating && r.rating.decisions < RAIL_MIN_DECISIONS) sub = r.rating.decisions === 0 ? 'Nothing scored yet' : `Calibrating · ${r.rating.decisions} of ${RAIL_MIN_DECISIONS}`;
+  else if (r.rating && r.rating.decisions < RAIL_WEEK_DECISIONS) sub = r.rating.decisions === 0 ? 'Nothing scored yet' : `Calibrating · ${r.rating.decisions} of ${RAIL_WEEK_DECISIONS}`;
   else sub = r.kind === 'you' ? 'This week, read on its high side' : 'A past week, read on its high side';
   const subEl = el('span', 'g-caption', sub);
   if (r.kind === 'bot') subEl.dataset.testid = 'rail-fictional';

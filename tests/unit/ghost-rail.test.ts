@@ -3,14 +3,14 @@ import { emptySession, type HandRecord, type SessionState } from '../../src/core
 import { fixedOffsetDayKeyOf, type DayKey } from '../../src/core/localDay.js';
 import { SCENARIOS } from '../../src/core/puzzleScenarios.js';
 import { applyProgress, type ApplyContext } from '../../src/core/progression/apply.js';
-import { defaultProgression, parseProgression, serializeProgression } from '../../src/core/progression/persist.js';
+import { defaultProgression, parseProgression, RAIL_TIER_IDS, serializeProgression } from '../../src/core/progression/persist.js';
 import {
   countForRail,
   effectiveRailTier,
   FICTIONAL_LABEL,
   GHOST_WEEKS,
   RAIL_DAILY_REPS,
-  RAIL_MIN_DECISIONS,
+  RAIL_WEEK_DECISIONS,
   RAIL_TIERS,
   railBoard,
   recordRail,
@@ -55,6 +55,11 @@ function save(prev: SessionState, next: SessionState, now: number): SessionState
 }
 
 /** Play `hands` (each `graded` decisions losing `loss`) at `at`, one second apart, in one save. */
+/** A judged week: RAIL_WEEK_DECISIONS decisions losing `loss`, over two days (the 400-Rep line allows 4 hands a day). */
+function fullWeek(s: SessionState, at: number, loss: number): SessionState {
+  return play(play(s, at, 4, 10, loss), at + MS_PER_DAY, (RAIL_WEEK_DECISIONS - 40) / 10, 10, loss);
+}
+
 function play(s: SessionState, at: number, hands: number, graded: number, loss: number, net = 0): SessionState {
   const fresh = Array.from({ length: hands }, (_, i) => hand(at + i * 1000, graded, loss, net));
   return save(s, { ...s, hands: [...s.hands, ...fresh] }, at + hands * 1000);
@@ -163,9 +168,9 @@ describe('the Ghost Rail: weeks settle when they end, and nobody moves down (tim
   const nextWeek = (weeks: number) => MON + weeks * 7 * MS_PER_DAY;
 
   it('a rated week at or under the pace moves up one tier, filed the first save after the week ends', () => {
-    let s = play(emptySession(), MON, 4, 10, 0);
+    let s = fullWeek(emptySession(), MON, 0);
     expect(s.progression.rail.tier).toBe('deuce');
-    // Mid-week nothing settles, however good the week: a learner cannot stop on a lucky run.
+    // Mid-week nothing settles, and the week is its first RAIL_WEEK_DECISIONS decisions (R1).
     expect(s.progression.rail.weeks[0].outcome).toBeNull();
     s = save(s, s, nextWeek(1));
     expect(s.progression.rail.tier).toBe('three');
@@ -174,15 +179,15 @@ describe('the Ghost Rail: weeks settle when they end, and nobody moves down (tim
   });
 
   it('NO DEMOTION: a terrible week after a move up keeps the tier', () => {
-    let s = play(emptySession(), MON, 4, 10, 0);
+    let s = fullWeek(emptySession(), MON, 0);
     s = save(s, s, nextWeek(1));
-    s = play(s, nextWeek(1), 4, 10, 20);
+    s = fullWeek(s, nextWeek(1), 20);
     s = save(s, s, nextWeek(2));
     expect(s.progression.rail.weeks[1].outcome).toBe('held');
     expect(s.progression.rail.tier).toBe('three');
     // And many bad weeks later, still.
     for (let w = 2; w < 8; w++) {
-      s = play(s, nextWeek(w), 4, 10, 20);
+      s = fullWeek(s, nextWeek(w), 20);
       s = save(s, s, nextWeek(w + 1));
     }
     expect(s.progression.rail.tier).toBe('three');
@@ -198,7 +203,7 @@ describe('the Ghost Rail: weeks settle when they end, and nobody moves down (tim
     expect(settleRail(state, 7 as DayKey).tier).toBe('king');
   });
 
-  it(`a week under ${RAIL_MIN_DECISIONS} scored decisions is unrated and moves nothing`, () => {
+  it(`a week under ${RAIL_WEEK_DECISIONS} scored decisions is unrated and moves nothing`, () => {
     let s = play(emptySession(), MON, 3, 10, 0);
     s = save(s, s, nextWeek(1));
     expect(s.progression.rail.weeks[0].outcome).toBe('unrated');
@@ -207,7 +212,7 @@ describe('the Ghost Rail: weeks settle when they end, and nobody moves down (tim
 
   it('a long absence settles each missed week in order, at most one tier per week', () => {
     let s = emptySession();
-    for (let w = 0; w < 3; w++) s = play(s, nextWeek(w), 4, 10, 0);
+    for (let w = 0; w < 3; w++) s = fullWeek(s, nextWeek(w), 0);
     // The second and third weeks are filed while earlier ones are still open only if no save fell between: force it.
     const raw = s.progression.rail;
     const reopened: RailState = { ...raw, tier: 'deuce', promotions: [], weeks: raw.weeks.map((w) => ({ ...w, outcome: null })) };
@@ -225,7 +230,7 @@ describe('the Ghost Rail: weeks settle when they end, and nobody moves down (tim
   });
 
   it('a settled week is closed: a late event under it does not reopen its number', () => {
-    let s = play(emptySession(), MON, 4, 10, 0);
+    let s = fullWeek(emptySession(), MON, 0);
     s = save(s, s, nextWeek(1));
     const closed = s.progression.rail.weeks[0];
     const late = recordRail(s.progression.rail, [{ day: dayOf(MON + 1000), reps: 50, losses: [9] }]);
@@ -234,7 +239,7 @@ describe('the Ghost Rail: weeks settle when they end, and nobody moves down (tim
 
   it('at Ace there is nowhere further up: a good week holds', () => {
     const at = RAIL_TIERS.length - 1;
-    const w = { week: 0 as DayKey, loss: { n: 50, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome: null };
+    const w = { week: 0 as DayKey, loss: { n: RAIL_WEEK_DECISIONS, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome: null };
     expect(weekOutcome(w, at)).toBe('held');
     expect(railBoard({ tier: 'ace', weeks: [], promotions: [] }, 3 as DayKey).toBeat).toBeNull();
   });
@@ -243,21 +248,21 @@ describe('the Ghost Rail: weeks settle when they end, and nobody moves down (tim
     const p = parseProgression({ rail: { tier: 'joker', weeks: [], promotions: [] } });
     expect(p.rail.tier).toBe('joker');
     expect(effectiveRailTier(p.rail).id).toBe('deuce');
-    const week = { week: 0 as DayKey, loss: { n: 50, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome: null };
+    const week = { week: 0 as DayKey, loss: { n: RAIL_WEEK_DECISIONS, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome: null };
     expect(settleRail({ ...p.rail, weeks: [week] }, 7 as DayKey).tier).toBe('joker');
   });
 
   it('the tier held on a day reads from the promotions on file', () => {
     const r: RailState = { tier: 'four', weeks: [], promotions: [{ week: 7 as DayKey, from: 'deuce', to: 'three' }, { week: 14 as DayKey, from: 'three', to: 'four' }] };
-    expect(tierOn(r, 6 as DayKey).id).toBe('deuce');
-    expect(tierOn(r, 10 as DayKey).id).toBe('three');
+    expect(tierOn(r, 13 as DayKey).id).toBe('deuce');
+    expect(tierOn(r, 14 as DayKey).id).toBe('three');
     expect(tierOn(r, 30 as DayKey).id).toBe('four');
   });
 });
 
 describe('the Ghost Rail persists tolerantly', () => {
   it('round-trips, and corrupt weeks and promotions are dropped, never invented', () => {
-    let s = play(emptySession(), MON, 4, 10, 1);
+    let s = fullWeek(emptySession(), MON, 1);
     s = save(s, s, MON + 7 * MS_PER_DAY);
     const p = s.progression;
     expect(parseProgression(JSON.parse(JSON.stringify(serializeProgression(p)))).rail).toEqual(p.rail);
@@ -274,5 +279,91 @@ describe('the Ghost Rail persists tolerantly', () => {
     expect(bad.tier).toBe('deuce');
     expect(bad.weeks).toEqual([{ week: -3, loss: { n: 0, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome: null }]);
     expect(bad.promotions).toEqual([]);
+  });
+});
+
+describe('review fixes (red first)', () => {
+  const MON0 = 0 as DayKey;
+  const free = (n: number) => Array(n).fill(0);
+
+  it('R1: a week is judged on a fixed count, so stopping early on a lucky run is unrated, and later decisions do not move it', () => {
+    // 40 free decisions, then stop: rated before the fix, which let stopping-when-ahead buy a move.
+    const stopped = recordRail(defaultProgression().rail, [{ day: MON0, reps: 100, losses: free(40) }]);
+    expect(weekOutcome(stopped.weeks[0], 0)).toBe('unrated');
+    // The first RAIL_WEEK_DECISIONS are the week; decisions after them do not change its number.
+    const full = recordRail(defaultProgression().rail, [{ day: MON0, reps: 100, losses: free(RAIL_WEEK_DECISIONS) }]);
+    const more = recordRail(full, [{ day: (MON0 + 1) as DayKey, reps: 100, losses: Array(30).fill(50) }]);
+    expect(more.weeks[0].loss).toEqual(full.weeks[0].loss);
+    expect(more.weeks[0].reps).toBe(200);
+    expect(weekOutcome(more.weeks[0], 0)).toBe('up');
+  });
+
+  it('R3: an older build leaves a newer tier’s weeks open for the newer build to settle', () => {
+    const week = { week: 0 as DayKey, loss: { n: RAIL_WEEK_DECISIONS, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome: null };
+    const out = settleRail({ tier: 'joker', weeks: [week], promotions: [] }, 7 as DayKey);
+    expect(out.weeks[0].outcome).toBeNull();
+  });
+
+  it('R4: corrupt promotions cannot invent moves, and the tier is never below the last move on file', () => {
+    const p = parseProgression({
+      rail: {
+        tier: 'nonsense-but-valid-id',
+        promotions: [
+          { week: 7, from: 'ace', to: 'deuce' },
+          { week: 14, from: 'deuce', to: 'four' },
+          { week: 21, from: 'deuce', to: 'three' },
+          { week: 21, from: 'three', to: 'four' },
+          { week: 28, from: 'three', to: 'four' },
+          { week: 35, from: 'joker', to: 'wild' },
+        ],
+      },
+    }).rail;
+    expect(p.promotions).toEqual([
+      { week: 21, from: 'deuce', to: 'three' },
+      { week: 28, from: 'three', to: 'four' },
+      { week: 35, from: 'joker', to: 'wild' },
+    ]);
+    // A corrupt tier never reads below the moves on file.
+    expect(parseProgression({ rail: { tier: 7, promotions: [{ week: 7, from: 'deuce', to: 'three' }] } }).rail.tier).toBe('three');
+  });
+
+  it('R6: a move earned in a season’s last week is held from the next Monday, not before', () => {
+    const r: RailState = { tier: 'three', weeks: [], promotions: [{ week: 14 as DayKey, from: 'deuce', to: 'three' }] };
+    expect(tierOn(r, 20 as DayKey).id).toBe('deuce');
+    expect(tierOn(r, 21 as DayKey).id).toBe('three');
+  });
+
+  it('R7: a non-finite grade is skipped, not counted as a free decision', () => {
+    const r = recordRail(defaultProgression().rail, [{ day: MON0, reps: 10, losses: [Number.NaN, 2, Number.POSITIVE_INFINITY] }]);
+    expect(r.weeks[0].loss).toEqual({ n: 1, sum: 2, sumSq: 4 });
+  });
+});
+
+describe('the review’s missing invariants', () => {
+  it('persist spells the tier ids exactly as rail.ts does', () => {
+    expect(RAIL_TIER_IDS).toEqual(RAIL_TIERS.map((t) => t.id));
+  });
+
+  it('a newer build’s week outcome survives parsing and is never re-settled', () => {
+    const week = { week: -3, loss: { n: 60, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome: 'promoted-twice' };
+    const p = parseProgression({ rail: { tier: 'deuce', weeks: [week], promotions: [] } }).rail;
+    expect(p.weeks[0].outcome).toBe('promoted-twice');
+    expect(settleRail(p, 30 as DayKey)).toBe(p);
+  });
+
+  it('the daily line holds when one day’s awards come over several saves', () => {
+    let s = emptySession();
+    for (let i = 0; i < 6; i++) s = play(s, MON + i * 60_000, 1, 10, 0);
+    expect(s.progression.rail.weeks[0].reps).toBe(RAIL_DAILY_REPS);
+    expect(s.progression.rail.weeks[0].loss.n).toBe(40);
+  });
+
+  it('with the award log full, a new hand still reaches the Rail once', () => {
+    let s = emptySession();
+    const filler = Array.from({ length: 500 }, (_, i) => ({ key: `speed:${i + 1}`, reps: 2 as never, day: (dayOf(MON) - 30) as DayKey }));
+    s = { ...s, progression: { ...s.progression, reps: { total: 1000 as never, awards: filler } } };
+    const s1 = play(s, MON, 1, 10, 0);
+    expect(s1.progression.rail.weeks[0]).toMatchObject({ reps: 100, loss: { n: 10 } });
+    expect(save(s1, s1, MON + 99_000).progression.rail).toEqual(s1.progression.rail);
   });
 });

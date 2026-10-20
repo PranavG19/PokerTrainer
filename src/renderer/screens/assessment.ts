@@ -17,7 +17,7 @@ import { text } from '../components/dom.js';
  */
 
 const HERO = 0;
-const DEFAULT_SIZE = 30;
+export const DEFAULT_SIZE = 30;
 /** The action order shown on the control row, matching the table/puzzle screens. */
 const ACTIONS: readonly ActionKind[] = ['fold', 'check', 'call', 'bet', 'raise'];
 const ACTION_LABEL: Record<ActionKind, string> = {

@@ -74,6 +74,8 @@ export const MAX_FOLIO_REVIEWS = 64;
 export const MAX_RAIL_WEEKS = 104;
 /** Deuce to Ace is twelve moves; anything longer is corruption. */
 export const MAX_RAIL_PROMOTIONS = 12;
+/** rail.ts RAIL_TIERS ids, Deuce to Ace, spelled here so persist does not import the module that imports it (a test pins them equal). */
+export const RAIL_TIER_IDS: readonly string[] = ['deuce', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
 /** Seven-week seasons: about eight years. */
 export const MAX_SEASON_RECORDS = 60;
 /** A heads-up hand rarely runs past a dozen actions a side; anything longer is corruption. */
@@ -596,18 +598,30 @@ function parseRail(obj: Record<string, unknown>, d: RailState): RailState {
       outcome: id(entry.outcome),
     });
   }
+  // A move between two tiers this build knows is exactly one step up; a pair naming a newer build's tier is kept as is.
+  // One move per week, ascending.
   const promotions: RailPromotion[] = [];
+  const known = (t: string): number => RAIL_TIER_IDS.indexOf(t);
   for (const value of asArray(obj.promotions)) {
     const entry = asRecord(value);
     const week = asDayKey(entry.week);
     const from = id(entry.from);
     const to = id(entry.to);
-    if (week !== null && from !== null && to !== null && from !== to) promotions.push({ week, from, to });
+    if (week === null || from === null || to === null || from === to) continue;
+    if (known(from) >= 0 && known(to) >= 0 && known(to) !== known(from) + 1) continue;
+    if (promotions.length > 0 && week <= promotions[promotions.length - 1].week) continue;
+    promotions.push({ week, from, to });
   }
+  const kept = promotions.slice(-MAX_RAIL_PROMOTIONS);
+  // The tier is never below the last known move on file: corruption must not read as a demotion.
+  const stored = id(obj.tier) ?? d.tier;
+  const lastKnown = [...kept].reverse().find((p) => known(p.to) >= 0)?.to ?? null;
+  // An unknown stored tier is a newer build's and is kept.
+  const tier = lastKnown !== null && known(stored) >= 0 && known(stored) < known(lastKnown) ? lastKnown : stored;
   return {
-    tier: id(obj.tier) ?? d.tier,
+    tier,
     weeks: [...byWeek.values()].sort((a, b) => a.week - b.week).slice(-MAX_RAIL_WEEKS),
-    promotions: promotions.slice(-MAX_RAIL_PROMOTIONS),
+    promotions: kept,
   };
 }
 

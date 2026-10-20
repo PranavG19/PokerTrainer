@@ -3,6 +3,8 @@ import type { DayKey } from '../../core/localDay.js';
 import type { Rating } from '../../core/online/ranked.js';
 import { SEASON_WEEKS, TRACK_STEPS, type ArchivedSeason, type Comparison, type SeasonView } from '../../core/progression/season.js';
 import { attachThumb } from '../components/thumb.js';
+import { RAIL_DAILY_REPS } from '../../core/progression/rail.js';
+import { DEFAULT_SIZE as BLOCK_HANDS } from './assessment.js';
 import { bbFigure } from './rail.js';
 import { dayLabel } from './you.js';
 
@@ -28,7 +30,7 @@ function blockLine(r: Rating): string {
   return `${bbFigure(r.bbPer100)} bb lost per 100 spots · 95% interval ${bbFigure(r.low)}–${bbFigure(r.high)} · ${r.decisions} spots`;
 }
 
-/** The comparison in words. A tie is called a tie: two 30-spot blocks rarely tell a small change apart. */
+/** The comparison in words. A tie is called a tie: two short blocks rarely tell a small change apart. */
 export function comparisonLine(c: Comparison): string {
   switch (c.kind) {
     case 'alone':
@@ -122,8 +124,8 @@ function track(v: SeasonView): HTMLElement {
   head.appendChild(ht);
   const rules = el('div', 'g-sect g-flat league-rules');
   for (const [k, t] of [
-    ['Weeks 1–6', 'The free track. Every Rep the ledger pays counts, up to 400 a day. Nothing is sold and nothing is locked.'],
-    ['Week 7', 'The finale: the delayed test. A 30-spot assessment block, the coach silent until the end, against the season’s first block.'],
+    ['Weeks 1–6', `The free track. Every Rep the ledger pays counts, up to ${RAIL_DAILY_REPS} a day. Nothing is sold and nothing is locked.`],
+    ['Week 7', `The finale: the delayed test. A ${BLOCK_HANDS}-hand assessment block, the coach silent until the end, against the season’s first block.`],
     ['After', 'The season is archived with its track, its finale and your Ghost Rail tier, and the next one opens on Monday.'],
   ]) {
     const row = el('div', 'league-row');
@@ -149,7 +151,7 @@ function finale(v: SeasonView, onTake: () => void): HTMLElement {
   when.textContent = open
     ? v.finale
       ? 'Taken. A later block this week is practice; the first one is the test.'
-      : `Open now, for ${v.clock.daysLeft} more ${v.clock.daysLeft === 1 ? 'day' : 'days'}. One 30-spot block, graded at the end.`
+      : `Open now, for ${v.clock.daysLeft} more ${v.clock.daysLeft === 1 ? 'day' : 'days'}. One ${BLOCK_HANDS}-hand block, graded at the end.`
     : `Opens on ${dayLabel(v.clock.bounds.finale)}. Weeks apart from what was practised is the point: it tests what stayed.`;
   card.appendChild(when);
   const fin = el('div', 'league-figure');

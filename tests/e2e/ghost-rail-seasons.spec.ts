@@ -81,14 +81,15 @@ function seededProfile(): Record<string, unknown> {
       rail: {
         tier: 'seven',
         weeks: [
-          { week: w(5), loss: tally(61, 2.2, 1.4), reps: 1320, grader: 1, mixed: false, outcome: 'up' },
-          { week: w(4), loss: tally(48, 2.6, 1.9), reps: 980, grader: 1, mixed: false, outcome: 'held' },
+          { week: w(5), loss: tally(60, 2.2, 1.4), reps: 1320, grader: 1, mixed: false, outcome: 'up' },
+          { week: w(4), loss: tally(60, 2.6, 1.9), reps: 980, grader: 1, mixed: false, outcome: 'held' },
           { week: w(3), loss: tally(22, 1.9, 1.2), reps: 410, grader: 1, mixed: false, outcome: 'unrated' },
-          { week: w(2), loss: tally(74, 1.7, 1.1), reps: 1650, grader: 1, mixed: false, outcome: 'up' },
-          { week: w(1), loss: tally(57, 2.4, 1.6), reps: 1210, grader: 1, mixed: false, outcome: 'held' },
-          { week: w(0), loss: tally(46, 1.8, 1.2), reps: 860, grader: 1, mixed: false, outcome: null },
+          { week: w(2), loss: tally(60, 1.7, 1.1), reps: 1650, grader: 1, mixed: false, outcome: 'up' },
+          { week: w(1), loss: tally(60, 2.4, 1.6), reps: 1210, grader: 1, mixed: false, outcome: 'held' },
+          { week: w(0), loss: tally(60, 1.8, 1.2), reps: 860, grader: 1, mixed: false, outcome: null },
         ],
-        promotions: tiers.slice(1).map((to, i) => ({ week: w(12 - 2 * i), from: tiers[i], to })),
+        // The two latest moves are the weeks marked 'up' below.
+        promotions: [12, 10, 8, 5, 2].map((ago, i) => ({ week: w(ago), from: tiers[i], to: tiers[i + 1] })),
       },
       seasons: {
         records: [
@@ -125,7 +126,7 @@ test('the league week: own weeks and labelled fictional bots only, a tier, decis
     for (const name of await page.locator('[data-testid="rail-row"]:not([data-kind="bot"]) .league-row-name').allInnerTexts()) expect(name).toMatch(/^You/);
     await expect(page.locator('[data-testid="rail-number"]')).toHaveText('180');
     await expect(page.locator('[data-testid="rail-pace"]')).toContainText('No one moves down');
-    await expect(page.locator('[data-testid="rail-ladder"] [aria-current="step"]')).toHaveText('Seven');
+    await expect(page.locator('[data-testid="rail-ladder"] [aria-current="step"]')).toHaveAttribute('aria-label', 'Seven');
     const text = (await screen.innerText()).toLowerCase();
     expect(text).not.toMatch(/bankroll|\bpots?\b|\bwon\b|\$|\d[\d,]*\s*chips/);
     await bothSizes(app, 'league-week');
@@ -152,17 +153,20 @@ test('the league week: own weeks and labelled fictional bots only, a tier, decis
   }
 });
 
-/** Play the assessment block to its reveal with the first legal action each spot. */
+/** Play the assessment block to its reveal with the first legal action each spot (assessment.spec's playToReveal). */
 async function playBlock(page: Page): Promise<void> {
   const root = page.locator('[data-testid="assessment-screen"]');
   for (let guard = 0; guard < 400 && (await root.getAttribute('data-phase')) !== 'reveal'; guard++) {
-    for (const id of ['assessment-check', 'assessment-call', 'assessment-fold']) {
+    let clicked = false;
+    for (const id of ['assessment-check', 'assessment-call', 'assessment-fold', 'assessment-bet', 'assessment-raise']) {
       const b = page.locator(`[data-testid="${id}"]`);
       if ((await b.count()) > 0 && (await b.isEnabled())) {
         await b.click();
+        clicked = true;
         break;
       }
     }
+    expect(clicked, 'every acting spot offers a legal action').toBe(true);
   }
   await expect(root).toHaveAttribute('data-phase', 'reveal');
 }
@@ -201,9 +205,9 @@ test('time travel: real hands reach the Rail through the ledger; the finale is t
     await expect(page.locator('[data-testid="season-comparison"]')).toContainText('stands on its own');
     await expect(page.locator('[data-testid="season-take"]')).toHaveCount(0);
     await bothSizes(app, 'season-finale');
-    const rec = readState(dir).progression.seasons.records[0];
-    expect(rec.finale.loss.n).toBeGreaterThan(0);
-    expect(readState(dir).progression.milestones.achieved['season-finale']).toBeDefined();
+    // The save lands after the screen repaints: read the file once it has.
+    await expect.poll(() => readState(dir).progression.seasons.records[0]?.finale?.loss?.n ?? 0).toBeGreaterThan(0);
+    await expect.poll(() => readState(dir).progression.milestones.achieved['season-finale'] !== undefined).toBe(true);
   } finally {
     await app.close();
   }
