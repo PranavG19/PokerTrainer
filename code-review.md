@@ -6,8 +6,8 @@ the full e2e suite runs before merge.
 
 | Pass | HEAD | Verdict |
 |---|---|---|
-| 1. Review | 3289c8c | **ONE BLOCKER**, four should-fix, three nits |
-| 2. Fixes | the commit after 3289c8c | Blocker fixed red first; three should-fix fixed with e2e assertions; one declined with reason |
+| 1. Review | 3289c8c (pre-rebase) | **ONE BLOCKER**, four should-fix, three nits |
+| 2. Re-review | f0095bb (rebased on #44, 6-max) | **PASS WITH NOTES**: every fix correct and complete, nothing new; agrees with declining #3; no semantic conflict with the 6-max merge (a cast still forces the 4-seat path) |
 
 ## Findings and outcomes
 
