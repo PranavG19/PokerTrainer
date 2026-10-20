@@ -574,7 +574,7 @@ function lossTally(value: unknown): LossTally {
   return { n, sum, sumSq };
 }
 
-/** rail.ts RAIL_WEEK_DECISIONS. A week holds at most that many; a longer stored tally is read at the count, its mean kept. */
+/** The Rail week's fixed count (rail.ts re-exports it as RAIL_WEEK_DECISIONS); a longer stored tally is read at the count, its mean kept. */
 export const RAIL_WEEK_CAP = 40;
 function weekTally(t: LossTally): LossTally {
   if (t.n <= RAIL_WEEK_CAP) return t;
@@ -626,9 +626,9 @@ function parseRail(obj: Record<string, unknown>, d: RailState): RailState {
     promotions.push(c);
   }
   const kept = promotions.slice(-MAX_RAIL_PROMOTIONS);
-  // The tier is never below the last known move on file: corruption must not read as a demotion.
+  // The tier is never below the highest known move on file: corruption must not read as a demotion.
   const stored = id(obj.tier) ?? d.tier;
-  const lastKnown = [...kept].reverse().find((p) => known(p.to) >= 0)?.to ?? null;
+  const lastKnown = kept.reduce<string | null>((top, p) => (known(p.to) > (top === null ? -1 : known(top)) ? p.to : top), null);
   // An unknown stored tier is a newer build's and is kept.
   const tier = lastKnown !== null && known(stored) >= 0 && known(stored) < known(lastKnown) ? lastKnown : stored;
   return {

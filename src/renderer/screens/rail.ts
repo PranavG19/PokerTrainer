@@ -59,7 +59,7 @@ export function renderRail(opts: RailScreenOptions): HTMLElement {
   card.dataset.testid = 'rail-week';
   const top = el('div', 'league-top');
   const title = el('div', 'league-title');
-  title.append(el('span', 't-t3', 'Ghost Rail'), el('span', 'g-caption', `Week of ${dayLabel(board.week)} · settles when the week turns, Monday 4 am`));
+  title.append(el('span', 't-t3', 'This week'), el('span', 'g-caption', `Week of ${dayLabel(board.week)} · settles when the week turns, Monday 4 am`));
   const tier = el('span', 'league-tier t-head', board.tier.name);
   tier.dataset.testid = 'rail-tier';
   top.append(title, tier);
@@ -95,7 +95,7 @@ export function renderRail(opts: RailScreenOptions): HTMLElement {
   play.type = 'button';
   play.dataset.testid = 'rail-play';
   play.addEventListener('click', opts.onPlay);
-  const foot = el('p', 'g-caption habit-flush', `Scored on decisions, never chips: a week is its first ${RAIL_WEEK_DECISIONS} contested decisions, the ones Depth reads, graded by the coach. Above ${RAIL_DAILY_REPS} Reps a day, play counts 0 for the Rail.`);
+  const foot = el('p', 'g-caption habit-flush', `Scored on decisions, never chips: a week is its first ${RAIL_WEEK_DECISIONS} contested decisions, the ones Depth reads, graded by the coach. Above ${RAIL_DAILY_REPS} Reps a day, Reps stop counting toward the Season; decisions still count here.`);
   left.append(card, ladder, play, foot);
 
   // ── Right: the board, then how the last weeks settled ──

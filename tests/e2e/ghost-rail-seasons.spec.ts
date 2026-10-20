@@ -53,6 +53,8 @@ async function bothSizes(app: Awaited<ReturnType<typeof launchApp>>, name: strin
   for (const [w, h] of [[900, 640], [1100, 760]] as const) {
     await size(app, w, h);
     await noPageScroll(app.page);
+    // The nav's sliding thumb settles first, so the capture shows it on the lit tab.
+    await app.page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
     await shot(app.page, `${name}-${w}x${h}`);
   }
 }

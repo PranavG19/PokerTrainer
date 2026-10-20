@@ -23,7 +23,7 @@
 
 import type { DayKey } from '../localDay.js';
 import { GRADER_VERSION, rate, type Rating } from '../online/ranked.js';
-import { MAX_RAIL_PROMOTIONS, MAX_RAIL_WEEKS } from './persist.js';
+import { MAX_RAIL_PROMOTIONS, MAX_RAIL_WEEKS, RAIL_WEEK_CAP } from './persist.js';
 import type { LossTally, RailState, RailWeek } from './types.js';
 
 /** Above this many Reps in one local day, Reps count 0 for the Rail and for Seasons (VISION §4). */
@@ -33,7 +33,7 @@ export const RAIL_DAILY_REPS = 400;
  * count, so stopping the week the moment the number looks good cannot buy a move (optional stopping), and practice
  * after the count still pays Reps without moving the number. Depth's own floor (standing.ts MIN_CONTESTED).
  */
-export const RAIL_WEEK_DECISIONS = 40;
+export const RAIL_WEEK_DECISIONS = RAIL_WEEK_CAP;
 /** Past weeks shown on the board as ghosts. */
 export const GHOST_WEEKS = 4;
 
@@ -224,9 +224,10 @@ export function settleRail(state: RailState, today: DayKey): RailState {
  * earned it and granted when that week ends, so it is held from the next Monday.
  */
 export function tierOn(state: RailState, day: DayKey): RailTier {
-  let id = RAIL_TIERS[0].id;
-  for (const p of state.promotions) if (p.week + 7 <= day) id = p.to;
-  return RAIL_TIERS[tierIndex(id) ?? 0];
+  // The highest known move held by then: a week settled late sits earlier in week order than a newer move.
+  let best = 0;
+  for (const p of state.promotions) if (p.week + 7 <= day) best = Math.max(best, tierIndex(p.to) ?? 0);
+  return RAIL_TIERS[best];
 }
 
 // ── The board ───────────────────────────────────────────────────────────────────────────────────────

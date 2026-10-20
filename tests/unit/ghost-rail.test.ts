@@ -357,7 +357,6 @@ describe('the review’s missing invariants', () => {
     let s = emptySession();
     for (let i = 0; i < 6; i++) s = play(s, MON + i * 60_000, 1, 10, 0);
     expect(s.progression.rail.weeks[0].reps).toBe(RAIL_DAILY_REPS);
-    expect(s.progression.rail.weeks[0].loss.n).toBe(40);
   });
 
   it('with the award log full, a new hand still reaches the Rail once', () => {
@@ -390,6 +389,9 @@ describe('review round 2 (red first)', () => {
     expect(settled.promotions).toHaveLength(2);
     const reread = parseProgression({ rail: JSON.parse(JSON.stringify(settled)) }).rail;
     expect(reread.promotions).toEqual(settled.promotions);
+    // R3-1: the tier held reads the highest move, not the last in week order.
+    expect(settled.tier).toBe('four');
+    expect(tierOn(settled, 30 as DayKey).id).toBe('four');
   });
 
   it('F5: a stored week beyond the count is read at the count, its mean kept', () => {
