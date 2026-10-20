@@ -81,12 +81,12 @@ function seededProfile(): Record<string, unknown> {
       rail: {
         tier: 'seven',
         weeks: [
-          { week: w(5), loss: tally(60, 2.2, 1.4), reps: 1320, grader: 1, mixed: false, outcome: 'up' },
-          { week: w(4), loss: tally(60, 2.6, 1.9), reps: 980, grader: 1, mixed: false, outcome: 'held' },
+          { week: w(5), loss: tally(40, 2.2, 1.4), reps: 1320, grader: 1, mixed: false, outcome: 'up' },
+          { week: w(4), loss: tally(40, 2.6, 1.9), reps: 980, grader: 1, mixed: false, outcome: 'held' },
           { week: w(3), loss: tally(22, 1.9, 1.2), reps: 410, grader: 1, mixed: false, outcome: 'unrated' },
-          { week: w(2), loss: tally(60, 1.7, 1.1), reps: 1650, grader: 1, mixed: false, outcome: 'up' },
-          { week: w(1), loss: tally(60, 2.4, 1.6), reps: 1210, grader: 1, mixed: false, outcome: 'held' },
-          { week: w(0), loss: tally(60, 1.8, 1.2), reps: 860, grader: 1, mixed: false, outcome: null },
+          { week: w(2), loss: tally(40, 1.7, 1.1), reps: 1650, grader: 1, mixed: false, outcome: 'up' },
+          { week: w(1), loss: tally(40, 2.4, 1.6), reps: 1210, grader: 1, mixed: false, outcome: 'held' },
+          { week: w(0), loss: tally(40, 1.8, 1.2), reps: 860, grader: 1, mixed: false, outcome: null },
         ],
         // The two latest moves are the weeks marked 'up' below.
         promotions: [12, 10, 8, 5, 2].map((ago, i) => ({ week: w(ago), from: tiers[i], to: tiers[i + 1] })),

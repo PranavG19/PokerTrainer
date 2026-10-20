@@ -3,7 +3,7 @@ import { emptySession, type HandRecord, type SessionState } from '../../src/core
 import { fixedOffsetDayKeyOf, type DayKey } from '../../src/core/localDay.js';
 import { SCENARIOS } from '../../src/core/puzzleScenarios.js';
 import { applyProgress, type ApplyContext } from '../../src/core/progression/apply.js';
-import { defaultProgression, parseProgression, RAIL_TIER_IDS, serializeProgression } from '../../src/core/progression/persist.js';
+import { defaultProgression, parseProgression, RAIL_TIER_IDS, RAIL_WEEK_CAP, serializeProgression } from '../../src/core/progression/persist.js';
 import {
   countForRail,
   effectiveRailTier,
@@ -138,7 +138,7 @@ describe('the Ghost Rail: scored on decision quality, never chips', () => {
     expect(save(s1, s1, MON + 20_000).progression.rail).toEqual(s1.progression.rail);
   });
 
-  it(`above ${RAIL_DAILY_REPS} Reps a day, Reps and decisions count 0 for the Rail`, () => {
+  it(`above ${RAIL_DAILY_REPS} Reps a day, Reps count 0 for the Rail; the week still takes its fixed count of decisions`, () => {
     // Each hand pays 10 decisions × 10 Reps = 100; the fifth starts past the line.
     const s = play(emptySession(), MON, 6, 10, 0);
     const w = s.progression.rail.weeks[0];
@@ -160,7 +160,8 @@ describe('the Ghost Rail: scored on decision quality, never chips', () => {
       () => 0,
     );
     expect(counted.map((c) => c.reps)).toEqual([350, 50, 0]);
-    expect(counted.map((c) => c.losses)).toEqual([[0], [1], []]);
+    // The line is on Reps only (round 2): every decision still reaches the week's fixed count.
+    expect(counted.map((c) => c.losses)).toEqual([[0], [1], [2]]);
   });
 });
 
@@ -287,8 +288,8 @@ describe('review fixes (red first)', () => {
   const free = (n: number) => Array(n).fill(0);
 
   it('R1: a week is judged on a fixed count, so stopping early on a lucky run is unrated, and later decisions do not move it', () => {
-    // 40 free decisions, then stop: rated before the fix, which let stopping-when-ahead buy a move.
-    const stopped = recordRail(defaultProgression().rail, [{ day: MON0, reps: 100, losses: free(40) }]);
+    // Free decisions short of the count, then stop: rated before the fix, which let stopping-when-ahead buy a move.
+    const stopped = recordRail(defaultProgression().rail, [{ day: MON0, reps: 100, losses: free(RAIL_WEEK_DECISIONS - 10) }]);
     expect(weekOutcome(stopped.weeks[0], 0)).toBe('unrated');
     // The first RAIL_WEEK_DECISIONS are the week; decisions after them do not change its number.
     const full = recordRail(defaultProgression().rail, [{ day: MON0, reps: 100, losses: free(RAIL_WEEK_DECISIONS) }]);
@@ -340,8 +341,9 @@ describe('review fixes (red first)', () => {
 });
 
 describe('the review’s missing invariants', () => {
-  it('persist spells the tier ids exactly as rail.ts does', () => {
+  it('persist spells the tier ids and the week count exactly as rail.ts does', () => {
     expect(RAIL_TIER_IDS).toEqual(RAIL_TIERS.map((t) => t.id));
+    expect(RAIL_WEEK_CAP).toBe(RAIL_WEEK_DECISIONS);
   });
 
   it('a newer build’s week outcome survives parsing and is never re-settled', () => {
@@ -365,5 +367,33 @@ describe('the review’s missing invariants', () => {
     const s1 = play(s, MON, 1, 10, 0);
     expect(s1.progression.rail.weeks[0]).toMatchObject({ reps: 100, loss: { n: 10 } });
     expect(save(s1, s1, MON + 99_000).progression.rail).toEqual(s1.progression.rail);
+  });
+});
+
+describe('review round 2 (red first)', () => {
+  it('F1: the daily line applies to Reps only; the decisions of a hand past it still count toward the week', () => {
+    const counted = countForRail([{ day: 1 as DayKey, reps: 500, losses: [0] }, { day: 1 as DayKey, reps: 20, losses: [1, 2] }], () => 0);
+    expect(counted.map((c) => c.reps)).toEqual([400, 0]);
+    expect(counted[1].losses).toEqual([1, 2]);
+  });
+
+  it('F2: a week already at its count is not marked mixed by a later grader’s hand', () => {
+    const full = recordRail(defaultProgression().rail, [{ day: 0 as DayKey, reps: 10, losses: Array(RAIL_WEEK_DECISIONS).fill(0) }], 1);
+    const later = recordRail(full, [{ day: 1 as DayKey, reps: 10, losses: [3] }], 2);
+    expect(later.weeks[0].mixed).toBe(false);
+  });
+
+  it('F4: a move settled for an older week than the newest on file survives a reload', () => {
+    const w = (n: number, outcome: string | null) => ({ week: n as DayKey, loss: { n: RAIL_WEEK_DECISIONS, sum: 0, sumSq: 0 }, reps: 0, grader: 1, mixed: false, outcome });
+    const state: RailState = { tier: 'three', weeks: [w(-3, null), w(11, 'up')], promotions: [{ week: 11 as DayKey, from: 'deuce', to: 'three' }] };
+    const settled = settleRail(state, 30 as DayKey);
+    expect(settled.promotions).toHaveLength(2);
+    const reread = parseProgression({ rail: JSON.parse(JSON.stringify(settled)) }).rail;
+    expect(reread.promotions).toEqual(settled.promotions);
+  });
+
+  it('F5: a stored week beyond the count is read at the count, its mean kept', () => {
+    const p = parseProgression({ rail: { weeks: [{ week: -3, loss: { n: 90, sum: 9, sumSq: 9 } }] } }).rail;
+    expect(p.weeks[0].loss.n).toBe(RAIL_WEEK_DECISIONS);
   });
 });

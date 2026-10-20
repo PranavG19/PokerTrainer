@@ -98,7 +98,7 @@ function full(): ProgressionState {
     rail: {
       tier: 'three',
       weeks: [
-        { week: day(19590), loss: { n: 41, sum: 60, sumSq: 200 }, reps: 520, grader: 1, mixed: false, outcome: 'up' },
+        { week: day(19590), loss: { n: 40, sum: 60, sumSq: 200 }, reps: 520, grader: 1, mixed: false, outcome: 'up' },
         { week: day(19597), loss: { n: 3, sum: 1.5, sumSq: 1.25 }, reps: 40, grader: 1, mixed: false, outcome: null },
       ],
       promotions: [{ week: day(19590), from: 'deuce', to: 'three' }],

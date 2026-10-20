@@ -574,6 +574,14 @@ function lossTally(value: unknown): LossTally {
   return { n, sum, sumSq };
 }
 
+/** rail.ts RAIL_WEEK_DECISIONS. A week holds at most that many; a longer stored tally is read at the count, its mean kept. */
+export const RAIL_WEEK_CAP = 40;
+function weekTally(t: LossTally): LossTally {
+  if (t.n <= RAIL_WEEK_CAP) return t;
+  const k = RAIL_WEEK_CAP / t.n;
+  return { n: RAIL_WEEK_CAP, sum: t.sum * k, sumSq: t.sumSq * k };
+}
+
 function graderVersion(value: unknown): number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 1;
 }
@@ -591,7 +599,7 @@ function parseRail(obj: Record<string, unknown>, d: RailState): RailState {
     if (week === null || (((week + 3) % 7) + 7) % 7 !== 0 || byWeek.has(week)) continue;
     byWeek.set(week, {
       week,
-      loss: lossTally(entry.loss),
+      loss: weekTally(lossTally(entry.loss)),
       reps: Math.min(MAX_RUN * 100, nonNegativeInt(entry.reps)),
       grader: graderVersion(entry.grader),
       mixed: entry.mixed === true,
@@ -602,6 +610,7 @@ function parseRail(obj: Record<string, unknown>, d: RailState): RailState {
   // One move per week, ascending.
   const promotions: RailPromotion[] = [];
   const known = (t: string): number => RAIL_TIER_IDS.indexOf(t);
+  const candidates: RailPromotion[] = [];
   for (const value of asArray(obj.promotions)) {
     const entry = asRecord(value);
     const week = asDayKey(entry.week);
@@ -609,8 +618,12 @@ function parseRail(obj: Record<string, unknown>, d: RailState): RailState {
     const to = id(entry.to);
     if (week === null || from === null || to === null || from === to) continue;
     if (known(from) >= 0 && known(to) >= 0 && known(to) !== known(from) + 1) continue;
-    if (promotions.length > 0 && week <= promotions[promotions.length - 1].week) continue;
-    promotions.push({ week, from, to });
+    candidates.push({ week, from, to });
+  }
+  // Stable by week, so the first move on file for a week wins and a late-settled older week is kept.
+  for (const c of candidates.sort((a, b) => a.week - b.week)) {
+    if (promotions.length > 0 && c.week === promotions[promotions.length - 1].week) continue;
+    promotions.push(c);
   }
   const kept = promotions.slice(-MAX_RAIL_PROMOTIONS);
   // The tier is never below the last known move on file: corruption must not read as a demotion.

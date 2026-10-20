@@ -15,7 +15,8 @@
  *
  * COUNTED THROUGH THE REPS LEDGER. Only an event the ledger has just paid (a key new in this save, reps.ts `award`)
  * reaches the Rail, so a replayed or stale save adds nothing twice. Above RAIL_DAILY_REPS in one day, Reps count 0
- * for the Rail (VISION §4), and the decisions of a hand past that line do not count either.
+ * for the Rail (VISION §4). Decisions still count past that line: a week is a fixed count of them, so playing more
+ * cannot move its number, and dropping them would leave an ordinary week unrated.
  *
  * Pure: no clock. The caller passes the day.
  */
@@ -30,9 +31,9 @@ export const RAIL_DAILY_REPS = 400;
 /**
  * A week is judged on exactly its first this-many scored decisions, and is rated only once it has them all. A fixed
  * count, so stopping the week the moment the number looks good cannot buy a move (optional stopping), and practice
- * after the count still pays Reps without moving the number. Above Depth's floor (standing.ts MIN_CONTESTED, 40).
+ * after the count still pays Reps without moving the number. Depth's own floor (standing.ts MIN_CONTESTED).
  */
-export const RAIL_WEEK_DECISIONS = 60;
+export const RAIL_WEEK_DECISIONS = 40;
 /** Past weeks shown on the board as ghosts. */
 export const GHOST_WEEKS = 4;
 
@@ -135,7 +136,7 @@ export interface CountedEvent {
   readonly day: DayKey;
   /** Reps that count for the Rail and Seasons: 0 once the day is past RAIL_DAILY_REPS. */
   readonly reps: number;
-  /** The decisions that count: none from an event that started past the day's line. */
+  /** The decisions it carries: all of them (the daily line is on Reps only). */
   readonly losses: readonly number[];
 }
 
@@ -149,7 +150,7 @@ export function countForRail(events: readonly PaidEvent[], repsBefore: (day: Day
   for (const e of events) {
     const prior = used.get(e.day) ?? repsBefore(e.day);
     const room = Math.max(0, RAIL_DAILY_REPS - prior);
-    out.push({ day: e.day, reps: Math.min(Math.max(0, e.reps), room), losses: room > 0 ? e.losses : [] });
+    out.push({ day: e.day, reps: Math.min(Math.max(0, e.reps), room), losses: e.losses });
     used.set(e.day, prior + Math.max(0, e.reps));
   }
   return out;
@@ -165,13 +166,16 @@ export function recordRail(state: RailState, events: readonly CountedEvent[], gr
     // A settled week is closed: an event filed under it late (a clock that ran slow) does not reopen its number.
     if (i >= 0 && weeks[i].outcome !== null) continue;
     const was: RailWeek = i >= 0 ? weeks[i] : { week, loss: EMPTY_LOSS, reps: 0, grader, mixed: false, outcome: null };
+    const loss = addLosses(was.loss, e.losses, RAIL_WEEK_DECISIONS);
+    const added = loss.n > was.loss.n;
     const next: RailWeek = {
       ...was,
-      loss: addLosses(was.loss, e.losses, RAIL_WEEK_DECISIONS),
+      loss,
       reps: was.reps + e.reps,
-      // A week begun by one grader and continued by another is shown, never settled up (one week, one grader).
-      mixed: was.mixed || (e.losses.length > 0 && was.loss.n > 0 && was.grader !== grader),
-      grader: was.loss.n === 0 && e.losses.length > 0 ? grader : was.grader,
+      // A week begun by one grader and continued by another is shown, never settled up (one week, one grader). Only
+      // decisions that entered the count matter: a week already at its count is not mixed by a later hand.
+      mixed: was.mixed || (added && was.loss.n > 0 && was.grader !== grader),
+      grader: was.loss.n === 0 && added ? grader : was.grader,
     };
     weeks = i >= 0 ? weeks.map((w, j) => (j === i ? next : w)) : [...weeks, next].sort((a, b) => a.week - b.week);
   }
@@ -210,6 +214,8 @@ export function settleRail(state: RailState, today: DayKey): RailState {
     }
     return { ...w, outcome };
   });
+  // In week order, as the parser keeps them: a week filed late (a clock set back) can settle after a newer one.
+  promotions.sort((a, b) => a.week - b.week);
   return { tier, weeks, promotions: promotions.slice(-MAX_RAIL_PROMOTIONS) };
 }
 
