@@ -9,7 +9,8 @@
  * - **Equipped** is one item per slot, only ever an owned one (the parser drops anything else). Equipping a day-one
  *   item clears the slot. An id this build does not know is kept as it is and paints the default.
  *
- * Nothing here reads chips, pots or results, and nothing costs anything (owner D4 is open: receipts only).
+ * Nothing here reads chips, pots or results. Priced items are owned only by spending earn-only Chalk
+ * (economy/chalk.ts `spend`); a fact never grants one.
  */
 
 import type { DayKey } from '../localDay.js';
@@ -25,6 +26,8 @@ export interface EarnContext {
   readonly story: StoryState;
   /** For the progress on a locked milestone item; without it a locked item shows its rule only. */
   readonly facts?: MilestoneFacts;
+  /** The Chalk balance, for the progress toward a priced item. */
+  readonly balance?: number;
 }
 
 export interface EarnStatus {
@@ -71,6 +74,18 @@ export function earnStatus(item: CosmeticItem, ctx: EarnContext): EarnStatus {
         fact: `Earned ${rule.count} Seals: ${rule.count} concepts mastered`,
         source: `${rule.count} Seals`,
         progress: day === null ? { value: Math.min(days.length, rule.count), target: rule.count, unit: 'Seals' } : null,
+      };
+    }
+    case 'chalk': {
+      // A priced item is never "met" by a fact: it is owned only once its Chalk is spent (economy/chalk.ts spend).
+      const p = rule.price.toLocaleString('en-US');
+      const have = Math.max(0, Math.floor(ctx.balance ?? 0));
+      return {
+        met: false,
+        day: null,
+        fact: `A fixed price of ${p} Chalk, earned by practice`,
+        source: `${p} Chalk`,
+        progress: { value: Math.min(have, rule.price), target: rule.price, unit: 'Chalk' },
       };
     }
     case 'rivals': {

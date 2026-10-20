@@ -183,7 +183,9 @@ import { renderSeason, type SeasonPane } from './screens/season.js';
 import { railBoard, settleRail } from '../core/progression/rail.js';
 import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
-import { COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
+import { CHALK_DAILY_CAP, COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
+import { itemById } from '../core/cosmetics/catalogue.js';
+import { chalkLeftToday, spend } from '../core/economy/chalk.js';
 import { milestoneFacts, masteredIds, teachDueFrom } from '../core/progression/apply.js';
 import { FINDING_TITLES, findingOf, latestSets, recordTaught, rewritesDue } from '../core/teachDee.js';
 import { milestoneViews, nextUp } from '../core/progression/milestones.js';
@@ -496,6 +498,8 @@ async function boot(): Promise<void> {
   let seasonPane: SeasonPane | null = null;
   /** Where the assessment panel returns: Home, or the Season when its finale (or opening block) was taken there. */
   let assessmentReturn: Leaf = 'home';
+  /** An item just bought with Chalk, kept selected through the re-render so "Use this …" is one press away. */
+  let lockerBought: string | null = null;
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
   /** A challenge code's Math problem: its place in the drill's seeded sequence (consumed like drillKindNext). */
@@ -2627,8 +2631,10 @@ async function boot(): Promise<void> {
       seals: p.seals,
       story: p.story,
       facts: milestoneFacts(session, p, SCENARIOS, masteredIds(deriveConcepts(), now()).length),
+      balance: p.cosmetics.chalk.balance,
     };
     const cosmetics = syncCosmetics(p.cosmetics, earn, today());
+    const d = today();
     return renderLocker({
       cosmetics,
       earn,
@@ -2646,6 +2652,22 @@ async function boot(): Promise<void> {
           document.querySelector<HTMLElement>(`[data-testid="locker-item"][data-id="${CSS.escape(itemId)}"]`)?.focus();
         });
       },
+      // Chalk (D4): a fixed price from an earn-only balance. Nothing else moves: no chips, no Reps.
+      onSpend: (itemId) => {
+        const item = itemById(itemId);
+        if (!item || item.earn.kind !== 'chalk') return;
+        const next = spend(cosmetics, item.id, item.earn.price, item.name, d);
+        if (next === cosmetics) return;
+        void saveProgression({ ...session.progression, cosmetics: next }).then(() => {
+          lockerBought = item.id;
+          render();
+          lockerBought = null;
+          // Now owned and still selected, the same button reads "Use this …"; keep the keyboard on it.
+          document.querySelector<HTMLElement>('[data-testid="locker-equip"]')?.focus();
+        });
+      },
+      chalkToday: { earned: CHALK_DAILY_CAP - chalkLeftToday(p.cosmetics.chalk, d), cap: CHALK_DAILY_CAP },
+      selectedId: lockerBought ?? undefined,
     });
   }
 

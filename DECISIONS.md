@@ -96,10 +96,20 @@ Owner decisions in force: D18 (the Ghost Rail allowed: labelled bots and your pa
   unchanged. Milestones: Off the Rail Floor (felt "Ghost rail"), Five Up, The
   Delayed Test, Full Track (Dee finish "Season stamp").
 
-## Cosmetics and the Locker (branch `feat-cosmetics`): receipts, paint only (1.7, 2.13)
-Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic). D4 (Chalk) has no
-owner answer, so this build ships receipts only: no currency, no prices, and the Chalk ledger is never written.
-- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 7 table tints, 4 chip sets, 6 Dee finishes, 4
+## Cosmetics, the Locker and Chalk (branches `feat-cosmetics`, `feat-chalk`): paint only (1.7, 2.13, 2.6)
+Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic), D4 (build Chalk,
+answered 2026-10-20: "build everything you can"). Supersedes: receipts only, because the owner chose Chalk.
+- **Chalk's curve** (`src/core/economy/chalk.ts`): 1 per Rep for a local day's first 150 Reps, ½ per Rep to 300, then
+  none; at most 225 a day, no wallet cap. It is paid on save from the Reps awarded that day (`repsOn`), so it is as
+  idempotent as Reps. A day before the ledger's day (a clock moved back) pays nothing. Reps dated another day (a hand
+  played before 4 am, saved after) do not pay into today. This curve is the one Reps → Chalk step; nothing turns
+  Chalk into Reps or chips, and `chalk(` is minted only in units, the parser, the economy and the Locker rules
+  (`economy.test`).
+- **Prices are fixed and published:** 150, 450, 1,000, 2,400 (`CHALK_PRICES`), on 13 priced items. Mastery items stay
+  earned by facts and are never priced. Spending takes two presses ("Spend 450 Chalk", then "Confirm"); the receipt
+  records the Chalk spent. No sales, discounts, bundles, timers or random drops; Chalk is never bought with money.
+- **The balance is ink, never mint**, with "N of 225 earned today" beside it, and the curve is printed in the Locker.
+- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 5 table tints, 4 chip sets, 4 Dee finishes, 4
   celebrations. Each slot's first item is the day-one default. Every other item is earned by a ratchet the habit loop
   already keeps: a milestone receipt, 3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season
   stamp finish are the Ghost Rail's and the Seasons' (below). Never chips, pots or results

@@ -78,6 +78,38 @@
     radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%);
 }
 
+/* Priced backs (Chalk, fixed prices). */
+[data-back='linen'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
+  --back-a: #22252B;
+  --back-pattern:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 0.5px, transparent 0.5px 2px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 0.5px, transparent 0.5px 2px);
+}
+[data-back='herringbone'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
+  --back-a: #1C1F25;
+  --back-pattern:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 4px) 0 0 / 8px 8px,
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 4px) 4px 0 / 8px 8px;
+}
+[data-back='night-weave'] {
+  --back-frame: rgba(255, 255, 255, 0.16);
+  --back-a: #161B26;
+  --back-pattern:
+    repeating-linear-gradient(30deg, rgba(160, 176, 214, 0.08) 0 0.6px, transparent 0.6px 3px),
+    repeating-linear-gradient(150deg, rgba(160, 176, 214, 0.08) 0 0.6px, transparent 0.6px 3px),
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%);
+}
+[data-back='engravers-plate'] {
+  --back-frame: rgba(244, 242, 236, 0.3);
+  --back-a: #1A1C21;
+  --back-pattern:
+    radial-gradient(circle at 50% 50%, rgba(244, 242, 236, 0.4) 0 7%, transparent 8% 13%, rgba(244, 242, 236, 0.18) 14% 15%, transparent 16%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.06) 0 0.4px, transparent 0.4px 1.6px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 0.5px, transparent 0.5px 2px);
+}
+
 /* ─── Table surface: the lit zone's tint (felt green is the table's only home) ─── */
 :root,
 [data-felt='graphite'] {
@@ -89,6 +121,9 @@
 [data-felt='chalkboard'] { --felt-lit: rgba(44, 60, 54, 0.66); }
 [data-felt='ghost-rail'] { --felt-lit: rgba(58, 64, 82, 0.58); }
 [data-felt='ballroom'] { --felt-lit: rgba(58, 34, 56, 0.58); }
+[data-felt='slate'] { --felt-lit: rgba(48, 56, 68, 0.6); }
+[data-felt='heather'] { --felt-lit: rgba(62, 50, 72, 0.58); }
+[data-felt='ink-wash'] { --felt-lit: rgba(30, 38, 58, 0.72); }
 
 /* ─── Chip sets: the matte ceramic faces, and the bet they paint ─── */
 :root,
@@ -106,6 +141,8 @@
 [data-chips='clay'] { --chip-a: #C9AE98; --chip-b: #7C6355; }
 [data-chips='wooden'] { --chip-a: #CDB693; --chip-b: #6E5A44; }
 [data-chips='chalk-cubes'] { --chip-a: #ECEAE4; --chip-b: #8D9298; }
+[data-chips='pewter'] { --chip-a: #BFC3C8; --chip-b: #5C6168; }
+[data-chips='river-stone'] { --chip-a: #C9C6BE; --chip-b: #545A5A; }
 
 /* ─── Dee's finish: the rim ring only (components/dee.ts .dee-finish); role rims paint over it ─── */
 :root,
@@ -119,6 +156,8 @@
 [data-rim='inlaid'] { --dee-finish: #A8A295; --dee-finish-o: 0.95; }
 [data-rim='season-stamp'] { --dee-finish: #A7B4C2; --dee-finish-o: 0.9; }
 [data-rim='lamplit'] { --dee-finish: #B9A47C; --dee-finish-o: 0.9; }
+[data-rim='linen'] { --dee-finish: #D8D3C7; --dee-finish-o: 0.9; }
+[data-rim='walnut'] { --dee-finish: #5E4A3A; --dee-finish-o: 0.95; }
 .dee .dee-finish {
   stroke: var(--dee-finish);
   stroke-opacity: var(--dee-finish-o);
@@ -145,6 +184,16 @@
   --moment-anim: moment-stars;
   --moment-origin: center;
   --moment-mark: radial-gradient(circle, var(--ring-fill) 0 1px, transparent 1.5px) 0 50% / 9px 2px;
+}
+[data-celebration='ink-ring'] {
+  --moment-anim: moment-stars;
+  --moment-origin: center;
+  --moment-mark: radial-gradient(circle at 50% 50%, transparent 0 30%, var(--ring-fill) 34% 46%, transparent 50%);
+}
+[data-celebration='two-lights'] {
+  --moment-anim: moment-sweep;
+  --moment-origin: center;
+  --moment-mark: radial-gradient(circle at 40% 50%, var(--ring-fill) 0 1.5px, transparent 2px), radial-gradient(circle at 60% 50%, var(--ring-fill) 0 1.5px, transparent 2px);
 }
 @keyframes moment-underline {
   0% { opacity: 0; transform: scaleX(0); }
@@ -327,7 +376,12 @@
   gap: 8px;
   min-height: 0;
 }
-.locker-grid-felt { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* The Chalk balance: ink, never mint (mint is never a balance), with the day's progress beside it. */
+.locker-chalk {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
 .locker-item {
   position: relative;
   display: flex;
@@ -401,6 +455,16 @@
   .locker-grid { gap: 6px; }
   .locker-item { padding: 8px 4px 10px; }
   .locker-item-sub { font-size: var(--t-cap); }
+}
+/* Short windows (900x640): three rows of tiles and the footer must fit the column. */
+@media (max-height: 700px) {
+  .locker-right { gap: 8px; }
+  .locker-item { gap: 3px; padding: 6px 4px 8px; }
+  .locker-swatch { height: 40px; }
+  .locker-swatch .card-back.small { width: 28px; height: 40px; }
+  .locker-swatch .dee { --dee-size: 30px !important; }
+  .locker-chip { width: 22px; height: 22px; }
+  .locker-bar { bottom: 3px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .locker-moment.is-playing,

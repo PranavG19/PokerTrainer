@@ -5,6 +5,7 @@ import path from 'node:path';
 import { launchApp, sel } from './helpers.js';
 import { CATALOGUE } from '../../src/core/cosmetics/catalogue.js';
 import { SLOT_ATTRIBUTE } from '../../src/core/cosmetics/locker.js';
+import { systemDayKeyOf } from '../../src/core/localDay.js';
 
 /**
  * YOU › LOCKER (1.7, 2.13): earn-only, paint-only cosmetics, previewed on the stage before they are worn.
@@ -69,7 +70,9 @@ test('a fresh Locker: day-one items in use, every other item shown with its rule
       await expect(items).toHaveCount(CATALOGUE.filter((i) => i.slot === slot).length);
     }
     const text = (await page.locator('[data-testid="you-locker"]').innerText()).toLowerCase();
-    expect(text).not.toMatch(/\b(buy|bought|purchase|sale|cost|costs)\b|\$|\d+\s*chalk\b/);
+    // Chalk prices are published, but nothing is for money, on sale or random.
+    expect(text).not.toMatch(/\$|\b(usd|purchase|sale|sales|discount|offer|limited|random drop)\b/);
+    expect(text).toContain('never bought');
 
     for (const [w, h] of [[900, 640], [1100, 760]]) {
       await size(app, w, h);
@@ -331,6 +334,77 @@ test('previewing an earned item does not wear it; leaving the Locker keeps what 
     await page.waitForSelector('[data-testid="table-screen"]');
     expect(await htmlAttr(page, 'data-back')).toBeNull();
     expect(readState(dir).progression?.cosmetics?.equipped?.cardBack ?? null).toBeNull();
+  } finally {
+    await app.close();
+  }
+});
+
+test('Chalk: the balance and today’s curve show; a priced item takes two presses, spends its fixed price and is saved', async () => {
+  const dir = freshDir();
+  const NOW = new Date(2026, 9, 20, 20, 0, 0).getTime();
+  const today = systemDayKeyOf()(NOW);
+  // 600 Chalk on file, and 180 Reps awarded today that the next save pays (150 + 15 = 165 Chalk).
+  fs.writeFileSync(
+    path.join(dir, STATE),
+    JSON.stringify({
+      schemaVersion: 2,
+      progression: {
+        reps: { total: 180, awards: [{ key: 'hand:1', reps: 180, day: today }] },
+        cosmetics: { chalk: { balance: 600, day: today - 1, earnedToday: 225 } },
+      },
+    }),
+  );
+  const app = await launchApp({ userDataDir: dir, env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await expect(page.locator('[data-testid="locker-chalk-balance"]')).toHaveText('600 Chalk');
+    await expect(page.locator('[data-testid="locker-foot"]')).toContainText('at most 225 a day');
+    // Too dear: the button says how far, and is off.
+    await page.locator('[data-testid="locker-item"][data-id="back-night-weave"]').click();
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('400 more Chalk to go');
+    await expect(page.locator('[data-testid="locker-equip"]')).toBeDisabled();
+    // Affordable: two presses. Choosing another item in between cancels the first.
+    const use = page.locator('[data-testid="locker-equip"]');
+    await page.locator('[data-testid="locker-item"][data-id="back-herringbone"]').click();
+    await expect(use).toHaveText('Spend 450 Chalk');
+    await use.click();
+    await expect(use).toHaveText('Confirm: spend 450 Chalk');
+    await page.locator('[data-testid="locker-item"][data-id="back-linen"]').click();
+    await page.locator('[data-testid="locker-item"][data-id="back-herringbone"]').click();
+    await expect(use).toHaveText('Spend 450 Chalk');
+    expect(readState(dir).progression?.cosmetics?.owned ?? []).not.toContain('back-herringbone');
+    await use.click();
+    await use.click();
+    // 600 + today's 165 - 450.
+    await expect(page.locator('[data-testid="locker-chalk-balance"]')).toHaveText('315 Chalk');
+    await expect(page.locator('[data-testid="locker-chalk-today"]')).toHaveText('165 of 225 earned today');
+    await expect(page.locator('[data-testid="locker-item"][data-id="back-herringbone"]')).toHaveAttribute('data-owned', 'true');
+    await expect(use).toHaveText('Use this back');
+    await expect.poll(() => readState(dir).progression?.cosmetics?.chalk?.balance).toBe(315);
+    const cos = readState(dir).progression.cosmetics;
+    expect(cos.owned).toContain('back-herringbone');
+    expect(cos.receipts.find((r: { itemId: string }) => r.itemId === 'back-herringbone')).toMatchObject({ chalk: 450, day: today });
+    expect(cos.chalk).toMatchObject({ day: today, earnedToday: 165 });
+    // The bankroll is untouched by any of it.
+    expect(readState(dir).bankroll ?? 10000).toBe(10000);
+    await use.click();
+    await expect.poll(() => htmlAttr(page, 'data-back')).toBe('herringbone');
+    for (const [w, h] of [[900, 640], [1100, 760]]) {
+      await size(app, w, h);
+      const [sh, ih] = await page.evaluate(() => [document.documentElement.scrollHeight, innerHeight]);
+      expect(sh).toBeLessThanOrEqual(ih);
+      // The busiest slot (12 backs, three rows) never runs into the footer or out of the column.
+      const [gridBottom, footTop, footBottom, colBottom] = await page.evaluate(() => {
+        const r = (q: string) => (document.querySelector(q) as HTMLElement).getBoundingClientRect();
+        // The lowest tile, not the grid's own box: rows that overflow the grid do not grow its rect.
+        const tiles = Math.max(...[...document.querySelectorAll('[data-testid="locker-item"]')].map((t) => t.getBoundingClientRect().bottom));
+        return [tiles, r('[data-testid="locker-foot"]').top, r('[data-testid="locker-foot"]').bottom, r('.locker-right').bottom];
+      });
+      expect(gridBottom, `${w}x${h}: tiles clear the footer`).toBeLessThanOrEqual(footTop);
+      expect(footBottom, `${w}x${h}: the footer stays in the column`).toBeLessThanOrEqual(colBottom + 1);
+    }
   } finally {
     await app.close();
   }

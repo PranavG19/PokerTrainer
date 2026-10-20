@@ -50,7 +50,15 @@ export interface LockerOptions {
   readonly slot: CosmeticSlot;
   readonly onSlot: (slot: CosmeticSlot) => void;
   readonly onEquip: (itemId: string) => void;
+  /** Spend Chalk on a priced item (economy/chalk.ts `spend`); called only after the second, confirming press. */
+  readonly onSpend: (itemId: string) => void;
+  /** The item to show selected, if it is in this slot (the one just bought); otherwise what is worn. */
+  readonly selectedId?: string;
+  /** Chalk earned today, of the daily cap. */
+  readonly chalkToday: { readonly earned: number; readonly cap: number };
 }
+
+const fmt = (n: number): string => n.toLocaleString('en-US');
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -70,6 +78,7 @@ function earnedLine(item: CosmeticItem, opts: LockerOptions): string {
   const r = receiptFor(opts.cosmetics, item.id);
   if (isOwned(opts.cosmetics, item)) {
     const day = r?.day ?? s.day;
+    if (item.earn.kind === 'chalk') return `Yours${day !== null ? ` since ${dayLabel(day as DayKey)}` : ''}, for ${fmt(r?.chalk ?? item.earn.price)} Chalk earned by practice.`;
     return `From ${s.source}${day !== null ? `, ${dayLabel(day as DayKey)}` : ''}: ${r?.fact ?? s.fact}.`;
   }
   const p = s.progress;
@@ -135,7 +144,7 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
   // "In use", and the default can be worn to replace it.
   const wornId = opts.cosmetics.equipped[opts.slot] ?? equipped.id;
   const isWorn = (item: CosmeticItem): boolean => item.id === wornId;
-  let selected: CosmeticItem = equipped;
+  let selected: CosmeticItem = items.find((i) => i.id === opts.selectedId) ?? equipped;
 
   // ── Left: the stage, then the caption and the one primary action ──
   const left = el('section', 'locker-left');
@@ -151,8 +160,23 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
   const use = el('button', 'pill primary locker-use');
   use.type = 'button';
   use.dataset.testid = 'locker-equip';
+  // A priced item takes two presses: "Spend 450 Chalk", then "Confirm: spend 450 Chalk". Choosing another item, or
+  // leaving, cancels the first press. Chalk is never spent by a single click.
+  let confirming = false;
   use.addEventListener('click', () => {
-    if (!use.disabled) opts.onEquip(selected.id);
+    if (use.disabled) return;
+    const price = selected.earn.kind === 'chalk' ? selected.earn.price : null;
+    if (price !== null && !isOwned(opts.cosmetics, selected)) {
+      if (!confirming) {
+        confirming = true;
+        paintCaption();
+        return;
+      }
+      confirming = false;
+      opts.onSpend(selected.id);
+      return;
+    }
+    opts.onEquip(selected.id);
   });
   caption.append(capText, use);
   left.append(stage, caption);
@@ -173,6 +197,15 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
     const inUse = isWorn(selected);
     capName.textContent = selected.name;
     capLine.textContent = earnedLine(selected, opts);
+    const price = selected.earn.kind === 'chalk' && !owned ? selected.earn.price : null;
+    if (price !== null) {
+      const short = price - opts.cosmetics.chalk.balance;
+      use.disabled = short > 0;
+      use.textContent = short > 0 ? `${fmt(short)} more Chalk to go` : confirming ? `Confirm: spend ${fmt(price)} Chalk` : `Spend ${fmt(price)} Chalk`;
+      use.dataset.confirming = String(confirming);
+      return;
+    }
+    delete use.dataset.confirming;
     use.disabled = inUse || !owned;
     use.textContent = inUse ? 'In use' : owned ? USE_LABEL[opts.slot] : 'Not earned yet';
   }
@@ -227,12 +260,14 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
       bar.style.setProperty('--p', String(s.progress.value / s.progress.target));
       tile.appendChild(bar);
     }
-    tile.setAttribute('aria-label', `${item.name}: ${owned ? (isWorn(item) ? 'in use' : 'earned') : 'not earned yet'}. ${earnedLine(item, opts)}`);
+    tile.dataset.price = item.earn.kind === 'chalk' ? String(item.earn.price) : '';
+    tile.setAttribute('aria-label', `${item.name}: ${owned ? (isWorn(item) ? 'in use' : 'earned') : item.earn.kind === 'chalk' ? `${fmt(item.earn.price)} Chalk` : 'not earned yet'}. ${earnedLine(item, opts)}`);
     tile.addEventListener('mouseenter', () => preview(item));
     tile.addEventListener('focus', () => preview(item));
     tile.addEventListener('mouseleave', () => preview(selected));
     tile.addEventListener('blur', () => preview(selected));
     tile.addEventListener('click', () => {
+      if (selected.id !== item.id) confirming = false;
       selected = item;
       for (const t of tiles) t.setAttribute('aria-pressed', String(t.dataset.id === item.id));
       preview(item);
@@ -242,9 +277,23 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
     grid.appendChild(tile);
   }
 
-  const foot = el('p', 'g-caption locker-foot', 'Paint only: faces, seats and numbers never change. Nothing is sold, nothing is random.');
-  if (opts.slot === 'celebration') foot.textContent = 'Kept for the session-end moment, which arrives with a later build. Shown here only.';
-  right.append(seg, head, grid, foot);
+  // The balance in ink, never mint (mint is never a balance), with the day's curve and the fixed prices published.
+  const wallet = el('div', 'locker-chalk');
+  wallet.dataset.testid = 'locker-chalk';
+  const bal = el('span', 't-head g-num', `${fmt(opts.cosmetics.chalk.balance)} Chalk`);
+  bal.dataset.testid = 'locker-chalk-balance';
+  const today = el('span', 'g-caption g-num', `${fmt(opts.chalkToday.earned)} of ${fmt(opts.chalkToday.cap)} earned today`);
+  today.dataset.testid = 'locker-chalk-today';
+  wallet.append(bal, today);
+
+  const foot = el(
+    'p',
+    'g-caption locker-foot',
+    'Chalk comes from practice only: 1 per Rep to 150 a day, ½ to 300, at most 225 a day. Prices are fixed and never discounted; Chalk is never bought and never converts.',
+  );
+  foot.dataset.testid = 'locker-foot';
+  if (opts.slot === 'celebration') foot.textContent = 'Kept for the session-end moment, which arrives with a later build. Chalk comes from practice only and is never bought; prices are fixed.';
+  right.append(seg, wallet, head, grid, foot);
 
   const cols = el('div', 'locker-cols');
   cols.append(left, right);
