@@ -190,3 +190,72 @@ test('every theme and every cosmetic in every slot changes paint only, on the ta
     await close();
   }
 });
+
+/**
+ * The same oracle on the 6-max table (BUILD-PLAN 2.12): five villains, the position labels and the 6-max seat band.
+ * Mid-hand it is the CDP LayoutCount, exactly as above. At showdown it is geometry: every element on the table keeps
+ * its box through every swap. Not LayoutCount there, because the first obsidian swap after any showdown lays out once
+ * on the 4-max table too, on origin/main, with nothing moving (measured; a repeat swap lays out 0). That is open in
+ * the six-max FINDINGS, not hidden here: the geometry oracle still fails on any swap that moves a pixel.
+ */
+test('every theme and every cosmetic changes paint only on the 6-max table: no layout mid-hand, no box moves at showdown', async () => {
+  const { page, close } = await launchApp({ userDataDir: freshUserDataDir() });
+  try {
+    await page.waitForSelector('[data-testid="home-screen"]');
+    const client = await page.context().newCDPSession(page);
+    await client.send('Performance.enable');
+    const metric = (r: { metrics: { name: string; value: number }[] }, k: string) => r.metrics.find((m) => m.name === k)?.value ?? 0;
+    const swapAll = async (where: string) => {
+      for (const { attr, value } of SWAPS) {
+        await page.evaluate(() => void document.body.getBoundingClientRect());
+        const before = await client.send('Performance.getMetrics');
+        await page.evaluate(([a, v]) => {
+          document.documentElement.setAttribute(a, v);
+          void document.body.getBoundingClientRect();
+        }, [attr, value]);
+        const after = await client.send('Performance.getMetrics');
+        expect(metric(after, 'RecalcStyleCount') - metric(before, 'RecalcStyleCount'), `${where} ${attr}=${value} recalcs`).toBeGreaterThanOrEqual(1);
+        expect(metric(after, 'LayoutCount') - metric(before, 'LayoutCount'), `${where} ${attr}=${value} lays out`).toBe(0);
+        await page.evaluate((a) => document.documentElement.removeAttribute(a), attr);
+      }
+    };
+    await page.click('[data-testid="tab-play"]');
+    await page.click('[data-testid="play-six-max"]');
+    await page.waitForSelector('[data-testid="table-screen"][data-table-size="6"][data-awaiting="hero"]');
+    await page.waitForTimeout(500);
+    await swapAll('6-max mid-hand');
+    // To the showdown (check, else call, else fold): the revealed seats are the widest the layout gets.
+    for (let i = 0; i < 40; i++) {
+      await page.waitForFunction(() => ['hero', 'handover'].includes(document.querySelector<HTMLElement>('[data-testid="table-screen"]')?.dataset.awaiting ?? ''));
+      if ((await page.getAttribute('[data-testid="table-screen"]', 'data-awaiting')) === 'handover') break;
+      for (const id of ['btn-check', 'btn-call', 'btn-fold']) {
+        const b = page.locator(`[data-testid="${id}"]`);
+        if (await b.isEnabled()) {
+          await b.click();
+          break;
+        }
+      }
+    }
+    await page.waitForTimeout(500);
+    const boxes = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('[data-testid="table-screen"] *')].map((el) => {
+          const r = el.getBoundingClientRect();
+          return `${r.left},${r.top},${r.width},${r.height}`;
+        }),
+      );
+    const rest = await boxes();
+    expect(rest.length, 'the settled table has its pieces').toBeGreaterThan(50);
+    for (const { attr, value } of SWAPS) {
+      await page.evaluate(([a, v]) => document.documentElement.setAttribute(a, v), [attr, value]);
+      expect(await boxes(), `6-max showdown ${attr}=${value} moves nothing`).toEqual(rest);
+      await page.evaluate((a) => document.documentElement.removeAttribute(a), attr);
+    }
+    // Oracle sanity: a geometry change does move a box.
+    await page.evaluate(() => document.querySelector<HTMLElement>('.table-stage')?.style.setProperty('margin-left', '7px'));
+    expect(await boxes(), 'oracle sanity: a geometry change moves boxes').not.toEqual(rest);
+    await page.evaluate(() => document.querySelector<HTMLElement>('.table-stage')?.style.removeProperty('margin-left'));
+  } finally {
+    await close();
+  }
+});
