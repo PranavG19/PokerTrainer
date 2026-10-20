@@ -1,5 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────────────────────────────────────
- * STORY — the Long Orbit (screens/story.ts): the map, a chapter, a rival's file, the Home strip.
+ * STORY — the Long Orbit (screens/story.ts, screens/storyRooms.ts): the map, a chapter, a boss hand, the Kitchen
+ * Table, the Masquerade, a rival's file, the Home strip.
  * Composes the glass kit (styles-glass.css): .g-group for the actionable beat list, .g-sect/.g-flat for
  * informational lists, .pill / .pill.primary for the one primary action per screen. Tokens only.
  * The map is a table seen from above: the same dark lit zone as the table stage, with a hairline rail.
@@ -161,6 +162,45 @@
 .story-unmask-text { display: flex; flex-direction: column; gap: 2px; }
 .story-unmask-line { font-size: var(--t-body); color: var(--ink-2); quotes: '“' '”'; }
 
+/* ─── Chapter 0, the epilogue, and a boss hand ─── */
+.story-room-title { display: flex; align-items: center; gap: 12px; }
+.story-room-title .story-seat-art { width: 48px; height: 48px; flex: none; }
+.story-kitchen-open { margin-top: 2px; }
+.story-masq-open { gap: 12px; }
+.boss-beat { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.boss-beat > p { margin: 0; }
+.boss-cards { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+.boss-cards .g-mini { min-height: 34px; align-items: center; }
+/* The rival's cards face down at the mini card's size, until the hand is over. */
+html .boss-cards .card-back.small { width: 24px; height: 34px; border-radius: var(--r-xs); }
+.boss-hole,
+.boss-board { display: flex; flex-direction: column; gap: 4px; }
+.boss-history { list-style: none; margin: 0; padding: 0; }
+.boss-history-row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 4px 0; }
+.boss-history-row .g-sub { margin: 0; font-size: var(--t-foot); }
+.boss-ask { display: flex; flex-direction: column; gap: 8px; }
+.boss-ask .story-dee-say { font-size: var(--t-body); }
+.boss-back { margin: 0; color: var(--ink-1); }
+.boss-result .g-sub { margin: 0; }
+.boss-keepsake { display: flex; align-items: center; gap: 12px; }
+.masq-seats .masq-seat { gap: 10px; }
+.masq-seat[aria-current='true'] { background: var(--fill-1); }
+.masq-folio-note { margin: 0; }
+.masq-read .dossier-read-v { font-size: var(--t-t2); }
+.masq-read[data-inked='false'] .dossier-read-v { color: var(--ink-3); }
+.masq-styles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.masq-style {
+  padding: 7px 10px;
+  border-radius: var(--r-ctl);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  font-size: var(--t-foot);
+  line-height: 1.3;
+  text-align: left;
+}
+.masq-style[aria-checked='true'] { background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--fill-3); color: var(--ink-1); }
+.masq-style:disabled { opacity: 0.45; }
+.masq-name { align-items: flex-start; }
+
 /* ─── A rival's file ─── */
 .rival-dossier { grid-template-columns: 260px minmax(0, 1fr); }
 .dossier-token { position: relative; display: grid; place-items: center; height: 128px; padding-top: 18px; border-radius: var(--r-group); background: var(--fill-0); box-shadow: inset 0 0 0 0.5px var(--hair-strong); }
@@ -210,6 +250,10 @@
   .dossier-token { height: 104px; }
   .dossier-read { padding: 10px 12px; }
   .dossier-read-v { font-size: var(--t-t2); }
+  .boss-beat { gap: 8px; }
+  .boss-history-row { padding: 2px 0; }
+  .masq-style { padding: 5px 8px; }
+  .masq-read .dossier-read-v { font-size: var(--t-t3); }
 }
 
 @media (prefers-reduced-motion: reduce) {

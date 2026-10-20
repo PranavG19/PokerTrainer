@@ -2,7 +2,8 @@
  * The campaign engine: a chapter's beats, its goal, and what finishing a table writes to the profile.
  *
  * A chapter runs: Dee's intro (story lines) → a lesson-dialogue beat (the dee/dialogue.ts engine, over the
- * chapter's script and its lesson's example) → a seeded table heads-up against the rival → a debrief. Every
+ * chapter's script and its lesson's example) → a seeded table heads-up against the rival → a debrief → the room's
+ * last hand, a boss hand whose right line is the rival's exploit (boss.ts). Every
  * beat can be skipped or replayed and every chapter entered at any time (N1): the stage is a suggestion of
  * where to pick up, never a gate.
  *
@@ -21,7 +22,7 @@ import type { Facts, Tone } from '../dee/types.js';
 import type { DayKey } from '../localDay.js';
 import { MAX_STORY_OVERRIDES } from '../progression/persist.js';
 import type { ChapterProgress, ChapterResult, RivalRecord, StoryState } from '../progression/types.js';
-import { rivalDisplayName, rivalOf, type ChapterId, type LeakKind, type Venue } from './cast.js';
+import { rivalDisplayName, rivalOf, type ChapterId, type LeakKind, type StoryRoomId, type Venue } from './cast.js';
 import { emptyRivalRecord, recordRivalHand, recordRivalSitting, type RivalHand } from './dossier.js';
 import { leakKindOf, type LoggedDecision } from './route.js';
 import { STORY_LINES, type StoryEvent, type StoryFacts, type StoryLine } from './scripts.js';
@@ -32,14 +33,14 @@ export const GOAL_MIN_JUDGED = 3;
 /** Three in four judged decisions cost nothing. */
 export const GOAL_FREE_SHARE = 0.75;
 
-export const STAGES = ['intro', 'lesson', 'table', 'debrief'] as const;
+export const STAGES = ['intro', 'lesson', 'table', 'debrief', 'boss'] as const;
 export type Stage = (typeof STAGES)[number];
 
 export function emptyChapter(): ChapterProgress {
   return { introSeen: false, lessonDone: false, tables: 0, lastResult: null, beatenOn: null };
 }
 
-export function chapterOf(story: StoryState, id: ChapterId): ChapterProgress {
+export function chapterOf(story: StoryState, id: StoryRoomId): ChapterProgress {
   return story.chapters[id] ?? emptyChapter();
 }
 
@@ -95,15 +96,15 @@ export function judgeTable(decisions: readonly LoggedDecision[], venue: Pick<Ven
 
 // ── state updates ───────────────────────────────────────────────────────────────────────────────────
 
-function withChapter(story: StoryState, id: ChapterId, change: (p: ChapterProgress) => ChapterProgress): StoryState {
+function withChapter(story: StoryState, id: StoryRoomId, change: (p: ChapterProgress) => ChapterProgress): StoryState {
   return { ...story, chapters: { ...story.chapters, [id]: change(chapterOf(story, id)) } };
 }
 
-export function markIntroSeen(story: StoryState, id: ChapterId): StoryState {
+export function markIntroSeen(story: StoryState, id: StoryRoomId): StoryState {
   return withChapter(story, id, (p) => (p.introSeen ? p : { ...p, introSeen: true }));
 }
 
-export function markLessonDone(story: StoryState, id: ChapterId): StoryState {
+export function markLessonDone(story: StoryState, id: StoryRoomId): StoryState {
   return withChapter(story, id, (p) => (p.lessonDone ? p : { ...p, introSeen: true, lessonDone: true }));
 }
 

@@ -141,9 +141,11 @@ dossier counts showdowns only), N1 (nothing is locked).
   "a bet that means it"), the Toll Road Diner (Barnaby Tull, `station`, thin value), the Library (Percival Hush,
   `over-folder`, the price of a bluff), the Night Train (Vesper Kade, `lag`, defending against barrels), the Fireworks
   Pier (Juniper Vale, `maniac`, trapping and calling down), the Observatory (Ines Marlow, `tag-reg`, not deviating;
-  always last). The Kitchen Table tutorial and the Masquerade epilogue are not built (the task asks for six venues).
+  always last). Outside the orbit: chapter 0, the Kitchen Table (the tutorial, unnumbered, at the middle of the map), and
+  the Masquerade epilogue (branch `feat-story-extras`, below).
 - **A chapter** is Dee's intro (story lines) → a lesson-dialogue beat (the `dee/dialogue.ts` engine over a chapter
-  script, its numbers from a named lesson example) → 6 hands heads-up against the rival → a debrief. Every beat can be
+  script, its numbers from a named lesson example) → 6 hands heads-up against the rival → a debrief → the last hand (a
+  boss hand, below). Every beat can be
   picked in any order and every venue opened at any time; the stage is only where the chapter picks up.
 - **The goal is decision quality, never chips** (`campaign.ts judgeTable`): judged decisions are postflop ones facing a
   bet plus every turn and river decision (a free flop check, or a preflop fold, proves nothing). Met = at least 3
@@ -170,7 +172,8 @@ dossier counts showdowns only), N1 (nothing is locked).
   read furthest from its balanced baseline (more than 0.15 away), else "the standard line is the read".
 - **Decision quality over time** is one bar per table against the rival (share of judged decisions that cost
   nothing) with the goal line; chips are not on it.
-- **Persistence:** `progression.story {chapters, rivals, overrides}`, additive, no version bump (AGENTS.md recipe).
+- **Persistence:** `progression.story {chapters, rivals, overrides, bosses, masquerade}`, additive, no version bump
+  (AGENTS.md recipe). The Kitchen Table's beats are `chapters.kitchen`.
   Chapter and rival ids, and a result this build does not know, are kept as written. A showdown without two shown cards,
   a full board and seven distinct cards is dropped. Choosing a chapter other than the suggested one is logged in
   `overrides` (bounded), never refused.
@@ -179,7 +182,25 @@ dossier counts showdowns only), N1 (nothing is locked).
 - **Words:** 28 story lines (4 with Dry/Blunt variants) and 6 chapter scripts (13 steps) in `src/core/story/scripts.ts`, linted with Dee's bank lint (shared
   in `tests/unit/deeLint.ts`): the tutor guard once filled, Dee's ban list, `bannedPhrasingIn`, no archetype id, no
   numeral or number word in a template, slots from the vocabulary, STRICT checks on tone variants, every beat running on
-  its lesson example. The lint caught and fixed "win", "once", "Everyone" and a dropped "nothing" in a variant.
+  its lesson example. The lint caught and fixed "win", "once", "Everyone" and a dropped "nothing" in a variant. The same
+  lint covers the Kitchen Table's script, every boss ask, answer, question back, setup and reveal (filled from the
+  engine at the decision), and the Masquerade's lines.
+- **Boss hands** (`boss.ts`): one fixed heads-up hand per room, played through the real engine; the learner answers the
+  asked decisions and the rest is played for them. The right line is the rival's exploit (nit: fold the big river bet;
+  station: value-bet; over-folder: bet with nothing; LAG: call the barrels; maniac: call, never raise; TAG-reg: the
+  standard price call, lost at showdown on purpose). A wrong answer gets a question back and the hand waits; clean =
+  right at every first answer. The rival's cards turn over only at a showdown. Chips appear nowhere in the result.
+- **Keepsakes** (`keepsakes.ts`): eight, one per chapter (lamp, the six rival glyphs, the mask), named for the object and
+  never the rival (one can be kept while its rival is masked). Kept by a clean boss hand, or the mask by a Masquerade
+  fully unmasked. Shown in advance on the Profile shelf; each opens its room. Filed in `dee.keepsakes`. The Locker's
+  rule `keepsakes` earns Dee's rim "Lamplit" (1) and the felt "Ballroom" (all 8), on receipts.
+- **The Masquerade** (`masquerade.ts`, BUILD-PLAN 2.3): three masked seats, three distinct rivals' styles with
+  jittered profiles, seeded per Masquerade. Reads are counts of actions the learner saw, never cards (plays a hand,
+  folds to a bet, bets when nobody has). A read is inked by reads.ts `gates()` read-only: at `MIN_OBSERVATIONS` (20),
+  leaning past R1's 15-point gate against measured baselines (0.30, 0.58, 0.44; a unit test re-measures them). A seat
+  can be named once a read is inked; a name is right when the inked reads fit that style as well as any style does,
+  since two pairs of styles read alike. The seat then shows who it was, by the orbit's mask (D17): name and style
+  only once that rival is unmasked in the orbit too.
 - **Nav:** Story is a 12th tab after Learn. Home gets a story strip as a third launch row; at 900x640 the recent-hands
   list (which already scrolls when Home is short) shows fewer rows.
 

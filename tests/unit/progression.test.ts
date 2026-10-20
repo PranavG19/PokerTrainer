@@ -83,6 +83,13 @@ function full(): ProgressionState {
         },
       },
       overrides: [{ day: day(19600), suggested: 'lighthouse', chosen: 'library' }],
+      bosses: { 'boss-wren': { attempts: 2, cleanOn: day(19602) } },
+      masquerade: {
+        run: 1,
+        seats: [{ rival: 'juniper', acted: 21, played: 17, faced: 6, folded: 1, chances: 9, bets: 7, missed: ['vesper'], unmaskedOn: day(19603) }],
+        completed: 0,
+        completedOn: null,
+      },
     },
     ticket: {
       day: day(19603),
