@@ -7,6 +7,7 @@ import { playToShowdown } from './flow.js';
 import { systemDayKeyOf, type DayKey } from '../../src/core/localDay.js';
 import { FICTIONAL_LABEL, weekOf } from '../../src/core/progression/rail.js';
 import { seasonBounds } from '../../src/core/progression/season.js';
+import { CATALOGUE } from '../../src/core/cosmetics/catalogue.js';
 
 /**
  * THE GHOST RAIL AND SEASONS (2.5, 2.7), driven through the real app on the e2e test clock (OFFSUIT_NOW). Time
@@ -148,6 +149,34 @@ test('the league week: own weeks and labelled fictional bots only, a tier, decis
     await expect(archived.first()).toContainText('10 of 10 stamps');
     await expect(archived.first()).toContainText('fewer lost at the finale');
     await bothSizes(app, 'season-archive');
+    // The Ghost rail tint makes the Locker's Table slot three rows: every tile stays whole and on screen at 900x640.
+    await size(app, 900, 640);
+    await page.locator('[data-testid="tab-locker"]').click();
+    await page.locator('[data-testid="locker-slot-felt"]').click();
+    const tiles = page.locator('[data-testid="locker-item"]');
+    await expect(tiles).toHaveCount(CATALOGUE.filter((i) => i.slot === 'felt').length);
+    await expect(page.locator('[data-testid="locker-item"][data-id="felt-ghost-rail"]')).toBeVisible();
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-testid="locker-item"]')].filter((t) => {
+        const r = t.getBoundingClientRect();
+        // Every ancestor that clips must contain the whole tile.
+        for (let a = t.parentElement; a; a = a.parentElement) {
+          const o = getComputedStyle(a).overflowY;
+          if (o === 'hidden' || o === 'clip') {
+            const b = a.getBoundingClientRect();
+            if (r.top < b.top - 0.5 || r.bottom > b.bottom + 0.5) return true;
+          }
+        }
+        return r.bottom > innerHeight;
+      }).length,
+    );
+    expect(clipped).toBe(0);
+    await noPageScroll(page);
+    await shot(page, 'locker-table-900x640');
+    await page.locator('[data-testid="tab-trophies"]').click();
+    await page.locator('[data-testid="trophy-season"]').click();
+    await page.locator('[data-testid="season-pane-archive"]').click();
+
     // Nothing on either page is for sale.
     expect((await page.locator('[data-testid="season-screen"]').innerText()).toLowerCase()).not.toMatch(/\b(buy|bought|purchase|sale|price)\b|\$/);
   } finally {
