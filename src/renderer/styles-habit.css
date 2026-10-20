@@ -698,3 +698,8 @@ html[data-character='off'] .nav-settings {
   padding-top: 8px;
   padding-bottom: 8px;
 }
+.you-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

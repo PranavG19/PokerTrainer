@@ -62,7 +62,10 @@ export interface ProfileFacts {
   readonly repsTotal: number;
 }
 
-export function renderYouProfile(f: ProfileFacts, on: { onEdit: () => void; onOpenFolio: () => void; onOpenProgress: () => void; onOpenTrophies: () => void }): HTMLElement {
+export function renderYouProfile(
+  f: ProfileFacts,
+  on: { onEdit: () => void; onOpenFolio: () => void; onOpenProgress: () => void; onOpenTrophies: () => void; onOpenRail?: () => void; onOpenSeason?: () => void },
+): HTMLElement {
   const root = el('div', 'you-screen you-profile');
   root.dataset.testid = 'you-profile';
   const p = f.personalization;
@@ -151,7 +154,21 @@ export function renderYouProfile(f: ProfileFacts, on: { onEdit: () => void; onOp
   prog.type = 'button';
   prog.dataset.testid = 'tab-progress';
   prog.addEventListener('click', on.onOpenProgress);
-  dec.appendChild(prog);
+  // The Ghost Rail and the Season read the same graded decisions: one click from here, as Progress is.
+  const links = el('div', 'you-links');
+  links.appendChild(prog);
+  for (const [testid, label, open] of [
+    ['you-open-rail', 'Ghost Rail', on.onOpenRail],
+    ['you-open-season', 'Season', on.onOpenSeason],
+  ] as const) {
+    if (!open) continue;
+    const b = el('button', 'pill quiet', label);
+    b.type = 'button';
+    b.dataset.testid = testid;
+    b.addEventListener('click', open);
+    links.appendChild(b);
+  }
+  dec.appendChild(links);
   right.append(sectionHead('Decisions, not results', 'From graded decisions only'), dec);
 
   // What you've built: concepts, depth, habit.

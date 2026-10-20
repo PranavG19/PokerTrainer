@@ -2085,6 +2085,8 @@ async function boot(): Promise<void> {
         },
         onOpenProgress: () => go('progress'),
         onOpenTrophies: () => go('trophies'),
+        onOpenRail: () => go('rail'),
+        onOpenSeason: () => go('season'),
       },
     );
   }
