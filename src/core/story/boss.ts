@@ -6,6 +6,7 @@
  *   engine order. The moves before and between the asked decisions are played for the learner; at an ask the
  *   learner picks one of the actions the engine offers there. Every number on screen is the engine's: the asks are
  *   templates over the decision's own pot and price (dee/dialogue.ts `exampleFacts`, the lesson slots).
+ * - **Cards only at a showdown.** The rival's cards turn over only when the hand reaches one (`reachedShowdown`).
  * - **Judged on the decision, never the chips.** A wrong answer gets a question back and the hand waits (as the
  *   lesson beat does); the hand is clean when every ask was answered right at the first try. A clean hand earns the
  *   room's keepsake (keepsakes.ts). Who won the pot appears nowhere, and the Observatory's hand is lost at showdown
@@ -103,7 +104,7 @@ export const BOSS_HANDS: readonly BossHand[] = [
     room: 'lighthouse',
     title: 'The lamp lights',
     setup: 'The keeper raised, bet the flop and went quiet on the turn. Top pair, a middling kicker.',
-    reveal: 'The ship was real. When this lamp lights, it usually is.',
+    reveal: 'Her cards stay dark, as a folded hand’s do. When this lamp lights, the ship is usually real.',
     hero: ['Qd', 'Ts'],
     rival: ['Ac', 'Qc'],
     board: ['Qh', '8c', '3d', '5s', '2c'],
@@ -183,7 +184,7 @@ export const BOSS_HANDS: readonly BossHand[] = [
     room: 'library',
     title: 'The quiet river',
     setup: 'The librarian calls the raise and a small flop bet, then checks the turn. Nothing made.',
-    reveal: 'A middling pair, set down at the first raised voice.',
+    reveal: 'Set down at the first raised voice, and nothing shown. A bet asked, and it was answered.',
     hero: ['7s', '6s'],
     rival: ['8d', '8c'],
     board: ['Kd', 'Qc', '2h', '9d', '3s'],
@@ -484,6 +485,11 @@ export function answerBoss(run: BossRun, kind: ActionKind): BossRun {
   const text = renderLine(ask.right, facts as Facts) ?? '';
   const played = play(run, 'hero', kind, ask.to);
   return advance({ ...played, at: run.at + 1, tried: [], replies: [...run.replies, { askId: ask.id, right: true, text }] });
+}
+
+/** The rival's cards turn over only at a showdown: a hand that ends in a fold shows nothing (as at the table). */
+export function reachedShowdown(run: BossRun): boolean {
+  return run.done && run.state.seats.every((s) => !s.folded);
 }
 
 export function isClean(run: BossRun): boolean {

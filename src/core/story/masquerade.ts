@@ -29,7 +29,7 @@ import { RIVAL_IDS, RIVALS, type RivalId } from './cast.js';
 export const MASQUERADE_SEATS = 3;
 /** The Folio ink gate: R1's sample gate, in hands for the plays read. */
 export const INK_OBSERVATIONS = MIN_OBSERVATIONS;
-/** Hands in one round at the Masquerade table. Two rounds ink the first read. */
+/** Hands in one round at the Masquerade table. Two rounds ink the plays read; the others count per bet or chance, so they can ink sooner or later. */
 export const MASQUERADE_ROUND_HANDS = 10;
 /** The masks, in seat order. Never a rival's name, never a style. */
 export const MASKS = ['Fox', 'Moth', 'Heron'] as const;

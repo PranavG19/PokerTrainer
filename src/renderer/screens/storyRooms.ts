@@ -313,7 +313,8 @@ export function renderMasquerade(opts: {
       if (c.rival) reveal.appendChild(rivalMedallion(RIVALS[c.rival], !opts.unmaskedInOrbit(c.rival), 48));
       const t = el('div', 'story-unmask-text');
       t.append(text('div', 't-t3', nameOf(c.rival)), text('div', 'g-caption', `Behind the ${c.mask} · unmasked ${seat.unmaskedOn !== null ? dayLabel(seat.unmaskedOn) : ''}`));
-      if (c.rival) t.appendChild(text('div', 'g-caption', RIVALS[c.rival].style));
+      // The style is the orbit's to reveal: it shows only once that rival is unmasked there too (D17).
+      if (c.rival && opts.unmaskedInOrbit(c.rival)) t.appendChild(text('div', 'g-caption', RIVALS[c.rival].style));
       reveal.appendChild(t);
       out.push(reveal);
       const line = storyLine(isComplete(m) ? 'masq-done' : 'masq-fit', facts, lineOpts);

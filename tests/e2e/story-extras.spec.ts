@@ -155,6 +155,15 @@ test.describe('Story extras', () => {
       await answer(page, 'fold');
       await expect(page.locator('[data-testid="boss-result"]')).toHaveAttribute('data-clean', 'true');
       await expect(page.locator('[data-testid="boss-keepsake"]')).toContainText('The wick');
+      // A folded hand shows no cards; the beat row ticks at once.
+      await expect(page.locator('[data-testid="boss-rival-cards"]')).toHaveAttribute('data-shown', 'false');
+      await expect(page.locator('[data-testid="story-beat"][data-beat="boss"]')).toHaveAttribute('data-done', 'true');
+      // A later play that misses still shows the keepsake as on the shelf (review: stale kept flag).
+      await page.click('[data-testid="boss-again"]');
+      await answer(page, 'call');
+      await answer(page, 'fold');
+      await expect(page.locator('[data-testid="boss-result"]')).toHaveAttribute('data-clean', 'false');
+      await expect(page.locator('[data-testid="boss-keepsake"]')).toContainText('On the shelf');
       // The keepsake never names a rival still masked.
       await expect(page.locator('[data-testid="boss-beat"]')).not.toContainText('Wren');
       await fits(page, app);
@@ -212,12 +221,35 @@ test.describe('Story extras', () => {
       await page.click('[data-testid="masq-style"][data-rival="vesper"]');
       await page.click('[data-testid="masq-commit"]');
       await expect(page.locator('[data-testid="masq-unmask"]')).toContainText('The Fireworks Pier’s regular');
+      // The style is the orbit's to reveal (D17): not shown while the Pier is still masked.
+      await expect(page.locator('[data-testid="masq-unmask"]')).not.toContainText('Bets and raises nearly everything');
       await expect(page.locator('[data-testid="masq-seat"][data-seat="0"]')).toHaveAttribute('data-unmasked', 'true');
       await fits(page, app);
       // A seat still in pencil cannot be named.
       await page.click('[data-testid="masq-seat"][data-seat="1"]');
       await expect(page.locator('[data-testid="masq-name"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="masq-said"]')).toHaveAttribute('data-line-id', 'story.masq.pencil.a');
+    });
+  });
+
+  test('a Masquerade opened from the keepsake shelf keeps its hands (review blocker)', async () => {
+    const dir = freshDir();
+    await withApp(dir, async (page) => {
+      await page.click('[data-testid="tab-you"]');
+      await page.waitForSelector('[data-testid="you-profile"]');
+      await page.click('[data-testid="keepsake"][data-id="masquerade-mask"]');
+      await page.waitForSelector('[data-testid="story-masquerade"]');
+      await page.click('[data-testid="masq-sit"]');
+      await page.waitForSelector(`${tableScreen}[data-hand-limit="10"]`);
+      await page.click('[data-testid="btn-fold"]');
+      await expect
+        .poll(() => {
+          const file = path.join(dir, STATE);
+          if (!fs.existsSync(file)) return 'no save yet';
+          const seats = JSON.parse(fs.readFileSync(file, 'utf-8')).progression?.story?.masquerade?.seats ?? [];
+          return seats.length === 3 && seats.some((x: { acted: number }) => x.acted > 0) ? 'counted' : `seats on file: ${seats.length}`;
+        }, { timeout: 30_000 })
+        .toBe('counted');
     });
   });
 });

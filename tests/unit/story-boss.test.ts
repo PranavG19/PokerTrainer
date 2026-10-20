@@ -9,6 +9,7 @@ import {
   bossRecordOf,
   handOver,
   isClean,
+  reachedShowdown,
   optionsAt,
   pendingAsk,
   recordBoss,
@@ -134,5 +135,14 @@ describe('boss hands', () => {
         run = answerBoss(run, p.ask.correct);
       }
     }
+  });
+
+  it('the rival’s cards turn over only at a showdown, never after a fold (as at the table)', () => {
+    const shown = Object.fromEntries(BOSS_HANDS.map((b) => [b.id, reachedShowdown(playRight(startBoss(b)))]));
+    expect(shown['boss-lighthouse']).toBe(false); // the right line folds
+    expect(shown['boss-library']).toBe(false); // the rival folds
+    expect(shown['boss-kitchen']).toBe(true);
+    expect(shown['boss-observatory']).toBe(true);
+    expect(reachedShowdown(startBoss(bossFor('kitchen')!))).toBe(false);
   });
 });

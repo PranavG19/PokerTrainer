@@ -757,7 +757,7 @@ async function boot(): Promise<void> {
   function openRoom(room: StoryRoomId): void {
     tab = 'story';
     if (room === KITCHEN.id) storyView = { at: 'kitchen', stage: 'boss' };
-    else if (room === MASQUERADE.id) storyView = { at: 'masquerade', said: null };
+    else if (room === MASQUERADE.id) return openMasquerade();
     else storyView = { at: 'chapter', id: room, stage: 'boss', justPlayed: null };
     render();
   }
@@ -802,13 +802,14 @@ async function boot(): Promise<void> {
           avatar: (named && c.rival ? RIVALS[c.rival].short : c.mask)[0],
           archetype: c.archetype,
           profile: c.profile,
-          revealLabel: c.unmasked && c.rival ? RIVALS[c.rival].style : null,
+          revealLabel: named && c.rival ? RIVALS[c.rival].style : null,
         };
       }),
       onHandComplete: (r) => void onHandComplete(r),
       onHandSettled: (hand) => {
         const story = session.progression.story;
-        const next = recordMasqueradeHand(story.masquerade, hand.villains.map((v) => v.actions));
+        // Against the dealt seats even if no save has dealt them yet: a hand is never counted into nothing.
+        const next = recordMasqueradeHand(ensureMasquerade(story.masquerade), hand.villains.map((v) => v.actions));
         void saveStory({ ...story, masquerade: next });
       },
       sittingEnd: {

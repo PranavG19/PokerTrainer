@@ -4,7 +4,7 @@ import { renderDee } from './dee.js';
 import { keepsakeMedal } from './storyArt.js';
 import { commitAnswer, pendingStep, startDialogue, type DialogueScript, type DialogueState, type LessonFacts } from '../../core/dee/dialogue.js';
 import type { Line, Tone } from '../../core/dee/types.js';
-import { answerBoss, isClean, pendingAsk, startBoss, type BossHand, type BossRun, type PlayedMove } from '../../core/story/boss.js';
+import { answerBoss, isClean, pendingAsk, reachedShowdown, startBoss, type BossHand, type BossRun, type PlayedMove } from '../../core/story/boss.js';
 import type { Keepsake } from '../../core/story/keepsakes.js';
 import { storyLine, type SpokenStoryLine } from '../../core/story/campaign.js';
 import type { ActionKind } from '../../core/table.js';
@@ -211,11 +211,15 @@ export function bossBeat(opts: {
   let run: BossRun | null = null;
   let picked: ActionKind | null = null;
   let finished = false;
+  /** Kept before this play: so a later play that misses still shows the keepsake on the shelf. */
+  let kept = opts.kept;
+  let keptThisPlay = false;
 
   function deal(): void {
     run = startBoss(boss);
     picked = null;
     finished = false;
+    keptThisPlay = false;
     host.announcer.textContent = pendingAsk(run)?.text ?? '';
     host.repaint();
     host.beat.querySelector<HTMLElement>('[data-testid="boss-option"]')?.focus();
@@ -237,10 +241,11 @@ export function bossBeat(opts: {
     if (shown.length === 0) bc.appendChild(text('span', 'g-caption', 'Not dealt yet'));
     board.appendChild(bc);
     const them = el('div', 'boss-hole', 'boss-rival-cards');
-    them.dataset.shown = String(Boolean(r?.done));
+    const shownDown = r !== null && reachedShowdown(r);
+    them.dataset.shown = String(shownDown);
     them.appendChild(text('span', 'g-caption', opts.rivalName));
     const tc = el('span', 'g-mini');
-    for (const c of boss.rival) tc.appendChild(renderCard(c, { small: true, faceDown: !r?.done }));
+    for (const c of boss.rival) tc.appendChild(renderCard(c, { small: true, faceDown: !shownDown }));
     them.appendChild(tc);
     row.append(you, board, them);
     return row;
@@ -310,7 +315,9 @@ export function bossBeat(opts: {
           host.announcer.textContent = [reply?.text, next?.text].filter(Boolean).join(' ');
           if (run.done && !finished) {
             finished = true;
+            if (isClean(run) && !kept) keptThisPlay = true;
             opts.onFinish(isClean(run));
+            if (isClean(run)) kept = true;
           }
           host.repaint();
           (host.beat.querySelector<HTMLElement>('[data-testid="boss-option"]:not(:disabled)') ??
@@ -330,7 +337,7 @@ export function bossBeat(opts: {
       const score = el('div', 'story-debrief-score');
       score.append(
         text('span', 't-head', clean ? 'Clean' : 'Right in the end'),
-        text('span', 'g-caption', clean ? 'every decision right at the first answer' : `${r.misses} first ${r.misses === 1 ? 'answer' : 'answers'} not yet right`),
+        text('span', 'g-caption', clean ? 'every decision right at the first answer' : `${r.misses} wrong ${r.misses === 1 ? 'answer' : 'answers'} before the right one`),
       );
       result.appendChild(score);
       if (last?.right) result.appendChild(text('p', 'g-sub', last.text));
@@ -339,11 +346,11 @@ export function bossBeat(opts: {
       if (opts.dee.character) root.appendChild(deeLine(reveal, 'boss-reveal', 28));
       const k = opts.keepsake;
       const said = storyLine(clean ? 'boss-clean' : 'boss-again', { keepsake: k?.name ?? '' }, { tone: opts.dee.tone, seed: hash(boss.id), character: opts.dee.character });
-      if (k && (clean || opts.kept)) {
+      if (k && (clean || kept)) {
         const keep = el('div', 'boss-keepsake', 'boss-keepsake');
         keep.appendChild(keepsakeMedal(k.glyph, true, 40));
         const t = el('div', 'story-unmask-text');
-        t.append(text('div', 't-head', k.name), text('div', 'g-caption', clean && !opts.kept ? `Kept · ${k.fact}` : `On the shelf · ${k.fact}`));
+        t.append(text('div', 't-head', k.name), text('div', 'g-caption', keptThisPlay ? `Kept · ${k.fact}` : `On the shelf · ${k.fact}`));
         keep.appendChild(t);
         root.appendChild(keep);
       }

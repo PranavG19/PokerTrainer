@@ -251,6 +251,7 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
   // Dee's intro already opened the chapter, so the beat skips the bank's generic lesson opener.
   const dialogueOpts = { tone: opts.dee.tone, seed, character: opts.dee.character, bank: DEE_BANK.filter((l) => l.event !== 'lesson-open') };
   let lessonDone = opts.progress.lessonDone;
+  let bossKept = opts.bossKept;
   let introSeen = opts.progress.introSeen;
 
   const root = el('div', 'story-chapter', 'story-chapter');
@@ -285,10 +286,13 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
         boss,
         rivalName: rivalDisplayName(venue, opts.unmasked),
         keepsake,
-        kept: opts.bossKept,
+        kept: bossKept,
         dee: opts.dee,
         host,
-        onFinish: opts.onBossFinish,
+        onFinish: (clean) => {
+          if (clean) bossKept = true;
+          opts.onBossFinish(clean);
+        },
       })
     : null;
 
@@ -323,14 +327,14 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
       lesson: lessonDone,
       table: opts.progress.tables > 0 || opts.justPlayed !== null,
       debrief: opts.lastTable !== null || opts.justPlayed !== null,
-      boss: opts.bossKept,
+      boss: bossKept,
     };
     const captions: Record<Stage, string> = {
       intro: 'A short scene',
       lesson: lessonById(venue.beat.lessonId)?.title ?? 'A lesson',
       table: `${STORY_TABLE_HANDS} hands, heads-up`,
       debrief: opts.progress.beatenOn !== null ? 'Goal met' : 'Judged on decisions',
-      boss: opts.bossKept ? `${keepsake?.name ?? 'Keepsake'} kept` : 'One hand, its exploit the answer',
+      boss: bossKept ? `${keepsake?.name ?? 'Keepsake'} kept` : 'One hand, its exploit the answer',
     };
     (['intro', 'lesson', 'table', 'debrief', 'boss'] as const).forEach((s, i) => {
       const row = el('button', 'g-row story-beat-row', 'story-beat');
