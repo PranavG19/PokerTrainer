@@ -134,9 +134,10 @@ test('an earned item is worn from the Locker, saved with its receipt, applied at
 /**
  * Paint properties a cosmetic may change; anything else changing is a layout leak. Background longhands count per
  * layer, so a pattern with more layers changes repeat, clip and origin too. Not stroke-dasharray: measured, a dash
- * change re-lays out the SVG (theme.spec caught it on the first Inlaid rim).
+ * change re-lays out the SVG (theme.spec caught it on the first Inlaid rim). transform-origin only moves where a
+ * moment's transform pivots; it never lays out.
  */
-const PAINT = /^(background(-image|-color|-position(-x|-y)?|-size|-repeat|-clip|-origin|-attachment|-blend-mode)?|box-shadow|color|border(-(top|right|bottom|left|block-start|block-end|inline-start|inline-end))?-color|outline-color|fill|stroke|stroke-opacity|text-decoration-color|caret-color|column-rule-color|-webkit-text-(fill|stroke)-color)$/;
+const PAINT = /^(background(-image|-color|-position(-x|-y)?|-size|-repeat|-clip|-origin|-attachment|-blend-mode)?|box-shadow|transform-origin|color|border(-(top|right|bottom|left|block-start|block-end|inline-start|inline-end))?-color|outline-color|fill|stroke|stroke-opacity|text-decoration-color|caret-color|column-rule-color|-webkit-text-(fill|stroke)-color)$/;
 
 test('wearing every non-default item at once changes paint only: a computed-style allowlist and no rect moves', async () => {
   const app = await launchApp({ userDataDir: freshDir() });
@@ -150,7 +151,9 @@ test('wearing every non-default item at once changes paint only: a computed-styl
     const snapshot = (): Promise<Snapshot> =>
       page.evaluate(() => {
         const out: Record<string, { rect: number[]; styles: Record<string, string> }> = {};
-        const all = [...document.querySelectorAll('*')];
+        // The perch's Dee blinks on a timer (its lights are redrawn for 120ms), which no cosmetic causes; it is the one
+        // element left out. The stage's Dee never blinks, so Dee's finish is still measured there.
+        const all = [...document.querySelectorAll('*')].filter((el) => !el.closest('.perch'));
         all.forEach((el, i) => {
           const r = el.getBoundingClientRect();
           for (const pseudo of [null, '::before', '::after'] as const) {
@@ -173,12 +176,16 @@ test('wearing every non-default item at once changes paint only: a computed-styl
     for (const item of CATALOGUE) if (item.earn.kind !== 'day-one' && worn[SLOT_ATTRIBUTE[item.slot]] !== item.paint) passes.push({ [SLOT_ATTRIBUTE[item.slot]]: item.paint });
     const changed = new Set<string>();
     await checkPasses(page, snapshot, passes, changed);
-    // The Locker too: Dee's finish and the moment's mark live there.
+    // The Locker too, swapping on the stage itself (it carries its own attributes, so a swap on the document does
+    // not reach it): the stage's Dee finish at 40px and the moment's mark live there.
     await page.locator('[data-testid="tab-you"]').click();
     await page.locator('[data-testid="tab-locker"]').click();
     await page.waitForSelector('[data-testid="locker-stage"]');
     await page.waitForTimeout(300);
-    await checkPasses(page, snapshot, passes, changed);
+    const onStage = new Set<string>();
+    await checkPasses(page, snapshot, passes, onStage, '[data-testid="locker-stage"]');
+    for (const p of onStage) changed.add(p);
+    for (const kind of ['background-image', 'stroke', 'stroke-opacity']) expect([...onStage], `stage ${kind}`).toContain(kind);
     const leaks = [...changed].filter((p) => !p.startsWith('--') && !PAINT.test(p));
     expect(leaks, 'non-paint properties a cosmetic changed').toEqual([]);
     // And the oracle sees each kind of paint change at all.
@@ -190,13 +197,20 @@ test('wearing every non-default item at once changes paint only: a computed-styl
 
 type Snapshot = Record<string, { rect: number[]; styles: Record<string, string> }>;
 
-async function checkPasses(page: Page, snapshot: () => Promise<Snapshot>, passes: Record<string, string>[], changed: Set<string>): Promise<void> {
+/** Each pass sets its attributes on `target` (the document by default), compares, then puts them back. */
+async function checkPasses(page: Page, snapshot: () => Promise<Snapshot>, passes: Record<string, string>[], changed: Set<string>, target = 'html'): Promise<void> {
   const before = await snapshot();
   {
     for (const attrs of passes) {
-      await page.evaluate((a) => {
-        for (const [k, v] of Object.entries(a)) document.documentElement.setAttribute(`data-${k}`, v);
-      }, attrs);
+      const prior = await page.evaluate(([t, a]) => {
+        const el = document.querySelector(t) as HTMLElement;
+        const was: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(a)) {
+          was[k] = el.getAttribute(`data-${k}`);
+          el.setAttribute(`data-${k}`, v);
+        }
+        return was;
+      }, [target, attrs] as const);
       const after = await snapshot();
       expect(Object.keys(after)).toEqual(Object.keys(before));
       for (const [key, b] of Object.entries(before)) {
@@ -204,9 +218,13 @@ async function checkPasses(page: Page, snapshot: () => Promise<Snapshot>, passes
         expect(a.rect, `${key} moved under ${JSON.stringify(attrs)}`).toEqual(b.rect);
         for (const [prop, v] of Object.entries(b.styles)) if (a.styles[prop] !== v) changed.add(prop);
       }
-      await page.evaluate((a) => {
-        for (const k of Object.keys(a)) document.documentElement.removeAttribute(`data-${k}`);
-      }, attrs);
+      await page.evaluate(([t, was]) => {
+        const el = document.querySelector(t) as HTMLElement;
+        for (const [k, v] of Object.entries(was)) {
+          if (v === null) el.removeAttribute(`data-${k}`);
+          else el.setAttribute(`data-${k}`, v);
+        }
+      }, [target, prior] as const);
     }
   }
 }

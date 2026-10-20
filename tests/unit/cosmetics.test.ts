@@ -216,8 +216,9 @@ describe('the paint: every item is a complete token block of its own slot', () =
     }
     return out;
   };
+  // A slot's tokens are every token any of its items declares, so an item adding one the default lacks fails too.
   const slotTokens = Object.fromEntries(
-    COSMETIC_SLOTS.map((slot) => [slot, new Set(Object.keys(tokensFor(SLOT_ATTRIBUTE[slot], defaultItem(slot).paint)))]),
+    COSMETIC_SLOTS.map((slot) => [slot, new Set(itemsFor(slot).flatMap((i) => Object.keys(tokensFor(SLOT_ATTRIBUTE[slot], i.paint))))]),
   );
 
   it('the default block sits on :root and on the default attribute, so the stage can restate it', () => {
