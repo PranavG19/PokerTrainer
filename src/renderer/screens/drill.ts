@@ -117,6 +117,8 @@ export interface DrillOptions {
   readonly onFadingEvents?: (events: readonly FadingEvent[]) => void;
   /** Open on this kind (the Ticket's review of a due concept). Unknown or absent: the first kind, as before. */
   readonly initialKind?: string;
+  /** Open at this place in the seeded sequence (a challenge code's problem). Absent: the first problem, as before. */
+  readonly initialIndex?: number;
 }
 
 /** A drill concept's display name ("Pot odds"), or the id itself for a concept this build does not know. */
@@ -156,7 +158,8 @@ export function renderDrillScreen(options: DrillOptions = {}): HTMLElement {
   let kind: DrillKind = (DRILL_KINDS as readonly string[]).includes(options.initialKind ?? '')
     ? (options.initialKind as DrillKind)
     : DRILL_KINDS[0];
-  let index = 0;
+  let index =
+    options.initialIndex !== undefined && Number.isInteger(options.initialIndex) && options.initialIndex >= 0 ? options.initialIndex : 0;
   let problem = generateProblem(seedFor(index), kind);
   let committed: Committed | null = null;
   /** Set when a commit was attempted with nothing readable in the box. Not an error state. */

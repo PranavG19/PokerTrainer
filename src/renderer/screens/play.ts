@@ -2,7 +2,7 @@ import type { SessionPlan } from '../../core/sessionPlan.js';
 import type { SessionState } from '../../core/session.js';
 import { renderSessionPlanner } from './sessionPlan.js';
 import { launchRow, renderNewSessionCard, renderPlayWithFriendsCard } from './home.js';
-import { spadeIcon } from '../components/glyphs.js';
+import { codeIcon, spadeIcon } from '../components/glyphs.js';
 
 /**
  * PLAY (1.14): where a sitting starts when no table is up. The launch rows (a free table, friends on the local
@@ -17,6 +17,8 @@ export function renderPlay(opts: {
   onStartPlanned: (plan: SessionPlan) => void;
   onPlayWithFriends: () => void;
   onStartAssessment: () => void;
+  /** Play → Challenge a friend (screens/challenge.ts). Absent: no row. */
+  onChallenge?: () => void;
 }): HTMLElement {
   const root = document.createElement('div');
   root.className = 'home-screen play-screen';
@@ -38,6 +40,9 @@ export function renderPlay(opts: {
     renderPlayWithFriendsCard(opts.onPlayWithFriends),
     launchRow('play-assessment', spadeIcon(), 'Assessment block', 'Thirty spots with the feedback held to the end', opts.onStartAssessment),
   );
+  if (opts.onChallenge) {
+    launch.appendChild(launchRow('play-challenge', codeIcon(), 'Challenge a friend', 'Play a code, or make one: the same spot for both of you', opts.onChallenge));
+  }
   col.append(h, sub, launch);
   root.appendChild(col);
 

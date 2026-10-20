@@ -169,6 +169,12 @@ export function renderTable(opts: {
    * the plain New session path), so nothing changes unless a plan is threaded in.
    */
   handLimit?: number;
+  /**
+   * The seat on the button for the first hand (0 = the hero). A challenge code (core/challengeCode.ts) carries
+   * it, so a friend's table deals the same hole cards: the deal starts left of the button. Absent: the hero
+   * holds the first button, as every table always has.
+   */
+  button?: number;
   coachedMode?: boolean;
   onHandComplete: (record: HandRecord) => void;
   onSessionOver?: () => void;
@@ -457,6 +463,10 @@ export function renderTable(opts: {
   // at 1 on every re-mount would both duplicate handNumber in the saved log and re-deal a hand
   // the player has already seen.
   table.handNumber = opts.handNumber - 1;
+  // startHand moves the button one funded seat on, so it starts one seat before the one asked for.
+  if (opts.button !== undefined && opts.button > 0 && opts.button < table.seats.length) {
+    table.dealer = (opts.button - 1 + table.seats.length) % table.seats.length;
+  }
   let state: TableState = startHand(table);
 
   // One long-lived stream so villain decisions stay deterministic across a session.

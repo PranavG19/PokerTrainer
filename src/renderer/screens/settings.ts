@@ -94,6 +94,8 @@ export function renderSettings(opts: {
   handlers: SettingsHandlers;
   /** Settings → Offsuit Pro (components/proSettings.ts), built by the caller that owns the Pro client. */
   proSection?: HTMLElement;
+  /** Your data → export and import (components/profileTransfer.ts), built by the caller that owns the profile. */
+  profileTransfer?: HTMLElement;
 }): HTMLElement {
   const { status, handlers } = opts;
 
@@ -114,7 +116,7 @@ export function renderSettings(opts: {
   root.appendChild(renderTheme(status.theme, handlers));
   if (handlers.onOpenDee) root.appendChild(renderDeeLink(handlers.onOpenDee));
   if (opts.proSection !== undefined) root.appendChild(opts.proSection);
-  root.appendChild(renderProfileSection(status, handlers));
+  root.appendChild(renderProfileSection(status, handlers, opts.profileTransfer));
 
   return root;
 }
@@ -527,7 +529,7 @@ function renderGuardFailure(failure: GuardFailureView): HTMLElement {
 }
 
 /** 6 of 6 — reversibility, and the single human-gated hard delete. */
-function renderProfileSection(status: SettingsStatus, handlers: SettingsHandlers): HTMLElement {
+function renderProfileSection(status: SettingsStatus, handlers: SettingsHandlers, transfer?: HTMLElement): HTMLElement {
   const body = document.createElement('div');
   body.className = 'settings-block';
 
@@ -576,6 +578,7 @@ function renderProfileSection(status: SettingsStatus, handlers: SettingsHandlers
     ),
   );
 
+  if (transfer !== undefined) body.appendChild(transfer);
   body.appendChild(renderDelete(status, handlers));
 
   return section('Your data', body);

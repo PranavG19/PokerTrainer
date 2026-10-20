@@ -9,6 +9,7 @@ import {
   loadWithRecovery,
   preMigrationPath,
   saveWithBackup,
+  snapshotBeforeImport,
   snapshotBeforeMigrate,
   sweepTempFiles,
   type DeleteOutcome,
@@ -111,11 +112,19 @@ function sameStamp(a: FileStamp | null, b: FileStamp | null): boolean {
   return a === null || b === null ? a === b : a.mtimeMs === b.mtimeMs && a.size === b.size;
 }
 
+/**
+ * Set by an import, cleared by the next load. Between the two the renderer still holds the replaced profile
+ * in memory, and one save from it would write that profile straight back over the import, so every save
+ * is refused until the renderer has reloaded.
+ */
+let awaitingReload = false;
+
 export function load(): Record<string, unknown> {
   sweepTempFiles(STATE_FILE);
   const recovery = loadWithRecovery(STATE_FILE);
   lastRecovery = recovery.source;
   remember();
+  awaitingReload = false;
   readOnly = null;
   migratedFrom = null;
   pendingSnapshot = null;
@@ -162,11 +171,12 @@ export interface SaveOutcome {
    * rejection at ~20 call sites, and the learner would play on with nothing saved and nothing shown.
    * Nothing was written; the renderer keeps its session in memory and the next save retries.
    */
-  readonly failed?: 'write' | 'pre-migration-copy';
+  readonly failed?: 'write' | 'pre-migration-copy' | 'reloading';
 }
 
 /** Write the renderer's profile, unless this build must not. Never throws. */
 export function save(obj: Record<string, unknown>): SaveOutcome {
+  if (awaitingReload) return { saved: false, readOnly: null, failed: 'reloading' };
   if (readOnly !== null) return { saved: false, readOnly };
   if (changedElsewhere()) {
     readOnly = 'changed-elsewhere';
@@ -187,6 +197,53 @@ export function save(obj: Record<string, unknown>): SaveOutcome {
   remember(text);
   lastProfile = obj;
   return { saved: true, readOnly: null };
+}
+
+/** The profile as main last loaded or saved it, for an export; null after a delete, before any save. */
+export function currentProfile(): Record<string, unknown> | null {
+  return lastProfile === null ? null : structuredClone(lastProfile);
+}
+
+export interface ReplaceOutcome {
+  readonly replaced: boolean;
+  /** The never-rotated copy of the replaced profile; null when there was no profile on disk to keep. */
+  readonly backup?: string | null;
+  readonly refused?: 'read-only' | 'pre-migration-copy' | 'backup' | 'write';
+}
+
+/**
+ * Replace the whole profile with an imported one (already checked by core/profileTransfer.ts and stamped by
+ * main's licence authority). The same refusals as `save`, and one more guarantee: the live profile is copied
+ * to a pre-import file FIRST, and nothing is written if that copy fails. Never throws.
+ */
+export function replaceProfile(obj: Record<string, unknown>, now: Date): ReplaceOutcome {
+  if (awaitingReload) return { replaced: false, refused: 'write' };
+  if (readOnly !== null) return { replaced: false, refused: 'read-only' };
+  if (changedElsewhere()) {
+    readOnly = 'changed-elsewhere';
+    return { replaced: false, refused: 'read-only' };
+  }
+  try {
+    takePendingSnapshot();
+  } catch {
+    return { replaced: false, refused: 'pre-migration-copy' };
+  }
+  let backup: string | null;
+  try {
+    backup = snapshotBeforeImport(STATE_FILE, now);
+  } catch {
+    return { replaced: false, refused: 'backup' };
+  }
+  const text = JSON.stringify({ ...obj, schemaVersion: SCHEMA_VERSION }, null, 2);
+  try {
+    saveWithBackup(STATE_FILE, text);
+  } catch {
+    return { replaced: false, backup, refused: 'write' };
+  }
+  remember(text);
+  lastProfile = obj;
+  awaitingReload = true;
+  return { replaced: true, backup };
 }
 
 export interface ProfileStatus {

@@ -94,6 +94,12 @@ contextBridge.exposeInMainWorld('offsuit', {
     ipcRenderer.on('online:event', listener);
     return () => ipcRenderer.removeListener('online:event', listener);
   },
+  // Profile export and import. Main opens the dialogs; nothing here names a path. An import is a pick (a
+  // checked preview under an id) then a confirm naming that id; main copies the current profile aside first.
+  profileExport: (): Promise<unknown> => ipcRenderer.invoke('profile:export'),
+  profileImportPick: (): Promise<unknown> => ipcRenderer.invoke('profile:importPick'),
+  profileImportConfirm: (id: string, accept: boolean): Promise<unknown> =>
+    ipcRenderer.invoke('profile:importConfirm', id, accept),
   // Pro tools. Main opens the file dialog itself and reads only what it returns: nothing here names a path.
   // Each answers { locked } without Pro, except deleting imported hands, which is never locked.
   proImportHands: (): Promise<unknown> => ipcRenderer.invoke('pro:importHands'),

@@ -39,6 +39,7 @@ import { devOverrideFrom } from '../core/entitlements/entitlements.js';
 import { checkoutPlans, createLicenceAuthority, gated, licenceEndpoints, tokenFromDeepLink, tokenId } from './licence.js';
 import { createProTools, type ProTools } from './proTools.js';
 import { saveStyleCard } from './styleCard.js';
+import { createProfileFiles } from './profileFile.js';
 import { refreshLicence, restoreLicence } from './licenceClient.js';
 import type { RoomView } from '../core/multiplayer.js';
 import { activeManifest } from './dee/manifest.js';
@@ -423,6 +424,19 @@ app.whenReady().then(() => {
   ipcMain.handle('style:saveCard', (_event, rect: unknown) => saveStyleCard(mainWindow, rect, app.getPath('pictures')));
   // The test clock and the onboarding switch: e2e only, never packaged (core/testHooks.ts).
   ipcMain.handle('app:testHooks', () => testHooksFrom(process.env, app.isPackaged));
+
+  // ── Profile export and import (profileFile.ts) ──────────────────────────────
+  // Main opens the dialogs and reads only what they return. An import is checked strictly, previewed, and
+  // written only on a confirm naming that preview; the current profile is copied aside first. The imported
+  // profile carries main's licence, never the file's. Free, never gated: the profile is the learner's.
+  const profileFiles = createProfileFiles({
+    window: () => mainWindow,
+    userData: app.getPath('userData'),
+    stamp: (obj) => authority.stamp(obj),
+  });
+  ipcMain.handle('profile:export', () => profileFiles.exportProfile());
+  ipcMain.handle('profile:importPick', () => profileFiles.pickImport());
+  ipcMain.handle('profile:importConfirm', (_event, id: unknown, accept: unknown) => profileFiles.confirmImport(id, accept));
 
   // ── Pro tools (proTools.ts) ───────────────────────────────────────────────
   // Gated here, in main: a renderer that draws the surface anyway gets { locked }. The import reads only
