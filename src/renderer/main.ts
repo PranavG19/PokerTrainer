@@ -151,6 +151,7 @@ import type { TicketItemRecord } from '../core/progression/types.js';
 import { SECTIONS, SECTION_GROUP_STARTS, sectionOf, subNavOf, litSubItem, type Leaf, type Section } from './nav.js';
 import { renderSubNav } from './components/subnav.js';
 import { renderPlay } from './screens/play.js';
+import type { TableSize } from '../core/tableSize.js';
 import { renderNotYet, renderRivals, renderTrophies, renderYouProfile } from './screens/you.js';
 import { renderLocker } from './screens/locker.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
@@ -1368,7 +1369,7 @@ async function boot(): Promise<void> {
     void io.speak?.(message)?.catch(() => undefined);
   }
 
-  function startTable(plan?: SessionPlan): void {
+  function startTable(plan?: SessionPlan, tableSize: TableSize = 4): void {
     teardownTable();
     // A table lives under Play, wherever it was started from (Home's New session, Play's planner, onboarding).
     // A panel left open (friends, online, the assessment, variance) must not cover it (review B1).
@@ -1400,6 +1401,7 @@ async function boot(): Promise<void> {
       handNumber: session.stats.handsPlayed + 1,
       startStack: buyIn ?? undefined,
       handLimit,
+      tableSize,
       coachedMode: session.coachedMode,
       onHandComplete: (r) => void onHandComplete(r),
       onRebuy: () => void onRebuy(),
@@ -1540,6 +1542,7 @@ async function boot(): Promise<void> {
       renderPlay({
         session,
         onNewSession: () => startTable(),
+        onNewSixMax: () => startTable(undefined, 6),
         onStartPlanned: (plan) => startTable(plan),
         onPlayWithFriends: () => {
           openPanel('friends');

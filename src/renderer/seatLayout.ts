@@ -3,12 +3,17 @@
  *
  * The table is a scoreboard "U" (the `sports` direction in demo/glass/): one or two seats in each side
  * column and the rest in one top row, filled clockwise from the hero, who holds the bottom. Clockwise
- * from the hero (the button) means the first villain is the bottom of the left column and the last is
- * the bottom of the right column, so the small blind always sits on the hero's left, as at a real table.
+ * from the hero means the first villain is the bottom of the left column and the last is the bottom of
+ * the right column, so the seat after the hero always sits on the hero's left, as at a real table.
  *
- * A rule, not hand-placed seats: the solo table is 3 villains and LAN rooms go to 5 (core/multiplayer.ts
- * caps seatCount at 6), and the same rule was checked visually up to 8 villains in the mock. The CSS
- * reads the slot as data-slot plus --i/--n (index within the area, size of the area).
+ * A rule, not hand-placed seats: the solo table is 3 villains (4-max) or 5 (6-max), and the same rule was
+ * checked visually up to 8 villains in the mock. The CSS reads the slot as data-slot plus --i/--n (index
+ * within the area, size of the area).
+ *
+ * 6-max is two per side and one on top (an oval), not three across the top. The top row shares the stage's
+ * top edge with the table corners (the blinds on the left; the win readout, Coach and Stats on the right),
+ * and only the centre of that edge is clear of both: three seats across it overlapped the corners at both
+ * window sizes, and one another once the quips were revealed (measured, 900x640 and 1100x760).
  */
 
 export type SeatArea = 'left' | 'top' | 'right';
@@ -22,10 +27,10 @@ export interface SeatSlot {
   count: number;
 }
 
-/** Seats per side column for `villains` opponents: one up to 5 villains, two from 6 (≥7-handed). */
+/** Seats per side column for `villains` opponents: one up to 4 villains (≤5-handed), two from 5 (6-max). */
 export function sideColumnSize(villains: number): number {
   if (villains <= 1) return 0;
-  return Math.max(1, Math.round(villains / 4));
+  return Math.max(villains >= 5 ? 2 : 1, Math.round(villains / 4));
 }
 
 /** Slots for `villains` opponents, in clockwise order from the hero. */

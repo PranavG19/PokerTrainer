@@ -862,6 +862,18 @@ select {
   top: 38px;
   left: calc(50% + (var(--i, 0) - (var(--n, 1) - 1) / 2) * 46% / max(var(--n, 1) - 1, 1));
 }
+/* 6-max (seatLayout.ts: two per side, one on top): the side pair shares a wider band, 18–64% of the stage, so
+ * the upper seat clears the corners and the lower seat's bet stays above the board. */
+.table-screen[data-table-size='6'] .seat[data-slot='left'],
+.table-screen[data-table-size='6'] .seat[data-slot='right'] {
+  top: calc(18% + (var(--i, 0) + 0.5) * 46% / var(--n, 1));
+}
+/* The seat's position (6-max), after the name on its line: quiet metadata, like the archetype tag. */
+.table-screen .seat-position {
+  font-size: var(--t-cap);
+  font-weight: 600;
+  color: var(--ink-2);
+}
 
 /* The bet: a flat "Bet 75" pill toward the pot. The number is the element's text (tests read it); the
  * word is decoration. */
@@ -1172,6 +1184,9 @@ html .table-screen[data-sheet='verdict'] .controls .pill.primary:not(:disabled):
   .table-screen .seats .seat { padding: 5px 10px 5px 5px; column-gap: 8px; }
   .table-screen .seats .seat[data-slot='right'] { padding: 5px 5px 5px 10px; }
   .table-screen .seat[data-slot='top'] { top: 26px; }
+  /* 6-max: the side pair spreads to 12–72% so the two seats keep a gap on the shortest stage. */
+  .table-screen[data-table-size='6'] .seat[data-slot='left'],
+  .table-screen[data-table-size='6'] .seat[data-slot='right'] { top: calc(12% + (var(--i, 0) + 0.5) * 60% / var(--n, 1)); }
   .table-screen .seat .card.small,
   .table-screen .seat .card-back.small { width: 24px; height: 34px; }
   .table-screen .seat-stack { font-size: 18px; }
