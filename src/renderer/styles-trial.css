@@ -4,6 +4,10 @@
  * weight and the white ring, never mint (a kept habit is not "your turn"). Coral appears once, on a tripped
  * criterion, which is the serious state here.
  */
+/* The column is a height-capped flex box that scrolls itself: every child keeps its own height, or a group with
+   overflow:hidden (the running week's rows) is squeezed to nothing. */
+.trial-screen > * { flex: 0 0 auto; }
+
 .trial-head {
   display: flex;
   align-items: center;
