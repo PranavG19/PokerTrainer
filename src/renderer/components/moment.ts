@@ -39,6 +39,17 @@ export function verdictOnScreen(doc: Document = document): boolean {
   return coach !== null && !coach.hidden && coach.offsetParent !== null;
 }
 
+/**
+ * The identity of one finished session, so the host plays each once however often a save re-diffs it. The Ticket and
+ * the twelfth hand happen once a day by nature; an assessment block and a story table can happen again the same day,
+ * so they are told apart by how many the profile holds once this one is saved.
+ */
+export function momentKey(kind: FinishedSession, day: number, counts: { readonly assessments: number; readonly storyTables: number }): string {
+  if (kind === 'assessment') return `${day}:assessment:${counts.assessments}`;
+  if (kind === 'story-table') return `${day}:story-table:${counts.storyTables}`;
+  return `${day}:${kind}`;
+}
+
 let pending: number | null = null;
 let watch: number | null = null;
 

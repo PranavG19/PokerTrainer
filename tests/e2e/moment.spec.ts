@@ -222,7 +222,7 @@ for (const soundCues of [false, true]) {
   });
 }
 
-test('the moment covers no seat, stack or control, at 900x640 and 1100x760', async () => {
+test('the moment covers no seat, stack or control, on the table or Train, at 900x640 and 1100x760', async () => {
   for (const [w, h] of [[900, 640], [1100, 760]]) {
     const app = await launchApp({ userDataDir: profileWithHandsToday(11), env: { OFFSUIT_NOW: String(NOW) } });
     try {
@@ -241,6 +241,20 @@ test('the moment covers no seat, stack or control, at 900x640 and 1100x760', asy
           .map((e) => (e as HTMLElement).dataset.testid ?? e.className);
       });
       expect(hits, `${w}x${h}`).toEqual([]);
+      // The same fixed box over Train (where the Ticket usually finishes): no rail item or control under it.
+      const box = await page.evaluate(() => {
+        const r = (document.querySelector('[data-testid="moment"]') as HTMLElement).getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+      });
+      await page.click('[data-testid="tab-train"]');
+      await page.waitForTimeout(300);
+      const trainHits = await page.evaluate((m) => {
+        const overlaps = (r: DOMRect) => r.width > 0 && r.left < m.right && r.right > m.left && r.top < m.bottom && r.bottom > m.top;
+        return [...document.querySelectorAll('#app button, #app a, #app input, #app h1, #app h2, #app [role="tab"]')]
+          .filter((e) => !e.closest('nav.tabs') && overlaps(e.getBoundingClientRect()))
+          .map((e) => (e as HTMLElement).dataset.testid ?? e.textContent?.slice(0, 20));
+      }, box);
+      expect(trainHits, `${w}x${h} over Train`).toEqual([]);
     } finally {
       await app.close();
     }

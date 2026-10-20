@@ -221,12 +221,13 @@
 
 /* ─── The moment (components/moment.ts, 1.10): session end only, at most --dur-moment, click-through ───
  * Fixed and out of flow, so it lays nothing out under it; the coat's own type, no glass, no gold. */
-/* Top left, under the bar: the table keeps nothing there but the blinds caption, so no seat, stack or control is
- * covered while it plays. Opaque, so nothing reads through it. */
+/* Bottom left, above the table's dock: the one corner the table and Train both leave empty (moment.spec measures
+ * both at 900x640 and 1100x760), so no seat, stack, rail or control is covered while it plays. Opaque, so nothing
+ * reads through it. */
 .moment {
   position: fixed;
   left: 20px;
-  top: calc(var(--nav-h) + 40px);
+  bottom: 88px;
   z-index: 60;
   display: flex;
   flex-direction: column;

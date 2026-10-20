@@ -1,33 +1,35 @@
-# Independent review: Chalk (branch feat-chalk): the earn-only budget, fixed prices, spending (2.6, owner D4)
+# Independent review: PR 2 (branch feat-cosmetics): Chalk, the celebration moment, newer-slot equips, the fix-up script
 
-Two passes by one reviewer agent with no author context. It reviewed read-only and ran typecheck and units only (no
-Playwright or build: the shared e2e lock governs those). The cosmetics and Locker review (#35) is in that PR's history.
+Two reviewer agents with no author context, each over two passes. They reviewed read-only and ran typecheck, units and
+the script on temp copies only (no Playwright or build: the shared e2e lock governs those). The cosmetics and Locker
+review (#35) is in that PR's history.
 
-| Pass | HEAD | Verdict |
-|---|---|---|
-| 1. Review | d3e4db9 | **PASS WITH NOTES**: nothing blocking; no farming or double-pay; two medium, five low, test gaps |
-| 2. Re-review | 557f8a7 | **PASS WITH NOTES**: fixes 2–7 landed; one medium-low and two low, fixed in the final commit |
+| Scope | Pass | HEAD | Verdict |
+|---|---|---|---|
+| Chalk (2.6) | 1. Review | d3e4db9 | **PASS WITH NOTES**: no farming or double-pay; two medium, five low, test gaps |
+| Chalk | 2. Re-review | 557f8a7 | **PASS WITH NOTES**: one medium-low, two low, fixed in 6540c48 |
+| The moment, schema, script | 1. Review | 2b080a1 | **PASS WITH NOTES**: one medium-high, one medium, five low |
+| The moment, schema, script | 2. Re-review | f52ef96 | **PASS WITH NOTES**: every fix landed; one medium, one low-medium, fixed in the final commit |
 
-## Findings and outcomes
+## Findings and outcomes (red first wherever a defect was repaired)
 
 | ID | Finding | Outcome |
 |---|---|---|
-| 1 (M) | The two-press confirm could be bypassed by a double-click | Fixed, red first (`locker.spec`): a confirm within 500 ms is ignored |
-| 2 (M) | Chalk bought celebrations, whose session-end moment is unbuilt | Fixed, red first (`economy.test`): no celebration is priced |
-| 3 (L-M) | With the clock behind the ledger day, the Locker promised Chalk it would not pay | Fixed, red first: nothing left today, and the Locker says when earning resumes. The lockout is kept: it is what stops a day being paid twice |
-| 4 (L) | The balance missed today's owed Chalk until the next save | Fixed, red first: the Locker shows and spends the ledger the next save files |
-| 5 (L) | A second purchase during an in-flight save could start from a stale snapshot | Fixed: a guard in main and the button off until the save lands |
-| 6 (L) | A read-only profile could spend in memory | Fixed, red first: "Read-only profile", nothing spent or worn |
-| 7 (L) | `spend` trusted the caller's price | Fixed, red first: `spendItem` reads price and name from the catalogue |
-| T | Two tests could not fail (bankroll, won pot); the conversion regex was narrow | Rewritten against the saved bankroll and a graded hand; a scan forbids unit casts outside `units.ts`; tests added for 4 am, a full Reps log, a future ledger day |
-| R2-a (M-L) | A held Enter still confirmed (key repeat turns into clicks) | Fixed, red first: repeated keydowns are ignored |
-| R2-b (L) | The button stayed off if a spend was declined | Fixed: `onSpend` returns false and the caption repaints |
-| R2-c (L) | An armed confirm never expired | Fixed: it lapses after 8 s (tested), along with the clock-behind line |
+| C1 (M) | A double-click bypassed the two-press confirm | Fixed: a confirm within 500 ms is ignored; key repeat never confirms; the armed confirm lapses after 8 s |
+| C2 (M) | Chalk bought celebrations before the moment existed | Fixed then, and moot now: the moment plays them |
+| C3–C7 (L) | Clock behind the ledger promised Chalk; owed Chalk not shown; stale snapshot during a save; read-only could spend; `spend` trusted the caller's price | All fixed (`economy.test`, `locker.spec`) |
+| M1 (M-H) | On a read-only profile or a failing save, the moment replayed on every save | Fixed: it plays only after the save lands, once per session |
+| M2 (M) | Only the table's verdicts held the moment | Fixed: drill, puzzle and assessment verdicts hold it, and one raised mid-moment ends it |
+| M3 (L-M) | `--file=path` fell through to the real profile | Fixed: unknown arguments are refused |
+| M4–M8 (L) | Script race and temp file; a vacuous `__proto__` test; the "every byte" wording; a moment surviving a delete or sound toggle; stale counts and a weak Ink ring | Fixed: re-read before the rename, fsync and cleanup; JSON.parse; "every other value"; `cancelMoment`; sound read at show time; counts verified |
+| R1 (M) | Keying by day and kind silenced a second assessment or story table that day | Fixed (`moment.test`): one key per session |
+| R2 (L-M) | The top-left moment covered Train's rail | Fixed (`moment.spec`, red first): bottom left, measured over the table and Train at both sizes |
 
-## Checked and found fine (both passes)
-- The curve matches VISION §4 (150 + 75 = 225), and is monotonic. A day pays at most 225 whatever is replayed, gone
-  stale or evicted from the Reps log. A clock moved back pays nothing.
-- Every path into Chalk starts from Reps. Nothing reads chips, pots or results, and Chalk converts into nothing.
-  There is no money path, sale or randomness. Nothing cosmetic or currency-like is Pro.
-- The balance is ink, with one bone primary. There is no schema change: the v2 ledger and the receipt `chalk` field
-  are reused.
+## Checked and found fine
+- Chalk: the curve (225 a day at most) holds whatever is replayed, gone stale or evicted. Every path into Chalk is
+  Reps; nothing converts out; there is no money path, sale or randomness, and nothing cosmetic or currency-like is Pro.
+- The parser change keeps an owned item in an unknown slot, with no overlap with the profileSchema carry, and no
+  prototype issue. The script keeps unknown keys at every level, is idempotent, skips newer-build and v1 files, and
+  never writes without a byte-checked backup (`COPYFILE_EXCL`).
+- The clack is the only 880 Hz tone, and sound.spec's oscillator counts are unaffected. The new settings copy is
+  accurate.

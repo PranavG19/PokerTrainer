@@ -113,7 +113,7 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
   cannot spend or wear. The receipt records the Chalk spent. No sales, discounts, bundles, timers or random drops;
   Chalk is never bought with money.
 - **The balance is ink, never mint**, with "N of 225 earned today" beside it, and the curve is printed in the Locker.
-- **Catalogue** (`src/core/cosmetics/catalogue.ts`): COUNTS. Each slot's first item is the day-one default. The 13
+- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 12 card backs, 10 table tints, 6 chip sets, 8 Dee finishes, 6 celebrations. Each slot's first item is the day-one default. The 13
   priced items cost Chalk. Every other item is earned by a ratchet the habit loop already keeps: a milestone receipt,
   3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season stamp finish are the
   Ghost Rail's and the Seasons' (below). Never chips, pots or results
@@ -131,9 +131,12 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
 - **Themes stay a free device setting:** Dusk and Library join Glass and Obsidian (`store.ts` THEMES), each a desk-band
   swap only. A theme is never a Locker item.
 - **The celebration moment (1.10, `components/moment.ts`)** plays the worn celebration once when a save finishes a
-  session (the Ticket, an assessment block, a story table, the day's twelfth hand). It never shows over a verdict:
-  it waits for the sheet or the coach panel's costly verdict to close (often as the next hand deals; it is
-  click-through), and is dropped after 30 s. It lasts at most 1600 ms. Under reduced motion the words show still.
+  session (the Ticket, an assessment block, a story table, the day's twelfth hand), once per session, and only after
+  the save lands, so a read-only profile never replays it. It never shows over a verdict: any verdict on screen
+  holds it (the table's sheet or coach panel, a drill, a graded or finished puzzle, an assessment reveal), and one
+  raised while it plays ends it. It is dropped after 120 s held. It lasts at most 1600 ms, sits bottom left above
+  the dock (clear of every seat, rail and control on the table and Train), and is cancelled by a profile delete.
+  Under reduced motion the words show still.
   A soft clack plays only when the sound switch is on; that switch's note now says so. Supersedes: celebrations
   stored and previewed only, because the moment is built. Two celebrations are now priced.
 - **Profile schema while there are no customers (owner):** edit the current version in place and never bump

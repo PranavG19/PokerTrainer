@@ -182,7 +182,7 @@ import { renderRail } from './screens/rail.js';
 import { renderSeason, type SeasonPane } from './screens/season.js';
 import { railBoard, settleRail } from '../core/progression/rail.js';
 import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
-import { cancelMoment, playMoment } from './components/moment.js';
+import { cancelMoment, momentKey, playMoment } from './components/moment.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { CHALK_DAILY_CAP, COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
 import { chalkLeftToday, earnChalk, spendItem } from '../core/economy/chalk.js';
@@ -362,7 +362,7 @@ async function boot(): Promise<void> {
   // whichever of the ~20 save sites hit it.
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
   const soundPlayer = createSoundPlayer();
-  /** `${day}:${session kind}` for every moment played this run: one per session, however often it re-diffs. */
+  /** Every session a moment was played for this run (moment.ts momentKey): once each, however often it re-diffs. */
   const momentsPlayed = new Set<string>();
   const io: OffsuitBridge = {
     ...base,
@@ -402,9 +402,13 @@ async function boot(): Promise<void> {
           // The celebration moment (1.10): only for a session this save actually kept, and once per session per day,
           // so a read-only profile or a failed save (which re-diffs the same session) never replays it.
           const day = dayOf()(now());
-          const fresh = applied.finished.filter((f) => !momentsPlayed.has(`${day}:${f}`));
+          const counts = {
+            assessments: new Set(toSave.assessments.map((a) => a.at)).size,
+            storyTables: Object.values(toSave.progression.story.chapters).reduce((n, c) => n + c.tables, 0),
+          };
+          const fresh = applied.finished.filter((f) => !momentsPlayed.has(momentKey(f, day, counts)));
           if (fresh.length > 0) {
-            for (const f of fresh) momentsPlayed.add(`${day}:${f}`);
+            for (const f of fresh) momentsPlayed.add(momentKey(f, day, counts));
             const streak = toSave.progression.streak;
             playMoment({
               finished: fresh,
