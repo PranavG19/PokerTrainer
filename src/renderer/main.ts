@@ -141,7 +141,7 @@ import { todaysRing } from '../core/progression/ring.js';
 import { greetingFor, type Greeting } from '../core/progression/greeting.js';
 import { ticketFor } from '../core/ticket.js';
 import { folioCards } from '../core/folio.js';
-import { effectiveTone } from '../core/progression/persist.js';
+import { effectiveTone, MAX_RIVAL_SITTINGS } from '../core/progression/persist.js';
 import { LEAK_LABELS } from '../core/story/cast.js';
 import { renderTicket } from './screens/ticket.js';
 import { renderFolio } from './screens/folio.js';
@@ -152,7 +152,13 @@ import { SECTIONS, SECTION_GROUP_STARTS, sectionOf, subNavOf, litSubItem, type L
 import { renderSubNav } from './components/subnav.js';
 import { renderPlay } from './screens/play.js';
 import type { TableSize } from '../core/tableSize.js';
-import { renderNotYet, renderRivals, renderTrophies, renderYouProfile } from './screens/you.js';
+import { renderRivals, renderTrophies, renderYouProfile } from './screens/you.js';
+import { renderStyle } from './screens/style.js';
+import { renderLetters } from './screens/letters.js';
+import { styleRead, ARCHETYPE_STYLE } from '../core/style.js';
+import { draftLetter, fileLetters, type LetterInput } from '../core/letters.js';
+import { weekOf } from '../core/week.js';
+import { milestoneById } from '../core/progression/milestones.js';
 import { renderLocker } from './screens/locker.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
@@ -224,6 +230,8 @@ interface OffsuitBridge extends ProBridge, HandsBridge, IcmBridge {
   onlineDisconnect?: OnlineBridge['onlineDisconnect'];
   onlineExportIdentity?: OnlineBridge['onlineExportIdentity'];
   onOnlineEvent?: OnlineBridge['onOnlineEvent'];
+  /** You › Style: capture the card's rect and save it as a PNG where the learner picks. Absent outside Electron. */
+  saveStyleCard?: (rect: { x: number; y: number; width: number; height: number }) => Promise<'saved' | 'cancelled' | 'failed'>;
 }
 
 declare global {
@@ -1745,7 +1753,8 @@ async function boot(): Promise<void> {
     }
     if (which === 'rivals') return renderRivalsTab();
     if (which === 'locker') return renderLockerTab();
-    if (which === 'style' || which === 'letters') return renderNotYet(which);
+    if (which === 'style') return renderStyleTab();
+    if (which === 'letters') return renderLettersTab();
     if (which === 'learn') {
       if (learnView === 'folio') {
         return renderFolio({
@@ -2075,6 +2084,67 @@ async function boot(): Promise<void> {
         onOpenTrophies: () => go('trophies'),
       },
     );
+  }
+
+  /** You › Style: the engine's read of the hand log, the unmasked regulars on the same map, and the card to keep. */
+  function renderStyleTab(): HTMLElement {
+    const read = styleRead(session.hands, dayOf());
+    const story = session.progression.story;
+    const rivals = VENUES.filter((v) => isUnmasked(story, v)).map((v) => {
+      const r = rivalOf(v);
+      return { name: r.name, style: ARCHETYPE_STYLE[r.archetype] };
+    });
+    return renderStyle({
+      read,
+      name: session.progression.personalization.displayName,
+      week: read.since === null ? null : Math.floor((weekOf(today()) - weekOf(read.since)) / 7) + 1,
+      rivals,
+      onSave: io.saveStyleCard
+        ? (card) => {
+            const r = card.getBoundingClientRect();
+            return (io.saveStyleCard as NonNullable<OffsuitBridge['saveStyleCard']>)({ x: r.x, y: r.y, width: r.width, height: r.height });
+          }
+        : null,
+      onOpenLeakFinder: () => go('pro'),
+    });
+  }
+
+  function letterInput(): LetterInput {
+    const p = session.progression;
+    const sittings = VENUES.flatMap((v) =>
+      rivalRecordOf(p.story, v).sittings.map((s) => ({ day: s.day, venue: v.name, judged: s.judged, free: s.free })),
+    );
+    // A regular whose sittings reached the cap has dropped older ones: the story is whole only after its oldest kept.
+    const capped = VENUES.map((v) => rivalRecordOf(p.story, v).sittings).filter((list) => list.length >= MAX_RIVAL_SITTINGS && list.length > 0);
+    const sittingsWholeFrom = capped.length > 0 ? (Math.max(...capped.map((list) => list[0].day + 1)) as DayKey) : null;
+    return {
+      hands: session.hands,
+      assessments: session.assessments,
+      rules: currentFolio().map((c) => ({ text: c.text, day: c.writtenOn })),
+      milestones: p.milestones.achieved,
+      sittings,
+      sittingsWholeFrom,
+      leakPrinciple: costliestPrinciple(),
+      dayOf: dayOf(),
+    };
+  }
+
+  /** You › Letters. Ended weeks are filed as the page opens (one save), so a letter reads the same ever after. */
+  function renderLettersTab(): HTMLElement {
+    const p = session.progression;
+    const input = letterInput();
+    // A read-only profile files nothing: the store would refuse it, and a letter must not exist only in memory.
+    const letters = settings.profile.readOnly == null ? fileLetters(p.letters, input, today()) : p.letters;
+    if (letters !== p.letters) void saveProgression({ ...session.progression, letters });
+    return renderLetters({
+      draft: draftLetter(letters, input, today()),
+      filed: letters.filed,
+      name: p.personalization.displayName,
+      tone: effectiveTone(p.dee.personality),
+      leakPrinciple: costliestPrinciple(),
+      milestoneName: (id) => milestoneById(id)?.name ?? null,
+      onOpenTicket: () => go('home'),
+    });
   }
 
   /**

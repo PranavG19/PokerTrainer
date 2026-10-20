@@ -11,7 +11,7 @@ import {
   parseProgression,
   serializeProgression,
 } from '../../src/core/progression/persist.js';
-import { CHALK_DAILY_CAP, type ProgressionState } from '../../src/core/progression/types.js';
+import { CHALK_DAILY_CAP, MAX_LETTERS, type ProgressionState } from '../../src/core/progression/types.js';
 import type { DayKey } from '../../src/core/localDay.js';
 import { chalk, reps } from '../../src/core/units.js';
 import { deserialize, serialize } from '../../src/core/session.js';
@@ -95,6 +95,20 @@ function full(): ProgressionState {
     },
     folio: { polished: { 'pot-odds-as-a-price': [1_700_000_000_000, 1_700_100_000_000] } },
     tallies: { priceHeld: 3, ticketsFinished: 9, suggestionTakenOn: day(19603) },
+    letters: {
+      filed: [
+        {
+          week: day(19597),
+          n: 1,
+          lines: ['lt-open-1', 'lt-clean-1', 'lt-ps-1'],
+          slots: { hands: '24 hands', graded: '31 decisions', rule: 'the price is the call over the pot after I call', ruleDay: '3 Oct' },
+          figures: { hands: 24, graded: 31, sheet: 0, assessBb100: 4.2 },
+          style: 'closer',
+          hand: { hole: ['Kh', '2d'], board: ['4s', '4d', 'Kd', '9c', 'Js'], street: 'river', action: 'call', toCall: 450, pot: 900 },
+          shelf: ['depth-40'],
+        },
+      ],
+    },
   };
 }
 
@@ -188,6 +202,26 @@ describe('corrupt progression falls back without losing anything else', () => {
     expect(p.streak.current).toBe(5000);
     expect(p.reps.awards).toHaveLength(MAX_REP_AWARDS);
     expect(p.reps.awards[0].key).toBe('k5');
+  });
+
+  it('letters: one per week, bad slots and figures dropped, unknown line ids and styles kept for a newer build', () => {
+    const p = parseProgression({
+      letters: {
+        filed: [
+          { week: 19604, n: 2, lines: ['lt-from-the-future', 'lt-open-1'], slots: { hands: '3 hands', bad: 7 }, figures: { hands: 3, nan: 'x' }, style: 'the-wanderer', hand: { hole: ['Zz'] } },
+          { week: 19604, n: 9, lines: [] },
+          { week: 'x' },
+          { week: 19597, n: -1, lines: 'nope' },
+        ],
+      },
+    });
+    expect(p.letters.filed.map((l) => l.week)).toEqual([19597, 19604]);
+    expect(p.letters.filed[0]).toEqual({ week: 19597, n: 1, lines: [], slots: {}, figures: {}, style: null, hand: null, shelf: [] });
+    expect(p.letters.filed[1]).toMatchObject({ n: 2, lines: ['lt-from-the-future', 'lt-open-1'], slots: { hands: '3 hands' }, figures: { hands: 3 }, style: 'the-wanderer', hand: null });
+    const many = Array.from({ length: MAX_LETTERS + 3 }, (_, i) => ({ week: 10_000 + i * 7, n: i + 1, lines: [] }));
+    const kept = parseProgression({ letters: { filed: many } }).letters.filed;
+    expect(kept).toHaveLength(MAX_LETTERS);
+    expect(kept[0].week).toBe(10_021);
   });
 
   it('a "__proto__" id in a receipt map is skipped, not turned into a prototype', () => {
