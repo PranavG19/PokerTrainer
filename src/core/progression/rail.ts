@@ -22,6 +22,7 @@
  */
 
 import type { DayKey } from '../localDay.js';
+import { weekOf } from '../week.js';
 import { GRADER_VERSION, rate, type Rating } from '../online/ranked.js';
 import { MAX_RAIL_PROMOTIONS, MAX_RAIL_WEEKS, RAIL_WEEK_CAP } from './persist.js';
 import type { LossTally, RailState, RailWeek } from './types.js';
@@ -96,10 +97,8 @@ export function effectiveRailTier(state: RailState): RailTier {
 
 // ── Weeks ───────────────────────────────────────────────────────────────────────────────────────────
 
-/** The Monday that starts `day`'s week. DayKey 0 is a Thursday (1 Jan 1970). */
-export function weekOf(day: DayKey): DayKey {
-  return (day - ((((day + 3) % 7) + 7) % 7)) as DayKey;
-}
+/** The Monday that starts `day`'s week: the learner's week (week.ts), the same one the Style trail and Dee's letters use. */
+export { weekOf };
 
 export const EMPTY_LOSS: LossTally = { n: 0, sum: 0, sumSq: 0 };
 

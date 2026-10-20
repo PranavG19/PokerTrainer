@@ -8,8 +8,8 @@ import { chevron } from '../components/glyphs.js';
 import { conceptLabel } from './folio.js';
 
 /**
- * YOU (1.13): Profile and the Trophy room, plus the honest placeholders the owner's sub-nav names (the Locker is
- * screens/locker.ts).
+ * YOU (1.13): Profile, the Trophy room and Rivals (the Locker is screens/locker.ts, Style screens/style.ts, Letters
+ * screens/letters.ts).
  *
  * Profile shows DECISIONS, NEVER RESULTS: who the learner said they are, their rules in their own words, the
  * assessment block's EV loss by week, how often Sure was right, and what they have built (concepts, depth, the
@@ -353,17 +353,5 @@ export function renderRivals(rows: readonly RivalRow[], onOpen: (id: string) => 
     list.appendChild(b);
   }
   root.appendChild(list);
-  return root;
-}
-
-/** Style and Letters: listed in the owner's sub-nav, not built in this build. Honest, never locked or hidden. */
-export function renderNotYet(which: 'style' | 'letters'): HTMLElement {
-  const copy = {
-    style: ['Your style', 'One of four neutral styles from how you open and raise, with an eight-week trail. Not built in this build.'],
-    letters: ['Dee’s letters', 'A short weekly letter written from your week’s numbers, scripted, never generated. Not built in this build.'],
-  }[which];
-  const root = el('div', 'empty-state you-screen');
-  root.dataset.testid = `you-${which}`;
-  root.append(el('div', 'empty-state-title', copy[0]), el('div', 'empty-state-body', copy[1]));
   return root;
 }

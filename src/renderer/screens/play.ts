@@ -12,6 +12,8 @@ import { spadeIcon } from '../components/glyphs.js';
 export function renderPlay(opts: {
   session: SessionState;
   onNewSession: () => void;
+  /** A 6-max table (BUILD-PLAN 2.12): five opponents, the same free table otherwise. */
+  onNewSixMax: () => void;
   onStartPlanned: (plan: SessionPlan) => void;
   onPlayWithFriends: () => void;
   onStartAssessment: () => void;
@@ -32,6 +34,7 @@ export function renderPlay(opts: {
   launch.className = 'g-group home-launch';
   launch.append(
     renderNewSessionCard(opts.onNewSession),
+    launchRow('play-six-max', spadeIcon(), '6-max table', 'Five opponents, UTG round to the big blind', opts.onNewSixMax),
     renderPlayWithFriendsCard(opts.onPlayWithFriends),
     launchRow('play-assessment', spadeIcon(), 'Assessment block', 'Thirty spots with the feedback held to the end', opts.onStartAssessment),
   );

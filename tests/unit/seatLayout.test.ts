@@ -18,8 +18,21 @@ describe('seatSlots', () => {
     ]);
   });
 
-  it('6-max (5 villains, the LAN maximum) puts three across the top', () => {
-    expect(seatSlots(5).map(key)).toEqual(['left:0', 'top:0', 'top:1', 'top:2', 'right:0']);
+  it('6-max (5 villains) is two per side and one on top, clockwise: an oval clear of the table corners', () => {
+    // Left column bottom→top (descending index), the one top seat, right column top→bottom.
+    expect(seatSlots(5)).toEqual([
+      { area: 'left', index: 1, count: 2 },
+      { area: 'left', index: 0, count: 2 },
+      { area: 'top', index: 0, count: 1 },
+      { area: 'right', index: 0, count: 2 },
+      { area: 'right', index: 1, count: 2 },
+    ]);
+  });
+
+  it('both solo tables (3 and 5 villains) seat exactly one on top, in the centre clear of the table corners', () => {
+    // A 5-handed table (4 villains) would put two on top, but the solo table seats 3 or 5 villains, and a busted
+    // villain keeps its chair (table.ts lays out every villain seat), so the count never changes mid-session.
+    for (const v of [3, 5]) expect(seatSlots(v).filter((s) => s.area === 'top')).toHaveLength(1);
   });
 
   it('9-max (8 villains) uses two per side and four across the top, clockwise', () => {

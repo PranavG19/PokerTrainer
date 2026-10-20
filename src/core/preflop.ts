@@ -289,9 +289,9 @@ export function rfiWidth(position: Position): number {
  * loose calls as fine ("call too wide", the commonest losing leak) and charged correct folds as leaks.
  * `equity.equityVsRange` fixes that by drawing the villain's cards from THIS range instead of the deck.
  *
- * MODEL, not a solve — read the verdict as a FLOOR, not a point estimate. Both the live table and the
- * assessment block are 4-handed, so there is no clean 6-max seat to map the aggressor onto and read a
- * position-specific range; and the app models ranges only preflop, never a street-by-street continuation
+ * MODEL, not a solve — read the verdict as a FLOOR, not a point estimate. The live table was 4-handed when
+ * this was written (the 6-max table came later) and the assessment block still is, so the bettor's range here
+ * is not read by position; and the app models ranges only preflop, never a street-by-street continuation
  * range. So this is deliberately a single, position-independent, value-weighted range built from the SAME
  * monotonic-threshold machinery (`RfiSpec` + `inThresholds`) and combo-weighting the RFI ranges use. It is
  * calibrated to a documented midpoint: strictly stronger than random (that is the bug it removes) but not
