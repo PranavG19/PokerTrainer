@@ -1,36 +1,40 @@
-# Independent review: cosmetics and the Locker (branch feat-cosmetics): receipts, paint only (1.7, 2.13)
+# Independent review: the Ghost Rail and offline Seasons (branch feat-ghost-rail-seasons) (2.5, 2.7)
 
-Two passes by one reviewer agent with no author context. It reviewed read-only and ran typecheck and units only (no
+Four passes by one reviewer agent with no author context. It reviewed read-only and ran typecheck and units only (no
 Playwright or build: the shared e2e lock governs those).
 
-| Pass | HEAD | Verdict |
-|---|---|---|
-| 1. Review | f0d3d26 | **PASS WITH NOTES**: nothing blocking; two medium, three low, one judgement call, four test gaps |
-| 2. Re-review | df44e45 | **PASS WITH NOTES**: every fix correct; two low test gaps, fixed in the final commit |
+| Pass | Verdict |
+|---|---|
+| 1. Review | **PASS WITH FIXES**: no blocker; two major, four minor, four nits, four test gaps |
+| 2. Re-review | **PASS WITH FIXES**: every fix correct; one major (estimate), one minor, four nits |
+| 3. Re-review | **PASS WITH FIXES**: one minor regression from round 2, one stale line of copy |
+| 4. Re-review | **PASS**: nothing new |
 
 ## Findings and outcomes
 
 | ID | Finding | Outcome |
 |---|---|---|
-| 1 (M) | An equip in a slot this build does not know is dropped on save (`persist.ts` reads the known slots only) | **Open, for the owner.** The parser predates this branch and `progression.test` pins the drop, so changing it changes how an existing persisted field parses. No newer build exists yet, so nothing is lost today |
-| 2 (M) | A preview could differ from the item worn: `--back-frame` was set by two backs only, and the Graphite rim read `--chip-b` | Fixed in df44e45, red first: every item declares every token of its slot and reads no other slot's (`cosmetics.test` parses the sheet); `locker.spec` checks preview against worn for every pair in a slot |
-| 3 (L-M) | Focus fell to `<body>` after Use | Fixed, red first: focus lands on the worn item's tile |
-| 4 (L) | The worn finish covered Dee's DEALER micro-text at 80px and up; a comment still said "dash" | Fixed: the ring is drawn under the bevel, face and text |
-| 5 (L) | With a newer build's item worn, the default claimed "In use" and could not be worn | Fixed, red first: worn-ness is read from the stored id |
-| 6 (L) | Library's desk bands were green, a hue reserved for the table | Fixed: browns and greys |
-| 7 | Tests could pass on broken code: no check that every paint value has a block; the allowlist ran on the table only; preview of an owned, unworn item untested | Fixed: token-completeness unit tests; the allowlist also swaps on the Locker stage (Dee's finish, the moment); a preview-does-not-wear test |
-| R2-a (L) | The required token set came from the default block only | Fixed: it is the union over the slot's items |
-| R2-b (L-M) | The allowlist's Locker pass swapped on the document, which the stage ignores | Fixed: it swaps on the stage and asserts stroke and background changes were seen there |
+| 1 (M) | Stopping the week once under the pace lifted promotion odds from 1.8% to 18% (simulated) | Fixed, red first: a week is judged on exactly its first 40 scored decisions and rated only when it has them |
+| 2 (M) | The Rail's right column clipped Past weeks at 900x640 (the column hides overflow; noPageScroll cannot see it) | Fixed: Past weeks flexes and scrolls inside itself, three rows |
+| 3 (L) | An older build settled weeks against a newer build's tier as 'held' | Fixed, red first: an unknown tier leaves the week open |
+| 4 (L) | Corrupt promotions could invent moves (and Five Up); a corrupt tier read as a demotion | Fixed, red first: known pairs must be one step up, one move per week, tier at least the highest known move |
+| 5 (L) | Ladder names clipped at 900 px | Fixed: rungs show 2 … A, the name in aria-label |
+| 6 (L) | The archive counted a finale-week move as held at the close | Fixed, red first: a move is held from the next Monday |
+| 7 (nit) | A non-finite grade counted as a free decision | Fixed, red first: skipped |
+| 8 (nit) | e2e read the file before the save; playBlock did not assert its clicks | Fixed: polled; asserted |
+| 9 (nit) | Pre-existing: with saves failing past 500 awards, evicted hand keys pay again, now into the Rail and Season too | **Open** (inherited ledger behaviour; FINDINGS open question) |
+| 10 (nit) | Hard-coded 400 / "30-spot" copy; a seed out of step with its weeks | Fixed: constants (a block is 30 hands); seed consistent |
+| R2-1 (M, estimate) | Dropping decisions past the 400-Rep line left ordinary weeks unrated | Fixed, red first: the line is on Reps only (VISION §4); the week is 40 decisions (decision to evaluate) |
+| R2-2 (L) | A week at its count was marked mixed by a later grader's hand | Fixed, red first |
+| R2-3 (L) | DECISIONS.md stale | Fixed in place, with Supersedes notes |
+| R2-4 (nit) | A late-settled older move vanished on reload | Fixed, red first: promotions kept in week order |
+| R2-5 (nit) | A stored week over the count was rated on all of it | Fixed, red first: read at the count, mean kept |
+| R2-6 (nit) | Profile's links light Trophies | Accepted: the sub-nav marks a section (DECISIONS.md) |
+| R3-1 (L) | After the week-order sort, the archived tier read the last move, not the highest | Fixed, red first |
+| R3-2 (L) | Rail copy still said play counts 0 past the line | Fixed |
 
-## Found while fixing
-- The first Inlaid rim used `stroke-dasharray`, which re-lays out the SVG. The extended `theme.spec` caught it (one
-  layout); no finish uses a dash, and the allowlist no longer accepts one.
-- The allowlist test's snapshot leaves out the title-bar perch, whose Dee blinks on a timer. The stage's Dee is measured.
-
-## Checked and found fine (both passes)
-- Earning reads only milestone receipts, Seal receipts and `story.chapters[].beatenOn`; nothing reads chips, pots or
-  results; nothing is priced, sold or random; the Chalk ledger is never written; every receipt is `chalk: 0`.
-- Every save goes through `applyProgress`, so receipts are filed with the ratchets that earn them, dated the day the
-  fact first held, and never taken back.
-- Cosmetic blocks set custom properties only; the pins are untouched; there is one bone primary on the Locker;
-  nothing in the app is locked; the celebration footnote is honest about the unbuilt session-end moment.
+## Checked and found fine
+Existing Reps, streak, Ticket and `paid` behaviour unchanged; idempotency under stale and replayed saves (including a
+full 500-entry log); week and season maths with negative modulo and the 4 am turn; the daily line across saves; no
+demotion path; no schema bump, PROGRESSION_SHAPE keys added, tolerant parsers; no mint, no hex in screen CSS, nothing
+for sale, copy passes the lint; the e2e dates resolve as the spec expects.
