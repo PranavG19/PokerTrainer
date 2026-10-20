@@ -185,6 +185,16 @@
   --moment-origin: center;
   --moment-mark: radial-gradient(circle, var(--ring-fill) 0 1px, transparent 1.5px) 0 50% / 9px 2px;
 }
+[data-celebration='ink-ring'] {
+  --moment-anim: moment-stars;
+  --moment-origin: center;
+  --moment-mark: radial-gradient(circle at 50% 50%, transparent 0 30%, var(--ring-fill) 34% 46%, transparent 50%);
+}
+[data-celebration='two-lights'] {
+  --moment-anim: moment-sweep;
+  --moment-origin: center;
+  --moment-mark: radial-gradient(circle at 40% 50%, var(--ring-fill) 0 1.5px, transparent 2px), radial-gradient(circle at 60% 50%, var(--ring-fill) 0 1.5px, transparent 2px);
+}
 @keyframes moment-underline {
   0% { opacity: 0; transform: scaleX(0); }
   30% { opacity: 1; transform: scaleX(1); }
@@ -207,6 +217,41 @@
   35% { opacity: 1; transform: scale(1); }
   80% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.04); }
+}
+
+/* ─── The moment (components/moment.ts, 1.10): session end only, at most --dur-moment, click-through ───
+ * Fixed and out of flow, so it lays nothing out under it; the coat's own type, no glass, no gold. */
+.moment {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--nav-h) + 18px);
+  translate: -50% 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 22px;
+  border-radius: var(--r-sheet);
+  background: var(--float);
+  box-shadow: var(--float-shadow), var(--float-highlight);
+  pointer-events: none;
+  animation: moment-fade var(--dur-moment) linear both;
+}
+.moment-title { font-size: var(--t-head); font-weight: 600; color: var(--ink-1); }
+.moment-line { font-size: var(--t-foot); color: var(--ink-2); }
+.moment-mark {
+  display: block;
+  width: 96px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--moment-mark);
+  transform-origin: var(--moment-origin);
+  animation: var(--moment-anim) var(--dur-moment) var(--ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .moment,
+  .moment-mark { animation: none; }
 }
 
 /* ═══════════════════════════════ Part 2: the Locker ═══════════════════════════════ */

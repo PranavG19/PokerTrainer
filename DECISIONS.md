@@ -96,7 +96,7 @@ Owner decisions in force: D18 (the Ghost Rail allowed: labelled bots and your pa
   unchanged. Milestones: Off the Rail Floor (felt "Ghost rail"), Five Up, The
   Delayed Test, Full Track (Dee finish "Season stamp").
 
-## Cosmetics, the Locker and Chalk (branches `feat-cosmetics`, `feat-chalk`): paint only (1.7, 2.13, 2.6)
+## Cosmetics, the Locker, Chalk and the moment (branch `feat-cosmetics`): paint only (1.7, 2.13, 2.6, 1.10)
 Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic), D4 (build Chalk,
 answered 2026-10-20: "build everything you can"). Supersedes: receipts only, because the owner chose Chalk.
 - **Chalk's curve** (`src/core/economy/chalk.ts`): 1 per Rep for a local day's first 150 Reps, ½ per Rep to 300, then
@@ -106,9 +106,8 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
   shows and spends the balance the next save will file, so today's Chalk counts before it is saved. This curve is the one Reps → Chalk step; nothing turns
   Chalk into Reps or chips, and `chalk(` is minted only in units, the parser, the economy and the Locker rules
   (`economy.test`).
-- **Prices are fixed and published:** 150, 450, 1,000, 2,400 (`CHALK_PRICES`), on 11 priced items. `spendItem` reads
-  the price from the catalogue, so a mastery or day-one item can never be sold. No celebration is priced while the
-  session-end moment is unbuilt. Spending takes two presses ("Spend 450 Chalk", then "Confirm"): a confirm within
+- **Prices are fixed and published:** 150, 450, 1,000, 2,400 (`CHALK_PRICES`), on 13 priced items. `spendItem` reads
+  the price from the catalogue, so a mastery or day-one item can never be sold. Spending takes two presses ("Spend 450 Chalk", then "Confirm"): a confirm within
   500 ms (a double-click) or from key repeat (a held Enter) is ignored, an armed confirm lapses after 8 s, and the
   button is off until the save lands. A read-only profile
   cannot spend or wear. The receipt records the Chalk spent. No sales, discounts, bundles, timers or random drops;
@@ -131,7 +130,19 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
   / `--bet-edge`. The streak ring stays bone, so a chip set never repaints a habit mark.
 - **Themes stay a free device setting:** Dusk and Library join Glass and Obsidian (`store.ts` THEMES), each a desk-band
   swap only. A theme is never a Locker item.
-- **Celebrations are stored and previewed only:** no session-end moment exists yet (1.10), and the Locker says so.
+- **The celebration moment (1.10, `components/moment.ts`)** plays the worn celebration once when a save finishes a
+  session (the Ticket, an assessment block, a story table, the day's twelfth hand). It never shows over a verdict:
+  it waits for the sheet or the coach panel's costly verdict to close (often as the next hand deals; it is
+  click-through), and is dropped after 30 s. It lasts at most 1600 ms. Under reduced motion the words show still.
+  A soft clack plays only when the sound switch is on; that switch's note now says so. Supersedes: celebrations
+  stored and previewed only, because the moment is built. Two celebrations are now priced.
+- **Profile schema while there are no customers (owner):** edit the current version in place and never bump
+  `SCHEMA_VERSION`. A one-time `scripts/fix-profile-*.ts` repairs existing local profiles (dry run by default; a
+  backup checked byte for byte before any write). Supersedes: a migration step and a version bump.
+- **Equips in a slot only a newer build knows are carried** through a save (the item must be owned). Supersedes:
+  dropping them (`progression.test` pinned the drop). `scripts/fix-profile-cosmetics.ts` brings a local profile's
+  cosmetics to this build. The owner's real profile is v1 (no `progression`), so the dry run skips it, and the
+  app migrates it on load.
 - **Specs:** `theme.spec` swaps every theme and every item on the table, in the Locker and on its stage with zero
   layout. `locker.spec` wears every item and allows only paint properties to change, with no rect moving.
 

@@ -590,7 +590,7 @@ function renderSoundCues(soundCues: boolean, handlers: SettingsHandlers): HTMLEl
   note.className = 'settings-note';
   note.dataset.testid = 'sound-cues-note';
   note.textContent = soundCues
-    ? 'On. A short tone plays on this machine when a decision costs chips — nothing is sent anywhere. The verdict still shows on screen.'
+    ? 'On. A short tone plays on this machine when a decision costs chips, and a soft clack when a session ends — nothing is sent anywhere. The verdict still shows on screen.'
     : 'Off. Verdicts are shown, never chimed.';
   wrap.appendChild(note);
 

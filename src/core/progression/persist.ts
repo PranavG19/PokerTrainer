@@ -371,6 +371,13 @@ function parseCosmetics(obj: Record<string, unknown>, d: CosmeticsState): Cosmet
     // Equipping is only ever of something owned; a dangling equip is dropped, not granted.
     if (item !== null && ownedSet.has(item)) equipped[slot] = item;
   }
+  // A slot a newer build added is carried as it is, an owned item only, so this build's save never drops it (an older
+  // build never overwrites a newer value; AGENTS.md "Profile schema"). Readers ignore slots they do not know.
+  const known: ReadonlySet<string> = new Set(COSMETIC_SLOTS);
+  for (const slot of Object.keys(equippedRaw)) {
+    const item = id(equippedRaw[slot]);
+    if (!known.has(slot) && slot !== '__proto__' && item !== null && ownedSet.has(item)) (equipped as Record<string, string>)[slot] = item;
+  }
   const receipts: Receipt[] = [];
   for (const value of asArray(obj.receipts)) {
     const entry = asRecord(value);

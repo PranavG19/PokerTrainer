@@ -30,7 +30,7 @@ const SLOT_NOTE: Record<CosmeticSlot, string> = {
   felt: 'Tints of the lit zone',
   chipSet: 'The bet’s two tones',
   deeRim: 'Dee’s rim only',
-  celebration: 'The session-end moment’s look',
+  celebration: 'Plays when a session ends',
 };
 
 const USE_LABEL: Record<CosmeticSlot, string> = {
@@ -335,7 +335,7 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
     'Chalk comes from practice only: 1 per Rep to 150 a day, ½ to 300, at most 225 a day. Prices are fixed and never discounted; Chalk is never bought and never converts.',
   );
   foot.dataset.testid = 'locker-foot';
-  if (opts.slot === 'celebration') foot.textContent = 'Kept for the session-end moment, which arrives with a later build. Chalk comes from practice only and is never bought; prices are fixed.';
+  if (opts.slot === 'celebration') foot.textContent = 'Plays once when a session ends, for at most 1.6 seconds, never over a verdict. Chalk comes from practice only and is never bought; prices are fixed.';
   right.append(seg, wallet, head, grid, foot);
 
   const cols = el('div', 'locker-cols');

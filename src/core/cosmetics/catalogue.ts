@@ -86,12 +86,14 @@ export const CATALOGUE: readonly CosmeticItem[] = [
   { id: 'rim-lamplit', slot: 'deeRim', name: 'Lamplit', paint: 'lamplit', earn: { kind: 'keepsakes', count: 1 } },
   { id: 'rim-linen', slot: 'deeRim', name: 'Linen', paint: 'linen', earn: price(150) },
   { id: 'rim-walnut', slot: 'deeRim', name: 'Walnut', paint: 'walnut', earn: price(1000) },
-  // Celebrations (2.13): the session-end moment's look, capped at 1600 ms, transform and opacity only. None is priced
-  // while the moment itself is unbuilt (1.10): Chalk never buys something that only shows in the Locker.
+  // Celebrations (2.13): the session-end moment's look (components/moment.ts, 1.10), capped at 1600 ms, transform and
+  // opacity only.
   { id: 'cele-quiet-underline', slot: 'celebration', name: 'Quiet underline', paint: 'quiet-underline', earn: DAY_ONE },
   { id: 'cele-light-sweep', slot: 'celebration', name: 'Light sweep', paint: 'light-sweep', earn: ms('price-held-first') },
   { id: 'cele-page-turn', slot: 'celebration', name: 'Page turn', paint: 'page-turn', earn: ms('ticket-first') },
   { id: 'cele-constellation', slot: 'celebration', name: 'Constellation draw', paint: 'constellation', earn: ms('concepts-12') },
+  { id: 'cele-ink-ring', slot: 'celebration', name: 'Ink ring', paint: 'ink-ring', earn: price(450) },
+  { id: 'cele-two-lights', slot: 'celebration', name: 'Two lights', paint: 'two-lights', earn: price(2400) },
 ];
 
 export function itemById(id: string): CosmeticItem | undefined {

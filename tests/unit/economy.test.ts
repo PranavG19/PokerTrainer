@@ -198,8 +198,10 @@ describe('review round 1 (Chalk)', () => {
     expect(chalkLeftToday(l, day(19))).toBe(0);
   });
 
-  it('no priced item in a slot whose effect is not built yet (celebrations: the session-end moment)', () => {
-    expect(CATALOGUE.filter((i) => i.slot === 'celebration' && i.earn.kind === 'chalk')).toEqual([]);
+  it('celebrations are priced only now that the session-end moment plays them (components/moment.ts exists)', () => {
+    const priced = CATALOGUE.filter((i) => i.slot === 'celebration' && i.earn.kind === 'chalk');
+    expect(priced.length).toBeGreaterThan(0);
+    expect(fs.existsSync(path.resolve(__dirname, '../../src/renderer/components/moment.ts'))).toBe(true);
   });
 
   it('spend checks the catalogue itself: a mastery item, an unknown id, or a day-one item is never sold', () => {

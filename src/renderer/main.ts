@@ -182,6 +182,7 @@ import { renderRail } from './screens/rail.js';
 import { renderSeason, type SeasonPane } from './screens/season.js';
 import { railBoard, settleRail } from '../core/progression/rail.js';
 import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
+import { playMoment } from './components/moment.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { CHALK_DAILY_CAP, COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
 import { chalkLeftToday, earnChalk, spendItem } from '../core/economy/chalk.js';
@@ -359,6 +360,8 @@ async function boot(): Promise<void> {
   let saveFailing = false;
   // Every save goes through here, so a refusal or a failure shows the banner the moment it happens,
   // whichever of the ~20 save sites hit it.
+  // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
+  const soundPlayer = createSoundPlayer();
   const io: OffsuitBridge = {
     ...base,
     saveState: async (obj) => {
@@ -384,6 +387,16 @@ async function boot(): Promise<void> {
       if (settings.profile.readOnly == null) {
         const letters = fileLetters(session.progression.letters, letterInput(), today());
         if (letters !== session.progression.letters) session = { ...session, progression: { ...session.progression, letters } };
+      }
+      // The celebration moment (1.10): a session just ended. It waits out any verdict on screen, and is silent unless
+      // sound is on.
+      if (applied.finished.length > 0) {
+        const streak = session.progression.streak;
+        playMoment({
+          finished: applied.finished,
+          streak: currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())),
+          sound: session.soundCues ? () => soundPlayer.clack() : undefined,
+        });
       }
       const toSave = session;
       // A profile delete while this save is in flight must not make the deleted session the next diff's base.
@@ -439,8 +452,6 @@ async function boot(): Promise<void> {
   let deleting = false;
   /** An import is replacing the profile: nothing more is saved, and the app reloads onto the import. */
   let replacing = false;
-  // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
-  const soundPlayer = createSoundPlayer();
 
   let tab: Tab = 'home';
   // Which mode the Train hub opens on. Set by a deep-link (the recommender's "drill" route) or a rail
