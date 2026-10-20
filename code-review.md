@@ -1,36 +1,34 @@
-# Independent review: cosmetics and the Locker (branch feat-cosmetics): receipts, paint only (1.7, 2.13)
+# Independent review: Settings — Character, Celebrations and the local trial (branch feat-settings-trial, 1.8)
 
-Two passes by one reviewer agent with no author context. It reviewed read-only and ran typecheck and units only (no
-Playwright or build: the shared e2e lock governs those).
+Two passes, each by a fresh reviewer agent with no author context. Both reviewed read-only and ran only the typecheck
+and unit tests; Playwright runs go through the shared e2e lock.
 
 | Pass | HEAD | Verdict |
 |---|---|---|
-| 1. Review | f0d3d26 | **PASS WITH NOTES**: nothing blocking; two medium, three low, one judgement call, four test gaps |
-| 2. Re-review | df44e45 | **PASS WITH NOTES**: every fix correct; two low test gaps, fixed in the final commit |
+| 1. Review | bc5a8bd | **PASS WITH NOTES**: no high findings, no egress, no deletion; 2 medium defects, 1 medium design risk, 10 low |
+| 2. Re-review | 97a5909 | **PASS WITH NOTES**: all 8 fixes correct; 1 medium (the mid-trial table), 6 low, fixed in d58dd62 |
 
 ## Findings and outcomes
 
 | ID | Finding | Outcome |
 |---|---|---|
-| 1 (M) | An equip in a slot this build does not know is dropped on save (`persist.ts` reads the known slots only) | **Open, for the owner.** The parser predates this branch and `progression.test` pins the drop, so changing it changes how an existing persisted field parses. No newer build exists yet, so nothing is lost today |
-| 2 (M) | A preview could differ from the item worn: `--back-frame` was set by two backs only, and the Graphite rim read `--chip-b` | Fixed in df44e45, red first: every item declares every token of its slot and reads no other slot's (`cosmetics.test` parses the sheet); `locker.spec` checks preview against worn for every pair in a slot |
-| 3 (L-M) | Focus fell to `<body>` after Use | Fixed, red first: focus lands on the worn item's tile |
-| 4 (L) | The worn finish covered Dee's DEALER micro-text at 80px and up; a comment still said "dash" | Fixed: the ring is drawn under the bevel, face and text |
-| 5 (L) | With a newer build's item worn, the default claimed "In use" and could not be worn | Fixed, red first: worn-ness is read from the stored id |
-| 6 (L) | Library's desk bands were green, a hue reserved for the table | Fixed: browns and greys |
-| 7 | Tests could pass on broken code: no check that every paint value has a block; the allowlist ran on the table only; preview of an owned, unworn item untested | Fixed: token-completeness unit tests; the allowlist also swaps on the Locker stage (Dee's finish, the moment); a preview-does-not-wear test |
-| R2-a (L) | The required token set came from the default block only | Fixed: it is the union over the slot's items |
-| R2-b (L-M) | The allowlist's Locker pass swapped on the document, which the stage ignores | Fixed: it swaps on the stage and asserts stroke and background changes were seen there |
-
-## Found while fixing
-- The first Inlaid rim used `stroke-dasharray`, which re-lays out the SVG. The extended `theme.spec` caught it (one
-  layout); no finish uses a dash, and the allowlist no longer accepts one.
-- The allowlist test's snapshot leaves out the title-bar perch, whose Dee blinks on a timer. The stage's Dee is measured.
-
-## Checked and found fine (both passes)
-- Earning reads only milestone receipts, Seal receipts and `story.chapters[].beatenOn`; nothing reads chips, pots or
-  results; nothing is priced, sold or random; the Chalk ledger is never written; every receipt is `chalk: 0`.
-- Every save goes through `applyProgress`, so receipts are filed with the ratchets that earn them, dated the day the
-  fact first held, and never taken back.
-- Cosmetic blocks set custom properties only; the pins are untouched; there is one bone primary on the Locker;
-  nothing in the app is locked; the celebration footnote is honest about the unbuilt session-end moment.
+| 1.1 (M) | An older build read a newer build's unknown trial status as "none" and let Start replace the whole trial | Fixed in 97a5909, red first: `startRefusal` reads the raw status and start day |
+| 1.2 (M) | `countBlock` re-ran each concept's whole drill history for every rep, on every save (383 ms at 3,000 × 3,000) | Fixed in 97a5909: counting is incremental from a per-week high-water mark, and only concepts with a new rep are replayed |
+| 1.3 (M, design) | The late-night and busy-day criteria compared raw totals, so more practice in on weeks tripped them | Changed in 97a5909: they compare shares, with minimum samples. Recorded in DECISIONS.md as a decision to evaluate |
+| 1.4 (L) | Taking the max of each field kept a capped log from shrinking a week but also stopped it growing | Fixed in 97a5909, red first (incremental counting) |
+| 1.5 (L) | An empty save filed an empty week, so "weeks with a session" over-counted | Fixed in 97a5909, red first |
+| 1.6 (L) | Practice earlier on the start day, before Start was pressed, counted | Fixed in 97a5909, red first: `startedAt` |
+| 1.7 (L) | Verdicts showed mid-trial, which could bias the remaining weeks, and on a stopped trial, which is never judged | Fixed in 97a5909: verdicts appear only once results are ready or finished |
+| 1.8 (L) | Quieter spacing allowed a line on the Nth hand, and it also silenced the session summary | Fixed in 97a5909, red first: N silent hands; the summary is exempt |
+| 1.9 (L) | An off week that starts while a table is open applies at the next save or table | Open, accepted: the next save or table rebuild applies it |
+| 1.10 (L) | `observeTrial` ran inside `saveState` with no guard | Fixed: wrapped in try/catch; the old counts stand |
+| 1.11 (L) | The baseline kept all seven Calibration fields | Fixed, red first: three fields |
+| 1.12 (L) | a11y: Start's reason was not live; Dee's screen gives no off-week note; aria-pressed vs aria-checked differ between screens | The reason is now `aria-live`. The other two stay open (Settings follows its own theme idiom) |
+| 1.13 (L) | Test gaps (off-week Dee silence at the table, a loose mastered assertion, the 4 am day in e2e) | The mastered assertion is exact; e2e accepts either side of 4 am. The off-week check is by `html[data-character]`, the attribute every Dee mark reads |
+| 2.1 (M) | The running view's on-vs-off table still let the verdict be worked out | Fixed in d58dd62: while running, every week is pooled into one column, and `data-tripped` is set only once results are ready or finished |
+| 2.2 (L) | One save with a fast clock stalled a week until real time caught up | Fixed in d58dd62: a mark past now is filed back at now, so at most one save's activity is lost (test) |
+| 2.3 (L) | Blocks without `through` double-count | e2e fixtures carry `through`. Never shipped: bc5a8bd was not merged |
+| 2.4 (L) | The table showed late and busy totals where the criteria use rates | Fixed: share (n) |
+| 2.5 (L) | Fields inside a block or the baseline can't be carried | Recorded in DECISIONS.md: a later field goes in a new key |
+| 2.6 (L) | Stale header comment | Fixed |
+| 2.7 (L) | No test that a session continues across saves, or that a delayed rep reads history older than the mark | Added (unit) |
