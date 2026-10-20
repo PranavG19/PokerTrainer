@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp } from './helpers.js';
+import { launchApp, sel } from './helpers.js';
+import { CATALOGUE } from '../../src/core/cosmetics/catalogue.js';
+import { SLOT_ATTRIBUTE } from '../../src/core/cosmetics/locker.js';
 
 /**
  * The Nocturne theme system: graphite is the default (no attribute, painted by :root), a switch sets a
@@ -133,6 +135,57 @@ test('a theme switch changes paint only — zero layout, at least one style reca
       metric(afterGeom, 'LayoutCount') - metric(beforeGeom, 'LayoutCount'),
       'oracle sanity: a geometry change DOES trigger layout',
     ).toBeGreaterThanOrEqual(1);
+  } finally {
+    await close();
+  }
+});
+
+/**
+ * Every cosmetic slot and every theme, one value at a time, on the live table and in the Locker: each swap is paint
+ * only (zero layout, at least one style recalc). Cosmetics are one documentElement attribute per slot, like the theme
+ * (styles-cosmetics.css), so the same CDP oracle applies. The Locker's preview stage carries the same attributes.
+ */
+const SWAPS: { attr: string; value: string }[] = [
+  ...['obsidian', 'dusk', 'library'].map((value) => ({ attr: 'data-theme', value })),
+  ...CATALOGUE.map((i) => ({ attr: `data-${SLOT_ATTRIBUTE[i.slot]}`, value: i.paint })),
+];
+
+test('every theme and every cosmetic in every slot changes paint only, on the table and in the Locker (CDP)', async () => {
+  const { page, close } = await launchApp({ userDataDir: freshUserDataDir() });
+  try {
+    await page.waitForSelector('[data-testid="home-screen"]');
+    const client = await page.context().newCDPSession(page);
+    await client.send('Performance.enable');
+    const metric = (r: { metrics: { name: string; value: number }[] }, k: string) => r.metrics.find((m) => m.name === k)?.value ?? 0;
+    const swapOn = async (target: 'html' | 'stage', where: string) => {
+      for (const { attr, value } of SWAPS) {
+        if (target === 'stage' && attr === 'data-theme') continue;
+        // The stage starts on what is worn (the defaults here): setting the same value is no swap at all.
+        const current = await page.evaluate(([t, a]) => (t === 'html' ? document.documentElement : document.querySelector('[data-testid="locker-stage"]'))?.getAttribute(a) ?? null, [target, attr]);
+        if (current === value) continue;
+        await page.evaluate(() => void document.body.getBoundingClientRect());
+        const before = await client.send('Performance.getMetrics');
+        await page.evaluate(([t, a, v]) => {
+          const el = t === 'html' ? document.documentElement : (document.querySelector('[data-testid="locker-stage"]') as HTMLElement);
+          el.setAttribute(a, v);
+          void document.body.getBoundingClientRect();
+        }, [target, attr, value]);
+        const after = await client.send('Performance.getMetrics');
+        expect(metric(after, 'RecalcStyleCount') - metric(before, 'RecalcStyleCount'), `${where} ${attr}=${value} recalcs`).toBeGreaterThanOrEqual(1);
+        expect(metric(after, 'LayoutCount') - metric(before, 'LayoutCount'), `${where} ${attr}=${value} lays out`).toBe(0);
+        if (target === 'html') await page.evaluate((a) => document.documentElement.removeAttribute(a), attr);
+      }
+    };
+    await page.click(sel.newHand);
+    await page.waitForSelector('[data-testid="table-screen"][data-awaiting="hero"]');
+    await page.waitForTimeout(500);
+    await swapOn('html', 'table');
+    await page.click('[data-testid="tab-you"]');
+    await page.click('[data-testid="tab-locker"]');
+    await page.waitForSelector('[data-testid="locker-stage"]');
+    await page.waitForTimeout(300);
+    await swapOn('html', 'locker');
+    await swapOn('stage', 'locker stage');
   } finally {
     await close();
   }

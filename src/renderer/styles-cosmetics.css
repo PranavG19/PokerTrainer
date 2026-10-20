@@ -1,0 +1,403 @@
+/* ─────────────────────────────────────────────────────────────────────────────────────────────────
+ * COSMETICS — earn-only, paint-only receipts (VISION Pillar 5; BUILD-PLAN 1.7, 2.13) and the Locker.
+ *
+ * Part 1 is the catalogue's paint. Each slot is ONE attribute (html[data-back|felt|chips|rim|celebration],
+ * src/core/cosmetics/catalogue.ts `paint`), and every rule below sets custom properties only. The kit reads them
+ * (styles-glass.css: .card-back, .table-stage::before, .seat-committed; components/dee.ts: .dee-finish), so an
+ * equip repaints and never lays out (theme.spec measures it, locker.spec allowlists the computed styles that may
+ * change). The rules use bare attribute selectors, not html[…], so the Locker's preview stage, which carries the
+ * same attributes, shadows the document's tokens by inheritance. Defaults come first and restate the day-one
+ * item, so a later item block of equal specificity wins on the root.
+ *
+ * Pinned values are never touched: --text-hi, --positive, the to-act ring, seat opacity. Card faces, seat layout
+ * and stack display are never cosmetic. Mint is never a cosmetic colour; coral and amber stay role colours.
+ * Part 2 is the Locker screen (tokens only).
+ * ───────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/* ─── Card backs ─── */
+:root,
+[data-back='graphite'] {
+  --back-a: #1C2026;
+  --back-frame: rgba(255, 255, 255, 0.12);
+  --back-pattern:
+    repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.05) 0 0.5px, transparent 0.5px 3.5px),
+    repeating-linear-gradient(-60deg, rgba(255, 255, 255, 0.05) 0 0.5px, transparent 0.5px 3.5px),
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%);
+}
+[data-back='etched-river'] {
+  --back-a: #1A1F27;
+  --back-pattern:
+    repeating-radial-gradient(140% 60% at 50% 115%, rgba(255, 255, 255, 0.075) 0 0.6px, transparent 0.6px 3.2px),
+    linear-gradient(transparent 46%, rgba(244, 242, 236, 0.22) 49% 51%, transparent 54%),
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%);
+}
+[data-back='guilloche'] {
+  --back-a: #1B1E25;
+  --back-pattern:
+    radial-gradient(circle at 50% 50%, rgba(244, 242, 236, 0.5) 0 6%, transparent 7%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.09) 0 0.5px, transparent 0.5px 2.4px),
+    repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.04) 0 6deg, transparent 6deg 12deg);
+}
+[data-back='button-lattice'] {
+  --back-a: #1C2027;
+  --back-pattern:
+    radial-gradient(circle at 50% 50%, rgba(244, 242, 236, 0.7) 0 5%, transparent 6%),
+    radial-gradient(circle, transparent 0 1.2px, rgba(255, 255, 255, 0.16) 1.4px 1.9px, transparent 2.1px) 0 0 / 6px 6px;
+}
+[data-back='the-seal'] {
+  --back-a: #191C22;
+  --back-frame: rgba(255, 255, 255, 0.22);
+  --back-pattern:
+    radial-gradient(circle at 50% 50%, rgba(244, 242, 236, 0.32) 0 9%, transparent 10% 17%, rgba(255, 255, 255, 0.26) 18% 21%, transparent 22%),
+    linear-gradient(rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.04));
+}
+[data-back='the-crease'] {
+  --back-a: #1B1F26;
+  --back-pattern:
+    linear-gradient(118deg, transparent 49.4%, rgba(244, 242, 236, 0.32) 49.6% 50.4%, transparent 50.6%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.07) 0 50%, transparent 50%),
+    repeating-linear-gradient(118deg, rgba(255, 255, 255, 0.035) 0 0.5px, transparent 0.5px 3px);
+}
+[data-back='depth-rings'] {
+  --back-a: #1A1D23;
+  --back-pattern:
+    repeating-radial-gradient(38% 46% at 50% 50%, rgba(255, 255, 255, 0.12) 0 0.6px, transparent 0.6px 14%),
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%);
+}
+[data-back='calibration'] {
+  --back-a: #1C1F25;
+  --back-pattern:
+    radial-gradient(circle, rgba(255, 255, 255, 0.18) 0 0.6px, transparent 0.9px) 0 0 / 3px 3px,
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%);
+}
+
+/* ─── Table surface: the lit zone's tint (felt green is the table's only home) ─── */
+:root,
+[data-felt='graphite'] {
+  --felt-lit: rgba(5, 8, 14, 0.42);
+}
+[data-felt='spruce'] { --felt-lit: rgba(23, 58, 50, 0.62); }
+[data-felt='night-ink'] { --felt-lit: rgba(26, 42, 92, 0.6); }
+[data-felt='umber'] { --felt-lit: rgba(72, 50, 32, 0.56); }
+[data-felt='chalkboard'] { --felt-lit: rgba(44, 60, 54, 0.66); }
+
+/* ─── Chip sets: the matte ceramic faces, and the bet they paint ─── */
+:root,
+[data-chips='slate-bone'] {
+  --chip-a: #D9D4C8;
+  --chip-b: #6F767E;
+  --bet-fill: rgba(36, 40, 48, 0.72);
+  --bet-edge: rgba(255, 255, 255, 0.14);
+}
+/* A non-default set tints the bet with its own two tones; the fill stays dark enough for ink-1 at AA. */
+[data-chips]:not([data-chips='slate-bone']) {
+  --bet-fill: color-mix(in srgb, var(--chip-b) 34%, rgba(22, 25, 31, 0.86));
+  --bet-edge: color-mix(in srgb, var(--chip-a) 46%, transparent);
+}
+[data-chips='clay'] { --chip-a: #C9AE98; --chip-b: #7C6355; }
+[data-chips='wooden'] { --chip-a: #CDB693; --chip-b: #6E5A44; }
+[data-chips='chalk-cubes'] { --chip-a: #ECEAE4; --chip-b: #8D9298; }
+
+/* ─── Dee's finish: the rim ring only (components/dee.ts .dee-finish); role rims paint over it ─── */
+:root,
+[data-rim='bone'] {
+  --dee-finish: transparent;
+  --dee-finish-o: 0;
+}
+[data-rim='smoked'] { --dee-finish: #4B4E54; --dee-finish-o: 0.92; }
+[data-rim='graphite'] { --dee-finish: var(--chip-b); --dee-finish-o: 1; }
+/* Colour and opacity only: a dash (stroke-dasharray) re-lays out the SVG, so no finish may use one. */
+[data-rim='inlaid'] { --dee-finish: #A8A295; --dee-finish-o: 0.95; }
+.dee .dee-finish {
+  stroke: var(--dee-finish);
+  stroke-opacity: var(--dee-finish-o);
+}
+
+/* ─── Celebrations: the session-end moment's look. Transform and opacity only, at most --dur-moment ─── */
+:root,
+[data-celebration='quiet-underline'] {
+  --dur-moment: 1600ms;
+  --moment-anim: moment-underline;
+  --moment-origin: left center;
+  --moment-mark: var(--ring-fill);
+}
+[data-celebration='light-sweep'] {
+  --moment-anim: moment-sweep;
+  --moment-origin: center;
+  --moment-mark: linear-gradient(to right, transparent, var(--ring-fill) 50%, transparent);
+}
+[data-celebration='page-turn'] {
+  --moment-anim: moment-page;
+  --moment-origin: left center;
+  --moment-mark: linear-gradient(to right, var(--ring-fill) 0 70%, transparent 70% 78%, var(--ring-track) 78%);
+}
+[data-celebration='constellation'] {
+  --moment-anim: moment-stars;
+  --moment-origin: center;
+  --moment-mark: radial-gradient(circle, var(--ring-fill) 0 1px, transparent 1.5px) 0 50% / 9px 2px;
+}
+@keyframes moment-underline {
+  0% { opacity: 0; transform: scaleX(0); }
+  30% { opacity: 1; transform: scaleX(1); }
+  80% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+@keyframes moment-sweep {
+  0% { opacity: 0; transform: translateX(-60%) scaleX(0.4); }
+  40% { opacity: 1; transform: translateX(0) scaleX(1); }
+  100% { opacity: 0; transform: translateX(60%) scaleX(0.4); }
+}
+@keyframes moment-page {
+  0% { opacity: 0; transform: perspective(240px) rotateY(-70deg); }
+  45% { opacity: 1; transform: perspective(240px) rotateY(0deg); }
+  85% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+@keyframes moment-stars {
+  0% { opacity: 0; transform: scale(0.6); }
+  35% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
+/* ═══════════════════════════════ Part 2: the Locker ═══════════════════════════════ */
+.locker-cols {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+  gap: 20px;
+}
+.locker-left,
+.locker-right {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The preview stage: a live-looking table in the stage's own paint. */
+.locker-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: var(--r-sheet);
+  background: var(--fill-0);
+  border: 1px solid var(--hair);
+  overflow: hidden;
+}
+.locker-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(70% 62% at 50% 47%, var(--felt-lit), transparent 74%);
+  pointer-events: none;
+}
+.locker-stage .card-back.small {
+  width: 26px;
+  height: 36px;
+}
+.locker-swatch .card-back.small {
+  width: 34px;
+  height: 48px;
+}
+.locker-stage .card {
+  width: 38px;
+  height: 52px;
+  padding: 4px 5px;
+}
+.locker-stage .card .card-rank { font-size: var(--t-t3); }
+.locker-stage .card .card-pip { font-size: var(--t-foot); }
+.locker-stage .board { gap: 3px; }
+.locker-seat,
+.locker-hero {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  border: 1px solid var(--hair-strong);
+  translate: -50% -50%;
+}
+.locker-seat-top { left: 50%; top: 14%; }
+.locker-seat-left { left: 20%; top: 33%; }
+.locker-seat-right { left: 80%; top: 33%; flex-direction: row-reverse; }
+.locker-hero { left: 50%; top: 86%; }
+.locker-seat-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.locker-seat-name { font-size: var(--t-foot); font-weight: 600; color: var(--ink-1); }
+.locker-seat-stack { font-size: var(--t-t3); font-weight: 700; color: var(--ink-1); }
+.locker-hero-stack { font-size: var(--t-t2); font-weight: 700; color: var(--ink-1); }
+.locker-center {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  translate: -50% -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.locker-bet {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: var(--t-foot);
+  font-weight: 600;
+  color: var(--ink-1);
+  background: var(--bet-fill);
+  border: 1px solid var(--bet-edge);
+}
+.locker-bet::before { content: 'Bet'; color: var(--ink-2); font-weight: 500; margin-right: 5px; }
+.locker-pot { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.locker-pot-value { font-size: var(--t-stat); font-weight: 800; color: var(--text-hi); }
+.locker-slot {
+  width: 38px;
+  height: 52px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--hair);
+}
+.locker-rail { position: absolute; right: 14px; bottom: 12px; line-height: 0; }
+.locker-moment {
+  position: absolute;
+  left: 50%;
+  top: 72%;
+  translate: -50% -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+}
+.locker-moment-text { font-size: var(--t-head); font-weight: 600; color: var(--ink-1); }
+.locker-moment-mark {
+  display: block;
+  width: 72px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--moment-mark);
+  transform-origin: var(--moment-origin);
+}
+.locker-moment.is-playing { animation: moment-fade var(--dur-moment) linear both; }
+.locker-moment.is-playing .locker-moment-mark { animation: var(--moment-anim) var(--dur-moment) var(--ease) both; }
+@keyframes moment-fade {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.locker-caption {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.locker-cap-text { min-width: 0; display: flex; flex-direction: column; }
+.locker-cap-text .g-caption {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.locker-use { flex: none; height: var(--h-lg); }
+
+/* The slot list: tiles in the kit's state ramp, the selected one on fill-2. */
+.locker-slots { align-self: flex-start; }
+.locker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+}
+.locker-grid-felt { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.locker-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 12px;
+  border-radius: var(--r-group);
+  border: 1px solid var(--hair);
+  background: var(--fill-0);
+  color: var(--ink-1);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.locker-item:hover { background: var(--fill-1); }
+.locker-item:active { background: var(--fill-2); }
+.locker-item[aria-pressed='true'] { background: var(--fill-2); border-color: var(--hair-strong); }
+.locker-item:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.locker-item[data-owned='false'] .locker-swatch { opacity: 0.55; }
+.locker-item-text { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
+.locker-item-name { font-size: var(--t-body); font-weight: 600; }
+.locker-item-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.locker-in-use { color: var(--ink-1); font-weight: 600; }
+.locker-bar {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 5px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--ring-fill) calc(var(--p) * 100%), var(--ring-track) 0);
+}
+
+.locker-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 52px;
+  line-height: 0;
+}
+.locker-swatch-felt {
+  align-self: stretch;
+  justify-self: stretch;
+  border-radius: var(--r-ctl);
+  background: radial-gradient(70% 80% at 50% 50%, var(--felt-lit), transparent 90%), var(--fill-0);
+  border: 1px solid var(--hair);
+}
+.locker-swatch-chipSet { display: flex; justify-content: center; gap: 6px; }
+.locker-chip {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.locker-chip-a { background: radial-gradient(circle at 40% 32%, var(--text-hi), var(--chip-a) 70%); }
+.locker-chip-b { background: radial-gradient(circle at 40% 32%, var(--chip-a), var(--chip-b) 60%); }
+.locker-swatch-celebration { display: flex; flex-direction: column; justify-content: center; gap: 6px; line-height: 1; }
+.locker-swatch-celebration .locker-moment-text { font-size: var(--t-foot); }
+.locker-swatch-celebration .locker-moment-mark { width: 44px; }
+.locker-item:hover .locker-swatch-celebration .locker-moment-mark,
+.locker-item:focus-visible .locker-swatch-celebration .locker-moment-mark {
+  animation: var(--moment-anim) var(--dur-moment) var(--ease) both;
+}
+.locker-foot { margin: auto 0 0; }
+
+@media (max-width: 1000px) {
+  .locker-cols { gap: 14px; }
+  .locker-grid { gap: 6px; }
+  .locker-item { padding: 8px 4px 10px; }
+  .locker-item-sub { font-size: var(--t-cap); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .locker-moment.is-playing,
+  .locker-moment.is-playing .locker-moment-mark,
+  .locker-item:hover .locker-moment-mark,
+  .locker-item:focus-visible .locker-moment-mark {
+    animation: none;
+  }
+  .locker-moment.is-playing { opacity: 1; }
+}

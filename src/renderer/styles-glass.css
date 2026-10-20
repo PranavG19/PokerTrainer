@@ -65,7 +65,9 @@
   --ink-on-bone: #15171A;
   --card-red: #B8322A;
   --card-black: #16181B;
-  --back-a: #1C2026;
+  /* The card back, the lit zone, chips and Dee's finish are cosmetic tokens: their defaults and every Locker item
+   * live in styles-cosmetics.css (paint only, never geometry). --chip-a / --chip-b are the matte ceramic chip
+   * faces (bone ceramic and slate): physical objects, so they sit beside bone in the role map. */
 
   /* Tier-2 semantics, repainted. --text-hi and --positive stay pinned in styles.css. */
   --page: var(--desk-0);
@@ -142,6 +144,21 @@ html[data-theme='obsidian'] {
   --desk-opacity: 0;
   --coat: #08090B;
   --float: rgba(24, 26, 31, 0.96);
+}
+
+/* Dusk and Library (2.13): the backdrop's bands only, so each is a paint-only swap like Obsidian. Free, as every
+ * theme is: a theme repaints the whole app, so it is a device setting and never a Locker item. */
+html[data-theme='dusk'] {
+  --desk-1: #3A3352;
+  --desk-2: #4A3428;
+  --desk-3: #2C2A40;
+  --desk-4: #33293A;
+}
+html[data-theme='library'] {
+  --desk-1: #3B3326;
+  --desk-2: #2E3A2C;
+  --desk-3: #3A2A22;
+  --desk-4: #2A2E26;
 }
 
 /* ─── Backdrop + coat ─── */
@@ -648,15 +665,12 @@ select {
 .card.red .card-pip {
   color: var(--card-red);
 }
+/* The back's pattern and ground are the card-back cosmetic's tokens (styles-cosmetics.css); faces never are. */
 .card-back {
   border: none;
   border-radius: var(--r-card);
-  background:
-    repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.05) 0 0.5px, transparent 0.5px 3.5px),
-    repeating-linear-gradient(-60deg, rgba(255, 255, 255, 0.05) 0 0.5px, transparent 0.5px 3.5px),
-    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
-    var(--back-a);
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16), inset 0 0 0 3px var(--back-a), inset 0 0 0 3.5px rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.45);
+  background: var(--back-pattern), var(--back-a);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16), inset 0 0 0 3px var(--back-a), inset 0 0 0 3.5px var(--back-frame), 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .dealer-button {
   color: var(--ink-on-bone);
@@ -690,7 +704,8 @@ select {
   position: absolute;
   inset: 0 2%;
   border-radius: 40px;
-  background: radial-gradient(62% 58% at 50% 47%, rgba(5, 8, 14, 0.42), transparent 72%);
+  /* The lit zone's tint is the table-surface cosmetic's token (styles-cosmetics.css). */
+  background: radial-gradient(62% 58% at 50% 47%, var(--felt-lit), transparent 72%);
   pointer-events: none;
 }
 .table-screen .seats {
@@ -857,8 +872,9 @@ select {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--ink-1);
-  background: rgba(36, 40, 48, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  /* The bet's two tones are the chip set's tokens (styles-cosmetics.css). */
+  background: var(--bet-fill);
+  border: 1px solid var(--bet-edge);
   white-space: nowrap;
 }
 .table-screen .seat-committed::before {

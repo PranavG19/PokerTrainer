@@ -8,6 +8,8 @@ import './styles-glass.css';
 import './styles-dee.css';
 import './styles-pro.css';
 import './styles-habit.css';
+// After the kit: the cosmetic tokens' defaults and every Locker item (paint only).
+import './styles-cosmetics.css';
 
 import type { HandRecord, SessionState } from '../core/session.js';
 import type { SavedRange } from '../core/rangeEditor.js';
@@ -150,6 +152,9 @@ import { SECTIONS, SECTION_GROUP_STARTS, sectionOf, subNavOf, litSubItem, type L
 import { renderSubNav } from './components/subnav.js';
 import { renderPlay } from './screens/play.js';
 import { renderNotYet, renderRivals, renderTrophies, renderYouProfile } from './screens/you.js';
+import { renderLocker } from './screens/locker.js';
+import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
+import { COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
 import { milestoneFacts, masteredIds } from '../core/progression/apply.js';
 import { milestoneViews, nextUp } from '../core/progression/milestones.js';
 import { sureRight, weeklyEvLoss } from '../core/progression/decisions.js';
@@ -417,6 +422,8 @@ async function boot(): Promise<void> {
   let learnView: 'lessons' | 'folio' = 'lessons';
   /** You › Rivals: a rival's file open, or the list. */
   let rivalOpen: ChapterId | null = null;
+  /** The Locker's slot on show; kept across re-renders (an equip, a tab change). */
+  let lockerSlot: CosmeticSlot = 'cardBack';
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
   let puzzleNext: string | null = null;
@@ -571,8 +578,23 @@ async function boot(): Promise<void> {
   /** Character on/off is one document attribute, so every mark on every screen follows it (styles-dee.css). */
   function paintDee(): void {
     document.documentElement.dataset.character = session.progression.dee.character ? 'on' : 'off';
+    paintCosmetics();
     const streak = session.progression.streak;
     perch.setStreak(currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())));
+  }
+  /**
+   * What is equipped is one document attribute per slot (styles-cosmetics.css), so every screen follows it. The
+   * default is no attribute at all, as with the theme; an id this build does not know paints the default.
+   */
+  function paintCosmetics(): void {
+    const root = document.documentElement;
+    const paint = paintOf(session.progression.cosmetics);
+    for (const slot of COSMETIC_SLOTS) {
+      const attr = `data-${SLOT_ATTRIBUTE[slot]}`;
+      const value = paint[slot];
+      if (value === null) root.removeAttribute(attr);
+      else if (root.getAttribute(attr) !== value) root.setAttribute(attr, value);
+    }
   }
   paintDee();
 
@@ -1719,7 +1741,8 @@ async function boot(): Promise<void> {
       return renderTrophies(views, nextUp(views, 4));
     }
     if (which === 'rivals') return renderRivalsTab();
-    if (which === 'style' || which === 'letters' || which === 'locker') return renderNotYet(which);
+    if (which === 'locker') return renderLockerTab();
+    if (which === 'style' || which === 'letters') return renderNotYet(which);
     if (which === 'learn') {
       if (learnView === 'folio') {
         return renderFolio({
@@ -2049,6 +2072,35 @@ async function boot(): Promise<void> {
         onOpenTrophies: () => go('trophies'),
       },
     );
+  }
+
+  /**
+   * The Locker. What has been earned is filed on save; anything earned and not filed yet (a profile from before this
+   * build) shows as earned here, and the equip's own save files its receipt.
+   */
+  function renderLockerTab(): HTMLElement {
+    const p = session.progression;
+    const earn: EarnContext = {
+      milestones: p.milestones,
+      seals: p.seals,
+      story: p.story,
+      facts: milestoneFacts(session, p, SCENARIOS, masteredIds(deriveConcepts(), now()).length),
+    };
+    const cosmetics = syncCosmetics(p.cosmetics, earn, today());
+    return renderLocker({
+      cosmetics,
+      earn,
+      slot: lockerSlot,
+      onSlot: (slot) => {
+        lockerSlot = slot;
+        render();
+      },
+      onEquip: (itemId) => {
+        const next = equip(cosmetics, itemId);
+        if (next === cosmetics) return;
+        void saveProgression({ ...session.progression, cosmetics: next }).then(() => render());
+      },
+    });
   }
 
   /** The story's regulars, masked until beaten; a row opens the existing dossier, which returns here. */

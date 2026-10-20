@@ -328,7 +328,7 @@ export const ONLINE_IDENTITY_FILE = path.join(app.getPath('userData'), 'offsuit-
  * unreadable file, or an unknown value, resolves to graphite — the same value :root paints before any
  * JS runs, so a missing choice never flashes the wrong theme. Only a known theme name is honoured.
  */
-const THEMES = new Set(['graphite', 'obsidian']);
+const THEMES = new Set(['graphite', 'obsidian', 'dusk', 'library']);
 
 export function loadTheme(): string {
   try {

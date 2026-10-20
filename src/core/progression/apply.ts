@@ -8,8 +8,8 @@
  * as `extras` by the screen that saw them: a puzzle spot finished, a "Price held" beat (the grader's close band does
  * not persist), a story table ended, the one suggestion taken, a Folio card re-polished.
  *
- * From the same diff it advances the Ticket, counts the streak day when a session finished, and files Seals and
- * milestones. Pure: the caller passes the clock and the day function.
+ * From the same diff it advances the Ticket, counts the streak day when a session finished, and files Seals,
+ * milestones and the cosmetics they earn. Pure: the caller passes the clock and the day function.
  */
 
 import type { DayKey, DayKeyOf } from '../localDay.js';
@@ -25,6 +25,7 @@ import { syncMilestones, type MilestoneFacts } from './milestones.js';
 import { markDone, ticketFor } from '../ticket.js';
 import { polish } from '../folio.js';
 import type { ProgressionState, TicketState } from './types.js';
+import { syncCosmetics } from '../cosmetics/locker.js';
 
 /** Perception answers in one visit that finish the Ticket's drill item (about the warm-up block's length). */
 export const DRILL_ANSWERS = 10;
@@ -188,7 +189,9 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   const seals = syncSeals(p.seals, mastered, today);
   const facts = milestoneFacts(next, p, ctx.scenarios, mastered.length);
   const milestones = syncMilestones(p.milestones, facts, today);
-  p = { ...p, seals, milestones };
+  // Cosmetics are receipts of the ratchets just filed (milestones, Seals, rivals unmasked), never of a result.
+  const cosmetics = syncCosmetics(p.cosmetics, { milestones, seals, story: p.story }, today);
+  p = { ...p, seals, milestones, cosmetics };
 
   return { progression: p, finished, paid: r.total - next.progression.reps.total };
 }
