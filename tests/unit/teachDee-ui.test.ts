@@ -154,6 +154,18 @@ describe('Teach Dee screen', () => {
     expect(document.activeElement?.getAttribute('data-testid')).toBe('teach-move');
   });
 
+  it('opening straight onto a rule puts focus on its title once the screen is in the document', async () => {
+    document.body.replaceChildren();
+    const root = renderTeachDee({
+      cards: [CARD], label: (id) => id, initialConcept: CARD.conceptId, taught: [], rewritesDue: [], lexicon: [],
+      dee: { tone: 'warm', character: true }, principleOf: () => null, onFinished: () => {}, onLexiconAttempt: () => {},
+      onBack: () => {}, backLabel: 'Rulebook', onWriteRule: () => {}, now: () => 1,
+    });
+    document.body.appendChild(root);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(document.activeElement?.classList.contains('teach-title')).toBe(true);
+  });
+
   it('“everywhere else” never offers the rule’s own play', () => {
     const m = mount({ initialConcept: CARD.conceptId });
     const values = [...m.q('teach-otherwise')!.querySelectorAll('button')].map((b) => b.dataset.value);

@@ -1998,11 +1998,11 @@ async function boot(): Promise<void> {
           onBack: () => {
             teachMount = null;
             if (teachFrom === 'leaks') {
-              go('train');
               trainMode = 'repair';
-              render();
+              go('train');
             } else if (teachFrom === 'ticket') {
-              go('home');
+              tab = 'home';
+              learnView = 'lessons';
               ticketActive = true;
               render();
             } else {

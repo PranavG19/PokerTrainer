@@ -402,6 +402,18 @@ describe('the progression host pays a finished set once, polishes a rule that he
     expect(s1.progression.ticket.items.some((i) => i.id === 'teach:r1')).toBe(true);
     expect(s1.progression.ticket.done).toContain('teach:r1');
   });
+
+  it('a teach item whose rule left the Folio the same day (rules forgotten) is closed, so the Ticket can still finish', () => {
+    const e = emptySession();
+    const onCard = { ...e, progression: { ...e.progression, dee: { ...e.progression.dee, ruleSentences: [{ conceptId: 'r1', text: 'a rule', day: (dayOf(NOW) - 3) as DayKey }] } } };
+    const s0 = withSets(onCard, [taught(NOW - 86_400_000, 'r1', 'wrong')]);
+    const s1 = save(s0, s0);
+    expect(s1.progression.ticket.items.some((i) => i.id === 'teach:r1')).toBe(true);
+    expect(s1.progression.ticket.done).not.toContain('teach:r1');
+    const forgotten = { ...s1, progression: { ...s1.progression, dee: { ...s1.progression.dee, ruleSentences: [] } } };
+    const s2 = save(s1, forgotten);
+    expect(s2.progression.ticket.done).toContain('teach:r1');
+  });
 });
 
 // ── The lint: every word Dee says here ─────────────────────────────────────

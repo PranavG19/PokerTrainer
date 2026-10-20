@@ -929,7 +929,11 @@ export function renderTeachDee(props: TeachDeeProps): HTMLElement {
       phase === 'pick' ? renderPick() : phase === 'read' ? renderRead() : phase === 'play' ? renderPlay() : renderRepairPhase();
     root.replaceChildren(announcer, body);
     root.scrollTop = 0;
-    if (focus !== undefined) root.querySelector<HTMLElement>(focus)?.focus();
+    if (focus === undefined) return;
+    const target = root.querySelector<HTMLElement>(focus);
+    // The first paint happens before the host mounts the screen; focus lands once it is in the document.
+    if (root.isConnected) target?.focus();
+    else setTimeout(() => target?.isConnected && target.focus(), 0);
   }
 
   function head(title: string, back: () => void, backText: string): HTMLElement {

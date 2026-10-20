@@ -203,7 +203,7 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
     const done =
       (item.kind === 'review' && repsToday.has(item.ref) && !dueIds.has(item.ref)) ||
       (item.kind === 'spot' && extras.spot?.id === item.ref) ||
-      (item.kind === 'teach' && newSets.some((s) => s.conceptId === item.ref)) ||
+      (item.kind === 'teach' && (newSets.some((s) => s.conceptId === item.ref) || !onFolio(next, item.ref))) ||
       (item.kind === 'drill' && answered >= DRILL_ANSWERS);
     if (done) ticket = markDone(ticket, item.id, today);
   }
@@ -231,6 +231,14 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   p = { ...p, seals, milestones, cosmetics };
 
   return { progression: p, finished, paid: r.total - next.progression.reps.total };
+}
+
+/** The rule still has a Folio card (an accepted sentence or a remembered lesson rule), so it can be taught. */
+function onFolio(s: SessionState, conceptId: string): boolean {
+  return (
+    s.lexicon.some((a) => a.conceptId === conceptId && a.outcome === 'accepted') ||
+    s.progression.dee.ruleSentences.some((r) => r.conceptId === conceptId)
+  );
 }
 
 /** The rule the Ticket asks to rewrite and teach again: the longest-open one, or null. */
