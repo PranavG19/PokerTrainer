@@ -147,7 +147,7 @@ test('wearing every non-default item at once changes paint only: a computed-styl
     await page.waitForSelector('[data-testid="table-screen"][data-awaiting="hero"]');
     // Hold the table still: no clock-driven repaint between the two snapshots.
     await page.waitForTimeout(500);
-    const snapshot = () =>
+    const snapshot = (): Promise<Snapshot> =>
       page.evaluate(() => {
         const out: Record<string, { rect: number[]; styles: Record<string, string> }> = {};
         const all = [...document.querySelectorAll('*')];
@@ -166,13 +166,33 @@ test('wearing every non-default item at once changes paint only: a computed-styl
         });
         return out;
       });
-    const before = await snapshot();
     const worn: Record<string, string> = {};
     for (const item of CATALOGUE) if (item.earn.kind !== 'day-one') worn[SLOT_ATTRIBUTE[item.slot]] ??= item.paint;
     // One pass per remaining value too, so every item is checked, not only the first of each slot.
     const passes: Record<string, string>[] = [worn];
     for (const item of CATALOGUE) if (item.earn.kind !== 'day-one' && worn[SLOT_ATTRIBUTE[item.slot]] !== item.paint) passes.push({ [SLOT_ATTRIBUTE[item.slot]]: item.paint });
     const changed = new Set<string>();
+    await checkPasses(page, snapshot, passes, changed);
+    // The Locker too: Dee's finish and the moment's mark live there.
+    await page.locator('[data-testid="tab-you"]').click();
+    await page.locator('[data-testid="tab-locker"]').click();
+    await page.waitForSelector('[data-testid="locker-stage"]');
+    await page.waitForTimeout(300);
+    await checkPasses(page, snapshot, passes, changed);
+    const leaks = [...changed].filter((p) => !p.startsWith('--') && !PAINT.test(p));
+    expect(leaks, 'non-paint properties a cosmetic changed').toEqual([]);
+    // And the oracle sees each kind of paint change at all.
+    for (const kind of ['background-image', 'stroke']) expect([...changed], kind).toContain(kind);
+  } finally {
+    await app.close();
+  }
+});
+
+type Snapshot = Record<string, { rect: number[]; styles: Record<string, string> }>;
+
+async function checkPasses(page: Page, snapshot: () => Promise<Snapshot>, passes: Record<string, string>[], changed: Set<string>): Promise<void> {
+  const before = await snapshot();
+  {
     for (const attrs of passes) {
       await page.evaluate((a) => {
         for (const [k, v] of Object.entries(a)) document.documentElement.setAttribute(`data-${k}`, v);
@@ -188,10 +208,111 @@ test('wearing every non-default item at once changes paint only: a computed-styl
         for (const k of Object.keys(a)) document.documentElement.removeAttribute(`data-${k}`);
       }, attrs);
     }
-    const leaks = [...changed].filter((p) => !p.startsWith('--') && !PAINT.test(p));
-    expect(leaks, 'non-paint properties a cosmetic changed').toEqual([]);
-    // And the oracle can see a change at all.
-    expect([...changed].some((p) => p.startsWith('background'))).toBe(true);
+  }
+}
+
+test('keyboard: wearing an item leaves focus on its tile, not on <body>', async () => {
+  const dir = freshDir();
+  fs.writeFileSync(path.join(dir, STATE), JSON.stringify({ schemaVersion: 2, progression: { milestones: { achieved: { 'depth-40': { day: 20360 } } } } }));
+  const app = await launchApp({ userDataDir: dir });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await page.locator('[data-testid="locker-item"][data-id="back-the-seal"]').focus();
+    await page.keyboard.press('Enter');
+    await page.locator('[data-testid="locker-equip"]').focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => htmlAttr(page, 'data-back')).toBe('the-seal');
+    await expect.poll(() => page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.id ?? document.activeElement?.tagName)).toBe('back-the-seal');
+  } finally {
+    await app.close();
+  }
+});
+
+test('an item a newer build wore: no tile claims "In use", and the default can be worn to replace it', async () => {
+  const dir = freshDir();
+  fs.writeFileSync(
+    path.join(dir, STATE),
+    JSON.stringify({ schemaVersion: 2, progression: { cosmetics: { owned: ['back-from-newer'], equipped: { cardBack: 'back-from-newer' } } } }),
+  );
+  const app = await launchApp({ userDataDir: dir });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    expect(await htmlAttr(page, 'data-back')).toBeNull();
+    await openLocker(page);
+    await expect(page.locator('[data-testid="locker-item"][data-equipped="true"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="locker-equip"]')).toBeEnabled();
+    await page.locator('[data-testid="locker-equip"]').click();
+    await expect.poll(() => readState(dir).progression?.cosmetics?.equipped?.cardBack ?? null).toBeNull();
+    await expect(page.locator('[data-testid="locker-item"][data-id="back-graphite"]')).toHaveAttribute('data-equipped', 'true');
+  } finally {
+    await app.close();
+  }
+});
+
+test('a preview on the stage paints exactly what wearing it paints, whatever is worn', async () => {
+  const app = await launchApp({ userDataDir: freshDir() });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    // The painted surfaces of every slot on the stage, read as computed styles.
+    const read = () =>
+      page.evaluate(() => {
+        const stage = document.querySelector('[data-testid="locker-stage"]') as HTMLElement;
+        const back = getComputedStyle(stage.querySelector('.card-back') as Element);
+        const lit = getComputedStyle(stage, '::before');
+        const bet = getComputedStyle(stage.querySelector('.locker-bet') as Element);
+        const fin = getComputedStyle(stage.querySelector('.dee-finish') as Element);
+        const mark = getComputedStyle(stage.querySelector('.locker-moment-mark') as Element);
+        return [back.backgroundImage, back.backgroundColor, back.boxShadow, lit.backgroundImage, bet.backgroundColor, bet.borderTopColor, fin.stroke, fin.strokeOpacity, mark.backgroundImage, mark.animationName].join(' | ');
+      });
+    const set = (el: 'html' | 'stage', attrs: Record<string, string>) =>
+      page.evaluate(([el, attrs]) => {
+        const t = el === 'html' ? document.documentElement : (document.querySelector('[data-testid="locker-stage"]') as HTMLElement);
+        for (const [k, v] of Object.entries(attrs as Record<string, string>)) t.setAttribute(`data-${k}`, v);
+      }, [el, attrs] as const);
+    const slots = [...new Set(CATALOGUE.map((i) => i.slot))];
+    for (const slot of slots) {
+      const attr = SLOT_ATTRIBUTE[slot];
+      const items = CATALOGUE.filter((i) => i.slot === slot);
+      for (const worn of items) {
+        for (const shown of items) {
+          // Worn on the document, previewed on the stage…
+          await set('html', Object.fromEntries(slots.map((s) => [SLOT_ATTRIBUTE[s], CATALOGUE.filter((i) => i.slot === s).at(-1)!.paint])));
+          await set('html', { [attr]: worn.paint });
+          await set('stage', { [attr]: shown.paint });
+          const previewed = await read();
+          // …against the same item worn, with nothing else different.
+          await set('html', { [attr]: shown.paint });
+          expect(await read(), `${shown.id} previewed while ${worn.id} is worn`).toBe(previewed);
+        }
+      }
+    }
+  } finally {
+    await app.close();
+  }
+});
+
+test('previewing an earned item does not wear it; leaving the Locker keeps what was worn', async () => {
+  const dir = freshDir();
+  fs.writeFileSync(path.join(dir, STATE), JSON.stringify({ schemaVersion: 2, progression: { milestones: { achieved: { 'depth-40': { day: 20360 } } } } }));
+  const app = await launchApp({ userDataDir: dir });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await page.locator('[data-testid="locker-item"][data-id="back-the-seal"]').click();
+    await expect(page.locator('[data-testid="locker-stage"]')).toHaveAttribute('data-back', 'the-seal');
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('Use this back');
+    expect(await htmlAttr(page, 'data-back')).toBeNull();
+    await page.locator('[data-testid="tab-home"]').click();
+    await page.click(sel.newHand);
+    await page.waitForSelector('[data-testid="table-screen"]');
+    expect(await htmlAttr(page, 'data-back')).toBeNull();
+    expect(readState(dir).progression?.cosmetics?.equipped?.cardBack ?? null).toBeNull();
   } finally {
     await app.close();
   }

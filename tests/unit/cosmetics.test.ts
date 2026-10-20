@@ -11,7 +11,7 @@ import { milestoneById } from '../../src/core/progression/milestones.js';
 import { defaultProgression, parseProgression, serializeProgression } from '../../src/core/progression/persist.js';
 import { COSMETIC_SLOTS, type CosmeticsState } from '../../src/core/progression/types.js';
 import { CATALOGUE, defaultItem, itemsFor } from '../../src/core/cosmetics/catalogue.js';
-import { earnStatus, equip, equippedItem, isOwned, paintOf, receiptFor, syncCosmetics, type EarnContext } from '../../src/core/cosmetics/locker.js';
+import { earnStatus, equip, equippedItem, isOwned, paintOf, receiptFor, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../../src/core/cosmetics/locker.js';
 
 const day = (n: number) => n as DayKey;
 const empty = (): CosmeticsState => defaultProgression().cosmetics;
@@ -196,3 +196,55 @@ describe('isolation: chips never earn or buy a cosmetic, and nothing costs anyth
     expect(applyProgress(s0, rich, {}, ctx).progression.cosmetics).toBe(s0.progression.cosmetics);
   });
 });
+
+describe('the paint: every item is a complete token block of its own slot', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '../../src/renderer/styles-cosmetics.css'), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+    selectors: m[1].split(',').map((s) => s.trim()),
+    decls: Object.fromEntries([...m[2].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((d) => [d[1], d[2].trim()])),
+  }));
+  /** The tokens an element with `data-<attr>="<value>"` declares itself (what it does not declare, it inherits). */
+  const tokensFor = (attr: string, value: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const r of rules) {
+      const hit = r.selectors.some((s) => {
+        if (s === `[data-${attr}='${value}']`) return true;
+        const not = s.match(new RegExp(`^\\[data-${attr}\\]:not\\(\\[data-${attr}='([\\w-]+)'\\]\\)$`));
+        return not !== null && not[1] !== value;
+      });
+      if (hit) Object.assign(out, r.decls);
+    }
+    return out;
+  };
+  const slotTokens = Object.fromEntries(
+    COSMETIC_SLOTS.map((slot) => [slot, new Set(Object.keys(tokensFor(SLOT_ATTRIBUTE[slot], defaultItem(slot).paint)))]),
+  );
+
+  it('the default block sits on :root and on the default attribute, so the stage can restate it', () => {
+    for (const slot of COSMETIC_SLOTS) {
+      const d = defaultItem(slot);
+      const root = rules.find((r) => r.selectors.includes(':root') && r.selectors.includes(`[data-${SLOT_ATTRIBUTE[slot]}='${d.paint}']`));
+      expect(root, slot).toBeDefined();
+      expect(slotTokens[slot].size, slot).toBeGreaterThan(0);
+    }
+  });
+
+  it('every item declares every token of its slot, so a preview on the stage never inherits the worn item', () => {
+    for (const item of CATALOGUE) {
+      const own = Object.keys(tokensFor(SLOT_ATTRIBUTE[item.slot], item.paint));
+      const missing = [...slotTokens[item.slot]].filter((t) => !own.includes(t));
+      expect(missing, `${item.id} (${item.paint})`).toEqual([]);
+    }
+  });
+
+  it('no item reads another slot’s token, so wearing one slot never repaints another', () => {
+    for (const item of CATALOGUE) {
+      const values = Object.values(tokensFor(SLOT_ATTRIBUTE[item.slot], item.paint)).join(' ');
+      for (const slot of COSMETIC_SLOTS) {
+        if (slot === item.slot) continue;
+        for (const t of slotTokens[slot]) expect(values, `${item.id} reads ${t}`).not.toMatch(new RegExp(`var\\(${t}\\b`));
+      }
+    }
+  });
+});
+

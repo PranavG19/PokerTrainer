@@ -2098,7 +2098,11 @@ async function boot(): Promise<void> {
       onEquip: (itemId) => {
         const next = equip(cosmetics, itemId);
         if (next === cosmetics) return;
-        void saveProgression({ ...session.progression, cosmetics: next }).then(() => render());
+        void saveProgression({ ...session.progression, cosmetics: next }).then(() => {
+          render();
+          // The button is disabled once its item is worn, so the keyboard lands on the worn item's tile instead of <body>.
+          document.querySelector<HTMLElement>(`[data-testid="locker-item"][data-id="${CSS.escape(itemId)}"]`)?.focus();
+        });
       },
     });
   }

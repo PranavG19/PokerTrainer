@@ -131,6 +131,10 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
   root.dataset.slot = opts.slot;
   const items = itemsFor(opts.slot);
   const equipped = equippedItem(opts.cosmetics, opts.slot);
+  // What is worn, by id. An id a newer build wrote paints the default but is not the default: then no tile here is
+  // "In use", and the default can be worn to replace it.
+  const wornId = opts.cosmetics.equipped[opts.slot] ?? equipped.id;
+  const isWorn = (item: CosmeticItem): boolean => item.id === wornId;
   let selected: CosmeticItem = equipped;
 
   // ── Left: the stage, then the caption and the one primary action ──
@@ -156,7 +160,7 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
   /** Preview an item on the stage only. A moment replays its look over the stage, once. */
   function preview(item: CosmeticItem): void {
     paintSlot(stage, item);
-    stage.dataset.previewing = String(item.id !== equipped.id);
+    stage.dataset.previewing = String(!isWorn(item));
     if (item.slot === 'celebration') {
       moment.classList.remove('is-playing');
       void moment.offsetWidth;
@@ -166,12 +170,11 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
 
   function paintCaption(): void {
     const owned = isOwned(opts.cosmetics, selected);
-    const inUse = selected.id === equipped.id;
+    const inUse = isWorn(selected);
     capName.textContent = selected.name;
     capLine.textContent = earnedLine(selected, opts);
     use.disabled = inUse || !owned;
     use.textContent = inUse ? 'In use' : owned ? USE_LABEL[opts.slot] : 'Not earned yet';
-    use.dataset.state = inUse ? 'in-use' : owned ? 'ready' : 'locked';
   }
 
   // ── Right: the slot picker and its items ──
@@ -209,12 +212,12 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
     tile.dataset.testid = 'locker-item';
     tile.dataset.id = item.id;
     tile.dataset.owned = String(owned);
-    tile.dataset.equipped = String(item.id === equipped.id);
+    tile.dataset.equipped = String(isWorn(item));
     tile.setAttribute('aria-pressed', String(item.id === selected.id));
     const label = el('span', 'locker-item-text');
     label.append(el('span', 'locker-item-name', item.name));
     const sub = el('span', 'g-caption locker-item-sub');
-    if (item.id === equipped.id) sub.append(el('strong', 'locker-in-use', 'In use'), document.createTextNode(` · ${s.source}`));
+    if (isWorn(item)) sub.append(el('strong', 'locker-in-use', 'In use'), document.createTextNode(` · ${s.source}`));
     else sub.textContent = s.source;
     label.appendChild(sub);
     tile.append(swatch(item), label);
@@ -224,7 +227,7 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
       bar.style.setProperty('--p', String(s.progress.value / s.progress.target));
       tile.appendChild(bar);
     }
-    tile.setAttribute('aria-label', `${item.name}: ${owned ? (item.id === equipped.id ? 'in use' : 'earned') : 'not earned yet'}. ${earnedLine(item, opts)}`);
+    tile.setAttribute('aria-label', `${item.name}: ${owned ? (isWorn(item) ? 'in use' : 'earned') : 'not earned yet'}. ${earnedLine(item, opts)}`);
     tile.addEventListener('mouseenter', () => preview(item));
     tile.addEventListener('focus', () => preview(item));
     tile.addEventListener('mouseleave', () => preview(selected));

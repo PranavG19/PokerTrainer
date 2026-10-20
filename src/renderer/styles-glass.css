@@ -124,6 +124,7 @@
   --ring-track: var(--fill-2);
   --ring-fill: var(--bone);
   --dur-ring: 900ms;
+  --dur-moment: 1600ms; /* the hard cap on any celebration (VISION §5) */
   --nav-h: 44px;       /* the titlebar nav; the table screen's fixed height is derived from it */
   --screen-pad-y: 8px;
   /* The height a screen has under the title bar (1px: the bar's hairline). */
@@ -156,9 +157,9 @@ html[data-theme='dusk'] {
 }
 html[data-theme='library'] {
   --desk-1: #3B3326;
-  --desk-2: #2E3A2C;
-  --desk-3: #3A2A22;
-  --desk-4: #2A2E26;
+  --desk-2: #3A2C24;
+  --desk-3: #33302B;
+  --desk-4: #2C2824;
 }
 
 /* ─── Backdrop + coat ─── */

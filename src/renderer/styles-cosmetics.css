@@ -7,7 +7,8 @@
  * equip repaints and never lays out (theme.spec measures it, locker.spec allowlists the computed styles that may
  * change). The rules use bare attribute selectors, not html[…], so the Locker's preview stage, which carries the
  * same attributes, shadows the document's tokens by inheritance. Defaults come first and restate the day-one
- * item, so a later item block of equal specificity wins on the root.
+ * item, so a later item block of equal specificity wins on the root. Every item declares every token of its slot
+ * and reads no other slot's token (cosmetics.test), so a preview never inherits what is worn.
  *
  * Pinned values are never touched: --text-hi, --positive, the to-act ring, seat opacity. Card faces, seat layout
  * and stack display are never cosmetic. Mint is never a cosmetic colour; coral and amber stay role colours.
@@ -25,6 +26,7 @@
     radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%);
 }
 [data-back='etched-river'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
   --back-a: #1A1F27;
   --back-pattern:
     repeating-radial-gradient(140% 60% at 50% 115%, rgba(255, 255, 255, 0.075) 0 0.6px, transparent 0.6px 3.2px),
@@ -32,6 +34,7 @@
     radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%);
 }
 [data-back='guilloche'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
   --back-a: #1B1E25;
   --back-pattern:
     radial-gradient(circle at 50% 50%, rgba(244, 242, 236, 0.5) 0 6%, transparent 7%),
@@ -39,6 +42,7 @@
     repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.04) 0 6deg, transparent 6deg 12deg);
 }
 [data-back='button-lattice'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
   --back-a: #1C2027;
   --back-pattern:
     radial-gradient(circle at 50% 50%, rgba(244, 242, 236, 0.7) 0 5%, transparent 6%),
@@ -52,6 +56,7 @@
     linear-gradient(rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.04));
 }
 [data-back='the-crease'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
   --back-a: #1B1F26;
   --back-pattern:
     linear-gradient(118deg, transparent 49.4%, rgba(244, 242, 236, 0.32) 49.6% 50.4%, transparent 50.6%),
@@ -59,12 +64,14 @@
     repeating-linear-gradient(118deg, rgba(255, 255, 255, 0.035) 0 0.5px, transparent 0.5px 3px);
 }
 [data-back='depth-rings'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
   --back-a: #1A1D23;
   --back-pattern:
     repeating-radial-gradient(38% 46% at 50% 50%, rgba(255, 255, 255, 0.12) 0 0.6px, transparent 0.6px 14%),
     radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%);
 }
 [data-back='calibration'] {
+  --back-frame: rgba(255, 255, 255, 0.12);
   --back-a: #1C1F25;
   --back-pattern:
     radial-gradient(circle, rgba(255, 255, 255, 0.18) 0 0.6px, transparent 0.9px) 0 0 / 3px 3px,
@@ -105,7 +112,7 @@
   --dee-finish-o: 0;
 }
 [data-rim='smoked'] { --dee-finish: #4B4E54; --dee-finish-o: 0.92; }
-[data-rim='graphite'] { --dee-finish: var(--chip-b); --dee-finish-o: 1; }
+[data-rim='graphite'] { --dee-finish: #6F767E; --dee-finish-o: 1; }
 /* Colour and opacity only: a dash (stroke-dasharray) re-lays out the SVG, so no finish may use one. */
 [data-rim='inlaid'] { --dee-finish: #A8A295; --dee-finish-o: 0.95; }
 .dee .dee-finish {
@@ -116,7 +123,6 @@
 /* ─── Celebrations: the session-end moment's look. Transform and opacity only, at most --dur-moment ─── */
 :root,
 [data-celebration='quiet-underline'] {
-  --dur-moment: 1600ms;
   --moment-anim: moment-underline;
   --moment-origin: left center;
   --moment-mark: var(--ring-fill);

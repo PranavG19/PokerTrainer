@@ -58,8 +58,8 @@ let uid = 0;
 
 /**
  * Dee's finish (the Locker's rim cosmetic): one ring, invisible until a finish's tokens paint it (styles-cosmetics.css
- * sets its stroke, opacity and dash only, so a finish never changes layout). It sits under the role rim, so amber and
- * coral always read over any finish.
+ * sets its stroke colour and opacity only, so a finish never changes layout). It is drawn on the bare ceramic, under
+ * the bevel, the face, the DEALER micro-text and the role rim, so amber and coral always read over any finish.
  */
 function finish(c: number, r: number, w: number): string {
   return `<circle class="dee-finish" cx="${c}" cy="${c}" r="${r}" fill="none" stroke="transparent" stroke-opacity="0" stroke-width="${w}"/>`;
@@ -142,10 +142,11 @@ function ceramic(id: string, size: number, p: Posture, inner: string): string {
   const shadow = small || p.flat ? '' : `<ellipse cx="50" cy="${97 - (p.lift ?? 0)}" rx="34" ry="3.6" fill="#000" fill-opacity=".6" filter="url(#${id}-sh)"/>`;
   return `${shadow}<g class="dee-body" transform="translate(0 ${p.lift ?? 0}) rotate(${p.rot ?? 0} 50 50)">
     <circle cx="50" cy="50" r="49" fill="url(#${id}-c${small ? 's' : ''})"/>
+    ${finish(50, 45.6, small ? 7 : 5.6)}
     ${tiny ? '' : `<circle cx="50" cy="50" r="48" fill="none" stroke="url(#${id}-bev)" stroke-width="2.2"/>`}
     ${face}${micro}${inner}
     <circle cx="50" cy="50" r="${tiny ? 47 : 49}" fill="none" stroke="${tiny ? '#7A7468' : '#000'}" stroke-opacity="${tiny ? 1 : 0.4}" stroke-width="${tiny ? 6 : 0.9}"/>
-    ${finish(50, 45.6, small ? 7 : 5.6)}${rim}</g>`;
+    ${rim}</g>`;
 }
 
 /**
