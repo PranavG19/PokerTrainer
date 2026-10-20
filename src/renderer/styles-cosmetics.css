@@ -185,16 +185,6 @@
   --moment-origin: center;
   --moment-mark: radial-gradient(circle, var(--ring-fill) 0 1px, transparent 1.5px) 0 50% / 9px 2px;
 }
-[data-celebration='ink-ring'] {
-  --moment-anim: moment-stars;
-  --moment-origin: center;
-  --moment-mark: radial-gradient(circle at 50% 50%, transparent 0 30%, var(--ring-fill) 34% 46%, transparent 50%);
-}
-[data-celebration='two-lights'] {
-  --moment-anim: moment-sweep;
-  --moment-origin: center;
-  --moment-mark: radial-gradient(circle at 40% 50%, var(--ring-fill) 0 1.5px, transparent 2px), radial-gradient(circle at 60% 50%, var(--ring-fill) 0 1.5px, transparent 2px);
-}
 @keyframes moment-underline {
   0% { opacity: 0; transform: scaleX(0); }
   30% { opacity: 1; transform: scaleX(1); }

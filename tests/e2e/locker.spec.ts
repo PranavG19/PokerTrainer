@@ -359,11 +359,12 @@ test('Chalk: the balance and today’s curve show; a priced item takes two press
     const { page } = app;
     await page.waitForSelector('[data-testid="home-screen"]');
     await openLocker(page);
-    await expect(page.locator('[data-testid="locker-chalk-balance"]')).toHaveText('600 Chalk');
+    // 600 on file plus the 165 today's Reps earn, which the next save files.
+    await expect(page.locator('[data-testid="locker-chalk-balance"]')).toHaveText('765 Chalk');
     await expect(page.locator('[data-testid="locker-foot"]')).toContainText('at most 225 a day');
     // Too dear: the button says how far, and is off.
     await page.locator('[data-testid="locker-item"][data-id="back-night-weave"]').click();
-    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('400 more Chalk to go');
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('235 more Chalk to go');
     await expect(page.locator('[data-testid="locker-equip"]')).toBeDisabled();
     // Affordable: two presses. Choosing another item in between cancels the first.
     const use = page.locator('[data-testid="locker-equip"]');
@@ -376,6 +377,8 @@ test('Chalk: the balance and today’s curve show; a priced item takes two press
     await expect(use).toHaveText('Spend 450 Chalk');
     expect(readState(dir).progression?.cosmetics?.owned ?? []).not.toContain('back-herringbone');
     await use.click();
+    // The confirm counts only after a pause (a double-click is one press).
+    await page.waitForTimeout(600);
     await use.click();
     // 600 + today's 165 - 450.
     await expect(page.locator('[data-testid="locker-chalk-balance"]')).toHaveText('315 Chalk');
@@ -405,6 +408,72 @@ test('Chalk: the balance and today’s curve show; a priced item takes two press
       expect(gridBottom, `${w}x${h}: tiles clear the footer`).toBeLessThanOrEqual(footTop);
       expect(footBottom, `${w}x${h}: the footer stays in the column`).toBeLessThanOrEqual(colBottom + 1);
     }
+  } finally {
+    await app.close();
+  }
+});
+
+const CHALK_NOW = new Date(2026, 9, 20, 20, 0, 0).getTime();
+/** 600 Chalk filed yesterday, and 180 Reps today that the curve turns into 165 more. */
+function chalkProfile(extra: Record<string, unknown> = {}): string {
+  const today = systemDayKeyOf()(CHALK_NOW);
+  const dir = freshDir();
+  fs.writeFileSync(
+    path.join(dir, STATE),
+    JSON.stringify({
+      schemaVersion: 2,
+      ...extra,
+      progression: {
+        reps: { total: 180, awards: [{ key: 'hand:1', reps: 180, day: today }] },
+        cosmetics: { chalk: { balance: 600, day: today - 1, earnedToday: 225 } },
+      },
+    }),
+  );
+  return dir;
+}
+
+test('Chalk: the balance includes what today’s Reps earn before any save files it', async () => {
+  const app = await launchApp({ userDataDir: chalkProfile(), env: { OFFSUIT_NOW: String(CHALK_NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await expect(page.locator('[data-testid="locker-chalk-balance"]')).toHaveText('765 Chalk');
+    await expect(page.locator('[data-testid="locker-chalk-today"]')).toHaveText('165 of 225 earned today');
+    await page.locator('[data-testid="locker-item"][data-id="back-night-weave"]').click();
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('235 more Chalk to go');
+  } finally {
+    await app.close();
+  }
+});
+
+test('Chalk: a double-click on Spend is one press, never a confirmed purchase', async () => {
+  const dir = chalkProfile();
+  const app = await launchApp({ userDataDir: dir, env: { OFFSUIT_NOW: String(CHALK_NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await page.locator('[data-testid="locker-item"][data-id="back-herringbone"]').click();
+    await page.locator('[data-testid="locker-equip"]').dblclick();
+    await page.waitForTimeout(800);
+    await expect(page.locator('[data-testid="locker-item"][data-id="back-herringbone"]')).toHaveAttribute('data-owned', 'false');
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('Confirm: spend 450 Chalk');
+    expect(readState(dir).progression?.cosmetics?.owned ?? []).not.toContain('back-herringbone');
+  } finally {
+    await app.close();
+  }
+});
+
+test('Chalk: a read-only profile (from a newer build) cannot spend', async () => {
+  const app = await launchApp({ userDataDir: chalkProfile({ schemaVersion: 99 }), env: { OFFSUIT_NOW: String(CHALK_NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await page.locator('[data-testid="locker-item"][data-id="back-herringbone"]').click();
+    await expect(page.locator('[data-testid="locker-equip"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('Read-only profile');
   } finally {
     await app.close();
   }

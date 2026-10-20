@@ -184,8 +184,7 @@ import { railBoard, settleRail } from '../core/progression/rail.js';
 import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { CHALK_DAILY_CAP, COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
-import { itemById } from '../core/cosmetics/catalogue.js';
-import { chalkLeftToday, spend } from '../core/economy/chalk.js';
+import { chalkLeftToday, earnChalk, spendItem } from '../core/economy/chalk.js';
 import { milestoneFacts, masteredIds, teachDueFrom } from '../core/progression/apply.js';
 import { FINDING_TITLES, findingOf, latestSets, recordTaught, rewritesDue } from '../core/teachDee.js';
 import { milestoneViews, nextUp } from '../core/progression/milestones.js';
@@ -500,6 +499,8 @@ async function boot(): Promise<void> {
   let assessmentReturn: Leaf = 'home';
   /** An item just bought with Chalk, kept selected through the re-render so "Use this …" is one press away. */
   let lockerBought: string | null = null;
+  /** A Chalk purchase is being saved: a second one waits for it, so it never starts from a stale balance. */
+  let lockerSpending = false;
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
   /** A challenge code's Math problem: its place in the drill's seeded sequence (consumed like drillKindNext). */
@@ -2631,13 +2632,16 @@ async function boot(): Promise<void> {
       seals: p.seals,
       story: p.story,
       facts: milestoneFacts(session, p, SCENARIOS, masteredIds(deriveConcepts(), now()).length),
-      balance: p.cosmetics.chalk.balance,
     };
-    const cosmetics = syncCosmetics(p.cosmetics, earn, today());
     const d = today();
+    // What the next save files: the receipts earned so far, and today's Chalk from today's Reps (the balance shown and
+    // spent is the one the save will write, so nothing is disabled that the learner can already afford).
+    const synced = syncCosmetics(p.cosmetics, earn, d);
+    const cosmetics = { ...synced, chalk: earnChalk(synced.chalk, p.reps, d) };
+    const ledgerDay = cosmetics.chalk.day;
     return renderLocker({
       cosmetics,
-      earn,
+      earn: { ...earn, balance: cosmetics.chalk.balance },
       slot: lockerSlot,
       onSlot: (slot) => {
         lockerSlot = slot;
@@ -2654,19 +2658,22 @@ async function boot(): Promise<void> {
       },
       // Chalk (D4): a fixed price from an earn-only balance. Nothing else moves: no chips, no Reps.
       onSpend: (itemId) => {
-        const item = itemById(itemId);
-        if (!item || item.earn.kind !== 'chalk') return;
-        const next = spend(cosmetics, item.id, item.earn.price, item.name, d);
+        if (lockerSpending) return;
+        const next = spendItem(cosmetics, itemId, d);
         if (next === cosmetics) return;
-        void saveProgression({ ...session.progression, cosmetics: next }).then(() => {
-          lockerBought = item.id;
+        lockerSpending = true;
+        void saveProgression({ ...session.progression, cosmetics: next }).finally(() => {
+          lockerSpending = false;
+          lockerBought = itemId;
           render();
           lockerBought = null;
           // Now owned and still selected, the same button reads "Use this …"; keep the keyboard on it.
           document.querySelector<HTMLElement>('[data-testid="locker-equip"]')?.focus();
         });
       },
-      chalkToday: { earned: CHALK_DAILY_CAP - chalkLeftToday(p.cosmetics.chalk, d), cap: CHALK_DAILY_CAP },
+      chalkToday: { earned: CHALK_DAILY_CAP - chalkLeftToday(cosmetics.chalk, d), cap: CHALK_DAILY_CAP },
+      resumesOn: ledgerDay !== null && ledgerDay > d ? ledgerDay : null,
+      readOnly: settings.profile.readOnly != null,
       selectedId: lockerBought ?? undefined,
     });
   }

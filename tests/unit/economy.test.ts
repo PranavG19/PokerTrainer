@@ -12,7 +12,7 @@ import { defaultProgression, parseProgression, serializeProgression } from '../.
 import { CHALK_DAILY_CAP } from '../../src/core/progression/types.js';
 import { CATALOGUE } from '../../src/core/cosmetics/catalogue.js';
 import { earnStatus, equip, isOwned, syncCosmetics } from '../../src/core/cosmetics/locker.js';
-import { CHALK_PRICES, chalkForDay, chalkLeftToday, earnChalk, FULL_RATE_REPS, HALF_RATE_REPS, spend } from '../../src/core/economy/chalk.js';
+import { CHALK_PRICES, chalkForDay, chalkLeftToday, earnChalk, FULL_RATE_REPS, HALF_RATE_REPS, spendItem } from '../../src/core/economy/chalk.js';
 
 const day = (n: number) => n as DayKey;
 const ledger0 = () => defaultProgression().cosmetics.chalk;
@@ -101,7 +101,7 @@ describe('spending: fixed published prices, owned on purchase, never with chips'
 
   it('spends the exact price, owns the item with a receipt, and can then be worn', () => {
     const rich = { ...defaultProgression().cosmetics, chalk: { balance: chalk(500), day: day(3), earnedToday: chalk(0) } };
-    const s = spend(rich, 'back-herringbone', 450, 'Herringbone', day(4));
+    const s = spendItem(rich, 'back-herringbone', day(4));
     expect(s.chalk).toEqual({ balance: 50, day: 3, earnedToday: 0 });
     expect(s.owned).toEqual(['back-herringbone']);
     expect(s.receipts).toEqual([{ itemId: 'back-herringbone', day: 4, fact: 'Herringbone, for 450 Chalk', chalk: 450 }]);
@@ -110,13 +110,11 @@ describe('spending: fixed published prices, owned on purchase, never with chips'
     expect(equip(s, 'back-herringbone').equipped.cardBack).toBe('back-herringbone');
   });
 
-  it('refuses too little Chalk, a second purchase, or a price that is not published', () => {
+  it('refuses too little Chalk or a second purchase', () => {
     const some = { ...defaultProgression().cosmetics, chalk: { balance: chalk(449), day: null, earnedToday: chalk(0) } };
-    expect(spend(some, 'back-herringbone', 450, 'Herringbone', day(4))).toBe(some);
+    expect(spendItem(some, 'back-herringbone', day(4))).toBe(some);
     const owned = { ...some, owned: ['back-linen'], chalk: { ...some.chalk, balance: chalk(5000) } };
-    expect(spend(owned, 'back-linen', 150, 'Linen', day(4))).toBe(owned);
-    // @ts-expect-error 300 is not a published price
-    expect(spend(owned, 'back-herringbone', 300, 'Herringbone', day(4))).toBe(owned);
+    expect(spendItem(owned, 'back-linen', day(4))).toBe(owned);
   });
 
   it('a priced item is never granted by a fact, and its rule shows the price and the balance', () => {
@@ -129,7 +127,7 @@ describe('spending: fixed published prices, owned on purchase, never with chips'
   });
 
   it('the ledger survives a save and a load', () => {
-    const c = spend({ ...defaultProgression().cosmetics, chalk: { balance: chalk(700), day: day(7), earnedToday: chalk(120) } }, 'chips-pewter', 450, 'Pewter', day(7));
+    const c = spendItem({ ...defaultProgression().cosmetics, chalk: { balance: chalk(700), day: day(7), earnedToday: chalk(120) } }, 'chips-pewter', day(7));
     const round = parseProgression(serializeProgression({ ...defaultProgression(), cosmetics: c })).cosmetics;
     expect(round).toEqual(c);
   });
@@ -157,21 +155,6 @@ describe('the save path pays Chalk from Reps, and from nothing else', () => {
     expect(applyProgress(saved, saved, {}, ctx).progression.cosmetics).toBe(p1.cosmetics);
   });
 
-  it('chips, a won pot or a bigger bankroll earn no Chalk', () => {
-    const s0 = emptySession();
-    const won: SessionState = { ...s0, bankroll: 1_000_000 as SessionState['bankroll'], hands: [{ ...hand(NOW - 1000, 0), net: 90_000 }] };
-    expect(applyProgress(s0, won, {}, ctx).progression.cosmetics.chalk).toEqual(s0.progression.cosmetics.chalk);
-  });
-
-  it('spending Chalk leaves the bankroll and Reps untouched', () => {
-    const s0 = emptySession();
-    const p = { ...s0.progression, cosmetics: spend({ ...s0.progression.cosmetics, chalk: { balance: chalk(200), day: null, earnedToday: chalk(0) } }, 'back-linen', 150, 'Linen', day(1)) };
-    const next: SessionState = { ...s0, progression: p };
-    const out = applyProgress(s0, next, {}, ctx);
-    expect(next.bankroll).toBe(s0.bankroll);
-    expect(out.progression.reps).toEqual(s0.progression.reps);
-    expect(out.progression.cosmetics.chalk.balance).toBe(50);
-  });
 });
 
 describe('no conversion paths, by source', () => {
@@ -205,5 +188,80 @@ describe('no conversion paths, by source', () => {
   it('nothing sells Chalk: no price in money, and the Chalk constants are the four published prices only', () => {
     const src = code(path.join(SRC, 'core/economy/chalk.ts'));
     expect(src).not.toMatch(/\$\s*\d|\busd\b|checkout|purchase|discount|\bsales?\b|bundle|Math\.random/i);
+  });
+});
+
+describe('review round 1 (Chalk)', () => {
+  it('a ledger day ahead of today (a clock moved back) shows nothing left today, so the Locker never promises Chalk it will not pay', () => {
+    const l = { balance: chalk(100), day: day(20), earnedToday: chalk(40) };
+    expect(earnChalk(l, repsDay(200, 19), day(19))).toBe(l);
+    expect(chalkLeftToday(l, day(19))).toBe(0);
+  });
+
+  it('no priced item in a slot whose effect is not built yet (celebrations: the session-end moment)', () => {
+    expect(CATALOGUE.filter((i) => i.slot === 'celebration' && i.earn.kind === 'chalk')).toEqual([]);
+  });
+
+  it('spend checks the catalogue itself: a mastery item, an unknown id, or a day-one item is never sold', () => {
+    const rich = { ...defaultProgression().cosmetics, chalk: { balance: chalk(9999), day: null, earnedToday: chalk(0) } };
+    for (const id of ['back-the-seal', 'back-graphite', 'back-from-nowhere']) expect(spendItem(rich, id, day(1)), id).toBe(rich);
+    const s = spendItem(rich, 'back-night-weave', day(1));
+    expect(s.chalk.balance).toBe(8999);
+    expect(s.receipts.at(-1)).toMatchObject({ itemId: 'back-night-weave', chalk: 1000, fact: 'Night weave, for 1,000 Chalk' });
+  });
+
+  const dayOf = fixedOffsetDayKeyOf(0);
+  const hand = (at: number, graded: number, net = 0): HandRecord => ({
+    handNumber: 1, hole: ['As', 'Kd'], board: [], net, vpip: false, pfr: false, grades: [], playedAt: at,
+    decisions: Array.from({ length: graded }, () => ({
+      street: 'flop' as const, board: [], pot: 100, toCall: 50, action: 'call' as const, amount: null,
+      verdict: { severity: 'free' as const, evLossBb: 0, message: null, principle: null },
+    })),
+  });
+
+  it('a hand that won a huge pot earns exactly what its graded decisions earn, no more', () => {
+    const NOW = Date.parse('2026-10-12T20:00:00Z');
+    const ctx: ApplyContext = { now: NOW, dayOf, scenarios: SCENARIOS, leakPrinciple: null };
+    const s0 = emptySession();
+    const plain = applyProgress(s0, { ...s0, hands: [hand(NOW - 1000, 2, 0)] }, {}, ctx).progression.cosmetics.chalk;
+    const rich = applyProgress(s0, { ...s0, bankroll: 9_000_000 as SessionState['bankroll'], hands: [hand(NOW - 1000, 2, 250_000)] }, {}, ctx).progression.cosmetics.chalk;
+    expect(plain.balance).toBe(20);
+    expect(rich).toEqual(plain);
+  });
+
+  it('spending leaves the saved bankroll and Reps as they were', () => {
+    const NOW = Date.parse('2026-10-12T20:00:00Z');
+    const ctx: ApplyContext = { now: NOW, dayOf, scenarios: SCENARIOS, leakPrinciple: null };
+    const s0 = { ...emptySession(), bankroll: 12_345 as SessionState['bankroll'] };
+    const bought = spendItem({ ...s0.progression.cosmetics, chalk: { balance: chalk(200), day: null, earnedToday: chalk(0) } }, 'back-linen', day(1));
+    const next: SessionState = { ...s0, progression: { ...s0.progression, cosmetics: bought } };
+    const out: SessionState = { ...next, progression: applyProgress(s0, next, {}, ctx).progression };
+    expect(out.bankroll).toBe(12_345);
+    expect(out.progression.reps).toEqual(s0.progression.reps);
+    expect(out.progression.cosmetics.chalk.balance).toBe(50);
+  });
+
+  it('the 4 am boundary: a hand before it pays into the previous day, not today', () => {
+    const NOW = Date.parse('2026-10-12T04:30:00Z');
+    const ctx: ApplyContext = { now: NOW, dayOf, scenarios: SCENARIOS, leakPrinciple: null };
+    const s0 = emptySession();
+    const out = applyProgress(s0, { ...s0, hands: [hand(Date.parse('2026-10-12T03:50:00Z'), 3), hand(Date.parse('2026-10-12T04:10:00Z'), 1)] }, {}, ctx).progression;
+    expect(out.reps.total).toBe(40);
+    expect(out.cosmetics.chalk).toEqual({ balance: 10, day: dayOf(NOW), earnedToday: 10 });
+  });
+
+  it('today’s awards still pay when older days’ awards fill the bounded log', () => {
+    let r = defaultProgression().reps;
+    for (let i = 0; i < 600; i++) r = award(r, `old:${i}`, 10, day(i % 50));
+    r = award(r, 'today', 90, day(100));
+    expect(earnChalk(ledger0(), r, day(100)).balance).toBe(90);
+  });
+
+  it('no module but units.ts casts a number into a unit', () => {
+    const SRC = path.resolve(__dirname, '../../src');
+    const walk = (d: string): string[] =>
+      fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith('.ts') ? [path.join(d, e.name)] : []));
+    const casting = walk(SRC).filter((f) => !f.endsWith('core/units.ts') && /\bas\s+(Chips|Reps|Chalk)\b/.test(fs.readFileSync(f, 'utf-8')));
+    expect(casting.map((f) => path.relative(SRC, f))).toEqual([]);
   });
 });

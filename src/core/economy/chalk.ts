@@ -18,6 +18,7 @@ import type { DayKey } from '../localDay.js';
 import { chalk, type Chalk, type Reps } from '../units.js';
 import { repsOn } from '../progression/reps.js';
 import { CHALK_DAILY_CAP, type ChalkLedger, type CosmeticsState, type RepsState } from '../progression/types.js';
+import { itemById } from '../cosmetics/catalogue.js';
 
 /** Reps a day that pay 1 Chalk each. */
 export const FULL_RATE_REPS = 150;
@@ -51,8 +52,12 @@ export function earnChalk(ledger: ChalkLedger, reps: RepsState, today: DayKey): 
   return { balance: chalk(ledger.balance + owed), day: today, earnedToday: chalk(paidToday + owed) };
 }
 
-/** What today's curve still has to give, for the Locker's "today" line. */
+/**
+ * What today's curve still has to give, for the Locker's "today" line. 0 while the clock is behind the ledger's day:
+ * that day was already paid, so nothing is promised until it comes round again.
+ */
 export function chalkLeftToday(ledger: ChalkLedger, today: DayKey): Chalk {
+  if (ledger.day !== null && today < ledger.day) return chalk(0);
   const paid = ledger.day === today ? ledger.earnedToday : 0;
   return chalk(CHALK_DAILY_CAP - paid);
 }
@@ -62,10 +67,15 @@ export function isPrice(n: number): n is ChalkPrice {
 }
 
 /**
- * Spend Chalk on an item: the balance must cover the fixed price, and the item must not be owned already. The receipt
- * records the Chalk spent. Refused (the same object back) otherwise. Nothing else changes: no chips, no Reps.
+ * Spend Chalk on a catalogue item that has a price: the balance must cover it, and the item must not be owned already.
+ * The price and name come from the catalogue, never the caller, so a mastery or day-one item can never be sold. The
+ * receipt records the Chalk spent. Refused (the same object back) otherwise. Nothing else changes: no chips, no Reps.
  */
-export function spend(state: CosmeticsState, itemId: string, price: ChalkPrice, name: string, today: DayKey): CosmeticsState {
+export function spendItem(state: CosmeticsState, itemId: string, today: DayKey): CosmeticsState {
+  const item = itemById(itemId);
+  if (!item || item.earn.kind !== 'chalk') return state;
+  const price = item.earn.price;
+  const name = item.name;
   if (!isPrice(price) || state.owned.includes(itemId) || state.chalk.balance < price) return state;
   return {
     ...state,

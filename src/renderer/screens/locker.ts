@@ -52,6 +52,10 @@ export interface LockerOptions {
   readonly onEquip: (itemId: string) => void;
   /** Spend Chalk on a priced item (economy/chalk.ts `spend`); called only after the second, confirming press. */
   readonly onSpend: (itemId: string) => void;
+  /** The profile cannot be saved (a newer build's file, or one changed on disk): nothing can be spent or worn. */
+  readonly readOnly?: boolean;
+  /** Set while the clock is behind the day Chalk was last paid: the day earning resumes. */
+  readonly resumesOn?: DayKey | null;
   /** The item to show selected, if it is in this slot (the one just bought); otherwise what is worn. */
   readonly selectedId?: string;
   /** Chalk earned today, of the daily cap. */
@@ -59,6 +63,8 @@ export interface LockerOptions {
 }
 
 const fmt = (n: number): string => n.toLocaleString('en-US');
+/** A confirm press within this long of the first press is ignored (a double-click, a held key). */
+const CONFIRM_DELAY_MS = 500;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -162,17 +168,23 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
   use.dataset.testid = 'locker-equip';
   // A priced item takes two presses: "Spend 450 Chalk", then "Confirm: spend 450 Chalk". Choosing another item, or
   // leaving, cancels the first press. Chalk is never spent by a single click.
+  // The confirm counts only after CONFIRM_DELAY_MS, so a double-click or a held Enter (key repeat) is one press.
   let confirming = false;
+  let confirmArmedAt = 0;
   use.addEventListener('click', () => {
-    if (use.disabled) return;
+    if (use.disabled || opts.readOnly) return;
     const price = selected.earn.kind === 'chalk' ? selected.earn.price : null;
     if (price !== null && !isOwned(opts.cosmetics, selected)) {
       if (!confirming) {
         confirming = true;
+        confirmArmedAt = performance.now();
         paintCaption();
         return;
       }
+      if (performance.now() - confirmArmedAt < CONFIRM_DELAY_MS) return;
       confirming = false;
+      // Off until the save lands and the screen repaints, so a second purchase never starts from a stale balance.
+      use.disabled = true;
       opts.onSpend(selected.id);
       return;
     }
@@ -197,6 +209,11 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
     const inUse = isWorn(selected);
     capName.textContent = selected.name;
     capLine.textContent = earnedLine(selected, opts);
+    if (opts.readOnly) {
+      use.disabled = true;
+      use.textContent = 'Read-only profile';
+      return;
+    }
     const price = selected.earn.kind === 'chalk' && !owned ? selected.earn.price : null;
     if (price !== null) {
       const short = price - opts.cosmetics.chalk.balance;
@@ -282,7 +299,13 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
   wallet.dataset.testid = 'locker-chalk';
   const bal = el('span', 't-head g-num', `${fmt(opts.cosmetics.chalk.balance)} Chalk`);
   bal.dataset.testid = 'locker-chalk-balance';
-  const today = el('span', 'g-caption g-num', `${fmt(opts.chalkToday.earned)} of ${fmt(opts.chalkToday.cap)} earned today`);
+  const today = el(
+    'span',
+    'g-caption g-num',
+    opts.resumesOn != null
+      ? `Your clock is behind the last day Chalk was paid; earning resumes on ${dayLabel(opts.resumesOn)}`
+      : `${fmt(opts.chalkToday.earned)} of ${fmt(opts.chalkToday.cap)} earned today`,
+  );
   today.dataset.testid = 'locker-chalk-today';
   wallet.append(bal, today);
 

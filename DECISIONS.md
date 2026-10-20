@@ -101,13 +101,17 @@ Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is lock
 answered 2026-10-20: "build everything you can"). Supersedes: receipts only, because the owner chose Chalk.
 - **Chalk's curve** (`src/core/economy/chalk.ts`): 1 per Rep for a local day's first 150 Reps, ½ per Rep to 300, then
   none; at most 225 a day, no wallet cap. It is paid on save from the Reps awarded that day (`repsOn`), so it is as
-  idempotent as Reps. A day before the ledger's day (a clock moved back) pays nothing. Reps dated another day (a hand
-  played before 4 am, saved after) do not pay into today. This curve is the one Reps → Chalk step; nothing turns
+  idempotent as Reps. A day before the ledger's day (a clock moved back) pays nothing, and the Locker says when
+  earning resumes. Reps dated another day (a hand played before 4 am, saved after) do not pay into today. The Locker
+  shows and spends the balance the next save will file, so today's Chalk counts before it is saved. This curve is the one Reps → Chalk step; nothing turns
   Chalk into Reps or chips, and `chalk(` is minted only in units, the parser, the economy and the Locker rules
   (`economy.test`).
-- **Prices are fixed and published:** 150, 450, 1,000, 2,400 (`CHALK_PRICES`), on 13 priced items. Mastery items stay
-  earned by facts and are never priced. Spending takes two presses ("Spend 450 Chalk", then "Confirm"); the receipt
-  records the Chalk spent. No sales, discounts, bundles, timers or random drops; Chalk is never bought with money.
+- **Prices are fixed and published:** 150, 450, 1,000, 2,400 (`CHALK_PRICES`), on 11 priced items. `spendItem` reads
+  the price from the catalogue, so a mastery or day-one item can never be sold. No celebration is priced while the
+  session-end moment is unbuilt. Spending takes two presses ("Spend 450 Chalk", then "Confirm"); a confirm within
+  500 ms (a double-click, a held key) is ignored, and the button is off until the save lands. A read-only profile
+  cannot spend or wear. The receipt records the Chalk spent. No sales, discounts, bundles, timers or random drops;
+  Chalk is never bought with money.
 - **The balance is ink, never mint**, with "N of 225 earned today" beside it, and the curve is printed in the Locker.
 - **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 5 table tints, 4 chip sets, 4 Dee finishes, 4
   celebrations. Each slot's first item is the day-one default. Every other item is earned by a ratchet the habit loop
