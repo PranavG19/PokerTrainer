@@ -206,7 +206,34 @@ const MATERIAL: Record<MilestoneFamily, string> = {
   habit: 'Graphite · a habit kept',
 };
 
-export function renderTrophies(views: readonly MilestoneView[], next: readonly MilestoneView[]): HTMLElement {
+/** The Trophy room's way into the Ghost Rail and the Season (2.5, 2.7): one line of this week's facts each. */
+export interface LeagueRows {
+  readonly rail: string;
+  readonly season: string;
+  readonly onRail: () => void;
+  readonly onSeason: () => void;
+}
+
+function leagueGroup(rows: LeagueRows): HTMLElement {
+  const group = el('div', 'g-group trophy-league');
+  group.dataset.testid = 'trophy-league';
+  for (const [testid, title, meta, open] of [
+    ['trophy-rail', 'Ghost Rail', rows.rail, rows.onRail],
+    ['trophy-season', 'Season', rows.season, rows.onSeason],
+  ] as const) {
+    const b = el('button', 'g-row session-card');
+    b.type = 'button';
+    b.dataset.testid = testid;
+    const text = el('span', 'session-card-text');
+    text.append(el('span', 'session-card-title t-head', title), el('span', 'session-card-meta g-caption', meta));
+    b.append(text, chevron());
+    b.addEventListener('click', open);
+    group.appendChild(b);
+  }
+  return group;
+}
+
+export function renderTrophies(views: readonly MilestoneView[], next: readonly MilestoneView[], league?: LeagueRows): HTMLElement {
   const root = el('div', 'you-screen you-trophies');
   root.dataset.testid = 'you-trophies';
   const earned = views.filter((v) => v.earnedOn !== null).sort((a, b) => (b.earnedOn as number) - (a.earnedOn as number));
@@ -268,6 +295,7 @@ export function renderTrophies(views: readonly MilestoneView[], next: readonly M
   }
 
   const left = el('div', 'you-col');
+  if (league) left.appendChild(leagueGroup(league));
   left.appendChild(shelf);
   const right = el('div', 'you-col');
   right.append(detail, sectionHead('Next four', 'What each records, and how close you are'), nextList);

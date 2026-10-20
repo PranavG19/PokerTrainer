@@ -11,7 +11,8 @@
  *  - Play       the tables and their panels (solo, friends, online, assessment, variance) and the planner
  *  - Learn      lessons and the Folio; Story the Long Orbit; Train the hub, Charts now a rung of it
  *  - Study      Bank · Equity · Ranges · Dossier · Pro (the reference tools, and the Pro hand-history tools)
- *  - You        the owner's eight, plus Progress (opened from Profile) and the hand log under Hands
+ *  - You        the owner's eight, plus Progress (opened from Profile), the Ghost Rail and the Season (opened from
+ *               Trophies) and the hand log under Hands
  *  - Settings   a title-bar button, not a section
  *
  * Pure data, no DOM: tests/unit/nav.test.ts checks the folding.
@@ -41,6 +42,9 @@ export type Leaf =
   | 'locker'
   | 'dee'
   | 'progress'
+  // Opened from the Trophy room (2.5, 2.7): under You, with Trophies lit
+  | 'rail'
+  | 'season'
   // The title bar
   | 'settings';
 
@@ -87,7 +91,7 @@ export const YOU_NAV: readonly SubNavItem[] = [
 export function sectionOf(leaf: Leaf): Section | null {
   if (leaf === 'settings') return null;
   if (STUDY_NAV.some((i) => i.leaf === leaf)) return 'study';
-  if (YOU_NAV.some((i) => i.leaf === leaf) || leaf === 'progress') return 'you';
+  if (YOU_NAV.some((i) => i.leaf === leaf) || leaf === 'progress' || leaf === 'rail' || leaf === 'season') return 'you';
   return leaf as Section;
 }
 
@@ -97,8 +101,9 @@ export function subNavOf(leaf: Leaf): readonly SubNavItem[] | null {
   return s === 'study' ? STUDY_NAV : s === 'you' ? YOU_NAV : null;
 }
 
-/** The sub-nav item lit for a leaf (Progress is opened from Profile, so Profile stays lit). */
+/** The sub-nav item lit for a leaf (Progress is opened from Profile, so Profile stays lit; the Ghost Rail and the Season from Trophies). */
 export function litSubItem(leaf: Leaf): Leaf {
+  if (leaf === 'rail' || leaf === 'season') return 'trophies';
   return leaf === 'progress' ? 'profile' : leaf;
 }
 

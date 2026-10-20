@@ -1,0 +1,178 @@
+/* The Ghost Rail and Seasons (You › Trophies): the week card, the Deuce-to-Ace ladder, the board, the free track's
+ * stamps and the archive. Tokens only (styles-glass.css). The current tier and a reached stamp are fill-ramp light,
+ * never mint: mint is your turn and an ON switch, and a tier is neither. */
+
+.league .you-col {
+  gap: 10px;
+}
+.league-top,
+.league-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+.league-bar {
+  flex: none;
+}
+.league-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.league-tier {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: var(--r-thumb);
+  background: var(--fill-2);
+  color: var(--ink-1);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.league-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ink-1);
+}
+.league-pace {
+  margin: 0;
+}
+.league-play {
+  align-self: flex-start;
+}
+
+/* The ladder: thirteen rungs in one row, the passed ones filled, the current one lit. */
+.league-ladder {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.league-rung {
+  display: grid;
+  place-items: center;
+  height: var(--h-sm);
+  border-radius: var(--r-xs);
+  background: var(--fill-0);
+  color: var(--ink-3);
+  font-size: var(--t-cap);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.league-rung[data-state='passed'] {
+  background: var(--fill-1);
+  color: var(--ink-2);
+}
+.league-rung[data-state='current'] {
+  background: var(--fill-3);
+  color: var(--ink-1);
+  font-weight: 600;
+}
+
+/* Board and list rows: informational, so a flat hairline list (.g-sect.g-flat), never a .g-group. */
+.league-board,
+.league-past,
+.league-rules {
+  flex: none;
+}
+.league-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 2px;
+}
+.league-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.league-row-name {
+  color: var(--ink-1);
+  font-size: var(--t-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.league-row-text .g-caption {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.league-row-num {
+  flex: none;
+  min-width: 44px;
+  text-align: right;
+  color: var(--ink-1);
+  font-size: var(--t-head);
+}
+.league-row[data-kind='you'] .league-row-name {
+  font-weight: 600;
+}
+.league-row[data-kind='bot'] .league-row-num {
+  color: var(--ink-2);
+}
+.league-row-note {
+  flex: none;
+  max-width: 40%;
+  text-align: right;
+}
+.league-rules .league-row-text .g-caption {
+  white-space: normal;
+}
+.league-empty {
+  padding: 8px 2px;
+}
+
+/* The free track: ten stamps. */
+.league-track,
+.league-finale {
+  align-items: stretch;
+}
+.league-finale > .pill {
+  align-self: flex-start;
+}
+.league-stamps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px 8px;
+  margin: 4px 0;
+  padding: 0;
+  list-style: none;
+}
+.league-stamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.league-stamp-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+  color: var(--ink-3);
+  font-size: var(--t-foot);
+}
+.league-stamp[data-reached='true'] .league-stamp-mark {
+  background: var(--fill-3);
+  color: var(--ink-1);
+  font-weight: 600;
+}
+.league-archive {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.league-archive .league-row-text .g-caption {
+  white-space: normal;
+}
