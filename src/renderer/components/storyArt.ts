@@ -1,4 +1,4 @@
-import type { ChapterId, Rival } from '../../core/story/cast.js';
+import type { KeepsakeGlyph, Rival, StoryRoomId } from '../../core/story/cast.js';
 
 /**
  * The Long Orbit's art: each venue drawn in bone line on a dark tile (demo/vision/story.html), and each rival
@@ -10,7 +10,11 @@ import type { ChapterId, Rival } from '../../core/story/cast.js';
 const L = 'fill="none" stroke="#F4F2EC" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"';
 const S = 'fill="none" stroke="#D9D4C8" stroke-opacity=".45" stroke-width="1" stroke-linecap="round"';
 
-const VENUE_ART: Readonly<Record<ChapterId, string>> = {
+const VENUE_ART: Readonly<Record<StoryRoomId, string>> = {
+  // A pendant lamp over a round table, its pool of light.
+  kitchen: `<path ${S} d="M28 4v10"/><path ${L} d="M20 20c0-4.4 3.6-6 8-6s8 1.6 8 6z"/><path d="M20 20h16l8 18H12z" fill="#F4F2EC" fill-opacity=".08"/><ellipse cx="28" cy="40" rx="18" ry="5" ${L}/><path ${S} d="M14 44v6M42 44v6"/>`,
+  // A mask on its stick, the eye-holes dark.
+  masquerade: `<path ${L} d="M10 22c4-4 10-4 18 0 8-4 14-4 18 0-1 8-6 12-11 12-3 0-5-2-7-4-2 2-4 4-7 4-5 0-10-4-11-12z"/><path ${S} d="M17 25c2-2 5-2 7 0M32 25c2-2 5-2 7 0"/><path ${L} d="M40 33l6 15"/>`,
   // A tower and the beam it sends out over the water.
   lighthouse: `<path ${L} d="M24 46l2-26h4l2 26z"/><path ${L} d="M23 20h10M25 16h6v4h-6z"/><path d="M31 18l19-6v12z" fill="#F4F2EC" fill-opacity=".12"/><path ${S} d="M25 32h6M24.5 39h7"/><path ${S} d="M8 48c6-2 12 2 18 0s14 2 22 0"/>`,
   // A diner counter under a neon sign, and the road running off.
@@ -25,7 +29,9 @@ const VENUE_ART: Readonly<Record<ChapterId, string>> = {
   observatory: `<path ${L} d="M12 40c0-10 7-17 16-17s16 7 16 17z"/><path ${L} d="M10 40h36v6H10z"/><path ${L} d="M26 23.2 28 40M30 23.2 28 40" stroke-opacity=".7"/><path ${S} d="M34 22l8-10"/><g fill="#F4F2EC"><circle cx="44" cy="9" r="1.3"/><circle cx="15" cy="12" r="1"/><circle cx="24" cy="7" r=".8" fill-opacity=".6"/></g>`,
 };
 
-const KEEPSAKE: Readonly<Record<Rival['keepsake'], string>> = {
+const KEEPSAKE: Readonly<Record<KeepsakeGlyph, string>> = {
+  lamp: `<path ${S} d="M24 9v5"/><path ${L} d="M16 22c0-5 3.6-8 8-8s8 3 8 8z"/><path ${S} d="M20 27l-2 5M24 27v6M28 27l2 5"/>`,
+  mask: `<path ${L} d="M10 20c4-3 9-3 14 0 5-3 10-3 14 0-1 7-5 10-9 10-2 0-4-2-5-3-1 1-3 3-5 3-4 0-8-3-9-10z"/><path ${S} d="M15 22c1.5-1.5 4-1.5 5.5 0M27.5 22c1.5-1.5 4-1.5 5.5 0"/>`,
   wick: `<path ${L} d="M20 30c0-5 4-7 4-12 3 3 4 6 4 9a4 4 0 0 1-8 3z"/><path ${S} d="M24 30v6"/>`,
   ticket: `<path ${L} d="M13 18h22v4a2 2 0 0 0 0 4v4H13v-4a2 2 0 0 0 0-4z"/><path ${S} d="M27 18v12" stroke-dasharray="1.5 2"/>`,
   bookmark: `<path ${L} d="M18 12h12v24l-6-5-6 5z"/>`,
@@ -34,7 +40,7 @@ const KEEPSAKE: Readonly<Record<Rival['keepsake'], string>> = {
   fork: `<path ${L} d="M20 12v10a4 4 0 0 0 8 0V12M24 26v10"/>`,
 };
 
-export function venueArt(id: ChapterId, size: number): SVGSVGElement {
+export function venueArt(id: StoryRoomId, size: number): SVGSVGElement {
   return svg(`0 0 56 56`, VENUE_ART[id], size);
 }
 
@@ -51,6 +57,19 @@ export function rivalMedallion(rival: Rival, masked: boolean, size: number): SVG
     `<circle cx="24" cy="24" r="22" fill="none" stroke="#FFFFFF" stroke-opacity="${masked ? 0.18 : 0.34}" stroke-width="1"/>` +
     `<circle cx="24" cy="24" r="18.5" fill="none" stroke="#D9D4C8" stroke-opacity=".35" stroke-width="1.2" stroke-dasharray="1.6 3.2"/>` +
     face;
+  return svg('0 0 48 48', body, size);
+}
+
+/**
+ * A keepsake on the shelf: the glyph in a glass medallion. Not yet kept, it is an outline only (shown in advance with
+ * the fact that earns it, never hidden and never random).
+ */
+export function keepsakeMedal(glyph: KeepsakeGlyph, kept: boolean, size: number): SVGSVGElement {
+  const body =
+    `<circle cx="24" cy="24" r="22" fill="${kept ? '#1C2026' : 'none'}"/>` +
+    `<circle cx="24" cy="24" r="22" fill="none" stroke="#FFFFFF" stroke-opacity="${kept ? 0.34 : 0.16}" stroke-width="1"/>` +
+    (kept ? `<circle cx="24" cy="24" r="18.5" fill="none" stroke="#D9D4C8" stroke-opacity=".35" stroke-width="1.2"/>` : '') +
+    `<g opacity="${kept ? 0.95 : 0.3}">${KEEPSAKE[glyph]}</g>`;
   return svg('0 0 48 48', body, size);
 }
 

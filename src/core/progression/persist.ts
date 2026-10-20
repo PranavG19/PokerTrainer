@@ -43,6 +43,9 @@ import {
   type ShowdownRecord,
   type StoryOverride,
   type StoryState,
+  type BossRecord,
+  type MasqueradeSeat,
+  type MasqueradeState,
   type FolioState,
   type TalliesState,
   MAX_LETTERS,
@@ -63,6 +66,8 @@ export const MAX_GOALS = 2;
 export const MAX_STORY_OVERRIDES = 100;
 export const MAX_RIVAL_SITTINGS = 60;
 export const MAX_RIVAL_SHOWDOWNS = 200;
+/** A Masquerade seats three; anything longer is corruption. */
+export const MAX_MASQUERADE_SEATS = 6;
 /** A Ticket holds at most a handful of items; anything longer is corruption. */
 export const MAX_TICKET_ITEMS = 12;
 export const MAX_FOLIO_CARDS = 200;
@@ -108,7 +113,7 @@ export function defaultProgression(): ProgressionState {
     },
     milestones: { achieved: {} },
     entitlements: { tier: 'free', granted: [], licence: null, highWater: 0 },
-    story: { chapters: {}, rivals: {}, overrides: [] },
+    story: { chapters: {}, rivals: {}, overrides: [], bosses: {}, masquerade: emptyMasquerade() },
     ticket: { day: null, items: [], done: [], finishedOn: null },
     folio: { polished: {} },
     tallies: { priceHeld: 0, ticketsFinished: 0, suggestionTakenOn: null },
@@ -152,7 +157,13 @@ export const PROGRESSION_SHAPE = {
   },
   milestones: { achieved: true },
   entitlements: { tier: true, granted: true, licence: true, highWater: true },
-  story: { chapters: true, rivals: true, overrides: true },
+  story: {
+    chapters: true,
+    rivals: true,
+    overrides: true,
+    bosses: true,
+    masquerade: { run: true, seats: true, completed: true, completedOn: true },
+  },
   ticket: { day: true, items: true, done: true, finishedOn: true },
   folio: { polished: true },
   tallies: { priceHeld: true, ticketsFinished: true, suggestionTakenOn: true },
@@ -457,7 +468,53 @@ function parseStory(obj: Record<string, unknown>): StoryState {
     const chosen = id(entry.chosen);
     if (day !== null && suggested !== null && chosen !== null) overrides.push({ day, suggested, chosen });
   }
-  return { chapters, rivals, overrides: overrides.slice(-MAX_STORY_OVERRIDES) };
+  const bosses: Record<string, BossRecord> = {};
+  for (const [key, value] of Object.entries(asRecord(obj.bosses))) {
+    const k = id(key);
+    if (k === null || k === '__proto__' || !isPlainObject(value)) continue;
+    bosses[k] = { attempts: Math.min(MAX_RUN, nonNegativeInt(value.attempts)), cleanOn: asDayKey(value.cleanOn) };
+  }
+  return {
+    chapters,
+    rivals,
+    overrides: overrides.slice(-MAX_STORY_OVERRIDES),
+    bosses,
+    masquerade: isPlainObject(obj.masquerade) ? parseMasquerade(obj.masquerade) : emptyMasquerade(),
+  };
+}
+
+export function emptyMasquerade(): MasqueradeState {
+  return { run: 0, seats: [], completed: 0, completedOn: null };
+}
+
+/** Counts are clamped so a part never exceeds its whole; a seat without a rival id is dropped. */
+function parseMasquerade(obj: Record<string, unknown>): MasqueradeState {
+  const seats: MasqueradeSeat[] = [];
+  for (const value of asArray(obj.seats).slice(0, MAX_MASQUERADE_SEATS)) {
+    const entry = asRecord(value);
+    const rival = id(entry.rival);
+    if (rival === null) continue;
+    const acted = Math.min(MAX_RUN, nonNegativeInt(entry.acted));
+    const faced = Math.min(MAX_RUN, nonNegativeInt(entry.faced));
+    const chances = Math.min(MAX_RUN, nonNegativeInt(entry.chances));
+    seats.push({
+      rival,
+      acted,
+      played: Math.min(acted, nonNegativeInt(entry.played)),
+      faced,
+      folded: Math.min(faced, nonNegativeInt(entry.folded)),
+      chances,
+      bets: Math.min(chances, nonNegativeInt(entry.bets)),
+      missed: idList(entry.missed, MAX_MASQUERADE_SEATS * 2),
+      unmaskedOn: asDayKey(entry.unmaskedOn),
+    });
+  }
+  return {
+    run: Math.min(MAX_RUN, nonNegativeInt(obj.run)),
+    seats,
+    completed: Math.min(MAX_RUN, nonNegativeInt(obj.completed)),
+    completedOn: asDayKey(obj.completedOn),
+  };
 }
 
 function parseSitting(value: unknown): RivalSitting | null {
