@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fixedOffsetDayKeyOf, type DayKey } from '../../src/core/localDay.js';
 import { weekOf } from '../../src/core/week.js';
 import { HANDS_LINE, LEAD_LINE, STYLE_MIN_HANDS, styleAt, styleRead } from '../../src/core/style.js';
-import { draftLetter, fileLetters, readLetter, weekLabel, writeLetter, type LetterInput, type LettersState } from '../../src/core/letters.js';
+import { draftLetter, fileLetters, letterTitle, readLetter, weekLabel, writeLetter, type LetterInput, type LettersState } from '../../src/core/letters.js';
 import { MAX_ASSESSMENT_LOG, MAX_HAND_LOG, type DecisionRecord, type HandRecord } from '../../src/core/session.js';
 import { MAX_LETTERS } from '../../src/core/progression/types.js';
 import { parseProgression } from '../../src/core/progression/persist.js';
@@ -170,6 +170,27 @@ describe('Dee’s letters', () => {
   it('a stored letter whose week is not a Monday is dropped, so it cannot shadow the real one', () => {
     const p = parseProgression({ letters: { filed: [{ week: MON + 2, n: 1, lines: [] }, { week: MON, n: 1, lines: [] }] } });
     expect(p.letters.filed.map((l) => l.week)).toEqual([MON]);
+  });
+
+  it('an assessment-only week is never titled a clean sheet', () => {
+    const assess = Array.from({ length: 10 }, () => ({ at: at(MON - 7), evLossBb: 0.06, correct: false }));
+    const l = writeLetter(input([], { assessments: assess }), (MON - 7) as DayKey, null, false, 1);
+    expect(letterTitle(l, () => null)).toBe('The week in decisions');
+    const clean = writeLetter(input(hands(MON - 7, 3, 1, 1, [dec()])), (MON - 7) as DayKey, null, false, 1);
+    expect(clean.hand).not.toBeNull();
+    expect(letterTitle({ ...clean, hand: null }, () => null)).toBe('A clean sheet');
+  });
+
+  it('this week’s draft is not written from part of the week either', () => {
+    const log = hands(MON, MAX_HAND_LOG, 100, 80, [dec()]);
+    expect(draftLetter(NONE, input(log), (MON + 2) as DayKey)).toBeNull();
+  });
+
+  it('a record raised first but not played cannot push the lead past 100%', () => {
+    const bad = Array.from({ length: 40 }, (_, i) => hand(MON - 7, { vpip: i < 20, pfr: true, decisions: i === 0 ? [dec()] : [] }));
+    const l = writeLetter(input(bad), (MON - 7) as DayKey, null, false, 1);
+    expect(l.figures.leadPct).toBe(100);
+    expect(styleRead(bad, UTC).trail[0].lead).toBe(1);
   });
 
   it('a line id this build does not know is skipped, not shown', () => {

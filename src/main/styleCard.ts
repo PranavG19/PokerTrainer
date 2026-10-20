@@ -29,8 +29,11 @@ export function withinContent(r: Electron.Rectangle, content: { width: number; h
 }
 
 export async function saveStyleCard(win: BrowserWindow | null, raw: unknown, picturesDir: string): Promise<SaveCardResult> {
-  const asked = cardRect(raw);
-  if (win === null || win.isDestroyed() || asked === null) return 'failed';
+  const css = cardRect(raw);
+  if (win === null || win.isDestroyed() || css === null) return 'failed';
+  // The renderer measures in CSS pixels; the capture is in window pixels, which differ by the page zoom.
+  const zoom = win.webContents.getZoomFactor();
+  const asked = { x: Math.floor(css.x * zoom), y: Math.floor(css.y * zoom), width: Math.ceil(css.width * zoom), height: Math.ceil(css.height * zoom) };
   const rect = withinContent(asked, win.getContentBounds());
   if (rect === null) return 'failed';
   try {

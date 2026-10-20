@@ -147,8 +147,11 @@ export function countWeek(input: Pick<LetterInput, 'hands' | 'assessments' | 'da
   return { week, hands, vpip, pfr, graded: graded + assessN, tableGraded: graded, sheet, cost, riverBets, riverFolds, riverCalls, riverRight, assessN, assessSum, hand: best?.hand ?? null };
 }
 
+/** Raised first over played, clamped: a raise is always a hand played, so a record saying otherwise cannot pass 100%. */
+const leadOf = (c: Pick<WeekCount, 'vpip' | 'pfr'>): number => Math.min(c.pfr, c.vpip) / c.vpip;
+
 function weekStyle(c: WeekCount): StyleId | null {
-  return c.hands >= STYLE_MIN_HANDS && c.vpip >= STYLE_MIN_HANDS ? styleAt(c.vpip / c.hands, c.pfr / c.vpip) : null;
+  return c.hands >= STYLE_MIN_HANDS && c.vpip >= STYLE_MIN_HANDS ? styleAt(c.vpip / c.hands, leadOf(c)) : null;
 }
 
 const bbPer100 = (sum: number, n: number): number => Math.round((sum / n) * 1000) / 10;
@@ -180,6 +183,7 @@ export function writeLetter(input: LetterInput, week: DayKey, prev: LetterRecord
     riverCalls: c.riverCalls,
     riverRight: c.riverRight,
     assessN: c.assessN,
+    tableGraded: c.tableGraded,
   };
   if (c.hands > 0) facts.hands = plural(c.hands, 'hand', 'hands');
   // "graded" in the prose is what the opening line counts: table decisions, or the block's on a week with no table.
@@ -193,9 +197,9 @@ export function writeLetter(input: LetterInput, week: DayKey, prev: LetterRecord
   if (style !== null) {
     facts.style = STYLES[style].name;
     facts.handsPct = `${pct(c.vpip / c.hands)}%`;
-    facts.leadPct = `${pct(c.pfr / c.vpip)}%`;
+    facts.leadPct = `${pct(leadOf(c))}%`;
     figures.handsPct = pct(c.vpip / c.hands);
-    figures.leadPct = pct(c.pfr / c.vpip);
+    figures.leadPct = pct(leadOf(c));
     const was = prev?.style;
     if (was && was !== style && was in STYLES) facts.styleWas = STYLES[was as StyleId].name;
   }
@@ -327,7 +331,8 @@ export function fileLetters(state: LettersState, input: LetterInput, today: DayK
 export function draftLetter(state: LettersState, input: LetterInput, today: DayKey): LetterRecord | null {
   const week = weekOf(today);
   const c = countWeek(input, week);
-  if (c.graded === 0) return null;
+  // The week in progress is held to the same rule as a filed one: never written from part of it.
+  if (c.graded === 0 || !covered(input, week)) return null;
   const prev = state.filed.find((l) => l.week === week - 7) ?? null;
   return writeLetter(input, week, prev, true, numberOf(state, input, week));
 }
@@ -379,5 +384,5 @@ export function letterTitle(letter: LetterRecord, milestoneName: (id: string) =>
   if (named) return named;
   if (letter.hand) return `The ${letter.hand.street} ${letter.hand.action === 'call' ? 'call' : 'fold'}`;
   if (letter.style && letter.style in STYLES) return STYLES[letter.style as StyleId].name;
-  return letter.figures.sheet === 0 ? 'A clean sheet' : 'The week in decisions';
+  return (letter.figures.tableGraded ?? 0) > 0 && letter.figures.sheet === 0 ? 'A clean sheet' : 'The week in decisions';
 }

@@ -157,7 +157,7 @@ export function styleRead(hands: readonly LoggedHand[], dayOf: DayKeyOf): StyleR
       week = weeks.get(w) ?? { n: 0, vpip: 0, pfr: 0, riverBets: 0, riverFolds: 0 };
       week.n++;
       if (h.vpip) week.vpip++;
-      if (h.pfr) week.pfr++;
+      if (h.pfr && h.vpip) week.pfr++;
       weeks.set(w, week);
     }
     for (const d of h.decisions ?? []) {

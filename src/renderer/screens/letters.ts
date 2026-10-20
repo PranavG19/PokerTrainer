@@ -187,7 +187,7 @@ export function renderLetters(p: LettersProps): HTMLElement {
     const upto = l ? all.filter((x) => x.week <= l.week).slice(-6) : [];
     const f = l?.figures ?? {};
     nums.append(
-      fig('letter-fig-graded', 'Decisions graded', String(f.graded ?? 0), ` ${f.sheet ?? 0} to the sheet`, 'From graded decisions only', spark(upto.map((x) => x.figures.graded ?? 0))),
+      fig('letter-fig-graded', 'Decisions graded', String(f.graded ?? 0), ` ${f.sheet ?? 0} to the sheet`, 'Table and assessment block together', spark(upto.map((x) => x.figures.graded ?? 0))),
       fig(
         'letter-fig-river',
         'River calls facing a bet',

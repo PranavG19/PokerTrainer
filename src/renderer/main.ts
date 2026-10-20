@@ -340,6 +340,12 @@ async function boot(): Promise<void> {
       if (deleting) return { saved: false, readOnly: null, failed: 'deleting' };
       const applied = applyProgress(lastSaved, session, takeExtras(), applyContext());
       session = { ...session, progression: applied.progression };
+      // Dee's letters: an ended week is filed on the next save, before the 500-hand cap can cut into it. Read-only
+      // profiles file nothing (the store would refuse it, and a letter must not exist only in memory).
+      if (settings.profile.readOnly == null) {
+        const letters = fileLetters(session.progression.letters, letterInput(), today());
+        if (letters !== session.progression.letters) session = { ...session, progression: { ...session.progression, letters } };
+      }
       const toSave = session;
       // A profile delete while this save is in flight must not make the deleted session the next diff's base.
       const generation = profileGeneration;
@@ -2129,7 +2135,7 @@ async function boot(): Promise<void> {
     };
   }
 
-  /** You › Letters. Ended weeks are filed as the page opens (one save), so a letter reads the same ever after. */
+  /** You › Letters. Ended weeks are filed on every save and again as the page opens, so a letter reads the same ever after. */
   function renderLettersTab(): HTMLElement {
     const p = session.progression;
     const input = letterInput();
