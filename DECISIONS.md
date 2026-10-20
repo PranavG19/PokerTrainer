@@ -108,8 +108,9 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
   (`economy.test`).
 - **Prices are fixed and published:** 150, 450, 1,000, 2,400 (`CHALK_PRICES`), on 11 priced items. `spendItem` reads
   the price from the catalogue, so a mastery or day-one item can never be sold. No celebration is priced while the
-  session-end moment is unbuilt. Spending takes two presses ("Spend 450 Chalk", then "Confirm"); a confirm within
-  500 ms (a double-click, a held key) is ignored, and the button is off until the save lands. A read-only profile
+  session-end moment is unbuilt. Spending takes two presses ("Spend 450 Chalk", then "Confirm"): a confirm within
+  500 ms (a double-click) or from key repeat (a held Enter) is ignored, an armed confirm lapses after 8 s, and the
+  button is off until the save lands. A read-only profile
   cannot spend or wear. The receipt records the Chalk spent. No sales, discounts, bundles, timers or random drops;
   Chalk is never bought with money.
 - **The balance is ink, never mint**, with "N of 225 earned today" beside it, and the curve is printed in the Locker.

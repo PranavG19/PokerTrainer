@@ -50,8 +50,11 @@ export interface LockerOptions {
   readonly slot: CosmeticSlot;
   readonly onSlot: (slot: CosmeticSlot) => void;
   readonly onEquip: (itemId: string) => void;
-  /** Spend Chalk on a priced item (economy/chalk.ts `spend`); called only after the second, confirming press. */
-  readonly onSpend: (itemId: string) => void;
+  /**
+   * Spend Chalk on a priced item (economy/chalk.ts `spendItem`); called only after the second, confirming press. False
+   * when it declined (nothing to buy, or a purchase still saving), so the button comes back.
+   */
+  readonly onSpend: (itemId: string) => boolean;
   /** The profile cannot be saved (a newer build's file, or one changed on disk): nothing can be spent or worn. */
   readonly readOnly?: boolean;
   /** Set while the clock is behind the day Chalk was last paid: the day earning resumes. */
@@ -65,6 +68,8 @@ export interface LockerOptions {
 const fmt = (n: number): string => n.toLocaleString('en-US');
 /** A confirm press within this long of the first press is ignored (a double-click, a held key). */
 const CONFIRM_DELAY_MS = 500;
+/** An armed confirm lapses back to "Spend" after this long. */
+const CONFIRM_TTL_MS = 8000;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -169,8 +174,19 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
   // A priced item takes two presses: "Spend 450 Chalk", then "Confirm: spend 450 Chalk". Choosing another item, or
   // leaving, cancels the first press. Chalk is never spent by a single click.
   // The confirm counts only after CONFIRM_DELAY_MS, so a double-click or a held Enter (key repeat) is one press.
+  // An armed confirm also lapses after CONFIRM_TTL_MS, so a stray press minutes later never completes a purchase.
   let confirming = false;
   let confirmArmedAt = 0;
+  let lapse: number | null = null;
+  const disarm = (): void => {
+    confirming = false;
+    if (lapse !== null) window.clearTimeout(lapse);
+    lapse = null;
+  };
+  // A held key repeats keydown, and a focused button turns each into a click: a repeat is never a press.
+  use.addEventListener('keydown', (e) => {
+    if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault();
+  });
   use.addEventListener('click', () => {
     if (use.disabled || opts.readOnly) return;
     const price = selected.earn.kind === 'chalk' ? selected.earn.price : null;
@@ -178,14 +194,18 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
       if (!confirming) {
         confirming = true;
         confirmArmedAt = performance.now();
+        lapse = window.setTimeout(() => {
+          disarm();
+          paintCaption();
+        }, CONFIRM_TTL_MS);
         paintCaption();
         return;
       }
       if (performance.now() - confirmArmedAt < CONFIRM_DELAY_MS) return;
-      confirming = false;
+      disarm();
       // Off until the save lands and the screen repaints, so a second purchase never starts from a stale balance.
       use.disabled = true;
-      opts.onSpend(selected.id);
+      if (!opts.onSpend(selected.id)) paintCaption();
       return;
     }
     opts.onEquip(selected.id);
@@ -284,7 +304,7 @@ export function renderLocker(opts: LockerOptions): HTMLElement {
     tile.addEventListener('mouseleave', () => preview(selected));
     tile.addEventListener('blur', () => preview(selected));
     tile.addEventListener('click', () => {
-      if (selected.id !== item.id) confirming = false;
+      if (selected.id !== item.id) disarm();
       selected = item;
       for (const t of tiles) t.setAttribute('aria-pressed', String(t.dataset.id === item.id));
       preview(item);

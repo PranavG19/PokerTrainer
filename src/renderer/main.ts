@@ -2658,9 +2658,9 @@ async function boot(): Promise<void> {
       },
       // Chalk (D4): a fixed price from an earn-only balance. Nothing else moves: no chips, no Reps.
       onSpend: (itemId) => {
-        if (lockerSpending) return;
+        if (lockerSpending) return false;
         const next = spendItem(cosmetics, itemId, d);
-        if (next === cosmetics) return;
+        if (next === cosmetics) return false;
         lockerSpending = true;
         void saveProgression({ ...session.progression, cosmetics: next }).finally(() => {
           lockerSpending = false;
@@ -2670,6 +2670,7 @@ async function boot(): Promise<void> {
           // Now owned and still selected, the same button reads "Use this …"; keep the keyboard on it.
           document.querySelector<HTMLElement>('[data-testid="locker-equip"]')?.focus();
         });
+        return true;
       },
       chalkToday: { earned: CHALK_DAILY_CAP - chalkLeftToday(cosmetics.chalk, d), cap: CHALK_DAILY_CAP },
       resumesOn: ledgerDay !== null && ledgerDay > d ? ledgerDay : null,

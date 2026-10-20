@@ -478,3 +478,49 @@ test('Chalk: a read-only profile (from a newer build) cannot spend', async () =>
     await app.close();
   }
 });
+
+test('Chalk: holding Enter on Spend is one press — key repeat never confirms', async () => {
+  const dir = chalkProfile();
+  const app = await launchApp({ userDataDir: dir, env: { OFFSUIT_NOW: String(CHALK_NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await page.locator('[data-testid="locker-item"][data-id="back-herringbone"]').click();
+    await page.locator('[data-testid="locker-equip"]').focus();
+    await page.keyboard.down('Enter');
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('Confirm: spend 450 Chalk');
+    await page.waitForTimeout(700);
+    // Still held: the browser sends repeated keydowns (event.repeat).
+    await page.keyboard.down('Enter');
+    await page.keyboard.down('Enter');
+    await page.keyboard.up('Enter');
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-testid="locker-item"][data-id="back-herringbone"]')).toHaveAttribute('data-owned', 'false');
+    expect(readState(dir).progression?.cosmetics?.owned ?? []).not.toContain('back-herringbone');
+  } finally {
+    await app.close();
+  }
+});
+
+test('Chalk: an armed confirm lapses back to Spend, and the clock-behind line says when earning resumes', async () => {
+  const today = systemDayKeyOf()(CHALK_NOW);
+  const dir = freshDir();
+  fs.writeFileSync(
+    path.join(dir, STATE),
+    JSON.stringify({ schemaVersion: 2, progression: { cosmetics: { chalk: { balance: 600, day: today + 2, earnedToday: 50 } } } }),
+  );
+  const app = await launchApp({ userDataDir: dir, env: { OFFSUIT_NOW: String(CHALK_NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await openLocker(page);
+    await expect(page.locator('[data-testid="locker-chalk-today"]')).toContainText('earning resumes on');
+    await page.locator('[data-testid="locker-item"][data-id="back-herringbone"]').click();
+    await page.locator('[data-testid="locker-equip"]').click();
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('Confirm: spend 450 Chalk');
+    await expect(page.locator('[data-testid="locker-equip"]')).toHaveText('Spend 450 Chalk', { timeout: 12_000 });
+  } finally {
+    await app.close();
+  }
+});
