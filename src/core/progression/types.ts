@@ -29,6 +29,8 @@ export interface ProgressionState {
   ticket: TicketState;
   folio: FolioState;
   tallies: TalliesState;
+  rail: RailState;
+  seasons: SeasonsState;
 }
 
 /**
@@ -329,4 +331,79 @@ export interface TalliesState {
   ticketsFinished: number;
   /** The day the learner last took the one suggestion (today's ring); null before the first. */
   suggestionTakenOn: DayKey | null;
+}
+
+/**
+ * A running sum of graded decisions' bb loss: enough for the mean and its 95% interval (online/ranked.ts `Tally`).
+ * Only the coach's own `evLossBb` goes in; chips, pots and results never do.
+ */
+export interface LossTally {
+  n: number;
+  sum: number;
+  sumSq: number;
+}
+
+/**
+ * The Ghost Rail (owner D18, src/core/progression/rail.ts): a weekly offline league against labelled, fictional bots
+ * and the learner's own past weeks, never other people. Scored on decision quality; there is no demotion.
+ */
+export interface RailState {
+  /** One of rail.ts RAIL_TIERS ids, or a newer build's (kept, read as the lowest tier, never moved by this build). A ratchet. */
+  tier: string;
+  /** One record per local week with Rail activity, ascending by `week`, unique, bounded by MAX_RAIL_WEEKS. */
+  weeks: RailWeek[];
+  /** Each move up, oldest first, bounded by MAX_RAIL_PROMOTIONS. Never a move down. */
+  promotions: RailPromotion[];
+}
+
+export interface RailWeek {
+  /** The week's Monday (local DayKey). */
+  week: DayKey;
+  /** Contested, sound-math graded decisions (standing.ts `counts`) from hands whose Reps the Rail counted. */
+  loss: LossTally;
+  /** Reps counted for the Rail this week: a day's Reps above rail.ts RAIL_DAILY_REPS count 0. */
+  reps: number;
+  /** The grader version (online/ranked.ts GRADER_VERSION) of the week's first decision. */
+  grader: number;
+  /** A decision graded by another grader version landed in the same week: the week is shown but never settles up. */
+  mixed: boolean;
+  /** How the week settled once it ended: 'up' | 'held' | 'unrated' | 'mixed' (or a newer value, kept); null while open. */
+  outcome: string | null;
+}
+
+export interface RailPromotion {
+  /** The week that earned it. */
+  week: DayKey;
+  /** Tier ids. */
+  from: string;
+  to: string;
+}
+
+/**
+ * Offline Seasons (src/core/progression/season.ts): seven local weeks, six of free track and a finale week whose
+ * delayed test is an assessment block; then the season is archived. Fully offline and local.
+ */
+export interface SeasonsState {
+  /** One record per season with activity, ascending by `season`, unique, bounded by MAX_SEASON_RECORDS. */
+  records: SeasonRecord[];
+}
+
+export interface SeasonRecord {
+  /** The season's number: Season 1 opened on season.ts SEASON_EPOCH. */
+  season: number;
+  /** Reps counted for the season (the Rail's daily rule): what fills the free track. */
+  reps: number;
+  /** The grader version the season opened with. */
+  grader: number;
+  /** The first assessment block of the track weeks: the opening measure; null if none was taken. */
+  baseline: BlockScore | null;
+  /** The first assessment block of the finale week: the delayed test; null until taken. */
+  finale: BlockScore | null;
+}
+
+export interface BlockScore {
+  /** The block's timestamp (every spot of a block shares it). */
+  at: number;
+  loss: LossTally;
+  grader: number;
 }

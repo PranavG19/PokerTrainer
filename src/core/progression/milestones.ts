@@ -35,6 +35,15 @@ export interface MilestoneFacts {
   /** Sure predictions, lifetime (session.calibration). */
   readonly sureTotal: number;
   readonly sureRight: number;
+  /**
+   * Moves up the Ghost Rail, lifetime (rail.promotions): each one a week of decisions at or under a pace. The three
+   * Rail and Season facts are optional (absent reads 0), so a caller that predates them still type-checks.
+   */
+  readonly railMoves?: number;
+  /** Season finales taken (the delayed test). */
+  readonly seasonFinales?: number;
+  /** Season free tracks filled. */
+  readonly seasonTracks?: number;
 }
 
 export interface MilestoneDef {
@@ -69,6 +78,9 @@ export const MILESTONES: readonly MilestoneDef[] = [
   { id: 'rules-12', family: 'decision', name: 'Twelve Rules', fact: 'Wrote 12 rules in your own words', measure: (f) => count(f.rulesInYourWords, 12, 'rules') },
   { id: 'sure-means-sure', family: 'decision', name: 'Sure Means Sure', fact: '85% of Sure calls right over at least 100', measure: sureMeansSure },
   { id: 'first-assessment', family: 'decision', name: 'Measured', fact: 'Completed an assessment block', measure: (f) => count(f.assessmentsTaken, 1, 'block') },
+  { id: 'rail-first-move', family: 'decision', name: 'Off the Rail Floor', fact: 'Moved up a tier on the Ghost Rail with a week of decisions', measure: (f) => count(f.railMoves ?? 0, 1, 'tier') },
+  { id: 'rail-five-moves', family: 'decision', name: 'Five Up', fact: 'Moved up five tiers on the Ghost Rail', measure: (f) => count(f.railMoves ?? 0, 5, 'tiers') },
+  { id: 'season-finale', family: 'decision', name: 'The Delayed Test', fact: 'Took a Season finale', measure: (f) => count(f.seasonFinales ?? 0, 1, 'finale') },
   // Depth: glass. Career's ids, so career.ts and the Trophy room agree.
   { id: 'concepts-2', family: 'depth', name: 'Two Concepts', fact: 'Mastered 2 concepts', measure: (f) => count(f.conceptsMastered, 2, 'concepts') },
   { id: 'concepts-5', family: 'depth', name: 'Five Concepts', fact: 'Mastered 5 concepts', measure: (f) => count(f.conceptsMastered, 5, 'concepts') },
@@ -83,6 +95,7 @@ export const MILESTONES: readonly MilestoneDef[] = [
   { id: 'streak-30', family: 'habit', name: 'Thirty Days', fact: 'A 30-day streak', measure: (f) => count(f.bestStreak, 30, 'days') },
   { id: 'ticket-first', family: 'habit', name: 'First Ticket', fact: 'Finished a Ticket', measure: (f) => count(f.ticketsFinished, 1, 'Ticket') },
   { id: 'tickets-20', family: 'habit', name: 'Twenty Tickets', fact: 'Finished 20 Tickets', measure: (f) => count(f.ticketsFinished, 20, 'Tickets') },
+  { id: 'season-track', family: 'habit', name: 'Full Track', fact: 'Filled a Season’s free track', measure: (f) => count(f.seasonTracks ?? 0, 1, 'track') },
 ];
 
 export function milestoneById(id: string): MilestoneDef | undefined {
