@@ -1,0 +1,108 @@
+/*
+ * Settings › The trial (1.8): the settings column (styles-settings.css), plus the four-week strip, the locked
+ * prediction, the on/off table and the criteria verdicts. Neutrals carry it: the current week is marked by
+ * weight and the white ring, never mint (a kept habit is not "your turn"). Coral appears once, on a tripped
+ * criterion, which is the serious state here.
+ */
+.trial-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.trial-title {
+  margin: 0;
+  font-size: var(--t-t2);
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+.trial-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trial-week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--r-ctl);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.trial-week[data-kind='on'] { background: var(--fill-1); }
+.trial-week[data-current='true'] { box-shadow: inset 0 0 0 1.5px var(--ink-1); }
+.trial-week-n {
+  font-size: var(--t-cap);
+  color: var(--ink-3);
+}
+.trial-week-kind {
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.trial-week[data-kind='off'] .trial-week-kind { color: var(--ink-2); }
+
+.trial-text {
+  height: auto;
+  min-height: calc(var(--h-ctl) * 2);
+  padding: 8px 10px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.trial-quote {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--hair-strong);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink-1);
+}
+
+.trial-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-foot);
+  font-variant-numeric: tabular-nums;
+}
+.trial-table th,
+.trial-table td {
+  padding: 5px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--hair);
+  color: var(--ink-1);
+  font-weight: 400;
+}
+.trial-table thead th {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.trial-table tbody th {
+  text-align: left;
+  color: var(--ink-2);
+}
+
+.trial-verdict {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 2px;
+}
+.trial-verdict-status {
+  grid-row: span 2;
+  font-size: var(--t-foot);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.trial-verdict[data-status='tripped'] .trial-verdict-status { color: var(--coral); }
+.trial-verdict[data-status='too-little'] .trial-verdict-status { color: var(--ink-3); font-weight: 400; }
+.trial-verdict-text { font-size: var(--t-foot); }
+.trial-summary { color: var(--ink-1); }
+
+@media (max-width: 1000px) {
+  .trial-verdict { grid-template-columns: 92px minmax(0, 1fr); }
+  .trial-week { padding: 6px 8px; }
+}

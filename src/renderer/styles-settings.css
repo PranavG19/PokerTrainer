@@ -259,3 +259,15 @@
   color: var(--ink-3);
   cursor: not-allowed;
 }
+
+/* ─── Character, Celebrations and the trial (1.8): several rows in one group, each named in ink-1 ─── */
+.settings-row-title {
+  display: block;
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.settings-seg { flex: none; }
+.settings-toggle-switch:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

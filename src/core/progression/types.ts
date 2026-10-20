@@ -29,6 +29,8 @@ export interface ProgressionState {
   ticket: TicketState;
   folio: FolioState;
   tallies: TalliesState;
+  celebrations: CelebrationsState;
+  trial: TrialState;
 }
 
 /**
@@ -147,7 +149,15 @@ export interface DeePersonality {
   tone: string;
   /** One of DEE_FREQUENCIES, or a newer build's value. */
   frequency: string;
+  /** One of DEE_QUIET_LEVELS, or a newer build's value (kept, read as 'standard'). Added in v2, no bump: additive. */
+  quiet: string;
 }
+
+/**
+ * How much quieter Dee is than its own rules (1.8), on top of depth quieting: 'standard' changes nothing,
+ * 'quieter' and 'quietest' stretch every cooldown and leave a gap of hands after any line (dee/engine.ts).
+ */
+export const DEE_QUIET_LEVELS = ['standard', 'quieter', 'quietest'] as const;
 
 /**
  * Onboarding answers, asked once and editable later. Every field is optional: Skip is always allowed,
@@ -329,4 +339,91 @@ export interface TalliesState {
   ticketsFinished: number;
   /** The day the learner last took the one suggestion (today's ring); null before the first. */
   suggestionTakenOn: DayKey | null;
+}
+
+/**
+ * The Celebrations switches (1.8), read by the session-end moment (1.10, components/moment.ts). A device-free
+ * learner preference with no egress. Separate from Character (VISION §5): either can be off without the other.
+ */
+export interface CelebrationsState {
+  /** On (the default) plays the moment at session end; off never shows it. */
+  on: boolean;
+  /** One of CELEBRATION_MOTIONS, or a newer build's value (kept, read as 'system'). */
+  motion: string;
+  /** The milestone clack (D13). Plays only while the sound switch (`soundCues`) is also on. */
+  sound: boolean;
+}
+
+/** 'system' follows the Mac's Reduce motion setting; 'still' always shows the moment's words without motion. */
+export const CELEBRATION_MOTIONS = ['system', 'still'] as const;
+
+/**
+ * The local trial (1.8, D15; src/core/trial.ts): four weeks of on/off/on/off blocks, a prediction and kill criteria
+ * written before it starts, and per-block counts from the learner's own records. Nothing here leaves the machine.
+ */
+export interface TrialState {
+  /** One of TRIAL_STATUSES, or a newer build's value (kept, read as 'none'). */
+  status: string;
+  /** Day 1 of block 1; null before a trial starts. */
+  startedOn: DayKey | null;
+  /** The prediction, in the learner's words, written before the start and never edited after it. */
+  prediction: string;
+  /** An extra kill criterion of the learner's own, read by them at the end ('' = none). */
+  ownCriterion: string;
+  /** The Sure tallies at the start, so block 1's change can be read. */
+  baseline: TrialCalibration | null;
+  /** One per block (TRIAL_BLOCKS), null until the block saw a save. */
+  blocks: (TrialBlock | null)[];
+  /** The optional "wanted to / had to" answer, at most one per day, ascending. */
+  reports: TrialReport[];
+  /** The day the results were read and the outcome applied; null before. */
+  finishedOn: DayKey | null;
+  /** One of TRIAL_OUTCOMES once finished, or a newer build's value; null before. */
+  outcome: string | null;
+}
+
+export const TRIAL_STATUSES = ['none', 'running', 'stopped', 'finished'] as const;
+/** 'kept' = no criterion tripped, the layer stays as set; 'off' = one tripped, Character and Celebrations went off. */
+export const TRIAL_OUTCOMES = ['kept', 'off'] as const;
+export const TRIAL_ANSWERS = ['wanted', 'had'] as const;
+
+/** Cumulative prediction tallies (predict.ts Calibration), the only Sure record and one without dates. */
+export interface TrialCalibration {
+  total: number;
+  sureTotal: number;
+  sureCorrect: number;
+}
+
+export interface TrialBlock {
+  /** The Sure tallies when the block was first saved in, and at its latest save. */
+  calibrationStart: TrialCalibration;
+  calibrationEnd: TrialCalibration;
+  counts: TrialCounts;
+}
+
+/** What one block holds, counted from the learner's own logs (trial.ts countBlock). Every field is a count. */
+export interface TrialCounts {
+  activeDays: number;
+  sessions: number;
+  /** Sessions that started between 23:00 and 04:00 local time. */
+  lateSessions: number;
+  /** Days with more than two sessions. */
+  busyDays: number;
+  /** Graded table decisions. */
+  decisions: number;
+  /** Assessment-block decisions and their summed EV loss in bb. */
+  assessed: number;
+  assessedLossBb: number;
+  /** Graded reps on a concept last practised at least DELAYED_REVIEW_DAYS earlier, and how many were right. */
+  delayed: number;
+  delayedCorrect: number;
+  /** Graded reps, and those on a concept already mastered at the time. */
+  reps: number;
+  repsOnMastered: number;
+}
+
+export interface TrialReport {
+  day: DayKey;
+  /** One of TRIAL_ANSWERS, or a newer build's value (kept, never counted). */
+  answer: string;
 }

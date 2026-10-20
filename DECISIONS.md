@@ -6,6 +6,37 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Settings: Character, Celebrations and the local trial (branch `feat-settings-trial`, 1.8)
+Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone clack behind the sound switch), D15
+(run the trial, four weeks on/off, kill criteria written in advance), no schema bumps (additive fields only).
+- **Rhythm, Pause and wick protection are dropped from 1.8.** D5 made the streak classic with no rest days or
+  freezes, so there is nothing for them to set. Supersedes: BUILD-PLAN 1.8's "Character, Celebrations and Rhythm;
+  Pause", because D5 removed what they controlled.
+- **Character lives in two places, one field.** Settings › Character and You › Dee both write
+  `progression.dee.character` and the new `progression.dee.personality.quiet` (`standard` | `quieter` | `quietest`,
+  unknown → standard). Quieter stretches every cooldown 2× and needs 3 hands between any two lines; Quietest 3× and 6
+  hands. Both multiply depth quieting (`contextOf`); the preview and the verdicts never change.
+- **Celebrations are one new key, `progression.celebrations`** `{ on, motion: 'system' | 'still', sound }`, default
+  `{ true, 'system', true }`. The one reader is `celebrationGate(progression, soundCues, today)` in `core/trial.ts`:
+  `play` (on, and not an off week), `still`, and `sound` (its own switch AND `soundCues`, D13). The document carries
+  `html[data-celebrations="on|off"]` and `html[data-motion="system|still"]`; `styles-cosmetics.css` stills `.moment`
+  and the Locker preview under `still`. **The session-end moment (1.10) reads this gate**; it does not add its own key.
+- **The trial is `progression.trial`** (`core/trial.ts`, Settings › The trial). Weeks run on/off/on/off from the day
+  Start is pressed. In an off week Dee (`characterOn`) and the moment (`celebrationGate`) are off; the switches are
+  never changed. The prediction (12+ characters) and an optional own criterion are written first and locked at Start.
+  One trial per profile: Stop keeps the counts, and nothing is ever replaced or deleted.
+- **Metrics are counted from what is already recorded,** at every save during the week it falls in: sessions (30 min
+  gaps), late sessions (23:00–04:00), days with 3+ sessions, graded decisions, assessment EV loss, delayed-review
+  accuracy (a drill rep 3+ days after the concept's last one: the app emits no decay probes yet), reps on concepts
+  already mastered, and the Sure rate and accuracy (from the dateless tallies, by week-start and week-end snapshots).
+  Each count keeps its maximum, so the 500-hand log cap cannot shrink a counted week. Nothing leaves the machine.
+- **Kill criteria (fixed text, `KILL_CRITERIA`):** EV loss on > off by more than 10% (30+ each way); delayed accuracy
+  5+ points lower (20+); Sure rate +10 with Sure accuracy −5 (20+ Sure calls); reps on mastered concepts +10 points
+  (20+); more late sessions on than off, at least 2; more busy days on than off, at least 2; over half the on-week
+  "wanted to / had to" answers say "had to" (2+). Below a minimum: "too little to say", never a trip.
+- **Results are applied by the learner's press after day 28.** A trip turns Character and Celebrations off (the
+  layer goes off by default, PITCH §2.2); either can be turned back on. The page states the n = 1 limit.
+
 ## Cosmetics and the Locker (branch `feat-cosmetics`): receipts, paint only (1.7, 2.13)
 Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic). D4 (Chalk) has no
 owner answer, so this build ships receipts only: no currency, no prices, and the Chalk ledger is never written.

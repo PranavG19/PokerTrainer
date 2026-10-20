@@ -10,10 +10,12 @@
 import { asDayKey, DAY_BOUNDARY_HOUR, type DayKey } from '../localDay.js';
 import { chalk, reps } from '../units.js';
 import { MAX_TOKEN_CHARS, normalizeToken } from '../entitlements/token.js';
+import { defaultCelebrations, defaultTrial, parseCelebrations, parseTrial } from '../trial.js';
 import {
   CHALK_DAILY_CAP,
   COSMETIC_SLOTS,
   DEE_FREQUENCIES,
+  DEE_QUIET_LEVELS,
   DEE_TONES,
   KNOWN_TIERS,
   type ChalkLedger,
@@ -86,7 +88,7 @@ export function defaultProgression(): ProgressionState {
       ruleSentences: [],
       keepsakes: [],
       lastGreeting: null,
-      personality: { tone: 'warm', frequency: 'normal' },
+      personality: { tone: 'warm', frequency: 'normal', quiet: 'standard' },
       character: true,
       handsWatched: 0,
       said: [],
@@ -107,6 +109,8 @@ export function defaultProgression(): ProgressionState {
     ticket: { day: null, items: [], done: [], finishedOn: null },
     folio: { polished: {} },
     tallies: { priceHeld: 0, ticketsFinished: 0, suggestionTakenOn: null },
+    celebrations: defaultCelebrations(),
+    trial: defaultTrial(),
   };
 }
 
@@ -129,7 +133,7 @@ export const PROGRESSION_SHAPE = {
     ruleSentences: true,
     keepsakes: true,
     lastGreeting: true,
-    personality: { tone: true, frequency: true },
+    personality: { tone: true, frequency: true, quiet: true },
     character: true,
     handsWatched: true,
     said: true,
@@ -150,6 +154,18 @@ export const PROGRESSION_SHAPE = {
   ticket: { day: true, items: true, done: true, finishedOn: true },
   folio: { polished: true },
   tallies: { priceHeld: true, ticketsFinished: true, suggestionTakenOn: true },
+  celebrations: { on: true, motion: true, sound: true },
+  trial: {
+    status: true,
+    startedOn: true,
+    prediction: true,
+    ownCriterion: true,
+    baseline: true,
+    blocks: true,
+    reports: true,
+    finishedOn: true,
+    outcome: true,
+  },
 } as const;
 
 export function parseProgression(raw: unknown): ProgressionState {
@@ -168,6 +184,8 @@ export function parseProgression(raw: unknown): ProgressionState {
     ticket: section(obj.ticket, d.ticket, parseTicket),
     folio: section(obj.folio, d.folio, parseFolio),
     tallies: section(obj.tallies, d.tallies, parseTallies),
+    celebrations: section(obj.celebrations, d.celebrations, parseCelebrations),
+    trial: section(obj.trial, d.trial, parseTrial),
   };
 }
 
@@ -350,6 +368,7 @@ function parseDee(obj: Record<string, unknown>, d: DeeMemory): DeeMemory {
     personality: {
       tone: id(personality.tone) ?? d.personality.tone,
       frequency: id(personality.frequency) ?? d.personality.frequency,
+      quiet: id(personality.quiet) ?? d.personality.quiet,
     },
     character: typeof obj.character === 'boolean' ? obj.character : d.character,
     handsWatched: Math.min(MAX_RUN * 1000, nonNegativeInt(obj.handsWatched)),
@@ -552,6 +571,10 @@ export function effectiveTier(e: EntitlementsState): (typeof KNOWN_TIERS)[number
 
 export function effectiveTone(p: DeeMemory['personality']): (typeof DEE_TONES)[number] {
   return (DEE_TONES as readonly string[]).includes(p.tone) ? (p.tone as (typeof DEE_TONES)[number]) : 'warm';
+}
+
+export function effectiveQuiet(p: DeeMemory['personality']): (typeof DEE_QUIET_LEVELS)[number] {
+  return (DEE_QUIET_LEVELS as readonly string[]).includes(p.quiet) ? (p.quiet as (typeof DEE_QUIET_LEVELS)[number]) : 'standard';
 }
 
 export function effectiveFrequency(p: DeeMemory['personality']): (typeof DEE_FREQUENCIES)[number] {

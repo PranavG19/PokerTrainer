@@ -46,7 +46,7 @@ function full(): ProgressionState {
       ruleSentences: [{ conceptId: 'pot-odds', text: 'the price is the call over the pot after I call', day: day(19598) }],
       keepsakes: ['wren-wick'],
       lastGreeting: { day: day(19603), lineId: 'greet.due.3' },
-      personality: { tone: 'dry', frequency: 'mistakes' },
+      personality: { tone: 'dry', frequency: 'mistakes', quiet: 'quieter' },
       character: false,
       handsWatched: 412,
       said: [{ lineId: 'ph-1', at: 410 }],
@@ -95,6 +95,27 @@ function full(): ProgressionState {
     },
     folio: { polished: { 'pot-odds-as-a-price': [1_700_000_000_000, 1_700_100_000_000] } },
     tallies: { priceHeld: 3, ticketsFinished: 9, suggestionTakenOn: day(19603) },
+    celebrations: { on: false, motion: 'still', sound: false },
+    trial: {
+      status: 'running',
+      startedOn: day(19590),
+      prediction: 'Dee on makes me come back more without hurting the assessment.',
+      ownCriterion: 'I stop enjoying it.',
+      baseline: { total: 40, sureTotal: 20, sureCorrect: 15 },
+      blocks: [
+        {
+          calibrationStart: { total: 40, sureTotal: 20, sureCorrect: 15 },
+          calibrationEnd: { total: 52, sureTotal: 27, sureCorrect: 20 },
+          counts: { activeDays: 5, sessions: 7, lateSessions: 1, busyDays: 0, decisions: 120, assessed: 30, assessedLossBb: 4.25, delayed: 6, delayedCorrect: 4, reps: 40, repsOnMastered: 3 },
+        },
+        null,
+        null,
+        null,
+      ],
+      reports: [{ day: day(19591), answer: 'wanted' }],
+      finishedOn: null,
+      outcome: null,
+    },
   };
 }
 
