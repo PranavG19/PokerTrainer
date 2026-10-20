@@ -459,7 +459,9 @@ Packages 0.2–0.4 and the 0.7 re-run from the vision panel's build plan. Result
 ### Preflop from the charts (`src/core/chartGrade.ts`, `src/core/gradeSpot.ts`)
 - **Chart spots:** first in (RFI); facing one open with no callers as the big blind (any opener) or the small
   blind vs the button; facing one 3-bet after opening from UTG/HJ/CO/BTN. Read from the preflop log. Seats map
-  onto the 6-max charts by distance from the button (4-max first seat = CO, as `contrast.ts` maps it).
+  onto the 6-max charts by distance from the button (4-max first seat = CO, as `contrast.ts` maps it). The
+  6-max table (Play's "6-max table") needs no mapping: its seats are UTG, HJ, CO, BTN, SB, BB, and each seat shows
+  the label its chart is read by (`chartSeats`), so the label and the grade cannot disagree.
   Limped, multiway, squeeze, 4-bet and heads-up pots stay on the pot-odds model with the archetype range.
 - **Charts are standard, not archetype-adjusted.** Defending against a nit's open is graded as against a
   standard open. See Open questions.
@@ -753,7 +755,9 @@ The mock in `demo/glass/` stays as the reference.
     prefix.
 - **`seatLayout.ts`** (new, pure, unit-tested in `tests/unit/seatLayout.test.ts`) is the scoreboard "U" rule
   from the mock. It gives one or two seats per side column and the rest in the top row, clockwise from the
-  hero.
+  hero. 6-max (5 villains) is two per side and one on top. Supersedes: three across the top, because the top row
+  shares the stage's top edge with the table corners and three seats there overlapped both corners and, with the
+  quips revealed, each other, at 900x640 and 1100x760 (`six-max.spec` measures it).
 - **`screens/table.ts`** has three small DOM changes:
   - a `.table-stage` wrapper
   - the pot as "Pot" plus a value span, with the text still "Pot N"

@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('offsuit', {
   saveState: (obj: Record<string, unknown>): Promise<{ saved: boolean; readOnly: string | null; failed?: string }> =>
     ipcRenderer.invoke('store:save', obj),
   getSeed: (): Promise<number | null> => ipcRenderer.invoke('app:seed'),
+  saveStyleCard: (rect: { x: number; y: number; width: number; height: number }): Promise<string> =>
+    ipcRenderer.invoke('style:saveCard', rect),
   // e2e only: the test clock and the onboarding switch (main answers the real defaults otherwise).
   testHooks: (): Promise<{ now: number | null; onboarding: boolean }> => ipcRenderer.invoke('app:testHooks'),
   // The tutor lives in main; the renderer only ever sees the answer text and

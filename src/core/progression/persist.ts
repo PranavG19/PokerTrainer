@@ -8,6 +8,7 @@
  */
 
 import { asDayKey, DAY_BOUNDARY_HOUR, type DayKey } from '../localDay.js';
+import { weekOf } from '../week.js';
 import { chalk, reps } from '../units.js';
 import { MAX_TOKEN_CHARS, normalizeToken } from '../entitlements/token.js';
 import { defaultCelebrations, defaultTrial, parseCelebrations, parseTrial } from '../trial.js';
@@ -46,6 +47,10 @@ import {
   type StoryState,
   type FolioState,
   type TalliesState,
+  MAX_LETTERS,
+  type HandOfWeek,
+  type LetterRecord,
+  type LettersState,
   type TicketItemRecord,
   type TicketState,
 } from './types.js';
@@ -109,6 +114,7 @@ export function defaultProgression(): ProgressionState {
     ticket: { day: null, items: [], done: [], finishedOn: null },
     folio: { polished: {} },
     tallies: { priceHeld: 0, ticketsFinished: 0, suggestionTakenOn: null },
+    letters: { filed: [] },
     celebrations: defaultCelebrations(),
     trial: defaultTrial(),
   };
@@ -154,6 +160,7 @@ export const PROGRESSION_SHAPE = {
   ticket: { day: true, items: true, done: true, finishedOn: true },
   folio: { polished: true },
   tallies: { priceHeld: true, ticketsFinished: true, suggestionTakenOn: true },
+  letters: { filed: true },
   celebrations: { on: true, motion: true, sound: true },
   trial: {
     status: true,
@@ -185,6 +192,7 @@ export function parseProgression(raw: unknown): ProgressionState {
     ticket: section(obj.ticket, d.ticket, parseTicket),
     folio: section(obj.folio, d.folio, parseFolio),
     tallies: section(obj.tallies, d.tallies, parseTallies),
+    letters: section(obj.letters, d.letters, parseLetters),
     celebrations: section(obj.celebrations, d.celebrations, parseCelebrations),
     trial: section(obj.trial, d.trial, parseTrial),
   };
@@ -559,6 +567,57 @@ function parseTallies(obj: Record<string, unknown>): TalliesState {
     ticketsFinished: Math.min(MAX_RUN, nonNegativeInt(obj.ticketsFinished)),
     suggestionTakenOn: asDayKey(obj.suggestionTakenOn),
   };
+}
+
+/** Slots and figures per letter: far more than any letter uses, so a newer build's extra keys still fit. */
+const MAX_LETTER_KEYS = 40;
+const MAX_LETTER_LINES = 24;
+
+/**
+ * One letter per week, oldest first, the newest MAX_LETTERS kept. A letter is its numbers and line ids: a bad slot or
+ * figure is dropped, a line id is kept even when this build does not know it (a newer bank's line), so an older
+ * build never rewrites a newer letter.
+ */
+function parseLetters(obj: Record<string, unknown>): LettersState {
+  const byWeek = new Map<number, LetterRecord>();
+  for (const raw of asArray(obj.filed)) {
+    const l = asRecord(raw);
+    const week = asDayKey(l.week);
+    // A week key is a Monday (week.ts); any other day would escape the one-letter-per-week check.
+    if (week === null || weekOf(week) !== week || byWeek.has(week)) continue;
+    const slots: Record<string, string> = {};
+    for (const [k, v] of Object.entries(asRecord(l.slots)).slice(0, MAX_LETTER_KEYS)) {
+      const key = id(k);
+      const value = text(v);
+      if (key !== null && key !== '__proto__' && value !== null) slots[key] = value;
+    }
+    const figures: Record<string, number> = {};
+    for (const [k, v] of Object.entries(asRecord(l.figures)).slice(0, MAX_LETTER_KEYS)) {
+      const key = id(k);
+      if (key !== null && key !== '__proto__' && typeof v === 'number' && Number.isFinite(v)) figures[key] = v;
+    }
+    byWeek.set(week, {
+      week,
+      n: intIn(l.n, 1, MAX_RUN, 1),
+      lines: idList(l.lines, MAX_LETTER_LINES),
+      slots,
+      figures,
+      style: id(l.style),
+      hand: parseHandOfWeek(l.hand),
+      shelf: idList(l.shelf, MAX_LIST),
+    });
+  }
+  return { filed: [...byWeek.values()].sort((a, b) => a.week - b.week).slice(-MAX_LETTERS) };
+}
+
+function parseHandOfWeek(raw: unknown): HandOfWeek | null {
+  if (!isPlainObject(raw)) return null;
+  const hole = cardList(raw.hole);
+  const board = cardList(raw.board);
+  const street = id(raw.street);
+  const action = id(raw.action);
+  if (hole === null || board === null || street === null || action === null) return null;
+  return { hole, board, street, action, toCall: Math.max(0, asNumber(raw.toCall)), pot: Math.max(0, asNumber(raw.pot)) };
 }
 
 /** Read-side helpers: an unknown value (a newer build's) reads as this build's default. */

@@ -11,17 +11,17 @@ import {
   startHand,
 } from '../../core/table.js';
 import type { Grade, Severity } from '../../core/coach.js';
-import { gradeSpot } from '../../core/gradeSpot.js';
+import { chartSeats, gradeSpot } from '../../core/gradeSpot.js';
+import { seatNamesFor, villainArchetypes, type TableSize } from '../../core/tableSize.js';
 import {
   ARCHETYPE_EXPLOITS,
-  ARCHETYPE_NAMES,
   decideArchetypeAction,
   sessionProfile,
   type ArchetypeName,
   type ArchetypeProfile,
 } from '../../core/archetypes.js';
 import { visibleArchetypeLabel } from '../../core/jitter.js';
-import { mulberry32, shuffle } from '../../core/rng.js';
+import { mulberry32 } from '../../core/rng.js';
 import { createGiftLedger, type GiftEntry } from '../../core/giftLedger.js';
 import { isCallingAction, recordHandGifts, type VillainCall } from '../../core/giftObserve.js';
 import { quipFor } from '../../core/tableTalk.js';
@@ -113,14 +113,6 @@ const GATE_BUDGET_MS = 8000;
 const GATE_MAX_ATTEMPTS = 2;
 const GATE_PROMPT = 'In one line: what range or price drives this?';
 
-/**
- * Villains sit at 1..3. Each session a seeded 3-of-6 shuffle (see selectRng below) picks which of
- * the six archetypes fills them, so the set is fixed for the whole table but varies by seed — over a
- * range of seeds all six appear at seat 1+, and the label stays classifiable as one opponent across
- * hands.
- */
-const SEAT_NAMES = ['You', 'Ada', 'Bo', 'Cy'];
-
 export interface TableHandle {
   root: HTMLElement;
   /** What Dee chat may answer from: whether a hand is live, and the last finished hand's graded decisions. */
@@ -200,6 +192,11 @@ export function renderTable(opts: {
   dee?: TableDee;
   /** Story: the villains at a chapter table. Absent = the live table and its regulars, unchanged (D17). */
   cast?: readonly TableCastSeat[];
+  /**
+   * 4-max (the default) or 6-max (BUILD-PLAN 2.12): five villains, and each seat wears its position (UTG, HJ, CO,
+   * BTN, SB, BB), the same name the grader reads its chart by. Ignored with a `cast`, which seats its own villains.
+   */
+  tableSize?: TableSize;
   /** Story: each settled hand, with what every villain did and showed (the rival dossier's input). */
   onHandSettled?: (hand: SettledHand) => void;
   /** Story: the planned-complete end's note and button, in place of "New session". */
@@ -228,6 +225,10 @@ export function renderTable(opts: {
   // GATE (state 4) sync oracle: 'open' while a self-explanation is pending, 'closed' otherwise. Waited
   // on by e2e because data-awaiting stays 'hero' while the gated action's application is deferred.
   root.dataset.gate = 'closed';
+  const tableSize: TableSize = opts.cast ? 4 : (opts.tableSize ?? 4);
+  // Read by e2e and by the 6-max seat styles. Only a 6-max table carries it, so the 4-max table is unchanged.
+  const sixMax = tableSize === 6;
+  if (sixMax) root.dataset.tableSize = '6';
 
   // A screen-reader announcement channel for the coach verdict. The coach PANEL toggles `hidden`, which
   // pulls it from the accessibility tree — so an aria-live on the panel itself would not reliably
@@ -320,7 +321,7 @@ export function renderTable(opts: {
   cornerLeft.className = 'table-corner table-corner-l';
   const blinds = document.createElement('span');
   blinds.className = 'g-caption g-num';
-  blinds.textContent = `Blinds ${SB}/${BB}`;
+  blinds.textContent = sixMax ? `6-max · Blinds ${SB}/${BB}` : `Blinds ${SB}/${BB}`;
   cornerLeft.appendChild(blinds);
   stage.appendChild(cornerLeft);
 
@@ -440,7 +441,7 @@ export function renderTable(opts: {
 
   // ── mutable hand state ─────────────────────────────────────────────
   const cast = opts.cast;
-  const seatNames = cast ? ['You', ...cast.map((c) => c.name)] : SEAT_NAMES;
+  const seatNames = cast ? ['You', ...cast.map((c) => c.name)] : seatNamesFor(tableSize);
   const table = createTable({
     seats: seatNames.map((name, i) => ({
       name,
@@ -460,11 +461,11 @@ export function renderTable(opts: {
 
   // One long-lived stream so villain decisions stay deterministic across a session.
   const aiRng = mulberry32(opts.seed ^ 0x5eed);
-  // A SEPARATE stream for the 3-of-6 archetype selection, so drawing which archetypes are seated
+  // A SEPARATE stream for the archetype selection (tableSize.ts), so drawing which archetypes are seated
   // never advances aiRng — the villain-decision stream stays byte-identical in structure regardless
-  // of which three were chosen. Pure function of opts.seed: same seed always seats the same three.
-  const selectRng = mulberry32(opts.seed ^ 0x5e1ec7);
-  const chosen = shuffle([...ARCHETYPE_NAMES], selectRng).slice(0, 3);
+  // of which were chosen. Pure function of opts.seed: same seed always seats the same set, villains at 1..3
+  // (4-max) or 1..5 (6-max), and over a range of seeds all six archetypes appear.
+  const chosen = villainArchetypes(opts.seed, tableSize);
   // Fixed for the whole session (chosen once here, never per hand), matching jitter.ts's "per
   // session, not per hand" so a seat stays classifiable as one opponent across every hand.
   const seatArchetype = new Map<number, ArchetypeName>();
@@ -480,7 +481,7 @@ export function renderTable(opts: {
       seatReveal.set(i + 1, c.revealLabel);
     });
   } else {
-    for (let seat = 1; seat <= 3; seat++) {
+    for (let seat = 1; seat < tableSize; seat++) {
       const name = chosen[seat - 1];
       seatArchetype.set(seat, name);
       // sessionProfile composes jitter.ts: a pure fn of (name, seed), so the jitter is per-session and
@@ -969,7 +970,7 @@ export function renderTable(opts: {
     render();
     pendingTimer = setTimeout(() => {
       pendingTimer = null;
-      // toAct is a villain seat (1..3) here — seat 0 is handled by the branch above — so its profile
+      // toAct is a villain seat (1..3, or 1..5 at 6-max) here — seat 0 is handled by the branch above — so its profile
       // is always present; throw rather than silently skip if the invariant ever breaks.
       const profile = seatStreetProfiles.get(state.toAct)?.[state.street] ?? seatProfile.get(state.toAct);
       if (profile === undefined) throw new Error(`no archetype profile for seat ${state.toAct}`);
@@ -1195,8 +1196,11 @@ export function renderTable(opts: {
     );
 
     const showdown = state.winners !== null;
+    // 6-max: each seat's position, named as the grader names it (gradeSpot.chartSeats), so the label a seat
+    // wears is the chart its decision is read from. Recomputed every render: the button moves each hand.
+    const positions = sixMax ? chartSeats(state) : null;
     const seatEls = state.seats.map((seat) =>
-      renderSeat(seat, state, showdown, seatArchetype, lastActionBySeat.get(seat.id), seatReveal),
+      renderSeat(seat, state, showdown, seatArchetype, lastActionBySeat.get(seat.id), seatReveal, positions?.[seat.id] ?? null),
     );
     // The hero's seat IS the hero plate: it takes the big hole cards in, so the to-act ring and the
     // turn wash land on one object. Villains take the scoreboard slots, clockwise from the hero
@@ -1551,6 +1555,7 @@ function renderSeat(
   seatArchetype: Map<number, ArchetypeName>,
   lastAction: ActionKind | undefined,
   seatReveal: ReadonlyMap<number, string | null>,
+  position: string | null,
 ): HTMLElement {
   const el = document.createElement('div');
   el.className = 'seat';
@@ -1577,6 +1582,15 @@ function renderSeat(
   const name = document.createElement('div');
   name.className = 'seat-name';
   name.textContent = seat.name;
+  // 6-max only: the position after the name, in the name's own line ("Ada UTG"). A sat-out seat has none.
+  if (position !== null) {
+    el.dataset.position = position;
+    const pos = document.createElement('span');
+    pos.className = 'seat-position';
+    pos.dataset.testid = 'seat-position';
+    pos.textContent = position;
+    name.append(' ', pos);
+  }
   el.appendChild(name);
 
   if (!seat.isHero) {
