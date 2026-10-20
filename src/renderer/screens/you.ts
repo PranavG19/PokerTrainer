@@ -5,6 +5,9 @@ import type { FolioCard } from '../../core/folio.js';
 import type { MilestoneView, MilestoneFamily } from '../../core/progression/milestones.js';
 import type { WeekPoint } from '../../core/progression/decisions.js';
 import { chevron } from '../components/glyphs.js';
+import { keepsakeMedal } from '../components/storyArt.js';
+import { KITCHEN, MASQUERADE, VENUES } from '../../core/story/cast.js';
+import type { ShelfItem } from '../../core/story/keepsakes.js';
 import { conceptLabel } from './folio.js';
 
 /**
@@ -60,11 +63,21 @@ export interface ProfileFacts {
   readonly depthLabel: string;
   readonly streak: { readonly current: number; readonly best: number };
   readonly repsTotal: number;
+  /** The Long Orbit's keepsakes, in shelf order (story/keepsakes.ts). */
+  readonly keepsakes: readonly ShelfItem[];
 }
 
 export function renderYouProfile(
   f: ProfileFacts,
-  on: { onEdit: () => void; onOpenFolio: () => void; onOpenProgress: () => void; onOpenTrophies: () => void; onOpenRail?: () => void; onOpenSeason?: () => void },
+  on: {
+    onEdit: () => void;
+    onOpenFolio: () => void;
+    onOpenProgress: () => void;
+    onOpenTrophies: () => void;
+    onOpenKeepsake: (room: ShelfItem['keepsake']['room']) => void;
+    onOpenRail?: () => void;
+    onOpenSeason?: () => void;
+  },
 ): HTMLElement {
   const root = el('div', 'you-screen you-profile');
   root.dataset.testid = 'you-profile';
@@ -183,6 +196,10 @@ export function renderYouProfile(
   trophies.type = 'button';
   trophies.addEventListener('click', on.onOpenTrophies);
   right.append(sectionHead('What you have built', 'Concepts, depth, habit', trophies), built);
+
+  // The keepsake shelf: one per chapter of the Long Orbit, each shown in advance with what keeps it.
+  const kept = f.keepsakes.filter((k) => k.earnedOn !== null).length;
+  left.append(sectionHead('Keepsakes', `${kept} of ${f.keepsakes.length} · one per chapter of the Long Orbit`), renderKeepsakeShelf(f.keepsakes, on.onOpenKeepsake));
 
   root.append(who, cols);
   return root;
@@ -354,4 +371,35 @@ export function renderRivals(rows: readonly RivalRow[], onOpen: (id: string) => 
   }
   root.appendChild(list);
   return root;
+}
+/**
+ * The keepsake shelf: every Long Orbit keepsake in shelf order, earned or not, each with the fact that earns it (shown
+ * in advance, never random). Any one opens its room, so a kept one replays the hand that earned it (N1: an unearned one
+ * opens too).
+ */
+export function renderKeepsakeShelf(items: readonly ShelfItem[], onOpen: (room: ShelfItem['keepsake']['room']) => void, compact = false): HTMLElement {
+  const shelf = el('div', `keepsake-shelf${compact ? ' compact' : ''}`);
+  shelf.dataset.testid = 'keepsake-shelf';
+  shelf.setAttribute('role', 'list');
+  const kept = items.filter((i) => i.earnedOn !== null).length;
+  shelf.setAttribute('aria-label', `Keepsakes: ${kept} of ${items.length} kept`);
+  for (const item of items) {
+    const k = item.keepsake;
+    const earned = item.earnedOn !== null;
+    const b = el('button', 'keepsake');
+    b.dataset.testid = 'keepsake';
+    b.type = 'button';
+    b.setAttribute('role', 'listitem');
+    b.dataset.id = k.id;
+    b.dataset.kept = String(earned);
+    const where = k.room === KITCHEN.id ? KITCHEN.name : k.room === MASQUERADE.id ? MASQUERADE.name : (VENUES.find((v) => v.id === k.room)?.name ?? k.room);
+    const label = earned ? `${k.name}, kept ${dayLabel(item.earnedOn!)}. ${k.fact}. Opens ${where}.` : `${k.name}, not yet kept. ${k.fact}. Opens ${where}.`;
+    b.setAttribute('aria-label', label);
+    b.title = earned ? `${k.name} · ${k.fact}` : `Not yet · ${k.fact}`;
+    b.appendChild(keepsakeMedal(k.glyph, earned, compact ? 26 : 34));
+    if (!compact) b.appendChild(el('span', 'keepsake-name', k.short));
+    b.addEventListener('click', () => onOpen(k.room));
+    shelf.appendChild(b);
+  }
+  return shelf;
 }

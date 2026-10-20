@@ -216,6 +216,54 @@ export interface StoryState {
   rivals: Record<string, RivalRecord>;
   /** A chapter chosen over the suggested one, newest last, bounded by MAX_STORY_OVERRIDES (N1: logged, never blocked). */
   overrides: StoryOverride[];
+  /** Boss hands (story/boss.ts) by boss id. Added without a bump: additive. An id this build does not know is kept. */
+  bosses: Record<string, BossRecord>;
+  /** The Masquerade epilogue (story/masquerade.ts). Added without a bump: additive. */
+  masquerade: MasqueradeState;
+}
+
+/** One boss hand's record. Judged on the decisions alone: chips never enter it. */
+export interface BossRecord {
+  /** Times played to the end. */
+  attempts: number;
+  /** The first day it was played clean (every decision right at the first answer), which earns the keepsake. A ratchet. */
+  cleanOn: DayKey | null;
+}
+
+/**
+ * The Masquerade: three masked seats, each a rival's style with a jittered profile. What is kept per seat is only what
+ * the learner saw it do (its actions, never its cards), counted for reads.ts's gates.
+ */
+export interface MasqueradeState {
+  /** Masquerades begun, lifetime; 0 before the first. The current one's jitter is seeded from it. */
+  run: number;
+  /** The current one's seats, in seat order; empty before the first. */
+  seats: MasqueradeSeat[];
+  /** Masquerades with every seat unmasked, lifetime. */
+  completed: number;
+  /** The first day every seat of a Masquerade was unmasked, which earns the keepsake. A ratchet. */
+  completedOn: DayKey | null;
+}
+
+export interface MasqueradeSeat {
+  /** The rival whose style sits behind the mask (a cast.ts RivalId, or a newer build's id, kept). */
+  rival: string;
+  /** Hands it acted in before the flop: the observations behind the "plays" read. */
+  acted: number;
+  /** Of those, the hands it put chips in by choice (a call, bet or raise). */
+  played: number;
+  /** Bets it faced, on any street. */
+  faced: number;
+  /** Of those, the ones it folded to. */
+  folded: number;
+  /** Decisions after the flop with no bet to face. */
+  chances: number;
+  /** Of those, the ones it bet or raised. */
+  bets: number;
+  /** Rival ids the learner named for this seat and that did not fit, oldest first, unique. */
+  missed: string[];
+  /** The day the learner named it right. A ratchet. */
+  unmaskedOn: DayKey | null;
 }
 
 export const CHAPTER_RESULTS = ['met', 'short', 'unjudged'] as const;

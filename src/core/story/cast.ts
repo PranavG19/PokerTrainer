@@ -28,6 +28,9 @@ export const LEAK_LABELS: Readonly<Record<LeakKind, string>> = {
   'free-fold': 'folding when checking was free',
 };
 
+/** What a keepsake looks like: one per rival, the Kitchen Table's lamp and the Masquerade's mask. */
+export type KeepsakeGlyph = 'wick' | 'ticket' | 'bookmark' | 'punch' | 'fuse' | 'fork' | 'lamp' | 'mask';
+
 export const CHAPTER_IDS = ['lighthouse', 'diner', 'library', 'night-train', 'pier', 'observatory'] as const;
 export type ChapterId = (typeof CHAPTER_IDS)[number];
 
@@ -44,7 +47,7 @@ export interface Rival {
   /** How the rival plays, in plain words, shown once unmasked. Never an archetype id. */
   readonly style: string;
   /** The keepsake glyph (VISION §2.1): what their medallion carries. */
-  readonly keepsake: 'wick' | 'ticket' | 'bookmark' | 'punch' | 'fuse' | 'fork';
+  readonly keepsake: Exclude<KeepsakeGlyph, 'lamp' | 'mask'>;
   /** Said at the unmasking (panel §3 showdown banks). Never a claim about the learner. */
   readonly unmaskLine: string;
 }
@@ -211,3 +214,27 @@ export function isChapterId(id: string): id is ChapterId {
 export function rivalDisplayName(venue: Venue, unmasked: boolean): string {
   return unmasked ? rivalOf(venue).short : `${venue.name}’s regular`;
 }
+
+/**
+ * The two rooms outside the orbit. Chapter 0, the Kitchen Table, is the tutorial: unnumbered on the map, no rival, a
+ * lesson beat and one first hand. The Masquerade is the replayable epilogue: every seat masked. Both open at any time
+ * (N1), and neither changes the orbit's order.
+ */
+export const KITCHEN = {
+  id: 'kitchen',
+  name: 'The Kitchen Table',
+  cluster: 'Price first',
+  place: 'A round table under one pendant lamp. Where every orbit starts, and where the price is learned.',
+  lesson: 'Before any hand is a good one, read the price: what the call costs against the pot it can take.',
+  beat: { lessonId: 'pot-odds-as-a-price', exampleIndex: 1 },
+} as const;
+
+export const MASQUERADE = {
+  id: 'masquerade',
+  name: 'The Masquerade',
+  place: 'A ballroom after midnight. Three seats, three masks, and somebody’s style behind each.',
+  lesson: 'Name a mask only from what it showed you. The Folio inks a read once there are enough hands to trust it.',
+} as const;
+
+/** Every room a story id can name: the orbit's six, the Kitchen Table and the Masquerade. */
+export type StoryRoomId = ChapterId | typeof KITCHEN.id | typeof MASQUERADE.id;

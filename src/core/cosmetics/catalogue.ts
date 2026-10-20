@@ -4,7 +4,7 @@
  * Every item is fixed and shown in advance with the fact that earns it. Nothing is sold, nothing is random, and no
  * item is ever bought with chips or anything else (receipts only: owner D4 is open, so there is no Chalk price). An
  * item is earned by a fact the habit loop already keeps, all of them ratchets: a milestone receipt, a count of Seal
- * receipts, or a story rival unmasked. Card faces, seat layout and stack display are never cosmetic.
+ * receipts, a story rival unmasked, or story keepsakes kept. Card faces, seat layout and stack display are never cosmetic.
  *
  * `paint` is the value the slot's document attribute takes (`html[data-back|felt|chips|rim|celebration]`); the CSS
  * for it sets custom properties only (styles-cosmetics.css), so equipping changes paint and never layout
@@ -22,7 +22,9 @@ export type EarnRule =
   /** At least `count` Seal receipts (a concept mastered, ever). */
   | { readonly kind: 'seals'; readonly count: number }
   /** At least `count` story rivals unmasked (a chapter goal met). */
-  | { readonly kind: 'rivals'; readonly count: number };
+  | { readonly kind: 'rivals'; readonly count: number }
+  /** At least `count` story keepsakes (story/keepsakes.ts: a clean boss hand, a Masquerade unmasked). */
+  | { readonly kind: 'keepsakes'; readonly count: number };
 
 export interface CosmeticItem {
   /** Persisted in `cosmetics.owned` / `equipped`. Never reused for another item. */
@@ -54,6 +56,7 @@ export const CATALOGUE: readonly CosmeticItem[] = [
   { id: 'felt-umber', slot: 'felt', name: 'Umber', paint: 'umber', earn: ms('concepts-5') },
   { id: 'felt-chalkboard', slot: 'felt', name: 'Chalkboard', paint: 'chalkboard', earn: ms('first-assessment') },
   { id: 'felt-ghost-rail', slot: 'felt', name: 'Ghost rail', paint: 'ghost-rail', earn: ms('rail-first-move') },
+  { id: 'felt-ballroom', slot: 'felt', name: 'Ballroom', paint: 'ballroom', earn: { kind: 'keepsakes', count: 8 } },
   // Chip sets (2.13): de-casino-fied, the bet's two tones.
   { id: 'chips-slate-bone', slot: 'chipSet', name: 'Slate and bone', paint: 'slate-bone', earn: DAY_ONE },
   { id: 'chips-clay', slot: 'chipSet', name: 'Clay', paint: 'clay', earn: ms('concepts-2') },
@@ -66,6 +69,7 @@ export const CATALOGUE: readonly CosmeticItem[] = [
   { id: 'rim-inlaid', slot: 'deeRim', name: 'Inlaid', paint: 'inlaid', earn: { kind: 'seals', count: 3 } },
   // Seasonal: earned by a Season's free track, kept for good once earned (the season itself is archived).
   { id: 'rim-season-stamp', slot: 'deeRim', name: 'Season stamp', paint: 'season-stamp', earn: ms('season-track') },
+  { id: 'rim-lamplit', slot: 'deeRim', name: 'Lamplit', paint: 'lamplit', earn: { kind: 'keepsakes', count: 1 } },
   // Celebrations (2.13): the session-end moment's look, capped at 1600 ms, transform and opacity only.
   { id: 'cele-quiet-underline', slot: 'celebration', name: 'Quiet underline', paint: 'quiet-underline', earn: DAY_ONE },
   { id: 'cele-light-sweep', slot: 'celebration', name: 'Light sweep', paint: 'light-sweep', earn: ms('price-held-first') },

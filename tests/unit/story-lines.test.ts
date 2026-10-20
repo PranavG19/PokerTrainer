@@ -7,8 +7,12 @@ import type { Facts } from '../../src/core/dee/types.js';
 import { lessonById } from '../../src/core/lessons/index.js';
 import { bannedPhrasingIn } from '../../src/core/progress.js';
 import { ARCHETYPE_NAMES } from '../../src/core/archetypes.js';
-import { LEAK_LABELS, RIVALS, VENUES } from '../../src/core/story/cast.js';
-import { CHAPTER_SCRIPTS, STORY_LINES, STORY_SLOTS, STORY_WORD_BUDGET, WORD_ANSWERS, type StoryEvent, type StoryFacts } from '../../src/core/story/scripts.js';
+import { KITCHEN, LEAK_LABELS, MASQUERADE, RIVALS, VENUES } from '../../src/core/story/cast.js';
+import { CHAPTER_SCRIPTS, KITCHEN_SCRIPT, STORY_LINES, STORY_SLOTS, STORY_WORD_BUDGET, WORD_ANSWERS, type StoryEvent, type StoryFacts } from '../../src/core/story/scripts.js';
+import { BOSS_HANDS, answerBoss, pendingAsk, startBoss } from '../../src/core/story/boss.js';
+import { KEEPSAKES } from '../../src/core/story/keepsakes.js';
+import { MASKS, READ_LABELS } from '../../src/core/story/masquerade.js';
+import type { DialogueScript } from '../../src/core/dee/dialogue.js';
 import { DEE_BANS, NUMBER_WORDS, request } from './deeLint.js';
 
 /**
@@ -28,6 +32,9 @@ const FIXTURE: Required<StoryFacts> = {
   thin: '3',
   bets: '7',
   strong: '2',
+  keepsake: 'The wick',
+  needs: '7',
+  mask: 'Fox',
 };
 
 const wordCount = (t: string): number => t.trim().split(/\s+/).length;
@@ -79,15 +86,20 @@ describe('story lines: every line, every tone', () => {
     const shared: StoryEvent[] = [
       'intro-personal', 'debrief-met', 'debrief-met-again', 'debrief-short', 'debrief-unjudged',
       'take-bluffs-high', 'take-bluffs-low', 'take-thin-high', 'take-thin-low', 'take-strong-high',
-      'take-strong-low', 'take-baseline', 'take-none',
+      'take-strong-low', 'take-baseline', 'take-none', 'kitchen-intro', 'boss-clean', 'boss-again', 'masq-intro',
+      'masq-pencil', 'masq-fit', 'masq-not-fit', 'masq-done',
     ];
     for (const e of shared) expect(STORY_LINES.some((l) => l.event === e), e).toBe(true);
   });
 });
 
 describe('chapter dialogue beats: lint, and every one runs on its lesson example', () => {
-  for (const venue of VENUES) {
-    const script = CHAPTER_SCRIPTS[venue.id];
+  const beats: { id: string; script: DialogueScript; beat: { lessonId: string; exampleIndex: number } }[] = [
+    { id: KITCHEN.id, script: KITCHEN_SCRIPT, beat: KITCHEN.beat },
+    ...VENUES.map((v) => ({ id: v.id, script: CHAPTER_SCRIPTS[v.id], beat: v.beat })),
+  ];
+  for (const venue of beats) {
+    const script = venue.script;
     it(`${venue.id}: runs on ${venue.beat.lessonId} example ${venue.beat.exampleIndex}, and every line passes`, () => {
       expect(script.lessonId).toBe(venue.beat.lessonId);
       const example = lessonById(venue.beat.lessonId)?.examples[venue.beat.exampleIndex];
@@ -121,12 +133,46 @@ describe('chapter dialogue beats: lint, and every one runs on its lesson example
   }
 });
 
+describe('boss hands: every ask, answer and question back, filled from the engine at its decision', () => {
+  for (const boss of BOSS_HANDS) {
+    it(`${boss.id}: passes the lint`, () => {
+      // The setup and Dee's reveal carry no slot at all.
+      for (const [where, text] of [['setup', boss.setup], ['reveal', boss.reveal]] as const) {
+        expect(lint(text, {}, 24, false), `${boss.id}.${where}`).toEqual([]);
+      }
+      let run = startBoss(boss);
+      for (let guard = 0; guard < 20 && !run.done; guard++) {
+        const p = pendingAsk(run);
+        if (!p) break;
+        const templates = [
+          { where: 'ask', text: p.ask.ask, question: true },
+          { where: 'right', text: p.ask.right, question: false },
+          ...Object.entries(p.ask.back).map(([k, text]) => ({ where: `back.${k}`, text: text ?? '', question: true })),
+        ];
+        for (const t of templates) {
+          const problems = lint(t.text, p.facts as Facts, 24, t.question);
+          for (const slot of slotsOf(t.text)) if (!(LESSON_SLOTS as readonly string[]).includes(slot)) problems.push(`slot {${slot}}`);
+          if (t.question && !t.text.trim().endsWith('?')) problems.push('not a question');
+          expect(problems, `${p.ask.id}.${t.where}`).toEqual([]);
+        }
+        run = answerBoss(run, p.ask.correct);
+      }
+    });
+  }
+});
+
 describe('the rest of the orbit’s words', () => {
   it('rival lines and venue copy carry no number, no ban-list phrase and no archetype id', () => {
     const copy = [
       ...Object.values(RIVALS).flatMap((r) => [r.name, r.title, r.style, r.unmaskLine]),
       ...VENUES.flatMap((v) => [v.name, v.cluster, v.place, v.lesson]),
       ...Object.values(LEAK_LABELS),
+      KITCHEN.name, KITCHEN.cluster, KITCHEN.place, KITCHEN.lesson,
+      MASQUERADE.name, MASQUERADE.place, MASQUERADE.lesson,
+      ...BOSS_HANDS.flatMap((b) => [b.title, b.setup, b.reveal]),
+      ...KEEPSAKES.flatMap((k) => [k.name, k.short, k.fact]),
+      ...MASKS,
+      ...Object.values(READ_LABELS).flatMap((r) => [r.label, r.unit, r.counted]),
     ];
     for (const text of copy) {
       const problems: string[] = [];

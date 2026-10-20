@@ -564,6 +564,43 @@
 .you-stat .t-t3 {
   color: var(--ink-1);
 }
+/* The keepsake shelf (story/keepsakes.ts): eight medallions on one lit plank, a kept one bright, the rest outlined. */
+.keepsake-shelf {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  padding: 6px;
+  border-radius: var(--r-group);
+  background: var(--fill-0);
+  box-shadow: inset 0 0 0 0.5px var(--hair-strong);
+}
+.keepsake {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  cursor: pointer;
+}
+.keepsake:hover { background: var(--fill-1); }
+.keepsake:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.keepsake[data-kept='true'] { color: var(--ink-1); }
+.keepsake-name {
+  max-width: 100%;
+  font-size: var(--t-cap);
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.keepsake-shelf.compact { padding: 4px; }
 .trophy-shelf {
   min-height: 0;
   overflow-y: auto;
