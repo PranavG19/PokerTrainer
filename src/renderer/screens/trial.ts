@@ -273,6 +273,13 @@ function renderRunning(trial: TrialState, today: DayKey, handlers: TrialHandlers
   return wrap;
 }
 
+/** Both sides summed, for the pooled view while the trial runs. */
+function pool(a: Side, b: Side): Side {
+  const counts = { ...a.counts };
+  for (const k of Object.keys(counts) as (keyof typeof counts)[]) counts[k] = a.counts[k] + b.counts[k];
+  return { blocks: a.blocks + b.blocks, counts, tested: a.tested + b.tested, sure: a.sure + b.sure, sureRight: a.sureRight + b.sureRight, wanted: a.wanted + b.wanted, had: a.had + b.had };
+}
+
 const pct = (n: number, d: number): string => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
 
 /** The on weeks beside the off weeks, then each criterion's verdict. */
@@ -281,14 +288,17 @@ function renderResults(trial: TrialState, phase: TrialPhase): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'settings-section trial-results';
   wrap.dataset.testid = 'trial-results';
-  wrap.dataset.tripped = String(r.tripped);
-  wrap.appendChild(text('div', 'stat-label', phase === 'running' ? 'So far' : 'On weeks beside off weeks'));
+  // While it runs, the weeks are pooled: on beside off would let the verdict be read before it is due.
+  const pooled = phase === 'running';
+  if (phase === 'ready' || phase === 'finished') wrap.dataset.tripped = String(r.tripped);
+  wrap.appendChild(text('div', 'stat-label', pooled ? 'So far, every week together' : 'On weeks beside off weeks'));
+  const columns: [string, Side][] = pooled ? [['All weeks', pool(r.on, r.off)]] : [['Layer on', r.on], ['Layer off', r.off]];
 
   const table = document.createElement('table');
   table.className = 'trial-table';
   table.dataset.testid = 'trial-table';
   const headRow = document.createElement('tr');
-  headRow.append(text('th', '', ''), text('th', '', 'Layer on'), text('th', '', 'Layer off'));
+  headRow.append(text('th', '', ''), ...columns.map(([name]) => text('th', '', name)));
   const thead = document.createElement('thead');
   thead.appendChild(headRow);
   table.appendChild(thead);
@@ -307,13 +317,13 @@ function renderResults(trial: TrialState, phase: TrialPhase): HTMLElement {
     ['Sure rate', (s) => `${pct(s.sure, s.tested)} (${s.tested})`],
     ['Sure accuracy', (s) => `${pct(s.sureRight, s.sure)} (${s.sure})`],
     ['Reps on mastered concepts', (s) => `${pct(s.counts.repsOnMastered, s.counts.reps)} (${s.counts.reps})`],
-    ['Late sessions (23:00–04:00)', (s) => String(s.counts.lateSessions)],
-    ['Days with 3+ sessions', (s) => String(s.counts.busyDays)],
+    ['Late sessions (23:00–04:00)', (s) => `${pct(s.counts.lateSessions, s.counts.sessions)} (${s.counts.lateSessions})`],
+    ['Days with 3+ sessions', (s) => `${pct(s.counts.busyDays, s.counts.activeDays)} (${s.counts.busyDays})`],
     ['“Had to” answers', (s) => `${s.had} of ${s.had + s.wanted}`],
   ];
   for (const [label, cell] of rows) {
     const tr = document.createElement('tr');
-    tr.append(text('th', '', label), text('td', '', cell(r.on)), text('td', '', cell(r.off)));
+    tr.append(text('th', '', label), ...columns.map(([, side]) => text('td', '', cell(side))));
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);

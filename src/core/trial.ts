@@ -7,8 +7,9 @@
  *   learner's own sentence, the criteria are KILL_CRITERIA (plus one optional sentence of their own). Neither can be
  *   edited once the trial runs.
  * - **Local metrics from what is already recorded:** the hand log, the assessment log, the drill log (fadingLog) and
- *   the Sure tallies. Each save during a block re-counts that block (`observeTrial`), so a log that is capped later
- *   (500 hands) cannot shrink a week already counted. Nothing is sent anywhere; this module has no I/O at all.
+ *   the Sure tallies. Each save during a block adds only the activity newer than the block's high-water mark
+ *   (`observeTrial`), so a log that is capped later (500 hands) can neither shrink nor stall a week. Nothing is sent
+ *   anywhere; this module has no I/O at all.
  * - **n = 1.** It can detect harm and a change in engagement, not prove a learning gain, and the results say so.
  *   If any criterion trips, the layer goes off by default when the results are read (`finishTrial`).
  *
@@ -207,6 +208,8 @@ export interface TrialClock {
   readonly dayOf: DayKeyOf;
   /** The local hour (0–23) of an instant. */
   readonly hourOf: (ms: number) => number;
+  /** The instant now. A high-water mark past it (a clock that ran fast, then was corrected) is pulled back to it. */
+  readonly now?: number;
 }
 
 /**
@@ -222,7 +225,9 @@ export function observeTrial(t: TrialState, src: TrialSource, clock: TrialClock)
   const start = prev?.calibrationStart ?? latestCalibration(t, b);
   const end = maxCalibration(start, src.calibration);
   const calibrationMoved = JSON.stringify(end) !== JSON.stringify(prev?.calibrationEnd ?? start);
-  if (!tally.fresh && !calibrationMoved) return t;
+  // A mark past now (the clock ran fast, then was put back) is filed back at now, or the week would stall.
+  const pulledBack = prev !== null && tally.through < prev.through;
+  if (!tally.fresh && !calibrationMoved && !pulledBack) return t;
   const block: TrialBlock = { calibrationStart: start, calibrationEnd: end, counts: tally.counts, through: tally.through, sessionsByDay: tally.sessionsByDay };
   const blocks = TRIAL_BLOCKS.map((_, i) => (i === b ? block : (t.blocks[i] ?? null)));
   return { ...t, blocks };
@@ -260,7 +265,9 @@ function tallyBlock(
   const c: TrialCounts = prev ? { ...prev.counts } : emptyCounts();
   const sessionsByDay: Record<string, number> = prev ? { ...prev.sessionsByDay } : {};
   const from = blockStart(t, b);
-  const since = Math.max(prev?.through ?? -Infinity, t.startedAt !== null && Number.isFinite(t.startedAt) ? t.startedAt - 1 : -Infinity);
+  const now = clock.now ?? Infinity;
+  const through = Math.min(prev?.through ?? -Infinity, now);
+  const since = Math.max(through, t.startedAt !== null && Number.isFinite(t.startedAt) ? t.startedAt - 1 : -Infinity);
   if (from === null) return { counts: c, through: prev?.through ?? 0, sessionsByDay, fresh: false };
   const isNew = (ms: number): boolean => {
     if (!Number.isFinite(ms) || ms <= since) return false;
@@ -312,7 +319,7 @@ function tallyBlock(
   // Sessions: activity split at gaps of more than SESSION_GAP_MS, each filed under the day and hour it started. The
   // newest activity already counted continues a session across saves.
   activity.sort((x, y) => x - y);
-  let last = prev?.through ?? -Infinity;
+  let last = through;
   for (const at of activity) {
     if (at - last > SESSION_GAP_MS) {
       c.sessions += 1;
@@ -326,7 +333,7 @@ function tallyBlock(
   c.activeDays = Object.keys(sessionsByDay).length;
   c.busyDays = Object.values(sessionsByDay).filter((n) => n > SESSIONS_PER_DAY).length;
   c.assessedLossBb = round2(c.assessedLossBb);
-  return { counts: c, through: Math.max(prev?.through ?? 0, last === -Infinity ? 0 : last), sessionsByDay, fresh: activity.length > 0 };
+  return { counts: c, through: Math.min(Math.max(through, last, 0), Math.max(now, 0)), sessionsByDay, fresh: activity.length > 0 };
 }
 
 // ── results ────────────────────────────────────────────────────────────────────────────────────────

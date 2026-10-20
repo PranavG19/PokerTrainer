@@ -363,3 +363,36 @@ describe('review round 1 (red first)', () => {
     expect(p.trial.baseline).toEqual({ total: 3, sureTotal: 2, sureCorrect: 1 });
   });
 });
+
+describe('review round 2', () => {
+  it('a session continues across saves: a hand, a save, a hand ten minutes later is still one session', () => {
+    const t0 = started().trial;
+    const h1 = { playedAt: noonOf(day(1)) };
+    const t1 = observeTrial(t0, src({ hands: [h1] }), clockOn(day(1)));
+    const t2 = observeTrial(t1, src({ hands: [h1, { playedAt: noonOf(day(1)) + 10 * 60_000 }] }), clockOn(day(1)));
+    expect(t2.blocks[0]?.counts.sessions).toBe(1);
+    const t3 = observeTrial(t2, src({ hands: [{ playedAt: noonOf(day(1)) + 3 * 3_600_000 }] }), clockOn(day(1)));
+    expect(t3.blocks[0]?.counts.sessions).toBe(2);
+  });
+
+  it('a delayed rep is found when its earlier rep is older than what was already counted', () => {
+    const t0 = started().trial;
+    const early = graded('ranges', noonOf(day(0)), true);
+    const t1 = observeTrial(t0, src({ fadingLog: [early] }), clockOn(day(0)));
+    const t2 = observeTrial(t1, src({ fadingLog: [early, graded('ranges', noonOf(day(4)), true)] }), clockOn(day(4)));
+    expect(t2.blocks[0]?.counts).toMatchObject({ reps: 2, delayed: 1, delayedCorrect: 1 });
+  });
+
+  it('a clock that ran fast and was corrected stalls the week for one save at most', () => {
+    const t0 = started().trial;
+    // A save while the clock read day 5; the clock is then put back to day 2.
+    const t1 = observeTrial(t0, src({ hands: [{ playedAt: noonOf(day(5)) }] }), { ...clockOn(day(5)), now: noonOf(day(5)) });
+    // The first save after the change pulls the mark back to now (that save's own activity is the one loss)…
+    const t2 = observeTrial(t1, src({ hands: [{ playedAt: noonOf(day(2)) }] }), { ...clockOn(day(2)), now: noonOf(day(2)) + 60_000 });
+    expect(t2.blocks[0]?.counts.sessions).toBe(1);
+    // …so the next hand counts, where an uncapped mark would drop every hand until day 5.
+    const later = noonOf(day(2)) + 3 * 3_600_000;
+    const t3 = observeTrial(t2, src({ hands: [{ playedAt: later }] }), { ...clockOn(day(2)), now: later + 1_000 });
+    expect(t3.blocks[0]?.counts.sessions).toBe(2);
+  });
+});

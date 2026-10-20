@@ -31,7 +31,10 @@ Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone 
   gaps), late sessions (23:00–04:00), days with 3+ sessions, graded decisions, assessment EV loss, delayed-review
   accuracy (a drill rep 3+ days after the concept's last one: the app emits no decay probes yet), reps on concepts
   already mastered, and the Sure rate and accuracy (from the dateless tallies, by week-start and week-end snapshots).
-  A save with nothing new files nothing. Nothing leaves the machine.
+  A save with nothing new files nothing. A mark past now (a clock put back) is pulled back to now, so at most that
+  one save's activity is lost. Blocks and the baseline are parsed whole: a later field goes in a new key beside
+  them, never inside. While the trial runs the table pools every week; on beside off shows only after day 28 or a
+  stop. Nothing leaves the machine.
 - **Kill criteria (fixed text, `KILL_CRITERIA`):** EV loss on > off by more than 10% (30+ each way); delayed accuracy
   5+ points lower (20+); Sure rate +10 with Sure accuracy −5 (20+ Sure calls); reps on mastered concepts +10 points
   (20+); the share of late sessions +10 points with 2+ late (5+ sessions each way); the share of practice days with 3+

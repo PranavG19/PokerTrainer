@@ -883,7 +883,7 @@ test.describe('1.8 — Character, Celebrations and the local trial', () => {
           prediction: 'With Dee on I practise on more days and my assessment EV loss holds.',
           ownCriterion: 'I start opening the app only to keep the streak.',
           baseline: cal(0),
-          blocks: [0, 1, 2, 3].map((i) => ({ calibrationStart: cal(i * 40), calibrationEnd: cal(i * 40 + 40), counts: counts(i % 2 === 0 ? { lateSessions: onLate } : {}) })),
+          blocks: [0, 1, 2, 3].map((i) => ({ calibrationStart: cal(i * 40), calibrationEnd: cal(i * 40 + 40), counts: counts(i % 2 === 0 ? { lateSessions: onLate } : {}), through: Date.now() - 60_000, sessionsByDay: {} })),
           reports: [{ day: todayKey() - daysAgo + 1, answer: 'wanted' }],
           finishedOn: null,
           outcome: null,

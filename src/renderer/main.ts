@@ -337,7 +337,7 @@ async function boot(): Promise<void> {
       // A fault in the count must never cost a save: keep the trial as it was.
       let trial = applied.progression.trial;
       try {
-        trial = observeTrial(trial, session, { today: dayOf()(now()), dayOf: dayOf(), hourOf: (ms) => new Date(ms).getHours() });
+        trial = observeTrial(trial, session, { today: dayOf()(now()), dayOf: dayOf(), hourOf: (ms) => new Date(ms).getHours(), now: now() });
       } catch {
         // Unreachable on parsed data; the old counts stand.
       }
