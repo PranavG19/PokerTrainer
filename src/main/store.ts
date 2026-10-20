@@ -119,12 +119,20 @@ function sameStamp(a: FileStamp | null, b: FileStamp | null): boolean {
  */
 let awaitingReload = false;
 
+/**
+ * The file the profile in memory came from: the live file, or the backup a recovery read (the live file then
+ * being torn or missing); null for a fresh profile. An import copies THIS aside, so the profile the learner
+ * is actually running on is the one kept. Becomes the live file once this build writes it.
+ */
+let loadedFrom: string | null = null;
+
 export function load(): Record<string, unknown> {
   sweepTempFiles(STATE_FILE);
   const recovery = loadWithRecovery(STATE_FILE);
   lastRecovery = recovery.source;
   remember();
   awaitingReload = false;
+  loadedFrom = recovery.path;
   readOnly = null;
   migratedFrom = null;
   pendingSnapshot = null;
@@ -196,6 +204,7 @@ export function save(obj: Record<string, unknown>): SaveOutcome {
   }
   remember(text);
   lastProfile = obj;
+  loadedFrom = STATE_FILE;
   return { saved: true, readOnly: null };
 }
 
@@ -230,7 +239,7 @@ export function replaceProfile(obj: Record<string, unknown>, now: Date): Replace
   }
   let backup: string | null;
   try {
-    backup = snapshotBeforeImport(STATE_FILE, now);
+    backup = loadedFrom === null ? null : snapshotBeforeImport(STATE_FILE, now, loadedFrom);
   } catch {
     return { replaced: false, refused: 'backup' };
   }
@@ -242,6 +251,7 @@ export function replaceProfile(obj: Record<string, unknown>, now: Date): Replace
   }
   remember(text);
   lastProfile = obj;
+  loadedFrom = STATE_FILE;
   awaitingReload = true;
   return { replaced: true, backup };
 }
@@ -287,6 +297,7 @@ export function deleteProfile(confirmation: string): DeleteOutcome {
     fileSchemaVersion = SCHEMA_VERSION;
     // The deleted profile must never come back through resaveLast (a licence install right after a delete).
     lastProfile = null;
+    loadedFrom = null;
     remember();
   }
   return outcome;

@@ -133,6 +133,9 @@ export function renderChallengeScreen(opts: ChallengeOptions): HTMLElement {
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && decoded !== null) {
       event.preventDefault();
+      // The screen it opens may listen for Enter on the window (the drill commits an answer on it): this
+      // keypress was for the code, so it stops here.
+      event.stopPropagation();
       opts.onPlay(decoded);
     }
   });

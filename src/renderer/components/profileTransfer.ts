@@ -99,7 +99,10 @@ export function renderProfileTransfer(opts: TransferOptions): HTMLElement {
     busy(true);
     const r = (await opts.bridge.profileExport().catch(() => ({ saved: false, failed: 'write' }))) as Record<string, unknown>;
     busy(false);
-    if (r.saved === true) say(`Exported ${handsLine(Number(r.hands) || 0)} to ${String(r.fileName)}.`, 'exported');
+    if (r.saved === true) {
+      const n = Number(r.hands) || 0;
+      say(`Exported your profile, ${n} hand${n === 1 ? '' : 's'}, to ${String(r.fileName)}.`, 'exported');
+    }
     else if (r.canceled === true) status.hidden = true;
     else if (r.failed === 'app-folder') say('Choose a folder outside Offsuit’s own. Nothing was written.', 'failed');
     else say('The export could not be written. Nothing was saved.', 'failed');
@@ -187,10 +190,11 @@ function openImportConfirm(
   const keep = el('p', 'g-caption', 'Your current profile is copied aside first, next to the profile file, so this can be undone. The file’s hands become your hand log; hands imported into the Pro tools stay in their own store, untouched.');
   keep.dataset.testid = 'import-keep-note';
   body.appendChild(keep);
-  if (preview.droppedKeys.length > 0) {
-    const dropped = el('p', 'g-caption', `${preview.droppedKeys.length} field${preview.droppedKeys.length === 1 ? '' : 's'} this version does not know will be left out.`);
-    dropped.dataset.testid = 'import-dropped';
-    body.appendChild(dropped);
+  if (preview.unknownKeys.length > 0) {
+    const n = preview.unknownKeys.length;
+    const carried = el('p', 'g-caption', `${n} field${n === 1 ? '' : 's'} from a newer Offsuit ${n === 1 ? 'is' : 'are'} kept as ${n === 1 ? 'it is' : 'they are'}, unread.`);
+    carried.dataset.testid = 'import-unknown';
+    body.appendChild(carried);
   }
 
   const foot = el('div', 'pro-sheet-foot');

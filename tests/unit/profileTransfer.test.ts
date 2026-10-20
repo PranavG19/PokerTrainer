@@ -40,14 +40,13 @@ function aProfile(): Record<string, unknown> {
   return out;
 }
 
-const expectedAfterImport = (profile: Record<string, unknown>): Record<string, unknown> => {
-  const { futureThing: _f, ...rest } = profile;
-  void _f;
-  return { ...rest, progression: { ...(rest.progression as object), entitlements: defaultProgression().entitlements } };
-};
+const expectedAfterImport = (profile: Record<string, unknown>): Record<string, unknown> => ({
+  ...profile,
+  progression: { ...(profile.progression as object), entitlements: defaultProgression().entitlements },
+});
 
 describe('round trip', () => {
-  it('export then import gives back the same profile, without the licence and unknown keys', () => {
+  it('export then import gives back the same profile, without the licence, unknown keys carried', () => {
     const profile = aProfile();
     const text = exportText(profile, NOW);
     const checked = checkImport(text);
@@ -61,7 +60,7 @@ describe('round trip', () => {
       lastPlayedAt: 1_760_000_000_000 + 12 * 60_000,
       exportedAt: NOW.toISOString(),
       fromVersion: SCHEMA_VERSION,
-      droppedKeys: ['futureThing'],
+      unknownKeys: ['futureThing'],
     });
     // A second trip changes nothing.
     const again = checkImport(exportText(checked.profile, NOW));
@@ -146,11 +145,17 @@ describe('strict refusals', () => {
   });
 
   it('a __proto__ key cannot reach the prototype', () => {
-    const text = `{"bankroll": 100, "hands": [], "__proto__": {"polluted": true}, "stats": {"__proto__": {"polluted": true}}}`;
-    const checked = checkImport(text);
-    expect(checked.ok).toBe(true);
+    // Inside a parser-owned object it would be dropped, so the file is refused.
+    const nested = checkImport(`{"bankroll": 100, "hands": [], "stats": {"__proto__": {"polluted": true}}}`);
+    expect(nested).toMatchObject({ ok: false, reason: 'bad-field' });
+    // At the top level it is an unknown key, carried as an own data property.
+    const top = checkImport(`{"bankroll": 100, "hands": [], "__proto__": {"polluted": true}}`);
+    expect(top.ok).toBe(true);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
-    if (checked.ok) expect(Object.getPrototypeOf(checked.profile)).toBe(Object.prototype);
+    if (top.ok) {
+      expect(Object.getPrototypeOf(top.profile)).toBe(Object.prototype);
+      expect(Object.hasOwn(top.profile, '__proto__')).toBe(true);
+    }
   });
 
   it('every refusal has text', () => {
@@ -169,5 +174,55 @@ describe('the field list', () => {
       const v = s[key];
       expect(Array.isArray(v) ? 'array' : typeof v, key).toBe(want);
     }
+  });
+});
+
+describe('nested values the parser would repair are refused, not rewritten', () => {
+  const env = (profile: unknown) => JSON.stringify({ format: EXPORT_FORMAT, formatVersion: 1, exportedAt: NOW.toISOString(), profile });
+  const base = () => aProfile();
+  const cases: [string, (p: Record<string, unknown>) => void][] = [
+    ['junk decisions', (p) => ((p.hands as Record<string, unknown>[])[0].decisions = [1, 'x', null])],
+    ['a junk grade', (p) => ((p.hands as Record<string, unknown>[])[0].grades = [7])],
+    ['a string streak', (p) => ((p.progression as Record<string, unknown>).streak = 'garbage')],
+    ['a string stat', (p) => ((p.stats as Record<string, unknown>).handsPlayed = 'lots')],
+    ['a negative depth floor', (p) => (p.depthFloor = -3)],
+  ];
+  for (const [name, spoil] of cases) {
+    it(`refuses ${name}`, () => {
+      const p = base();
+      spoil(p);
+      const checked = checkImport(env(p));
+      expect(checked.ok, name).toBe(false);
+      if (!checked.ok) expect(checked.reason).toBe('bad-field');
+    });
+  }
+
+  it('keeps and counts unknown keys at every level, as a save does', () => {
+    const p = base();
+    (p.progression as Record<string, unknown>).futureThing = { x: 1 };
+    ((p.progression as Record<string, unknown>).streak as Record<string, unknown>).futureField = 2;
+    const checked = checkImport(env(p));
+    expect(checked.ok).toBe(true);
+    if (!checked.ok) return;
+    expect((checked.profile.progression as Record<string, unknown>).futureThing).toEqual({ x: 1 });
+    expect(((checked.profile.progression as Record<string, unknown>).streak as Record<string, unknown>).futureField).toBe(2);
+    expect(checked.profile.futureThing).toEqual({ from: 'a newer build' });
+    expect([...checked.preview.unknownKeys].sort()).toEqual(['futureThing', 'progression.futureThing', 'progression.streak.futureField']);
+  });
+});
+
+describe('an export is always importable by the build that wrote it', () => {
+  it('normalises a profile main loaded but never saved', () => {
+    const raw = aProfile();
+    (raw.stats as Record<string, unknown>).handsPlayed = 'lots';
+    ((raw.hands as Record<string, unknown>[])[0]).grades = [7];
+    const checked = checkImport(exportText(raw, NOW));
+    expect(checked.ok).toBe(true);
+  });
+
+  it('leaves a newer build’s profile as it is (an import then says it is newer)', () => {
+    const newer = { ...aProfile(), schemaVersion: SCHEMA_VERSION + 1, stats: 'their shape' };
+    expect(exportEnvelope(newer, NOW).profile.stats).toBe('their shape');
+    expect(checkImport(exportText(newer, NOW))).toEqual({ ok: false, reason: 'newer-version' });
   });
 });

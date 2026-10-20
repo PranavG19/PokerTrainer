@@ -100,14 +100,11 @@ export function createProfileFiles(opts: {
       let text: string;
       let bytes: number;
       try {
-        // A regular file only (not a directory, device or FIFO), and the size is checked before any read.
-        const st = fs.statSync(file);
-        if (!st.isFile()) return { ok: false, reason: 'unreadable' };
-        if (st.size > MAX_IMPORT_BYTES) return { ok: false, reason: 'too-large' };
-        const buf = fs.readFileSync(file);
-        if (buf.length > MAX_IMPORT_BYTES) return { ok: false, reason: 'too-large' };
-        bytes = buf.length;
-        text = buf.toString('utf-8');
+        const read = readBounded(file, MAX_IMPORT_BYTES);
+        if (read === 'not-a-file') return { ok: false, reason: 'unreadable' };
+        if (read === 'too-large') return { ok: false, reason: 'too-large' };
+        bytes = read.length;
+        text = read.toString('utf-8');
       } catch {
         return { ok: false, reason: 'unreadable' };
       }
@@ -132,11 +129,37 @@ export function createProfileFiles(opts: {
   };
 }
 
+/**
+ * Read a regular file of at most `max` bytes through ONE descriptor: opened non-blocking (a FIFO swapped in
+ * cannot hang main), checked with fstat on that descriptor (not the path, which could be swapped between a
+ * check and a read), and read with a bound, so a file that grows after the check is still capped.
+ */
+function readBounded(file: string, max: number): Buffer | 'not-a-file' | 'too-large' {
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) return 'not-a-file';
+    if (st.size > max) return 'too-large';
+    const buf = Buffer.alloc(max + 1);
+    let n = 0;
+    for (;;) {
+      const got = fs.readSync(fd, buf, n, buf.length - n, null);
+      if (got === 0) break;
+      n += got;
+      if (n > max) return 'too-large';
+    }
+    return buf.subarray(0, n);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 /** True when `file` would land in `dir` or below it, symlinks resolved as far as they exist. */
 function inside(file: string, dir: string): boolean {
   const real = (p: string): string => {
     try {
-      return fs.realpathSync(p);
+      // .native: the real case on a case-insensitive volume, so a differently cased path still compares.
+      return fs.realpathSync.native(p);
     } catch {
       return path.resolve(p);
     }

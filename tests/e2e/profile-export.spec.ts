@@ -229,13 +229,17 @@ test('a challenge code: made with a QR, typed in on another profile, deals the s
       await page.locator('[data-testid="challenge-play-mine"]').click();
       first = await dealt(page);
       await expect(page.locator('[data-testid="table-screen"]')).toHaveAttribute('data-challenge', 'true');
+      // The button is the code's, not the fresh table's default (the hero): the deal starts left of it.
+      const made = decodeChallenge(code);
+      expect(made.ok && made.challenge.kind === 'hand' && String(made.challenge.button)).toBe(first.button);
     } finally {
       await close();
     }
   }
 
-  // Someone else: a different seed and a fresh profile. They type the code with a slip in case and spacing.
+  // Someone else: a different seed and their own profile. They type the code with a slip in case and spacing.
   const userDataDir = tmp('offsuit-e2e-');
+  fs.writeFileSync(path.join(userDataDir, 'offsuit-state.json'), JSON.stringify(profileWith(2, 9_000)));
   const { page, close } = await launchApp({ seed: 7, userDataDir });
   try {
     await page.waitForSelector('[data-testid="home-screen"]');
@@ -261,11 +265,13 @@ test('a challenge code: made with a QR, typed in on another profile, deals the s
     await page.locator(sel.btnFold).click();
     await page.locator('[data-testid="challenge-done"]').click();
     await expect(page.locator('[data-testid="challenge-screen"]')).toBeVisible();
-    const saved = fs.existsSync(path.join(userDataDir, 'offsuit-state.json'))
-      ? JSON.parse(fs.readFileSync(path.join(userDataDir, 'offsuit-state.json'), 'utf-8'))
-      : { hands: [], bankroll: 10_000 };
-    expect(saved.hands ?? []).toHaveLength(0);
-    expect(saved.bankroll ?? 10_000).toBe(10_000);
+    // Their own profile is as it was: two hands, 9,000 chips, the challenge hand nowhere.
+    await page.locator('[data-testid="tab-settings"]').click();
+    await page.locator('[data-testid="sound-cues-toggle"]').click();
+    await expect.poll(() => JSON.parse(fs.readFileSync(path.join(userDataDir, 'offsuit-state.json'), 'utf-8')).soundCues).toBe(true);
+    const saved = JSON.parse(fs.readFileSync(path.join(userDataDir, 'offsuit-state.json'), 'utf-8'));
+    expect(saved.hands).toHaveLength(2);
+    expect(saved.bankroll).toBe(9_000);
   } finally {
     await close();
   }
@@ -285,6 +291,15 @@ test('challenge codes for a Math problem and a puzzle open the same spot in Trai
     const drill = page.locator('[data-testid="drill-screen"]');
     await expect(drill).toHaveAttribute('data-kind', 'mdf');
     await expect(drill).toHaveAttribute('data-index', '37');
+
+    // Enter in the code field opens the problem, and only that: the drill must not take the same keypress
+    // as an (empty) answer.
+    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="play-challenge"]').click();
+    await page.locator('[data-testid="challenge-input"]').fill(encodeChallenge({ kind: 'drill', drill: 'spr', index: 12 }));
+    await page.locator('[data-testid="challenge-input"]').press('Enter');
+    await expect(drill).toHaveAttribute('data-index', '12');
+    await expect(page.locator('[data-testid="drill-hint"]')).not.toContainText('not a number');
 
     const scenario = SCENARIOS[3];
     await open(encodeChallenge({ kind: 'puzzle', scenarioId: scenario.id }));

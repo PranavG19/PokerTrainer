@@ -217,14 +217,15 @@ export function preImportPath(file: string, now: Date): string {
 }
 
 /**
- * Copy the live profile to a fresh pre-import path, atomically. Returns the copy's path, or null when there
- * is no live profile to keep (a fresh install: nothing would be lost). Throws when the copy cannot be
- * written, so the caller can refuse to import over a profile it could not keep.
+ * Copy `source` (the file the profile in memory was read from: the live file, or the backup a recovery used)
+ * to a fresh pre-import path beside `file`, atomically. Returns the copy's path, or null when `source` does not
+ * exist (nothing would be lost). Throws when the copy cannot be written, so the caller can refuse to import
+ * over a profile it could not keep.
  */
-export function snapshotBeforeImport(file: string, now: Date): string | null {
+export function snapshotBeforeImport(file: string, now: Date, source: string = file): string | null {
   let text: string;
   try {
-    text = fs.readFileSync(file, 'utf-8');
+    text = fs.readFileSync(source, 'utf-8');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;

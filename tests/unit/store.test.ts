@@ -378,3 +378,27 @@ describe('an import replacing the profile', () => {
     expect(store.currentProfile()).toBeNull();
   });
 });
+
+describe('an import over a profile recovered from a backup', () => {
+  const NOW = new Date('2026-10-20T15:30:12.345Z');
+  const preImport = () => `${stateFile()}.pre-import-20261020T153012Z`;
+  const recovered = () => JSON.stringify({ ...serialize(emptySession()), bankroll: 4242 });
+
+  it('copies aside the profile the app is running on, not a missing live file', async () => {
+    const store = await freshStore();
+    fs.writeFileSync(backupPath(stateFile(), 1), recovered());
+    expect(store.load().bankroll).toBe(4242);
+    const outcome = store.replaceProfile({ ...serialize(emptySession()), bankroll: 1 }, NOW);
+    expect(outcome).toEqual({ replaced: true, backup: preImport() });
+    expect(readJson(preImport()).bankroll).toBe(4242);
+  });
+
+  it('copies aside the profile the app is running on, not a torn live file', async () => {
+    const store = await freshStore();
+    fs.writeFileSync(backupPath(stateFile(), 1), recovered());
+    fs.writeFileSync(stateFile(), '{torn');
+    expect(store.load().bankroll).toBe(4242);
+    expect(store.replaceProfile({ ...serialize(emptySession()), bankroll: 1 }, NOW).replaced).toBe(true);
+    expect(readJson(preImport()).bankroll).toBe(4242);
+  });
+});

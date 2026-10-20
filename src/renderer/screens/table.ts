@@ -1308,9 +1308,14 @@ export function renderTable(opts: {
         controls.appendChild(ask);
       };
 
+      // The sitting's planned hands are all played: it ends below, bust or not. A rebuy would deal a hand past
+      // the bound (on a one-hand challenge table, a hand that is no longer the shared spot).
+      const boundReached =
+        opts.handLimit !== undefined && opts.handLimit > 0 && state.handNumber - opts.handNumber + 1 >= opts.handLimit;
+
       // A busted hero sits out every future hand, so "Next hand" would be a no-op forever.
       // Offer a rebuy at the same table, or an explicit end of session — never a dead button.
-      if (heroSeat().stack === 0) {
+      if (heroSeat().stack === 0 && !boundReached) {
         const over = document.createElement('div');
         over.className = 'winner-summary';
         over.dataset.testid = 'session-over';
@@ -1332,7 +1337,7 @@ export function renderTable(opts: {
       // hand is over before it deals — "Next hand" posts the blinds to itself forever with no
       // decision to make. Measured at 25 hands from the standard table with a station hero. Only
       // "New session" is offered because a rebuy tops up the hero, which is not who is short.
-      if (state.seats.filter((seat) => seat.stack > 0).length < 2) {
+      if (state.seats.filter((seat) => seat.stack > 0).length < 2 && !boundReached) {
         const swept = document.createElement('div');
         swept.className = 'winner-summary';
         swept.dataset.testid = 'table-swept';
@@ -1350,11 +1355,7 @@ export function renderTable(opts: {
       // stop offering "Next hand" and end the sitting the plan modelled. handNumber continues the
       // session's numbering (see the `table.handNumber` setup), so the count played THIS sitting is
       // measured from the hand this table opened on.
-      if (
-        opts.handLimit !== undefined &&
-        opts.handLimit > 0 &&
-        state.handNumber - opts.handNumber + 1 >= opts.handLimit
-      ) {
+      if (boundReached) {
         const done = document.createElement('div');
         done.className = 'winner-summary';
         done.dataset.testid = 'session-planned-complete';

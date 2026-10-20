@@ -7,17 +7,19 @@
  * AN IMPORTED FILE IS UNTRUSTED. It may be hand-edited, truncated, from a newer build, or not ours at all.
  * The profile's own parser (session.ts `deserialize`) is tolerant on purpose, because the profile on disk
  * must never brick the app; an import has no such excuse. So an import is checked twice:
- * 1. strictly, here: the envelope, a size cap, the schema version, and the JSON type of every top-level
- *    key the parser reads, plus the shape of every hand. Anything off is refused with a reason, never
- *    repaired into a profile the learner did not have.
+ * 1. strictly, here: the envelope, a size cap, the schema version, the JSON type of every top-level key the
+ *    parser reads, and the shape of every hand.
  * 2. then through the profile parser itself, migrate → deserialize → serialize, so what is written is
- *    exactly what this build would have written. Keys this build does not know are left out (they could
- *    not be checked), and the licence fields are emptied: main stamps its own.
+ *    exactly what this build would have written, and every value the file holds must come out of that
+ *    unchanged: anything the tolerant parser would repair, reset or drop refuses the file with its path,
+ *    never rewritten behind the preview. Keys this build does not know are carried untouched at every
+ *    level, as an ordinary save carries them, and counted in the preview. The licence fields are emptied:
+ *    main stamps its own.
  *
  * The Pro hand-history store (main/hhStore.ts) is not in the profile and never in an export or an import.
  */
 
-import { migrate, PROFILE_SHAPE, SCHEMA_VERSION, schemaVersionOf } from './profileSchema.js';
+import { migrate, PROFILE_SHAPE, SCHEMA_VERSION, schemaVersionOf, unknownKeysOf, type KeyShape } from './profileSchema.js';
 import { deserialize, MAX_HAND_LOG, serialize, type SessionState } from './session.js';
 import { defaultProgression } from './progression/persist.js';
 
@@ -52,8 +54,8 @@ export interface ImportPreview {
   readonly exportedAt: string | null;
   /** The schema version the file declared (1 = before versions existed). */
   readonly fromVersion: number;
-  /** Top-level keys this build does not know, left out of the import. */
-  readonly droppedKeys: readonly string[];
+  /** Keys this build does not know (dotted paths), carried through untouched as a save carries them. */
+  readonly unknownKeys: readonly string[];
 }
 
 export type ImportCheck =
@@ -67,13 +69,19 @@ function withoutLicence(profile: Record<string, unknown>): Record<string, unknow
   return { ...profile, progression: { ...progression, entitlements: { ...defaultProgression().entitlements } } };
 }
 
-/** The file an export writes: the profile as main last saved it, without the licence. */
+/**
+ * The file an export writes: the profile as main holds it, put through the profile parser (as the next save
+ * would; unknown keys carried) so the strict import accepts it, and without the licence. A newer build's
+ * profile is written as it is: this build cannot read it, and an import elsewhere names it as newer.
+ */
 export function exportEnvelope(profile: Record<string, unknown>, now: Date): ExportEnvelope {
+  const current = schemaVersionOf(profile) <= SCHEMA_VERSION;
+  const body = current ? serialize(deserialize(migrate(structuredClone(profile)).state)) : structuredClone(profile);
   return {
     format: EXPORT_FORMAT,
     formatVersion: EXPORT_FORMAT_VERSION,
     exportedAt: now.toISOString(),
-    profile: withoutLicence(structuredClone(profile)),
+    profile: withoutLicence(body),
   };
 }
 
@@ -203,20 +211,23 @@ export function checkImport(text: string, byteLength = text.length): ImportCheck
   const progression = raw.progression;
   if (progression !== undefined && !isPlainObject(progression)) return refuse('bad-field', 'progression');
 
-  const droppedKeys = Object.keys(raw).filter((k) => !Object.hasOwn(PROFILE_SHAPE, k));
   const fromVersion = schemaVersionOf(raw);
-  const known: Record<string, unknown> = {};
-  for (const key of Object.keys(raw)) if (Object.hasOwn(PROFILE_SHAPE, key)) known[key] = raw[key];
-
+  let migrated: Record<string, unknown>;
   let session: SessionState;
   try {
-    session = deserialize(migrate(structuredClone(known)).state);
+    migrated = migrate(structuredClone(raw)).state;
+    session = deserialize(migrated);
   } catch {
     return refuse('bad-field');
   }
-  // Strict, so nothing unchecked rides in: unknown keys at every level are left out.
-  const profile = withoutLicence(serialize({ ...session, unknownKeys: {} }));
-
+  // What this build would write, unknown keys carried at every level as an ordinary save carries them.
+  const profile = withoutLicence(serialize(session));
+  // Strict: every value the file holds must come through the parser unchanged. A value the tolerant parser
+  // would repair, reset or drop (a junk decision, a string streak, a negative count) refuses the file, so
+  // nothing is rewritten behind the preview. Absent keys may be filled with defaults (older profiles).
+  const changed = firstChange(withoutLicence(migrated), profile, '');
+  if (changed !== null) return refuse('bad-field', changed);
+  const unknownKeys = paths(unknownKeysOf(raw), PROFILE_SHAPE, '');
   const playedAts = session.hands.map((h) => h.playedAt).filter((t): t is number => t !== undefined);
   return {
     ok: true,
@@ -228,9 +239,46 @@ export function checkImport(text: string, byteLength = text.length): ImportCheck
       lastPlayedAt: playedAts.length > 0 ? Math.max(...playedAts) : null,
       exportedAt,
       fromVersion,
-      droppedKeys,
+      unknownKeys,
     },
   };
+}
+
+/** The dotted path of the first value in `before` that `after` lost or changed, or null. Keys only `after` has are fine. */
+function firstChange(before: unknown, after: unknown, at: string): string | null {
+  const here = at === '' ? '(root)' : at;
+  if (Array.isArray(before)) {
+    if (!Array.isArray(after) || after.length !== before.length) return here;
+    for (let i = 0; i < before.length; i++) {
+      const c = firstChange(before[i], after[i], `${at}[${i}]`);
+      if (c !== null) return c;
+    }
+    return null;
+  }
+  if (isPlainObject(before)) {
+    if (!isPlainObject(after)) return here;
+    for (const key of Object.keys(before)) {
+      const path = at === '' ? key : `${at}.${key}`;
+      if (key === 'schemaVersion' && at === '') continue;
+      if (!Object.hasOwn(after, key)) return path;
+      const c = firstChange(before[key], after[key], path);
+      if (c !== null) return c;
+    }
+    return null;
+  }
+  return Object.is(before, after) ? null : here;
+}
+
+/**
+ * The dotted paths of the keys in an unknown-key tree (unknownKeysOf's sparse shape): at a fixed-shape level
+ * the tree nests, anywhere else the key is itself unknown and its whole value is carried.
+ */
+function paths(tree: Readonly<Record<string, unknown>>, shape: KeyShape, at: string): string[] {
+  return Object.entries(tree).flatMap(([key, value]) => {
+    const path = at === '' ? key : `${at}.${key}`;
+    const known = Object.hasOwn(shape, key) ? shape[key] : undefined;
+    return known !== undefined && known !== true && isPlainObject(value) ? paths(value, known, path) : [path];
+  });
 }
 
 export const IMPORT_REFUSAL_TEXT: Record<ImportRefusal, string> = {
