@@ -23,6 +23,10 @@ export interface FolioProps {
   readonly onWrite: () => void;
   /** Copy the sheet. Absent outside a secure context: the sheet can still be selected by hand. */
   readonly copy?: (text: string) => Promise<void>;
+  /** Teach Dee this rule: a contrast set played from it (screens/contrast.ts renderTeachDee). */
+  readonly onTeach?: (conceptId: string) => void;
+  /** Per card, what its newest Teach Dee set found, as a caption ("Dee found it too broad · rewrite it"). */
+  readonly teachNotes?: Readonly<Record<string, string>>;
 }
 
 export function renderFolio(props: FolioProps): HTMLElement {
@@ -125,7 +129,25 @@ export function renderFolio(props: FolioProps): HTMLElement {
         when.textContent = c.dueInDays === null ? 'Polished for good' : c.dueInDays <= 1 ? 'Polish due tomorrow' : `Polish in ${c.dueInDays} days`;
         meta.appendChild(when);
       }
+      if (props.onTeach) {
+        const teach = document.createElement('button');
+        teach.type = 'button';
+        teach.className = 'pill quiet';
+        teach.dataset.testid = 'folio-teach';
+        teach.textContent = 'Teach Dee';
+        teach.title = 'Dee plays a contrast set from this rule, and the engine judges every play.';
+        teach.addEventListener('click', () => props.onTeach?.(c.conceptId));
+        meta.appendChild(teach);
+      }
       card.append(text, meta);
+      const note = props.teachNotes?.[c.conceptId];
+      if (note) {
+        const n = document.createElement('span');
+        n.className = 'g-caption';
+        n.dataset.testid = 'folio-teach-note';
+        n.textContent = note;
+        card.appendChild(n);
+      }
       if (c.earlier.length > 0) {
         const older = document.createElement('span');
         older.className = 'g-caption';

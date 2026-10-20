@@ -107,4 +107,6 @@ export const keys = {
   assessment: (at: number): string => `assessment:${at}`,
   /** Speed answers are keyed by their lifetime index alone, so a save straddling the 4 am turn pays each once. */
   perception: (n: number): string => `speed:${n}`,
+  /** A Teach Dee contrast set, by the moment it was finished. */
+  contrast: (at: number, conceptId: string): string => `contrast:${at}:${conceptId}`.slice(0, MAX_KEY_CHARS),
 } as const;

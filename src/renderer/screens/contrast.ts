@@ -26,6 +26,42 @@ import {
 import { renderCard, renderCardRow } from '../components/card.js';
 import { text } from '../components/dom.js';
 import { chevron } from '../components/glyphs.js';
+import { renderDee } from '../components/dee.js';
+import { attachThumb } from '../components/thumb.js';
+import type { FolioCard } from '../../core/folio.js';
+import type { TaughtSet } from '../../core/progression/types.js';
+import type { Tone } from '../../core/dee/types.js';
+import {
+  AXIS_NAMES,
+  DIAGNOSIS_OPTIONS,
+  FINDING_TITLES,
+  MOVES,
+  MOVE_LABELS,
+  MOVE_WORDS,
+  baseLabel,
+  buildTeachSet,
+  deeMove,
+  defaultBaseFor,
+  detectRepair,
+  findingOf,
+  latestSets,
+  levelLabel,
+  levelOf,
+  oppositeOf,
+  readingFor,
+  suggestReading,
+  teachLine,
+  teachSeed,
+  teachableBases,
+  type Finding,
+  type Move,
+  type Repair,
+  type RuleReading,
+  type TeachBase,
+  type TeachEvent,
+  type TeachFacts,
+  type TeachSpot,
+} from '../../core/teachDee.js';
 
 /**
  * THE REPAIR TAB — contrast-set remediation. PRODUCT-SPEC B6, S2, and G1's T2 row.
@@ -88,6 +124,10 @@ interface ContrastScreenOpts {
   readonly lexicon?: readonly LexiconAttempt[];
   /** Persist one recorded attempt. Called once per commit; main.ts appends it to the session and saves. */
   readonly onLexiconAttempt?: (attempt: LexiconAttempt) => void;
+  /** Teach Dee: play a contrast set from one of the learner's own rules (renderTeachDee). Absent hides the row. */
+  readonly onTeach?: () => void;
+  /** Rules in the Folio, for the Teach Dee row's caption. */
+  readonly rules?: number;
 }
 
 export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
@@ -189,7 +229,7 @@ export function renderContrastScreen(opts: ContrastScreenOpts): HTMLElement {
       delete root.dataset.conceptId;
       delete root.dataset.axis;
       delete root.dataset.kind;
-      root.replaceChildren(verdictAnnouncer, heading(), renderQueue());
+      root.replaceChildren(verdictAnnouncer, heading(), ...(opts.onTeach ? [renderTeachEntry(opts.onTeach, opts.rules ?? 0)] : []), renderQueue());
       return;
     }
 
@@ -663,6 +703,30 @@ function renderLexiconHistory(history: readonly AcceptedSentence[]): HTMLElement
   return wrap;
 }
 
+/** The Repair tab's way into Teach Dee: one openable row above the queue. */
+function renderTeachEntry(onTeach: () => void, rules: number): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'g-group';
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'repair-row g-row';
+  row.dataset.testid = 'teach-entry';
+  const body = document.createElement('span');
+  body.className = 'repair-row-body';
+  body.appendChild(text('span', 'repair-row-title', 'Teach Dee one of your rules'));
+  body.appendChild(
+    text(
+      'span',
+      'repair-row-family',
+      rules === 0 ? 'Write a rule in a lesson first; then Dee plays a contrast set from it' : `${rules} ${rules === 1 ? 'rule' : 'rules'} in your Rulebook · Dee plays a contrast set from the one you pick`,
+    ),
+  );
+  row.append(body, chevron());
+  row.addEventListener('click', onTeach);
+  wrap.appendChild(row);
+  return wrap;
+}
+
 function inBb(chips: number, bb: number): string {
   const value = chips / bb;
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -684,4 +748,740 @@ function emptyState(title: string, body: string): HTMLElement {
   empty.appendChild(text('div', 'empty-state-title', title));
   empty.appendChild(text('div', 'empty-state-body', body));
   return empty;
+}
+
+// ── TEACH DEE: contrast sets played from the learner's own rules (BUILD-PLAN 2.4) ──────────────────
+
+/**
+ * TEACH DEE. The learner hands Dee one of their Folio rules, says how to read it (the variable, the value it
+ * applies at, the play there and the play everywhere else), and Dee plays a contrast set from it: pairs of real
+ * deals that differ in exactly that variable. The learner commits their own play on each spot first; then Dee's
+ * play and the engine's verdict are shown. At the end, repair detection (core/teachDee.ts) reads Dee's misses
+ * off the verdicts. When the rule is wrong, the learner names what went wrong BEFORE the reveal, then rewrites
+ * the sentence, which the lexicon appends (L3).
+ *
+ * A PURE READER, like the Repair tab: every verdict is gradeSpot's and every fact is the engine's state. Dee's
+ * lines come from core's bank (linted in tests/unit/teachDee.test.ts) and carry no number of their own. With
+ * Character off, the same facts read "the rule plays …" and Dee's mark and lines are not shown.
+ */
+
+export interface TeachDeeProps {
+  /** The Folio, newest and tarnished first: the rules that can be taught. */
+  readonly cards: readonly FolioCard[];
+  readonly label: (conceptId: string) => string;
+  /** Open on this rule's reading; null opens on the rule list. */
+  readonly initialConcept: string | null;
+  /** Every set taught so far: its count per rule seeds the next deal, its newest finding labels the list. */
+  readonly taught: readonly TaughtSet[];
+  /** Rules whose newest set asked for a rewrite that is not written yet. */
+  readonly rewritesDue: readonly string[];
+  readonly lexicon: readonly LexiconAttempt[];
+  /** Dee's tone and whether Character is on (off hides Dee's mark and lines). */
+  readonly dee: { readonly tone: Tone; readonly character: boolean };
+  /** The rule's coach principle, for the default spot. */
+  readonly principleOf: (conceptId: string) => string | null;
+  /** A set was played to its end. Called once per set. */
+  readonly onFinished: (set: TaughtSet) => void;
+  /** A rewrite was recorded (accepted or not). */
+  readonly onLexiconAttempt: (attempt: LexiconAttempt) => void;
+  readonly onBack: () => void;
+  readonly backLabel: string;
+  /** No rules yet: where one is written. */
+  readonly onWriteRule: () => void;
+  readonly now: () => number;
+}
+
+type TeachPhase = 'pick' | 'read' | 'play' | 'repair';
+
+const TEACH_AXIS_LABELS: Partial<Record<ContrastAxis, string>> = {
+  suitedness: 'Suitedness',
+  kickerGap: 'Gap',
+  position: 'Seat',
+  playersBehind: 'Behind',
+};
+
+/** Short chip labels for a level. The long form (levelLabel) is what Dee and the tag line say. */
+function levelChip(axis: ContrastAxis, value: string): string {
+  if (axis === 'kickerGap') {
+    const chips: Record<string, string> = { pair: 'Pair', connected: 'Connected', 'one-gap': '1-gap', 'two-gap': '2-gap', wide: 'Wide' };
+    return chips[value] ?? value;
+  }
+  if (axis === 'playersBehind') return `${value} behind`;
+  if (axis === 'suitedness') return value === 'suited' ? 'Suited' : 'Offsuit';
+  return value;
+}
+
+export function renderTeachDee(props: TeachDeeProps): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'teach-screen';
+  root.dataset.testid = 'teach-screen';
+
+  const announcer = document.createElement('div');
+  announcer.className = 'visually-hidden';
+  announcer.dataset.testid = 'teach-announcer';
+  announcer.setAttribute('role', 'status');
+  announcer.setAttribute('aria-live', 'polite');
+
+  const lexicon = createLexicon(props.lexicon);
+  const sets = [...props.taught];
+  const latest = latestSets(sets);
+
+  let phase: TeachPhase = 'pick';
+  let card: FolioCard | null = null;
+  /** The sentence being taught: the card's, or a rewrite just accepted. */
+  let sentence = '';
+  let base: TeachBase | null = null;
+  let reading: RuleReading | null = null;
+  let seed = 0;
+  let spots: readonly TeachSpot[] = [];
+  let buildError: string | null = null;
+  let at = 0;
+  const learner: Record<string, Move> = {};
+  let repair: Repair | null = null;
+  let diagnosis: Finding | null = null;
+  let rewrite: LexiconAttempt | null = null;
+  let recorded = false;
+
+  const deeOn = props.dee.character;
+  const who = deeOn ? 'Dee' : 'The rule';
+
+  function openRule(c: FolioCard, text = c.text): void {
+    card = c;
+    sentence = text;
+    base = defaultBaseFor(c.conceptId, props.principleOf(c.conceptId));
+    reading = base === null ? null : readingFor(base, suggestReading(text));
+    phase = 'read';
+    paint();
+  }
+
+  function deal(): void {
+    if (card === null || base === null || reading === null) return;
+    seed = teachSeed(card.conceptId, sentence, sets.filter((s) => s.conceptId === card!.conceptId).length);
+    const result = buildTeachSet(base.entry.base, reading, seed);
+    buildError = result.ok ? null : result.reason;
+    if (!result.ok) {
+      paint();
+      return;
+    }
+    spots = result.spots;
+    at = 0;
+    for (const k of Object.keys(learner)) delete learner[k];
+    repair = null;
+    diagnosis = null;
+    rewrite = null;
+    recorded = false;
+    phase = 'play';
+    paint();
+  }
+
+  function finish(): void {
+    if (card === null || base === null || reading === null) return;
+    repair = detectRepair(spots, reading, learner);
+    phase = 'repair';
+    if (!recorded) {
+      recorded = true;
+      const set: TaughtSet = {
+        at: props.now(),
+        conceptId: card.conceptId,
+        text: sentence,
+        base: base.entry.conceptId,
+        axis: reading.axis,
+        value: reading.value,
+        action: reading.action,
+        otherwise: reading.otherwise,
+        finding: repair.finding,
+        spots: spots.length,
+        misses: repair.misses.length,
+      };
+      sets.push(set);
+      latest.set(set.conceptId, set);
+      props.onFinished(set);
+    }
+    paint();
+  }
+
+  function paint(): void {
+    root.dataset.phase = phase;
+    if (card === null) delete root.dataset.concept;
+    else root.dataset.concept = card.conceptId;
+    if (repair === null) delete root.dataset.finding;
+    else root.dataset.finding = repair.finding;
+    const body =
+      phase === 'pick' ? renderPick() : phase === 'read' ? renderRead() : phase === 'play' ? renderPlay() : renderRepairPhase();
+    root.replaceChildren(announcer, body);
+    root.scrollTop = 0;
+  }
+
+  function head(title: string, back: () => void, backText: string): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'teach-head';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pill quiet sm teach-back';
+    b.dataset.testid = 'teach-back';
+    b.textContent = backText;
+    b.addEventListener('click', back);
+    const h = text('h1', 'teach-title t-t2', title);
+    wrap.append(b, h);
+    return wrap;
+  }
+
+  function deeSays(event: TeachEvent, facts: TeachFacts, salt: number): HTMLElement | null {
+    if (!deeOn) return null;
+    const line = teachLine(event, props.dee.tone, facts, seed + salt);
+    if (line === null) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'teach-dee';
+    wrap.dataset.testid = 'teach-dee-line';
+    wrap.dataset.lineId = line.lineId;
+    wrap.dataset.pose = line.pose;
+    wrap.appendChild(renderDee(line.pose, 36));
+    wrap.appendChild(text('p', 'teach-dee-say', line.text));
+    return wrap;
+  }
+
+  function quote(): HTMLElement {
+    const q = text('p', 'teach-quote', `“${sentence}”`);
+    q.dataset.testid = 'teach-quote';
+    return q;
+  }
+
+  // ── pick ──
+  function renderPick(): HTMLElement {
+    const panel = document.createElement('section');
+    panel.className = 'teach-panel';
+    panel.appendChild(head('Teach Dee', props.onBack, props.backLabel));
+    panel.appendChild(
+      text(
+        'p',
+        'g-sub',
+        'Pick a rule from your Rulebook. Dee plays a contrast set from it, spots where it applies beside near-misses where it does not, and the engine judges every play.',
+      ),
+    );
+    if (props.cards.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.dataset.testid = 'teach-empty';
+      empty.appendChild(text('div', 'empty-state-title', 'No rules yet'));
+      empty.appendChild(text('div', 'empty-state-body', 'Write a rule in your own words at the end of a lesson, then teach it here.'));
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'pill';
+      go.dataset.testid = 'teach-write';
+      go.textContent = 'Open the lessons';
+      go.addEventListener('click', props.onWriteRule);
+      empty.appendChild(go);
+      panel.appendChild(empty);
+      return panel;
+    }
+    const list = document.createElement('div');
+    list.className = 'teach-rules g-group';
+    for (const c of props.cards) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'teach-rule g-row';
+      row.dataset.testid = 'teach-rule';
+      row.dataset.concept = c.conceptId;
+      const body = document.createElement('span');
+      body.className = 'repair-row-body';
+      body.appendChild(text('span', 'teach-rule-text', `“${c.text}”`));
+      const last = latest.get(c.conceptId);
+      const finding = last === undefined ? null : findingOf(last.finding);
+      const due = props.rewritesDue.includes(c.conceptId);
+      const meta = text(
+        'span',
+        'g-caption',
+        `${props.label(c.conceptId)}${finding === null ? ' · not taught yet' : ` · last set: ${FINDING_TITLES[finding].toLowerCase()}`}${due ? ' · rewrite it' : ''}`,
+      );
+      meta.dataset.testid = 'teach-rule-meta';
+      body.appendChild(meta);
+      row.append(body, chevron());
+      row.addEventListener('click', () => openRule(c));
+      list.appendChild(row);
+    }
+    panel.appendChild(list);
+    return panel;
+  }
+
+  // ── read ──
+  function renderRead(): HTMLElement {
+    const panel = document.createElement('section');
+    panel.className = 'teach-panel';
+    panel.appendChild(head('Teach Dee', () => ((phase = 'pick'), paint()), 'All rules'));
+    panel.appendChild(quote());
+    if (base === null || reading === null) {
+      panel.appendChild(text('p', 'g-sub', 'No spot in this build can be dealt as a contrast set, so there is nothing to play this rule on yet.'));
+      return panel;
+    }
+    const r = reading;
+    const b = base;
+    const line = deeSays('read', { value: levelLabel(r.axis, r.value), action: MOVE_WORDS[r.action], otherwise: MOVE_WORDS[r.otherwise] }, 0);
+    if (line) panel.appendChild(line);
+    panel.appendChild(
+      text('p', 'g-caption teach-read-hint', `${deeOn ? 'Dee’s first reading of the sentence' : 'A first reading of the sentence'}. Fix anything it got wrong: this is what gets played.`),
+    );
+
+    const grid = document.createElement('div');
+    grid.className = 'teach-reading';
+    grid.dataset.testid = 'teach-reading';
+    grid.dataset.axis = r.axis;
+    grid.dataset.value = r.value;
+    grid.dataset.action = r.action;
+    grid.dataset.otherwise = r.otherwise;
+
+    const select = document.createElement('select');
+    select.className = 'teach-base';
+    select.dataset.testid = 'teach-base';
+    select.setAttribute('aria-label', 'Spot to play it on');
+    for (const tb of teachableBases()) {
+      const o = document.createElement('option');
+      o.value = tb.entry.conceptId;
+      o.textContent = baseLabel(tb.entry.base);
+      o.selected = tb.entry.conceptId === b.entry.conceptId;
+      select.appendChild(o);
+    }
+    select.addEventListener('change', () => {
+      const next = teachableBases().find((tb) => tb.entry.conceptId === select.value);
+      if (next === undefined) return;
+      base = next;
+      reading = readingFor(next, r);
+      paint();
+    });
+    grid.appendChild(field('Spot', select));
+
+    const axis = b.axes.find((a) => a.axis === r.axis)!;
+    grid.appendChild(
+      field(
+        'The rule turns on',
+        seg('teach-axis', 'The rule turns on', b.axes.map((a) => [a.axis, TEACH_AXIS_LABELS[a.axis] ?? a.axis] as const), r.axis, (v) => {
+          reading = readingFor(b, { ...r, axis: v, value: undefined });
+          paint();
+        }),
+      ),
+    );
+    grid.appendChild(
+      field(
+        'It applies at',
+        seg('teach-value', 'It applies at', axis.values.map((v) => [v, levelChip(r.axis, v)] as const), r.value, (v) => {
+          reading = { ...r, value: v };
+          paint();
+        }),
+      ),
+    );
+    const moves = MOVES.map((m) => [m, MOVE_LABELS[m]] as const);
+    grid.appendChild(
+      field(`There, ${deeOn ? 'Dee' : 'the rule'} plays`, seg('teach-action', 'Play where the rule applies', moves, r.action, (v) => {
+        reading = { ...r, action: v, otherwise: v === r.otherwise ? oppositeOf(v) : r.otherwise };
+        paint();
+      })),
+    );
+    grid.appendChild(
+      field('Everywhere else', seg('teach-otherwise', 'Play everywhere else', moves, r.otherwise, (v) => {
+        reading = { ...r, otherwise: v };
+        paint();
+      })),
+    );
+    panel.appendChild(grid);
+
+    if (buildError !== null) {
+      const err = text('p', 'teach-error', `This reading cannot be dealt here: ${buildError}. Pick another value or spot.`);
+      err.dataset.testid = 'teach-build-error';
+      panel.appendChild(err);
+    }
+    const start = document.createElement('button');
+    start.type = 'button';
+    start.className = 'pill primary teach-start';
+    start.dataset.testid = 'teach-start';
+    start.textContent = 'Deal the contrast set';
+    start.addEventListener('click', deal);
+    panel.appendChild(start);
+    return panel;
+  }
+
+  // ── play ──
+  function renderPlay(): HTMLElement {
+    const r = reading!;
+    const spot = spots[at];
+    const panel = document.createElement('section');
+    panel.className = 'teach-panel teach-play';
+    panel.dataset.testid = 'teach-play';
+    panel.dataset.spot = spot.id;
+    panel.dataset.applies = String(spot.applies);
+    panel.dataset.index = String(at);
+    panel.dataset.total = String(spots.length);
+
+    const top = head('Teach Dee', () => ((phase = 'read'), paint()), 'Reading');
+    const progress = text('span', 'g-label teach-progress', `Spot ${at + 1} of ${spots.length}`);
+    progress.dataset.testid = 'teach-progress';
+    top.appendChild(progress);
+    panel.appendChild(top);
+    panel.appendChild(quote());
+
+    const strip = document.createElement('div');
+    strip.className = 'teach-strip';
+    strip.setAttribute('aria-hidden', 'true');
+    for (const [i, s] of spots.entries()) {
+      const dot = document.createElement('span');
+      dot.className = 'teach-dot';
+      dot.dataset.applies = String(s.applies);
+      dot.dataset.state = i < at ? 'done' : i === at ? 'now' : 'next';
+      strip.appendChild(dot);
+    }
+    panel.appendChild(strip);
+
+    const level = levelOf(spot.variant.features, r.axis);
+    const tag = text(
+      'p',
+      'teach-tag t-head',
+      `${TEACH_AXIS_LABELS[r.axis] ?? r.axis}: ${levelLabel(r.axis, level)} · ${spot.applies ? 'the rule applies here' : 'a near-miss: the rule does not apply'}`,
+    );
+    tag.dataset.testid = 'teach-tag';
+    tag.dataset.applies = String(spot.applies);
+    panel.appendChild(tag);
+
+    const deal = document.createElement('div');
+    deal.className = 'teach-deal contrast-cards';
+    const hole = document.createElement('div');
+    hole.className = 'contrast-hole';
+    hole.dataset.testid = 'teach-hole';
+    for (const c of spot.variant.spot.hole) hole.appendChild(renderCard(c, { small: true }));
+    deal.appendChild(group('Your hand', hole));
+    const board = document.createElement('div');
+    board.className = 'contrast-board';
+    if (spot.variant.spot.board.length === 0) board.appendChild(text('span', 'contrast-noboard', 'No board yet'));
+    else board.appendChild(renderCardRow([...spot.variant.spot.board], { small: true }));
+    deal.appendChild(group('Board', board));
+    panel.appendChild(deal);
+
+    const s = spot.variant.spot;
+    const facts = text(
+      'p',
+      'contrast-facts',
+      [
+        `${s.street[0].toUpperCase()}${s.street.slice(1)}`,
+        `${s.position}`,
+        `Pot ${inBb(spot.variant.state.pot, s.bb)} bb`,
+        `${s.effectiveStackBb} bb deep`,
+        `vs ${s.villainPositions.join(', ')}`,
+        `you can ${legalActions(spot.variant.state).join(' / ')}`,
+      ].join(' · '),
+    );
+    facts.dataset.testid = 'teach-facts';
+    panel.appendChild(facts);
+
+    const mine = learner[spot.id];
+    if (mine === undefined) {
+      panel.appendChild(text('div', 'g-label', `Your play first, then ${deeOn ? 'Dee’s' : 'the rule’s'}`));
+      const row = document.createElement('div');
+      row.className = 'teach-moves';
+      for (const m of MOVES) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pill teach-move';
+        btn.dataset.testid = 'teach-move';
+        btn.dataset.move = m;
+        btn.textContent = MOVE_LABELS[m];
+        btn.addEventListener('click', () => {
+          learner[spot.id] = m;
+          paint();
+        });
+        row.appendChild(btn);
+      }
+      panel.appendChild(row);
+      return panel;
+    }
+
+    const dee = deeMove(spot, r);
+    const holdsWord = (m: Move): string => (spot.verdict.holds.includes(m) ? 'holds up' : 'does not hold up');
+    const reveal = document.createElement('div');
+    reveal.className = 'teach-reveal g-flat';
+    reveal.dataset.testid = 'teach-reveal';
+
+    const you = text('p', 'teach-reveal-row', `You: ${MOVE_LABELS[mine]} · ${spot.verdict.decisive ? holdsWord(mine) : 'no verdict'}`);
+    you.dataset.testid = 'teach-you';
+    you.dataset.holds = String(spot.verdict.holds.includes(mine));
+    reveal.appendChild(you);
+
+    const deeRow = text('p', 'teach-reveal-row', `${who}: ${MOVE_LABELS[dee]} · ${spot.verdict.decisive ? holdsWord(dee) : 'no verdict'}`);
+    deeRow.dataset.testid = 'teach-dee-move';
+    deeRow.dataset.move = dee;
+    deeRow.dataset.holds = String(spot.verdict.holds.includes(dee));
+    reveal.appendChild(deeRow);
+
+    const engine = text(
+      'p',
+      'teach-reveal-row teach-engine',
+      spot.verdict.decisive
+        ? `Holds up here: ${spot.verdict.holds.map((m) => MOVE_LABELS[m]).join(', ') || 'no play'}`
+        : 'Every play holds up here: the engine has no verdict on this spot',
+    );
+    engine.dataset.testid = 'teach-engine';
+    engine.dataset.holds = spot.verdict.holds.join(',');
+    reveal.appendChild(engine);
+
+    // The grader's own sentence on Dee's play, when it has one: every number in it is the engine's.
+    const message = spot.verdict.grades[dee]?.message;
+    if (spot.verdict.decisive && !spot.verdict.holds.includes(dee) && message) {
+      const why = text('p', 'g-caption teach-why', message);
+      why.dataset.testid = 'teach-why';
+      reveal.appendChild(why);
+    }
+    panel.appendChild(reveal);
+
+    const enginePlays = spot.verdict.holds.map((m) => MOVE_WORDS[m]).join(' or ');
+    const event: TeachEvent = !spot.verdict.decisive ? 'no-verdict' : spot.verdict.holds.includes(dee) ? 'agree' : 'disagree';
+    const line = deeSays(event, { dee: MOVE_WORDS[dee], engine: enginePlays || 'neither' }, at + 1);
+    if (line) panel.appendChild(line);
+    announcer.textContent = `${deeRow.textContent}. ${engine.textContent}.`;
+
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'pill primary teach-next';
+    next.dataset.testid = 'teach-next';
+    next.textContent = at + 1 < spots.length ? 'Next spot' : `See what ${deeOn ? 'Dee' : 'the set'} found`;
+    next.addEventListener('click', () => {
+      if (at + 1 < spots.length) {
+        at += 1;
+        paint();
+      } else finish();
+    });
+    panel.appendChild(next);
+    return panel;
+  }
+
+  // ── repair ──
+  function renderRepairPhase(): HTMLElement {
+    const r = reading!;
+    const rep = repair!;
+    const panel = document.createElement('section');
+    panel.className = 'teach-panel teach-repair';
+    panel.dataset.testid = 'teach-repair';
+    panel.appendChild(head('Teach Dee', () => ((phase = 'pick'), paint()), 'All rules'));
+    panel.appendChild(quote());
+
+    const held = rep.judged - rep.misses.length;
+    const summary = text(
+      'p',
+      'g-sub teach-summary',
+      `${who}’s play from the rule held up on ${held} of ${rep.judged} ${rep.judged === 1 ? 'spot' : 'spots'} with a verdict${rep.offRule > 0 ? `. Your own play left the rule on ${rep.offRule} ${rep.offRule === 1 ? 'spot' : 'spots'}` : ''}.`,
+    );
+    summary.dataset.testid = 'teach-summary';
+    summary.dataset.judged = String(rep.judged);
+    summary.dataset.misses = String(rep.misses.length);
+    summary.dataset.offRule = String(rep.offRule);
+    panel.appendChild(summary);
+
+    if (rep.misses.length > 0) panel.appendChild(renderMisses(r, rep));
+
+    const reveal = !rep.needsRewrite || diagnosis !== null;
+    if (!reveal) {
+      const q = deeSays('diagnose', {}, 50);
+      if (q) panel.appendChild(q);
+      else panel.appendChild(text('p', 't-head', 'What went wrong with the rule?'));
+      const opts = document.createElement('div');
+      opts.className = 'teach-diagnose';
+      opts.dataset.testid = 'teach-diagnose';
+      opts.setAttribute('role', 'group');
+      opts.setAttribute('aria-label', 'What went wrong with the rule');
+      for (const [f, label] of DIAGNOSIS_OPTIONS) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pill teach-diagnose-option';
+        b.dataset.testid = 'teach-diagnose-option';
+        b.dataset.finding = f;
+        b.textContent = label;
+        b.addEventListener('click', () => {
+          diagnosis = f;
+          paint();
+        });
+        opts.appendChild(b);
+      }
+      panel.appendChild(opts);
+      return panel;
+    }
+
+    const title = text('h2', 'teach-finding t-t3', FINDING_TITLES[rep.finding]);
+    title.dataset.testid = 'teach-finding';
+    title.dataset.finding = rep.finding;
+    panel.appendChild(title);
+    if (diagnosis !== null) {
+      const match = diagnosis === rep.finding;
+      const said = DIAGNOSIS_OPTIONS.find(([f]) => f === diagnosis)?.[1] ?? '';
+      const d = text('p', 'g-caption teach-diagnosis', match ? `Your diagnosis matches: ${said.toLowerCase()}.` : `Your diagnosis: ${said.toLowerCase()}. The spots say otherwise.`);
+      d.dataset.testid = 'teach-diagnosis';
+      d.dataset.match = String(match);
+      panel.appendChild(d);
+    }
+    const facts: TeachFacts = {
+      action: MOVE_WORDS[r.action],
+      otherwise: MOVE_WORDS[r.otherwise],
+      engine: rep.enginePlays.map((m) => MOVE_WORDS[m]).join(' or ') || 'another play',
+      variable: AXIS_NAMES[rep.variable ?? r.axis],
+    };
+    const line = deeSays(`finding-${rep.finding}`, facts, 60);
+    if (line) panel.appendChild(line);
+    if (rep.finding === 'too-broad') {
+      const v = text(
+        'p',
+        'teach-variable',
+        rep.variable === null
+          ? 'The spots it got wrong and the ones it got right differ in more than one variable here; the rule needs a second condition.'
+          : `The spots it got wrong differ from the ones it got right in ${AXIS_NAMES[rep.variable]}. That is the variable the rule leaves out.`,
+      );
+      v.dataset.testid = 'teach-variable';
+      v.dataset.axis = rep.variable ?? '';
+      panel.appendChild(v);
+    }
+    announcer.textContent = FINDING_TITLES[rep.finding];
+
+    if (rep.needsRewrite) {
+      panel.appendChild(renderRewrite(r, rep));
+      return panel;
+    }
+    const again = document.createElement('div');
+    again.className = 'teach-moves';
+    const other = document.createElement('button');
+    other.type = 'button';
+    other.className = 'pill primary';
+    other.dataset.testid = 'teach-again';
+    other.textContent = 'Try it on another spot';
+    other.addEventListener('click', () => {
+      phase = 'read';
+      paint();
+    });
+    const done = document.createElement('button');
+    done.type = 'button';
+    done.className = 'pill quiet';
+    done.dataset.testid = 'teach-done';
+    done.textContent = props.backLabel;
+    done.addEventListener('click', props.onBack);
+    again.append(other, done);
+    panel.appendChild(again);
+    return panel;
+  }
+
+  function renderMisses(r: RuleReading, rep: Repair): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'teach-misses g-flat';
+    wrap.dataset.testid = 'teach-misses';
+    wrap.appendChild(text('div', 'g-label', `Where ${who === 'Dee' ? 'Dee' : 'the rule'} went wrong`));
+    for (const id of rep.misses) {
+      const spot = spots.find((s) => s.id === id)!;
+      const row = document.createElement('div');
+      row.className = 'teach-miss';
+      row.dataset.testid = 'teach-miss';
+      row.dataset.spot = id;
+      row.dataset.applies = String(spot.applies);
+      const hole = document.createElement('div');
+      hole.className = 'contrast-hole';
+      for (const c of spot.variant.spot.hole) hole.appendChild(renderCard(c, { small: true }));
+      row.appendChild(hole);
+      const level = levelOf(spot.variant.features, r.axis);
+      row.appendChild(
+        text(
+          'span',
+          'teach-miss-text',
+          `${levelLabel(r.axis, level)}${spot.applies ? '' : ' (near-miss)'} · ${who}: ${MOVE_LABELS[deeMove(spot, r)]} · holds up: ${spot.verdict.holds.map((m) => MOVE_LABELS[m]).join(', ') || 'no play'}`,
+        ),
+      );
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
+
+  function renderRewrite(r: RuleReading, rep: Repair): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'teach-rewrite';
+    section.dataset.testid = 'teach-rewrite';
+    const ask = deeSays('rewrite', {}, 70);
+    if (ask) section.appendChild(ask);
+    else section.appendChild(text('p', 't-head', 'Rewrite it so these spots play right, and name the variable that moved the answer.'));
+    const box = document.createElement('textarea');
+    box.className = 'lexicon-input';
+    box.dataset.testid = 'teach-rewrite-input';
+    box.rows = 2;
+    box.setAttribute('aria-label', 'Rewrite the rule in your own words');
+    box.placeholder = 'Say it as a mechanism: domination risk, equity realisation or range asymmetry';
+    box.value = rewrite !== null && rewrite.outcome === 'rejected' ? rewrite.sentence : '';
+    section.appendChild(box);
+    const submit = document.createElement('button');
+    submit.type = 'button';
+    submit.className = 'pill primary';
+    submit.dataset.testid = 'teach-rewrite-submit';
+    submit.textContent = 'Rewrite the rule';
+    submit.addEventListener('click', () => {
+      if (card === null || box.value.trim() === '') return;
+      const attempt = lexicon.record({ conceptId: card.conceptId, sentence: box.value, at: props.now(), flippingAxis: rep.variable ?? r.axis });
+      rewrite = attempt;
+      props.onLexiconAttempt(attempt);
+      paint();
+    });
+    if (rewrite === null || rewrite.outcome === 'rejected') section.appendChild(submit);
+    if (rewrite !== null) {
+      const fb = document.createElement('div');
+      fb.className = 'lexicon-feedback';
+      fb.dataset.testid = 'teach-rewrite-feedback';
+      fb.dataset.verdict = rewrite.outcome;
+      if (rewrite.outcome === 'accepted') {
+        fb.appendChild(text('span', 'lexicon-verdict', 'Kept. The new sentence is now the rule on its card; the earlier one stays in its history.'));
+        fb.appendChild(text('span', 'lexicon-frame', FRAME_LABELS[rewrite.frame]));
+        const accepted = rewrite;
+        const again = document.createElement('button');
+        again.type = 'button';
+        again.className = 'pill';
+        again.dataset.testid = 'teach-again';
+        again.textContent = `Teach ${deeOn ? 'Dee' : 'it'} the new version`;
+        again.addEventListener('click', () => {
+          if (card === null) return;
+          openRule(card, accepted.sentence);
+        });
+        section.append(fb, again);
+      } else {
+        fb.appendChild(text('span', 'lexicon-verdict', rewrite.reasonText));
+        if (rewrite.pushback) fb.appendChild(text('span', 'lexicon-pushback', 'Reframe it and try again; the attempt is kept either way.'));
+        section.appendChild(fb);
+      }
+      announcer.textContent = fb.textContent ?? '';
+    }
+    return section;
+  }
+
+  if (props.initialConcept !== null) {
+    const c = props.cards.find((x) => x.conceptId === props.initialConcept);
+    if (c !== undefined) {
+      openRule(c);
+      return root;
+    }
+  }
+  paint();
+  return root;
+}
+
+function field(label: string, control: HTMLElement): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'teach-field';
+  wrap.appendChild(text('span', 'g-label', label));
+  wrap.appendChild(control);
+  return wrap;
+}
+
+/** A .g-seg radio group with the sliding thumb; each click hands the value up and the screen repaints. */
+function seg<T extends string>(testid: string, label: string, items: readonly (readonly [T, string])[], current: T, set: (value: T) => void): HTMLElement {
+  const s = document.createElement('div');
+  s.className = 'g-seg g-seg-sm';
+  s.dataset.testid = testid;
+  s.setAttribute('role', 'radiogroup');
+  s.setAttribute('aria-label', label);
+  for (const [value, name] of items) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.value = value;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(value === current));
+    b.textContent = name;
+    b.addEventListener('click', () => set(value));
+    s.appendChild(b);
+  }
+  attachThumb(s);
+  return s;
 }

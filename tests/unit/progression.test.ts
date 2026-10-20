@@ -135,6 +135,23 @@ function full(): ProgressionState {
         },
       ],
     },
+    teachDee: {
+      sets: [
+        {
+          at: 1_700_200_000_000,
+          conceptId: 'pot-odds-as-a-price',
+          text: 'the price is the call over the pot after I call',
+          base: 'river-bluff-catch',
+          axis: 'kickerGap',
+          value: 'pair',
+          action: 'passive',
+          otherwise: 'fold',
+          finding: 'too-broad',
+          spots: 6,
+          misses: 2,
+        },
+      ],
+    },
   };
 }
 
