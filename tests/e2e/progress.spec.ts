@@ -5,7 +5,7 @@ import {
   WEEKLY_DECISION_TARGET,
   WIN_RATE_MIN_HANDS,
 } from '../../src/core/progress.js';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 import { playToShowdown, tableScreen } from './flow.js';
 
 /**
@@ -37,8 +37,9 @@ const footer = '[data-testid="progress-footer"]';
 
 async function openProgress(page: Page): Promise<void> {
   await page.waitForSelector('[data-testid="home-screen"]');
-  await page.locator('[data-testid="tab-progress"]').click();
-  await expect(page.locator('[data-testid="tab-progress"]')).toHaveAttribute('data-active', 'true');
+  await goTo(page, 'tab-progress');
+  // Progress opens from You › Profile (1.14): You is the lit section.
+  await expect(page.locator('[data-testid="tab-you"]')).toHaveAttribute('data-active', 'true');
   await page.waitForSelector(screen);
 }
 
@@ -229,16 +230,16 @@ test('the surface survives being left and re-entered, and the table still deals'
     // stale render rather than a leak — but "no listeners" is a claim worth checking rather than
     // asserting in a comment.
     for (let visit = 0; visit < 3; visit++) {
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await page.waitForSelector('[data-testid="home-screen"]');
-      await page.locator('[data-testid="tab-progress"]').click();
+      await goTo(page, 'tab-progress');
       await page.waitForSelector(screen);
       expect(await page.locator(metric).count(), `visit ${visit}: the five numbers did not re-render`).toBe(
         5,
       );
     }
 
-    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="tab-home"]').click();
     await page.waitForSelector('[data-testid="home-screen"]');
     await page.locator('[data-testid="new-hand"]').click();
     await expect(page.locator('[data-testid="table-screen"]')).toBeVisible();
@@ -260,7 +261,7 @@ test('the effort metric counts real played decisions, while the outcome metrics 
     await expect(effort).toContainText('0');
 
     // Play one hand to completion — every hero action is graded and logged with a verdict + timestamp.
-    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="tab-home"]').click();
     await page.waitForSelector('[data-testid="home-screen"]');
     await page.locator(sel.newHand).click();
     await expect(page.locator(tableScreen)).toBeVisible();
@@ -268,7 +269,7 @@ test('the effort metric counts real played decisions, while the outcome metrics 
     await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
 
     // Back to Progress: the effort metric now reports a real record count ("from N records").
-    await page.locator('[data-testid="tab-progress"]').click();
+    await goTo(page, 'tab-progress');
     await page.waitForSelector(screen);
     const effortSampleText =
       (await page
@@ -382,7 +383,7 @@ test('P2 — mastery bars render from real Drill reps, and a fresh profile shows
 
     // Back to Progress: a bar now exists for the drilled concept, labelled by its id, with a fill in
     // range and a caption. The empty state is gone.
-    await page.locator('[data-testid="tab-progress"]').click();
+    await goTo(page, 'tab-progress');
     await page.waitForSelector(screen);
     await expect(page.locator('[data-testid="kc-empty"]')).toHaveCount(0);
     const rows = page.locator('[data-testid="kc-row"]');

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, sel } from './helpers.js';
+import { launchApp, sel, goTo } from './helpers.js';
 import { CHIPS_IN_PLAY, chipTotal, snapshot, tableScreen, waitForIdle } from './flow.js';
 
 const STATE_FILE = 'offsuit-state.json';
@@ -159,7 +159,7 @@ test.describe('multi-hand soak', () => {
 
       // Scenario 5: VPIP/PFR must stay sane after a long run.
       expect(final.stats.vpipHands).toBeGreaterThanOrEqual(final.stats.pfrHands);
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       const vpip = await readCounterPercent(page, 'VPIP');
       const pfr = await readCounterPercent(page, 'PFR');
@@ -235,7 +235,7 @@ test.describe('multi-hand soak', () => {
       await waitForPersistedHands(userDataDir, 2);
 
       // Tear the table down by leaving the Play tab, then sit down again.
-      await page.locator(sel.tabProfile).click();
+      await goTo(page, 'tab-profile');
       await page.waitForSelector(profileScreen);
       await page.locator(sel.tabPlay).click();
       await sitDown(page);

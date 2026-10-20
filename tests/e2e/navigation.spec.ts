@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, sel } from './helpers.js';
+import { goTo, launchApp, sel } from './helpers.js';
+import { OLD_TABS } from '../../src/renderer/nav.js';
 
 /**
  * THE TAB BAR AS A WHOLE — PRODUCT-SPEC N1 ("Nothing is ever locked") and N5 (the surfaces).
@@ -250,6 +251,172 @@ test("a table left mid-hand does not keep eating keys on another screen", async 
     ).toHaveCount(0);
 
     expect(errors, 'a stray key threw on another screen').toEqual([]);
+  } finally {
+    await close();
+  }
+});
+
+test('the 7-tab nav (1.14): the owner’s sections and You sub-nav, and every old destination reachable at 900 px', async () => {
+  const { app, page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(900, 640));
+    await page.waitForFunction(() => window.innerWidth === 900);
+    const labels = (await tabsInBar(page)).map((t) => t.label);
+    expect(labels).toEqual(['Home', 'Play', 'Learn', 'Story', 'Train', 'Study', 'You']);
+    await page.locator('[data-testid="tab-you"]').click();
+    const you = await page.locator('[data-testid="you-nav"] .subnav-item').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()));
+    expect(you).toEqual(['Profile', 'Trophies', 'Style', 'Hands', 'Letters', 'Rivals', 'Locker', 'Dee']);
+    // Every old tab's destination, through its path, on screen and fully inside the 900 px window.
+    const destinations: [keyof typeof OLD_TABS, string][] = [
+      ['tab-play', 'home-screen'],
+      ['tab-learn', 'lesson-screen'],
+      ['tab-story', 'story-map'],
+      ['tab-train', 'train-screen'],
+      ['tab-charts', 'charts-screen'],
+      ['tab-chart-bank', 'chart-bank-screen'],
+      ['tab-equity', 'equity-screen'],
+      ['tab-ranges', 'range-editor-screen'],
+      ['tab-dossier', 'dossier-screen'],
+      ['tab-pro', 'pro-tools-screen'],
+      ['tab-progress', 'progress-screen'],
+      ['tab-profile', 'profile-screen'],
+      ['tab-settings', 'settings-screen'],
+    ];
+    for (const [old, screenId] of destinations) {
+      await goTo(page, old);
+      const el = page.locator(`[data-testid="${screenId}"]`).first();
+      await expect(el, `${old} → ${screenId}`).toBeVisible();
+      const box = await el.boundingBox();
+      expect(box && box.x >= 0 && box.x + box.width <= 900 + 1, `${screenId} is wider than the 900 px window`).toBe(true);
+      const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+      expect(sw, `${screenId} scrolls sideways at 900 px`).toBeLessThanOrEqual(iw);
+    }
+    // Every You item opens, nothing is locked.
+    for (const id of ['tab-profile', 'tab-trophies', 'tab-style', 'tab-hands', 'tab-letters', 'tab-rivals', 'tab-locker', 'tab-dee']) {
+      await page.locator('[data-testid="tab-you"]').click();
+      await page.locator(`[data-testid="${id}"]`).click();
+      await expect(page.locator(`[data-testid="${id}"]`)).toHaveAttribute('data-active', 'true');
+    }
+  } finally {
+    await close();
+  }
+});
+
+test('Profile (1.13) shows decisions, never results: no bankroll, chips, won or lost, or percentile on the page', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    // A hand on file first, so the page has a record to show.
+    await page.locator(sel.newHand).click();
+    await page.waitForSelector('[data-testid="table-screen"]');
+    await page.locator('[data-testid="tab-you"]').click();
+    const profile = page.locator('[data-testid="you-profile"]');
+    await expect(profile).toBeVisible();
+    await expect(page.locator('[data-testid="you-decisions"]')).toBeVisible();
+    const text = (await page.locator('main.screen').textContent()) ?? '';
+    expect(text).not.toMatch(/bankroll|\bchips?\b|\bwon\b|\blost\b|\bwinnings?\b|percentile|\bnet\b/i);
+    await expect(page.locator('[data-testid="bankroll"]')).toHaveCount(0);
+  } finally {
+    await close();
+  }
+});
+
+test('a panel left open never hides a table started from Home (review B1)', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    // Open Play's friends panel, then leave by Home instead of the panel's own exit.
+    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="play-with-friends"]').click();
+    await page.locator('[data-testid="tab-home"]').click();
+    await page.waitForSelector(homeScreen);
+    // New session from Home lands on Play with the table, and Play keeps showing it.
+    await page.locator(sel.newHand).click();
+    await expect(page.locator('[data-testid="table-screen"]')).toBeVisible();
+    await page.locator('[data-testid="tab-play"]').click();
+    await expect(page.locator('[data-testid="table-screen"]')).toBeVisible();
+  } finally {
+    await close();
+  }
+});
+
+test('every Study and You screen fits under its sub-nav at 900x640 and 1100x760, nothing clipped (review S2)', async () => {
+  const { app, page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    const leaves: [string, string][] = [
+      ['tab-chart-bank', 'tab-study'],
+      ['tab-equity', 'tab-study'],
+      ['tab-ranges', 'tab-study'],
+      ['tab-dossier', 'tab-study'],
+      ['tab-pro', 'tab-study'],
+      ['tab-profile', 'tab-you'],
+      ['tab-trophies', 'tab-you'],
+      ['tab-style', 'tab-you'],
+      ['tab-hands', 'tab-you'],
+      ['tab-letters', 'tab-you'],
+      ['tab-rivals', 'tab-you'],
+      ['tab-locker', 'tab-you'],
+      ['tab-dee', 'tab-you'],
+    ];
+    for (const [w, h] of [[900, 640], [1100, 760]]) {
+      await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h]);
+      await page.waitForFunction(([w, h]) => window.innerWidth === w && window.innerHeight === h, [w, h]);
+      for (const [leaf, section] of leaves) {
+        await page.locator(`[data-testid="${section}"]`).click();
+        await page.locator(`[data-testid="${leaf}"]`).click();
+        const fit = await page.evaluate(() => {
+          const body = document.querySelector('.subnav-body') as HTMLElement | null;
+          const screen = body?.firstElementChild as HTMLElement | null;
+          const cols = [...document.querySelectorAll<HTMLElement>('.you-col')];
+          return {
+            page: document.documentElement.scrollHeight <= window.innerHeight && document.documentElement.scrollWidth <= window.innerWidth,
+            bottom: screen ? screen.getBoundingClientRect().bottom <= window.innerHeight + 1 : false,
+            clipped: body ? body.scrollHeight > body.clientHeight + 1 : true,
+            cols: cols.every((c) => c.scrollHeight <= c.clientHeight + 1),
+          };
+        });
+        expect(fit, `${leaf} at ${w}x${h}`).toEqual({ page: true, bottom: true, clipped: false, cols: true });
+      }
+    }
+  } finally {
+    await close();
+  }
+});
+
+test('each launcher opens its own panel, whatever was left open (re-review S-A)', async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    // Leave the friends panel open by going Home, then start the assessment from Play: the assessment shows.
+    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="play-with-friends"]').click();
+    await page.locator('[data-testid="tab-home"]').click();
+    await page.waitForSelector(homeScreen);
+    await goTo(page, 'tab-progress');
+    await page.locator('[data-testid="progress-start-assessment"]').click();
+    await expect(page.locator('[data-testid="assessment-screen"]')).toBeVisible();
+  } finally {
+    await close();
+  }
+});
+
+test("Profile's Edit opens the answers in place, and Save and Cancel come back to Profile (re-review N-B)", async () => {
+  const { page, close } = await launchApp({ seed: 42 });
+  try {
+    await page.waitForSelector(homeScreen);
+    await page.locator('[data-testid="tab-you"]').click();
+    await page.locator('[data-testid="you-game"] button').first().click();
+    await expect(page.locator('[data-testid="onboarding"]')).toBeVisible();
+    await expect(page.locator('[data-testid="tab-profile"]')).toHaveAttribute('data-active', 'true');
+    await page.locator('[data-testid="onboarding-skip"]').click(); // Cancel from here
+    await expect(page.locator('[data-testid="you-profile"]')).toBeVisible();
+    await page.locator('[data-testid="you-game"] button').first().click();
+    await page.locator('[data-testid="onboarding-name"]').fill('Robin');
+    for (let step = 1; step < 5; step++) await page.locator('[data-testid="onboarding-next"]').click();
+    await page.locator('[data-testid="onboarding-next"]').click(); // Save
+    await expect(page.locator('[data-testid="you-name"]')).toHaveText('Robin');
   } finally {
     await close();
   }

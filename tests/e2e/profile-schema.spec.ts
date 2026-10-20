@@ -118,7 +118,7 @@ test('a newer profile opens read-only with a banner, and nothing is ever written
       await expect(page.locator(banner)).toBeVisible();
       expect(await noPageScroll(page)).toBe(true);
       await shot(page, `profile-read-only-settings-${w}x${h}`);
-      await page.click('[data-testid="tab-play"]');
+      await page.click('[data-testid="tab-home"]');
       expect(await noPageScroll(page)).toBe(true);
       await shot(page, `profile-read-only-home-${w}x${h}`);
       await page.click('[data-testid="tab-settings"]');

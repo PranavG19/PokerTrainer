@@ -2,7 +2,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchApp, shot } from './helpers.js';
+import { launchApp, shot, goTo } from './helpers.js';
 
 /**
  * THE DRILL TAB — the arithmetic trainer.
@@ -495,7 +495,7 @@ test.describe('the Drill tab: the arithmetic trainer', () => {
       const at103 = await page.locator(prompt).textContent();
 
       // Leaving the tab and coming back rebuilds from BASE_SEED: seed 101 is seed 101 forever.
-      await page.click('[data-testid="tab-charts"]');
+      await goTo(page, 'tab-charts');
       await page.waitForSelector('[data-testid="charts-screen"]');
       await openDrill(page);
       await expect(page.locator(drillScreen)).toHaveAttribute('data-seed', FIRST_SEED);
@@ -602,7 +602,7 @@ test.describe('the Drill tab: the arithmetic trainer', () => {
         (window as unknown as { __drillRoot?: Element | null }).__drillRoot = root;
       });
 
-      await page.click('[data-testid="tab-charts"]');
+      await goTo(page, 'tab-charts');
       await page.waitForSelector('[data-testid="charts-screen"]');
 
       const detached = await page.evaluate(() => {

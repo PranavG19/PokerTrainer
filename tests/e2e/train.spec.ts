@@ -61,6 +61,8 @@ const RAIL_ORDER: { testid: string; label: string }[] = [
   { testid: 'tab-board', label: 'Sight' },
   { testid: 'tab-anomaly', label: 'Speed' },
   { testid: 'tab-robustness', label: 'Stress' },
+  // Charts folded in from its own tab with the 7-tab nav (1.14), last in the practice band.
+  { testid: 'tab-charts', label: 'Charts' },
   { testid: 'tab-repair', label: 'Leaks' },
   { testid: 'tab-spacing', label: 'Upkeep' },
 ];
@@ -102,7 +104,7 @@ test.describe('the Train hub', () => {
       await page.click(tabTrain);
       await page.waitForSelector(hub);
 
-      // Exactly one divider, positioned after Stress (the 4th rung) and before Leaks (the 5th).
+      // Exactly one divider: after Charts, the last practice rung, and before Leaks.
       const dividers = await page.locator(`${rail} .train-rail-divider`).count();
       expect(dividers, 'the rail must have exactly one band divider').toBe(1);
 
@@ -114,7 +116,7 @@ test.describe('the Train hub', () => {
         ),
       );
       const dividerAt = order.indexOf('DIVIDER');
-      expect(order[dividerAt - 1]).toBe('tab-robustness'); // Stress ends the practice band
+      expect(order[dividerAt - 1]).toBe('tab-charts'); // Charts ends the practice band
       expect(order[dividerAt + 1]).toBe('tab-repair'); // Leaks opens the maintenance band
     } finally {
       await close();

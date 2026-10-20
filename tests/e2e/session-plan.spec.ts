@@ -1,5 +1,5 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp, shot } from './helpers.js';
+import { launchApp, shot, goTo } from './helpers.js';
 import { SHARES } from '../../src/core/sessionPlan.js';
 
 /**
@@ -49,7 +49,14 @@ const refusalRoute = '[data-testid="refusal-route"]';
 const deferredNote = '[data-testid="deferred-note"]';
 const freeRoamNote = '[data-testid="free-roam-note"]';
 const planStart = '[data-testid="plan-start"]';
-const homeScreen = '[data-testid="home-screen"]';
+/** The planner's screen: Play's launcher since the 7-tab nav (1.14); it was Home. */
+const homeScreen = '[data-testid="play-screen"]';
+/** The planner moved from Home to Play with the 7-tab nav (1.14): open Play and wait for its launcher. */
+async function openPlanner(page: Page): Promise<void> {
+  await page.click('[data-testid="tab-play"]');
+  await page.waitForSelector(homeScreen);
+}
+
 const tableScreen = '[data-testid="table-screen"]';
 
 /** BLOCK_KINDS in core/sessionPlan.ts, in the order S1 runs them. Mirrored, not imported. */
@@ -153,9 +160,8 @@ async function seedQueue(page: Page, count: number, when: 'overdue' | 'current')
     { count, when },
   );
 
-  await page.click('[data-testid="tab-profile"]');
-  await page.click('[data-testid="tab-play"]');
-  await page.waitForSelector(homeScreen);
+  await goTo(page, 'tab-profile');
+  await openPlanner(page);
 }
 
 async function selectLength(page: Page, minutes: number): Promise<void> {
@@ -348,7 +354,7 @@ async function withPlanner(
 ): Promise<void> {
   const { app, page, close } = await launchApp({ seed: 42 });
   try {
-    await page.waitForSelector(homeScreen);
+    await openPlanner(page);
     await expect(page.locator(planner)).toBeVisible();
     await body({ app, page });
   } finally {

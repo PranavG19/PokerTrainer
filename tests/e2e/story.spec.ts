@@ -158,8 +158,9 @@ test.describe('Story: the Long Orbit', () => {
       expect(hands).toBeLessThanOrEqual(5);
 
       // D17: the chapter table never shows under Play. Leaving the Story tab leaves the table; the chapter picks up there.
+      // Play is where the tables live since the 7-tab nav, so that is the section D17 must keep it out of.
       await page.click('[data-testid="tab-play"]');
-      await expect(page.locator('[data-testid="home-screen"]')).toBeVisible();
+      await expect(page.locator('[data-testid="play-screen"]')).toBeVisible();
       await expect(page.locator(tableScreen)).toHaveCount(0);
       await page.click('[data-testid="tab-story"]');
       await expect(page.locator(chapter)).toHaveAttribute('data-stage', 'table');

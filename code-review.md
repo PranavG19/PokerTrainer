@@ -1,40 +1,27 @@
-# Independent review: habit loop PR 1 (branch feat-habit-loop)
+# Independent review: habit loop PR 2 (branch feat-habit-nav): the 7-tab nav, Profile, the Trophy room
 
-Three passes by separate reviewer agents with no author context. Each reviewed read-only and ran units only.
+Two passes by separate reviewer agents with no author context. Each reviewed read-only and ran units only.
 
 | Pass | HEAD | Verdict |
 |---|---|---|
-| 1. Review | 7e19a1e | **FAIL**: one blocker (B1), three should-fix (S1–S3), six nits |
-| 2. Re-review | 1ff8bd2 | **FAIL**: one new double-pay (S-A), two should-fix (S-B, S-C), six nits |
-| 3. Fix verification | 44447c3 | **PASS WITH NOTES**: two low edges (V-N1, V-N2), fixed in a38355a; one weak assertion (V-N3), noted; and V-N4, fixed |
+| 1. Review | 7022980 | **FAIL**: one blocker (B1), three should-fix, eight nits |
+| 2. Re-review | 0093c0c | **PASS WITH NOTES**: B1 and S1–S3 fixed; one new should-fix (S-A) and four nits, fixed in a7e0a29 |
 
 ## Findings and outcomes
 
 | ID | Finding | Outcome |
 |---|---|---|
-| B1 | The Ticket was frozen from the post-work state, so the first item worked dropped off instead of ticking | Fixed in 5317b7c, after red unit tests (spot first, review first); e2e spec 2 now works a spot first |
-| S1 | Redoing onboarding tore down a live table | Not reproducible: leaving Play already tears the table down (pre-existing behaviour). The redo still moved into Dee's settings (5317b7c) |
-| S2 | Pending extras survived a profile delete | Fixed (5317b7c) |
-| S3 | Speed progress toward the Ticket was in memory only | Fixed (5317b7c): counted from persisted awards |
-| S-A | Speed Reps paid twice on a stale save base (a failed or overlapping save) | Fixed in 44447c3, after a red test: one keyed award per answer index |
-| S-B | The day's first save could still re-pick the Ticket with a moved leak | Fixed (44447c3): Home's shown Ticket is adopted |
-| S-C / N-c | Onboarding and panel state survived a delete; a save resolving after a delete restored the old diff base | Fixed (44447c3): resets plus a generation counter |
-| N-a | Yesterday's greeting could be stamped as today's | Fixed (44447c3) |
-| N-b | Escape and Skip from settings saved the edits | Fixed (44447c3): Cancel discards |
-| N1–N4, N-d, N-e, N-f | Captions with no leak, the greeting header, a draft lost across tabs, orphan sizes, the bone colour, inline styles, e2e gaps | Fixed or recorded (DECISIONS.md) |
-| V-N1 | A Speed answer saved across the 4 am turn paid twice | Fixed in a38355a, after a red test: keyed by its lifetime index |
-| V-N2 | A capped Speed jump could push older award keys out of the log | Fixed (a38355a): cap lowered to 20 |
-| V-N3 | The stale-ticket assertion is weak | Noted |
-| V-N4 | A save during an in-flight delete could write the deleted profile back | Fixed (a38355a): no save while deleting |
-| N5, N6 | Folio cap order; award day at a save straddling 4 am | Accepted; low impact |
+| B1 | A panel left open (friends, online, assessment, variance) hid a table started from Home, and the hidden hand kept eating keys | Fixed in 45b771e, after a red e2e test: starting a table closes every panel |
+| S1 | story.spec checked D17 against Home, not Play | Fixed: it now checks Play, where the tables live |
+| S2 | No vertical-fit checks under the sub-navs | Fixed: a spec measures all 13 Study and You screens at both sizes |
+| S3 | An open rival file stuck across navigation | Fixed: reset on navigation and on a delete |
+| N1–N8 | trophy rows in `.g-group`; Profile's Edit opened under Dee; sub-nav ARIA; Home mid-hand undocumented; duplicated `--screen-h`; Charts width margin; the bone mark unrecorded; extra work | Fixed or recorded. N6, the Charts cell width at 900 px (about 1 px over the floor), is open as a plausible flake; the charts spec passes |
+| S-A | A launcher could land on another panel left open | Fixed in a7e0a29, after a red e2e test: the panels are exclusive (`openPanel`) |
+| N-A..N-D | Fit test on an empty profile; no test for Profile's Edit; the Hands graph sized from `100vh`; the sheet closing on navigation unrecorded | A rule line clamps at two lines; Edit has a test; the graph sizes from `--screen-h`; recorded in DECISIONS.md |
 
-## Checked and found fine (all passes)
-- **Save wrapper:** it ignores its argument safely, because every caller assigns `session` first.
-- **No double pay, and no pay for results:** hands, drills, rules, assessments and spots are keyed, and a bankroll-only diff pays 0.
-- **Schema:** follows the AGENTS.md recipe, with no version bump and all lists bounded.
-- **Test clock:** never active outside e2e or in a packaged build.
-- **Streak (D5):** no freezes, and forward-framed copy.
-- **Ticket:** at most 29 minutes, with exactly one drill and three spots.
-- **Price held:** read from `Grade.close` only.
-- **Styling:** no hex literals; mint and amber are absent from the streak and ring.
-- **Nothing locked:** onboarding always leaves every tab live.
+## Checked and found fine (both passes)
+- **Reachability:** every old destination (the 12 tabs plus Pro) is reachable in at most two clicks through `OLD_TABS`.
+- **Profile and the Trophy room:** no results appear (no bankroll, chips, won or lost, net or percentile); e2e checks this.
+- **Styling:** tokens only, with no hex literals, and no mint, amber or coral on balances.
+- **Spec changes:** each one is a deliberate retarget, and none weakens a test.
+- **`go()` resets:** onboarding (first run, the Dee redo, Profile's Edit) still behaves.

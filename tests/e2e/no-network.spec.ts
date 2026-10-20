@@ -9,7 +9,7 @@ import path from 'node:path';
 import * as crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { encodeToken } from '../../src/core/entitlements/token.js';
-import { launchApp, sel, shot } from './helpers.js';
+import { launchApp, sel, shot, goTo } from './helpers.js';
 import { isOutbound, readOracle } from '../../src/main/netOracle.js';
 
 /** A fresh file for the main-process network oracle (src/main/netOracle.ts) to record into. */
@@ -119,10 +119,12 @@ test('the browser process makes no request at all, measured at a loopback proxy'
 
     // The top-level tabs after the 13→8 fold. Train opens the hub (Spots by default); the former
     // drill/anomaly surfaces are exercised via the hub rail below.
-    for (const tab of ['tab-learn', 'tab-train', 'tab-charts', 'tab-profile', 'tab-settings']) {
+    // Every section of the 7-tab bar (1.14) and Settings, then the folded old tabs through their paths.
+    for (const tab of ['tab-home', 'tab-play', 'tab-learn', 'tab-story', 'tab-train', 'tab-study', 'tab-you', 'tab-settings']) {
       await page.locator(`[data-testid="${tab}"]`).click();
       await expect(page.locator(`[data-testid="${tab}"]`)).toHaveAttribute('data-active', 'true');
     }
+    for (const old of ['tab-charts', 'tab-equity', 'tab-dossier', 'tab-progress', 'tab-profile'] as const) await goTo(page, old);
 
     // And a couple of hub rungs, which mount their own (network-free) screens: Math and Speed.
     await page.locator('[data-testid="tab-train"]').click();

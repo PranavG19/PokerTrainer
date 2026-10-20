@@ -81,3 +81,16 @@ export function keycap(key: string): HTMLElement {
   cap.textContent = key;
   return cap;
 }
+
+/** The title bar's Settings button: a plain gear (8 teeth), 16px. */
+export function gearIcon(): SVGSVGElement {
+  const teeth = Array.from({ length: 8 }, (_, i) => {
+    const a = (i * Math.PI) / 4;
+    const x1 = 8 + Math.cos(a) * 5.2;
+    const y1 = 8 + Math.sin(a) * 5.2;
+    const x2 = 8 + Math.cos(a) * 7;
+    const y2 = 8 + Math.sin(a) * 7;
+    return `M${x1.toFixed(2)} ${y1.toFixed(2)}L${x2.toFixed(2)} ${y2.toFixed(2)}`;
+  }).join('');
+  return svg('0 0 16 16', 'g-gear', [{ circle: [8, 8, 4.4], width: 1.5 }, { circle: [8, 8, 1.6], width: 1.4 }, { d: teeth, width: 1.8 }]);
+}

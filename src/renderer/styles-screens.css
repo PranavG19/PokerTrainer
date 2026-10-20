@@ -326,7 +326,8 @@ button.hand-row:focus-visible {
   width: 100%;
   /* Grows with a taller window (76px at the 640px minimum, up to 120px): the column's one elastic
      figure, so the leak list keeps the share the fit tests measure. */
-  height: clamp(76px, 100vh - 620px, 120px);
+  /* From the screen's own height, so it shrinks under the You sub-nav (Hands) the way it did under the bar. */
+  height: clamp(76px, var(--screen-h) - 534px, 120px);
   display: block;
   border-bottom: 1px solid var(--hair);
 }

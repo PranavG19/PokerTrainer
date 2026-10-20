@@ -263,7 +263,7 @@ test.describe('the tutor rail', () => {
         });
       });
       // Re-enter the lesson so the rail is built against the recording transport.
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await openLesson(page);
       await askAndSettle(page, 'what does check mean');
 
@@ -329,7 +329,7 @@ test.describe('the tutor rail', () => {
           },
         });
       });
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await openLesson(page);
 
       await page.locator(input).fill('what does check mean');
@@ -398,7 +398,7 @@ test.describe('the tutor rail', () => {
           },
         });
       });
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await openLesson(page);
       await askAndSettle(page, 'what does check mean');
 
@@ -430,7 +430,7 @@ test.describe('the tutor rail', () => {
           },
         });
       });
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await openLesson(page);
       await askAndSettle(page, 'what does check mean');
 
@@ -609,7 +609,7 @@ test.describe('the tutor rail', () => {
           },
         });
       });
-      await page.locator('[data-testid="tab-play"]').click();
+      await page.locator('[data-testid="tab-home"]').click();
       await openLesson(page);
 
       const question = 'should I call here';

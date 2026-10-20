@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
 
 /*
  * THE INTERLEAVING VIEW (Q1/Q2/Q3, core/interleave.ts wired through sessionPlan.ts). The session
@@ -27,6 +27,8 @@ const chartsScreen = '[data-testid="charts-screen"]';
 const PREFRAME_LINES = 3;
 
 async function openInterleaving(page: Page): Promise<void> {
+  // The planner lives on Play since the 7-tab nav (1.14).
+  await page.click('[data-testid="tab-play"]');
   await page.waitForSelector(planner);
   await page.click(`${viewBtn}[data-view="interleaving"]`);
   await expect(page.locator(planner)).toHaveAttribute('data-view', 'interleaving');
@@ -35,7 +37,7 @@ async function openInterleaving(page: Page): Promise<void> {
 
 /** Drive the chart RFI drill for `count` real graded commits at one seat, via the actual O/F keys. */
 async function driveDrill(page: Page, count: number): Promise<void> {
-  await page.click('[data-testid="tab-charts"]');
+  await goTo(page, 'tab-charts');
   await page.waitForSelector(chartsScreen);
   await page.click('[data-testid="position-btn"][data-position="CO"]');
   await expect(page.locator(chartsScreen)).toHaveAttribute('data-position', 'CO');
@@ -63,6 +65,8 @@ test.describe('the interleaving view (Q1/Q2/Q3)', () => {
   test('I1. the default view is the plan, and its data-mode surface is untouched', async () => {
     const { page, close } = await launchApp({ seed: 42 });
     try {
+      // The planner lives on Play since the 7-tab nav (1.14).
+      await page.click('[data-testid="tab-play"]');
       await page.waitForSelector(planner);
       // The additive data-view attribute defaults to plan; data-mode (the session/free-roam axis the
       // existing suite pins) is present and unchanged.

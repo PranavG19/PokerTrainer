@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { encodeToken } from '../../src/core/entitlements/token.js';
-import { launchApp } from './helpers.js';
+import { launchApp, goTo } from './helpers.js';
 
 /**
  * The Pro tab in the running app: the gate (locked without Pro, open with a test licence), an import
@@ -71,7 +71,7 @@ test('without Pro both tools are locked, in the window AND in main; deleting han
   try {
     await stubDialog(app, [FIXTURES]);
     await page.waitForSelector('[data-testid="home-screen"]');
-    await page.locator('[data-testid="tab-pro"]').click();
+    await goTo(page, 'tab-pro');
     const gate = page.locator('[data-testid="pro-gate"]');
     await expect(gate).toHaveAttribute('data-feature', 'leak-finder');
     await expect(gate).toHaveAttribute('data-locked', 'true');
@@ -112,7 +112,7 @@ test('with a test licence: import through the dialog, read the leaks, and the im
     const profile = path.join(userDataDir, 'offsuit-state.json');
     const before = fs.readFileSync(profile);
 
-    await page.locator('[data-testid="tab-pro"]').click();
+    await goTo(page, 'tab-pro');
     await expect(page.locator('[data-testid="pro-empty"]')).toBeVisible();
     await stubDialog(app, [FIXTURES, extra]);
     await page.locator('[data-testid="pro-import"]').click();
@@ -174,7 +174,7 @@ test('with a test licence: ICM and push-fold, priced against named callers, at b
   const { page, close } = await launchApp();
   try {
     await activatePro(page);
-    await page.locator('[data-testid="tab-pro"]').click();
+    await goTo(page, 'tab-pro');
     await page.locator('[data-testid="pro-view-icm"]').click();
     const legend = page.locator('[data-testid="pro-chart-legend"]');
     await expect(legend).toContainText('Shove');

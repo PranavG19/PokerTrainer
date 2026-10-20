@@ -146,9 +146,30 @@ import { renderFolio } from './screens/folio.js';
 import { renderOnboarding, type OnboardingResult } from './screens/onboarding.js';
 import type { HomeHabit } from './screens/home.js';
 import type { TicketItemRecord } from '../core/progression/types.js';
+import { SECTIONS, SECTION_GROUP_STARTS, sectionOf, subNavOf, litSubItem, type Leaf, type Section } from './nav.js';
+import { renderSubNav } from './components/subnav.js';
+import { renderPlay } from './screens/play.js';
+import { renderNotYet, renderRivals, renderTrophies, renderYouProfile } from './screens/you.js';
+import { milestoneFacts, masteredIds } from '../core/progression/apply.js';
+import { milestoneViews, nextUp } from '../core/progression/milestones.js';
+import { sureRight, weeklyEvLoss } from '../core/progression/decisions.js';
+import { VENUES } from '../core/story/cast.js';
+import { chevron, gearIcon } from './components/glyphs.js';
 import type { DayKey } from '../core/localDay.js';
 
 const DEFAULT_SEED = 42;
+
+/** The You sub-nav's title per item (the mock: "Profile", "Trophy room", …). */
+const YOU_TITLE: Partial<Record<Leaf, string>> = {
+  profile: 'Profile',
+  trophies: 'Trophy room',
+  style: 'Style',
+  hands: 'Hands',
+  letters: 'Letters',
+  rivals: 'Rivals',
+  locker: 'Locker',
+  dee: 'Dee',
+};
 
 export interface SpeakResult {
   spoken: boolean;
@@ -246,22 +267,8 @@ const LOCAL_ONLY_SETTINGS: SettingsStatus = {
   theme: 'graphite',
 };
 
-type Tab =
-  | 'play'
-  | 'learn'
-  | 'story'
-  | 'train'
-  | 'charts'
-  | 'chart-bank'
-  | 'equity'
-  | 'ranges'
-  | 'dossier'
-  | 'pro'
-  | 'progress'
-  | 'profile'
-  | 'settings'
-  /** Dee's settings: opened from the perch (and from Settings), so it takes no slot in the full tab bar. */
-  | 'dee';
+/** A destination (nav.ts): the 7-tab bar's sections, the Study and You sub-navs, Progress and Settings. */
+type Tab = Leaf;
 
 /**
  * The six practice/maintenance surfaces the Train hub folds together, in rail order. Each `mode` is
@@ -270,7 +277,7 @@ type Tab =
  * surfaces (day-one usable) from the maintenance ones (history-driven, empty on a fresh profile). See
  * memory offsuit-train-hub-ia for the rename/order/default rationale.
  */
-type TrainMode = 'puzzle' | 'drill' | 'reading' | 'board' | 'anomaly' | 'robustness' | 'repair' | 'spacing';
+type TrainMode = 'puzzle' | 'drill' | 'reading' | 'board' | 'anomaly' | 'robustness' | 'charts' | 'repair' | 'spacing';
 const TRAIN_MODES: readonly {
   mode: TrainMode;
   label: string;
@@ -283,41 +290,11 @@ const TRAIN_MODES: readonly {
   { mode: 'board', label: 'Sight', testid: 'tab-board', band: 'practice' },
   { mode: 'anomaly', label: 'Speed', testid: 'tab-anomaly', band: 'practice' },
   { mode: 'robustness', label: 'Stress', testid: 'tab-robustness', band: 'practice' },
+  // Charts folded in from its own tab (1.14): the preflop chart drill is practice like the rest of the rail.
+  { mode: 'charts', label: 'Charts', testid: 'tab-charts', band: 'practice' },
   { mode: 'repair', label: 'Leaks', testid: 'tab-repair', band: 'maintenance' },
   { mode: 'spacing', label: 'Upkeep', testid: 'tab-spacing', band: 'maintenance' },
 ];
-
-/**
- * The tab bar, in spine order: play, then the teaching surfaces, then progress.
- *
- * A registry rather than a hand-written list of tabButton calls, because each new surface would
- * otherwise mean editing three separate places in render(). N1 governs the whole bar: NOTHING IS
- * EVER LOCKED, so every tab is enterable from the first launch — no levels, no unlock animation,
- * no greyed-out entry. A tab whose screen module is not built yet renders its own empty state
- * rather than being hidden, since hiding it would be a soft lock.
- */
-const TABS: readonly { id: Tab; label: string; testid: string }[] = [
-  { id: 'play', label: 'Play', testid: 'tab-play' },
-  { id: 'learn', label: 'Learn', testid: 'tab-learn' },
-  { id: 'story', label: 'Story', testid: 'tab-story' },
-  { id: 'train', label: 'Train', testid: 'tab-train' },
-  { id: 'charts', label: 'Charts', testid: 'tab-charts' },
-  { id: 'chart-bank', label: 'Bank', testid: 'tab-chart-bank' },
-  { id: 'equity', label: 'Equity', testid: 'tab-equity' },
-  { id: 'ranges', label: 'Ranges', testid: 'tab-ranges' },
-  { id: 'dossier', label: 'Dossier', testid: 'tab-dossier' },
-  { id: 'pro', label: 'Pro', testid: 'tab-pro' },
-  { id: 'progress', label: 'Progress', testid: 'tab-progress' },
-  { id: 'profile', label: 'Profile', testid: 'tab-profile' },
-  { id: 'settings', label: 'Settings', testid: 'tab-settings' },
-];
-
-/**
- * The bar's three groups — play, study, you — drawn with short dividers so eleven equal tabs read as a
- * hierarchy without hiding any of them (N1). Grouping is presentation only: TABS stays the one registry
- * and its order is the DOM order.
- */
-const TAB_GROUP_STARTS: ReadonlySet<Tab> = new Set<Tab>(['chart-bank', 'progress']);
 
 /** The spade mark (the mock's SVG, not the Unicode glyph) and the wordmark; the mark alone below 1040px. */
 function renderBrand(): HTMLElement {
@@ -404,7 +381,7 @@ async function boot(): Promise<void> {
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
   const soundPlayer = createSoundPlayer();
 
-  let tab: Tab = 'play';
+  let tab: Tab = 'home';
   // Which mode the Train hub opens on. Set by a deep-link (the recommender's "drill" route) or a rail
   // click; defaults to Spots, the one surface usable with zero prior state (the maintenance rungs are
   // empty on a fresh profile, so landing there would be a dead front door — see offsuit-train-hub-ia).
@@ -438,6 +415,8 @@ async function boot(): Promise<void> {
   let ticketActive = false;
   /** Learn shows the lessons or the Folio (the Rulebook). */
   let learnView: 'lessons' | 'folio' = 'lessons';
+  /** You › Rivals: a rival's file open, or the list. */
+  let rivalOpen: ChapterId | null = null;
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
   let puzzleNext: string | null = null;
@@ -522,43 +501,63 @@ async function boot(): Promise<void> {
   }
   paintReadOnly();
 
-  const tabButton = (label: string, id: Tab, testid: string): HTMLButtonElement => {
-    const b = document.createElement('button');
-    b.className = 'tab';
-    b.dataset.testid = testid;
-    b.textContent = label;
-    b.addEventListener('click', () => {
-      tab = id;
-      // Leaving Profile drops the replay: coming back to a half-stepped hand from another tab is
-      // state the learner did not ask to keep, and the picker is one click away.
-      profileView = { at: 'profile' };
-      // A tab click lands on that tab's front: Learn's lessons, Play's Home (not the Ticket panel).
-      learnView = 'lessons';
-      ticketActive = false;
-      render();
-      // Backup count and guard failures move while the learner is elsewhere, so opening the tab
-      // re-reads rather than showing what was true at boot.
-      if (id === 'settings') void refreshSettings();
-    });
-    return b;
-  };
+  /** Go to a destination. A section click lands on that section's front (Learn's lessons, Home's launcher). */
+  function go(leaf: Leaf): void {
+    tab = leaf;
+    // Leaving Hands drops a replay: coming back to a half-stepped hand is state nobody asked to keep.
+    profileView = { at: 'profile' };
+    learnView = 'lessons';
+    ticketActive = false;
+    rivalOpen = null;
+    // Leaving closes an open answers sheet; what was typed stays in the draft.
+    onboardingOpen = false;
+    render();
+    // Backup count and guard failures move while the learner is elsewhere, so opening Settings re-reads.
+    if (leaf === 'settings') void refreshSettings();
+  }
 
   // The bar is built once and only its selected flag changes per render, so the shared thumb can slide
-  // from the old tab to the new one (and a clicked tab keeps keyboard focus).
-  const tabButtons = new Map<Tab, HTMLButtonElement>();
+  // from the old section to the new one (and a clicked tab keeps keyboard focus).
+  const tabButtons = new Map<Section, HTMLButtonElement>();
   const strip = document.createElement('div');
   strip.className = 'tab-strip';
-  for (const t of TABS) {
-    if (TAB_GROUP_STARTS.has(t.id)) {
+  for (const t of SECTIONS) {
+    if (SECTION_GROUP_STARTS.has(t.id)) {
       const divider = document.createElement('span');
       divider.className = 'tab-divider';
       divider.setAttribute('aria-hidden', 'true');
       strip.appendChild(divider);
     }
-    const button = tabButton(t.label, t.id, t.testid);
-    tabButtons.set(t.id, button);
-    strip.appendChild(button);
+    const b = document.createElement('button');
+    b.className = 'tab';
+    b.dataset.testid = t.testid;
+    b.textContent = t.label;
+    b.addEventListener('click', () => go(t.leaf));
+    tabButtons.set(t.id, b);
+    strip.appendChild(b);
   }
+  // Settings is a title-bar button, not a section; it keeps the old tab's testid.
+  const settingsButton = document.createElement('button');
+  settingsButton.type = 'button';
+  settingsButton.className = 'nav-settings';
+  settingsButton.dataset.testid = 'tab-settings';
+  settingsButton.setAttribute('aria-label', 'Settings');
+  settingsButton.title = 'Settings';
+  settingsButton.appendChild(gearIcon());
+  settingsButton.addEventListener('click', () => go('settings'));
+
+  function paintTabs(): void {
+    const lit = sectionOf(tab);
+    for (const [id, button] of tabButtons) {
+      button.dataset.active = String(lit === id);
+      if (lit === id) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    }
+    settingsButton.dataset.active = String(tab === 'settings');
+    if (tab === 'settings') settingsButton.setAttribute('aria-current', 'page');
+    else settingsButton.removeAttribute('aria-current');
+  }
+
   const navSpacer = document.createElement('div');
   navSpacer.className = 'nav-spacer';
   navSpacer.setAttribute('aria-hidden', 'true');
@@ -566,7 +565,7 @@ async function boot(): Promise<void> {
   // Dee's perch: Dee at 20px and the streak, at the right of the title bar. It opens Dee chat (whose
   // Settings button opens Dee's settings).
   const perch = renderPerch(() => openChat());
-  nav.append(renderBrand(), strip, perch.root, navSpacer);
+  nav.append(renderBrand(), strip, perch.root, settingsButton, navSpacer);
   attachThumb(strip, 'button.tab');
 
   /** Character on/off is one document attribute, so every mark on every screen follows it (styles-dee.css). */
@@ -648,9 +647,7 @@ async function boot(): Promise<void> {
       warm: () => void io.deeChatWarm?.(),
       onPerch: (pose) => perch.setPose('chat', pose),
       onOpenSettings: () => {
-        tab = 'dee';
-        profileView = { at: 'profile' };
-        render();
+        go('dee');
       },
       onClose: () => {
         chat = null;
@@ -806,6 +803,17 @@ async function boot(): Promise<void> {
   function onboardingDue(): boolean {
     const p = session.progression.personalization;
     return (hooks.onboarding && p.answeredOn === null && session.hands.length === 0 && !onboardingDismissed);
+  }
+
+  /**
+   * Play's panels are exclusive: opening one closes any other left open, so a launcher always lands on its own
+   * panel whatever was open before (re-review S-A). The caller renders.
+   */
+  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance'): void {
+    multiplayerActive = kind === 'friends';
+    onlineActive = kind === 'online';
+    assessmentActive = kind === 'assessment';
+    varianceActive = kind === 'variance';
   }
 
   /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
@@ -1284,6 +1292,7 @@ async function boot(): Promise<void> {
       onboardingOpen = false;
       onboardingDismissed = false;
       ticketActive = false;
+      rivalOpen = null;
       drillKindNext = null;
       puzzleNext = null;
       teardownTable();
@@ -1339,6 +1348,14 @@ async function boot(): Promise<void> {
 
   function startTable(plan?: SessionPlan): void {
     teardownTable();
+    // A table lives under Play, wherever it was started from (Home's New session, Play's planner, onboarding).
+    // A panel left open (friends, online, the assessment, variance) must not cover it (review B1).
+    multiplayerActive = false;
+    onlineActive = false;
+    assessmentActive = false;
+    varianceActive = false;
+    tab = 'play';
+    paintTabs();
     // The session planner (when the learner started from it) models a whole-task live-hand count; a
     // planned session is bounded by it so it honours the plan rather than running forever. The plain
     // New session path passes no plan → undefined → the classic unbounded table.
@@ -1380,10 +1397,10 @@ async function boot(): Promise<void> {
       },
       onAskDee: () => openChat(),
       onPriceHeld: (count) => addExtras({ priceHeld: count }),
-      // Hero busted out: drop back to home, where a fresh table can be started.
+      // Hero busted out (or the planned hands played): back to Home, where the bankroll and a fresh table are.
       onSessionOver: () => {
         teardownTable();
-        render();
+        go('home');
       },
     });
     screen.replaceChildren(table.root);
@@ -1403,11 +1420,7 @@ async function boot(): Promise<void> {
   }
 
   function renderInner(): void {
-    for (const [id, button] of tabButtons) {
-      button.dataset.active = String(tab === id);
-      if (tab === id) button.setAttribute('aria-current', 'page');
-      else button.removeAttribute('aria-current');
-    }
+    paintTabs();
 
     // Every non-play tab tears the table down: a hand left mounted behind another screen would keep
     // its AI timer running and deal on while nobody is watching it.
@@ -1422,7 +1435,7 @@ async function boot(): Promise<void> {
       teardownTable();
       storyView = { at: 'chapter', id: storyView.id, stage: 'table', justPlayed: null };
     }
-    if (tab !== 'play') {
+    if (tab !== 'play' && tab !== 'home') {
       teardownTable();
       teardownReview();
       screen.replaceChildren(renderTab(tab));
@@ -1430,6 +1443,12 @@ async function boot(): Promise<void> {
     }
 
     teardownReview();
+    if (tab === 'home') {
+      // Home is the launcher; the tables live under Play, so leaving Play for Home leaves its table.
+      teardownTable();
+      renderHomeTab();
+      return;
+    }
 
     // Play tab: the multiplayer panel wins if it is open, then the assessment block, then a live solo
     // table, else home.
@@ -1440,7 +1459,7 @@ async function boot(): Promise<void> {
           onOpenPro: () => openProSheet('ranked-play'),
           onExit: () => {
             onlineActive = false;
-            multiplayerActive = true;
+            openPanel('friends');
             render();
           },
         }),
@@ -1453,11 +1472,11 @@ async function boot(): Promise<void> {
           bridge: io,
           onExit: () => {
             multiplayerActive = false;
-            render();
+            go('home');
           },
           onPlayOnline: () => {
             multiplayerActive = false;
-            onlineActive = true;
+            openPanel('online');
             render();
           },
         }),
@@ -1471,9 +1490,10 @@ async function boot(): Promise<void> {
           // one block stays reproducible for its run.
           seed: seed + session.stats.handsPlayed,
           onComplete: (grades) => void onAssessmentComplete(grades),
+          // Done returns to Home, the launcher, as it did before the tables moved under Play.
           onExit: () => {
             assessmentActive = false;
-            render();
+            go('home');
           },
         }),
       );
@@ -1484,8 +1504,7 @@ async function boot(): Promise<void> {
         renderVarianceScreen({
           onExit: () => {
             varianceActive = false;
-            tab = 'progress';
-            render();
+            go('progress');
           },
         }),
       );
@@ -1495,6 +1514,25 @@ async function boot(): Promise<void> {
       screen.replaceChildren(table.root);
       return;
     }
+    screen.replaceChildren(
+      renderPlay({
+        session,
+        onNewSession: () => startTable(),
+        onStartPlanned: (plan) => startTable(plan),
+        onPlayWithFriends: () => {
+          openPanel('friends');
+          render();
+        },
+        onStartAssessment: () => {
+          openPanel('assessment');
+          render();
+        },
+      }),
+    );
+  }
+
+  /** Home: first-run onboarding, the Ticket panel, or the launcher with the habit loop. */
+  function renderHomeTab(): void {
     if (onboardingDue()) {
       screen.replaceChildren(renderOnboardingSheet());
       return;
@@ -1522,9 +1560,12 @@ async function boot(): Promise<void> {
         onNewSession: () => startTable(),
         onStartPlanned: (plan) => startTable(plan),
         onPlayWithFriends: () => {
-          multiplayerActive = true;
+          tab = 'play';
+          openPanel('friends');
           render();
         },
+        planner: false,
+        side: homeSide(),
         storyStrip: renderStoryStrip({
           route: storyRoute(),
           unmasked: (id) => isUnmasked(session.progression.story, venueById(id) as Venue),
@@ -1594,6 +1635,13 @@ async function boot(): Promise<void> {
         onResponse: (scored) => void onAnomalyResponse(scored),
       });
     }
+    if (mode === 'charts') {
+      return renderCharts({
+        mastery: session.chartMastery,
+        onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
+        onSpot: (spotClass, module, correct) => void onInterleaveSpot(spotClass, module, correct),
+      });
+    }
     if (mode === 'reading') return renderHandReadingDrill();
     if (mode === 'board') {
       return renderBoardReadingDrill({
@@ -1643,8 +1691,35 @@ async function boot(): Promise<void> {
     return renderTrainScreen({ modes, initialMode: trainMode });
   }
 
-  function renderTab(which: Exclude<Tab, 'play'>): HTMLElement {
-    if (which === 'profile') return renderProfileTab();
+  /** A destination's screen, inside its section's sub-nav when it has one (Study, You). */
+  function renderTab(which: Exclude<Tab, 'play' | 'home'>): HTMLElement {
+    const body = renderLeaf(which);
+    const items = subNavOf(which);
+    if (items === null) return body;
+    const study = sectionOf(which) === 'study';
+    return renderSubNav({
+      title: study ? 'Study' : YOU_TITLE[litSubItem(which)] ?? 'You',
+      note: study ? 'Reference tools: nothing here is graded' : which === 'profile' ? 'Everything here stays on this Mac' : undefined,
+      items,
+      lit: litSubItem(which),
+      onPick: (leaf) => go(leaf),
+      body,
+      testid: study ? 'study-nav' : 'you-nav',
+    });
+  }
+
+  function renderLeaf(which: Exclude<Tab, 'play' | 'home'>): HTMLElement {
+    if (which === 'hands') return renderProfileTab();
+    // Profile's Edit opens the answers in place, so Save and Cancel come back to Profile (review N2).
+    if (which === 'profile' && onboardingOpen) return renderOnboardingSheet(true);
+    if (which === 'profile') return renderYouProfileTab();
+    if (which === 'trophies') {
+      const facts = milestoneFacts(session, session.progression, SCENARIOS, masteredIds(deriveConcepts(), now()).length);
+      const views = milestoneViews(session.progression.milestones, facts);
+      return renderTrophies(views, nextUp(views, 4));
+    }
+    if (which === 'rivals') return renderRivalsTab();
+    if (which === 'style' || which === 'letters' || which === 'locker') return renderNotYet(which);
     if (which === 'learn') {
       if (learnView === 'folio') {
         return renderFolio({
@@ -1709,13 +1784,6 @@ async function boot(): Promise<void> {
     }
     if (which === 'train') return renderTrainTab();
     if (which === 'story') return renderStoryTab();
-    if (which === 'charts') {
-      return renderCharts({
-        mastery: session.chartMastery,
-        onAnswer: (handClass, correct) => void onChartAnswer(handClass, correct),
-        onSpot: (spotClass, module, correct) => void onInterleaveSpot(spotClass, module, correct),
-      });
-    }
     if (which === 'chart-bank') return renderChartBank();
     if (which === 'equity') return renderEquityCalculator();
     if (which === 'ranges') {
@@ -1731,9 +1799,10 @@ async function boot(): Promise<void> {
         pro,
         bridge: io,
         openSheet: openProSheet,
+        // Charts is a Train rung since the 7-tab nav (1.14).
         onPractise: () => {
-          tab = 'charts';
-          render();
+          trainMode = 'charts';
+          go('train');
         },
       });
     }
@@ -1779,12 +1848,12 @@ async function boot(): Promise<void> {
         onOpenVariance: () => {
           // The refusal's promised route now lands on the honest variance explainer (a Play-tab panel),
           // not the generic Learn list — the alternative the refusal names is a real page, not a shrug.
-          varianceActive = true;
+          openPanel('variance');
           tab = 'play';
           render();
         },
         onStartAssessment: () => {
-          assessmentActive = true;
+          openPanel('assessment');
           tab = 'play';
           render();
         },
@@ -1801,10 +1870,7 @@ async function boot(): Promise<void> {
           onSpokenVerdictsChange: (on) => void onSpokenVerdictsChange(on),
           onSoundCuesChange: (on) => void onSoundCuesChange(on),
           onThemeChange: (theme) => void onThemeChange(theme),
-          onOpenDee: () => {
-            tab = 'dee';
-            render();
-          },
+          onOpenDee: () => go('dee'),
         },
         proSection: renderProSettings(pro, { openSheet: openProSheet }),
       });
@@ -1892,6 +1958,131 @@ async function boot(): Promise<void> {
         else render();
       },
     });
+  }
+
+  /** Home's second column under the streak: the next trophy and the rule the learner wrote most recently. */
+  function homeSide(): HTMLElement[] {
+    const facts = milestoneFacts(session, session.progression, SCENARIOS, masteredIds(deriveConcepts(), now()).length);
+    const [next] = nextUp(milestoneViews(session.progression.milestones, facts), 1);
+    const out: HTMLElement[] = [];
+    const group = document.createElement('div');
+    group.className = 'g-group home-week';
+    if (next) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'g-row session-card';
+      row.dataset.testid = 'home-next-trophy';
+      const text = document.createElement('span');
+      text.className = 'session-card-text';
+      const t = document.createElement('span');
+      t.className = 'session-card-title t-head';
+      t.textContent = `Next trophy: ${next.def.name}`;
+      const m = document.createElement('span');
+      m.className = 'session-card-meta g-caption';
+      m.textContent = `${next.def.fact}; ${next.value} of ${next.target} ${next.unit}`;
+      text.append(t, m);
+      row.append(text, chevron());
+      row.addEventListener('click', () => go('trophies'));
+      group.appendChild(row);
+    }
+    const cards = currentFolio();
+    const rule = [...cards].sort((a, b) => b.writtenOn - a.writtenOn)[0];
+    const r = document.createElement('button');
+    r.type = 'button';
+    r.className = 'g-row session-card';
+    r.dataset.testid = 'home-rule';
+    const rt = document.createElement('span');
+    rt.className = 'session-card-text';
+    const q = document.createElement('span');
+    q.className = 'session-card-title t-head';
+    q.textContent = rule ? `“${rule.text}”` : 'The Rulebook';
+    const qm = document.createElement('span');
+    qm.className = 'session-card-meta g-caption';
+    qm.textContent = rule ? `Your newest rule · ${cards.length} in the Rulebook` : 'Your rules, in your own words, land here';
+    rt.append(q, qm);
+    r.append(rt, chevron());
+    r.addEventListener('click', () => {
+      go('learn');
+      learnView = 'folio';
+      render();
+    });
+    group.appendChild(r);
+    out.push(group);
+    return out;
+  }
+
+  function renderYouProfileTab(): HTMLElement {
+    const p = session.progression;
+    const t = now();
+    const concepts = deriveConcepts();
+    const activity = [...session.hands.map((h) => h.playedAt).filter((x): x is number => typeof x === 'number'), ...session.assessments.map((a) => a.at)];
+    const since = activity.length > 0 ? dayOf()(activity.reduce((a, b) => Math.min(a, b))) : null;
+    const graded = session.hands.reduce((n, h) => n + (h.decisions ?? []).filter((d) => d.verdict !== null).length, 0) + session.assessments.length;
+    const streak = streakToday(p, today());
+    return renderYouProfile(
+      {
+        personalization: p.personalization,
+        since,
+        handsPlayed: session.stats.handsPlayed,
+        gradedDecisions: graded,
+        cards: currentFolio(),
+        weeks: weeklyEvLoss(session.assessments, t),
+        sureRight: sureRight(session.calibration),
+        sureTotal: session.calibration.sureTotal,
+        conceptsMastered: masteredIds(concepts, t).length,
+        conceptsTotal: concepts.length,
+        depthLabel: currentStanding(t).label,
+        streak: { current: streak.current, best: streak.best },
+        repsTotal: p.reps.total,
+      },
+      {
+        onEdit: () => {
+          onboardingOpen = true;
+          render();
+        },
+        onOpenFolio: () => {
+          go('learn');
+          learnView = 'folio';
+          render();
+        },
+        onOpenProgress: () => go('progress'),
+        onOpenTrophies: () => go('trophies'),
+      },
+    );
+  }
+
+  /** The story's regulars, masked until beaten; a row opens the existing dossier, which returns here. */
+  function renderRivalsTab(): HTMLElement {
+    const story = session.progression.story;
+    if (rivalOpen !== null) {
+      const venue = venueById(rivalOpen) as Venue;
+      return renderRivalDossier({
+        venue,
+        unmasked: isUnmasked(story, venue),
+        record: rivalRecordOf(story, venue),
+        dee: storyDee(),
+        onOpenChapter: () => {
+          rivalOpen = null;
+          go('story');
+          openChapter(venue.id);
+        },
+        onBack: () => {
+          rivalOpen = null;
+          render();
+        },
+      });
+    }
+    return renderRivals(
+      VENUES.map((v) => {
+        const unmasked = isUnmasked(story, v);
+        const r = rivalOf(v);
+        return { id: v.id, venue: v.name, name: unmasked ? r.name : null, style: unmasked ? r.style : null, hands: rivalRecordOf(story, v).hands };
+      }),
+      (id) => {
+        rivalOpen = id as ChapterId;
+        render();
+      },
+    );
   }
 
   function renderPlaceholder(which: string): HTMLElement {
