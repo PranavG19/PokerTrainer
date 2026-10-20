@@ -175,6 +175,7 @@ function renderSetup(trial: TrialState, handlers: TrialHandlers): HTMLElement {
   start.textContent = 'Start the trial';
   const why = text('span', 'settings-note', '');
   why.dataset.testid = 'trial-start-why';
+  why.setAttribute('aria-live', 'polite');
   const paint = (): void => {
     const refusal = startRefusal(trial, prediction.value);
     start.disabled = refusal !== null;
@@ -319,6 +320,20 @@ function renderResults(trial: TrialState, phase: TrialPhase): HTMLElement {
   wrap.appendChild(table);
   wrap.appendChild(text('p', 'settings-note', 'In brackets: how many records each number is from.'));
 
+  // The verdicts wait for the four weeks: a "tripped" seen mid-trial would change how the remaining weeks are played,
+  // and a stopped trial is never judged.
+  if (phase !== 'ready' && phase !== 'finished') {
+    const wait = text(
+      'p',
+      'settings-copy trial-summary',
+      phase === 'stopped'
+        ? 'Stopped early, so the criteria are not judged and the layer is left as you set it.'
+        : 'The criteria are judged after the four weeks, so nothing here hints at a verdict while it runs.',
+    );
+    wait.dataset.testid = 'trial-summary';
+    wrap.appendChild(wait);
+    return wrap;
+  }
   const list = document.createElement('ul');
   list.className = 'settings-list trial-verdicts';
   for (const c of r.criteria) {
@@ -339,8 +354,8 @@ function renderResults(trial: TrialState, phase: TrialPhase): HTMLElement {
         ? 'Applied: a criterion tripped, so Character and Celebrations were turned off. Either can be turned back on in Settings.'
         : 'Applied: no criterion tripped, so the layer stays as you set it.'
       : r.tripped
-        ? 'A criterion has tripped. When the results are applied, the layer goes off by default.'
-        : 'No criterion has tripped.';
+        ? 'A criterion tripped. When the results are applied, the layer goes off by default.'
+        : 'No criterion tripped.';
   const line = text('p', 'settings-copy trial-summary', summary);
   line.dataset.testid = 'trial-summary';
   wrap.appendChild(line);

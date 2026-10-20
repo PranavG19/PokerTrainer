@@ -166,8 +166,8 @@ describe('counting a week from the learner’s own logs', () => {
     expect(c.reps).toBe(3);
     expect(c.delayed).toBe(1);
     expect(c.delayedCorrect).toBe(0);
-    expect(c.repsOnMastered).toBeGreaterThanOrEqual(1);
-    expect(c.repsOnMastered).toBeLessThanOrEqual(2);
+    // Both pot-odds reps this week come after 60 right answers: mastered at the time, the miss included.
+    expect(c.repsOnMastered).toBe(2);
   });
 
   it('observeTrial files the current week only, and a capped log never lowers it', () => {
@@ -202,10 +202,10 @@ function withBlocks(on: Partial<TrialCounts>, off: Partial<TrialCounts>, sure?: 
   return {
     ...t,
     blocks: [
-      { ...cal(sure?.on, 0), counts: counts(on) },
-      { ...cal(sure?.off, 1000), counts: counts(off) },
-      { ...cal(sure?.on, 2000), counts: counts(on) },
-      { ...cal(sure?.off, 3000), counts: counts(off) },
+      { ...cal(sure?.on, 0), counts: counts(on), through: 0, sessionsByDay: {} },
+      { ...cal(sure?.off, 1000), counts: counts(off), through: 0, sessionsByDay: {} },
+      { ...cal(sure?.on, 2000), counts: counts(on), through: 0, sessionsByDay: {} },
+      { ...cal(sure?.off, 3000), counts: counts(off), through: 0, sessionsByDay: {} },
     ],
   };
 }
@@ -245,10 +245,17 @@ describe('the kill criteria', () => {
     expect(statusOf(withBlocks({ repsOnMastered: 7 }, {}), 'farming')).toBe('clear');
   });
 
-  it('late sessions and busy days: more on than off, and at least two', () => {
+  it('late sessions and busy days compare rates, so more practice alone never trips them', () => {
+    // 12 sessions a side: 2 late on (17%) vs 0 off trips; 1 late is below the floor of two.
     expect(statusOf(withBlocks({ lateSessions: 1 }, {}), 'late-night')).toBe('tripped');
     expect(statusOf(withBlocks({ lateSessions: 1 }, { lateSessions: 1 }), 'late-night')).toBe('clear');
+    // Twice the sessions and twice the late ones on: the same share, clear.
+    expect(statusOf(withBlocks({ sessions: 12, lateSessions: 2 }, { lateSessions: 1 }), 'late-night')).toBe('clear');
+    expect(statusOf(withBlocks({ sessions: 2 }, {}), 'late-night')).toBe('too-little');
+    // 10 practice days a side: 2 busy on (20%) vs 0 off trips; 1 busy on is below the floor.
     expect(statusOf(withBlocks({ busyDays: 1 }, {}), 'busy-days')).toBe('tripped');
+    expect(statusOf(withBlocks({ busyDays: 2, activeDays: 7 }, { busyDays: 1, activeDays: 3 }), 'busy-days')).toBe('clear');
+    expect(statusOf(withBlocks({ activeDays: 1 }, {}), 'busy-days')).toBe('too-little');
   });
 
   it('"had to" in more than half the on-week answers trips; the answers are once a day, inside the weeks', () => {
@@ -320,5 +327,39 @@ describe('persisted: additive, tolerant, round-trips', () => {
     expect(p.trial.outcome).toBe('mixed');
     expect(evaluate(p.trial).on.had + evaluate(p.trial).on.wanted).toBe(0);
     expect(p.celebrations.motion).toBe('gentle');
+  });
+});
+
+describe('review round 1 (red first)', () => {
+  it('a newer build’s trial is never replaced: Start is refused for any status but none, or any start day', () => {
+    const newer = parseProgression({ trial: { status: 'paused-by-v9', startedOn: 20000, prediction: 'Theirs, kept.' } });
+    expect(startRefusal(newer.trial, PREDICTION)).not.toBeNull();
+    expect(startTrial(newer, { prediction: PREDICTION, ownCriterion: '', today: day(40), calibration: CAL })).toBe(newer);
+  });
+
+  it('a save with no practice files no week', () => {
+    const t = started().trial;
+    expect(observeTrial(t, src(), clockOn(day(8)))).toBe(t);
+  });
+
+  it('practice from before Start on the start day is not counted', () => {
+    const p = startTrial(defaultProgression(), { prediction: PREDICTION, ownCriterion: '', today: START, calibration: CAL, at: noonOf(START) });
+    const t = observeTrial(p.trial, src({ hands: [{ playedAt: noonOf(START) - 3_600_000 }, { playedAt: noonOf(START) + 3_600_000 }] }), clockOn(START));
+    expect(t.blocks[0]?.counts.sessions).toBe(1);
+  });
+
+  it('a week keeps growing after the hand log is capped: each save counts only what is new', () => {
+    const p = started();
+    const first = Array.from({ length: 3 }, (_, i) => ({ playedAt: noonOf(day(1)) + i * 2 * 3_600_000 }));
+    const t1 = observeTrial(p.trial, src({ hands: first }), clockOn(day(1)));
+    // The log dropped every earlier hand; one new hand arrives.
+    const t2 = observeTrial(t1, src({ hands: [{ playedAt: noonOf(day(2)) }] }), clockOn(day(2)));
+    expect(t2.blocks[0]?.counts.sessions).toBe(4);
+    expect(t2.blocks[0]?.counts.activeDays).toBe(2);
+  });
+
+  it('the baseline keeps only the three tallies the trial reads', () => {
+    const p = startTrial(defaultProgression(), { prediction: PREDICTION, ownCriterion: '', today: START, calibration: { total: 3, sureTotal: 2, sureCorrect: 1, correct: 9 } as never });
+    expect(p.trial.baseline).toEqual({ total: 3, sureTotal: 2, sureCorrect: 1 });
   });
 });

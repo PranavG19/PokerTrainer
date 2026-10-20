@@ -337,8 +337,9 @@ export function selectLine(
   if (event === null || !ctx.character) return null;
   const lastSaid = new Map<string, number>();
   for (const s of memory.said) lastSaid.set(s.lineId, Math.max(lastSaid.get(s.lineId) ?? -Infinity, s.at));
-  const spacing = ctx.spacing ?? 0;
-  if (spacing > 0 && memory.said.length > 0 && memory.handsWatched - Math.max(...memory.said.map((s) => s.at)) < spacing) return null;
+  // The quieter level: `spacing` silent hands after any line. The session summary is the one thing never held back.
+  const spacing = event.kind === 'session-end' ? 0 : (ctx.spacing ?? 0);
+  if (spacing > 0 && memory.said.length > 0 && memory.handsWatched - Math.max(...memory.said.map((s) => s.at)) <= spacing) return null;
   const eligible: { line: Line; text: string }[] = [];
   for (const line of bank) {
     if (line.event !== event.kind || !matchesWhen(line, event)) continue;

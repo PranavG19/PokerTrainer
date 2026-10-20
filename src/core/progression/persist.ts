@@ -158,6 +158,7 @@ export const PROGRESSION_SHAPE = {
   trial: {
     status: true,
     startedOn: true,
+    startedAt: true,
     prediction: true,
     ownCriterion: true,
     baseline: true,

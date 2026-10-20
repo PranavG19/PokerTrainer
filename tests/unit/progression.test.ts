@@ -99,6 +99,7 @@ function full(): ProgressionState {
     trial: {
       status: 'running',
       startedOn: day(19590),
+      startedAt: 1_728_990_000_000,
       prediction: 'Dee on makes me come back more without hurting the assessment.',
       ownCriterion: 'I stop enjoying it.',
       baseline: { total: 40, sureTotal: 20, sureCorrect: 15 },
@@ -107,6 +108,8 @@ function full(): ProgressionState {
           calibrationStart: { total: 40, sureTotal: 20, sureCorrect: 15 },
           calibrationEnd: { total: 52, sureTotal: 27, sureCorrect: 20 },
           counts: { activeDays: 5, sessions: 7, lateSessions: 1, busyDays: 0, decisions: 120, assessed: 30, assessedLossBb: 4.25, delayed: 6, delayedCorrect: 4, reps: 40, repsOnMastered: 3 },
+          through: 1_729_000_000_000,
+          sessionsByDay: { '19590': 3, '19591': 4 },
         },
         null,
         null,

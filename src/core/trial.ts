@@ -57,7 +57,7 @@ export type TrialAnswer = (typeof TRIAL_ANSWERS)[number];
 export type TrialPhase = 'none' | 'running' | 'ready' | 'stopped' | 'finished';
 
 export function defaultTrial(): TrialState {
-  return { status: 'none', startedOn: null, prediction: '', ownCriterion: '', baseline: null, blocks: [], reports: [], finishedOn: null, outcome: null };
+  return { status: 'none', startedOn: null, startedAt: null, prediction: '', ownCriterion: '', baseline: null, blocks: [], reports: [], finishedOn: null, outcome: null };
 }
 
 export function defaultCelebrations(): CelebrationsState {
@@ -131,14 +131,22 @@ export function setCelebrations(p: ProgressionState, patch: Partial<Celebrations
 
 /** Why Start is refused, or null. One trial per profile: a stopped or finished one is kept, never replaced. */
 export function startRefusal(t: TrialState, prediction: string): string | null {
-  if (statusOf(t) !== 'none') return 'This profile has had its trial. Its results are kept.';
+  // The raw status, not statusOf(): a newer build's status reads as 'none' but is a trial, and is never replaced.
+  if (t.status !== 'none' || t.startedOn !== null) return 'This profile has had its trial. Its results are kept.';
   if (prediction.trim().length < MIN_PREDICTION_CHARS) return 'Write the prediction first: one sentence, before anything is measured.';
   return null;
 }
 
 export function startTrial(
   p: ProgressionState,
-  input: { readonly prediction: string; readonly ownCriterion: string; readonly today: DayKey; readonly calibration: TrialCalibration },
+  input: {
+    readonly prediction: string;
+    readonly ownCriterion: string;
+    readonly today: DayKey;
+    readonly calibration: TrialCalibration;
+    /** The instant of the press; activity before it is not counted. Absent = the whole start day counts. */
+    readonly at?: number;
+  },
 ): ProgressionState {
   if (startRefusal(p.trial, input.prediction) !== null) return p;
   return {
@@ -147,9 +155,10 @@ export function startTrial(
       ...defaultTrial(),
       status: 'running',
       startedOn: input.today,
+      startedAt: input.at ?? null,
       prediction: clip(input.prediction),
       ownCriterion: clip(input.ownCriterion),
-      baseline: { ...input.calibration },
+      baseline: { total: input.calibration.total, sureTotal: input.calibration.sureTotal, sureCorrect: input.calibration.sureCorrect },
       blocks: TRIAL_BLOCKS.map(() => null),
     },
   };
@@ -201,18 +210,20 @@ export interface TrialClock {
 }
 
 /**
- * Count the block that `today` falls in from the source, and file it. A block is only ever counted while it runs,
- * and each field keeps the larger of the old and new count, so a capped log dropping old entries never lowers it.
+ * Count what is new in the block that `today` falls in, and file it. Each save counts only activity newer than the
+ * block's `through`, so the logs being capped later (500 hands) can neither shrink a counted week nor stop it
+ * growing. A save with nothing new and no change in the Sure tallies files nothing.
  */
 export function observeTrial(t: TrialState, src: TrialSource, clock: TrialClock): TrialState {
   const b = blockOn(t, clock.today);
   if (b === null) return t;
   const prev = t.blocks[b] ?? null;
-  const counts = countBlock(t, b, src, clock);
-  const merged = prev === null ? counts : maxCounts(prev.counts, counts);
+  const tally = tallyBlock(t, b, src, clock, prev);
   const start = prev?.calibrationStart ?? latestCalibration(t, b);
-  const block: TrialBlock = { calibrationStart: start, calibrationEnd: maxCalibration(start, src.calibration), counts: merged };
-  if (prev !== null && sameBlock(prev, block)) return t;
+  const end = maxCalibration(start, src.calibration);
+  const calibrationMoved = JSON.stringify(end) !== JSON.stringify(prev?.calibrationEnd ?? start);
+  if (!tally.fresh && !calibrationMoved) return t;
+  const block: TrialBlock = { calibrationStart: start, calibrationEnd: end, counts: tally.counts, through: tally.through, sessionsByDay: tally.sessionsByDay };
   const blocks = TRIAL_BLOCKS.map((_, i) => (i === b ? block : (t.blocks[i] ?? null)));
   return { ...t, blocks };
 }
@@ -231,83 +242,91 @@ function maxCalibration(start: TrialCalibration, now: TrialCalibration): TrialCa
   return { total: Math.max(start.total, now.total), sureTotal: Math.max(start.sureTotal, now.sureTotal), sureCorrect: Math.max(start.sureCorrect, now.sureCorrect) };
 }
 
+/** Count a whole block from the logs as they stand (no earlier counts). */
 export function countBlock(t: TrialState, b: number, src: TrialSource, clock: TrialClock): TrialCounts {
+  return tallyBlock(t, b, src, clock, null).counts;
+}
+
+type Graded = Extract<FadingEvent, { kind: 'graded' }>;
+
+/** The block's counts: `prev`'s, plus every activity in the block newer than `prev.through` (and than Start). */
+function tallyBlock(
+  t: TrialState,
+  b: number,
+  src: TrialSource,
+  clock: TrialClock,
+  prev: TrialBlock | null,
+): { counts: TrialCounts; through: number; sessionsByDay: Record<string, number>; fresh: boolean } {
+  const c: TrialCounts = prev ? { ...prev.counts } : emptyCounts();
+  const sessionsByDay: Record<string, number> = prev ? { ...prev.sessionsByDay } : {};
   const from = blockStart(t, b);
-  if (from === null) return emptyCounts();
-  const inBlock = (ms: number): boolean => {
-    if (!Number.isFinite(ms)) return false;
+  const since = Math.max(prev?.through ?? -Infinity, t.startedAt !== null && Number.isFinite(t.startedAt) ? t.startedAt - 1 : -Infinity);
+  if (from === null) return { counts: c, through: prev?.through ?? 0, sessionsByDay, fresh: false };
+  const isNew = (ms: number): boolean => {
+    if (!Number.isFinite(ms) || ms <= since) return false;
     const d = clock.dayOf(ms);
     return d >= from && d < from + BLOCK_DAYS;
   };
-  const c = emptyCounts();
   const activity: number[] = [];
 
   for (const h of src.hands) {
-    if (typeof h.playedAt !== 'number' || !inBlock(h.playedAt)) continue;
+    if (typeof h.playedAt !== 'number' || !isNew(h.playedAt)) continue;
     activity.push(h.playedAt);
     c.decisions += (h.decisions ?? []).filter((d) => d.verdict !== null && d.verdict !== undefined).length;
   }
   for (const a of src.assessments) {
-    if (!inBlock(a.at)) continue;
+    if (!isNew(a.at)) continue;
     activity.push(a.at);
     c.assessed += 1;
     c.assessedLossBb += Number.isFinite(a.evLossBb) ? Math.max(0, a.evLossBb) : 0;
   }
 
-  // Drill reps, per concept in time order: a delayed one tests what was kept; one on a mastered concept is farming.
-  const graded = src.fadingLog.filter((e): e is Extract<FadingEvent, { kind: 'graded' }> => e.kind === 'graded' && Number.isFinite(e.at));
-  const byConcept = new Map<string, typeof graded>();
-  for (const e of graded) {
-    const list = byConcept.get(e.conceptId) ?? [];
+  // Drill reps: a delayed one tests what was kept; one on a concept already mastered is a sign of farming. Only the
+  // concepts with a new rep are looked at, so a long history costs nothing on a save that added nothing.
+  const fresh = src.fadingLog.filter((e): e is Graded => e.kind === 'graded' && isNew(e.at));
+  const concepts = new Set(fresh.map((e) => e.conceptId));
+  const history = new Map<string, Graded[]>();
+  for (const e of src.fadingLog) {
+    if (e.kind !== 'graded' || !concepts.has(e.conceptId) || !Number.isFinite(e.at)) continue;
+    const list = history.get(e.conceptId) ?? [];
     list.push(e);
-    byConcept.set(e.conceptId, list);
+    history.set(e.conceptId, list);
   }
-  for (const events of byConcept.values()) {
+  for (const events of history.values()) {
     events.sort((x, y) => x.at - y.at);
     for (let i = 0; i < events.length; i++) {
       const e = events[i];
-      if (!inBlock(e.at)) continue;
+      if (!isNew(e.at)) continue;
       activity.push(e.at);
       c.reps += 1;
-      if (i > 0 && e.at - events[i - 1].at >= DELAYED_REVIEW_DAYS * MS_PER_DAY) {
+      if (i === 0) continue;
+      if (e.at - events[i - 1].at >= DELAYED_REVIEW_DAYS * MS_PER_DAY) {
         c.delayed += 1;
         if (e.correct) c.delayedCorrect += 1;
       }
-      if (i > 0) {
-        const [state] = conceptStatesFromLog(events.slice(0, i));
-        if (state !== undefined && gate(state, e.at).status === 'mastered') c.repsOnMastered += 1;
-      }
+      const [state] = conceptStatesFromLog(events.slice(0, i));
+      if (state !== undefined && gate(state, e.at).status === 'mastered') c.repsOnMastered += 1;
     }
   }
 
-  // Sessions: activity split at gaps of more than SESSION_GAP_MS, each filed under the day and hour it started.
+  // Sessions: activity split at gaps of more than SESSION_GAP_MS, each filed under the day and hour it started. The
+  // newest activity already counted continues a session across saves.
   activity.sort((x, y) => x - y);
-  const perDay = new Map<number, number>();
-  let last = -Infinity;
+  let last = prev?.through ?? -Infinity;
   for (const at of activity) {
     if (at - last > SESSION_GAP_MS) {
       c.sessions += 1;
       const hour = clock.hourOf(at);
       if (hour >= LATE_FROM_HOUR || hour < LATE_UNTIL_HOUR) c.lateSessions += 1;
-      const day = clock.dayOf(at);
-      perDay.set(day, (perDay.get(day) ?? 0) + 1);
+      const key = String(clock.dayOf(at));
+      sessionsByDay[key] = (sessionsByDay[key] ?? 0) + 1;
     }
-    last = at;
+    last = Math.max(last, at);
   }
-  c.activeDays = perDay.size;
-  c.busyDays = [...perDay.values()].filter((n) => n > SESSIONS_PER_DAY).length;
+  c.activeDays = Object.keys(sessionsByDay).length;
+  c.busyDays = Object.values(sessionsByDay).filter((n) => n > SESSIONS_PER_DAY).length;
   c.assessedLossBb = round2(c.assessedLossBb);
-  return c;
-}
-
-function maxCounts(a: TrialCounts, b: TrialCounts): TrialCounts {
-  const out = emptyCounts();
-  for (const k of Object.keys(out) as (keyof TrialCounts)[]) out[k] = Math.max(a[k], b[k]);
-  return out;
-}
-
-function sameBlock(a: TrialBlock, b: TrialBlock): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return { counts: c, through: Math.max(prev?.through ?? 0, last === -Infinity ? 0 : last), sessionsByDay, fresh: activity.length > 0 };
 }
 
 // ── results ────────────────────────────────────────────────────────────────────────────────────────
@@ -350,14 +369,16 @@ export const MIN_DELAYED = 20;
 export const MIN_SURE = 20;
 export const MIN_REPS = 20;
 export const MIN_REPORTS = 2;
+export const MIN_SESSIONS = 5;
+export const MIN_ACTIVE_DAYS = 3;
 
 export const KILL_CRITERIA = [
   { id: 'ev-loss', text: `Assessment EV loss is more than 10% worse with the layer on (at least ${MIN_ASSESSED} assessed decisions each way).` },
   { id: 'delayed', text: `Delayed-review accuracy is 5 or more points lower with the layer on (at least ${MIN_DELAYED} delayed reps each way).` },
   { id: 'sure-gaming', text: `The Sure rate rises 10 or more points while Sure accuracy falls 5 or more (at least ${MIN_SURE} Sure calls each way).` },
   { id: 'farming', text: `The share of reps on already-mastered concepts rises 10 or more points (at least ${MIN_REPS} reps each way).` },
-  { id: 'late-night', text: 'More late sessions (23:00–04:00) with the layer on than off, and at least two.' },
-  { id: 'busy-days', text: 'More days with more than two sessions with the layer on than off, and at least two.' },
+  { id: 'late-night', text: `The share of sessions started 23:00–04:00 rises 10 or more points, with at least two late (at least ${MIN_SESSIONS} sessions each way).` },
+  { id: 'busy-days', text: `The share of practice days with more than two sessions rises 20 or more points, with at least two such days (at least ${MIN_ACTIVE_DAYS} days each way).` },
   { id: 'had-to', text: `More than half the "wanted to / had to" answers in on weeks say "had to" (at least ${MIN_REPORTS} answers).` },
 ] as const;
 export type KillCriterionId = (typeof KILL_CRITERIA)[number]['id'];
@@ -443,8 +464,31 @@ export function evaluate(t: TrialState): TrialResults {
   const fOff = pct(off.counts.repsOnMastered, off.counts.reps);
   add('farming', on.counts.reps < MIN_REPS || off.counts.reps < MIN_REPS || fOn === null || fOff === null ? 'too-little' : fOn - fOff >= 10 ? 'tripped' : 'clear', show(fOn, '%'), show(fOff, '%'));
 
-  add('late-night', on.counts.lateSessions >= 2 && on.counts.lateSessions > off.counts.lateSessions ? 'tripped' : 'clear', String(on.counts.lateSessions), String(off.counts.lateSessions));
-  add('busy-days', on.counts.busyDays >= 2 && on.counts.busyDays > off.counts.busyDays ? 'tripped' : 'clear', String(on.counts.busyDays), String(off.counts.busyDays));
+  // Rates, not totals: an on week that simply holds more practice must not trip these by volume alone.
+  const lateOn = pct(on.counts.lateSessions, on.counts.sessions);
+  const lateOff = pct(off.counts.lateSessions, off.counts.sessions);
+  add(
+    'late-night',
+    on.counts.sessions < MIN_SESSIONS || off.counts.sessions < MIN_SESSIONS || lateOn === null || lateOff === null
+      ? 'too-little'
+      : on.counts.lateSessions >= 2 && lateOn - lateOff >= 10
+        ? 'tripped'
+        : 'clear',
+    `${show(lateOn, '%')} (${on.counts.lateSessions})`,
+    `${show(lateOff, '%')} (${off.counts.lateSessions})`,
+  );
+  const busyOn = pct(on.counts.busyDays, on.counts.activeDays);
+  const busyOff = pct(off.counts.busyDays, off.counts.activeDays);
+  add(
+    'busy-days',
+    on.counts.activeDays < MIN_ACTIVE_DAYS || off.counts.activeDays < MIN_ACTIVE_DAYS || busyOn === null || busyOff === null
+      ? 'too-little'
+      : on.counts.busyDays >= 2 && busyOn - busyOff >= 20
+        ? 'tripped'
+        : 'clear',
+    `${show(busyOn, '%')} (${on.counts.busyDays})`,
+    `${show(busyOff, '%')} (${off.counts.busyDays})`,
+  );
 
   const answers = on.wanted + on.had;
   add('had-to', answers < MIN_REPORTS ? 'too-little' : on.had * 2 > answers ? 'tripped' : 'clear', `${on.had} of ${answers} "had to"`, `${off.had} of ${off.wanted + off.had} "had to"`);
@@ -481,6 +525,7 @@ export function parseTrial(obj: Record<string, unknown>, d: TrialState): TrialSt
     // A running trial with no start day is no trial: nothing could place a block.
     status: status === 'running' && startedOn === null ? 'none' : status,
     startedOn,
+    startedAt: typeof obj.startedAt === 'number' && Number.isFinite(obj.startedAt) && obj.startedAt > 0 ? obj.startedAt : null,
     prediction: textOf(obj.prediction),
     ownCriterion: textOf(obj.ownCriterion),
     baseline: obj.baseline === null || obj.baseline === undefined ? null : parseCalibration(obj.baseline),
@@ -499,7 +544,13 @@ function parseBlock(raw: unknown): TrialBlock | null {
   for (const k of Object.keys(counts) as (keyof TrialCounts)[]) counts[k] = k === 'assessedLossBb' ? round2(nonNegative(c[k])) : Math.floor(nonNegative(c[k]));
   const start = parseCalibration(r.calibrationStart);
   const end = parseCalibration(r.calibrationEnd);
-  return { calibrationStart: start, calibrationEnd: maxCalibration(start, end), counts };
+  const sessionsByDay: Record<string, number> = {};
+  for (const [k, v] of Object.entries(record(r.sessionsByDay)).slice(0, BLOCK_DAYS)) {
+    if (k === '__proto__' || asDayKey(Number(k)) === null) continue;
+    const n = Math.floor(nonNegative(v));
+    if (n > 0) sessionsByDay[k] = n;
+  }
+  return { calibrationStart: start, calibrationEnd: maxCalibration(start, end), counts, through: typeof r.through === 'number' && Number.isFinite(r.through) && r.through > 0 ? r.through : 0, sessionsByDay };
 }
 
 function parseCalibration(raw: unknown): TrialCalibration {

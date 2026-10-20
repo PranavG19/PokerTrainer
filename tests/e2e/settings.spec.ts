@@ -980,7 +980,11 @@ test.describe('1.8 — Character, Celebrations and the local trial', () => {
       await page.locator('[data-testid="trial-report-wanted"]').click();
       await expect(page.locator('[data-testid="trial-report-wanted"]')).toHaveAttribute('aria-pressed', 'true');
       const saved = readProfile(userDataDir).progression.trial;
-      expect(saved).toMatchObject({ status: 'running', startedOn: todayKey(), ownCriterion: 'I start dreading it.', reports: [{ day: todayKey(), answer: 'wanted' }] });
+      expect(saved).toMatchObject({ status: 'running', ownCriterion: 'I start dreading it.', reports: [{ day: saved.startedOn, answer: 'wanted' }] });
+      // The app's own day (a run may straddle the 4 am turn).
+      expect([todayKey() - 1, todayKey()]).toContain(saved.startedOn);
+      // Mid-trial the criteria are not judged on screen.
+      await expect(page.locator('[data-testid="trial-verdict"]')).toHaveCount(0);
 
       // A hand played now is counted in week 1, from the hand log on this machine.
       await page.locator('[data-testid="trial-back"]').click();

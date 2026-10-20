@@ -366,6 +366,8 @@ export interface TrialState {
   status: string;
   /** Day 1 of block 1; null before a trial starts. */
   startedOn: DayKey | null;
+  /** The instant Start was pressed (epoch ms): practice earlier that day is not the trial's. null before. */
+  startedAt: number | null;
   /** The prediction, in the learner's words, written before the start and never edited after it. */
   prediction: string;
   /** An extra kill criterion of the learner's own, read by them at the end ('' = none). */
@@ -399,6 +401,10 @@ export interface TrialBlock {
   calibrationStart: TrialCalibration;
   calibrationEnd: TrialCalibration;
   counts: TrialCounts;
+  /** The newest activity counted (epoch ms). Each save counts only what is newer, so a capped log never undercounts. */
+  through: number;
+  /** Sessions started per day of the block (day key → count), for active and busy days. */
+  sessionsByDay: Record<string, number>;
 }
 
 /** What one block holds, counted from the learner's own logs (trial.ts countBlock). Every field is a count. */

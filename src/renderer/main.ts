@@ -334,11 +334,13 @@ async function boot(): Promise<void> {
       if (deleting) return { saved: false, readOnly: null, failed: 'deleting' };
       const applied = applyProgress(lastSaved, session, takeExtras(), applyContext());
       // The local trial (1.8) re-counts the week it is in from the logs this save writes. Nothing leaves the machine.
-      const trial = observeTrial(applied.progression.trial, session, {
-        today: dayOf()(now()),
-        dayOf: dayOf(),
-        hourOf: (ms) => new Date(ms).getHours(),
-      });
+      // A fault in the count must never cost a save: keep the trial as it was.
+      let trial = applied.progression.trial;
+      try {
+        trial = observeTrial(trial, session, { today: dayOf()(now()), dayOf: dayOf(), hourOf: (ms) => new Date(ms).getHours() });
+      } catch {
+        // Unreachable on parsed data; the old counts stand.
+      }
       session = { ...session, progression: trial === applied.progression.trial ? applied.progression : { ...applied.progression, trial } };
       const toSave = session;
       // A profile delete while this save is in flight must not make the deleted session the next diff's base.
@@ -1984,7 +1986,7 @@ async function boot(): Promise<void> {
           render();
         },
         onStart: (prediction, ownCriterion) =>
-          save(startTrial(session.progression, { prediction, ownCriterion, today: today(), calibration: session.calibration })),
+          save(startTrial(session.progression, { prediction, ownCriterion, today: today(), calibration: session.calibration, at: now() })),
         onStop: () => save(stopTrial(session.progression)),
         onReport: (answer) => save(reportOn(session.progression, today(), answer)),
         onFinish: () => save(finishTrial(session.progression, today())),
