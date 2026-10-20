@@ -352,6 +352,8 @@ function renderSoundCues(soundCues: boolean, handlers: SettingsHandlers): HTMLEl
 const THEME_OPTIONS: readonly { id: string; label: string }[] = [
   { id: 'graphite', label: 'Glass' },
   { id: 'obsidian', label: 'Obsidian' },
+  { id: 'dusk', label: 'Dusk' },
+  { id: 'library', label: 'Library' },
 ];
 
 function renderTheme(theme: string, handlers: SettingsHandlers): HTMLElement {

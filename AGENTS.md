@@ -62,6 +62,9 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
 - Compose the kit (`.g-group` for actionable lists only, `.g-sect`/`.g-flat` for informational ones, `.g-seg`
   + `components/thumb.ts` for any segmented choice, `.pill` / `.pill.primary` / `.pill.quiet`, `.g-kbd` via
   `components/glyphs.ts`) instead of restyling per screen.
+- Cosmetics (`styles-cosmetics.css`) are one `html[data-back|felt|chips|rim|celebration]` attribute per slot that
+  sets custom properties only; the kit reads the tokens. A new item is a catalogue entry plus one token block, and
+  `theme.spec`/`locker.spec` cover it with no edit. No `stroke-dasharray` or geometry in a cosmetic block.
 - Load order: `styles-glass.css` loads before the per-screen sheets, so a screen rule of equal specificity
   wins over the kit. A theme block (`html[data-theme]`) may change paint only, never layout (`theme.spec`).
 - Every screen must fit 900x640 and 1100x760 with no page scroll; many specs pin this.

@@ -6,6 +6,29 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Cosmetics and the Locker (branch `feat-cosmetics`): receipts, paint only (1.7, 2.13)
+Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic). D4 (Chalk) has no
+owner answer, so this build ships receipts only: no currency, no prices, and the Chalk ledger is never written.
+- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 5 table tints, 4 chip sets, 4 Dee finishes, 4
+  celebrations. Each slot's first item is the day-one default. Every other item is earned by a ratchet the habit loop
+  already keeps: a milestone receipt, 3 Seal receipts, or a story rival unmasked. Never chips, pots or results
+  (`cosmetics.test` scans the source and pays a big bankroll nothing).
+- **Owned is a receipt, filed on save** (`syncCosmetics` in `progression/apply.ts`), dated the day the fact first held,
+  `chalk: 0`. It is never taken back. Day-one items are never stored, and wearing one clears the slot. An equipped id
+  this build does not know is kept and paints the default. No schema change: `progression.cosmetics` was in v2.
+- **Paint is one attribute per slot** (`html[data-back|felt|chips|rim|celebration]`) whose rules set custom
+  properties only (`styles-cosmetics.css`). The rules are bare attribute selectors, so the Locker's stage, which
+  carries the same attributes, shows a hovered or selected item without touching what is worn.
+- **Dee's finish is colour and opacity only.** A `stroke-dasharray` change re-lays out the SVG (`theme.spec` caught it
+  on Inlaid's first draft), so no finish uses a dash. The role rims (amber, coral) paint over any finish.
+- **`--chip-a` / `--chip-b` exist now** (ceramic #D9D4C8, slate #6F767E) and paint the bet pill through `--bet-fill`
+  / `--bet-edge`. The streak ring stays bone, so a chip set never repaints a habit mark.
+- **Themes stay a free device setting:** Dusk and Library join Glass and Obsidian (`store.ts` THEMES), each a desk-band
+  swap only. A theme is never a Locker item.
+- **Celebrations are stored and previewed only:** no session-end moment exists yet (1.10), and the Locker says so.
+- **Specs:** `theme.spec` swaps every theme and every item on the table, in the Locker and on its stage with zero
+  layout. `locker.spec` wears every item and allows only paint properties to change, with no rect moving.
+
 ## Pro tools (branch `feat-pro-tools`): hand-history import, leak finder, ICM and push-fold
 Owner decisions in force: D10 (import for review and counting stats only, no profit or loss, no gamification), D18
 (Pro tools allowed, review-only on real-money imports), the Pro tiers (`leak-finder`, `icm-tools`).

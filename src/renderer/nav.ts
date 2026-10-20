@@ -71,7 +71,7 @@ export const STUDY_NAV: readonly SubNavItem[] = [
   { leaf: 'pro', label: 'Pro', testid: 'tab-pro' },
 ];
 
-/** The owner's You sub-nav, in order. Locker is a placeholder until the cosmetics task (MVP B3). */
+/** The owner's You sub-nav, in order. */
 export const YOU_NAV: readonly SubNavItem[] = [
   { leaf: 'profile', label: 'Profile', testid: 'tab-profile' },
   { leaf: 'trophies', label: 'Trophies', testid: 'tab-trophies' },
