@@ -84,6 +84,8 @@ async function foldOut(page: Page): Promise<void> {
 }
 
 test('the button and every position move one seat a hand, a full orbit', async () => {
+  // Six hands with five villains playing each one out after the hero folds: well past one minute under load.
+  test.setTimeout(180_000);
   const { page, close } = await launchApp({ seed: 42 });
   try {
     await openSixMax(page);
@@ -108,7 +110,8 @@ test('the button and every position move one seat a hand, a full orbit', async (
       previousButton = button;
       // Clockwise from the button: BTN, SB, BB, then the tail of UTG, HJ, CO; a sat-out seat wears nothing.
       const clockwise = [0, 1, 2, 3, 4, 5].map((d) => seats[(button + d) % 6]).filter((x) => !x.out);
-      const expected = ['BTN', 'SB', 'BB', ...['UTG', 'HJ', 'CO'].slice(6 - live.length)];
+      // Heads-up the button posts the small blind, so it reads SB (seatPositions, as the engine posts).
+      const expected = live.length === 2 ? ['SB', 'BB'] : ['BTN', 'SB', 'BB', ...['UTG', 'HJ', 'CO'].slice(6 - live.length)];
       expect(clockwise.map((x) => x.position), `hand ${hand + 1} positions`).toEqual(expected);
       for (const x of seats.filter((y) => y.out)) expect(x.position, `seat ${x.id} sits out`).toBeNull();
       if (live.length === 6) sawSixLive++;
@@ -153,6 +156,43 @@ test('the 6-max layout fits 900x640 and 1100x760 with nothing overlapping, mid-h
       expect(g.overlaps, `showdown ${w}x${h}`).toEqual([]);
       expect([g.scrollW, g.scrollH], `showdown ${w}x${h} page scroll`).toEqual([w, h]);
       await page.screenshot({ path: testInfo.outputPath(`six-max-showdown-${w}x${h}.png`) });
+    }
+  } finally {
+    await close();
+  }
+});
+
+/**
+ * The short stage. At 900x640 the stage shrinks when coached mode, a verdict or the stats sheet take height, and the
+ * compact tiers (≤400px, ≤320px) restyle the seats; the 6-max side band has its own ≤320 rule. Each tier is forced
+ * here at showdown (the widest seats) rather than reached through a particular verdict, so every tier is measured.
+ * At the 236px floor the top seat touches the pot on the 4-max table too (origin/main, measured), so only that one
+ * pair is allowed there; it is open in the six-max FINDINGS.
+ */
+test('the 6-max layout holds on the short stage: coached mode and every compact tier at 900x640', async ({}, testInfo) => {
+  const { app, page, close } = await launchApp({ seed: 42 });
+  try {
+    await openSixMax(page);
+    await setSize(app, page, 900, 640);
+    await page.click('[data-testid="coach-mode-toggle"]');
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const coached = await collisions(page);
+    expect(coached.overlaps, 'coached mid-hand 900x640').toEqual([]);
+    expect([coached.scrollW, coached.scrollH], 'coached page scroll').toEqual([900, 640]);
+    await page.click('[data-testid="coach-mode-toggle"]');
+    await playToShowdown(page);
+    await expect(page.locator(tableScreen)).toHaveAttribute('data-awaiting', 'handover');
+    for (const px of [400, 360, 320, 280, 236]) {
+      await page.evaluate((h) => {
+        const stage = document.querySelector<HTMLElement>('.table-stage');
+        stage?.style.setProperty('flex', 'none');
+        stage?.style.setProperty('height', `${h}px`);
+      }, px);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const g = await collisions(page);
+      const allowed = px === 236 ? ['seat 3 x pot'] : [];
+      expect(g.overlaps.filter((o) => !allowed.includes(o)), `stage ${px}px`).toEqual([]);
+      if (px === 236) await page.screenshot({ path: testInfo.outputPath('six-max-stage-236.png') });
     }
   } finally {
     await close();

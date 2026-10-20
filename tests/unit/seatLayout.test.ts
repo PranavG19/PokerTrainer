@@ -30,7 +30,8 @@ describe('seatSlots', () => {
   });
 
   it('both solo tables (3 and 5 villains) seat exactly one on top, in the centre clear of the table corners', () => {
-    // A 5-handed table (4 villains) would put two on top, but the solo table is only ever 4-max or 6-max.
+    // A 5-handed table (4 villains) would put two on top, but the solo table seats 3 or 5 villains, and a busted
+    // villain keeps its chair (table.ts lays out every villain seat), so the count never changes mid-session.
     for (const v of [3, 5]) expect(seatSlots(v).filter((s) => s.area === 'top')).toHaveLength(1);
   });
 

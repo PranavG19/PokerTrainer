@@ -236,7 +236,9 @@ test('every theme and every cosmetic changes paint only on the 6-max table: no l
         }
       }
     }
-    await page.waitForTimeout(500);
+    await expect(page.locator('[data-testid="table-screen"]')).toHaveAttribute('data-awaiting', 'handover');
+    // Every animation (the deal, the coach meter, the sheet's rise) has finished, so nothing moves on its own.
+    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
     const boxes = () =>
       page.evaluate(() =>
         [...document.querySelectorAll('[data-testid="table-screen"] *')].map((el) => {
