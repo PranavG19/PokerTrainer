@@ -203,11 +203,9 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     paint();
     try {
       const result = await bridge.mpHost?.({ seatCount, ...(options.night ? { name: options.night.name } : {}) });
-      // Left while the table was starting: it is nobody's, so it stops now.
-      if (cleanedUp) {
-        void bridge.mpStop?.();
-        return;
-      }
+      // Left while the table was starting: cleanup's own stop already closed it (main's RelaySlot closes a table
+      // stopped mid-start once it is up). A second stop here could only reach a newer screen's session.
+      if (cleanedUp) return;
       if (result?.error) {
         notice = result.error;
         phase = 'setup';

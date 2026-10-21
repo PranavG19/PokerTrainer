@@ -236,3 +236,27 @@ describe('review round 2: a night needs a name to sit under', () => {
     expect(named.querySelector<HTMLButtonElement>('[data-testid="club-host"]')!.disabled).toBe(false);
   });
 });
+
+describe('review round 3: a retired screen sends one stop, never a second one later', () => {
+  it('a host that resolves after its screen was retired sends no stop that could reach the newer session', async () => {
+    const b = fakeBridge();
+    let resolveHost: (v: { port: number; fingerprint: string; token: string }) => void = () => undefined;
+    b.bridge.mpHost = () => new Promise((r) => (resolveHost = r));
+    const a = renderMultiplayerScreen({ bridge: b.bridge });
+    document.body.appendChild(a);
+    await flush();
+    a.querySelector<HTMLButtonElement>('[data-testid="mp-host"]')!.click();
+    a.remove();
+    const h = harness({ role: 'join', invite: INVITE });
+    const root = renderMultiplayerScreen({ bridge: b.bridge, night: h.controller });
+    document.body.appendChild(root);
+    await flush();
+    expect(b.calls.join).toEqual([INVITE]);
+    const stops = b.calls.stop;
+    resolveHost({ port: 1, fingerprint: FP, token: 'B'.repeat(22) });
+    await flush();
+    expect(b.calls.stop, 'the retired screen stopped the newer join').toBe(stops);
+    h.controller.abandon();
+    root.remove();
+  });
+});

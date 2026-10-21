@@ -793,6 +793,11 @@ export function renderClubSpot(opts: SpotOptions): HTMLElement {
     const side = el('div', 'home-side club-side');
     const verdict = el('section', 'g-sect club-verdict');
     verdict.dataset.testid = 'club-spot-verdict';
+    if (known === 'unknown') {
+      const kept = el('p', 'g-caption', 'Answered in a newer version of Offsuit. A play here is shown, not saved over it.');
+      kept.dataset.testid = 'club-spot-newer';
+      verdict.appendChild(kept);
+    }
     if (answer === null) {
       verdict.appendChild(el('p', 'g-caption', 'The grade and the table’s choice show once you play.'));
     } else {
