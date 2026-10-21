@@ -50,7 +50,7 @@ async function openClub(page: Page): Promise<void> {
 }
 
 async function startClub(page: Page, name = 'Thursday table', table = 'Sam'): Promise<void> {
-  await openClub(page);
+  if ((await page.locator('[data-testid="club-screen"]').count()) === 0) await openClub(page);
   await page.locator('[data-testid="club-name"]').fill(name);
   await page.locator('[data-testid="club-table-name"]').fill(table);
   await page.locator('[data-testid="club-start"]').click();
@@ -137,8 +137,11 @@ test('a hosted Game Night: a guest sits under its own name, the host’s decisio
     await bothSizes(app, 'game-night', '[data-testid="night-end"]');
     const decisions = await bar.getAttribute('data-decisions');
 
+    expect(guest.errors, 'the guest’s deal checks held all night').toEqual([]);
     await page.locator('[data-testid="night-end"]').click();
     await page.waitForSelector('[data-testid="night-recap"]');
+    // Ending the night closes the host's table: the guest is told so, and nothing else went wrong.
+    await expect.poll(() => guest!.errors).toEqual(['The table closed the connection.']);
     await expect(page.locator('[data-testid="recap-you-decisions"]')).toContainText(decisions!);
     // The recap code carries this night, this name and these counts, and opens anywhere.
     const code = (await page.locator('[data-testid="recap-code"]').textContent()) ?? '';
@@ -152,8 +155,9 @@ test('a hosted Game Night: a guest sits under its own name, the host’s decisio
     const friend = encodeClubCode({ kind: 'recap', recap: { ...decoded.code.recap, name: 'Ada', decisions: 4, clean: 4, lossCentiBb: 0 } });
     await page.locator('[data-testid="recap-friend-code"]').fill(friend);
     await page.locator('[data-testid="recap-friend-add"]').click();
-    await expect(page.locator('[data-testid="recap-table"]')).toHaveAttribute('data-players', '2');
+    await expect(page.locator('[data-testid="recap-pool"]')).toHaveAttribute('data-players', '2');
     await expect(page.locator('[data-testid="recap-table-decisions"]')).toContainText(String(Number(decisions) + 4));
+    await bothSizes(app, 'recap', '[data-testid="recap-done"]');
     // A code from another night is refused with a reason.
     await page.locator('[data-testid="recap-friend-code"]').fill(encodeClubCode({ kind: 'recap', recap: { ...decoded.code.recap, night: '00000000', name: 'Bo' } }));
     await page.locator('[data-testid="recap-friend-add"]').click();
@@ -162,9 +166,8 @@ test('a hosted Game Night: a guest sits under its own name, the host’s decisio
     // The person at the table joins the club from the recap.
     await page.locator('[data-testid="recap-seen-name"][data-name="Ada"] [data-testid="recap-seen-add"]').click();
     await expect(page.locator('[data-testid="recap-seen-add"]')).toHaveCount(0);
-    // The page never shows a stack or a pot: the recap is decisions only.
-    await expect(page.locator('[data-testid="night-recap"]')).not.toContainText(/chips|stack|bankroll/i);
-    await bothSizes(app, 'recap', '[data-testid="recap-done"]');
+    // The page never shows a stack, a pot or a bankroll (it says only that chips are not counted): decisions only.
+    await expect(page.locator('[data-testid="night-recap"]')).not.toContainText(/\bstack|\bpot\b|bankroll|\d+ chips/i);
 
     // A costly spot, if the night had one, goes to the notebook.
     if (await page.locator('[data-testid="recap-spot-add"]').count()) {
@@ -175,7 +178,6 @@ test('a hosted Game Night: a guest sits under its own name, the host’s decisio
     await expect(page.locator('[data-testid="club-member"][data-name="Ada"]')).toBeVisible();
     await expect(page.locator('[data-testid="club-night"]')).toHaveCount(1);
     await bothSizes(app, 'club', '[data-testid="club-host"]');
-    expect(guest.errors).toEqual([]);
     expect(errors).toEqual([]);
   } finally {
     await guest?.session.stop();

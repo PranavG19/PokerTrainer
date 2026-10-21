@@ -150,7 +150,7 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
     const form = el('div', 'g-group club-form');
     form.dataset.testid = 'club-setup';
     const nameIn = input('club-name', 'Thursday table', 'Club name', 32);
-    const tableIn = input('club-table-name', tableNameOf(club, opts.displayName), 'Your name at the table', 16);
+    const tableIn = input('club-table-name', clubName(opts.displayName ?? '') || 'The name friends will see', 'Your name at the table', 16);
     tableIn.value = club.tableName ?? '';
     const start = pill('Start the club', 'club-start', 'primary');
     start.addEventListener('click', () => {
@@ -626,7 +626,7 @@ export function renderNightRecap(opts: RecapOptions): HTMLElement {
 
     // The table, pooled: you and everyone whose code is in. Never per person.
     const table = el('section', 'club-table');
-    table.dataset.testid = 'recap-table';
+    table.dataset.testid = 'recap-pool';
     const pooled = pooledNight(night, you);
     table.dataset.players = String(pooled.players);
     const who = [you, ...night.friends.map((f) => f.name)].join(', ');
