@@ -18,12 +18,13 @@ import { conceptStatesFromLog, dueNow, gate, nextDue, type ConceptState } from '
 import type { Scenario } from '../puzzle.js';
 import { puzzleCoverage } from '../standing.js';
 import { currentStreakOn } from './persist.js';
-import { award, keys, repsOn, repsForDrillRep, repsForHand, repsForRule, repsForSpot, REPS_ASSESSMENT, REPS_PER_PERCEPTION } from './reps.js';
+import { award, keys, repsOn, repsForDrillRep, repsForHand, repsForRule, repsForSpot, REPS_ASSESSMENT, REPS_CONTRAST_SET, REPS_PER_PERCEPTION } from './reps.js';
 import { countFinished, handsMakeASession, handsOn, type FinishedSession } from './streak.js';
 import { syncSeals } from './seals.js';
 import { syncMilestones, type MilestoneFacts } from './milestones.js';
 import { markDone, ticketFor } from '../ticket.js';
 import { polish } from '../folio.js';
+import { rewritesDue } from '../teachDee.js';
 import type { ProgressionState, TicketState } from './types.js';
 import { syncCosmetics } from '../cosmetics/locker.js';
 import { counts as scoresStanding } from '../standing.js';
@@ -139,6 +140,11 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
 
   if (extras.spot) r = award(r, keys.spot(extras.spot.id, today), repsForSpot(extras.spot.correct), today);
 
+  // A contrast set played from one of the learner's rules (Teach Dee) pays once, whatever it found.
+  const priorSets = new Set(prev.progression.teachDee.sets.map((s) => s.at));
+  const newSets = next.progression.teachDee.sets.filter((s) => !priorSets.has(s.at));
+  for (const s of newSets) r = award(r, keys.contrast(s.at, s.conceptId), REPS_CONTRAST_SET, ctx.dayOf(s.at));
+
   // ── The Ghost Rail and the Season: only what the ledger paid in THIS save reaches them ──
   // A key already on the ledger was paid by an earlier save, so a replayed or stale save files nothing twice.
   const paidBefore = new Set(p.reps.awards.map((a) => a.key));
@@ -162,6 +168,8 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   if (extras.suggestionTaken) tallies = { ...tallies, suggestionTakenOn: today };
   let folio = p.folio;
   for (const id of extras.polished ?? []) folio = polish(folio, id, ctx.now);
+  // A rule that held on a set is a re-read and kept: it polishes its card, at the moment the set finished.
+  for (const s of newSets) if (s.finding === 'holds') folio = polish(folio, s.conceptId, s.at);
   let dee = p.dee;
   if (extras.greeting && extras.greeting.day === today && (dee.lastGreeting?.day !== today || dee.lastGreeting.lineId !== extras.greeting.lineId)) {
     dee = { ...dee, lastGreeting: { day: today, lineId: extras.greeting.lineId } };
@@ -180,6 +188,7 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
     leakPrinciple: ctx.leakPrinciple,
     scenarios: ctx.scenarios,
     puzzleProgress: prev.puzzleProgress,
+    teach: teachDueFrom(prev, ctx.dayOf),
   });
   const wasFinished = ticket.finishedOn === today;
   const dueIds = new Set(dueNow(concepts, ctx.now).map((d) => d.conceptId));
@@ -194,6 +203,7 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
     const done =
       (item.kind === 'review' && repsToday.has(item.ref) && !dueIds.has(item.ref)) ||
       (item.kind === 'spot' && extras.spot?.id === item.ref) ||
+      (item.kind === 'teach' && (newSets.some((s) => s.conceptId === item.ref) || !onFolio(next, item.ref))) ||
       (item.kind === 'drill' && answered >= DRILL_ANSWERS);
     if (done) ticket = markDone(ticket, item.id, today);
   }
@@ -221,6 +231,19 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   p = { ...p, seals, milestones, cosmetics };
 
   return { progression: p, finished, paid: r.total - next.progression.reps.total };
+}
+
+/** The rule still has a Folio card (an accepted sentence or a remembered lesson rule), so it can be taught. */
+function onFolio(s: SessionState, conceptId: string): boolean {
+  return (
+    s.lexicon.some((a) => a.conceptId === conceptId && a.outcome === 'accepted') ||
+    s.progression.dee.ruleSentences.some((r) => r.conceptId === conceptId)
+  );
+}
+
+/** The rule the Ticket asks to rewrite and teach again: the longest-open one, or null. */
+export function teachDueFrom(s: SessionState, dayOf: DayKeyOf): string | null {
+  return rewritesDue({ sets: s.progression.teachDee.sets, lexicon: s.lexicon, rules: s.progression.dee.ruleSentences, dayOf })[0]?.conceptId ?? null;
 }
 
 /** The milestone facts from the profile: process facts only. */
