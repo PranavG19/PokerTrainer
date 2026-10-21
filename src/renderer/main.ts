@@ -8,6 +8,7 @@ import './styles-glass.css';
 import './styles-dee.css';
 import './styles-pro.css';
 import './styles-habit.css';
+import './styles-challenge.css';
 // After the kit: the cosmetic tokens' defaults and every Locker item (paint only).
 import './styles-cosmetics.css';
 
@@ -186,6 +187,9 @@ import { milestoneViews, nextUp } from '../core/progression/milestones.js';
 import { sureRight, weeklyEvLoss } from '../core/progression/decisions.js';
 import { VENUES } from '../core/story/cast.js';
 import { chevron, gearIcon } from './components/glyphs.js';
+import { renderProfileTransfer, type TransferBridge } from './components/profileTransfer.js';
+import { renderChallengeScreen, CHALLENGE_TABLE_SEATS } from './screens/challenge.js';
+import type { Challenge } from '../core/challengeCode.js';
 import type { DayKey } from '../core/localDay.js';
 
 const DEFAULT_SEED = 42;
@@ -209,7 +213,7 @@ export interface SpeakResult {
   reason: string | null;
 }
 
-interface OffsuitBridge extends ProBridge, HandsBridge, IcmBridge {
+interface OffsuitBridge extends ProBridge, HandsBridge, IcmBridge, TransferBridge {
   loadState: () => Promise<Record<string, unknown>>;
   /** Main answers `{ saved: false, readOnly }` when it refused the write; the in-memory bridge answers nothing. */
   saveState: (obj: Record<string, unknown>) => Promise<{ saved: boolean; readOnly: string | null; failed?: string } | void>;
@@ -359,6 +363,8 @@ async function boot(): Promise<void> {
       void obj;
       // While a delete is in flight nothing is written: a save of the old session landing after it would undo it.
       if (deleting) return { saved: false, readOnly: null, failed: 'deleting' };
+      // Nor while an import replaces the profile: this session is the one being replaced, and the app reloads.
+      if (replacing) return { saved: false, readOnly: null, failed: 'replacing' };
       const applied = applyProgress(lastSaved, session, takeExtras(), applyContext());
       session = { ...session, progression: applied.progression };
       // Dee's letters: an ended week is filed on the next save, before the 500-hand cap can cut into it. Read-only
@@ -419,6 +425,8 @@ async function boot(): Promise<void> {
   let profileGeneration = 0;
   /** A profile delete is awaiting main. */
   let deleting = false;
+  /** An import is replacing the profile: nothing more is saved, and the app reloads onto the import. */
+  let replacing = false;
   // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
   const soundPlayer = createSoundPlayer();
 
@@ -452,6 +460,12 @@ async function boot(): Promise<void> {
    * it returns to Progress, where the learner came from.
    */
   let varianceActive = false;
+  /**
+   * Challenge codes (screens/challenge.ts): a PANEL within the Play tab. `challengeMade` keeps the code on show
+   * across a challenge hand, so "Back to challenges" returns to it.
+   */
+  let challengeActive = false;
+  let challengeMade: Challenge | null = null;
   /** Today's Ticket is a PANEL within the Play tab, like the assessment block; leaving it returns to Home. */
   let ticketActive = false;
   /** Learn shows the lessons, the Folio (the Rulebook) or Teach Dee (a contrast set played from one rule). */
@@ -471,6 +485,8 @@ async function boot(): Promise<void> {
   let assessmentReturn: Leaf = 'home';
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
+  /** A challenge code's Math problem: its place in the drill's seeded sequence (consumed like drillKindNext). */
+  let drillIndexNext: number | null = null;
   let puzzleNext: string | null = null;
   /** Onboarding: reopened from Dee's settings, or dismissed this run (Skip saves, so it never returns by itself). */
   let onboardingOpen = false;
@@ -1006,12 +1022,64 @@ async function boot(): Promise<void> {
    * Play's panels are exclusive: opening one closes any other left open, so a launcher always lands on its own
    * panel whatever was open before (re-review S-A). The caller renders.
    */
-  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance'): void {
+  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance' | 'challenge'): void {
     multiplayerActive = kind === 'friends';
     onlineActive = kind === 'online';
     assessmentActive = kind === 'assessment';
     varianceActive = kind === 'variance';
     assessmentReturn = 'home';
+    challengeActive = kind === 'challenge';
+  }
+
+  /**
+   * Open a challenge code. A hand deals at a one-hand table from the code's seed, hand number, button and depth,
+   * so the cards and seats are the sender's; it is practice, graded but never logged, so a friend's code moves
+   * no bankroll, streak or record. A Math problem or a puzzle opens in its own Train screen.
+   */
+  function openChallenge(c: Challenge): void {
+    challengeActive = false;
+    if (c.kind === 'drill') {
+      tab = 'train';
+      trainMode = 'drill';
+      drillKindNext = c.drill;
+      drillIndexNext = c.index;
+      render();
+      return;
+    }
+    if (c.kind === 'puzzle') {
+      tab = 'train';
+      trainMode = 'puzzle';
+      puzzleNext = c.scenarioId;
+      render();
+      return;
+    }
+    if (c.seats !== CHALLENGE_TABLE_SEATS) return;
+    teardownTable();
+    multiplayerActive = false;
+    onlineActive = false;
+    assessmentActive = false;
+    varianceActive = false;
+    tab = 'play';
+    paintTabs();
+    table = renderTable({
+      seed: c.seed,
+      bankroll: session.bankroll,
+      handNumber: c.handNumber,
+      startStack: c.depthBb * BB,
+      button: c.button,
+      handLimit: 1,
+      coachedMode: session.coachedMode,
+      onHandComplete: () => undefined,
+      onVerdict: (message) => narrate(message),
+      onSessionOver: () => {
+        teardownTable();
+        openPanel('challenge');
+        render();
+      },
+      sittingEnd: { note: 'That was the challenge hand. It is practice: nothing was logged.', label: 'Back to challenges', testid: 'challenge-done' },
+    });
+    table.root.dataset.challenge = 'true';
+    render();
   }
 
   /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
@@ -1542,7 +1610,9 @@ async function boot(): Promise<void> {
       ticketActive = false;
       rivalOpen = null;
       drillKindNext = null;
+      drillIndexNext = null;
       puzzleNext = null;
+      challengeMade = null;
       teardownTable();
     }
     await refreshSettings();
@@ -1602,6 +1672,7 @@ async function boot(): Promise<void> {
     onlineActive = false;
     assessmentActive = false;
     varianceActive = false;
+    challengeActive = false;
     tab = 'play';
     paintTabs();
     // The session planner (when the learner started from it) models a whole-task live-hand count; a
@@ -1754,6 +1825,22 @@ async function boot(): Promise<void> {
       );
       return;
     }
+    if (challengeActive) {
+      screen.replaceChildren(
+        renderChallengeScreen({
+          made: challengeMade,
+          onMade: (c) => {
+            challengeMade = c;
+          },
+          onPlay: (c) => openChallenge(c),
+          onExit: () => {
+            challengeActive = false;
+            render();
+          },
+        }),
+      );
+      return;
+    }
     if (varianceActive) {
       screen.replaceChildren(
         renderVarianceScreen({
@@ -1781,6 +1868,10 @@ async function boot(): Promise<void> {
         },
         onStartAssessment: () => {
           openPanel('assessment');
+          render();
+        },
+        onChallenge: () => {
+          openPanel('challenge');
           render();
         },
       }),
@@ -1872,11 +1963,14 @@ async function boot(): Promise<void> {
     }
     if (mode === 'drill') {
       const initialKind = drillKindNext ?? undefined;
+      const initialIndex = drillIndexNext ?? undefined;
       drillKindNext = null;
+      drillIndexNext = null;
       return renderDrillScreen({
         fadingLog: session.fadingLog,
         onFadingEvents: (events) => void onFadingEvents(events),
         initialKind,
+        initialIndex,
       });
     }
     if (mode === 'anomaly') {
@@ -2174,6 +2268,18 @@ async function boot(): Promise<void> {
           onOpenDee: () => go('dee'),
         },
         proSection: renderProSettings(pro, { openSheet: openProSheet }),
+        profileTransfer: renderProfileTransfer({
+          bridge: io,
+          current: { hands: session.hands.length, bankroll: session.bankroll },
+          onReplacing: () => {
+            replacing = true;
+          },
+          onReplaced: (replaced) => {
+            // Every screen and the diff base hold the old profile; a reload starts them all from the import.
+            if (replaced) window.location.reload();
+            else replacing = false;
+          },
+        }),
       });
     }
     return renderPlaceholder(which);

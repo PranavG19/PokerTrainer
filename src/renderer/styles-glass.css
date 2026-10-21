@@ -569,6 +569,7 @@ html .pill.lg { height: var(--h-lg); padding: 0 18px; font-size: var(--t-head); 
 /* ─── Fields ─── */
 .lesson-input,
 .mp-input,
+.challenge-input,
 .equity-field input,
 select {
   border-radius: var(--r-ctl);
@@ -578,11 +579,13 @@ select {
 }
 .lesson-input::placeholder,
 .mp-input::placeholder,
+.challenge-input::placeholder,
 .equity-field input::placeholder {
   color: var(--ink-3);
 }
 .lesson-input:focus,
 .mp-input:focus,
+.challenge-input:focus,
 .equity-field input:focus {
   outline: 1.5px solid rgba(255, 255, 255, 0.5);
   outline-offset: 2px;

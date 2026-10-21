@@ -278,3 +278,127 @@ describe('a fresh profile', () => {
     expect(fs.existsSync(snapshotFile())).toBe(false);
   });
 });
+
+describe('an import replacing the profile', () => {
+  const NOW = new Date('2026-10-20T15:30:12.345Z');
+  const preImport = () => `${stateFile()}.pre-import-20261020T153012Z`;
+  const imported = (): Record<string, unknown> => ({ ...serialize(emptySession()), bankroll: 777 });
+
+  it('copies the live profile aside first, byte for byte, then writes the import', async () => {
+    const store = await freshStore();
+    const loaded = store.load();
+    store.save(playOneHand(loaded));
+    const before = fs.readFileSync(stateFile(), 'utf-8');
+    const outcome = store.replaceProfile(imported(), NOW);
+    expect(outcome).toEqual({ replaced: true, backup: preImport() });
+    expect(fs.readFileSync(preImport(), 'utf-8')).toBe(before);
+    expect(readJson(stateFile()).bankroll).toBe(777);
+    // The rolling backups still hold the replaced profile too.
+    expect(fs.readFileSync(backupPath(stateFile(), 1), 'utf-8')).toBe(before);
+  });
+
+  it('refuses every save until the renderer reloads, so the old session cannot write itself back', async () => {
+    const store = await freshStore();
+    const loaded = store.load();
+    store.save(playOneHand(loaded));
+    store.replaceProfile(imported(), NOW);
+    expect(store.save(playOneHand(loaded))).toEqual({ saved: false, readOnly: null, failed: 'reloading' });
+    expect(store.resaveLast((o) => o).saved).toBe(false);
+    expect(readJson(stateFile()).bankroll).toBe(777);
+    const reloaded = store.load();
+    expect(reloaded.bankroll).toBe(777);
+    expect(store.save(playOneHand(reloaded)).saved).toBe(true);
+  });
+
+  it('a second import in the same second keeps both copies', async () => {
+    const store = await freshStore();
+    store.load();
+    store.save(serialize(emptySession()));
+    store.replaceProfile(imported(), NOW);
+    store.load();
+    expect(store.replaceProfile({ ...imported(), bankroll: 888 }, NOW)).toEqual({ replaced: true, backup: `${preImport()}-2` });
+    expect(readJson(preImport()).bankroll).toBe(10000);
+    expect(readJson(`${preImport()}-2`).bankroll).toBe(777);
+  });
+
+  it('with no profile on disk there is nothing to keep, and the import lands', async () => {
+    const store = await freshStore();
+    store.load();
+    expect(store.replaceProfile(imported(), NOW)).toEqual({ replaced: true, backup: null });
+    expect(readJson(stateFile()).bankroll).toBe(777);
+  });
+
+  it('writes nothing when the copy cannot be made', async () => {
+    const store = await freshStore();
+    store.load();
+    store.save(serialize(emptySession()));
+    const before = fs.readFileSync(stateFile(), 'utf-8');
+    fs.chmodSync(userData, 0o555);
+    expect(store.replaceProfile(imported(), NOW)).toEqual({ replaced: false, refused: 'backup' });
+    fs.chmodSync(userData, 0o755);
+    expect(fs.readFileSync(stateFile(), 'utf-8')).toBe(before);
+    expect(store.save(serialize(emptySession())).saved).toBe(true);
+  });
+
+  it('never replaces a profile from a newer build, or one another copy changed', async () => {
+    const store = await freshStore();
+    const v3 = JSON.stringify({ schemaVersion: 3, bankroll: 5000, hands: [] });
+    fs.writeFileSync(stateFile(), v3);
+    store.load();
+    expect(store.replaceProfile(imported(), NOW)).toEqual({ replaced: false, refused: 'read-only' });
+    expect(fs.readFileSync(stateFile(), 'utf-8')).toBe(v3);
+
+    const other = await freshStore();
+    other.load();
+    other.save(serialize(emptySession()));
+    fs.writeFileSync(stateFile(), JSON.stringify({ bankroll: 1, hands: [] }));
+    expect(other.replaceProfile(imported(), NOW)).toEqual({ replaced: false, refused: 'read-only' });
+    expect(readJson(stateFile()).bankroll).toBe(1);
+  });
+
+  it('delete removes the pre-import copies with everything else', async () => {
+    const store = await freshStore();
+    store.load();
+    store.save(serialize(emptySession()));
+    store.replaceProfile(imported(), NOW);
+    expect(store.deleteProfile('DELETE PROFILE').removed).toContain(preImport());
+    expect(fs.readdirSync(userData).filter((n) => n.startsWith('offsuit-state'))).toEqual([]);
+  });
+
+  it('currentProfile is a copy of what was last loaded or saved', async () => {
+    const store = await freshStore();
+    const loaded = store.load();
+    const saved = playOneHand(loaded);
+    store.save(saved);
+    const current = store.currentProfile();
+    expect(current).toEqual(saved);
+    (current as Record<string, unknown>).bankroll = -1;
+    expect(store.currentProfile()?.bankroll).toBe(saved.bankroll);
+    store.deleteProfile('DELETE PROFILE');
+    expect(store.currentProfile()).toBeNull();
+  });
+});
+
+describe('an import over a profile recovered from a backup', () => {
+  const NOW = new Date('2026-10-20T15:30:12.345Z');
+  const preImport = () => `${stateFile()}.pre-import-20261020T153012Z`;
+  const recovered = () => JSON.stringify({ ...serialize(emptySession()), bankroll: 4242 });
+
+  it('copies aside the profile the app is running on, not a missing live file', async () => {
+    const store = await freshStore();
+    fs.writeFileSync(backupPath(stateFile(), 1), recovered());
+    expect(store.load().bankroll).toBe(4242);
+    const outcome = store.replaceProfile({ ...serialize(emptySession()), bankroll: 1 }, NOW);
+    expect(outcome).toEqual({ replaced: true, backup: preImport() });
+    expect(readJson(preImport()).bankroll).toBe(4242);
+  });
+
+  it('copies aside the profile the app is running on, not a torn live file', async () => {
+    const store = await freshStore();
+    fs.writeFileSync(backupPath(stateFile(), 1), recovered());
+    fs.writeFileSync(stateFile(), '{torn');
+    expect(store.load().bankroll).toBe(4242);
+    expect(store.replaceProfile({ ...serialize(emptySession()), bankroll: 1 }, NOW).replaced).toBe(true);
+    expect(readJson(preImport()).bankroll).toBe(4242);
+  });
+});

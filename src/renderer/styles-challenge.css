@@ -1,0 +1,103 @@
+/* Challenge codes (screens/challenge.ts) and the import confirm (components/profileTransfer.ts). Tokens only
+ * (styles-glass.css). Layout: Play's two columns, the reader and maker on the left, the code on show on the
+ * right. The QR is the one bone object here (a printed code), dark ink on bone; the code text beside it is
+ * neutral. The import confirm reuses the Pro sheet's float (dialog.pro-sheet, styles-pro.css). */
+
+.challenge-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  max-width: 1000px;
+  padding: 20px 32px;
+}
+.challenge-col { gap: 14px; }
+
+.challenge-reader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.challenge-read-row {
+  display: flex;
+  gap: 8px;
+}
+.challenge-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-ctl);
+  padding: 0 10px;
+  font: inherit;
+  font-size: var(--t-head);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.challenge-input::placeholder { text-transform: none; letter-spacing: 0.06em; }
+.challenge-notice { margin: 0; min-height: calc(var(--t-body) * 1.5); }
+.challenge-reader[data-state='invalid'] .challenge-notice { color: var(--coral); }
+.challenge-reader[data-state='valid'] .challenge-notice { color: var(--ink-1); }
+
+.challenge-maker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.challenge-make-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.challenge-select {
+  height: var(--h-sm);
+  padding: 0 8px;
+  font: inherit;
+  font-size: var(--t-foot);
+}
+.challenge-select[hidden] { display: none; }
+.challenge-col > .challenge-back { align-self: flex-start; margin-top: auto; }
+
+.challenge-side { justify-content: flex-start; }
+.challenge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+}
+.challenge-card[data-state='none'] { align-items: stretch; }
+.challenge-empty, .challenge-what { margin: 0; text-align: center; }
+.challenge-qr {
+  width: min(232px, 34vh);
+  aspect-ratio: 1;
+  border-radius: var(--r-ctl);
+  overflow: hidden;
+}
+.qr-code { display: block; width: 100%; height: 100%; }
+.qr-ground { fill: var(--bone); }
+.qr-ink { fill: var(--ink-on-bone); }
+.challenge-code {
+  font-size: var(--t-t3);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink-1);
+  user-select: all;
+}
+.challenge-actions { display: flex; gap: 8px; }
+
+/* ─── The import confirm: the two profiles side by side ─── */
+.transfer-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 10px 0;
+}
+.transfer-compare > * + * { border-top: 0; }
+.transfer-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-transfer-status[hidden] { display: none; }
+.profile-transfer-status[data-state='refused'],
+.profile-transfer-status[data-state='failed'] { color: var(--coral); }

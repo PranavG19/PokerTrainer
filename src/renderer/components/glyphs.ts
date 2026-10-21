@@ -53,6 +53,14 @@ export function peopleIcon(): SVGSVGElement {
   ]);
 }
 
+/** A QR-style mark (three finder squares and a module) for challenge codes. */
+export function codeIcon(): SVGSVGElement {
+  return svg('0 0 14 14', '', [
+    { d: 'M1 1h4v4H1zM9 1h4v4H9zM1 9h4v4H1z', width: 1.3 },
+    { d: 'M9 9h1.5v1.5H9zM11.5 11.5H13V13h-1.5z', fill: true },
+  ]);
+}
+
 /** The 13px warning mark beside a severity word, so severity is never colour alone. */
 export function warningIcon(): SVGSVGElement {
   return svg('0 0 13 13', 'g-warn', [
