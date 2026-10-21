@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "bankroll": 8420,
+  "soundCues": true,
+  "futureTopLevel": { "kept": true },
+  "progression": {
+    "milestones": { "achieved": { "depth-40": { "day": 20700 }, "streak-7": { "day": 20710 } } },
+    "seals": { "earned": {} },
+    "cosmetics": {
+      "owned": ["back-guilloche", "back-guilloche", "avatar-from-newer", 7],
+      "equipped": { "cardBack": "back-guilloche", "felt": "felt-not-owned", "avatar": "avatar-from-newer" },
+      "receipts": [{ "itemId": "back-guilloche", "day": 20690, "fact": "Wrote 12 rules in your own words", "chalk": 0 }, { "bad": true }],
+      "chalk": { "balance": 300, "day": 20740, "earnedToday": 900 },
+      "futureCosmeticsKey": [1, 2]
+    },
+    "futureProgressionKey": "kept"
+  }
+}

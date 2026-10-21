@@ -182,8 +182,10 @@ import { renderRail } from './screens/rail.js';
 import { renderSeason, type SeasonPane } from './screens/season.js';
 import { railBoard, settleRail } from '../core/progression/rail.js';
 import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
+import { cancelMoment, momentKey, playMoment } from './components/moment.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
-import { COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
+import { CHALK_DAILY_CAP, COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
+import { chalkLeftToday, earnChalk, spendItem } from '../core/economy/chalk.js';
 import { milestoneFacts, masteredIds, teachDueFrom } from '../core/progression/apply.js';
 import { FINDING_TITLES, findingOf, latestSets, recordTaught, rewritesDue } from '../core/teachDee.js';
 import { milestoneViews, nextUp } from '../core/progression/milestones.js';
@@ -358,6 +360,10 @@ async function boot(): Promise<void> {
   let saveFailing = false;
   // Every save goes through here, so a refusal or a failure shows the banner the moment it happens,
   // whichever of the ~20 save sites hit it.
+  // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
+  const soundPlayer = createSoundPlayer();
+  /** Every session a moment was played for this run (moment.ts momentKey): once each, however often it re-diffs. */
+  const momentsPlayed = new Set<string>();
   const io: OffsuitBridge = {
     ...base,
     saveState: async (obj) => {
@@ -391,7 +397,32 @@ async function boot(): Promise<void> {
       let outcome: Awaited<ReturnType<OffsuitBridge['saveState']>>;
       try {
         outcome = await base.saveState(serialize(toSave));
-        if ((!outcome || outcome.saved) && generation === profileGeneration) lastSaved = toSave;
+        if ((!outcome || outcome.saved) && generation === profileGeneration) {
+          lastSaved = toSave;
+          // The celebration moment (1.10): only for a session this save actually kept, and once per session per day,
+          // so a read-only profile or a failed save (which re-diffs the same session) never replays it.
+          const day = dayOf()(now());
+          const counts = {
+            assessments: new Set(toSave.assessments.map((a) => a.at)).size,
+            storyTables: Object.values(toSave.progression.story.chapters).reduce((n, c) => n + c.tables, 0),
+          };
+          const fresh = applied.finished.filter((f) => !momentsPlayed.has(momentKey(f, day, counts)));
+          // Whether it may play at all is Settings' (1.8): the one reader, celebrationGate() (the Celebrations switch,
+          // and never in a trial's off week). A session it may not play for is still marked, so it never plays later.
+          const gate = celebrationGate(toSave.progression, toSave.soundCues, day);
+          for (const f of fresh) momentsPlayed.add(momentKey(f, day, counts));
+          if (fresh.length > 0 && gate.play) {
+            const streak = toSave.progression.streak;
+            playMoment({
+              finished: fresh,
+              streak: currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())),
+              // Read at show time through the same gate, so a switch turned off while it waits keeps it silent.
+              sound: () => {
+                if (celebrationGate(session.progression, session.soundCues, dayOf()(now())).sound) soundPlayer.clack();
+              },
+            });
+          }
+        }
       } catch {
         outcome = { saved: false, readOnly: null, failed: 'ipc' };
       }
@@ -438,8 +469,6 @@ async function boot(): Promise<void> {
   let deleting = false;
   /** An import is replacing the profile: nothing more is saved, and the app reloads onto the import. */
   let replacing = false;
-  // One shared cue player; it constructs its AudioContext lazily on the first mistake with sound on.
-  const soundPlayer = createSoundPlayer();
 
   let tab: Tab = 'home';
   // Which mode the Train hub opens on. Set by a deep-link (the recommender's "drill" route) or a rail
@@ -496,6 +525,10 @@ async function boot(): Promise<void> {
   let seasonPane: SeasonPane | null = null;
   /** Where the assessment panel returns: Home, or the Season when its finale (or opening block) was taken there. */
   let assessmentReturn: Leaf = 'home';
+  /** An item just bought with Chalk, kept selected through the re-render so "Use this …" is one press away. */
+  let lockerBought: string | null = null;
+  /** A Chalk purchase is being saved: a second one waits for it, so it never starts from a stale balance. */
+  let lockerSpending = false;
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
   /** A challenge code's Math problem: its place in the drill's seeded sequence (consumed like drillKindNext). */
@@ -1614,6 +1647,7 @@ async function boot(): Promise<void> {
 
   async function onDeleteProfile(confirmation: string): Promise<void> {
     deleting = true;
+    cancelMoment();
     profileGeneration += 1;
     let outcome: { deleted: boolean } | undefined;
     try {
@@ -2628,10 +2662,15 @@ async function boot(): Promise<void> {
       story: p.story,
       facts: milestoneFacts(session, p, SCENARIOS, masteredIds(deriveConcepts(), now()).length),
     };
-    const cosmetics = syncCosmetics(p.cosmetics, earn, today());
+    const d = today();
+    // What the next save files: the receipts earned so far, and today's Chalk from today's Reps (the balance shown and
+    // spent is the one the save will write, so nothing is disabled that the learner can already afford).
+    const synced = syncCosmetics(p.cosmetics, earn, d);
+    const cosmetics = { ...synced, chalk: earnChalk(synced.chalk, p.reps, d) };
+    const ledgerDay = cosmetics.chalk.day;
     return renderLocker({
       cosmetics,
-      earn,
+      earn: { ...earn, balance: cosmetics.chalk.balance },
       slot: lockerSlot,
       onSlot: (slot) => {
         lockerSlot = slot;
@@ -2646,6 +2685,26 @@ async function boot(): Promise<void> {
           document.querySelector<HTMLElement>(`[data-testid="locker-item"][data-id="${CSS.escape(itemId)}"]`)?.focus();
         });
       },
+      // Chalk (D4): a fixed price from an earn-only balance. Nothing else moves: no chips, no Reps.
+      onSpend: (itemId) => {
+        if (lockerSpending) return false;
+        const next = spendItem(cosmetics, itemId, d);
+        if (next === cosmetics) return false;
+        lockerSpending = true;
+        void saveProgression({ ...session.progression, cosmetics: next }).finally(() => {
+          lockerSpending = false;
+          lockerBought = itemId;
+          render();
+          lockerBought = null;
+          // Now owned and still selected, the same button reads "Use this …"; keep the keyboard on it.
+          document.querySelector<HTMLElement>('[data-testid="locker-equip"]')?.focus();
+        });
+        return true;
+      },
+      chalkToday: { earned: CHALK_DAILY_CAP - chalkLeftToday(cosmetics.chalk, d), cap: CHALK_DAILY_CAP },
+      resumesOn: ledgerDay !== null && ledgerDay > d ? ledgerDay : null,
+      readOnly: settings.profile.readOnly != null,
+      selectedId: lockerBought ?? undefined,
     });
   }
 

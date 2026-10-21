@@ -249,3 +249,20 @@ describe('the paint: every item is a complete token block of its own slot', () =
   });
 });
 
+
+describe('an equip in a slot only a newer build knows (owner: carry it, in place, no version bump)', () => {
+  it('is carried through a load and a save while its item is owned; one not owned is still dropped', () => {
+    // JSON.parse makes `__proto__` an own key (an object literal would set the prototype instead).
+    const raw = JSON.parse('{"cosmetics":{"owned":["avatar-x","felt-spruce"],"equipped":{"felt":"felt-spruce","avatar":"avatar-x","hat":"not-owned","__proto__":"avatar-x"}}}');
+    const p = parseProgression(raw);
+    const round = parseProgression(serializeProgression(p)).cosmetics.equipped as Record<string, string>;
+    expect(round).toEqual({ felt: 'felt-spruce', avatar: 'avatar-x' });
+  });
+
+  it('wearing something in a known slot keeps the newer slot', () => {
+    const p = parseProgression({ cosmetics: { owned: ['avatar-x', 'felt-spruce'], equipped: { avatar: 'avatar-x' } } });
+    const worn = equip(p.cosmetics, 'felt-spruce').equipped as Record<string, string>;
+    expect(worn).toEqual({ avatar: 'avatar-x', felt: 'felt-spruce' });
+    expect(paintOf(equip(p.cosmetics, 'felt-spruce')).felt).toBe('spruce');
+  });
+});

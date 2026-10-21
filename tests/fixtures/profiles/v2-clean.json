@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 2,
+  "bankroll": 10000,
+  "progression": {
+    "cosmetics": { "owned": [], "equipped": {}, "receipts": [], "chalk": { "balance": 0, "day": null, "earnedToday": 0 } }
+  }
+}

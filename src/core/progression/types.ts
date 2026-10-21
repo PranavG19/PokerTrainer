@@ -87,7 +87,10 @@ export const CHALK_DAILY_CAP = 225;
 export interface CosmeticsState {
   /** Item ids owned, unique. */
   owned: string[];
-  /** Equipped item per slot. Only an owned item can be equipped. */
+  /**
+   * Equipped item per slot. Only an owned item can be equipped. A slot a newer build added is kept here as it is (the
+   * parser carries any slot whose item is owned), so it is typed by the known slots but may hold more.
+   */
   equipped: Partial<Record<CosmeticSlot, string>>;
   /** Why each item is owned: the fact that earned it, newest last, bounded by MAX_RECEIPTS. */
   receipts: Receipt[];

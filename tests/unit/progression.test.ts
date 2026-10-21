@@ -246,7 +246,8 @@ describe('corrupt progression falls back without losing anything else', () => {
     expect(p.reps.awards).toHaveLength(1);
     expect(p.reps.total).toBe(10);
     expect(p.cosmetics.owned).toEqual(['a', 'b']);
-    expect(p.cosmetics.equipped).toEqual({ felt: 'b' });
+    // `bogus` is a slot this build does not know, holding an owned item: carried (a newer build's slot), not dropped.
+    expect(p.cosmetics.equipped).toEqual({ felt: 'b', bogus: 'a' });
     expect(p.cosmetics.receipts).toEqual([]);
     expect(p.cosmetics.chalk).toEqual({ balance: 0, day: 19603, earnedToday: CHALK_DAILY_CAP });
     expect(p.personalization.goals).toEqual(['a', 'b']);

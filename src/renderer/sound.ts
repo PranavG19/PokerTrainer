@@ -1,5 +1,6 @@
 /**
- * A single synthesized cue, played at a costly verdict when the learner has turned sound on.
+ * A single synthesized cue, played at a costly verdict when the learner has turned sound on, and (1.10) one soft clack
+ * when a session ends, behind the same switch.
  *
  * Honest by construction: it carries NO information the screen does not already show. It fires at
  * exactly one moment — a mistake verdict (the same `onVerdict` the coach panel and the optional voice
@@ -59,7 +60,12 @@ function defaultFactory(): EngineFactory {
  */
 export interface SoundPlayer {
   play(): void;
+  /** The session-end clack (1.10, D13): one short, soft, high tick. Same gate as `play()`: the caller checks the switch. */
+  clack(): void;
 }
+
+/** The moment's clack: one short tick, quieter than the mistake cue, never a fanfare. */
+const CLACK = { freq: 880, stop: 0.06, peakGain: 0.05 } as const;
 
 export function createSoundPlayer(factory: EngineFactory = defaultFactory()): SoundPlayer {
   return {
@@ -86,6 +92,27 @@ export function createSoundPlayer(factory: EngineFactory = defaultFactory()): So
         }
       } catch {
         // Audio must never break a hand: a mid-render fault is swallowed, the verdict stays on screen.
+      }
+    },
+    clack(): void {
+      const engine = factory();
+      if (!engine) return;
+      try {
+        if (engine.state === 'suspended') void engine.resume?.();
+        const now = engine.currentTime;
+        const osc = engine.createOscillator();
+        const gain = engine.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = CLACK.freq;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(CLACK.peakGain, now + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + CLACK.stop);
+        osc.connect(gain);
+        gain.connect(engine.destination);
+        osc.start(now);
+        osc.stop(now + CLACK.stop);
+      } catch {
+        // Never let a celebration's sound interrupt anything.
       }
     },
   };

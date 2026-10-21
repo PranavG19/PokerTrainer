@@ -1,34 +1,39 @@
-# Independent review: Settings — Character, Celebrations and the local trial (branch feat-settings-trial, 1.8)
+# Independent review: PR 2 (branch feat-cosmetics): Chalk, the celebration moment, newer-slot equips, the fix-up script
 
-Two passes, each by a fresh reviewer agent with no author context. Both reviewed read-only and ran only the typecheck
-and unit tests; Playwright runs go through the shared e2e lock.
+Two reviewer agents with no author context, each over two passes. They reviewed read-only and ran typecheck, units and
+the script on temp copies only (no Playwright or build: the shared e2e lock governs those). The cosmetics and Locker
+review (#35) is in that PR's history.
 
-| Pass | HEAD | Verdict |
-|---|---|---|
-| 1. Review | bc5a8bd | **PASS WITH NOTES**: no high findings, no egress, no deletion; 2 medium defects, 1 medium design risk, 10 low |
-| 2. Re-review | 97a5909 | **PASS WITH NOTES**: all 8 fixes correct; 1 medium (the mid-trial table), 6 low, fixed in d58dd62 |
+| Scope | Pass | HEAD | Verdict |
+|---|---|---|---|
+| Chalk (2.6) | 1. Review | d3e4db9 | **PASS WITH NOTES**: no farming or double-pay; two medium, five low, test gaps |
+| Chalk | 2. Re-review | 557f8a7 | **PASS WITH NOTES**: one medium-low, two low, fixed in 6540c48 |
+| The moment, schema, script | 1. Review | 2b080a1 | **PASS WITH NOTES**: one medium-high, one medium, five low |
+| The moment, schema, script | 2. Re-review | f52ef96 | **PASS WITH NOTES**: every fix landed; one medium, one low-medium, fixed in the final commit |
 
-## Findings and outcomes
+## Findings and outcomes (red first wherever a defect was repaired)
 
 | ID | Finding | Outcome |
 |---|---|---|
-| 1.1 (M) | An older build read a newer build's unknown trial status as "none" and let Start replace the whole trial | Fixed in 97a5909, red first: `startRefusal` reads the raw status and start day |
-| 1.2 (M) | `countBlock` re-ran each concept's whole drill history for every rep, on every save (383 ms at 3,000 × 3,000) | Fixed in 97a5909: counting is incremental from a per-week high-water mark, and only concepts with a new rep are replayed |
-| 1.3 (M, design) | The late-night and busy-day criteria compared raw totals, so more practice in on weeks tripped them | Changed in 97a5909: they compare shares, with minimum samples. Recorded in DECISIONS.md as a decision to evaluate |
-| 1.4 (L) | Taking the max of each field kept a capped log from shrinking a week but also stopped it growing | Fixed in 97a5909, red first (incremental counting) |
-| 1.5 (L) | An empty save filed an empty week, so "weeks with a session" over-counted | Fixed in 97a5909, red first |
-| 1.6 (L) | Practice earlier on the start day, before Start was pressed, counted | Fixed in 97a5909, red first: `startedAt` |
-| 1.7 (L) | Verdicts showed mid-trial, which could bias the remaining weeks, and on a stopped trial, which is never judged | Fixed in 97a5909: verdicts appear only once results are ready or finished |
-| 1.8 (L) | Quieter spacing allowed a line on the Nth hand, and it also silenced the session summary | Fixed in 97a5909, red first: N silent hands; the summary is exempt |
-| 1.9 (L) | An off week that starts while a table is open applies at the next save or table | Open, accepted: the next save or table rebuild applies it |
-| 1.10 (L) | `observeTrial` ran inside `saveState` with no guard | Fixed: wrapped in try/catch; the old counts stand |
-| 1.11 (L) | The baseline kept all seven Calibration fields | Fixed, red first: three fields |
-| 1.12 (L) | a11y: Start's reason was not live; Dee's screen gives no off-week note; aria-pressed vs aria-checked differ between screens | The reason is now `aria-live`. The other two stay open (Settings follows its own theme idiom) |
-| 1.13 (L) | Test gaps (off-week Dee silence at the table, a loose mastered assertion, the 4 am day in e2e) | The mastered assertion is exact; e2e accepts either side of 4 am. The off-week check is by `html[data-character]`, the attribute every Dee mark reads |
-| 2.1 (M) | The running view's on-vs-off table still let the verdict be worked out | Fixed in d58dd62: while running, every week is pooled into one column, and `data-tripped` is set only once results are ready or finished |
-| 2.2 (L) | One save with a fast clock stalled a week until real time caught up | Fixed in d58dd62: a mark past now is filed back at now, so at most one save's activity is lost (test) |
-| 2.3 (L) | Blocks without `through` double-count | e2e fixtures carry `through`. Never shipped: bc5a8bd was not merged |
-| 2.4 (L) | The table showed late and busy totals where the criteria use rates | Fixed: share (n) |
-| 2.5 (L) | Fields inside a block or the baseline can't be carried | Recorded in DECISIONS.md: a later field goes in a new key |
-| 2.6 (L) | Stale header comment | Fixed |
-| 2.7 (L) | No test that a session continues across saves, or that a delayed rep reads history older than the mark | Added (unit) |
+| C1 (M) | A double-click bypassed the two-press confirm | Fixed: a confirm within 500 ms is ignored; key repeat never confirms; the armed confirm lapses after 8 s |
+| C2 (M) | Chalk bought celebrations before the moment existed | Fixed then, and moot now: the moment plays them |
+| C3–C7 (L) | Clock behind the ledger promised Chalk; owed Chalk not shown; stale snapshot during a save; read-only could spend; `spend` trusted the caller's price | All fixed (`economy.test`, `locker.spec`) |
+| M1 (M-H) | On a read-only profile or a failing save, the moment replayed on every save | Fixed: it plays only after the save lands, once per session |
+| M2 (M) | Only the table's verdicts held the moment | Fixed: drill, puzzle and assessment verdicts hold it, and one raised mid-moment ends it |
+| M3 (L-M) | `--file=path` fell through to the real profile | Fixed: unknown arguments are refused |
+| M4–M8 (L) | Script race and temp file; a vacuous `__proto__` test; the "every byte" wording; a moment surviving a delete or sound toggle; stale counts and a weak Ink ring | Fixed: re-read before the rename, fsync and cleanup; JSON.parse; "every other value"; `cancelMoment`; sound read at show time; counts verified |
+| R1 (M) | Keying by day and kind silenced a second assessment or story table that day | Fixed (`moment.test`): one key per session |
+| R2 (L-M) | The top-left moment covered Train's rail | Fixed (`moment.spec`, red first): bottom left, measured over the table and Train at both sizes |
+| Rebase | Main moved under this PR six times (#44, #45, #47, #49, #46, #48); every conflict was a union (catalogue rules and items, token blocks, imports, the save path, the import flag) | A third read-only pass found nothing broken: every paint has its block, the counts match, every earn context passes `story` for keepsakes, and the save path is not duplicated |
+| G1 | Settings #50 owns the celebration switches through `celebrationGate()` | 365ccc9, red first: the moment plays, holds still and clacks only through the gate; off and an off week never play. Reviewed: correct |
+| G2 (M) | A moment already waiting behind a verdict was not re-gated when it showed | 86f90e6, red first: re-read through `html[data-celebrations]` at show time. The Locker preview playing with Celebrations off is recorded as intended |
+| S1 | After the rebase the fix-up script's imports reached an `enum` (core/evaluate.ts), which Node 26 cannot strip | Fixed, red first (the two CLI tests): `ts-js-resolve.mjs` transpiles .ts with the repo's TypeScript |
+
+## Checked and found fine
+- Chalk: the curve (225 a day at most) holds whatever is replayed, gone stale or evicted. Every path into Chalk is
+  Reps; nothing converts out; there is no money path, sale or randomness, and nothing cosmetic or currency-like is Pro.
+- The parser change keeps an owned item in an unknown slot, with no overlap with the profileSchema carry, and no
+  prototype issue. The script keeps unknown keys at every level, is idempotent, skips newer-build and v1 files, and
+  never writes without a byte-checked backup (`COPYFILE_EXCL`).
+- The clack is the only 880 Hz tone, and sound.spec's oscillator counts are unaffected. The new settings copy is
+  accurate.
