@@ -19,11 +19,19 @@ export const MAX_NOTE = 140;
 /** Who a notebook entry came from when it is this player's own. */
 export const FROM_YOU = 'You';
 
-/** Names are trimmed and single-spaced, with no control characters, cut on whole graphemes. */
+/**
+ * Names are trimmed and single-spaced, with no control characters, and cut on whole graphemes to at most `max`
+ * UTF-16 code units: the unit persist.ts bounds a name in, so a name that saves is a name that reloads.
+ */
 export function cleanName(raw: string, max: number = MAX_MEMBER_NAME): string {
   const s = raw.replace(/\s+/g, ' ').replace(/[\u0000-\u001f\u007f]/g, '').trim();
   const graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)].map((g) => g.segment);
-  return graphemes.slice(0, max).join('').trim();
+  let out = '';
+  for (const g of graphemes) {
+    if (out.length + g.length > max) break;
+    out += g;
+  }
+  return out.trim();
 }
 
 export function startClub(c: ClubState, rawName: string, day: DayKey): ClubState {

@@ -56,7 +56,7 @@
 /* Members: chips in the coat (informational), a small remove mark on each. */
 .club-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 /* A full roster (24 names) scrolls inside the column instead of the page. */
-.club-members > .club-chips { max-height: calc(var(--h-sm) * 4 + 18px); overflow-y: auto; }
+.club-members > .club-chips { max-height: calc(var(--h-sm) * 4 + 18px); overflow-y: auto; padding: 2px; }
 .club-chip {
   display: inline-flex;
   align-items: center;
@@ -82,7 +82,7 @@
 }
 .club-chip-x:hover { background: var(--fill-1); color: var(--ink-1); }
 .club-chip-x:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 1px; }
-.club-chip-input { flex: 0 1 140px; }
+.club-chip-input { flex: none; align-self: flex-start; width: 180px; }
 
 /* The notebook: the reader, then its entries scrolling inside the column. */
 .club-notebook { flex: 1 1 auto; }

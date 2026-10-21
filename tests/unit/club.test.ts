@@ -48,7 +48,8 @@ describe('the club', () => {
   it('names are cleaned and cut on whole graphemes', () => {
     expect(cleanName('  Sam   the\tdealer ')).toBe('Sam the dealer');
     expect(cleanName('\u0000\u0007')).toBe('');
-    expect(cleanName('ab👨‍👩‍👧‍👦cd', 3)).toBe('ab👨‍👩‍👧‍👦');
+    expect(cleanName('ab👨‍👩‍👧‍👦cd', 3)).toBe('ab');
+    expect(cleanName('ab👨‍👩‍👧‍👦cd', 20)).toBe('ab👨‍👩‍👧‍👦cd');
   });
 });
 
@@ -134,5 +135,17 @@ describe('review: a code the table cannot deal', () => {
     expect(r.ok).toBe(false);
     expect(!r.ok && r.reason).toContain('6-handed');
     expect(readCode(hand, playable).ok).toBe(true);
+  });
+});
+
+describe('review: a name that saves is a name that reloads', () => {
+  it('names are cut to what the parser keeps, counted in code units, on whole graphemes', () => {
+    const family = '👨‍👩‍👧‍👦';
+    let c = startClub(empty, 'क्षत्रिय '.repeat(6), DAY);
+    c = addMember(c, `Sam ${family}${family}${family}`, DAY);
+    const back = parseProgression({ club: c }).club;
+    expect(back.name).toBe(c.name);
+    expect(back.members).toEqual(c.members);
+    expect(back.members).toHaveLength(1);
   });
 });

@@ -177,8 +177,9 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
     add.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') save(addMember(club, add.value, opts.today));
     });
-    list.appendChild(add);
-    sect.appendChild(list);
+    // The way to add stays in sight below the roster, which scrolls on its own once it is long.
+    if (club.members.length > 0) sect.appendChild(list);
+    sect.appendChild(add);
     return sect;
   }
 
