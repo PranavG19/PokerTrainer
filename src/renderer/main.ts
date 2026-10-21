@@ -407,15 +407,18 @@ async function boot(): Promise<void> {
             storyTables: Object.values(toSave.progression.story.chapters).reduce((n, c) => n + c.tables, 0),
           };
           const fresh = applied.finished.filter((f) => !momentsPlayed.has(momentKey(f, day, counts)));
-          if (fresh.length > 0) {
-            for (const f of fresh) momentsPlayed.add(momentKey(f, day, counts));
+          // Whether it may play at all is Settings' (1.8): the one reader, celebrationGate() (the Celebrations switch,
+          // and never in a trial's off week). A session it may not play for is still marked, so it never plays later.
+          const gate = celebrationGate(toSave.progression, toSave.soundCues, day);
+          for (const f of fresh) momentsPlayed.add(momentKey(f, day, counts));
+          if (fresh.length > 0 && gate.play) {
             const streak = toSave.progression.streak;
             playMoment({
               finished: fresh,
               streak: currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())),
-              // Read at show time, so turning sound off while it waits keeps it silent.
+              // Read at show time through the same gate, so a switch turned off while it waits keeps it silent.
               sound: () => {
-                if (session.soundCues) soundPlayer.clack();
+                if (celebrationGate(session.progression, session.soundCues, dayOf()(now())).sound) soundPlayer.clack();
               },
             });
           }

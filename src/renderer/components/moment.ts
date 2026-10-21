@@ -13,7 +13,9 @@ import type { FinishedSession } from '../../core/progression/streak.js';
  * - **Once per session, and only for a session that was saved:** the host calls it after the save lands.
  * - **At most 1600 ms** (`--dur-moment`), transform and opacity only, click-through, factual copy, no confetti, coins,
  *   gold or count-ups. Reduced motion: the words show, still, for the same time.
- * - **Sound only behind the switch:** the host passes `sound` only when the learner turned sound on.
+ * - **Settings decide (1.8):** the host plays it only when `celebrationGate()` (core/trial.ts) says `play` (the
+ *   Celebrations switch, and never in a trial's off week), sounds the clack only on its `sound`, and "Still" motion is
+ *   `html[data-motion='still']`, which styles-cosmetics.css honours like reduced motion. Nothing here reads a setting.
  * - The look is the equipped celebration's tokens (`html[data-celebration]`, styles-cosmetics.css); nothing here
  *   chooses one.
  */

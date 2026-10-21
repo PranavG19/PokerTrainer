@@ -136,7 +136,9 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
   holds it (the table's sheet or coach panel, a drill, a graded or finished puzzle, an assessment reveal), and one
   raised while it plays ends it. It is dropped after 120 s held. It lasts at most 1600 ms, sits bottom left above
   the dock (clear of every seat, rail and control on the table and Train), and is cancelled by a profile delete.
-  Under reduced motion the words show still.
+  Under reduced motion the words show still. Whether it plays is Settings' (1.8): the hook asks `celebrationGate()`
+  (the Celebrations switch, never in a trial's off week; "Still" motion; the clack needs both sound switches) and reads
+  no setting of its own.
   A soft clack plays only when the sound switch is on; that switch's note now says so. Supersedes: celebrations
   stored and previewed only, because the moment is built. Two celebrations are now priced.
 - **Profile schema while there are no customers (owner):** edit the current version in place and never bump

@@ -19,7 +19,7 @@ const STATE = 'offsuit-state.json';
 const NOW = new Date(2026, 9, 20, 20, 0, 0).getTime();
 
 /** A profile with `n` hands already played today and the Light sweep celebration worn. */
-function profileWithHandsToday(n: number, extra: Record<string, unknown> = {}): string {
+function profileWithHandsToday(n: number, extra: Record<string, unknown> = {}, progression: Record<string, unknown> = {}): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-moment-'));
   const hands = Array.from({ length: n }, (_, i) => ({
     handNumber: i + 1, hole: ['As', 'Kd'], board: [], net: 0, vpip: false, pfr: false, grades: [], playedAt: NOW - 3_600_000 + i * 60_000,
@@ -33,6 +33,7 @@ function profileWithHandsToday(n: number, extra: Record<string, unknown> = {}): 
       progression: {
         milestones: { achieved: { 'price-held-first': { day: systemDayKeyOf()(NOW) - 3 } } },
         cosmetics: { owned: ['cele-light-sweep'], equipped: { celebration: 'cele-light-sweep' } },
+        ...progression,
       },
     }),
   );
@@ -305,6 +306,73 @@ test('a verdict on another screen holds it too, and a verdict raised while it pl
       document.body.appendChild(v);
     });
     await expect(page.locator('[data-testid="moment"]')).toHaveCount(0, { timeout: 400 });
+  } finally {
+    await app.close();
+  }
+});
+
+/**
+ * The Celebrations switches are Settings' (1.8): one key, `progression.celebrations`, read only through
+ * `celebrationGate()` (trial.ts). The moment obeys it: off never plays, a trial's off week never plays, and the clack
+ * needs the celebration's own sound switch as well as the app's.
+ */
+test('the Celebrations switch off: no moment', async () => {
+  const app = await launchApp({ userDataDir: profileWithHandsToday(11, {}, { celebrations: { on: false, motion: 'system', sound: true } }), env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await recordMoments(page);
+    await playOneHand(page);
+    if (await verdictUp(page)) await page.click('[data-testid="next-hand"]');
+    await page.waitForTimeout(1500);
+    expect(await moments(page)).toHaveLength(0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('an off week of a running trial: no moment', async () => {
+  const today = systemDayKeyOf()(NOW);
+  const trial = { status: 'running', startedOn: today - 8, startedAt: NOW - 8 * 86_400_000, prediction: 'The layer helps me keep practising most days.', ownCriterion: '', baseline: null };
+  const app = await launchApp({ userDataDir: profileWithHandsToday(11, {}, { trial }), env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    expect(await page.evaluate(() => document.documentElement.dataset.celebrations)).toBe('off');
+    await recordMoments(page);
+    await playOneHand(page);
+    if (await verdictUp(page)) await page.click('[data-testid="next-hand"]');
+    await page.waitForTimeout(1500);
+    expect(await moments(page)).toHaveLength(0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('the clack needs the celebration’s own sound switch, not only the app’s', async () => {
+  const app = await launchApp({ userDataDir: profileWithHandsToday(11, { soundCues: true }, { celebrations: { on: true, motion: 'system', sound: false } }), env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await installAudioSpy(page);
+    await recordMoments(page);
+    await endSession(page);
+    await expect.poll(async () => (await moments(page)).length).toBe(1);
+    expect(await page.evaluate(() => (window as unknown as { __clacks: number }).__clacks)).toBe(0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('Celebrations motion "Still": the words show without motion even when the Mac allows it', async () => {
+  const app = await launchApp({ userDataDir: profileWithHandsToday(11, {}, { celebrations: { on: true, motion: 'still', sound: true } }), env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await recordMoments(page);
+    await endSession(page);
+    await expect.poll(async () => (await moments(page)).length).toBe(1);
+    expect((await moments(page))[0].anim).toBe('none');
   } finally {
     await app.close();
   }
