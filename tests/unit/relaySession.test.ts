@@ -143,6 +143,29 @@ describe('host + join end to end', () => {
     expect(JSON.stringify(guestSide.views)).not.toContain('"deck"');
   });
 
+  it('the host sits down under its own table name, and a guest sees that name, not "You"', async () => {
+    const hostSide = collector();
+    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks, { host: '127.0.0.1', name: 'Sam' });
+    sessions.push(host);
+    const guestSide = collector();
+    sessions.push(joinSession(loopback(info), 'Ada', guestSide.callbacks));
+    await waitFor(() => (guestSide.latest()?.handNumber ?? 0) >= 1);
+    const names = guestSide.latest()!.seats.filter((s) => s.inHand).map((s) => [s.name, s.isYou]);
+    expect(names).toEqual(expect.arrayContaining([['Sam', false], ['Ada', true]]));
+    await waitFor(() => (hostSide.latest()?.handNumber ?? 0) >= 1);
+    expect(hostSide.latest()!.seats.find((s) => s.isYou)?.name).toBe('Sam');
+  });
+
+  it('a table bound to loopback is reachable on loopback (the e2e shape: main binds 127.0.0.1 under OFFSUIT_E2E)', async () => {
+    const hostSide = collector();
+    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks, { host: '127.0.0.1' });
+    sessions.push(host);
+    const guestSide = collector();
+    sessions.push(joinSession(loopback(info), 'Guest', guestSide.callbacks));
+    await waitFor(() => (guestSide.latest()?.handNumber ?? 0) >= 1);
+    expect(guestSide.errors).toEqual([]);
+  });
+
   it('a guest can connect over the LAN address the host advertises, not just loopback', async () => {
     // The reason the host binds 0.0.0.0 instead of the 127.0.0.1 default: a guest on another machine
     // reaches it at the advertised LAN address. Connecting to that same address from here routes back to

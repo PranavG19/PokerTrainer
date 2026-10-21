@@ -51,7 +51,8 @@ export type ChallengeError =
   | 'unknown-kind'
   | 'malformed'
   | 'out-of-range'
-  | 'unknown-spot';
+  | 'unknown-spot'
+  | 'club-code';
 
 /** Bounds a code may carry. A decoded value outside them is refused, never clamped. */
 export const HAND_LIMITS = {
@@ -63,12 +64,17 @@ export const MAX_DRILL_INDEX = 1_000_000;
 
 /** Kind numbers are part of the format: append, never renumber. */
 const KIND_CODES = { hand: 1, drill: 2, puzzle: 3 } as const;
+/**
+ * Kinds the LAN Club reads (core/club/codes.ts): a shared spot and a Game Night recap. Taken here so a new
+ * challenge kind never reuses their numbers; decodeChallenge answers 'club-code' for them.
+ */
+export const CLUB_KIND_CODES = { spot: 4, recap: 5 } as const;
 /** Drill kinds in format order; a new DrillKind is appended here. */
 const DRILL_CODES: readonly DrillKind[] = ['pot-odds', 'alpha', 'mdf', 'spr', 'combos'];
 
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 /** Longest code accepted, in base32 characters (well above any kind's). */
-const MAX_CHARS = 64;
+export const MAX_CHARS = 64;
 
 // ---- checksum and varints ----
 
@@ -82,7 +88,7 @@ export function crc16(bytes: readonly number[]): number {
   return crc;
 }
 
-function pushVarint(out: number[], value: number): void {
+export function pushVarint(out: number[], value: number): void {
   let v = value;
   while (v >= 0x80) {
     out.push((v % 0x80) | 0x80);
@@ -92,7 +98,7 @@ function pushVarint(out: number[], value: number): void {
 }
 
 /** Reads one varint at `at`; null if it runs off the end, is over-long, or exceeds 2^32 - 1. */
-function readVarint(bytes: readonly number[], at: number): { value: number; next: number } | null {
+export function readVarint(bytes: readonly number[], at: number): { value: number; next: number } | null {
   let value = 0;
   let scale = 1;
   for (let i = at; i < bytes.length && i < at + 5; i++) {
@@ -120,7 +126,7 @@ export function idHash(id: string): number {
 
 // ---- base32 ----
 
-function toBase32(bytes: readonly number[]): string {
+export function toBase32(bytes: readonly number[]): string {
   let out = '';
   let acc = 0;
   let bits = 0;
@@ -138,7 +144,7 @@ function toBase32(bytes: readonly number[]): string {
 }
 
 /** null when the characters cannot be a whole number of bytes, or the padding bits are not zero. */
-function fromBase32(chars: string): number[] | null {
+export function fromBase32(chars: string): number[] | null {
   const bytes: number[] = [];
   let acc = 0;
   let bits = 0;
@@ -162,7 +168,7 @@ export function normalizeChallengeText(raw: string): string {
   return s.replace(/[IL]/g, '1').replace(/O/g, '0');
 }
 
-function group(chars: string): string {
+export function group(chars: string): string {
   return chars.match(/.{1,4}/g)?.join('-') ?? '';
 }
 
@@ -252,6 +258,8 @@ export function decodeChallenge(raw: string): DecodeResult {
     const scenario = SCENARIOS.find((s) => idHash(s.id) === h);
     if (scenario === undefined) return fail('unknown-spot');
     challenge = { kind: 'puzzle', scenarioId: scenario.id };
+  } else if (kindCode === CLUB_KIND_CODES.spot || kindCode === CLUB_KIND_CODES.recap) {
+    return fail('club-code');
   } else {
     return fail('unknown-kind');
   }
@@ -281,6 +289,7 @@ export const CHALLENGE_ERROR_TEXT: Record<ChallengeError, string> = {
   malformed: 'That is not a code this version can read.',
   'out-of-range': 'That code names a spot this version cannot set up.',
   'unknown-spot': 'That spot is not in this version. It may be from a newer Offsuit.',
+  'club-code': 'That is a LAN Club code. Open it from Play, LAN Club.',
 };
 
 /** Every drill kind has a format number: a new kind without one fails here, not in a friend's hands. */

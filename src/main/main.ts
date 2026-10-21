@@ -41,7 +41,7 @@ import { createProTools, type ProTools } from './proTools.js';
 import { saveStyleCard } from './styleCard.js';
 import { createProfileFiles } from './profileFile.js';
 import { refreshLicence, restoreLicence } from './licenceClient.js';
-import type { RoomView } from '../core/multiplayer.js';
+import { LAN_TABLE, MAX_SEAT_NAME, type RoomView } from '../core/multiplayer.js';
 import { activeManifest } from './dee/manifest.js';
 import { PhrasingService } from './dee/service.js';
 
@@ -509,15 +509,18 @@ app.whenReady().then(() => {
     onWarning: (reason: string) => pushMultiplayerEvent({ type: 'warning', reason }),
   };
 
-  ipcMain.handle('mp:host', async (_event, opts: { seatCount?: number }) => {
+  ipcMain.handle('mp:host', async (_event, opts: { seatCount?: number; name?: unknown }) => {
     if (!multiplayerEnabled) return { error: 'multiplayer is off' };
     await stopRelaySession();
     const seatCount = Math.min(6, Math.max(2, Math.floor(opts?.seatCount ?? 3)));
     const { session, info } = await hostSession(
       // No seed: a hosted room deals from node:crypto with commit-before-reveal (relayServer.ts). The
       // --seed flag stays a solo-play and e2e tool only.
-      { roomId: 'local', seatCount, sb: 25, bb: 50, startStack: 5000 },
+      { ...LAN_TABLE, seatCount },
       sessionCallbacks,
+      // A test run's table listens on loopback only: the specs' guests connect to 127.0.0.1, and nothing on
+      // the machine's network can reach a table a spec deals. A real table binds every interface (LAN play).
+      { name: typeof opts?.name === 'string' ? opts.name.slice(0, MAX_SEAT_NAME) : undefined, ...(isE2E ? { host: '127.0.0.1' } : {}) },
     );
     relaySession = session;
     return {

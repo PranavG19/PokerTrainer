@@ -78,6 +78,15 @@ export interface RoomState {
  */
 export const PROTOCOL_VERSION = 2;
 
+/**
+ * The blinds and depth every LAN table is dealt at (main.ts mp:host). Not on the wire: a guest's view carries
+ * chips, not blinds, so a Game Night grades its own decisions against this big blind (core/club/gameNight.ts).
+ */
+export const LAN_TABLE = { roomId: 'local', sb: 25, bb: 50, startStack: 5000 } as const;
+
+/** The longest table name a seat shows (playerJoins cuts it here). */
+export const MAX_SEAT_NAME = 24;
+
 /** Client → server, the first frame inside TLS. Nothing else is accepted before it. */
 export interface HelloMessage {
   readonly type: 'hello';
@@ -218,7 +227,7 @@ export function playerJoins(
   }
   const seatId = freeSeat(room);
   if (seatId === null) return { error: 'room is full' };
-  const player: RoomPlayer = { playerId, seatId, name: name.slice(0, 24) || `Seat ${seatId + 1}` };
+  const player: RoomPlayer = { playerId, seatId, name: name.slice(0, MAX_SEAT_NAME) || `Seat ${seatId + 1}` };
   return { room: { ...room, players: [...room.players, player] }, seatId };
 }
 

@@ -33,6 +33,7 @@ export interface ProgressionState {
   seasons: SeasonsState;
   letters: LettersState;
   teachDee: TeachDeeState;
+  club: ClubState;
 }
 
 /**
@@ -531,3 +532,80 @@ export interface LettersState {
   filed: LetterRecord[];
 }
 
+
+/**
+ * The LAN Club (src/core/club/): a standing local group, cooperative, scored on decisions and never chips. Local
+ * only: members are names this player keeps, the notebook holds codes friends handed over, and each Game Night is
+ * this player's own counts plus the recaps friends pasted in. `name` null means no club has been started.
+ */
+export interface ClubState {
+  name: string | null;
+  since: DayKey | null;
+  /** The name this player sits down under at a Game Night; null reads as the onboarding display name. */
+  tableName: string | null;
+  /** Unique by name, oldest first, bounded by MAX_CLUB_MEMBERS. */
+  members: ClubMember[];
+  /** Ascending by `at`, unique on `at`, bounded by MAX_NOTEBOOK. */
+  notebook: NotebookEntry[];
+  /** Ascending by `startedAt`, unique on `night`, bounded by MAX_NIGHTS. */
+  nights: NightRecord[];
+}
+
+export interface ClubMember {
+  name: string;
+  since: DayKey;
+}
+
+/** A code in the club's shared notebook: a spot to review, or a challenge code (hand, Math problem, puzzle). */
+export interface NotebookEntry {
+  /** Epoch ms it was added; its identity. */
+  at: number;
+  code: string;
+  /** Who it came from: a member's name, or "You". */
+  from: string;
+  note: string;
+  /** For a spot: the action this player chose when they played it (a newer build's kind is kept); null before. */
+  answer: string | null;
+}
+
+/** One player's Game Night as counts: what a recap code carries (core/club/codes.ts). */
+export interface NightRecap {
+  /** 8 hex digits naming the table (codes.ts nightIdOf). */
+  night: string;
+  day: DayKey;
+  name: string;
+  hands: number;
+  decisions: number;
+  clean: number;
+  /** Big blinds lost against the grader's play, in hundredths, summed. */
+  lossCentiBb: number;
+}
+
+export interface NightSpot {
+  /** A spot code, with this player's choice in it. */
+  code: string;
+  lossCentiBb: number;
+}
+
+/** One Game Night as this player saw it. */
+export interface NightRecord {
+  night: string;
+  day: DayKey;
+  /** 'host' or 'join'; a newer build's value is kept. */
+  role: string;
+  startedAt: number;
+  /** Null while the night is on (or the app closed before it ended). */
+  endedAt: number | null;
+  hands: number;
+  /** The last hand number counted, so a repeated end-of-hand view never counts twice. */
+  lastHand: number;
+  decisions: number;
+  clean: number;
+  lossCentiBb: number;
+  /** The costliest few decisions, costliest first, bounded by NIGHT_SPOTS. */
+  spots: NightSpot[];
+  /** The other seats' names, bounded by NIGHT_SEEN. */
+  seen: string[];
+  /** Friends' pasted recaps for this night, one per name, by name. */
+  friends: NightRecap[];
+}

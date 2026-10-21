@@ -6,6 +6,32 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## LAN Club and Home Game Night (branch `feat-lan-club`): cooperative, decisions only (2.9)
+Owner decisions in force: the relay protocol is unchanged without the owner's approval, nothing is locked, cosmetics
+stay paint only, no schema bump (`progression.club` is a new additive key).
+- **No relay change.** A Game Night is a LAN table over relay v2 as it is. The only wire difference is what already
+  existed: the hello's `name` (the host's own seat now takes the club's table name too, instead of "You").
+- **Each player grades only their own decisions**, on their own machine, from the redacted view they were sent, with
+  the online ladder's grader inputs (`coach.gradeDecision`, the betting range facing a price). Clean = a `free`
+  grade. The host's relay sees every hole card and grades nobody: a grade of someone else's folded hand would tell the
+  host something about it.
+- **Counted: hands that ended, decisions graded, clean decisions, bb lost per 100 decisions.** Never a stack, a pot won
+  or a result. The costliest three decisions are kept as spot codes for review.
+- **The shared recap travels by code, by hand.** A recap code (challenge-code format, kind 5) carries the night (a
+  hash of the table's certificate fingerprint, which host and guests both know), the day, the table name and the four
+  counts. Friends paste each other's in; the table is pooled (summed, rates over everyone) and never listed or ordered
+  per person. A code from another night or under your own name is refused. An automatic share over the relay is an
+  open owner decision.
+- **Spot codes** (kind 4) carry one decision: hole, board, bb, pot, price, stack, players still in and, optionally,
+  the sharer's choice. A friend answers before the grade and the sharer's choice show (commit before reveal).
+- **The club** is local: a name, the members this player keeps (added by hand or from a recap's "At the table"), the
+  notebook (spot codes and any challenge code), and every night's record. Its "Together" numbers pool every night.
+- **Kinds 4 and 5 are reserved in `challengeCode.ts`**, and the challenge reader names a club code instead of calling
+  it unknown. Older builds read them as an unknown kind.
+- **No Reps, Chalk or Rail credit for LAN decisions** for now: the economy's inputs stay as they are.
+- **e2e tables bind loopback.** Under `OFFSUIT_E2E` the app hosts on 127.0.0.1; a real table still binds every
+  interface (LAN play), behind the opt-in, TLS, the pinned certificate and the room token.
+- **Where:** Play › LAN Club. The night is the LAN table with a bar of counts and End the night.
 ## Teach Dee (branch `feat-teach-dee`): contrast sets played from your own rules (2.4)
 Owner decisions in force: the tutor never authors a number, no trait insults, nothing is locked, every new line passes
 Dee's bank lint.

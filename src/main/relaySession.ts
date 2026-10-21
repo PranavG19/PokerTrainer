@@ -100,7 +100,7 @@ export interface RelaySession {
 export async function hostSession(
   opts: CreateRoomOpts,
   callbacks: SessionCallbacks,
-  hostOpts: { readonly host?: string } = {},
+  hostOpts: { readonly host?: string; readonly name?: string } = {},
 ): Promise<{ session: RelaySession; info: HostInfo }> {
   // The dealer is the in-process local seat; the CSPRNG is node:crypto. No seed exists anywhere.
   const server = new RelayServer(opts, { crypto: nodeDealCrypto, dealerPlayerId: LOCAL_PLAYER });
@@ -130,7 +130,8 @@ export async function hostSession(
   // Seat the local player in-process, delivering to EVERY recipient: the initial connect broadcasts to
   // any already-connected remote players too, not just the local callback. host.deliver routes locals
   // to the callback and remotes to their sockets.
-  host.deliver(server.connect(LOCAL_PLAYER, 'You'));
+  // The host's own table name, as a guest's hello carries theirs: every seat is shown by its player's name.
+  host.deliver(server.connect(LOCAL_PLAYER, hostOpts.name?.trim() || 'You'));
 
   let stopped = false;
   const session: RelaySession = {

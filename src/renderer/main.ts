@@ -189,6 +189,10 @@ import { VENUES } from '../core/story/cast.js';
 import { chevron, gearIcon } from './components/glyphs.js';
 import { renderProfileTransfer, type TransferBridge } from './components/profileTransfer.js';
 import { renderChallengeScreen, CHALLENGE_TABLE_SEATS } from './screens/challenge.js';
+import { createNightController, renderClubScreen, renderClubSpot, renderNightRecap } from './screens/club.js';
+import { answerNotebook, tableNameOf } from '../core/club/club.js';
+import { decodeClubCode } from '../core/club/codes.js';
+import type { ClubState } from '../core/progression/types.js';
 import type { Challenge } from '../core/challengeCode.js';
 import type { DayKey } from '../core/localDay.js';
 
@@ -466,6 +470,16 @@ async function boot(): Promise<void> {
    */
   let challengeActive = false;
   let challengeMade: Challenge | null = null;
+  /**
+   * LAN Club (screens/club.ts): a PANEL within the Play tab. `night` is a Game Night at the LAN table; its
+   * controller grades this player's own decisions and saves the night as it goes.
+   */
+  let clubPane:
+    | { readonly at: 'club' }
+    | { readonly at: 'night'; readonly controller: ReturnType<typeof createNightController> }
+    | { readonly at: 'recap'; readonly night: string }
+    | { readonly at: 'spot'; readonly entryAt: number; readonly back: 'club' | { readonly recap: string } }
+    | null = null;
   /** Today's Ticket is a PANEL within the Play tab, like the assessment block; leaving it returns to Home. */
   let ticketActive = false;
   /** Learn shows the lessons, the Folio (the Rulebook) or Teach Dee (a contrast set played from one rule). */
@@ -1022,7 +1036,16 @@ async function boot(): Promise<void> {
    * Play's panels are exclusive: opening one closes any other left open, so a launcher always lands on its own
    * panel whatever was open before (re-review S-A). The caller renders.
    */
-  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance' | 'challenge'): void {
+  /** A Game Night left for another panel or a table: save it and leave its table (the recap keeps it). */
+  function leaveNight(): void {
+    if (clubPane?.at !== 'night') return;
+    clubPane.controller.flush();
+    void io.mpStop?.();
+  }
+
+  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance' | 'challenge' | 'club'): void {
+    leaveNight();
+    clubPane = kind === 'club' ? { at: 'club' } : null;
     multiplayerActive = kind === 'friends';
     onlineActive = kind === 'online';
     assessmentActive = kind === 'assessment';
@@ -1613,6 +1636,8 @@ async function boot(): Promise<void> {
       drillIndexNext = null;
       puzzleNext = null;
       challengeMade = null;
+      leaveNight();
+      clubPane = null;
       teardownTable();
     }
     await refreshSettings();
@@ -1673,6 +1698,8 @@ async function boot(): Promise<void> {
     assessmentActive = false;
     varianceActive = false;
     challengeActive = false;
+    leaveNight();
+    clubPane = null;
     tab = 'play';
     paintTabs();
     // The session planner (when the learner started from it) models a whole-task live-hand count; a
@@ -1825,6 +1852,10 @@ async function boot(): Promise<void> {
       );
       return;
     }
+    if (clubPane !== null) {
+      screen.replaceChildren(renderClubPane());
+      return;
+    }
     if (challengeActive) {
       screen.replaceChildren(
         renderChallengeScreen({
@@ -1874,8 +1905,122 @@ async function boot(): Promise<void> {
           openPanel('challenge');
           render();
         },
+        onClub: () => {
+          openPanel('club');
+          render();
+        },
       }),
     );
+  }
+
+  /** The club's state, saved through the one progression save. */
+  function saveClub(club: ClubState): void {
+    void saveProgression({ ...session.progression, club });
+  }
+
+  /** The LAN Club panel: the club, a Game Night at the table, a night's recap, or a notebook spot. */
+  function renderClubPane(): HTMLElement {
+    const pane = clubPane!;
+    const club = session.progression.club;
+    const displayName = session.progression.personalization.displayName;
+    const back = (): void => {
+      clubPane = { at: 'club' };
+      render();
+    };
+    if (pane.at === 'night') {
+      const night = pane.controller;
+      // The table was taken down (another tab, a tab switch back): the night is over; show what it was.
+      if (night.stopped()) {
+        const id = night.end();
+        clubPane = id === null ? { at: 'club' } : { at: 'recap', night: id };
+        return renderClubPane();
+      }
+      night.mount ??= renderMultiplayerScreen({ bridge: io, night, onExit: back });
+      return night.mount;
+    }
+    if (pane.at === 'recap') {
+      const night = club.nights.find((n) => n.night === pane.night);
+      if (night === undefined) {
+        clubPane = { at: 'club' };
+        return renderClubPane();
+      }
+      return renderNightRecap({
+        night,
+        club,
+        displayName,
+        now,
+        save: saveClub,
+        onReviewSpot: (entry) => {
+          clubPane = { at: 'spot', entryAt: entry.at, back: { recap: pane.night } };
+          render();
+        },
+        onDone: back,
+      });
+    }
+    if (pane.at === 'spot') {
+      const entry = club.notebook.find((e) => e.at === pane.entryAt);
+      const decoded = entry ? decodeClubCode(entry.code) : null;
+      if (entry === undefined || decoded === null || !decoded.ok || decoded.code.kind !== 'spot') {
+        clubPane = { at: 'club' };
+        return renderClubPane();
+      }
+      return renderClubSpot({
+        entry,
+        spot: decoded.code.spot,
+        onAnswer: (kind) => saveClub(answerNotebook(session.progression.club, entry.at, kind)),
+        onBack: () => {
+          clubPane = pane.back === 'club' ? { at: 'club' } : { at: 'recap', night: pane.back.recap };
+          render();
+        },
+      });
+    }
+    const startNight = (role: 'host' | 'join', start: Parameters<typeof createNightController>[0]['start']): void => {
+      const c = session.progression.club;
+      clubPane = {
+        at: 'night',
+        controller: createNightController({
+          role,
+          start,
+          name: tableNameOf(c, displayName),
+          clubName: c.name ?? 'LAN Club',
+          today: today(),
+          now,
+          dee: session.progression.dee.character,
+          club: () => session.progression.club,
+          save: saveClub,
+          onEnded: (night) => {
+            clubPane = night === '' ? { at: 'club' } : { at: 'recap', night };
+            render();
+          },
+        }),
+      };
+      render();
+    };
+    return renderClubScreen({
+      club,
+      displayName,
+      today: today(),
+      now,
+      save: saveClub,
+      onHostNight: (seatCount) => startNight('host', { role: 'host', seatCount }),
+      onJoinNight: (invite) => startNight('join', { role: 'join', invite }),
+      onOpenNight: (night) => {
+        clubPane = { at: 'recap', night };
+        render();
+      },
+      onOpenSpot: (entry) => {
+        clubPane = { at: 'spot', entryAt: entry.at, back: 'club' };
+        render();
+      },
+      onOpenChallenge: (c) => {
+        clubPane = null;
+        openChallenge(c);
+      },
+      onExit: () => {
+        clubPane = null;
+        render();
+      },
+    });
   }
 
   /** Home: first-run onboarding, the Ticket panel, or the launcher with the habit loop. */

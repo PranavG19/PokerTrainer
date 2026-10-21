@@ -51,7 +51,7 @@ contextBridge.exposeInMainWorld('offsuit', {
   // refused in main while the opt-in is off, so nothing here can open a socket on its own.
   mpStatus: (): Promise<{ enabled: boolean; active: boolean }> => ipcRenderer.invoke('mp:status'),
   mpSetEnabled: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke('mp:setEnabled', enabled),
-  mpHost: (opts: { seatCount?: number }): Promise<unknown> => ipcRenderer.invoke('mp:host', opts),
+  mpHost: (opts: { seatCount?: number; name?: string }): Promise<unknown> => ipcRenderer.invoke('mp:host', opts),
   mpJoin: (request: { invite: string; name?: string }): Promise<unknown> => ipcRenderer.invoke('mp:join', request),
   mpAction: (action: unknown): Promise<void> => ipcRenderer.invoke('mp:action', action),
   mpDeal: (): Promise<void> => ipcRenderer.invoke('mp:deal'),
