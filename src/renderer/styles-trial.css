@@ -110,3 +110,10 @@
   .trial-verdict { grid-template-columns: 92px minmax(0, 1fr); }
   .trial-week { padding: 6px 8px; }
 }
+
+/* Setup: the explainer, the prediction, the criteria, an own criterion and Start, spaced as the column's sections. */
+.trial-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
