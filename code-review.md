@@ -25,6 +25,8 @@ review (#35) is in that PR's history.
 | R1 (M) | Keying by day and kind silenced a second assessment or story table that day | Fixed (`moment.test`): one key per session |
 | R2 (L-M) | The top-left moment covered Train's rail | Fixed (`moment.spec`, red first): bottom left, measured over the table and Train at both sizes |
 | Rebase | Main moved under this PR six times (#44, #45, #47, #49, #46, #48); every conflict was a union (catalogue rules and items, token blocks, imports, the save path, the import flag) | A third read-only pass found nothing broken: every paint has its block, the counts match, every earn context passes `story` for keepsakes, and the save path is not duplicated |
+| G1 | Settings #50 owns the celebration switches through `celebrationGate()` | 365ccc9, red first: the moment plays, holds still and clacks only through the gate; off and an off week never play. Reviewed: correct |
+| G2 (M) | A moment already waiting behind a verdict was not re-gated when it showed | 86f90e6, red first: re-read through `html[data-celebrations]` at show time. The Locker preview playing with Celebrations off is recorded as intended |
 | S1 | After the rebase the fix-up script's imports reached an `enum` (core/evaluate.ts), which Node 26 cannot strip | Fixed, red first (the two CLI tests): `ts-js-resolve.mjs` transpiles .ts with the repo's TypeScript |
 
 ## Checked and found fine
