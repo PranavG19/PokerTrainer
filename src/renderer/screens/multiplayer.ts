@@ -60,8 +60,10 @@ export interface NightHooks {
   /** The name this player sits down under. */
   readonly name: string;
   readonly start: { readonly role: 'host'; readonly seatCount: number } | { readonly role: 'join'; readonly invite: string };
-  /** The first hand was dealt at this table: its certificate fingerprint names the night. */
-  readonly onTable: (fingerprint: string) => void;
+  /** The first hand was dealt at this table: its certificate fingerprint names the night; `role` is how it was reached. */
+  readonly onTable: (fingerprint: string, role: 'host' | 'join') => void;
+  /** The screen's own teardown (unsubscribe, then stop the session), so the night can leave its table for good. */
+  readonly bindStop: (stop: () => void) => void;
   readonly onView: (view: RoomView) => void;
   /** This player acted, with the view they acted on (only ever their own turn). */
   readonly onAction: (view: RoomView, action: Action) => void;
@@ -106,7 +108,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       // A night starts with its first hand, so a table nobody joined (or a join that failed) leaves no record.
       if (!tableAnnounced && tableFingerprint) {
         tableAnnounced = true;
-        options.night.onTable(tableFingerprint);
+        options.night.onTable(tableFingerprint, role === 'host' ? 'host' : 'join');
       }
       options.night.onView(message.view);
     }
@@ -124,11 +126,15 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     paint();
   });
 
+  let cleanedUp = false;
   function cleanup(): void {
+    if (cleanedUp) return;
+    cleanedUp = true;
     unsubscribe?.();
     void bridge.mpStop?.();
     options.night?.onStopped();
   }
+  options.night?.bindStop(cleanup);
 
   /** Poll the opt-in status once at mount so the panel shows whether MP is enabled. A rejected status
    *  call (a real IPC failure, not the modeled resolve) must not become an unhandled rejection — leave
@@ -174,7 +180,6 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
       paint();
       return;
     }
-    tableFingerprint = parsed.fingerprint;
     void join(night.start.invite);
   }
 
@@ -196,6 +201,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
         hostFingerprint = result?.fingerprint ?? '';
         hostToken = result?.token ?? '';
         tableFingerprint = hostFingerprint;
+        tableAnnounced = false;
       }
     } catch {
       // A rejected mpHost (vs the modeled { error } resolve) would otherwise strand the screen on
@@ -208,6 +214,10 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
   }
 
   async function join(invite: string): Promise<void> {
+    // Whichever way the join was asked for, the table it reaches names the night.
+    const parsed = parseInvite(invite);
+    tableFingerprint = 'error' in parsed ? '' : parsed.fingerprint;
+    tableAnnounced = false;
     role = 'join';
     phase = 'connecting';
     notice = '';

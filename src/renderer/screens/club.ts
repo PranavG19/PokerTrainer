@@ -428,6 +428,10 @@ export interface NightController extends NightHooks {
   readonly stopped: () => boolean;
   /** End the night (once) and save it; the night id, or null when no table was ever reached. */
   readonly end: () => string | null;
+  /** Leave the table for good (its screen unsubscribes and stops the session), then end the night. */
+  readonly leave: () => string | null;
+  /** The profile this night belonged to is gone: stop the table and save nothing more. */
+  readonly abandon: () => void;
   /** The LAN table screen, kept across re-renders so a repaint never restarts the table. */
   mount: HTMLElement | null;
 }
@@ -435,11 +439,13 @@ export interface NightController extends NightHooks {
 export function createNightController(o: NightControllerOptions): NightController {
   let record: NightRecord | null = null;
   let left = false;
+  let abandoned = false;
+  let stopTable: (() => void) | null = null;
   const decided = new Set<string>();
   let bar: HTMLElement | null = null;
 
   const flush = (): void => {
-    if (record !== null) o.save(upsertNight(o.club(), record));
+    if (record !== null && !abandoned) o.save(upsertNight(o.club(), record));
   };
 
   function refresh(): void {
@@ -467,14 +473,28 @@ export function createNightController(o: NightControllerOptions): NightControlle
     mount: null,
     stopped: () => left,
     end: finish,
+    leave(): string | null {
+      stopTable?.();
+      left = true;
+      return finish();
+    },
+    abandon(): void {
+      abandoned = true;
+      stopTable?.();
+      left = true;
+    },
+    bindStop(stop: () => void): void {
+      stopTable = stop;
+    },
     onStopped(): void {
       left = true;
       flush();
     },
-    onTable(fingerprint: string): void {
+    onTable(fingerprint: string, role: 'host' | 'join'): void {
       const id = nightIdOf(fingerprint);
-      // Rejoining the same table carries on the same night.
-      record = o.club().nights.find((n) => n.night === id && n.endedAt === null) ?? startNight(id, o.today, o.role, o.now());
+      // Back at the same table (left, or even ended): the night carries on with what it had.
+      const prior = o.club().nights.find((n) => n.night === id);
+      record = prior ? { ...prior, endedAt: null } : startNight(id, o.today, role, o.now());
       flush();
       refresh();
     },
@@ -493,8 +513,10 @@ export function createNightController(o: NightControllerOptions): NightControlle
       if (spot === null) return;
       decided.add(key);
       setTimeout(() => {
-        if (record === null) return;
+        if (record === null || abandoned) return;
         record = recordDecision(record, spot, gradeShared(spot, action.kind));
+        // Graded after the table was left: the night is already saved, so save it again with this one in.
+        if (left) flush();
         refresh();
       }, 0);
     },
@@ -704,12 +726,14 @@ const ACTION_LABEL: Record<ActionKind, string> = { fold: 'Fold', check: 'Check',
 
 /** The choices a spot offers: facing a price, fold, call or raise; checked to, check or bet. */
 export function spotChoices(spot: SharedSpot): ActionKind[] {
+  if (spot.toCall >= spot.stack && spot.toCall > 0) return ['fold', 'call'];
   return spot.toCall > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet'];
 }
 
 export function renderClubSpot(opts: SpotOptions): HTMLElement {
   const { spot, entry } = opts;
-  let answer: ActionKind | null = (entry.answer as ActionKind | null) ?? null;
+  // An answer a newer build wrote (a kind this build does not know) reads as not answered yet.
+  let answer: ActionKind | null = entry.answer !== null && Object.hasOwn(ACTION_LABEL, entry.answer) ? (entry.answer as ActionKind) : null;
   const root = el('div', 'home-screen club-screen club-spot');
   root.dataset.testid = 'club-spot';
 

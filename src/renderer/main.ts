@@ -1039,7 +1039,7 @@ async function boot(): Promise<void> {
   /** A Game Night left for another panel or a table: save it and leave its table (the recap keeps it). */
   function leaveNight(): void {
     if (clubPane?.at !== 'night') return;
-    clubPane.controller.flush();
+    clubPane.controller.leave();
     void io.mpStop?.();
   }
 
@@ -1619,6 +1619,9 @@ async function boot(): Promise<void> {
     // destroy in memory exactly what the gate just refused to destroy on disk. On a real delete the
     // session MUST go, or the next save would write the deleted log straight back.
     if (outcome?.deleted === true) {
+      // A Game Night of the deleted profile leaves its table and writes nothing into the fresh one.
+      if (clubPane?.at === 'night') clubPane.controller.abandon();
+      clubPane = null;
       session = deserialize({});
       lastSaved = session;
       // Nothing the deleted profile was owed or had open carries over to the fresh one.
@@ -1636,8 +1639,6 @@ async function boot(): Promise<void> {
       drillIndexNext = null;
       puzzleNext = null;
       challengeMade = null;
-      leaveNight();
-      clubPane = null;
       teardownTable();
     }
     await refreshSettings();
@@ -1935,7 +1936,16 @@ async function boot(): Promise<void> {
         clubPane = id === null ? { at: 'club' } : { at: 'recap', night: id };
         return renderClubPane();
       }
-      night.mount ??= renderMultiplayerScreen({ bridge: io, night, onExit: back });
+      // Leave ends the night and shows what it was; rejoining the same table carries it on.
+      night.mount ??= renderMultiplayerScreen({
+        bridge: io,
+        night,
+        onExit: () => {
+          const id = night.end();
+          clubPane = id === null ? { at: 'club' } : { at: 'recap', night: id };
+          render();
+        },
+      });
       return night.mount;
     }
     if (pane.at === 'recap') {

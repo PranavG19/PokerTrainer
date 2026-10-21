@@ -91,8 +91,10 @@ export function nightIdOf(fingerprint: string): string {
 export function clubName(raw: string): string {
   let s = raw.replace(/\s+/g, ' ').replace(/[\u0000-\u001f\u007f]/g, '').trim();
   const enc = new TextEncoder();
-  while (enc.encode(s).length > RECAP_LIMITS.nameBytes) s = [...s].slice(0, -1).join('');
-  return s.trim();
+  // Cut on whole graphemes, so a joined emoji is kept or dropped whole, never split.
+  const graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)].map((g) => g.segment);
+  while (enc.encode(graphemes.join('')).length > RECAP_LIMITS.nameBytes) graphemes.pop();
+  return graphemes.join('').trim();
 }
 
 export function isValidSpot(s: SharedSpot): boolean {

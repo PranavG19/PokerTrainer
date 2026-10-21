@@ -854,11 +854,18 @@ function code(value: unknown): string | null {
 }
 
 const NIGHT_ID = /^[0-9a-f]{8}$/;
+/** codes.ts carries a recap's day in at most three varint bytes; a night outside that could never be shared. */
+const MAX_CODE_DAY = 0x1fffff;
+
+function codeDay(value: unknown): DayKey | null {
+  const day = asDayKey(value);
+  return day !== null && day >= 0 && day <= MAX_CODE_DAY ? day : null;
+}
 
 function parseRecap(raw: unknown): NightRecap | null {
   const r = asRecord(raw);
   const night = typeof r.night === 'string' && NIGHT_ID.test(r.night) ? r.night : null;
-  const day = asDayKey(r.day);
+  const day = codeDay(r.day);
   const who = name(r.name);
   if (night === null || day === null || who === null) return null;
   const decisions = nonNegativeInt(r.decisions);
@@ -868,7 +875,7 @@ function parseRecap(raw: unknown): NightRecap | null {
 function parseNight(raw: unknown): NightRecord | null {
   const n = asRecord(raw);
   const night = typeof n.night === 'string' && NIGHT_ID.test(n.night) ? n.night : null;
-  const day = asDayKey(n.day);
+  const day = codeDay(n.day);
   const role = id(n.role);
   const startedAt = n.startedAt;
   if (night === null || day === null || role === null || typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) return null;

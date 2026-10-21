@@ -151,6 +151,8 @@ describe('club codes', () => {
     expect(new TextEncoder().encode(clubName('ééééééééééé')).length).toBeLessThanOrEqual(16);
     expect(clubName('ééééééééééé')).toBe('éééééééé');
     expect(clubName('\u0000\u0007')).toBe('');
+    // A joined emoji is kept or dropped whole, never split into its parts.
+    expect(clubName('ab👨‍👩‍👧‍👦cdefgh')).toBe('ab');
   });
 
   it('the night id is a stable hash of the table fingerprint', () => {
