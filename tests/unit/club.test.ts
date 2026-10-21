@@ -374,3 +374,15 @@ describe('review round 2: an answer this build does not know', () => {
     expect(tableNameOf(defaultProgression().club, null)).toBe('Player');
   });
 });
+
+describe('full-suite triage: the spots to look at are the decisions the grader names', () => {
+  it('a clean decision with a small point loss is counted but never offered for review', () => {
+    let night = startNight('0a1b2c3d', DAY, 'host', 1);
+    night = recordDecision(night, spot({ pot: 301 }), { lossBb: 0.3, clean: true, message: null });
+    expect(night.decisions).toBe(1);
+    expect(night.lossCentiBb).toBe(30);
+    expect(night.spots).toEqual([]);
+    night = recordDecision(night, spot({ pot: 302 }), { lossBb: 1.4, clean: false, message: 'x' });
+    expect(night.spots.map((s) => s.lossCentiBb)).toEqual([140]);
+  });
+});

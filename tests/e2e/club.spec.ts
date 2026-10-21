@@ -166,8 +166,9 @@ test('a hosted Game Night: a guest sits under its own name, the host’s decisio
     // The person at the table joins the club from the recap.
     await page.locator('[data-testid="recap-seen-name"][data-name="Ada"] [data-testid="recap-seen-add"]').click();
     await expect(page.locator('[data-testid="recap-seen-add"]')).toHaveCount(0);
-    // The page never shows a stack, a pot or a bankroll (it says only that chips are not counted): decisions only.
-    await expect(page.locator('[data-testid="night-recap"]')).not.toContainText(/\bstack|\bpot\b|bankroll|\d+ chips/i);
+    // The page never shows a stack, a pot won or a bankroll (it says only that chips are not counted). A spot to
+    // review names its own pot and price, which is the decision, not a result.
+    await expect(page.locator('[data-testid="night-recap"]')).not.toContainText(/\bstack|bankroll|\bwon\b|\d+ chips/i);
 
     // A costly spot, if the night had one, goes to the notebook.
     if (await page.locator('[data-testid="recap-spot-add"]').count()) {

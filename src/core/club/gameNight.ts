@@ -97,10 +97,11 @@ export function gradeShared(spot: SharedSpot, chosen: Action['kind']): SpotGrade
   return { lossBb, clean: grade.severity === 'free', message: grade.message };
 }
 
-/** Add one graded decision. The costliest NIGHT_SPOTS are kept as codes, costliest first. */
+/** Add one graded decision. The costliest NIGHT_SPOTS the grader named are kept as codes, costliest first. */
 export function recordDecision(night: NightRecord, spot: SharedSpot, grade: SpotGrade): NightRecord {
   const lossCentiBb = Math.round(grade.lossBb * 100);
-  const spots = lossCentiBb > 0
+  // Only a decision the grader names is offered for review: a clean one's small point loss is counted, not flagged.
+  const spots = lossCentiBb > 0 && !grade.clean
     ? [...night.spots, { code: encodeClubCode({ kind: 'spot', spot }), lossCentiBb }]
         .sort((a, b) => b.lossCentiBb - a.lossCentiBb)
         .slice(0, NIGHT_SPOTS)
