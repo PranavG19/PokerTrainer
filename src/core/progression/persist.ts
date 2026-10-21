@@ -58,9 +58,6 @@ import {
   type TeachDeeState,
   type ClubMember,
   type ClubState,
-  type NightRecap,
-  type NightRecord,
-  type NightSpot,
   type NotebookEntry,
   type TicketItemRecord,
   type TicketState,
@@ -100,16 +97,12 @@ export const RAIL_TIER_IDS: readonly string[] = ['deuce', 'three', 'four', 'five
 export const MAX_SEASON_RECORDS = 60;
 /** Contrast sets played from the learner's rules (Teach Dee) kept in the profile. */
 export const MAX_TAUGHT_SETS = 100;
-/** A club's roster, its shared notebook, and about a year of weekly Game Nights. */
+/** A club's roster and its shared notebook. */
 export const MAX_CLUB_MEMBERS = 24;
 export const MAX_NOTEBOOK = 100;
-export const MAX_NIGHTS = 60;
-/** gameNight.ts NIGHT_SPOTS and NIGHT_SEEN, spelled here so persist does not import the grader (a test pins them equal). */
-export const MAX_NIGHT_SPOTS = 3;
-export const MAX_NIGHT_SEEN = 5;
-/** A table or club name; codes.ts keeps table names to 16 UTF-8 bytes, a club name may be longer. */
+/** A member's or a club's name. */
 const MAX_NAME_CHARS = 32;
-/** A club code is at most 64 base32 characters plus its marker and dashes. */
+/** A challenge code is at most 64 base32 characters plus its marker and dashes. */
 const MAX_CODE_CHARS = 96;
 const MAX_NOTE_CHARS = 140;
 /** No taught set is longer than this many spots (teachDee.ts TEACH_MAX_SPOTS is lower). */
@@ -165,7 +158,7 @@ export function defaultProgression(): ProgressionState {
     celebrations: defaultCelebrations(),
     trial: defaultTrial(),
     teachDee: { sets: [] },
-    club: { name: null, since: null, tableName: null, members: [], notebook: [], nights: [] },
+    club: { name: null, since: null, members: [], notebook: [] },
   };
 }
 
@@ -232,7 +225,7 @@ export const PROGRESSION_SHAPE = {
     outcome: true,
   },
   teachDee: { sets: true },
-  club: { name: true, since: true, tableName: true, members: true, notebook: true, nights: true },
+  club: { name: true, since: true, members: true, notebook: true },
 } as const;
 
 export function parseProgression(raw: unknown): ProgressionState {
@@ -880,67 +873,6 @@ function code(value: unknown): string | null {
   return typeof value === 'string' && value.length <= MAX_CODE_CHARS && /^[0-9A-Za-z-]+$/.test(value) ? value : null;
 }
 
-const NIGHT_ID = /^[0-9a-f]{8}$/;
-/** codes.ts carries a recap's day in at most three varint bytes; a night outside that could never be shared. */
-const MAX_CODE_DAY = 0x1fffff;
-
-function codeDay(value: unknown): DayKey | null {
-  const day = asDayKey(value);
-  return day !== null && day >= 0 && day <= MAX_CODE_DAY ? day : null;
-}
-
-function parseRecap(raw: unknown): NightRecap | null {
-  const r = asRecord(raw);
-  const night = typeof r.night === 'string' && NIGHT_ID.test(r.night) ? r.night : null;
-  const day = codeDay(r.day);
-  const who = name(r.name);
-  if (night === null || day === null || who === null) return null;
-  const decisions = nonNegativeInt(r.decisions);
-  return { night, day, name: who, hands: nonNegativeInt(r.hands), decisions, clean: Math.min(decisions, nonNegativeInt(r.clean)), lossCentiBb: nonNegativeInt(r.lossCentiBb) };
-}
-
-function parseNight(raw: unknown): NightRecord | null {
-  const n = asRecord(raw);
-  const night = typeof n.night === 'string' && NIGHT_ID.test(n.night) ? n.night : null;
-  const day = codeDay(n.day);
-  const role = id(n.role);
-  const startedAt = n.startedAt;
-  if (night === null || day === null || role === null || typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) return null;
-  const endedAt = typeof n.endedAt === 'number' && Number.isFinite(n.endedAt) && n.endedAt >= startedAt ? n.endedAt : null;
-  const decisions = nonNegativeInt(n.decisions);
-  const spots: NightSpot[] = [];
-  for (const v of asArray(n.spots)) {
-    const e = asRecord(v);
-    const c = code(e.code);
-    if (c !== null && spots.length < MAX_NIGHT_SPOTS) spots.push({ code: c, lossCentiBb: nonNegativeInt(e.lossCentiBb) });
-  }
-  const seen: string[] = [];
-  for (const v of asArray(n.seen)) {
-    const who = name(v);
-    if (who !== null && !seen.includes(who) && seen.length < MAX_NIGHT_SEEN) seen.push(who);
-  }
-  const byName = new Map<string, NightRecap>();
-  for (const v of asArray(n.friends)) {
-    const r = parseRecap(v);
-    if (r !== null && r.night === night) byName.set(r.name, r);
-  }
-  return {
-    night,
-    day,
-    role,
-    startedAt,
-    endedAt,
-    hands: nonNegativeInt(n.hands),
-    lastHand: nonNegativeInt(n.lastHand),
-    decisions,
-    clean: Math.min(decisions, nonNegativeInt(n.clean)),
-    lossCentiBb: nonNegativeInt(n.lossCentiBb),
-    spots,
-    seen,
-    friends: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)).slice(0, MAX_NIGHT_SEEN),
-  };
-}
-
 function parseClub(obj: Record<string, unknown>, d: ClubState): ClubState {
   const members: ClubMember[] = [];
   for (const v of asArray(obj.members)) {
@@ -951,27 +883,22 @@ function parseClub(obj: Record<string, unknown>, d: ClubState): ClubState {
     members.push({ name: who, since });
   }
   const byAt = new Map<number, NotebookEntry>();
+  const codes = new Set<string>();
   for (const v of asArray(obj.notebook)) {
     const e = asRecord(v);
     const at = e.at;
     const c = code(e.code);
     const from = name(e.from);
-    if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0 || byAt.has(at) || c === null || from === null) continue;
+    if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0 || byAt.has(at) || c === null || codes.has(c) || from === null) continue;
     const note = typeof e.note === 'string' ? e.note.trim().slice(0, MAX_NOTE_CHARS) : '';
-    byAt.set(at, { at, code: c, from, note, answer: id(e.answer) });
-  }
-  const byNight = new Map<string, NightRecord>();
-  for (const v of asArray(obj.nights)) {
-    const n = parseNight(v);
-    if (n !== null && !byNight.has(n.night)) byNight.set(n.night, n);
+    codes.add(c);
+    byAt.set(at, { at, code: c, from, note, playedOn: asDayKey(e.playedOn) });
   }
   return {
     name: name(obj.name) ?? d.name,
     since: asDayKey(obj.since),
-    tableName: name(obj.tableName),
     members: members.slice(0, MAX_CLUB_MEMBERS),
     notebook: [...byAt.values()].sort((a, b) => a.at - b.at).slice(-MAX_NOTEBOOK),
-    nights: [...byNight.values()].sort((a, b) => a.startedAt - b.startedAt).slice(-MAX_NIGHTS),
   };
 }
 

@@ -143,29 +143,6 @@ describe('host + join end to end', () => {
     expect(JSON.stringify(guestSide.views)).not.toContain('"deck"');
   });
 
-  it('the host sits down under its own table name, and a guest sees that name, not "You"', async () => {
-    const hostSide = collector();
-    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks, { host: '127.0.0.1', name: 'Sam' });
-    sessions.push(host);
-    const guestSide = collector();
-    sessions.push(joinSession(loopback(info), 'Ada', guestSide.callbacks));
-    await waitFor(() => (guestSide.latest()?.handNumber ?? 0) >= 1);
-    const names = guestSide.latest()!.seats.filter((s) => s.inHand).map((s) => [s.name, s.isYou]);
-    expect(names).toEqual(expect.arrayContaining([['Sam', false], ['Ada', true]]));
-    await waitFor(() => (hostSide.latest()?.handNumber ?? 0) >= 1);
-    expect(hostSide.latest()!.seats.find((s) => s.isYou)?.name).toBe('Sam');
-  });
-
-  it('a table bound to loopback is reachable on loopback (the e2e shape: main binds 127.0.0.1 under OFFSUIT_E2E)', async () => {
-    const hostSide = collector();
-    const { session: host, info } = await hostSession(OPTS, hostSide.callbacks, { host: '127.0.0.1' });
-    sessions.push(host);
-    const guestSide = collector();
-    sessions.push(joinSession(loopback(info), 'Guest', guestSide.callbacks));
-    await waitFor(() => (guestSide.latest()?.handNumber ?? 0) >= 1);
-    expect(guestSide.errors).toEqual([]);
-  });
-
   it('a guest can connect over the LAN address the host advertises, not just loopback', async () => {
     // The reason the host binds 0.0.0.0 instead of the 127.0.0.1 default: a guest on another machine
     // reaches it at the advertised LAN address. Connecting to that same address from here routes back to
@@ -393,28 +370,5 @@ describe('joining safely — pin, token, versions, reconnect', () => {
     sessions.push(joinSession(loopback(nextInfo, { fingerprint: info.fingerprint, token: info.token }), 'G', stale.callbacks));
     await waitFor(() => stale.errors.length > 0);
     expect(stale.errors).toEqual([FINGERPRINT_MISMATCH]);
-  });
-});
-
-describe('the relay slot main keeps (review round 2)', () => {
-  it('a table stopped while it was still starting is stopped as soon as it is up, and never becomes the session', async () => {
-    const { RelaySlot } = await import('../../src/main/relaySession.js');
-    const slot = new RelaySlot();
-    const hostSide = collector();
-    const starting = slot.start(() => hostSession(OPTS, hostSide.callbacks, { host: '127.0.0.1' }));
-    await slot.stop();
-    const made = await starting;
-    expect(made).toBeNull();
-    expect(slot.active).toBeNull();
-  });
-
-  it('a table that starts normally is the slot’s session until stopped', async () => {
-    const { RelaySlot } = await import('../../src/main/relaySession.js');
-    const slot = new RelaySlot();
-    const made = await slot.start(() => hostSession(OPTS, collector().callbacks, { host: '127.0.0.1' }));
-    expect(made).not.toBeNull();
-    expect(slot.active).toBe(made!.session);
-    await slot.stop();
-    expect(slot.active).toBeNull();
   });
 });

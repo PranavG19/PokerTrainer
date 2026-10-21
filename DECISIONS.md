@@ -6,32 +6,20 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
-## LAN Club and Home Game Night (branch `feat-lan-club`): cooperative, decisions only (2.9)
-Owner decisions in force: the relay protocol is unchanged without the owner's approval, nothing is locked, cosmetics
-stay paint only, no schema bump (`progression.club` is a new additive key).
-- **No relay change.** A Game Night is a LAN table over relay v2 as it is. The only wire difference is what already
-  existed: the hello's `name` (the host's own seat now takes the club's table name too, instead of "You").
-- **Each player grades only their own decisions**, on their own machine, from the redacted view they were sent, with
-  the online ladder's grader inputs (`coach.gradeDecision`, the betting range facing a price). Clean = a `free`
-  grade. The host's relay sees every hole card and grades nobody: a grade of someone else's folded hand would tell the
-  host something about it.
-- **Counted: hands that ended, decisions graded, clean decisions, bb lost per 100 decisions.** Never a stack, a pot won
-  or a result. The costliest three decisions are kept as spot codes for review.
-- **The shared recap travels by code, by hand.** A recap code (challenge-code format, kind 5) carries the night (a
-  hash of the table's certificate fingerprint, which host and guests both know), the day, the table name and the four
-  counts. Friends paste each other's in; the table is pooled (summed, rates over everyone) and never listed or ordered
-  per person. A code from another night or under your own name is refused. An automatic share over the relay is an
-  open owner decision.
-- **Spot codes** (kind 4) carry one decision: hole, board, bb, pot, price, stack, players still in and, optionally,
-  the sharer's choice. A friend answers before the grade and the sharer's choice show (commit before reveal).
-- **The club** is local: a name, the members this player keeps (added by hand or from a recap's "At the table"), the
-  notebook (spot codes and any challenge code), and every night's record. Its "Together" numbers pool every night.
-- **Kinds 4 and 5 are reserved in `challengeCode.ts`**, and the challenge reader names a club code instead of calling
-  it unknown. Older builds read them as an unknown kind.
-- **No Reps, Chalk or Rail credit for LAN decisions** for now: the economy's inputs stay as they are.
-- **e2e tables bind loopback.** Under `OFFSUIT_E2E` the app hosts on 127.0.0.1; a real table still binds every
-  interface (LAN play), behind the opt-in, TLS, the pinned certificate and the room token.
-- **Where:** Play › LAN Club. The night is the LAN table with a bar of counts and End the night.
+## LAN Club (branch `feat-lan-club`): a standing group and its notebook of codes (2.9, without Game Night)
+Owner decisions in force: nothing is locked, cosmetics stay paint only, no schema bump (`progression.club` is a new
+additive key). The owner answered "We don't need LAN play", then "Keep the club, drop Game Night".
+- **No Game Night and no network.** The club never opens a socket and touches nothing in the relay, multiplayer or
+  main process. Supersedes: a hosted LAN Game Night with a shared recap, because the owner does not need LAN play.
+- **The club** is a name, the members this player keeps, and a notebook of challenge codes (hand, Math problem,
+  puzzle) with who handed each over and a note on what to talk through. A hand code replays the same deal, so the
+  club reviews each other's hands by playing them. A code is read and written exactly as the challenge reader does.
+- **Together** counts what the club did: members, codes shared, codes from friends, codes played. Never a person's
+  score, never chips, no ranking.
+- **Where:** Play › LAN Club. Make a code opens the challenge maker, whose made code can go straight into the
+  notebook ("Add to the club notebook", shown only once a club exists). Playing a notebook code marks it played and
+  opens it as the challenge reader would.
+
 ## Settings: Character, Celebrations and the local trial (branch `feat-settings-trial`, 1.8)
 Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone clack behind the sound switch), D15
 (run the trial, four weeks on/off, kill criteria written in advance), no schema bumps (additive fields only).

@@ -46,7 +46,7 @@ export function renderPlay(opts: {
     launch.appendChild(launchRow('play-challenge', codeIcon(), 'Challenge a friend', 'Play a code, or make one: the same spot for both of you', opts.onChallenge));
   }
   if (opts.onClub) {
-    launch.appendChild(launchRow('play-club', peopleIcon(), 'LAN Club', 'Game Nights with your group, graded on decisions together', opts.onClub));
+    launch.appendChild(launchRow('play-club', peopleIcon(), 'LAN Club', 'Your friends, and the codes you hand each other to play', opts.onClub));
   }
   col.append(h, sub, launch);
   root.appendChild(col);

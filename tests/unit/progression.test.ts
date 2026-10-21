@@ -179,26 +179,8 @@ function full(): ProgressionState {
     club: {
       name: 'Thursday table',
       since: 19_990 as DayKey,
-      tableName: 'Sam',
       members: [{ name: 'Ada', since: 19_990 as DayKey }],
-      notebook: [{ at: 1_700_300_000_000, code: 'OS-ABCD-EFGH', from: 'Ada', note: 'the river call', answer: 'call' }],
-      nights: [
-        {
-          night: '0a1b2c3d',
-          day: 19_995 as DayKey,
-          role: 'host',
-          startedAt: 1_700_400_000_000,
-          endedAt: 1_700_410_000_000,
-          hands: 12,
-          lastHand: 12,
-          decisions: 30,
-          clean: 24,
-          lossCentiBb: 410,
-          spots: [{ code: 'OS-WXYZ-0123', lossCentiBb: 220 }],
-          seen: ['Ada', 'Bo'],
-          friends: [{ night: '0a1b2c3d', day: 19_995 as DayKey, name: 'Ada', hands: 12, decisions: 28, clean: 20, lossCentiBb: 600 }],
-        },
-      ],
+      notebook: [{ at: 1_700_300_000_000, code: 'OS-ABCD-EFGH', from: 'Ada', note: 'the river call', playedOn: 19_991 as DayKey }],
     },
   };
 }

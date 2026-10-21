@@ -1,8 +1,7 @@
-/* LAN Club and Home Game Night (screens/club.ts). Tokens only (styles-glass.css). Play's two columns: the club
- * and its launcher on the left, the notebook and the nights on the right; the recap and a notebook spot use the
- * same split. The one bone primary per screen: Start the club, then Host a Game Night. Lists that can grow
- * scroll inside their column so the page never does. No colour carries a number's sign here: decision counts
- * and pooled rates are neutral, and only a named cost reads coral. */
+/* LAN Club (screens/club.ts). Tokens only (styles-glass.css). Play's two columns: the club, what it has done
+ * together and its members on the left; the notebook of codes on the right. The one bone primary per screen:
+ * Start the club, then Make a code. The notebook's entries scroll inside their column so the page never does.
+ * No colour carries meaning here beyond the kit's: counts are neutral, an unreadable code reads coral. */
 
 .club-screen {
   display: grid;
@@ -23,9 +22,7 @@
   padding: 8px 12px;
   min-width: 0;
 }
-.club-row-end { justify-content: flex-end; }
-.club-row-text { flex: none; min-width: 64px; font-size: var(--t-body); color: var(--ink-2); }
-.club-labelled { cursor: default; }
+.club-row-text { flex: none; font-size: var(--t-body); color: var(--ink-2); }
 .club-input {
   flex: 1;
   min-width: 0;
@@ -40,7 +37,6 @@
   font: inherit;
   font-size: var(--t-foot);
 }
-.club-launch .pill.primary { margin-left: auto; }
 
 .club-stats {
   display: flex;
@@ -49,14 +45,15 @@
   border-top: 1px solid var(--hair);
   border-bottom: 1px solid var(--hair);
 }
-.club-together, .club-own, .club-table, .club-members, .club-seen, .club-spots, .club-notebook, .club-nights {
+.club-together, .club-members, .club-notebook {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-height: 0;
 }
+.club-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
-/* Members and the people at a table: chips in the coat (informational), a small remove/add mark on each. */
+/* Members: chips in the coat (informational), a small remove mark on each. */
 .club-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .club-chip {
   display: inline-flex;
@@ -70,8 +67,8 @@
   color: var(--ink-1);
 }
 .club-chip-x {
-  width: 22px;
-  height: 22px;
+  width: var(--h-sm);
+  height: var(--h-sm);
   flex: none;
   border: 0;
   border-radius: var(--r-xs);
@@ -83,17 +80,16 @@
 }
 .club-chip-x:hover { background: var(--fill-1); color: var(--ink-1); }
 .club-chip-x:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 1px; }
-.club-chip-input { flex: 0 1 120px; height: var(--h-sm); }
+.club-chip-input { flex: 0 1 140px; }
 
 /* The notebook: the reader, then its entries scrolling inside the column. */
+.club-notebook { flex: 1 1 auto; }
 .club-reader { display: flex; flex-direction: column; }
+.club-reader > .club-row + .club-row { padding-top: 0; box-shadow: none; }
 .club-reader > .club-reader-note { margin: 0; padding: 0 12px 8px; min-height: calc(var(--t-foot) * 1.5); }
 .club-reader[data-state='invalid'] .club-reader-note { color: var(--coral); }
 .club-reader[data-state='valid'] .club-reader-note { color: var(--ink-1); }
-.club-notebook { flex: 1 1 auto; }
-.club-entries, .club-night-list { min-height: 0; overflow-y: auto; }
-.club-notebook > .club-entries { flex: 1 1 auto; }
-.club-nights { flex: 0 1 auto; max-height: 34%; }
+.club-entries { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .club-entry {
   display: flex;
   align-items: center;
@@ -104,30 +100,3 @@
 .club-entry-line { font-size: var(--t-body); color: var(--ink-1); }
 .club-entry-text > .g-caption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .club-empty { margin: 0; padding: 10px 12px; }
-.club-night { padding: 8px 12px; }
-
-/* The night bar over the LAN table: flat, one line of counts, End the night on the right. */
-.club-night-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  border-top: 1px solid var(--hair);
-  border-bottom: 1px solid var(--hair);
-}
-.club-night-dee { flex: none; }
-
-/* The recap: the code to hand over is text beside its locally drawn QR. */
-.club-share { display: flex; align-items: center; gap: 12px; padding: 12px; }
-.club-share-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.club-code { font-size: var(--t-foot); letter-spacing: 0.04em; color: var(--ink-1); word-break: break-all; user-select: all; }
-.club-qr { flex: none; width: min(120px, 18vh); aspect-ratio: 1; border-radius: var(--r-thumb); overflow: hidden; }
-.club-spots { flex: 0 1 auto; }
-
-/* A notebook spot: the cards, the four facts, the choices; the verdict on the right after the commit. */
-.club-spot-cards { display: flex; align-items: center; gap: 16px; }
-.club-spot-actions { padding: 0; }
-.club-spot-actions > .pill[data-selected='true'] { background: var(--fill-3); }
-.club-verdict { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; }
-.club-grade { display: flex; flex-direction: column; gap: 3px; }
-.club-cost { color: var(--coral); }

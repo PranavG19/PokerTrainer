@@ -3,57 +3,45 @@ import type { Challenge } from '../../core/challengeCode.js';
 import {
   addMember,
   addToNotebook,
-  effectiveAnswer,
   FROM_YOU,
-  readAnyCode,
+  MAX_CLUB_NAME,
+  MAX_MEMBER_NAME,
+  MAX_NOTE,
+  readCode,
   removeFromNotebook,
   removeMember,
-  setTableName,
   startClub,
-  tableNameOf,
   together,
-  upsertNight,
 } from '../../core/club/club.js';
-import { clubName, decodeClubCode, describeClubCode, encodeClubCode, nightIdOf, streetOf, type SharedSpot } from '../../core/club/codes.js';
-import {
-  addFriendRecap,
-  decisionKey,
-  endNight,
-  gradeShared,
-  observeView,
-  pooledNight,
-  recapOf,
-  recordDecision,
-  spotFromView,
-  startNight,
-  type NightRecord,
-  type Pooled,
-} from '../../core/club/gameNight.js';
 import type { DayKey } from '../../core/localDay.js';
-import type { RoomView } from '../../core/multiplayer.js';
 import type { ClubState, NotebookEntry } from '../../core/progression/types.js';
-import type { Action, ActionKind } from '../../core/table.js';
-import { renderCardRow } from '../components/card.js';
-import { renderDee } from '../components/dee.js';
-import { renderQrCode } from '../components/qrCode.js';
-import type { NightHooks } from './multiplayer.js';
 import { dayLabel } from './you.js';
 
 /**
- * LAN CLUB and HOME GAME NIGHT — Play → LAN Club. Four views over `progression.club` (core/club/):
- * - the club: who is in it, the Game Night launcher, the shared notebook of codes, and past nights;
- * - the night bar over the LAN table (screens/multiplayer.ts with NightHooks): the night's counts so far;
- * - the recap: this player's counts, a recap code for the others, the table pooled from the codes pasted
- *   in, the costliest spots to review together, and the people at the table;
- * - a spot from the notebook: commit an answer, then see the grade and what the sharer chose.
+ * LAN CLUB — Play › LAN Club, over `progression.club` (core/club/club.ts). A standing group of friends: who is in
+ * it, and the notebook of challenge codes they hand each other (the same hand, Math problem or puzzle for each of
+ * them) with a note on what to talk through. A hand code replays the same deal, so the club reviews each other's
+ * hands by playing them.
  *
- * Cooperative and scored on decisions: every number here is a count of decisions or their quality, pooled
- * when it is more than one person's. No chip count, no ranking, nothing locked. Codes are the only thing that
- * travels, by hand; the relay protocol is the one LAN play already speaks.
+ * Cooperative and local: the numbers are what the club has done together, never a person's score and never chips.
+ * Nothing is locked and nothing touches the network; a code travels by hand.
  *
- * Sync for e2e: each root has a data-testid; the notebook reader carries data-state ('empty' | 'valid' |
- * 'invalid'), the night bar data-decisions and data-hands, the spot view data-answered.
+ * Sync for e2e: the root carries data-state ('new' | 'club'); the reader carries data-state ('empty' | 'valid' |
+ * 'invalid'); each entry carries data-code and data-played.
  */
+
+export interface ClubScreenOptions {
+  readonly club: ClubState;
+  readonly today: DayKey;
+  readonly now: () => number;
+  /** Persist the club (main keeps its session in step). */
+  readonly save: (club: ClubState) => void;
+  /** Play a notebook code: main marks it played and opens it as the challenge reader would. */
+  readonly onPlay: (entry: NotebookEntry, challenge: Challenge) => void;
+  /** Make a code to hand over (Play › Challenge a friend). */
+  readonly onMakeCode: () => void;
+  readonly onExit: () => void;
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -81,46 +69,14 @@ function input(testid: string, placeholder: string, label: string, maxLength: nu
   return i;
 }
 
-function stat(value: string, label: string, testid: string): HTMLElement {
+function stat(value: number, label: string, testid: string): HTMLElement {
   const s = el('div', 'g-stat club-stat');
   s.dataset.testid = testid;
-  s.append(el('span', 't-t3 g-num', value), el('span', 'g-label', label));
+  s.append(el('span', 't-t3 g-num', String(value)), el('span', 'g-label', label));
   return s;
 }
 
-export const pct = (rate: number | null): string => (rate === null ? '–' : `${Math.round(rate * 100)}%`);
-const bb100 = (v: number | null): string => (v === null ? '–' : v.toFixed(1));
 const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
-
-/** The pooled counts as one stat strip: the same four on the club, the recap's "you" and its "table". */
-function statStrip(p: Pick<Pooled, 'hands' | 'decisions' | 'cleanRate' | 'bbPer100'>, testid: string): HTMLElement {
-  const strip = el('div', 'club-stats');
-  strip.dataset.testid = testid;
-  strip.append(
-    stat(String(p.hands), 'Hands', `${testid}-hands`),
-    stat(String(p.decisions), 'Decisions graded', `${testid}-decisions`),
-    stat(pct(p.cleanRate), 'Clean', `${testid}-clean`),
-    stat(bb100(p.bbPer100), 'bb lost per 100', `${testid}-bb100`),
-  );
-  return strip;
-}
-
-// ── The club ────────────────────────────────────────────────────────────────
-
-export interface ClubScreenOptions {
-  readonly club: ClubState;
-  readonly displayName: string | null;
-  readonly today: DayKey;
-  readonly now: () => number;
-  /** Persist the club (main keeps its session in step). */
-  readonly save: (club: ClubState) => void;
-  readonly onHostNight: (seatCount: number) => void;
-  readonly onJoinNight: (invite: string) => void;
-  readonly onOpenNight: (night: string) => void;
-  readonly onOpenSpot: (entry: NotebookEntry) => void;
-  readonly onOpenChallenge: (challenge: Challenge) => void;
-  readonly onExit: () => void;
-}
 
 export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
   let club = opts.club;
@@ -128,6 +84,7 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
   root.dataset.testid = 'club-screen';
 
   const save = (next: ClubState): void => {
+    if (next === club) return;
     club = next;
     opts.save(next);
     paint();
@@ -138,97 +95,63 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
     root.replaceChildren(...(club.name === null ? setup() : [left(), right()]));
   }
 
-  /** No club yet: name it and the name you sit down under. */
+  function back(): HTMLButtonElement {
+    const b = pill('Back', 'club-back', 'quiet', 'sm');
+    b.classList.add('club-back');
+    b.addEventListener('click', opts.onExit);
+    return b;
+  }
+
+  /** No club yet: name it. */
   function setup(): HTMLElement[] {
     const col = el('div', 'home-col club-col');
     const h = el('h1', 't-t2 habit-flush', 'LAN Club');
     const sub = el(
       'p',
       'g-sub habit-flush',
-      'A club is the people who play Game Nights together on your local network. It counts decisions, together, never chips. Nothing is locked, and nothing leaves this computer but the table you host or join.',
+      'A club is the friends you hand challenge codes to: the same hand, Math problem or puzzle for each of you, and a note on what to talk through. It counts what you do together, never chips. Nothing is locked, and nothing leaves this computer.',
     );
     const form = el('div', 'g-group club-form');
     form.dataset.testid = 'club-setup';
-    const nameIn = input('club-name', 'Thursday table', 'Club name', 32);
-    const tableIn = input('club-table-name', clubName(opts.displayName ?? '') || 'The name friends will see', 'Your name at the table', 16);
-    tableIn.value = club.tableName ?? '';
+    const nameIn = input('club-name', 'Thursday table', 'Club name', MAX_CLUB_NAME);
     const start = pill('Start the club', 'club-start', 'primary');
-    start.addEventListener('click', () => {
-      let next = startClub(club, nameIn.value, opts.today);
-      if (next === club) {
-        nameIn.focus();
-        return;
-      }
-      if (tableIn.value.trim() !== '') next = setTableName(next, tableIn.value);
-      save(next);
+    const go = (): void => {
+      const next = startClub(club, nameIn.value, opts.today);
+      if (next === club) nameIn.focus();
+      else save(next);
+    };
+    start.addEventListener('click', go);
+    nameIn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') go();
     });
-    form.append(labelled('Club name', nameIn), labelled('Your name at the table', tableIn), rowOf(start));
-    const back = pill('Back', 'club-back', 'quiet', 'sm');
-    back.classList.add('club-back');
-    back.addEventListener('click', opts.onExit);
-    col.append(h, sub, form, back);
+    const row = el('label', 'club-row');
+    row.append(el('span', 'club-row-text', 'Club name'), nameIn, start);
+    form.appendChild(row);
+    col.append(h, sub, form, back());
     return [col];
   }
 
   function left(): HTMLElement {
     const col = el('div', 'home-col club-col');
-    const you = tableNameOf(club, opts.displayName);
-    const t = together(club, you);
+    const t = together(club);
     const h = el('h1', 't-t2 habit-flush', club.name ?? 'LAN Club');
     h.dataset.testid = 'club-title';
     const sub = el(
       'p',
       'g-sub habit-flush',
-      `${plural(club.members.length, 'member')} · ${plural(t.nights, 'Game Night')} · ${plural(t.reviewed, 'spot')} reviewed together. Counted on decisions, never chips.`,
+      `Since ${club.since !== null ? dayLabel(club.since) : 'today'}. Hand a friend a code, play theirs, and talk the spot through. Counted together, never chips.`,
     );
-
-    // The launcher: host (the one primary on the screen) or join with an invite link.
-    const launch = el('div', 'g-group club-launch');
-    launch.dataset.testid = 'club-launch';
-    const hostRow = el('div', 'club-row');
-    const seats = el('select', 'club-select');
-    seats.dataset.testid = 'club-seat-count';
-    seats.setAttribute('aria-label', 'Players');
-    for (const n of [2, 3, 4, 5, 6]) {
-      const o = el('option', '', String(n));
-      o.value = String(n);
-      o.selected = n === Math.min(6, Math.max(2, club.members.length + 1));
-      seats.appendChild(o);
-    }
-    // A night needs a name to sit under: two unnamed players would both be "Player" and could not pool.
-    const named = club.tableName !== null || clubName(opts.displayName ?? '') !== '';
-    const host = pill('Host a Game Night', 'club-host', 'primary');
-    host.disabled = !named;
-    host.addEventListener('click', () => opts.onHostNight(Number(seats.value)));
-    hostRow.append(el('span', 'club-row-text', 'Players'), seats, host);
-    const joinRow = el('div', 'club-row');
-    const invite = input('club-join-invite', 'Invite link (offsuit://join?…)', 'Invite link', 400);
-    const join = pill('Join', 'club-join');
-    join.disabled = !named;
-    join.addEventListener('click', () => {
-      if (invite.value.trim() !== '') opts.onJoinNight(invite.value.trim());
-    });
-    joinRow.append(invite, join);
-    const nameRow = el('div', 'club-row');
-    const nameIn = input('club-table-name', 'Your name at the table', 'Your name at the table', 16);
-    nameIn.value = named ? you : '';
-    const keep = pill('Keep', 'club-table-name-save', 'quiet', 'sm');
-    keep.addEventListener('click', () => save(setTableName(club, nameIn.value)));
-    nameRow.append(el('span', 'club-row-text', 'Sit as'), nameIn, keep);
-    launch.append(hostRow, joinRow, nameRow);
-    if (!named) {
-      const need = el('p', 'g-caption club-empty', 'Pick the name you sit under first, so friends’ recaps can tell you apart.');
-      need.dataset.testid = 'club-need-name';
-      launch.appendChild(need);
-    }
-
+    const strip = el('div', 'club-stats');
+    strip.dataset.testid = 'club-together';
+    strip.append(
+      stat(t.members, 'Members', 'club-together-members'),
+      stat(t.codes, 'Codes shared', 'club-together-codes'),
+      stat(t.fromFriends, 'From friends', 'club-together-friends'),
+      stat(t.played, 'Played', 'club-together-played'),
+    );
     const togetherSect = el('section', 'club-together');
-    togetherSect.append(el('div', 'g-label', 'Together'), statStrip(t, 'club-together'));
-
-    const back = pill('Back', 'club-back', 'quiet', 'sm');
-    back.classList.add('club-back');
-    back.addEventListener('click', opts.onExit);
-    col.append(h, sub, togetherSect, launch, members(), back);
+    togetherSect.append(el('div', 'g-label', 'Together'), strip);
+    col.append(h, sub, togetherSect, members(), back());
     return col;
   }
 
@@ -248,11 +171,10 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
       chip.append(el('span', '', m.name), x);
       list.appendChild(chip);
     }
-    const add = input('club-member-name', 'Add a name', 'Add a member', 16);
+    const add = input('club-member-name', 'Add a name', 'Add a member', MAX_MEMBER_NAME);
     add.classList.add('club-chip-input');
     add.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      save(addMember(club, add.value, opts.today));
+      if (e.key === 'Enter') save(addMember(club, add.value, opts.today));
     });
     list.appendChild(add);
     sect.appendChild(list);
@@ -261,17 +183,21 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
 
   function right(): HTMLElement {
     const side = el('div', 'home-side club-side');
-    side.append(notebook(), nights());
+    const sect = el('section', 'club-notebook');
+    const head = el('div', 'club-head');
+    const make = pill('Make a code', 'club-make', 'primary', 'sm');
+    make.addEventListener('click', opts.onMakeCode);
+    head.append(el('div', 'g-label', 'Notebook'), make);
+    sect.append(head, reader(), entries());
+    side.appendChild(sect);
     return side;
   }
 
-  function notebook(): HTMLElement {
-    const sect = el('section', 'club-notebook');
-    sect.appendChild(el('div', 'g-label', 'Notebook'));
-    const reader = el('div', 'g-group club-reader');
-    reader.dataset.testid = 'club-reader';
-    reader.dataset.state = 'empty';
-    const code = input('club-code', 'OS-XXXX-XXXX-…', 'A code from a friend', 96);
+  function reader(): HTMLElement {
+    const box = el('div', 'g-group club-reader');
+    box.dataset.testid = 'club-reader';
+    box.dataset.state = 'empty';
+    const code = input('club-code', 'OS-XXXX-XXXX-XXXX', 'A code from a friend', 96);
     code.classList.add('g-num');
     const from = el('select', 'club-select');
     from.dataset.testid = 'club-code-from';
@@ -281,549 +207,73 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
       o.value = n;
       from.appendChild(o);
     }
+    const note = input('club-code-note', 'What to talk through (optional)', 'A note', MAX_NOTE);
     const add = pill('Add', 'club-code-add');
     add.disabled = true;
-    const note = el('p', 'g-caption club-reader-note');
-    note.dataset.testid = 'club-code-notice';
-    note.setAttribute('role', 'status');
-    note.textContent = 'A spot, a recap or a challenge code a friend handed over.';
-    const read = (): void => {
+    const notice = el('p', 'g-caption club-reader-note');
+    notice.dataset.testid = 'club-code-notice';
+    notice.setAttribute('role', 'status');
+    const hint = 'A hand, Math problem or puzzle code a friend handed over.';
+    notice.textContent = hint;
+    code.addEventListener('input', () => {
       const text = code.value.trim();
       if (text === '') {
-        reader.dataset.state = 'empty';
+        box.dataset.state = 'empty';
         add.disabled = true;
-        note.textContent = 'A spot, a recap or a challenge code a friend handed over.';
+        notice.textContent = hint;
         return;
       }
-      const r = readAnyCode(text);
-      reader.dataset.state = r.ok ? 'valid' : 'invalid';
+      const r = readCode(text);
+      box.dataset.state = r.ok ? 'valid' : 'invalid';
       add.disabled = !r.ok;
-      note.textContent = r.ok ? r.line : r.reason;
-    };
-    code.addEventListener('input', read);
-    add.addEventListener('click', () => {
-      const r = readAnyCode(code.value);
-      if (!r.ok) return;
-      if (r.kind === 'club' && r.code.kind === 'recap') {
-        // A recap belongs to its night, not the notebook.
-        const recap = r.code.recap;
-        const night = club.nights.find((n) => n.night === recap.night);
-        if (night === undefined) {
-          reader.dataset.state = 'invalid';
-          note.textContent = 'That recap is from a Game Night this computer did not sit in.';
-          return;
-        }
-        const added = addFriendRecap(night, recap, tableNameOf(club, opts.displayName));
-        if (!added.ok) {
-          reader.dataset.state = 'invalid';
-          note.textContent = added.reason;
-          return;
-        }
-        save(upsertNight(club, added.night));
-        return;
-      }
-      save(addToNotebook(club, { code: r.text, from: from.value, note: '' }, opts.now()));
+      notice.textContent = r.ok ? r.line : r.reason;
     });
-    const row = el('div', 'club-row');
-    row.append(code, from, add);
-    reader.append(row, note);
+    add.addEventListener('click', () => {
+      const r = readCode(code.value);
+      if (r.ok) save(addToNotebook(club, { code: r.code, from: from.value, note: note.value }, opts.now()));
+    });
+    const row1 = el('div', 'club-row');
+    row1.append(code, from);
+    const row2 = el('div', 'club-row');
+    row2.append(note, add);
+    box.append(row1, row2, notice);
+    return box;
+  }
 
+  function entries(): HTMLElement {
     const list = el('div', 'g-group club-entries');
     list.dataset.testid = 'club-entries';
-    const entries = [...club.notebook].reverse();
-    if (entries.length === 0) {
-      const empty = el('p', 'g-caption club-empty', 'Spots from a Game Night recap land here, with any code a friend hands over.');
+    const all = [...club.notebook].reverse();
+    if (all.length === 0) {
+      const empty = el('p', 'g-caption club-empty', 'Codes friends hand over land here. Make one of yours with Make a code.');
       empty.dataset.testid = 'club-notebook-empty';
       list.appendChild(empty);
     }
-    for (const entry of entries) list.appendChild(entryRow(entry));
-    sect.append(reader, list);
-    return sect;
-  }
-
-  function entryRow(entry: NotebookEntry): HTMLElement {
-    const row = el('div', 'club-entry');
-    row.dataset.testid = 'club-entry';
-    row.dataset.code = entry.code;
-    const r = readAnyCode(entry.code);
-    const text = el('span', 'club-entry-text');
-    text.append(
-      el('span', 'club-entry-line', r.ok ? r.line : 'A code this version cannot open.'),
-      el('span', 'g-caption', [`From ${entry.from}`, entry.note, playedLine(effectiveAnswer(entry))].filter(Boolean).join(' · ')),
-    );
-    const open = pill(effectiveAnswer(entry) !== null ? 'Review' : 'Play', 'club-entry-open', '', 'sm');
-    open.disabled = !r.ok;
-    open.addEventListener('click', () => {
-      if (!r.ok) return;
-      if (r.kind === 'challenge') opts.onOpenChallenge(r.challenge);
-      else opts.onOpenSpot(entry);
-    });
-    const x = el('button', 'club-chip-x', '×');
-    x.type = 'button';
-    x.setAttribute('aria-label', 'Remove from the notebook');
-    x.addEventListener('click', () => save(removeFromNotebook(club, entry.at)));
-    row.append(text, open, x);
-    return row;
-  }
-
-  function nights(): HTMLElement {
-    const sect = el('section', 'club-nights');
-    sect.appendChild(el('div', 'g-label', 'Game Nights'));
-    const list = el('div', 'g-group club-night-list');
-    list.dataset.testid = 'club-nights';
-    const you = tableNameOf(club, opts.displayName);
-    const recent = [...club.nights].reverse();
-    if (recent.length === 0) list.appendChild(el('p', 'g-caption club-empty', 'Host one, or join a friend’s with their invite link.'));
-    for (const n of recent) {
-      const p = pooledNight(n, you);
-      const row = el('button', 'g-row club-night');
-      row.type = 'button';
-      row.dataset.testid = 'club-night';
-      row.dataset.night = n.night;
-      const t = el('span', 'club-entry-text');
-      t.append(
-        el('span', 'club-entry-line', `${dayLabel(n.day)} · ${n.role === 'host' ? 'hosted' : 'joined'}`),
-        el('span', 'g-caption', `${plural(p.players, 'player')} shared · ${plural(p.decisions, 'decision')} · ${pct(p.cleanRate)} clean`),
-      );
-      row.appendChild(t);
-      row.addEventListener('click', () => opts.onOpenNight(n.night));
+    for (const entry of all) {
+      const r = readCode(entry.code);
+      const row = el('div', 'club-entry');
+      row.dataset.testid = 'club-entry';
+      row.dataset.code = entry.code;
+      row.dataset.played = String(entry.playedOn !== null);
+      const text = el('span', 'club-entry-text');
+      const meta = [`From ${entry.from}`, entry.playedOn !== null ? `Played ${dayLabel(entry.playedOn)}` : ''].filter(Boolean).join(' · ');
+      text.append(el('span', 'club-entry-line', r.ok ? r.line : 'A code this version cannot open.'), el('span', 'g-caption', meta));
+      if (entry.note) text.appendChild(el('span', 'g-caption club-entry-note', `“${entry.note}”`));
+      const open = pill('Play', 'club-entry-play', '', 'sm');
+      open.disabled = !r.ok;
+      open.addEventListener('click', () => {
+        if (r.ok) opts.onPlay(entry, r.challenge);
+      });
+      const x = el('button', 'club-chip-x', '×');
+      x.type = 'button';
+      x.setAttribute('aria-label', 'Remove from the notebook');
+      x.addEventListener('click', () => save(removeFromNotebook(club, entry.at)));
+      row.append(text, open, x);
       list.appendChild(row);
     }
-    sect.appendChild(list);
-    return sect;
+    return list;
   }
 
   paint();
   return root;
-}
-
-function playedLine(answer: ActionKind | 'unknown' | null): string {
-  if (answer === null) return '';
-  return answer === 'unknown' ? 'Played in a newer version' : `Played: ${answer}`;
-}
-
-function labelled(text: string, control: HTMLElement): HTMLElement {
-  const l = el('label', 'club-row club-labelled');
-  l.append(el('span', 'club-row-text', text), control);
-  return l;
-}
-
-function rowOf(...children: HTMLElement[]): HTMLElement {
-  const r = el('div', 'club-row club-row-end');
-  r.append(...children);
-  return r;
-}
-
-// ── The night ───────────────────────────────────────────────────────────────
-
-export interface NightControllerOptions {
-  readonly role: 'host' | 'join';
-  readonly start: NightHooks['start'];
-  readonly name: string;
-  readonly clubName: string;
-  readonly today: DayKey;
-  readonly now: () => number;
-  /** Dee's mark on the bar (the character setting). */
-  readonly dee: boolean;
-  readonly club: () => ClubState;
-  readonly save: (club: ClubState) => void;
-  /** The night ended: open its recap. */
-  readonly onEnded: (night: string) => void;
-}
-
-/**
- * One Game Night's bookkeeping over the LAN table. Grades each of this player's own decisions from the view it
- * was made on (after the action has gone, so grading never delays play), counts hands as they end, and saves at
- * each hand's end and when the night ends.
- */
-export interface NightController extends NightHooks {
-  /** Save the night as it stands. */
-  readonly flush: () => void;
-  /** The table has been left: the night can only be ended now. */
-  readonly stopped: () => boolean;
-  /** End the night (once) and save it; the night id, or null when no table was ever reached. */
-  readonly end: () => string | null;
-  /** Leave the table for good (its screen unsubscribes and stops the session), then end the night. */
-  readonly leave: () => string | null;
-  /** The profile this night belonged to is gone: stop the table and save nothing more. */
-  readonly abandon: () => void;
-  /** The LAN table screen, kept across re-renders so a repaint never restarts the table. */
-  mount: HTMLElement | null;
-}
-
-export function createNightController(o: NightControllerOptions): NightController {
-  let record: NightRecord | null = null;
-  let left = false;
-  let abandoned = false;
-  let stopTable: (() => void) | null = null;
-  const decided = new Set<string>();
-  let bar: HTMLElement | null = null;
-
-  const flush = (): void => {
-    if (record !== null && !abandoned) o.save(upsertNight(o.club(), record));
-  };
-
-  function refresh(): void {
-    if (bar === null) return;
-    bar.dataset.decisions = String(record?.decisions ?? 0);
-    bar.dataset.hands = String(record?.hands ?? 0);
-    const counts = bar.querySelector('[data-testid="night-counts"]');
-    if (counts) {
-      counts.textContent = record === null
-        ? 'Waiting for the table'
-        : `${plural(record.hands, 'hand')} · ${plural(record.decisions, 'decision')} graded · ${pct(record.decisions > 0 ? record.clean / record.decisions : null)} clean`;
-    }
-  }
-
-  function finish(): string | null {
-    if (record === null) return null;
-    record = endNight(record, o.now());
-    flush();
-    return record.night;
-  }
-
-  return {
-    name: o.name,
-    start: o.start,
-    mount: null,
-    stopped: () => left,
-    end: finish,
-    leave(): string | null {
-      stopTable?.();
-      left = true;
-      return finish();
-    },
-    abandon(): void {
-      abandoned = true;
-      stopTable?.();
-      left = true;
-    },
-    bindStop(stop: () => void): void {
-      stopTable = stop;
-    },
-    onStopped(): void {
-      left = true;
-      flush();
-    },
-    onTable(fingerprint: string, role: 'host' | 'join'): void {
-      const id = nightIdOf(fingerprint);
-      // Back at the same table (left, or even ended): the night carries on with what it had.
-      const prior = o.club().nights.find((n) => n.night === id);
-      record = prior ? { ...prior, endedAt: null } : startNight(id, o.today, role, o.now());
-      flush();
-      refresh();
-    },
-    onView(view: RoomView): void {
-      if (record === null) return;
-      const before = record.hands;
-      record = observeView(record, view);
-      if (record.hands !== before) flush();
-      refresh();
-    },
-    onAction(view: RoomView, action: Action): void {
-      if (record === null) return;
-      const key = decisionKey(view);
-      if (decided.has(key)) return;
-      const spot = spotFromView(view, action);
-      if (spot === null) return;
-      decided.add(key);
-      setTimeout(() => {
-        if (record === null || abandoned) return;
-        record = recordDecision(record, spot, gradeShared(spot, action.kind));
-        // Graded after the table was left: the night is already saved, so save it again with this one in.
-        if (left) flush();
-        refresh();
-      }, 0);
-    },
-    bar(end: () => void): HTMLElement {
-      const b = el('div', 'club-night-bar');
-      b.dataset.testid = 'night-bar';
-      if (o.dee) {
-        const mark = renderDee('rest', 28);
-        mark.classList.add('club-night-dee');
-        b.appendChild(mark);
-      }
-      const t = el('span', 'club-entry-text');
-      const counts = el('span', 'g-caption g-num');
-      counts.dataset.testid = 'night-counts';
-      t.append(el('span', 'club-entry-line', `${o.clubName} · sitting as ${o.name}`), counts);
-      const stop = pill('End the night', 'night-end', '', 'sm');
-      stop.addEventListener('click', () => {
-        end();
-        // A last decision still being graded lands before the night closes.
-        setTimeout(() => o.onEnded(finish() ?? ''), 0);
-      });
-      b.append(t, stop);
-      bar = b;
-      refresh();
-      return b;
-    },
-    flush,
-  };
-}
-
-// ── The recap ───────────────────────────────────────────────────────────────
-
-export interface RecapOptions {
-  readonly night: NightRecord;
-  readonly club: ClubState;
-  readonly displayName: string | null;
-  readonly now: () => number;
-  readonly save: (club: ClubState) => void;
-  readonly onReviewSpot: (entry: NotebookEntry) => void;
-  readonly onDone: () => void;
-}
-
-export function renderNightRecap(opts: RecapOptions): HTMLElement {
-  let club = opts.club;
-  let night = opts.night;
-  const you = tableNameOf(club, opts.displayName);
-  const root = el('div', 'home-screen club-screen club-recap');
-  root.dataset.testid = 'night-recap';
-  let notice = '';
-  let noticeBad = false;
-
-  const save = (next: ClubState): void => {
-    club = next;
-    night = next.nights.find((n) => n.night === night.night) ?? night;
-    opts.save(next);
-    paint();
-  };
-
-  function paint(): void {
-    root.replaceChildren(left(), right());
-  }
-
-  function left(): HTMLElement {
-    const col = el('div', 'home-col club-col');
-    const h = el('h1', 't-t2 habit-flush', 'Game Night recap');
-    const sub = el('p', 'g-sub habit-flush', `${dayLabel(night.day)} · ${club.name ?? 'LAN Club'} · ${night.role === 'host' ? 'hosted' : 'joined'} as ${you}. Graded on the decisions, never the chips.`);
-    const mine = recapOf(night, you);
-    const own = el('section', 'club-own');
-    own.append(el('div', 'g-label', 'Your night'), statStrip(pooledOf(mine), 'recap-you'));
-
-    const share = el('section', 'g-group club-share');
-    share.dataset.testid = 'recap-share';
-    const code = encodeClubCode({ kind: 'recap', recap: mine });
-    share.dataset.code = code;
-    const text = el('div', 'club-share-text');
-    const codeEl = el('code', 'club-code g-num', code);
-    codeEl.dataset.testid = 'recap-code';
-    text.append(el('span', 'g-label', 'Your recap code'), codeEl, el('span', 'g-caption', 'Read it out, or let a friend scan it. It carries these four counts and your table name, nothing else.'));
-    const qr = el('div', 'club-qr');
-    qr.appendChild(renderQrCode(code, { label: 'Your recap code', ecl: 'L', testid: 'recap-qr' }));
-    share.append(text, qr);
-
-    const done = pill('Back to the club', 'recap-done', 'quiet', 'sm');
-    done.classList.add('club-back');
-    done.addEventListener('click', opts.onDone);
-    col.append(h, sub, own, share, done);
-    return col;
-  }
-
-  function right(): HTMLElement {
-    const side = el('div', 'home-side club-side');
-
-    // The table, pooled: you and everyone whose code is in. Never per person.
-    const table = el('section', 'club-table');
-    table.dataset.testid = 'recap-pool';
-    const pooled = pooledNight(night, you);
-    table.dataset.players = String(pooled.players);
-    const who = [you, ...night.friends.map((f) => f.name)].join(', ');
-    table.append(el('div', 'g-label', `The table · ${who}`), statStrip(pooled, 'recap-table'));
-    const reader = el('div', 'g-group club-reader');
-    reader.dataset.testid = 'recap-reader';
-    reader.dataset.state = notice === '' ? 'empty' : noticeBad ? 'invalid' : 'valid';
-    const codeIn = input('recap-friend-code', 'A friend’s recap code', 'A friend’s recap code', 96);
-    codeIn.classList.add('g-num');
-    const add = pill('Add', 'recap-friend-add');
-    add.addEventListener('click', () => {
-      const r = decodeClubCode(codeIn.value);
-      if (!r.ok || r.code.kind !== 'recap') {
-        notice = r.ok ? 'That is a spot, not a recap. Add it to the notebook from the club.' : 'That code does not check out. A character is probably mistyped.';
-        noticeBad = true;
-        paint();
-        return;
-      }
-      const added = addFriendRecap(night, r.code.recap, you);
-      if (!added.ok) {
-        notice = added.reason;
-        noticeBad = true;
-        paint();
-        return;
-      }
-      notice = `${r.code.recap.name} is in.`;
-      noticeBad = false;
-      save(upsertNight(club, added.night));
-    });
-    const row = el('div', 'club-row');
-    row.append(codeIn, add);
-    const n = el('p', 'g-caption club-reader-note', notice || 'Each friend’s recap code adds their counts to the table’s.');
-    n.dataset.testid = 'recap-notice';
-    n.setAttribute('role', 'status');
-    reader.append(row, n);
-    table.appendChild(reader);
-
-    // The costliest spots, to review together.
-    const spots = el('section', 'club-spots');
-    spots.appendChild(el('div', 'g-label', 'Spots to look at together'));
-    const list = el('div', 'g-group club-entries');
-    list.dataset.testid = 'recap-spots';
-    if (night.spots.length === 0) list.appendChild(el('p', 'g-caption club-empty', 'No decision tonight cost anything the grader would name.'));
-    for (const s of night.spots) {
-      const decoded = decodeClubCode(s.code);
-      const row2 = el('div', 'club-entry');
-      row2.dataset.testid = 'recap-spot';
-      const t = el('span', 'club-entry-text');
-      t.append(el('span', 'club-entry-line', decoded.ok ? describeClubCode(decoded.code) : 'A spot'), el('span', 'g-caption g-num', s.code));
-      const inBook = club.notebook.find((e) => e.code === s.code);
-      const b = inBook ? pill('Play it', 'recap-spot-play', '', 'sm') : pill('Add to notebook', 'recap-spot-add', '', 'sm');
-      b.addEventListener('click', () => {
-        if (inBook) opts.onReviewSpot(inBook);
-        else save(addToNotebook(club, { code: s.code, from: FROM_YOU, note: '' }, opts.now()));
-      });
-      row2.append(t, b);
-      list.appendChild(row2);
-    }
-    spots.appendChild(list);
-
-    // The people at the table who are not in the club yet.
-    const seen = el('section', 'club-seen');
-    seen.dataset.testid = 'recap-seen';
-    seen.appendChild(el('div', 'g-label', 'At the table'));
-    const chips = el('div', 'club-chips');
-    if (night.seen.length === 0) chips.appendChild(el('span', 'g-caption', 'Nobody else sat down.'));
-    for (const name of night.seen) {
-      const member = club.members.some((m) => m.name === name);
-      const chip = el('span', 'club-chip');
-      chip.dataset.testid = 'recap-seen-name';
-      chip.dataset.name = name;
-      chip.appendChild(el('span', '', name));
-      if (!member) {
-        const plus = el('button', 'club-chip-x', '+');
-        plus.type = 'button';
-        plus.dataset.testid = 'recap-seen-add';
-        plus.setAttribute('aria-label', `Add ${name} to the club`);
-        plus.addEventListener('click', () => save(addMember(club, name, night.day)));
-        chip.appendChild(plus);
-      }
-      chips.appendChild(chip);
-    }
-    seen.appendChild(chips);
-
-    side.append(table, spots, seen);
-    return side;
-  }
-
-  paint();
-  return root;
-}
-
-function pooledOf(r: { hands: number; decisions: number; clean: number; lossCentiBb: number }): Pick<Pooled, 'hands' | 'decisions' | 'cleanRate' | 'bbPer100'> {
-  return {
-    hands: r.hands,
-    decisions: r.decisions,
-    cleanRate: r.decisions > 0 ? r.clean / r.decisions : null,
-    bbPer100: r.decisions > 0 ? Math.round((r.lossCentiBb / r.decisions) * 10) / 10 : null,
-  };
-}
-
-// ── A spot from the notebook ────────────────────────────────────────────────
-
-export interface SpotOptions {
-  readonly entry: NotebookEntry;
-  readonly spot: SharedSpot;
-  readonly onAnswer: (kind: ActionKind) => void;
-  readonly onBack: () => void;
-}
-
-const ACTION_LABEL: Record<ActionKind, string> = { fold: 'Fold', check: 'Check', call: 'Call', bet: 'Bet', raise: 'Raise', allin: 'All in' };
-
-/** The choices a spot offers: facing a price, fold, call or raise; checked to, check or bet. */
-export function spotChoices(spot: SharedSpot): ActionKind[] {
-  if (spot.toCall >= spot.stack && spot.toCall > 0) return ['fold', 'call'];
-  return spot.toCall > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet'];
-}
-
-export function renderClubSpot(opts: SpotOptions): HTMLElement {
-  const { spot, entry } = opts;
-  // An answer a newer build wrote (a kind this build does not know) reads as not answered here, and is kept.
-  const known = effectiveAnswer(entry);
-  let answer: ActionKind | null = known === 'unknown' ? null : known;
-  const root = el('div', 'home-screen club-screen club-spot');
-  root.dataset.testid = 'club-spot';
-
-  function paint(): void {
-    root.dataset.answered = String(answer !== null);
-    const col = el('div', 'home-col club-col');
-    const from = entry.from === FROM_YOU ? 'A spot of yours' : `A spot from ${entry.from}`;
-    col.append(
-      el('h1', 't-t2 habit-flush', from),
-      el('p', 'g-sub habit-flush', `${streetOf(spot)[0].toUpperCase()}${streetOf(spot).slice(1)}, ${spot.opponents} still in. Your play first, then the grade and what was chosen at the table.`),
-    );
-    const cards = el('div', 'club-spot-cards');
-    const hole = renderCardRow([...spot.hole]);
-    hole.dataset.testid = 'club-spot-hole';
-    const board = renderCardRow(spot.board.length ? [...spot.board] : [null, null, null], { small: true });
-    board.dataset.testid = 'club-spot-board';
-    cards.append(hole, board);
-    const facts = el('div', 'club-stats');
-    facts.append(
-      stat(String(spot.pot), 'Pot', 'club-spot-pot'),
-      stat(String(spot.toCall), 'To call', 'club-spot-tocall'),
-      stat(String(spot.stack), 'Stack', 'club-spot-stack'),
-      stat(`${Math.round(spot.bb)}`, 'Big blind', 'club-spot-bb'),
-    );
-    const actions = el('div', 'club-row club-spot-actions');
-    for (const kind of spotChoices(spot)) {
-      const b = pill(ACTION_LABEL[kind], `club-spot-${kind}`, '', '');
-      b.dataset.selected = String(answer === kind);
-      b.addEventListener('click', () => {
-        answer = kind;
-        opts.onAnswer(kind);
-        paint();
-      });
-      actions.appendChild(b);
-    }
-    const back = pill('Back to the club', 'club-spot-back', 'quiet', 'sm');
-    back.classList.add('club-back');
-    back.addEventListener('click', opts.onBack);
-    col.append(cards, facts, actions, back);
-
-    const side = el('div', 'home-side club-side');
-    const verdict = el('section', 'g-sect club-verdict');
-    verdict.dataset.testid = 'club-spot-verdict';
-    if (known === 'unknown') {
-      const kept = el('p', 'g-caption', 'Answered in a newer version of Offsuit. A play here is shown, not saved over it.');
-      kept.dataset.testid = 'club-spot-newer';
-      verdict.appendChild(kept);
-    }
-    if (answer === null) {
-      verdict.appendChild(el('p', 'g-caption', 'The grade and the table’s choice show once you play.'));
-    } else {
-      verdict.append(gradeBlock('Your play', answer, spot));
-      if (spot.chosen !== null) {
-        const theirs = gradeBlock(entry.from === FROM_YOU ? 'At the table' : `${entry.from} at the table`, spot.chosen, spot);
-        theirs.dataset.testid = 'club-spot-theirs';
-        verdict.append(theirs);
-      }
-    }
-    side.appendChild(verdict);
-    root.replaceChildren(col, side);
-  }
-
-  paint();
-  return root;
-}
-
-function gradeBlock(label: string, kind: ActionKind, spot: SharedSpot): HTMLElement {
-  const g = gradeShared(spot, kind);
-  const b = el('div', 'club-grade');
-  b.dataset.clean = String(g.clean);
-  b.append(
-    el('span', 'g-label', `${label}: ${ACTION_LABEL[kind]}`),
-    el('span', `t-head${g.clean ? '' : ' club-cost'}`, g.clean ? 'Clean: nothing the grader would name.' : `${g.lossBb.toFixed(1)} bb against the grader’s play.`),
-  );
-  if (g.message) b.appendChild(el('span', 'g-caption', g.message));
-  return b;
 }

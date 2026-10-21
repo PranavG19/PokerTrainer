@@ -100,7 +100,7 @@ export interface RelaySession {
 export async function hostSession(
   opts: CreateRoomOpts,
   callbacks: SessionCallbacks,
-  hostOpts: { readonly host?: string; readonly name?: string } = {},
+  hostOpts: { readonly host?: string } = {},
 ): Promise<{ session: RelaySession; info: HostInfo }> {
   // The dealer is the in-process local seat; the CSPRNG is node:crypto. No seed exists anywhere.
   const server = new RelayServer(opts, { crypto: nodeDealCrypto, dealerPlayerId: LOCAL_PLAYER });
@@ -130,8 +130,7 @@ export async function hostSession(
   // Seat the local player in-process, delivering to EVERY recipient: the initial connect broadcasts to
   // any already-connected remote players too, not just the local callback. host.deliver routes locals
   // to the callback and remotes to their sockets.
-  // The host's own table name, as a guest's hello carries theirs: every seat is shown by its player's name.
-  host.deliver(server.connect(LOCAL_PLAYER, hostOpts.name?.trim() || 'You'));
+  host.deliver(server.connect(LOCAL_PLAYER, 'You'));
 
   let stopped = false;
   const session: RelaySession = {
@@ -155,42 +154,6 @@ export async function hostSession(
   const fingerprint = certificate.fingerprint;
   const invites = addresses.map((address) => formatInvite({ host: address, port: host.port, fingerprint, token }));
   return { session, info: { port: host.port, addresses, fingerprint, token, invites } };
-}
-
-/**
- * The one session main keeps, host or join. A stop that lands while a table is still starting (the renderer left
- * during the await) stops that table as soon as it is up, so no listener is ever left with nothing to stop it.
- */
-export class RelaySlot {
-  private session: RelaySession | null = null;
-  private generation = 0;
-
-  get active(): RelaySession | null {
-    return this.session;
-  }
-
-  async stop(): Promise<void> {
-    this.generation += 1;
-    const s = this.session;
-    this.session = null;
-    await s?.stop();
-  }
-
-  /** Stop whatever runs, then start `make`'s session; null when a stop ran while it was starting. */
-  async start<T extends { readonly session: RelaySession }>(make: () => Promise<T> | T): Promise<T | null> {
-    // Taken before any await, so a stop that lands anywhere in the start counts against it.
-    const prior = this.session;
-    this.session = null;
-    const generation = ++this.generation;
-    await prior?.stop();
-    const made = await make();
-    if (generation !== this.generation) {
-      await made.session.stop();
-      return null;
-    }
-    this.session = made.session;
-    return made;
-  }
 }
 
 /** What the guest tells the user when the pinned fingerprint does not match the host's certificate. */
