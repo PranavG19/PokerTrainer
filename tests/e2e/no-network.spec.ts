@@ -634,3 +634,58 @@ test('online play: off by default, a typed server is only text, and going online
     await online.close();
   }
 });
+
+/**
+ * Profile export and import and challenge codes (BUILD-PLAN 2.8) are wholly local: the file dialogs are main's,
+ * the QR is drawn in the page from core/qr.ts, and a code is the whole message. Measured at the same proxy and
+ * main-process oracle as a sitting: an export, a refused and an accepted import (which reloads the app), a made
+ * code with its QR, and the code played.
+ */
+test('profile export, import and challenge codes reach nothing', async () => {
+  const proxy = await startProxy();
+  const oracle = oracleFile();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsuit-transfer-'));
+  const exported = path.join(dir, 'export.json');
+  const { app, page, close } = await launchApp({ seed: 42, extraArgs: proxyArgs(proxy.port), env: { OFFSUIT_NET_ORACLE: oracle } });
+  const stub = (picks: { save?: string; open?: string }) =>
+    app.evaluate(({ dialog }, p) => {
+      dialog.showSaveDialog = (async () => ({ canceled: false, filePath: p.save ?? '' })) as typeof dialog.showSaveDialog;
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: p.open ? [p.open] : [] })) as typeof dialog.showOpenDialog;
+    }, picks);
+  try {
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await page.locator(sel.newHand).click();
+    await page.locator('[data-testid="table-screen"]').waitFor();
+    await page.locator(sel.btnFold).click();
+
+    await stub({ save: exported });
+    await page.locator('[data-testid="tab-settings"]').click();
+    await page.locator('[data-testid="profile-export"]').click();
+    await expect(page.locator('[data-testid="profile-transfer-status"]')).toHaveAttribute('data-state', 'exported');
+
+    fs.writeFileSync(path.join(dir, 'bad.json'), '{"bankroll": "x"}');
+    await stub({ open: path.join(dir, 'bad.json') });
+    await page.locator('[data-testid="profile-import"]').click();
+    await expect(page.locator('[data-testid="profile-transfer-status"]')).toHaveAttribute('data-state', 'refused');
+    await stub({ open: exported });
+    await page.locator('[data-testid="profile-import"]').click();
+    await page.locator('[data-testid="import-replace"]').click();
+    await page.waitForSelector('[data-testid="home-screen"]');
+
+    await page.locator('[data-testid="tab-play"]').click();
+    await page.locator('[data-testid="play-challenge"]').click();
+    await page.locator('[data-testid="challenge-make"]').click();
+    await expect(page.locator('[data-testid="challenge-qr"]')).toBeVisible();
+    const code = (await page.locator('[data-testid="challenge-code"]').textContent()) ?? '';
+    await page.locator('[data-testid="challenge-input"]').fill(code);
+    await page.locator('[data-testid="challenge-play"]').click();
+    await page.locator('[data-testid="table-screen"]').waitFor();
+
+    await page.waitForTimeout(2000);
+    expect(proxy.seen, 'the browser process attempted network access').toEqual([]);
+    expect(readOracle(oracle).filter(isOutbound), 'the main process attempted network access').toEqual([]);
+  } finally {
+    await close();
+    await proxy.close();
+  }
+});

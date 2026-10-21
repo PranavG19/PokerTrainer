@@ -165,7 +165,7 @@ function writeTemp(file: string, text: string): string {
  */
 export function sweepTempFiles(file: string): number {
   const base = path.basename(file);
-  const pattern = new RegExp(`^${escapeRegExp(base)}(\\.pre-v\\d+)?\\.[0-9a-f-]{36}\\.tmp$`);
+  const pattern = new RegExp(`^${escapeRegExp(base)}(\\.pre-v\\d+|\\.pre-import-[0-9TZ-]+)?\\.[0-9a-f-]{36}\\.tmp$`);
   let removed = 0;
   let names: string[] = [];
   try {
@@ -206,9 +206,48 @@ export function snapshotBeforeMigrate(file: string, source: string, toVersion: n
   return true;
 }
 
+/**
+ * The named copy kept before an import replaces the profile: `offsuit-state.json.pre-import-20261020T153012Z`.
+ * Like the pre-migration copy it is never rotated or overwritten (a second import in the same second gets a
+ * `-2` suffix), so every import can be undone by hand. Only deleteProfile removes these.
+ */
+export function preImportPath(file: string, now: Date): string {
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  return `${file}.pre-import-${stamp}`;
+}
+
+/**
+ * Copy `source` (the file the profile in memory was read from: the live file, or the backup a recovery used)
+ * to a fresh pre-import path beside `file`, atomically. Returns the copy's path, or null when `source` does not
+ * exist (nothing would be lost). Throws when the copy cannot be written, so the caller can refuse to import
+ * over a profile it could not keep.
+ */
+export function snapshotBeforeImport(file: string, now: Date, source: string = file): string | null {
+  let text: string;
+  try {
+    text = fs.readFileSync(source, 'utf-8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+  const base = preImportPath(file, now);
+  let target = base;
+  for (let n = 2; fs.existsSync(target); n++) target = `${base}-${n}`;
+  atomicWrite(target, text);
+  return target;
+}
+
+function preImportSnapshots(file: string): string[] {
+  return snapshotsMatching(file, /\.pre-import-[0-9TZ-]+$/);
+}
+
 function preMigrationSnapshots(file: string): string[] {
+  return snapshotsMatching(file, /\.pre-v\d+$/);
+}
+
+function snapshotsMatching(file: string, suffix: RegExp): string[] {
   const base = path.basename(file);
-  const pattern = new RegExp(`^${escapeRegExp(base)}\\.pre-v\\d+$`);
+  const pattern = new RegExp(`^${escapeRegExp(base)}${suffix.source}`);
   try {
     return fs
       .readdirSync(path.dirname(file))
@@ -256,10 +295,11 @@ export function deleteProfile(file: string, confirmation: string): DeleteOutcome
     return { deleted: false, refusedBecause: 'not-confirmed', removed: [] };
   }
 
-  // The pre-migration snapshots are copies of the profile too: leaving them would make this not a delete.
+  // The pre-migration and pre-import snapshots are copies of the profile too: leaving them would make this
+  // not a delete.
   const targets = [file];
   for (let slot = 1; slot <= BACKUP_DEPTH; slot++) targets.push(backupPath(file, slot));
-  targets.push(...preMigrationSnapshots(file));
+  targets.push(...preMigrationSnapshots(file), ...preImportSnapshots(file));
 
   return { deleted: true, removed: targets.filter(unlinkIfPresent) };
 }

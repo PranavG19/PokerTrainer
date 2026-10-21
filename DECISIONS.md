@@ -1690,3 +1690,23 @@ Nothing is deployed; the owner runs one command after buying a VPS ([docs/ONLINE
   Supersedes "a refund or dispute is final", because a goodwill partial refund would have revoked a paying
   subscriber for good. Restore needs order id + email (stored only as a peppered
   hash), with one 404 for every miss.
+
+## Profile export and import, and challenge codes (branch `feat-profile-export`, 2.8)
+
+- **Dialogs live in main only.** `profile:export`, `profile:importPick`, `profile:importConfirm` take no path; main opens the native dialog and returns a file name at most; e2e stubs the dialog (no product test hook).
+- **Import is two calls.** Pick → strict check → preview held in main under a random id (10 min, latest pick only); confirm names that id, a stale or guessed one does nothing. Cancel has focus.
+- **Strict check, then the existing parser, then a no-repair rule.** `core/profileTransfer.ts` refuses on size (>16 MiB), non-JSON, a non-profile (needs `hands` array + finite `bankroll`), a newer export format or schema, a wrong JSON type on any key the parser reads, >500 hands, or a hand with bad/duplicate cards. Then migrate → deserialize → serialize, and every value the file holds must come out unchanged: anything the tolerant parser would repair, reset or drop refuses the file with its dotted path. Absent keys may take defaults (older profiles). Supersedes: top-level type checks only, because nested junk was silently rewritten (review finding 2).
+- **Unknown keys are carried at every level**, as an ordinary save carries them, and counted on the confirm. Supersedes: dropping them, because that lost a newer same-version build's data with no notice (review finding 3).
+- **Exports are parser-normalised** so this build always accepts its own export.
+- **The licence never travels.** Export empties `progression.entitlements`; import ignores the file's and main stamps its own (`authority.stamp`, not `adopt`). A licence moves by key or Restore, not by profile file.
+- **Backup before overwrite.** `store.replaceProfile` copies the file the profile in memory was read from (the live file, or the `.bakN` a recovery used) to a never-rotated `offsuit-state.json.pre-import-<UTC stamp>` and writes nothing if that copy fails. Refused while read-only (newer build or changed elsewhere). `deleteProfile` now removes pre-import copies too (a delete stays a delete).
+- **No stale write-back.** After an import, main refuses every save (`failed: 'reloading'`) until the next `store:load`; the renderer also stops saving and reloads the window onto the import.
+- **Export never writes into the app's own folder** (it could replace the live profile or a backup).
+- **Pro hand store is separate.** `hand-histories/` is never read or written by export or import; the file's hands become the profile's hand log.
+- **No schema change.** Nothing persisted changed shape; no version bump, no fix-up script needed.
+- **Challenge code format:** `OS-` + Crockford base32 groups of 4; byte 0 = format version (3 bits, 1 today) + kind (5 bits); LEB128 fields; CRC-16/CCITT-FALSE. Canonical varints only; out-of-range values are refused, never clamped; a newer version says so. Kinds: hand (seed, hand number, button, seats, depth bb), Math (drill kind index, problem index), puzzle (FNV-1a hash of the scenario id).
+- **A hand challenge reproduces the deal, not a past session.** Same deck (seed + hand number), button (new optional `button` on `renderTable`), seated archetypes and jitter, 100 bb stacks; villains decide from a stream keyed on the seed, so identical actions meet identical replies. Codes are made fresh ("New code"), not from a played hand.
+- **Challenge hands are practice:** graded, never logged; no bankroll, streak or progression change. A table whose planned hands are all played ends the sitting even on a bust (no rebuy past the bound); this also applies to the last hand of a planned session or story table.
+- **This build plays 4-handed hand codes only;** the format carries seats so 6-max codes (the 6-max worker) need no format change.
+- **QR encoder written here** (`core/qr.ts`): numeric/alphanumeric/byte, versions 1–40, L/M/Q/H, lowest-penalty mask. Drawn as one SVG path, dark ink on bone.
+- **UI homes:** Settings › Your data (export, import, confirm sheet reusing the Pro sheet float); Play › Challenge a friend (a Play panel like Friends/Assessment).

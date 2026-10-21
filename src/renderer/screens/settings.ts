@@ -117,6 +117,8 @@ export function renderSettings(opts: {
   proSection?: HTMLElement;
   /** Character, Celebrations and the trial (1.8). */
   habit?: HabitSettingsView;
+  /** Your data → export and import (components/profileTransfer.ts), built by the caller that owns the profile. */
+  profileTransfer?: HTMLElement;
 }): HTMLElement {
   const { status, handlers } = opts;
 
@@ -141,7 +143,7 @@ export function renderSettings(opts: {
     if (handlers.onOpenTrial) root.appendChild(renderTrialEntry(opts.habit, handlers.onOpenTrial));
   } else if (handlers.onOpenDee) root.appendChild(renderDeeLink(handlers.onOpenDee));
   if (opts.proSection !== undefined) root.appendChild(opts.proSection);
-  root.appendChild(renderProfileSection(status, handlers));
+  root.appendChild(renderProfileSection(status, handlers, opts.profileTransfer));
 
   return root;
 }
@@ -781,7 +783,7 @@ function renderGuardFailure(failure: GuardFailureView): HTMLElement {
 }
 
 /** 6 of 6 — reversibility, and the single human-gated hard delete. */
-function renderProfileSection(status: SettingsStatus, handlers: SettingsHandlers): HTMLElement {
+function renderProfileSection(status: SettingsStatus, handlers: SettingsHandlers, transfer?: HTMLElement): HTMLElement {
   const body = document.createElement('div');
   body.className = 'settings-block';
 
@@ -830,6 +832,7 @@ function renderProfileSection(status: SettingsStatus, handlers: SettingsHandlers
     ),
   );
 
+  if (transfer !== undefined) body.appendChild(transfer);
   body.appendChild(renderDelete(status, handlers));
 
   return section('Your data', body);
