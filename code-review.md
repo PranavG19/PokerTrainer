@@ -24,6 +24,8 @@ review (#35) is in that PR's history.
 | M4–M8 (L) | Script race and temp file; a vacuous `__proto__` test; the "every byte" wording; a moment surviving a delete or sound toggle; stale counts and a weak Ink ring | Fixed: re-read before the rename, fsync and cleanup; JSON.parse; "every other value"; `cancelMoment`; sound read at show time; counts verified |
 | R1 (M) | Keying by day and kind silenced a second assessment or story table that day | Fixed (`moment.test`): one key per session |
 | R2 (L-M) | The top-left moment covered Train's rail | Fixed (`moment.spec`, red first): bottom left, measured over the table and Train at both sizes |
+| Rebase | Main moved under this PR six times (#44, #45, #47, #49, #46, #48); every conflict was a union (catalogue rules and items, token blocks, imports, the save path, the import flag) | A third read-only pass found nothing broken: every paint has its block, the counts match, every earn context passes `story` for keepsakes, and the save path is not duplicated |
+| S1 | After the rebase the fix-up script's imports reached an `enum` (core/evaluate.ts), which Node 26 cannot strip | Fixed, red first (the two CLI tests): `ts-js-resolve.mjs` transpiles .ts with the repo's TypeScript |
 
 ## Checked and found fine
 - Chalk: the curve (225 a day at most) holds whatever is replayed, gone stale or evicted. Every path into Chalk is
