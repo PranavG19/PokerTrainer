@@ -29,7 +29,7 @@ import {
 } from './store.js';
 import { askTutor, resolveTutor, type AskInput, type ResolvedTutor } from './tutor/index.js';
 import { nullModelClient, nullTutor } from './tutor/nullTutor.js';
-import { hostSession, joinSession, type RelaySession } from './relaySession.js';
+import { hostSession, joinSession, RelaySlot } from './relaySession.js';
 import { parseInvite } from '../core/relayClient.js';
 import { OnlineController } from './onlineMain.js';
 import type { Action } from '../core/table.js';
@@ -73,7 +73,8 @@ let tutorEnabled = loadTutorEnabled();
  * that opens a socket.
  */
 let multiplayerEnabled = loadMultiplayerEnabled();
-let relaySession: RelaySession | null = null;
+/** The live LAN session; a stop that lands while a table is still starting stops it once it is up. */
+const relaySlot = new RelaySlot();
 
 /**
  * Online play (an Offsuit server, opt-in, off by default). The controller owns the only online socket and
@@ -106,9 +107,7 @@ function pushMultiplayerEvent(
 
 /** Tear down any live session — on stop, on a new host/join, and on quit. */
 async function stopRelaySession(): Promise<void> {
-  const session = relaySession;
-  relaySession = null;
-  await session?.stop();
+  await relaySlot.stop();
 }
 
 function activeTutor(): ResolvedTutor {
@@ -493,7 +492,7 @@ app.whenReady().then(() => {
   // The opt-in is the structural gate: host/join refuse while it is off, so with multiplayer disabled
   // there is no path that opens a socket and the network seal is intact (no-network.spec stays green).
 
-  ipcMain.handle('mp:status', () => ({ enabled: multiplayerEnabled, active: relaySession !== null }));
+  ipcMain.handle('mp:status', () => ({ enabled: multiplayerEnabled, active: relaySlot.active !== null }));
 
   ipcMain.handle('mp:setEnabled', async (_event, enabled: boolean) => {
     multiplayerEnabled = enabled === true;
@@ -511,9 +510,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle('mp:host', async (_event, opts: { seatCount?: number; name?: unknown }) => {
     if (!multiplayerEnabled) return { error: 'multiplayer is off' };
-    await stopRelaySession();
     const seatCount = Math.min(6, Math.max(2, Math.floor(opts?.seatCount ?? 3)));
-    const { session, info } = await hostSession(
+    const started = await relaySlot.start(() => hostSession(
       // No seed: a hosted room deals from node:crypto with commit-before-reveal (relayServer.ts). The
       // --seed flag stays a solo-play and e2e tool only.
       { ...LAN_TABLE, seatCount },
@@ -521,8 +519,10 @@ app.whenReady().then(() => {
       // A test run's table listens on loopback only: the specs' guests connect to 127.0.0.1, and nothing on
       // the machine's network can reach a table a spec deals. A real table binds every interface (LAN play).
       { name: typeof opts?.name === 'string' ? opts.name.slice(0, MAX_SEAT_NAME) : undefined, ...(isE2E ? { host: '127.0.0.1' } : {}) },
-    );
-    relaySession = session;
+    ));
+    // Stopped (the screen left, or multiplayer was turned off) while it was starting: it is already closed.
+    if (started === null) return { error: 'The table was closed before it opened.' };
+    const { info } = started;
     return {
       port: info.port,
       addresses: info.addresses,
@@ -537,21 +537,18 @@ app.whenReady().then(() => {
     // Parsed again here: the renderer's check is for the notice, this one is the gate.
     const invite = parseInvite(typeof request?.invite === 'string' ? request.invite : '');
     if ('error' in invite) return { error: invite.error };
-    await stopRelaySession();
-    relaySession = joinSession(
-      invite,
-      typeof request.name === 'string' ? request.name : 'Guest',
-      sessionCallbacks,
-    );
-    return { joined: true };
+    const joined = await relaySlot.start(() => ({
+      session: joinSession(invite, typeof request.name === 'string' ? request.name : 'Guest', sessionCallbacks),
+    }));
+    return joined === null ? { error: 'The table was closed before it opened.' } : { joined: true };
   });
 
   ipcMain.handle('mp:action', (_event, action: Action) => {
-    relaySession?.action(action);
+    relaySlot.active?.action(action);
   });
 
   ipcMain.handle('mp:deal', () => {
-    relaySession?.dealNext();
+    relaySlot.active?.dealNext();
   });
 
   ipcMain.handle('mp:stop', async () => {

@@ -3,6 +3,7 @@ import type { Challenge } from '../../core/challengeCode.js';
 import {
   addMember,
   addToNotebook,
+  effectiveAnswer,
   FROM_YOU,
   readAnyCode,
   removeFromNotebook,
@@ -13,7 +14,7 @@ import {
   together,
   upsertNight,
 } from '../../core/club/club.js';
-import { decodeClubCode, describeClubCode, encodeClubCode, nightIdOf, streetOf, type SharedSpot } from '../../core/club/codes.js';
+import { clubName, decodeClubCode, describeClubCode, encodeClubCode, nightIdOf, streetOf, type SharedSpot } from '../../core/club/codes.js';
 import {
   addFriendRecap,
   decisionKey,
@@ -194,23 +195,32 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
       o.selected = n === Math.min(6, Math.max(2, club.members.length + 1));
       seats.appendChild(o);
     }
+    // A night needs a name to sit under: two unnamed players would both be "Player" and could not pool.
+    const named = club.tableName !== null || clubName(opts.displayName ?? '') !== '';
     const host = pill('Host a Game Night', 'club-host', 'primary');
+    host.disabled = !named;
     host.addEventListener('click', () => opts.onHostNight(Number(seats.value)));
     hostRow.append(el('span', 'club-row-text', 'Players'), seats, host);
     const joinRow = el('div', 'club-row');
     const invite = input('club-join-invite', 'Invite link (offsuit://join?…)', 'Invite link', 400);
     const join = pill('Join', 'club-join');
+    join.disabled = !named;
     join.addEventListener('click', () => {
       if (invite.value.trim() !== '') opts.onJoinNight(invite.value.trim());
     });
     joinRow.append(invite, join);
     const nameRow = el('div', 'club-row');
     const nameIn = input('club-table-name', 'Your name at the table', 'Your name at the table', 16);
-    nameIn.value = you;
+    nameIn.value = named ? you : '';
     const keep = pill('Keep', 'club-table-name-save', 'quiet', 'sm');
     keep.addEventListener('click', () => save(setTableName(club, nameIn.value)));
     nameRow.append(el('span', 'club-row-text', 'Sit as'), nameIn, keep);
     launch.append(hostRow, joinRow, nameRow);
+    if (!named) {
+      const need = el('p', 'g-caption club-empty', 'Pick the name you sit under first, so friends’ recaps can tell you apart.');
+      need.dataset.testid = 'club-need-name';
+      launch.appendChild(need);
+    }
 
     const togetherSect = el('section', 'club-together');
     togetherSect.append(el('div', 'g-label', 'Together'), statStrip(t, 'club-together'));
@@ -339,9 +349,9 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
     const text = el('span', 'club-entry-text');
     text.append(
       el('span', 'club-entry-line', r.ok ? r.line : 'A code this version cannot open.'),
-      el('span', 'g-caption', [`From ${entry.from}`, entry.note, entry.answer !== null ? `Played: ${entry.answer}` : ''].filter(Boolean).join(' · ')),
+      el('span', 'g-caption', [`From ${entry.from}`, entry.note, playedLine(effectiveAnswer(entry))].filter(Boolean).join(' · ')),
     );
-    const open = pill(entry.answer !== null ? 'Review' : 'Play', 'club-entry-open', '', 'sm');
+    const open = pill(effectiveAnswer(entry) !== null ? 'Review' : 'Play', 'club-entry-open', '', 'sm');
     open.disabled = !r.ok;
     open.addEventListener('click', () => {
       if (!r.ok) return;
@@ -385,6 +395,11 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
 
   paint();
   return root;
+}
+
+function playedLine(answer: ActionKind | 'unknown' | null): string {
+  if (answer === null) return '';
+  return answer === 'unknown' ? 'Played in a newer version' : `Played: ${answer}`;
 }
 
 function labelled(text: string, control: HTMLElement): HTMLElement {
@@ -732,8 +747,9 @@ export function spotChoices(spot: SharedSpot): ActionKind[] {
 
 export function renderClubSpot(opts: SpotOptions): HTMLElement {
   const { spot, entry } = opts;
-  // An answer a newer build wrote (a kind this build does not know) reads as not answered yet.
-  let answer: ActionKind | null = entry.answer !== null && Object.hasOwn(ACTION_LABEL, entry.answer) ? (entry.answer as ActionKind) : null;
+  // An answer a newer build wrote (a kind this build does not know) reads as not answered here, and is kept.
+  const known = effectiveAnswer(entry);
+  let answer: ActionKind | null = known === 'unknown' ? null : known;
   const root = el('div', 'home-screen club-screen club-spot');
   root.dataset.testid = 'club-spot';
 

@@ -157,6 +157,42 @@ export async function hostSession(
   return { session, info: { port: host.port, addresses, fingerprint, token, invites } };
 }
 
+/**
+ * The one session main keeps, host or join. A stop that lands while a table is still starting (the renderer left
+ * during the await) stops that table as soon as it is up, so no listener is ever left with nothing to stop it.
+ */
+export class RelaySlot {
+  private session: RelaySession | null = null;
+  private generation = 0;
+
+  get active(): RelaySession | null {
+    return this.session;
+  }
+
+  async stop(): Promise<void> {
+    this.generation += 1;
+    const s = this.session;
+    this.session = null;
+    await s?.stop();
+  }
+
+  /** Stop whatever runs, then start `make`'s session; null when a stop ran while it was starting. */
+  async start<T extends { readonly session: RelaySession }>(make: () => Promise<T> | T): Promise<T | null> {
+    // Taken before any await, so a stop that lands anywhere in the start counts against it.
+    const prior = this.session;
+    this.session = null;
+    const generation = ++this.generation;
+    await prior?.stop();
+    const made = await make();
+    if (generation !== this.generation) {
+      await made.session.stop();
+      return null;
+    }
+    this.session = made.session;
+    return made;
+  }
+}
+
 /** What the guest tells the user when the pinned fingerprint does not match the host's certificate. */
 export const FINGERPRINT_MISMATCH =
   "This table's security certificate does not match the invite link, so Offsuit did not connect. " +

@@ -358,3 +358,19 @@ describe('the club’s words', () => {
     expect(describeClubCode({ kind: 'recap', recap: recap() })).toBe("Ada's Game Night: 30 decisions graded over 12 hands.");
   });
 });
+
+describe('review round 2: an answer this build does not know', () => {
+  it('reads as unknown everywhere and is never overwritten', async () => {
+    const { effectiveAnswer } = await import('../../src/core/club/club.js');
+    const entry = { at: 1, code: 'OS-AAAA', from: 'Ada', note: '', answer: 'jam' };
+    expect(effectiveAnswer(entry)).toBe('unknown');
+    expect(effectiveAnswer({ ...entry, answer: 'call' })).toBe('call');
+    expect(effectiveAnswer({ ...entry, answer: null })).toBeNull();
+    const c = { ...defaultProgression().club, notebook: [entry] };
+    expect(answerNotebook(c, 1, 'fold').notebook[0].answer).toBe('jam');
+  });
+
+  it('a club member list needs a name to sit under before a night: the default is no name', () => {
+    expect(tableNameOf(defaultProgression().club, null)).toBe('Player');
+  });
+});

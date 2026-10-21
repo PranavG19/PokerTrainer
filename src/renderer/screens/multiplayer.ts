@@ -73,6 +73,13 @@ export interface NightHooks {
   readonly bar: (end: () => void) => HTMLElement;
 }
 
+/**
+ * The LAN screen that owns the pushed events right now. Only one can: a newer screen retires the one before it as
+ * it is built, so a screen replaced without its Leave can never stop a session a later screen started (it used to
+ * clean up only when the next event reached it, which was the later session's first event).
+ */
+let retireCurrent: (() => void) | null = null;
+
 export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElement {
   const { bridge } = options;
   const root = document.createElement('div');
@@ -98,6 +105,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
 
   // Subscribe to pushed relay events for this screen's lifetime; unsubscribe when it leaves the DOM.
   const unsubscribe = bridge.onMpEvent?.((event) => {
+    if (cleanedUp) return;
     const message = event as ClientEvent;
     if (message?.type !== 'state' && message?.type !== 'error' && message?.type !== 'warning') return;
     client = applyServerMessage(client, message);
@@ -130,10 +138,15 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
   function cleanup(): void {
     if (cleanedUp) return;
     cleanedUp = true;
+    if (retireCurrent === cleanup) retireCurrent = null;
     unsubscribe?.();
     void bridge.mpStop?.();
     options.night?.onStopped();
   }
+  // A newer screen retires this one at once, before it starts anything of its own: its stop is sent ahead of
+  // the newer screen's host or join, so it can only ever stop its own session.
+  retireCurrent?.();
+  retireCurrent = cleanup;
   options.night?.bindStop(cleanup);
 
   /** Poll the opt-in status once at mount so the panel shows whether MP is enabled. A rejected status
@@ -167,7 +180,7 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
   let nightStarted = false;
   function startNight(): void {
     const night = options.night;
-    if (night === undefined || nightStarted || !enabled || phase !== 'setup') return;
+    if (night === undefined || nightStarted || cleanedUp || !enabled || phase !== 'setup') return;
     nightStarted = true;
     if (night.start.role === 'host') {
       seatCount = night.start.seatCount;
@@ -190,6 +203,11 @@ export function renderMultiplayerScreen(options: MultiplayerOptions): HTMLElemen
     paint();
     try {
       const result = await bridge.mpHost?.({ seatCount, ...(options.night ? { name: options.night.name } : {}) });
+      // Left while the table was starting: it is nobody's, so it stops now.
+      if (cleanedUp) {
+        void bridge.mpStop?.();
+        return;
+      }
       if (result?.error) {
         notice = result.error;
         phase = 'setup';

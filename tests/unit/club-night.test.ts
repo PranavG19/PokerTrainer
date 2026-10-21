@@ -189,3 +189,50 @@ describe('saved values the club cannot show are dropped or read as unknown, neve
     expect(spotChoices(spot)).toEqual(['fold', 'call']);
   });
 });
+
+describe('review round 2: no torn-down screen ever touches a later session', () => {
+  it('a plain LAN screen left behind (replaced without its Leave) never stops the next screen’s session', async () => {
+    const b = fakeBridge();
+    const old = renderMultiplayerScreen({ bridge: b.bridge });
+    document.body.appendChild(old);
+    await flush();
+    old.remove();
+    const h = harness({ role: 'host', seatCount: 2 });
+    const root = renderMultiplayerScreen({ bridge: b.bridge, night: h.controller });
+    document.body.appendChild(root);
+    await flush();
+    const stops = b.calls.stop;
+    b.emit({ type: 'state', view: dealtView(0) });
+    expect(b.calls.stop, 'the old screen stopped the night’s table').toBe(stops);
+    h.controller.abandon();
+    root.remove();
+  });
+
+  it('a night left before multiplayer’s status came back never starts its table', async () => {
+    const b = fakeBridge();
+    let release: (v: { enabled: boolean; active: boolean }) => void = () => undefined;
+    b.bridge.mpStatus = () => new Promise((r) => (release = r));
+    const h = harness({ role: 'host', seatCount: 2 });
+    const root = renderMultiplayerScreen({ bridge: b.bridge, night: h.controller });
+    document.body.appendChild(root);
+    h.controller.leave();
+    root.remove();
+    release({ enabled: true, active: false });
+    await flush();
+    await flush();
+    expect(b.calls.host).toBe(0);
+  });
+});
+
+describe('review round 2: a night needs a name to sit under', () => {
+  it('with no table name and no onboarding name, Host and Join wait for one', async () => {
+    const { renderClubScreen } = await import('../../src/renderer/screens/club.js');
+    const base = { ...defaultProgression().club, name: 'T' };
+    const opts = { displayName: null, today: DAY, now: () => 1, save: () => undefined, onHostNight: () => undefined, onJoinNight: () => undefined, onOpenNight: () => undefined, onOpenSpot: () => undefined, onOpenChallenge: () => undefined, onExit: () => undefined };
+    const unnamed = renderClubScreen({ ...opts, club: base });
+    expect(unnamed.querySelector<HTMLButtonElement>('[data-testid="club-host"]')!.disabled).toBe(true);
+    expect(unnamed.querySelector('[data-testid="club-need-name"]')).not.toBeNull();
+    const named = renderClubScreen({ ...opts, club: { ...base, tableName: 'Sam' } });
+    expect(named.querySelector<HTMLButtonElement>('[data-testid="club-host"]')!.disabled).toBe(false);
+  });
+});

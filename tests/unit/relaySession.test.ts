@@ -395,3 +395,26 @@ describe('joining safely — pin, token, versions, reconnect', () => {
     expect(stale.errors).toEqual([FINGERPRINT_MISMATCH]);
   });
 });
+
+describe('the relay slot main keeps (review round 2)', () => {
+  it('a table stopped while it was still starting is stopped as soon as it is up, and never becomes the session', async () => {
+    const { RelaySlot } = await import('../../src/main/relaySession.js');
+    const slot = new RelaySlot();
+    const hostSide = collector();
+    const starting = slot.start(() => hostSession(OPTS, hostSide.callbacks, { host: '127.0.0.1' }));
+    await slot.stop();
+    const made = await starting;
+    expect(made).toBeNull();
+    expect(slot.active).toBeNull();
+  });
+
+  it('a table that starts normally is the slot’s session until stopped', async () => {
+    const { RelaySlot } = await import('../../src/main/relaySession.js');
+    const slot = new RelaySlot();
+    const made = await slot.start(() => hostSession(OPTS, collector().callbacks, { host: '127.0.0.1' }));
+    expect(made).not.toBeNull();
+    expect(slot.active).toBe(made!.session);
+    await slot.stop();
+    expect(slot.active).toBeNull();
+  });
+});

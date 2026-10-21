@@ -9,6 +9,7 @@
 
 import { CHALLENGE_ERROR_TEXT, decodeChallenge, describeChallenge, encodeChallenge, type Challenge } from '../challengeCode.js';
 import type { DayKey } from '../localDay.js';
+import type { ActionKind } from '../table.js';
 import { MAX_CLUB_MEMBERS, MAX_NIGHTS, MAX_NOTEBOOK } from '../progression/persist.js';
 import type { ClubState, NightRecord, NotebookEntry } from '../progression/types.js';
 import { CLUB_CODE_ERROR_TEXT, clubName, decodeClubCode, describeClubCode, encodeClubCode, type ClubCode } from './codes.js';
@@ -75,8 +76,17 @@ export function addToNotebook(c: ClubState, entry: { code: string; from: string;
   return { ...c, notebook: [...kept, next].sort((a, b) => a.at - b.at).slice(-MAX_NOTEBOOK) };
 }
 
-export function answerNotebook(c: ClubState, at: number, answer: string): ClubState {
-  return { ...c, notebook: c.notebook.map((e) => (e.at === at ? { ...e, answer } : e)) };
+const KNOWN_ANSWERS: readonly string[] = ['fold', 'check', 'call', 'bet', 'raise', 'allin'];
+
+/** A notebook answer as this build reads it: an action, 'unknown' (a newer build's), or null (not played). */
+export function effectiveAnswer(e: NotebookEntry): ActionKind | 'unknown' | null {
+  if (e.answer === null) return null;
+  return KNOWN_ANSWERS.includes(e.answer) ? (e.answer as ActionKind) : 'unknown';
+}
+
+/** Record an answer. One a newer build wrote is kept: this build never overwrites what it cannot read. */
+export function answerNotebook(c: ClubState, at: number, answer: ActionKind): ClubState {
+  return { ...c, notebook: c.notebook.map((e) => (e.at === at && effectiveAnswer(e) !== 'unknown' ? { ...e, answer } : e)) };
 }
 
 export function removeFromNotebook(c: ClubState, at: number): ClubState {
