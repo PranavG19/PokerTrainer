@@ -6,6 +6,30 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## LAN Club (branch `feat-lan-club`): a standing group and its notebook of codes (2.9, without Game Night)
+Owner decisions in force: nothing is locked, cosmetics stay paint only, no schema bump (`progression.club` is a new
+additive key). The owner answered "We don't need LAN play", then "Keep the club, drop Game Night".
+- **No Game Night and no network.** The club never opens a socket and touches nothing in the relay, multiplayer or
+  main process. Supersedes: a hosted LAN Game Night with a shared recap, because the owner does not need LAN play.
+- **The club** is a name, the members this player keeps, and a notebook of challenge codes (hand, Math problem,
+  puzzle) with who handed each over and a note on what to talk through. A hand code replays the same deal, so the
+  club reviews each other's hands by playing them. A code is read, refused and written exactly as the challenge
+  reader does (its `playable` check included: a hand this build cannot deal reads as invalid).
+- **Together** counts what the club did: members, codes shared, codes from friends, codes played. Never a person's
+  score, never chips, no ranking.
+- **Where:** Play › LAN Club. Make a code opens the challenge maker, whose made code can go straight into the
+  notebook ("Add to the club notebook", shown only once a club exists), and its Back returns to the club. Playing a
+  notebook code marks it played and opens it as the challenge reader would; a hand's end leads back to the club.
+- **Open questions** (low severity, from the last independent review; none blocks the club):
+  - A notebook entry's "From" is cut to 24 (`MAX_MEMBER_NAME`) while the parser keeps member names up to 32, so a
+    hand-edited 25–32 character member name no longer matches its roster entry. [Default: cut "From" to 32.]
+  - `cleanName` collapses spaces before stripping control characters, so a pasted `'a \u0001 b'` keeps a double
+    space and is not caught as a duplicate of `'a b'`. [Default: strip, then collapse.]
+  - `MAX_CLUB_NAME` / `MAX_MEMBER_NAME` copy persist's unexported `MAX_NAME_CHARS` (32); raising one above it would
+    silently bring back the name-does-not-reload bug. [Default: export the bound, or a test that ties them.]
+  - "Add a name" loses focus after each add (the screen repaints), and a duplicate, "You" or a full roster of 24
+    adds nothing with no message. [Default: keep focus and say why nothing was added.]
+
 ## Settings: Character, Celebrations and the local trial (branch `feat-settings-trial`, 1.8)
 Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone clack behind the sound switch), D15
 (run the trial, four weeks on/off, kill criteria written in advance), no schema bumps (additive fields only).

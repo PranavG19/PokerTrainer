@@ -176,6 +176,12 @@ function full(): ProgressionState {
         },
       ],
     },
+    club: {
+      name: 'Thursday table',
+      since: 19_990 as DayKey,
+      members: [{ name: 'Ada', since: 19_990 as DayKey }],
+      notebook: [{ at: 1_700_300_000_000, code: 'OS-ABCD-EFGH', from: 'Ada', note: 'the river call', playedOn: 19_991 as DayKey }],
+    },
   };
 }
 

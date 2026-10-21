@@ -2,7 +2,7 @@ import type { SessionPlan } from '../../core/sessionPlan.js';
 import type { SessionState } from '../../core/session.js';
 import { renderSessionPlanner } from './sessionPlan.js';
 import { launchRow, renderNewSessionCard, renderPlayWithFriendsCard } from './home.js';
-import { codeIcon, spadeIcon } from '../components/glyphs.js';
+import { codeIcon, peopleIcon, spadeIcon } from '../components/glyphs.js';
 
 /**
  * PLAY (1.14): where a sitting starts when no table is up. The launch rows (a free table, friends on the local
@@ -19,6 +19,8 @@ export function renderPlay(opts: {
   onStartAssessment: () => void;
   /** Play → Challenge a friend (screens/challenge.ts). Absent: no row. */
   onChallenge?: () => void;
+  /** Play → LAN Club (screens/club.ts). Absent: no row. */
+  onClub?: () => void;
 }): HTMLElement {
   const root = document.createElement('div');
   root.className = 'home-screen play-screen';
@@ -42,6 +44,9 @@ export function renderPlay(opts: {
   );
   if (opts.onChallenge) {
     launch.appendChild(launchRow('play-challenge', codeIcon(), 'Challenge a friend', 'Play a code, or make one: the same spot for both of you', opts.onChallenge));
+  }
+  if (opts.onClub) {
+    launch.appendChild(launchRow('play-club', peopleIcon(), 'LAN Club', 'Your friends, and the codes you hand each other to play', opts.onClub));
   }
   col.append(h, sub, launch);
   root.appendChild(col);

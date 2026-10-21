@@ -56,6 +56,9 @@ import {
   type LettersState,
   type TaughtSet,
   type TeachDeeState,
+  type ClubMember,
+  type ClubState,
+  type NotebookEntry,
   type TicketItemRecord,
   type TicketState,
   type BlockScore,
@@ -94,6 +97,14 @@ export const RAIL_TIER_IDS: readonly string[] = ['deuce', 'three', 'four', 'five
 export const MAX_SEASON_RECORDS = 60;
 /** Contrast sets played from the learner's rules (Teach Dee) kept in the profile. */
 export const MAX_TAUGHT_SETS = 100;
+/** A club's roster and its shared notebook. */
+export const MAX_CLUB_MEMBERS = 24;
+export const MAX_NOTEBOOK = 100;
+/** A member's or a club's name. */
+const MAX_NAME_CHARS = 32;
+/** A challenge code is at most 64 base32 characters plus its marker and dashes. */
+const MAX_CODE_CHARS = 96;
+const MAX_NOTE_CHARS = 140;
 /** No taught set is longer than this many spots (teachDee.ts TEACH_MAX_SPOTS is lower). */
 const MAX_TAUGHT_SPOTS = 20;
 /** A heads-up hand rarely runs past a dozen actions a side; anything longer is corruption. */
@@ -147,6 +158,7 @@ export function defaultProgression(): ProgressionState {
     celebrations: defaultCelebrations(),
     trial: defaultTrial(),
     teachDee: { sets: [] },
+    club: { name: null, since: null, members: [], notebook: [] },
   };
 }
 
@@ -213,6 +225,7 @@ export const PROGRESSION_SHAPE = {
     outcome: true,
   },
   teachDee: { sets: true },
+  club: { name: true, since: true, members: true, notebook: true },
 } as const;
 
 export function parseProgression(raw: unknown): ProgressionState {
@@ -237,6 +250,7 @@ export function parseProgression(raw: unknown): ProgressionState {
     celebrations: section(obj.celebrations, d.celebrations, parseCelebrations),
     trial: section(obj.trial, d.trial, parseTrial),
     teachDee: section(obj.teachDee, d.teachDee, parseTeachDee),
+    club: section(obj.club, d.club, parseClub),
   };
 }
 
@@ -847,6 +861,45 @@ function parseTeachDee(obj: Record<string, unknown>): TeachDeeState {
     });
   }
   return { sets: [...byAt.values()].sort((a, b) => a.at - b.at).slice(-MAX_TAUGHT_SETS) };
+}
+
+function name(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  return trimmed.length > 0 && trimmed.length <= MAX_NAME_CHARS ? trimmed : null;
+}
+
+function code(value: unknown): string | null {
+  return typeof value === 'string' && value.length <= MAX_CODE_CHARS && /^[0-9A-Za-z-]+$/.test(value) ? value : null;
+}
+
+function parseClub(obj: Record<string, unknown>, d: ClubState): ClubState {
+  const members: ClubMember[] = [];
+  for (const v of asArray(obj.members)) {
+    const e = asRecord(v);
+    const who = name(e.name);
+    const since = asDayKey(e.since);
+    if (who === null || since === null || members.some((m) => m.name === who)) continue;
+    members.push({ name: who, since });
+  }
+  const byAt = new Map<number, NotebookEntry>();
+  const codes = new Set<string>();
+  for (const v of asArray(obj.notebook)) {
+    const e = asRecord(v);
+    const at = e.at;
+    const c = code(e.code);
+    const from = name(e.from);
+    if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0 || byAt.has(at) || c === null || codes.has(c) || from === null) continue;
+    const note = typeof e.note === 'string' ? e.note.trim().slice(0, MAX_NOTE_CHARS) : '';
+    codes.add(c);
+    byAt.set(at, { at, code: c, from, note, playedOn: asDayKey(e.playedOn) });
+  }
+  return {
+    name: name(obj.name) ?? d.name,
+    since: asDayKey(obj.since),
+    members: members.slice(0, MAX_CLUB_MEMBERS),
+    notebook: [...byAt.values()].sort((a, b) => a.at - b.at).slice(-MAX_NOTEBOOK),
+  };
 }
 
 /** Read-side helpers: an unknown value (a newer build's) reads as this build's default. */

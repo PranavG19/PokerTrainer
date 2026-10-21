@@ -194,6 +194,10 @@ import { VENUES } from '../core/story/cast.js';
 import { chevron, gearIcon } from './components/glyphs.js';
 import { renderProfileTransfer, type TransferBridge } from './components/profileTransfer.js';
 import { renderChallengeScreen, CHALLENGE_TABLE_SEATS } from './screens/challenge.js';
+import { renderClubScreen } from './screens/club.js';
+import { addToNotebook, FROM_YOU, markPlayed } from '../core/club/club.js';
+import { encodeChallenge } from '../core/challengeCode.js';
+import type { ClubState } from '../core/progression/types.js';
 import type { Challenge } from '../core/challengeCode.js';
 import type { DayKey } from '../core/localDay.js';
 
@@ -506,6 +510,9 @@ async function boot(): Promise<void> {
    */
   let challengeActive = false;
   let challengeMade: Challenge | null = null;
+  /** The LAN Club (screens/club.ts): a PANEL within the Play tab. `challengeFromClub`: its Make a code is open. */
+  let clubActive = false;
+  let challengeFromClub = false;
   /** Today's Ticket is a PANEL within the Play tab, like the assessment block; leaving it returns to Home. */
   let ticketActive = false;
   /** Learn shows the lessons, the Folio (the Rulebook) or Teach Dee (a contrast set played from one rule). */
@@ -1084,7 +1091,9 @@ async function boot(): Promise<void> {
    * Play's panels are exclusive: opening one closes any other left open, so a launcher always lands on its own
    * panel whatever was open before (re-review S-A). The caller renders.
    */
-  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance' | 'challenge'): void {
+  function openPanel(kind: 'friends' | 'online' | 'assessment' | 'variance' | 'challenge' | 'club'): void {
+    clubActive = kind === 'club';
+    challengeFromClub = false;
     multiplayerActive = kind === 'friends';
     onlineActive = kind === 'online';
     assessmentActive = kind === 'assessment';
@@ -1098,7 +1107,7 @@ async function boot(): Promise<void> {
    * so the cards and seats are the sender's; it is practice, graded but never logged, so a friend's code moves
    * no bankroll, streak or record. A Math problem or a puzzle opens in its own Train screen.
    */
-  function openChallenge(c: Challenge): void {
+  function openChallenge(c: Challenge, from: 'challenge' | 'club' | 'club-maker' = 'challenge'): void {
     challengeActive = false;
     if (c.kind === 'drill') {
       tab = 'train';
@@ -1135,10 +1144,17 @@ async function boot(): Promise<void> {
       onVerdict: (message) => narrate(message),
       onSessionOver: () => {
         teardownTable();
-        openPanel('challenge');
+        // A hand played from the club's notebook returns to the club; one from the challenge screen, there (still
+        // the club's maker, with its Back to the club, when the club opened it).
+        openPanel(from === 'club' ? 'club' : 'challenge');
+        challengeFromClub = from === 'club-maker';
         render();
       },
-      sittingEnd: { note: 'That was the challenge hand. It is practice: nothing was logged.', label: 'Back to challenges', testid: 'challenge-done' },
+      sittingEnd: {
+        note: 'That was the challenge hand. It is practice: nothing was logged.',
+        label: from === 'club' ? 'Back to the club' : 'Back to challenges',
+        testid: 'challenge-done',
+      },
     });
     table.root.dataset.challenge = 'true';
     render();
@@ -1676,6 +1692,7 @@ async function boot(): Promise<void> {
       drillIndexNext = null;
       puzzleNext = null;
       challengeMade = null;
+      clubActive = false;
       teardownTable();
     }
     await refreshSettings();
@@ -1736,6 +1753,7 @@ async function boot(): Promise<void> {
     assessmentActive = false;
     varianceActive = false;
     challengeActive = false;
+    clubActive = false;
     tab = 'play';
     paintTabs();
     // The session planner (when the learner started from it) models a whole-task live-hand count; a
@@ -1893,6 +1911,31 @@ async function boot(): Promise<void> {
       );
       return;
     }
+    if (clubActive) {
+      screen.replaceChildren(
+        renderClubScreen({
+          club: session.progression.club,
+          today: today(),
+          now,
+          save: saveClub,
+          onPlay: (entry, c) => {
+            saveClub(markPlayed(session.progression.club, entry.at, today()));
+            clubActive = false;
+            openChallenge(c, 'club');
+          },
+          onMakeCode: () => {
+            openPanel('challenge');
+            challengeFromClub = true;
+            render();
+          },
+          onExit: () => {
+            clubActive = false;
+            render();
+          },
+        }),
+      );
+      return;
+    }
     if (challengeActive) {
       screen.replaceChildren(
         renderChallengeScreen({
@@ -1900,9 +1943,16 @@ async function boot(): Promise<void> {
           onMade: (c) => {
             challengeMade = c;
           },
-          onPlay: (c) => openChallenge(c),
+          // Only once a club exists: a made code can go straight into its notebook.
+          ...(session.progression.club.name !== null
+            ? { onAddToClub: (c: Challenge) => saveClub(addToNotebook(session.progression.club, { code: encodeChallenge(c), from: FROM_YOU, note: '' }, now())) }
+            : {}),
+          onPlay: (c) => openChallenge(c, challengeFromClub ? 'club-maker' : 'challenge'),
+          ...(challengeFromClub ? { backLabel: 'Back to the club' } : {}),
           onExit: () => {
-            challengeActive = false;
+            // Opened from the club's Make a code: Back returns to the club.
+            if (challengeFromClub) openPanel('club');
+            else challengeActive = false;
             render();
           },
         }),
@@ -1942,8 +1992,17 @@ async function boot(): Promise<void> {
           openPanel('challenge');
           render();
         },
+        onClub: () => {
+          openPanel('club');
+          render();
+        },
       }),
     );
+  }
+
+  /** The club's state, saved through the one progression save. */
+  function saveClub(club: ClubState): void {
+    void saveProgression({ ...session.progression, club });
   }
 
   /** Home: first-run onboarding, the Ticket panel, or the launcher with the habit loop. */

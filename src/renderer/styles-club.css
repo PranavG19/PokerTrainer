@@ -1,0 +1,104 @@
+/* LAN Club (screens/club.ts). Tokens only (styles-glass.css). Play's two columns: the club, what it has done
+ * together and its members on the left; the notebook of codes on the right. The one bone primary per screen:
+ * Start the club, then Make a code. The notebook's entries scroll inside their column so the page never does.
+ * No colour carries meaning here beyond the kit's: counts are neutral, an unreadable code reads coral. */
+
+.club-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  max-width: 1000px;
+  padding: 20px 32px;
+}
+.club-screen[data-state='new'] { grid-template-columns: minmax(0, 520px); justify-content: center; }
+.club-col { gap: 14px; }
+.club-side { gap: 14px; min-height: 0; }
+.club-col > .club-back { align-self: flex-start; margin-top: auto; }
+
+.club-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-width: 0;
+}
+.club-row-text { flex: none; font-size: var(--t-body); color: var(--ink-2); }
+.club-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-sm);
+  padding: 0 10px;
+  font: inherit;
+  font-size: var(--t-body);
+}
+.club-select {
+  height: var(--h-sm);
+  padding: 0 8px;
+  font: inherit;
+  font-size: var(--t-foot);
+}
+
+.club-stats {
+  display: flex;
+  gap: 22px;
+  padding: 10px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+}
+.club-together, .club-members, .club-notebook {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+.club-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Members: chips in the coat (informational), a small remove mark on each. */
+.club-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* A full roster (24 names) scrolls inside the column instead of the page. */
+.club-members > .club-chips { max-height: calc(var(--h-sm) * 4 + 18px); overflow-y: auto; padding: 2px; }
+.club-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--h-sm);
+  padding: 0 4px 0 10px;
+  border-radius: var(--r-ctl);
+  background: var(--fill-1);
+  font-size: var(--t-foot);
+  color: var(--ink-1);
+}
+.club-chip-x {
+  width: var(--h-sm);
+  height: var(--h-sm);
+  flex: none;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--t-body);
+  cursor: pointer;
+}
+.club-chip-x:hover { background: var(--fill-1); color: var(--ink-1); }
+.club-chip-x:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 1px; }
+.club-chip-input { flex: none; align-self: flex-start; width: 180px; }
+
+/* The notebook: the reader, then its entries scrolling inside the column. */
+.club-notebook { flex: 1 1 auto; }
+.club-reader { display: flex; flex-direction: column; }
+.club-reader > .club-row + .club-row { padding-top: 0; box-shadow: none; }
+.club-reader > .club-reader-note { margin: 0; padding: 0 12px 8px; min-height: calc(var(--t-foot) * 1.5); }
+.club-reader[data-state='invalid'] .club-reader-note { color: var(--coral); }
+.club-reader[data-state='valid'] .club-reader-note { color: var(--ink-1); }
+.club-entries { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.club-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+}
+.club-entry-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.club-entry-line { font-size: var(--t-body); color: var(--ink-1); }
+.club-entry-text > .g-caption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.club-empty { margin: 0; padding: 10px 12px; }

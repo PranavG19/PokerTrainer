@@ -37,6 +37,10 @@ export interface ChallengeOptions {
   /** Open with this code made and on show (after "Back to challenges"). */
   readonly made?: Challenge | null;
   readonly onMade?: (challenge: Challenge) => void;
+  /** Put a made code in the LAN Club's notebook (screens/club.ts). Absent: no club, no button. */
+  readonly onAddToClub?: (challenge: Challenge) => void;
+  /** The Back button's words, when the screen was opened from somewhere other than Play (the club). */
+  readonly backLabel?: string;
 }
 
 const DRILL_LABEL: Record<DrillKind, string> = {
@@ -194,7 +198,7 @@ export function renderChallengeScreen(opts: ChallengeOptions): HTMLElement {
   }
   paintMaker();
 
-  const back = pill('Back to Play', 'challenge-back', 'quiet');
+  const back = pill(opts.backLabel ?? 'Back to Play', 'challenge-back', 'quiet');
   back.addEventListener('click', opts.onExit);
 
   col.append(h, sub, reader, maker, back);
@@ -233,6 +237,15 @@ export function renderChallengeScreen(opts: ChallengeOptions): HTMLElement {
     const mine = pill('Play it yourself', 'challenge-play-mine');
     mine.addEventListener('click', () => opts.onPlay(c));
     actions.append(copy, mine);
+    if (opts.onAddToClub) {
+      const toClub = pill('Add to the club notebook', 'challenge-to-club', 'quiet');
+      toClub.addEventListener('click', () => {
+        opts.onAddToClub?.(c);
+        toClub.textContent = 'In the notebook';
+        toClub.disabled = true;
+      });
+      actions.appendChild(toClub);
+    }
     card.append(what, qr, text, actions);
   }
 

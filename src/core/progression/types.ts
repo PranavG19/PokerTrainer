@@ -35,6 +35,7 @@ export interface ProgressionState {
   celebrations: CelebrationsState;
   trial: TrialState;
   teachDee: TeachDeeState;
+  club: ClubState;
 }
 
 /**
@@ -542,6 +543,39 @@ export interface LetterRecord {
 
 export interface LettersState {
   filed: LetterRecord[];
+}
+
+
+/**
+ * The LAN Club (src/core/club/club.ts): a standing local group of friends, cooperative, never chips. Local only: the
+ * members are names this player keeps, and the notebook holds the challenge codes friends handed over to play and
+ * talk through. `name` null means no club has been started.
+ */
+export interface ClubState {
+  name: string | null;
+  since: DayKey | null;
+  /** Unique by name, oldest first, bounded by MAX_CLUB_MEMBERS. */
+  members: ClubMember[];
+  /** Ascending by `at`, unique on `at` and on `code`, bounded by MAX_NOTEBOOK. */
+  notebook: NotebookEntry[];
+}
+
+export interface ClubMember {
+  name: string;
+  since: DayKey;
+}
+
+/** A challenge code in the club's notebook (a hand, a Math problem or a puzzle), with who it came from. */
+export interface NotebookEntry {
+  /** Epoch ms it was added; its identity. */
+  at: number;
+  /** The code as this build writes it (challengeCode.ts). */
+  code: string;
+  /** A member's name, or "You". */
+  from: string;
+  note: string;
+  /** The day this player last opened it from the notebook; null before. */
+  playedOn: DayKey | null;
 }
 
 /**
