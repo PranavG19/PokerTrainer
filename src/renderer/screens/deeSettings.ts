@@ -1,7 +1,7 @@
 import '../styles-dee.css';
 
 import { gradeDecision } from '../../core/coach.js';
-import { gradeFacts, isPriceHeld, selectLine, type DeeContext } from '../../core/dee/engine.js';
+import { gradeFacts, isPriceHeld, quietOf, selectLine, type DeeContext, type QuietLevel } from '../../core/dee/engine.js';
 import { DEE_BANK } from '../../core/dee/bank.js';
 import { VILLAIN_BETTING_RANGE } from '../../core/preflop.js';
 import { FREQUENCIES, TONES, type DeeEvent, type DeePose, type Frequency, type Tone } from '../../core/dee/types.js';
@@ -22,8 +22,16 @@ export interface DeeSettingsHandlers {
   onTone: (tone: Tone) => void;
   onFrequency: (frequency: Frequency) => void;
   onCharacter: (on: boolean) => void;
+  /** The quieter level (1.8), the same field Settings › Character sets. */
+  onQuiet?: (level: QuietLevel) => void;
   onForgetRules: () => void;
 }
+
+const QUIET_LABEL: readonly (readonly [QuietLevel, string])[] = [
+  ['standard', 'Standard'],
+  ['quieter', 'Quieter'],
+  ['quietest', 'Quietest'],
+];
 
 const TONE_LABEL: Record<Tone, string> = { dry: 'Dry', warm: 'Warm', blunt: 'Blunt' };
 const FREQUENCY_COPY: Record<Frequency, [string, string]> = {
@@ -87,6 +95,8 @@ export function renderDeeSettings(opts: {
   phrasing?: HTMLElement;
   /** Open onboarding's questions again (every answer is editable later). */
   onRedoOnboarding?: () => void;
+  /** The stored quieter level (personality.quiet); absent hides the dial. */
+  quiet?: string;
 }): HTMLElement {
   let tone = opts.context.tone;
   let frequency = opts.context.frequency;
@@ -215,6 +225,16 @@ export function renderDeeSettings(opts: {
   }
   side.appendChild(freq);
   side.appendChild(text('p', 'g-caption dee-hush', 'Dee never talks while you are to act. The words wait until the hand is over.'));
+  if (opts.quiet !== undefined && opts.handlers.onQuiet) {
+    let quiet = quietOf(opts.quiet);
+    const onQuiet = opts.handlers.onQuiet;
+    const dial = segmented('How often', 'dee-quiet', QUIET_LABEL, () => quiet, (q) => {
+      quiet = q;
+      onQuiet(q);
+    }, true);
+    dial.classList.add('dee-quiet');
+    side.appendChild(dial);
+  }
 
   const charGroup = document.createElement('div');
   charGroup.className = 'g-group';

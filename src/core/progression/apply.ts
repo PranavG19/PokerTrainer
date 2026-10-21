@@ -9,7 +9,8 @@
  * not persist), a story table ended, the one suggestion taken, a Folio card re-polished.
  *
  * From the same diff it advances the Ticket, counts the streak day when a session finished, and files Seals,
- * milestones and the cosmetics they earn. Pure: the caller passes the clock and the day function.
+ * milestones and the cosmetics they earn, and pays today's Chalk from today's Reps. Pure: the caller passes the
+ * clock and the day function.
  */
 
 import type { DayKey, DayKeyOf } from '../localDay.js';
@@ -30,6 +31,7 @@ import { syncCosmetics } from '../cosmetics/locker.js';
 import { counts as scoresStanding } from '../standing.js';
 import { countForRail, recordRail, settleRail, type PaidEvent } from './rail.js';
 import { finalesTaken, recordSeasons, tracksFilled, type PaidBlock } from './season.js';
+import { earnChalk } from '../economy/chalk.js';
 
 /** Perception answers in one visit that finish the Ticket's drill item (about the warm-up block's length). */
 export const DRILL_ANSWERS = 10;
@@ -227,7 +229,10 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
   const facts = milestoneFacts(next, p, ctx.scenarios, mastered.length);
   const milestones = syncMilestones(p.milestones, facts, today);
   // Cosmetics are receipts of the ratchets just filed (milestones, Seals, rivals unmasked), never of a result.
-  const cosmetics = syncCosmetics(p.cosmetics, { milestones, seals, story: p.story }, today);
+  let cosmetics = syncCosmetics(p.cosmetics, { milestones, seals, story: p.story }, today);
+  // Chalk (D4): today's curve over the Reps awarded today, paid once (economy/chalk.ts). Reps are its only input.
+  const ledger = earnChalk(cosmetics.chalk, r, today);
+  if (ledger !== cosmetics.chalk) cosmetics = { ...cosmetics, chalk: ledger };
   p = { ...p, seals, milestones, cosmetics };
 
   return { progression: p, finished, paid: r.total - next.progression.reps.total };

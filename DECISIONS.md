@@ -32,6 +32,46 @@ stay paint only, no schema bump (`progression.club` is a new additive key).
 - **e2e tables bind loopback.** Under `OFFSUIT_E2E` the app hosts on 127.0.0.1; a real table still binds every
   interface (LAN play), behind the opt-in, TLS, the pinned certificate and the room token.
 - **Where:** Play › LAN Club. The night is the LAN table with a bar of counts and End the night.
+## Settings: Character, Celebrations and the local trial (branch `feat-settings-trial`, 1.8)
+Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone clack behind the sound switch), D15
+(run the trial, four weeks on/off, kill criteria written in advance), no schema bumps (additive fields only).
+- **Rhythm, Pause and wick protection are dropped from 1.8.** D5 made the streak classic with no rest days or
+  freezes, so there is nothing for them to set. Supersedes: BUILD-PLAN 1.8's "Character, Celebrations and Rhythm;
+  Pause", because D5 removed what they controlled.
+- **Character lives in two places, one field.** Settings › Character and You › Dee both write
+  `progression.dee.character` and the new `progression.dee.personality.quiet` (`standard` | `quieter` | `quietest`,
+  unknown → standard). Quieter stretches every cooldown 2× and leaves 3 silent hands after any line; Quietest 3× and 6
+  hands. The session summary is never held back. Both multiply depth quieting (`contextOf`); the words never change.
+- **Celebrations are one new key, `progression.celebrations`** `{ on, motion: 'system' | 'still', sound }`, default
+  `{ true, 'system', true }`. The one reader is `celebrationGate(progression, soundCues, today)` in `core/trial.ts`:
+  `play` (on, and not an off week), `still`, and `sound` (its own switch AND `soundCues`, D13). The document carries
+  `html[data-celebrations="on|off"]` and `html[data-motion="system|still"]`; `styles-cosmetics.css` stills `.moment`
+  and the Locker preview under `still`. **The session-end moment (1.10) reads this gate**; it does not add its own key.
+- **The trial is `progression.trial`** (`core/trial.ts`, Settings › The trial). Weeks run on/off/on/off from the day
+  Start is pressed. In an off week Dee (`characterOn`) and the moment (`celebrationGate`) are off; the switches are
+  never changed. The prediction (12+ characters) and an optional own criterion are written first and locked at Start;
+  activity before the press does not count. One trial per profile: Stop keeps the counts, and a trial in any other
+  status (a newer build's included) is never replaced or deleted.
+- **Metrics are counted from what is already recorded,** incrementally at every save during its week (only activity
+  newer than the week's `through` is added), so the 500-hand log cap can neither shrink nor stall a week: sessions (30 min
+  gaps), late sessions (23:00–04:00), days with 3+ sessions, graded decisions, assessment EV loss, delayed-review
+  accuracy (a drill rep 3+ days after the concept's last one: the app emits no decay probes yet), reps on concepts
+  already mastered, and the Sure rate and accuracy (from the dateless tallies, by week-start and week-end snapshots).
+  A save with nothing new files nothing. A mark past now (a clock put back) is pulled back to now, so at most that
+  one save's activity is lost. Blocks and the baseline are parsed whole: a later field goes in a new key beside
+  them, never inside. While the trial runs the table pools every week; on beside off shows only after day 28 or a
+  stop. Nothing leaves the machine.
+- **Kill criteria (fixed text, `KILL_CRITERIA`):** EV loss on > off by more than 10% (30+ each way); delayed accuracy
+  5+ points lower (20+); Sure rate +10 with Sure accuracy −5 (20+ Sure calls); reps on mastered concepts +10 points
+  (20+); the share of late sessions +10 points with 2+ late (5+ sessions each way); the share of practice days with 3+
+  sessions +20 points with 2+ such days (3+ days each way); over half the on-week "wanted to / had to" answers say
+  "had to" (2+). Rates, not totals, so an on week with more practice never trips by volume alone. Supersedes: raw
+  late/busy totals, because they tripped on exactly the engagement the layer is meant to add. Below a minimum: "too
+  little to say", never a trip. The verdicts are shown only after day 28 (never mid-trial, never for a stopped one).
+- **Results are applied by the learner's press after day 28.** A trip turns Character and Celebrations off (the
+  layer goes off by default, PITCH §2.2); either can be turned back on. The page states the n = 1 limit.
+
+
 ## Teach Dee (branch `feat-teach-dee`): contrast sets played from your own rules (2.4)
 Owner decisions in force: the tutor never authors a number, no trait insults, nothing is locked, every new line passes
 Dee's bank lint.
@@ -82,13 +122,27 @@ Owner decisions in force: D18 (the Ghost Rail allowed: labelled bots and your pa
   unchanged. Milestones: Off the Rail Floor (felt "Ghost rail"), Five Up, The
   Delayed Test, Full Track (Dee finish "Season stamp").
 
-## Cosmetics and the Locker (branch `feat-cosmetics`): receipts, paint only (1.7, 2.13)
-Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic). D4 (Chalk) has no
-owner answer, so this build ships receipts only: no currency, no prices, and the Chalk ledger is never written.
-- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 7 table tints, 4 chip sets, 6 Dee finishes, 4
-  celebrations. Each slot's first item is the day-one default. Every other item is earned by a ratchet the habit loop
-  already keeps: a milestone receipt, 3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season
-  stamp finish are the Ghost Rail's and the Seasons' (below). Never chips, pots or results
+## Cosmetics, the Locker, Chalk and the moment (branch `feat-cosmetics`): paint only (1.7, 2.13, 2.6, 1.10)
+Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic), D4 (build Chalk,
+answered 2026-10-20: "build everything you can"). Supersedes: receipts only, because the owner chose Chalk.
+- **Chalk's curve** (`src/core/economy/chalk.ts`): 1 per Rep for a local day's first 150 Reps, ½ per Rep to 300, then
+  none; at most 225 a day, no wallet cap. It is paid on save from the Reps awarded that day (`repsOn`), so it is as
+  idempotent as Reps. A day before the ledger's day (a clock moved back) pays nothing, and the Locker says when
+  earning resumes. Reps dated another day (a hand played before 4 am, saved after) do not pay into today. The Locker
+  shows and spends the balance the next save will file, so today's Chalk counts before it is saved. This curve is the one Reps → Chalk step; nothing turns
+  Chalk into Reps or chips, and `chalk(` is minted only in units, the parser, the economy and the Locker rules
+  (`economy.test`).
+- **Prices are fixed and published:** 150, 450, 1,000, 2,400 (`CHALK_PRICES`), on 13 priced items. `spendItem` reads
+  the price from the catalogue, so a mastery or day-one item can never be sold. Spending takes two presses ("Spend 450 Chalk", then "Confirm"): a confirm within
+  500 ms (a double-click) or from key repeat (a held Enter) is ignored, an armed confirm lapses after 8 s, and the
+  button is off until the save lands. A read-only profile
+  cannot spend or wear. The receipt records the Chalk spent. No sales, discounts, bundles, timers or random drops;
+  Chalk is never bought with money.
+- **The balance is ink, never mint**, with "N of 225 earned today" beside it, and the curve is printed in the Locker.
+- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 12 card backs, 10 table tints, 6 chip sets, 8 Dee finishes, 6 celebrations. Each slot's first item is the day-one default. The 13
+  priced items cost Chalk. Every other item is earned by a ratchet the habit loop already keeps: a milestone receipt,
+  3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season stamp finish are the
+  Ghost Rail's and the Seasons' (below). Never chips, pots or results
   (`cosmetics.test` scans the source and pays a big bankroll nothing).
 - **Owned is a receipt, filed on save** (`syncCosmetics` in `progression/apply.ts`), dated the day the fact first held,
   `chalk: 0`. It is never taken back. Day-one items are never stored, and wearing one clears the slot. An equipped id
@@ -102,7 +156,26 @@ owner answer, so this build ships receipts only: no currency, no prices, and the
   / `--bet-edge`. The streak ring stays bone, so a chip set never repaints a habit mark.
 - **Themes stay a free device setting:** Dusk and Library join Glass and Obsidian (`store.ts` THEMES), each a desk-band
   swap only. A theme is never a Locker item.
-- **Celebrations are stored and previewed only:** no session-end moment exists yet (1.10), and the Locker says so.
+- **The celebration moment (1.10, `components/moment.ts`)** plays the worn celebration once when a save finishes a
+  session (the Ticket, an assessment block, a story table, the day's twelfth hand), once per session, and only after
+  the save lands, so a read-only profile never replays it. It never shows over a verdict: any verdict on screen
+  holds it (the table's sheet or coach panel, a drill, a graded or finished puzzle, an assessment reveal), and one
+  raised while it plays ends it. It is dropped after 120 s held. It lasts at most 1600 ms, sits bottom left above
+  the dock (clear of every seat, rail and control on the table and Train), and is cancelled by a profile delete.
+  Under reduced motion the words show still. Whether it plays is Settings' (1.8): the hook asks `celebrationGate()`
+  (the Celebrations switch, never in a trial's off week; "Still" motion; the clack needs both sound switches) and reads
+  no setting of its own. A moment waiting behind a verdict is re-checked when it would show, through the
+  `html[data-celebrations]` attribute the host paints from the gate. The Locker's preview still plays on an explicit
+  press with Celebrations off: it is a preview of the look, not a celebration (it honours Still).
+  A soft clack plays only when the sound switch is on; that switch's note now says so. Supersedes: celebrations
+  stored and previewed only, because the moment is built. Two celebrations are now priced.
+- **Profile schema while there are no customers (owner):** edit the current version in place and never bump
+  `SCHEMA_VERSION`. A one-time `scripts/fix-profile-*.ts` repairs existing local profiles (dry run by default; a
+  backup checked byte for byte before any write). Supersedes: a migration step and a version bump.
+- **Equips in a slot only a newer build knows are carried** through a save (the item must be owned). Supersedes:
+  dropping them (`progression.test` pinned the drop). `scripts/fix-profile-cosmetics.ts` brings a local profile's
+  cosmetics to this build. The owner's real profile is v1 (no `progression`), so the dry run skips it, and the
+  app migrates it on load.
 - **Specs:** `theme.spec` swaps every theme and every item on the table, in the Locker and on its stage with zero
   layout. `locker.spec` wears every item and allows only paint properties to change, with no rect moving.
 

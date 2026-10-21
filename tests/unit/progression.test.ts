@@ -46,7 +46,7 @@ function full(): ProgressionState {
       ruleSentences: [{ conceptId: 'pot-odds', text: 'the price is the call over the pot after I call', day: day(19598) }],
       keepsakes: ['wren-wick'],
       lastGreeting: { day: day(19603), lineId: 'greet.due.3' },
-      personality: { tone: 'dry', frequency: 'mistakes' },
+      personality: { tone: 'dry', frequency: 'mistakes', quiet: 'quieter' },
       character: false,
       handsWatched: 412,
       said: [{ lineId: 'ph-1', at: 410 }],
@@ -134,6 +134,30 @@ function full(): ProgressionState {
           shelf: ['depth-40'],
         },
       ],
+    },
+    celebrations: { on: false, motion: 'still', sound: false },
+    trial: {
+      status: 'running',
+      startedOn: day(19590),
+      startedAt: 1_728_990_000_000,
+      prediction: 'Dee on makes me come back more without hurting the assessment.',
+      ownCriterion: 'I stop enjoying it.',
+      baseline: { total: 40, sureTotal: 20, sureCorrect: 15 },
+      blocks: [
+        {
+          calibrationStart: { total: 40, sureTotal: 20, sureCorrect: 15 },
+          calibrationEnd: { total: 52, sureTotal: 27, sureCorrect: 20 },
+          counts: { activeDays: 5, sessions: 7, lateSessions: 1, busyDays: 0, decisions: 120, assessed: 30, assessedLossBb: 4.25, delayed: 6, delayedCorrect: 4, reps: 40, repsOnMastered: 3 },
+          through: 1_729_000_000_000,
+          sessionsByDay: { '19590': 3, '19591': 4 },
+        },
+        null,
+        null,
+        null,
+      ],
+      reports: [{ day: day(19591), answer: 'wanted' }],
+      finishedOn: null,
+      outcome: null,
     },
     teachDee: {
       sets: [
@@ -246,7 +270,8 @@ describe('corrupt progression falls back without losing anything else', () => {
     expect(p.reps.awards).toHaveLength(1);
     expect(p.reps.total).toBe(10);
     expect(p.cosmetics.owned).toEqual(['a', 'b']);
-    expect(p.cosmetics.equipped).toEqual({ felt: 'b' });
+    // `bogus` is a slot this build does not know, holding an owned item: carried (a newer build's slot), not dropped.
+    expect(p.cosmetics.equipped).toEqual({ felt: 'b', bogus: 'a' });
     expect(p.cosmetics.receipts).toEqual([]);
     expect(p.cosmetics.chalk).toEqual({ balance: 0, day: 19603, earnedToday: CHALK_DAILY_CAP });
     expect(p.personalization.goals).toEqual(['a', 'b']);

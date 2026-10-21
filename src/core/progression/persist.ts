@@ -11,10 +11,12 @@ import { asDayKey, DAY_BOUNDARY_HOUR, type DayKey } from '../localDay.js';
 import { weekOf } from '../week.js';
 import { chalk, reps } from '../units.js';
 import { MAX_TOKEN_CHARS, normalizeToken } from '../entitlements/token.js';
+import { defaultCelebrations, defaultTrial, parseCelebrations, parseTrial } from '../trial.js';
 import {
   CHALK_DAILY_CAP,
   COSMETIC_SLOTS,
   DEE_FREQUENCIES,
+  DEE_QUIET_LEVELS,
   DEE_TONES,
   KNOWN_TIERS,
   type ChalkLedger,
@@ -135,7 +137,7 @@ export function defaultProgression(): ProgressionState {
       ruleSentences: [],
       keepsakes: [],
       lastGreeting: null,
-      personality: { tone: 'warm', frequency: 'normal' },
+      personality: { tone: 'warm', frequency: 'normal', quiet: 'standard' },
       character: true,
       handsWatched: 0,
       said: [],
@@ -160,6 +162,8 @@ export function defaultProgression(): ProgressionState {
     rail: { tier: 'deuce', weeks: [], promotions: [] },
     seasons: { records: [] },
     letters: { filed: [] },
+    celebrations: defaultCelebrations(),
+    trial: defaultTrial(),
     teachDee: { sets: [] },
     club: { name: null, since: null, tableName: null, members: [], notebook: [], nights: [] },
   };
@@ -184,7 +188,7 @@ export const PROGRESSION_SHAPE = {
     ruleSentences: true,
     keepsakes: true,
     lastGreeting: true,
-    personality: { tone: true, frequency: true },
+    personality: { tone: true, frequency: true, quiet: true },
     character: true,
     handsWatched: true,
     said: true,
@@ -214,6 +218,19 @@ export const PROGRESSION_SHAPE = {
   rail: { tier: true, weeks: true, promotions: true },
   seasons: { records: true },
   letters: { filed: true },
+  celebrations: { on: true, motion: true, sound: true },
+  trial: {
+    status: true,
+    startedOn: true,
+    startedAt: true,
+    prediction: true,
+    ownCriterion: true,
+    baseline: true,
+    blocks: true,
+    reports: true,
+    finishedOn: true,
+    outcome: true,
+  },
   teachDee: { sets: true },
   club: { name: true, since: true, tableName: true, members: true, notebook: true, nights: true },
 } as const;
@@ -237,6 +254,8 @@ export function parseProgression(raw: unknown): ProgressionState {
     rail: section(obj.rail, d.rail, parseRail),
     seasons: section(obj.seasons, d.seasons, parseSeasons),
     letters: section(obj.letters, d.letters, parseLetters),
+    celebrations: section(obj.celebrations, d.celebrations, parseCelebrations),
+    trial: section(obj.trial, d.trial, parseTrial),
     teachDee: section(obj.teachDee, d.teachDee, parseTeachDee),
     club: section(obj.club, d.club, parseClub),
   };
@@ -373,6 +392,13 @@ function parseCosmetics(obj: Record<string, unknown>, d: CosmeticsState): Cosmet
     // Equipping is only ever of something owned; a dangling equip is dropped, not granted.
     if (item !== null && ownedSet.has(item)) equipped[slot] = item;
   }
+  // A slot a newer build added is carried as it is, an owned item only, so this build's save never drops it (an older
+  // build never overwrites a newer value; AGENTS.md "Profile schema"). Readers ignore slots they do not know.
+  const known: ReadonlySet<string> = new Set(COSMETIC_SLOTS);
+  for (const slot of Object.keys(equippedRaw)) {
+    const item = id(equippedRaw[slot]);
+    if (!known.has(slot) && slot !== '__proto__' && item !== null && ownedSet.has(item)) (equipped as Record<string, string>)[slot] = item;
+  }
   const receipts: Receipt[] = [];
   for (const value of asArray(obj.receipts)) {
     const entry = asRecord(value);
@@ -421,6 +447,7 @@ function parseDee(obj: Record<string, unknown>, d: DeeMemory): DeeMemory {
     personality: {
       tone: id(personality.tone) ?? d.personality.tone,
       frequency: id(personality.frequency) ?? d.personality.frequency,
+      quiet: id(personality.quiet) ?? d.personality.quiet,
     },
     character: typeof obj.character === 'boolean' ? obj.character : d.character,
     handsWatched: Math.min(MAX_RUN * 1000, nonNegativeInt(obj.handsWatched)),
@@ -959,6 +986,10 @@ export function effectiveTier(e: EntitlementsState): (typeof KNOWN_TIERS)[number
 
 export function effectiveTone(p: DeeMemory['personality']): (typeof DEE_TONES)[number] {
   return (DEE_TONES as readonly string[]).includes(p.tone) ? (p.tone as (typeof DEE_TONES)[number]) : 'warm';
+}
+
+export function effectiveQuiet(p: DeeMemory['personality']): (typeof DEE_QUIET_LEVELS)[number] {
+  return (DEE_QUIET_LEVELS as readonly string[]).includes(p.quiet) ? (p.quiet as (typeof DEE_QUIET_LEVELS)[number]) : 'standard';
 }
 
 export function effectiveFrequency(p: DeeMemory['personality']): (typeof DEE_FREQUENCIES)[number] {

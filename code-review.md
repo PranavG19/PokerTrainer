@@ -1,43 +1,39 @@
-# Independent review: profile export and import, challenge codes, a local QR (branch feat-profile-export, 2.8)
+# Independent review: PR 2 (branch feat-cosmetics): Chalk, the celebration moment, newer-slot equips, the fix-up script
 
-Two passes by one reviewer agent with no author context, at high effort (untrusted-file import and IPC are a
-security surface). It reviewed read-only and ran typecheck and unit tests only, with no Playwright or app
-launch, because the shared e2e lock governs those.
+Two reviewer agents with no author context, each over two passes. They reviewed read-only and ran typecheck, units and
+the script on temp copies only (no Playwright or build: the shared e2e lock governs those). The cosmetics and Locker
+review (#35) is in that PR's history.
 
-| Pass | HEAD | Verdict |
-|---|---|---|
-| 1. Review | 8967797 | **FAIL**: one high, two medium, five low (incl. test gaps) |
-| 2. Re-review | cce2c05 | **PASS**: findings 1 and 3–7 fixed, 2 fixed in substance, 8 partly fixed; no new finding above low |
+| Scope | Pass | HEAD | Verdict |
+|---|---|---|---|
+| Chalk (2.6) | 1. Review | d3e4db9 | **PASS WITH NOTES**: no farming or double-pay; two medium, five low, test gaps |
+| Chalk | 2. Re-review | 557f8a7 | **PASS WITH NOTES**: one medium-low, two low, fixed in 6540c48 |
+| The moment, schema, script | 1. Review | 2b080a1 | **PASS WITH NOTES**: one medium-high, one medium, five low |
+| The moment, schema, script | 2. Re-review | f52ef96 | **PASS WITH NOTES**: every fix landed; one medium, one low-medium, fixed in the final commit |
 
-## Findings and outcomes
+## Findings and outcomes (red first wherever a defect was repaired)
 
 | ID | Finding | Outcome |
 |---|---|---|
-| 1 (H) | An import over a profile recovered from `.bakN` copied the torn or missing live file aside, so the profile in use survived only in the rotating backups | Fixed, red first (`store.test`): `store.replaceProfile` copies the file the profile was loaded from (`loadedFrom`) |
-| 2 (M) | The strict check covered top-level types and hand cards only; nested junk (decisions, grades, a string streak) was silently repaired | Fixed, red first (`profileTransfer.test`): every value must come through the parser unchanged, else `bad-field` with its path. Remainder (low, accepted): values the parser keeps as they are (a bankroll of −1e300, depthFloor 1e12, long strings) still import, which is the same exposure as hand-editing the live file |
-| 3 (M) | Unknown keys below the top level were dropped and not counted | Fixed, red first: carried at every level, as a save carries them, and listed in the preview |
-| 4 (L-M) | Busting on a challenge hand offered a rebuy that dealt a second hand | Fixed, red first (`challenge-table.test`, jsdom): a table whose planned hands are played ends the sitting on a bust or sweep too |
-| 5 (L) | Enter in the code field also committed an empty Math answer | Fixed, red first (`profile-export.spec`): the keypress stops at the field |
-| 6 (L) | A swap between stat and read could hang main on a FIFO or read past the cap | Fixed (hardening; the race itself has no red test): one non-blocking descriptor, `fstat`, bounded read (`profileFile.test` covers a FIFO and a directory) |
-| 7 (L) | The app-folder guard on export missed a path in another letter case | Fixed, red first (`profileFile.test` fails with `realpathSync`, passes with `.native`) |
-| 8 (L) | Tests that could pass vacuously | Partly fixed: the receiver now has a real profile, asserted unchanged after a forced save; the code's button is pinned. **Open:** "same hand" compares hole cards and the button, not villains, stacks or board |
-| R2-a (L) | `readBounded` allocates a zero-filled 16 MiB buffer per pick | **Open**: harmless at one pick per click; size it from `fstat` next time the file is touched |
-| R2-b (L) | `exportEnvelope` normalises outside a `try`; an absurdly nested unknown key on disk makes the export say "could not be written" | **Open**: the renderer catches it; nothing is written |
-| R2-c (L) | `challenge-table.test` never destroys the tables it renders | **Open**: test hygiene only |
+| C1 (M) | A double-click bypassed the two-press confirm | Fixed: a confirm within 500 ms is ignored; key repeat never confirms; the armed confirm lapses after 8 s |
+| C2 (M) | Chalk bought celebrations before the moment existed | Fixed then, and moot now: the moment plays them |
+| C3–C7 (L) | Clock behind the ledger promised Chalk; owed Chalk not shown; stale snapshot during a save; read-only could spend; `spend` trusted the caller's price | All fixed (`economy.test`, `locker.spec`) |
+| M1 (M-H) | On a read-only profile or a failing save, the moment replayed on every save | Fixed: it plays only after the save lands, once per session |
+| M2 (M) | Only the table's verdicts held the moment | Fixed: drill, puzzle and assessment verdicts hold it, and one raised mid-moment ends it |
+| M3 (L-M) | `--file=path` fell through to the real profile | Fixed: unknown arguments are refused |
+| M4–M8 (L) | Script race and temp file; a vacuous `__proto__` test; the "every byte" wording; a moment surviving a delete or sound toggle; stale counts and a weak Ink ring | Fixed: re-read before the rename, fsync and cleanup; JSON.parse; "every other value"; `cancelMoment`; sound read at show time; counts verified |
+| R1 (M) | Keying by day and kind silenced a second assessment or story table that day | Fixed (`moment.test`): one key per session |
+| R2 (L-M) | The top-left moment covered Train's rail | Fixed (`moment.spec`, red first): bottom left, measured over the table and Train at both sizes |
+| Rebase | Main moved under this PR six times (#44, #45, #47, #49, #46, #48); every conflict was a union (catalogue rules and items, token blocks, imports, the save path, the import flag) | A third read-only pass found nothing broken: every paint has its block, the counts match, every earn context passes `story` for keepsakes, and the save path is not duplicated |
+| G1 | Settings #50 owns the celebration switches through `celebrationGate()` | 365ccc9, red first: the moment plays, holds still and clacks only through the gate; off and an off week never play. Reviewed: correct |
+| G2 (M) | A moment already waiting behind a verdict was not re-gated when it showed | 86f90e6, red first: re-read through `html[data-celebrations]` at show time. The Locker preview playing with Celebrations off is recorded as intended |
+| S1 | After the rebase the fix-up script's imports reached an `enum` (core/evaluate.ts), which Node 26 cannot strip | Fixed, red first (the two CLI tests): `ts-js-resolve.mjs` transpiles .ts with the repo's TypeScript |
 
-## Found while fixing
-- With the stricter check, exporting right after a load (before any save) could produce a file this same build
-  refused. Exports are now parser-normalised (red first in `profileTransfer.test`).
-
-## Checked and found fine (both passes)
-- Dialogs are main's: `profile:export`/`importPick` take no arguments, `importConfirm` only `(id, accept)`; the
-  renderer gets base file names. Confirm ids are random, single use, expire after 10 minutes.
-- The licence never comes from a file: export empties entitlements, import is stamped with main's (`stamp`).
-- No stale write-back after an import: saves are refused in main and the renderer until the reload's load.
-- `deleteProfile` removes pre-import copies; the temp sweep covers their `.tmp` files.
-- The Pro hand store (`hand-histories/`) is never read or written.
-- Challenge codes: CRC-16 correct, canonical base32 and varints only, out-of-range values refused.
-- QR encoder: tables, interleave, format and version bits, masks and placement match the standard;
-  `scripts/qr-crosscheck.ts` has Core Image read back 61/61 symbols, versions 1–40.
-- Regression sweep (pass 2): 3,278 profiles on disk written by e2e runs were run through `checkImport`; every
-  refusal was a hand-made or junk fixture, none a profile the app built itself.
+## Checked and found fine
+- Chalk: the curve (225 a day at most) holds whatever is replayed, gone stale or evicted. Every path into Chalk is
+  Reps; nothing converts out; there is no money path, sale or randomness, and nothing cosmetic or currency-like is Pro.
+- The parser change keeps an owned item in an unknown slot, with no overlap with the profileSchema carry, and no
+  prototype issue. The script keeps unknown keys at every level, is idempotent, skips newer-build and v1 files, and
+  never writes without a byte-checked backup (`COPYFILE_EXCL`).
+- The clack is the only 880 Hz tone, and sound.spec's oscillator counts are unaffected. The new settings copy is
+  accurate.

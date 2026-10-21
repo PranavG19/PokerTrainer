@@ -32,6 +32,8 @@
   --float-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
   --float-shadow: 0 22px 50px -14px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.3);
   --float-rim: rgba(255, 255, 255, 0.12);
+  /* An opaque float, for an overlay that must not let what is under it read through (the session-end moment). */
+  --float-solid: rgba(28, 31, 38, 0.96);
 
   /* One neutral state ramp for every control: rest → hover → press → selected. */
   --hair: rgba(255, 255, 255, 0.08);

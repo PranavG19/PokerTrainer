@@ -84,11 +84,20 @@ the UI: plain DOM in `screens/*.ts` and `components/*.ts`, plain CSS, no framewo
   `profileSchema.test` fails if you forget). Older builds of the same version carry it through untouched.
   For vocabularies a later build may extend (ids, tiers, answers), persist the string and map unknown values
   to a default when reading, so an older build never overwrites a newer value.
-- **Bump `SCHEMA_VERSION` when** a field changes meaning or shape, a value moves, or an older build carrying
-  it through stale would be wrong. Add one `{ from, to, run }` step: pure, additive, idempotent (running it on
-  its own output changes nothing), never deleting or rewriting an older version's key. Add a fixture test
-  (v(N-1) in → every old field byte-identical, idempotent) and extend `store.test`. Older builds then open
-  the profile read-only, by design.
+- **Changing an existing field (owner, while there are no customers): edit the current version in place; never
+  bump `SCHEMA_VERSION`.** Change the type, default and parser where they are (tolerant as above), update any test
+  that pinned the old reading, and repair existing local profiles with a one-time script
+  `scripts/fix-profile-<what>.ts`:
+  - it is a pure `fixProfile(raw, today)` plus a CLI, dry run by default;
+  - it touches only the section it repairs, leaves every other value as it was, writes the app's own JSON format, and
+    refuses any argument it does not know;
+  - it is idempotent, and skips a newer build's file;
+  - `--write` first copies the file to `<file>.pre-fix-<what>-<stamp>` and checks the copy byte for byte. It then
+    re-reads the file, stopping if anything changed it meanwhile, and replaces it atomically (temp file, fsync,
+    rename);
+  - test it over `tests/fixtures/profiles/` (`fix-profile-cosmetics` is the model). Dry-run it on the owner's real
+    profile and report what it would change; never write the real profile without the backup.
+  Once there are customers, this reverts to a `{ from, to, run }` migration step with a version bump.
 - Counts never mix: `Chips` (bankroll), `Reps`, `Chalk` are branded in `src/core/units.ts`; days are `DayKey`s
   from `src/core/localDay.ts` (local time, the day turns at 4 am). The streak is the classic daily
   streak (`progression.streak`, owner D5): a missed day resets it, with no rest days or freezes. Go
