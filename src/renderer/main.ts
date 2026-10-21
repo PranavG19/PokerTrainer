@@ -1107,7 +1107,7 @@ async function boot(): Promise<void> {
    * so the cards and seats are the sender's; it is practice, graded but never logged, so a friend's code moves
    * no bankroll, streak or record. A Math problem or a puzzle opens in its own Train screen.
    */
-  function openChallenge(c: Challenge): void {
+  function openChallenge(c: Challenge, from: 'challenge' | 'club' | 'club-maker' = 'challenge'): void {
     challengeActive = false;
     if (c.kind === 'drill') {
       tab = 'train';
@@ -1144,10 +1144,17 @@ async function boot(): Promise<void> {
       onVerdict: (message) => narrate(message),
       onSessionOver: () => {
         teardownTable();
-        openPanel('challenge');
+        // A hand played from the club's notebook returns to the club; one from the challenge screen, there (still
+        // the club's maker, with its Back to the club, when the club opened it).
+        openPanel(from === 'club' ? 'club' : 'challenge');
+        challengeFromClub = from === 'club-maker';
         render();
       },
-      sittingEnd: { note: 'That was the challenge hand. It is practice: nothing was logged.', label: 'Back to challenges', testid: 'challenge-done' },
+      sittingEnd: {
+        note: 'That was the challenge hand. It is practice: nothing was logged.',
+        label: from === 'club' ? 'Back to the club' : 'Back to challenges',
+        testid: 'challenge-done',
+      },
     });
     table.root.dataset.challenge = 'true';
     render();
@@ -1914,7 +1921,7 @@ async function boot(): Promise<void> {
           onPlay: (entry, c) => {
             saveClub(markPlayed(session.progression.club, entry.at, today()));
             clubActive = false;
-            openChallenge(c);
+            openChallenge(c, 'club');
           },
           onMakeCode: () => {
             openPanel('challenge');
@@ -1940,7 +1947,7 @@ async function boot(): Promise<void> {
           ...(session.progression.club.name !== null
             ? { onAddToClub: (c: Challenge) => saveClub(addToNotebook(session.progression.club, { code: encodeChallenge(c), from: FROM_YOU, note: '' }, now())) }
             : {}),
-          onPlay: (c) => openChallenge(c),
+          onPlay: (c) => openChallenge(c, challengeFromClub ? 'club-maker' : 'challenge'),
           ...(challengeFromClub ? { backLabel: 'Back to the club' } : {}),
           onExit: () => {
             // Opened from the club's Make a code: Back returns to the club.

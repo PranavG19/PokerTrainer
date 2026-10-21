@@ -55,6 +55,8 @@
 
 /* Members: chips in the coat (informational), a small remove mark on each. */
 .club-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* A full roster (24 names) scrolls inside the column instead of the page. */
+.club-members > .club-chips { max-height: calc(var(--h-sm) * 4 + 18px); overflow-y: auto; }
 .club-chip {
   display: inline-flex;
   align-items: center;

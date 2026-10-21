@@ -74,6 +74,18 @@ test('a club starts from Play with nothing locked, opens no socket, and survives
     await startClub(app.page);
     await expect(app.page.locator('.club-screen .pill.primary')).toHaveCount(1);
     await expect(app.page.locator('[data-testid="club-notebook-empty"]')).toBeVisible();
+    // A full roster of long names scrolls inside its column: the page still fits both sizes.
+    for (let i = 0; i < 24; i += 1) {
+      await app.page.locator('[data-testid="club-member-name"]').fill(`Member number ${String(i).padStart(2, '0')} long`);
+      await app.page.locator('[data-testid="club-member-name"]').press('Enter');
+    }
+    await expect(app.page.locator('[data-testid="club-member"]')).toHaveCount(24);
+    for (const [w, h] of [[900, 640], [1100, 760]] as const) {
+      await size(app, w, h);
+      const [sh, ih] = await app.page.evaluate(() => [document.documentElement.scrollHeight, window.innerHeight]);
+      expect(sh, `a full roster at ${w}x${h}`).toBeLessThanOrEqual(ih);
+      await expect(app.page.locator('[data-testid="club-back"]')).toBeInViewport({ ratio: 1 });
+    }
     // Nothing about a club is network: no listener and no connection.
     const sockets = readOracle(oracle).filter((r) => r.kind === 'listen' || (r.kind === 'connect' && !r.ipc));
     expect(sockets).toEqual([]);
@@ -121,7 +133,16 @@ test('a friend’s hand code goes in the notebook with a note, plays the same de
     // Playing it deals the challenge table, as the challenge reader would; the notebook marks it played.
     await entry.locator('[data-testid="club-entry-play"]').click();
     await expect(page.locator('[data-testid="table-screen"]')).toBeVisible();
-    await backToClub(page);
+    // The hand is the challenge table's one hand; at its end, the way back is to the club.
+    const done = page.locator('[data-testid="challenge-done"]');
+    for (let i = 0; i < 40 && !(await done.isVisible()); i += 1) {
+      const fold = page.locator('[data-testid="btn-fold"]');
+      if (await fold.isEnabled().catch(() => false)) await fold.click();
+      await page.waitForTimeout(150);
+    }
+    await expect(done).toHaveText('Back to the club');
+    await done.click();
+    await page.waitForSelector('[data-testid="club-screen"]');
     await expect(page.locator(`[data-testid="club-entry"][data-code="${HAND}"]`)).toHaveAttribute('data-played', 'true');
     await expect(page.locator('[data-testid="club-together-played"]')).toContainText('1');
     expect(errors).toEqual([]);

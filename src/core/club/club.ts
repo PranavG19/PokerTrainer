@@ -46,10 +46,16 @@ export type ReadCode =
   | { readonly ok: true; readonly challenge: Challenge; readonly code: string; readonly line: string }
   | { readonly ok: false; readonly reason: string };
 
-/** A code a friend handed over, read as the challenge reader reads it; `code` is how this build writes it. */
-export function readCode(raw: string): ReadCode {
+/**
+ * A code a friend handed over, read as the challenge reader reads it; `code` is how this build writes it.
+ * `playable` is the reader's own check that this build can set the spot up (screens/challenge.ts), passed in so
+ * core stays free of the renderer: a code it refuses is refused here with the same reason.
+ */
+export function readCode(raw: string, playable?: (c: Challenge) => string | null): ReadCode {
   const r = decodeChallenge(typeof raw === 'string' ? raw.trim() : '');
   if (!r.ok) return { ok: false, reason: CHALLENGE_ERROR_TEXT[r.error] };
+  const blocked = playable?.(r.challenge) ?? null;
+  if (blocked !== null) return { ok: false, reason: blocked };
   return { ok: true, challenge: r.challenge, code: encodeChallenge(r.challenge), line: describeChallenge(r.challenge) };
 }
 

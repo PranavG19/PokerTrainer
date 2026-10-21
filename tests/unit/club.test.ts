@@ -125,3 +125,14 @@ describe('the club’s words', () => {
     }
   });
 });
+
+describe('review: a code the table cannot deal', () => {
+  it('reads as invalid with the challenge reader’s own reason, so the club never marks it played', async () => {
+    const { playable } = await import('../../src/renderer/screens/challenge.js');
+    const six = encodeChallenge({ kind: 'hand', seed: 7, handNumber: 1, button: 0, seats: 6, depthBb: 100 });
+    const r = readCode(six, playable);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.reason).toContain('6-handed');
+    expect(readCode(hand, playable).ok).toBe(true);
+  });
+});

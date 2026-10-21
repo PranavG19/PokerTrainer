@@ -13,12 +13,13 @@ additive key). The owner answered "We don't need LAN play", then "Keep the club,
   main process. Supersedes: a hosted LAN Game Night with a shared recap, because the owner does not need LAN play.
 - **The club** is a name, the members this player keeps, and a notebook of challenge codes (hand, Math problem,
   puzzle) with who handed each over and a note on what to talk through. A hand code replays the same deal, so the
-  club reviews each other's hands by playing them. A code is read and written exactly as the challenge reader does.
+  club reviews each other's hands by playing them. A code is read, refused and written exactly as the challenge
+  reader does (its `playable` check included: a hand this build cannot deal reads as invalid).
 - **Together** counts what the club did: members, codes shared, codes from friends, codes played. Never a person's
   score, never chips, no ranking.
 - **Where:** Play › LAN Club. Make a code opens the challenge maker, whose made code can go straight into the
-  notebook ("Add to the club notebook", shown only once a club exists). Playing a notebook code marks it played and
-  opens it as the challenge reader would.
+  notebook ("Add to the club notebook", shown only once a club exists), and its Back returns to the club. Playing a
+  notebook code marks it played and opens it as the challenge reader would; a hand's end leads back to the club.
 
 ## Settings: Character, Celebrations and the local trial (branch `feat-settings-trial`, 1.8)
 Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone clack behind the sound switch), D15

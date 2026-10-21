@@ -15,6 +15,7 @@ import {
 } from '../../core/club/club.js';
 import type { DayKey } from '../../core/localDay.js';
 import type { ClubState, NotebookEntry } from '../../core/progression/types.js';
+import { playable } from './challenge.js';
 import { dayLabel } from './you.js';
 
 /**
@@ -223,13 +224,13 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
         notice.textContent = hint;
         return;
       }
-      const r = readCode(text);
+      const r = readCode(text, playable);
       box.dataset.state = r.ok ? 'valid' : 'invalid';
       add.disabled = !r.ok;
       notice.textContent = r.ok ? r.line : r.reason;
     });
     add.addEventListener('click', () => {
-      const r = readCode(code.value);
+      const r = readCode(code.value, playable);
       if (r.ok) save(addToNotebook(club, { code: r.code, from: from.value, note: note.value }, opts.now()));
     });
     const row1 = el('div', 'club-row');
@@ -250,7 +251,7 @@ export function renderClubScreen(opts: ClubScreenOptions): HTMLElement {
       list.appendChild(empty);
     }
     for (const entry of all) {
-      const r = readCode(entry.code);
+      const r = readCode(entry.code, playable);
       const row = el('div', 'club-entry');
       row.dataset.testid = 'club-entry';
       row.dataset.code = entry.code;
