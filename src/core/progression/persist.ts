@@ -54,6 +54,8 @@ import {
   type HandOfWeek,
   type LetterRecord,
   type LettersState,
+  type TaughtSet,
+  type TeachDeeState,
   type TicketItemRecord,
   type TicketState,
   type BlockScore,
@@ -90,6 +92,10 @@ export const MAX_RAIL_PROMOTIONS = 12;
 export const RAIL_TIER_IDS: readonly string[] = ['deuce', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
 /** Seven-week seasons: about eight years. */
 export const MAX_SEASON_RECORDS = 60;
+/** Contrast sets played from the learner's rules (Teach Dee) kept in the profile. */
+export const MAX_TAUGHT_SETS = 100;
+/** No taught set is longer than this many spots (teachDee.ts TEACH_MAX_SPOTS is lower). */
+const MAX_TAUGHT_SPOTS = 20;
 /** A heads-up hand rarely runs past a dozen actions a side; anything longer is corruption. */
 const MAX_RIVAL_ACTIONS = 40;
 /** Ids and enum-like answers. */
@@ -140,6 +146,7 @@ export function defaultProgression(): ProgressionState {
     letters: { filed: [] },
     celebrations: defaultCelebrations(),
     trial: defaultTrial(),
+    teachDee: { sets: [] },
   };
 }
 
@@ -205,6 +212,7 @@ export const PROGRESSION_SHAPE = {
     finishedOn: true,
     outcome: true,
   },
+  teachDee: { sets: true },
 } as const;
 
 export function parseProgression(raw: unknown): ProgressionState {
@@ -228,6 +236,7 @@ export function parseProgression(raw: unknown): ProgressionState {
     letters: section(obj.letters, d.letters, parseLetters),
     celebrations: section(obj.celebrations, d.celebrations, parseCelebrations),
     trial: section(obj.trial, d.trial, parseTrial),
+    teachDee: section(obj.teachDee, d.teachDee, parseTeachDee),
   };
 }
 
@@ -797,6 +806,40 @@ function parseHandOfWeek(raw: unknown): HandOfWeek | null {
   const action = id(raw.action);
   if (hole === null || board === null || street === null || action === null) return null;
   return { hole, board, street, action, toCall: Math.max(0, asNumber(raw.toCall)), pot: Math.max(0, asNumber(raw.pot)) };
+}
+
+function parseTeachDee(obj: Record<string, unknown>): TeachDeeState {
+  const byAt = new Map<number, TaughtSet>();
+  for (const value of asArray(obj.sets)) {
+    const e = asRecord(value);
+    const at = e.at;
+    if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0 || byAt.has(at)) continue;
+    const conceptId = id(e.conceptId);
+    const sentence = text(e.text);
+    const base = id(e.base);
+    const axis = id(e.axis);
+    const level = id(e.value);
+    const action = id(e.action);
+    const otherwise = id(e.otherwise);
+    const finding = id(e.finding);
+    if (conceptId === null || sentence === null || base === null || axis === null || level === null) continue;
+    if (action === null || otherwise === null || finding === null) continue;
+    const spots = Math.min(MAX_TAUGHT_SPOTS, nonNegativeInt(e.spots));
+    byAt.set(at, {
+      at,
+      conceptId,
+      text: sentence,
+      base,
+      axis,
+      value: level,
+      action,
+      otherwise,
+      finding,
+      spots,
+      misses: Math.min(spots, nonNegativeInt(e.misses)),
+    });
+  }
+  return { sets: [...byAt.values()].sort((a, b) => a.at - b.at).slice(-MAX_TAUGHT_SETS) };
 }
 
 /** Read-side helpers: an unknown value (a newer build's) reads as this build's default. */

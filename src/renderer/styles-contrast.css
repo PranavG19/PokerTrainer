@@ -412,3 +412,242 @@ button.axis-offer[data-selected='true'] {
     transition: none;
   }
 }
+
+/*
+ * ─── Teach Dee (BUILD-PLAN 2.4) ───
+ * The same language as the Repair tab: one column that scrolls itself, flat hairline sections for what is
+ * informational (the reveal, the misses), one inset group for the openable rule list, .g-seg for every choice
+ * of the reading, and ONE bone primary per phase (Deal, Next, Rewrite, Try again). Holds / does not hold is
+ * told by words, never by colour: a verdict on a rule is a fact, not an alarm, and mint is never a result.
+ */
+.teach-screen {
+  max-width: 720px;
+  margin: 0 auto;
+  max-height: calc(100vh - 66px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 24px;
+}
+
+.teach-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.teach-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.teach-back {
+  margin-left: -10px;
+}
+
+.teach-title {
+  margin: 0;
+  flex: 1;
+}
+
+.teach-progress {
+  font-variant-numeric: tabular-nums;
+}
+
+.teach-quote {
+  margin: 0;
+  font-size: var(--t-head);
+  line-height: 1.5;
+  color: var(--ink-1);
+  padding-left: 12px;
+  border-left: 2px solid var(--hair-strong);
+}
+
+.teach-play .teach-quote {
+  font-size: var(--t-body);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.teach-dee {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.teach-dee-say {
+  margin: 0;
+  padding-top: 6px;
+  font-size: var(--t-head);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-1);
+  max-width: 46ch;
+}
+
+.teach-rule-text {
+  font-size: var(--t-head);
+  color: var(--ink-1);
+  line-height: 1.4;
+}
+
+.teach-reading {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.teach-field {
+  display: contents;
+}
+
+.teach-field > .g-seg,
+.teach-field > select {
+  justify-self: start;
+}
+
+.teach-error {
+  margin: 0;
+  font-size: var(--t-body);
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.teach-start,
+.teach-next {
+  align-self: flex-start;
+}
+
+.teach-strip {
+  display: flex;
+  gap: 6px;
+}
+
+/* Where the rule applies is a filled dot, a near-miss a ring; done spots dim. Shape, not hue. */
+.teach-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+}
+
+.teach-dot[data-applies='true'] {
+  background: var(--ink-2);
+}
+
+.teach-dot[data-state='now'] {
+  box-shadow: inset 0 0 0 1.5px var(--ink-1);
+}
+
+.teach-dot[data-state='now'][data-applies='true'] {
+  background: var(--ink-1);
+}
+
+.teach-dot[data-state='done'] {
+  opacity: 0.4;
+}
+
+.teach-tag {
+  margin: 0;
+  color: var(--ink-1);
+}
+
+.teach-deal {
+  padding: 4px 0;
+}
+
+.teach-moves,
+.teach-diagnose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teach-reveal {
+  display: flex;
+  flex-direction: column;
+}
+
+.teach-reveal-row {
+  margin: 0;
+  padding: 6px 0;
+  font-size: var(--t-body);
+  color: var(--ink-2);
+}
+
+.teach-reveal-row[data-holds='false'] {
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.teach-engine {
+  color: var(--ink-1);
+}
+
+.teach-why {
+  margin: 0;
+  padding-bottom: 4px;
+}
+
+.teach-summary {
+  margin: 0;
+}
+
+.teach-misses {
+  display: flex;
+  flex-direction: column;
+}
+
+.teach-miss {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.teach-miss-text {
+  font-size: var(--t-body);
+  color: var(--ink-1);
+  line-height: 1.4;
+}
+
+.teach-finding {
+  margin: 0;
+}
+
+.teach-diagnosis,
+.teach-variable {
+  margin: 0;
+}
+
+.teach-variable {
+  font-size: var(--t-body);
+  color: var(--ink-1);
+  line-height: 1.5;
+}
+
+.teach-ask {
+  margin: 0;
+  color: var(--ink-1);
+}
+
+.teach-rewrite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+@media (max-height: 700px) {
+  .teach-panel {
+    gap: 9px;
+  }
+
+  .teach-reveal-row {
+    padding: 4px 0;
+  }
+}

@@ -5,7 +5,9 @@
  * floors and a scoreboard. The Ticket is not one of those sessions: it is REVIEW, and it takes only three things:
  *  1. what is due (schedule.ts `dueNow`), most overdue first, as many as fit;
  *  2. ONE perception drill (Speed or Sight, alternating by day);
- *  3. THREE spots from the costliest leak (puzzle scenarios whose decision is the leak's principle).
+ *  3. THREE spots from the costliest leak (puzzle scenarios whose decision is the leak's principle);
+ *  4. when Teach Dee found one of the learner's rules wrong and it is not rewritten yet, that ONE rule, to rewrite
+ *     and teach again (teachDee.ts `rewritesDue`). It is review of the learner's own sentence, not new material.
  * Nothing else: no new material, no live table, no scoreboard. The total is bounded by TICKET_MAX_MINUTES and the
  * bound is checked on the built Ticket, not trusted.
  *
@@ -31,7 +33,10 @@ export const DRILL_MINUTES = WARM_UP_BLOCK_MINUTES;
 /** The perception drills the Ticket rotates through (Train hub mode ids). */
 export const PERCEPTION_DRILLS = ['anomaly', 'board'] as const;
 
-export type TicketKind = 'review' | 'drill' | 'spot';
+/** One contrast set of TEACH_MAX_SPOTS spots plus the rewrite. */
+export const TEACH_MINUTES = 3;
+
+export type TicketKind = 'review' | 'drill' | 'spot' | 'teach';
 
 export interface TicketInput {
   readonly day: DayKey;
@@ -42,6 +47,8 @@ export interface TicketInput {
   readonly scenarios: readonly Scenario[];
   /** session.puzzleProgress: a spot already solved clean sorts after one not yet solved. */
   readonly puzzleProgress: Readonly<Record<string, { attempts: number; bestCorrect: number }>>;
+  /** The Folio rule Teach Dee found wrong longest ago and not yet rewritten (teachDee.ts `rewritesDue`), or null. */
+  readonly teach?: string | null;
 }
 
 /**
@@ -59,7 +66,8 @@ export function buildTicket(input: TicketInput): TicketItemRecord[] {
   // The drill and the spots are fixed in size; what is due fills the rest of the budget.
   const spots = pickSpots(input);
   const drill = PERCEPTION_DRILLS[Math.abs(input.day) % PERCEPTION_DRILLS.length];
-  const fixed = DRILL_MINUTES + spots.length * MINUTES_PER_SPOT;
+  const teach = input.teach ? [item('teach', input.teach, TEACH_MINUTES)] : [];
+  const fixed = DRILL_MINUTES + spots.length * MINUTES_PER_SPOT + teach.length * TEACH_MINUTES;
   const reviews: TicketItemRecord[] = [];
   let budget = TICKET_MAX_MINUTES - fixed;
   for (const due of dueNow(input.concepts, input.now)) {
@@ -68,7 +76,7 @@ export function buildTicket(input: TicketInput): TicketItemRecord[] {
     budget -= minutes;
     reviews.push(item('review', due.conceptId, minutes));
   }
-  return [...reviews, item('drill', drill, DRILL_MINUTES), ...spots.map((id) => item('spot', id, MINUTES_PER_SPOT))];
+  return [...reviews, ...teach, item('drill', drill, DRILL_MINUTES), ...spots.map((id) => item('spot', id, MINUTES_PER_SPOT))];
 }
 
 function pickSpots(input: TicketInput): string[] {

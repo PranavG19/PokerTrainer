@@ -63,7 +63,7 @@ import { standing, currentForm, puzzleCoverage, depthLabel, depthToStack, afford
 import { SCENARIOS } from '../core/puzzleScenarios.js';
 import { renderLessonScreen } from './screens/lesson.js';
 import { renderPuzzleScreen } from './screens/puzzle.js';
-import { renderContrastScreen } from './screens/contrast.js';
+import { renderContrastScreen, renderTeachDee } from './screens/contrast.js';
 import { renderCharts } from './screens/charts.js';
 import { renderChartBank } from './screens/chartBank.js';
 import { renderEquityCalculator } from './screens/equityCalculator.js';
@@ -101,6 +101,7 @@ import {
   contextOf,
   forgetRules,
   lineMemoryOf,
+  principleOfConcept,
   rememberRule,
   setCharacter,
   setFrequency,
@@ -160,7 +161,7 @@ import { folioCards } from '../core/folio.js';
 import { effectiveTone, MAX_RIVAL_SITTINGS } from '../core/progression/persist.js';
 import { LEAK_LABELS } from '../core/story/cast.js';
 import { renderTicket } from './screens/ticket.js';
-import { renderFolio } from './screens/folio.js';
+import { conceptLabel, renderFolio } from './screens/folio.js';
 import { renderOnboarding, type OnboardingResult } from './screens/onboarding.js';
 import type { HomeHabit } from './screens/home.js';
 import type { TicketItemRecord } from '../core/progression/types.js';
@@ -182,7 +183,8 @@ import { railBoard, settleRail } from '../core/progression/rail.js';
 import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
-import { milestoneFacts, masteredIds } from '../core/progression/apply.js';
+import { milestoneFacts, masteredIds, teachDueFrom } from '../core/progression/apply.js';
+import { FINDING_TITLES, findingOf, latestSets, recordTaught, rewritesDue } from '../core/teachDee.js';
 import { milestoneViews, nextUp } from '../core/progression/milestones.js';
 import { sureRight, weeklyEvLoss } from '../core/progression/decisions.js';
 import { VENUES } from '../core/story/cast.js';
@@ -463,8 +465,13 @@ async function boot(): Promise<void> {
   let varianceActive = false;
   /** Today's Ticket is a PANEL within the Play tab, like the assessment block; leaving it returns to Home. */
   let ticketActive = false;
-  /** Learn shows the lessons or the Folio (the Rulebook). */
-  let learnView: 'lessons' | 'folio' = 'lessons';
+  /** Learn shows the lessons, the Folio (the Rulebook) or Teach Dee (a contrast set played from one rule). */
+  let learnView: 'lessons' | 'folio' | 'teach' = 'lessons';
+  /** Teach Dee: the rule it opens on (null = the rule list), and the mounted screen, kept across re-renders. */
+  let teachConcept: string | null = null;
+  let teachMount: HTMLElement | null = null;
+  /** Where Teach Dee was opened from: its Back returns there. */
+  let teachFrom: 'folio' | 'leaks' | 'ticket' = 'folio';
   /** You › Rivals: a rival's file open, or the list. */
   let rivalOpen: ChapterId | null = null;
   /** The Locker's slot on show; kept across re-renders (an equip, a tab change). */
@@ -905,7 +912,34 @@ async function boot(): Promise<void> {
       leakPrinciple: costliestPrinciple(),
       scenarios: SCENARIOS,
       puzzleProgress: session.puzzleProgress,
+      teach: teachDueFrom(session, dayOf()),
     });
+  }
+
+  /** Open Teach Dee under Learn, on one rule or on the rule list. */
+  function openTeach(conceptId: string | null, from: 'folio' | 'leaks' | 'ticket'): void {
+    go('learn');
+    learnView = 'teach';
+    teachConcept = conceptId;
+    teachFrom = from;
+    teachMount = null;
+    render();
+  }
+
+  function teachDue(): string[] {
+    return rewritesDue({ sets: session.progression.teachDee.sets, lexicon: session.lexicon, rules: session.progression.dee.ruleSentences, dayOf: dayOf() }).map((s) => s.conceptId);
+  }
+
+  /** Each card's newest Teach Dee finding, as the Folio's caption. */
+  function teachNotes(): Record<string, string> {
+    const due = new Set(teachDue());
+    const out: Record<string, string> = {};
+    for (const [conceptId, set] of latestSets(session.progression.teachDee.sets)) {
+      const finding = findingOf(set.finding);
+      if (finding === null) continue;
+      out[conceptId] = `Last contrast set: ${FINDING_TITLES[finding].toLowerCase()}${due.has(conceptId) ? ' · rewrite it' : ''}`;
+    }
+    return out;
   }
 
   function currentFolio(): ReturnType<typeof folioCards> {
@@ -966,6 +1000,10 @@ async function boot(): Promise<void> {
   function startTicketItem(item: TicketItemRecord): void {
     ticketActive = false;
     tab = 'train';
+    if (item.kind === 'teach') {
+      openTeach(item.ref, 'ticket');
+      return;
+    }
     if (item.kind === 'review') {
       trainMode = 'drill';
       drillKindNext = item.ref;
@@ -1862,6 +1900,8 @@ async function boot(): Promise<void> {
         hands: session.hands,
         lexicon: session.lexicon,
         onLexiconAttempt: (attempt) => void onLexiconAttempt(attempt),
+        onTeach: () => openTeach(null, 'leaks'),
+        rules: currentFolio().length,
       });
     }
     if (mode === 'drill') {
@@ -1977,6 +2017,43 @@ async function boot(): Promise<void> {
     if (which === 'style') return renderStyleTab();
     if (which === 'letters') return renderLettersTab();
     if (which === 'learn') {
+      if (learnView === 'teach') {
+        teachMount ??= renderTeachDee({
+          cards: currentFolio(),
+          label: conceptLabel,
+          initialConcept: teachConcept,
+          taught: session.progression.teachDee.sets,
+          rewritesDue: teachDue(),
+          lexicon: session.lexicon,
+          dee: { tone: deeContext().tone, character: session.progression.dee.character },
+          principleOf: (conceptId) => principleOfConcept(conceptId),
+          onFinished: (set) => void saveProgression({ ...session.progression, teachDee: recordTaught(session.progression.teachDee, set) }),
+          onLexiconAttempt: (attempt) => void onLexiconAttempt(attempt),
+          onBack: () => {
+            teachMount = null;
+            if (teachFrom === 'leaks') {
+              trainMode = 'repair';
+              go('train');
+            } else if (teachFrom === 'ticket') {
+              tab = 'home';
+              learnView = 'lessons';
+              ticketActive = true;
+              render();
+            } else {
+              learnView = 'folio';
+              render();
+            }
+          },
+          backLabel: teachFrom === 'leaks' ? 'Leaks' : teachFrom === 'ticket' ? 'Ticket' : 'Rulebook',
+          onWriteRule: () => {
+            learnView = 'lessons';
+            teachMount = null;
+            render();
+          },
+          now,
+        });
+        return teachMount;
+      }
       if (learnView === 'folio') {
         return renderFolio({
           cards: currentFolio(),
@@ -1989,6 +2066,8 @@ async function boot(): Promise<void> {
             render();
           },
           copy: navigator.clipboard ? (text) => navigator.clipboard.writeText(text) : undefined,
+          onTeach: (conceptId) => openTeach(conceptId, 'folio'),
+          teachNotes: teachNotes(),
         });
       }
       const cards = currentFolio();

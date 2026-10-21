@@ -5,6 +5,7 @@ import { TICKET_MAX_MINUTES, ticketMinutes } from '../../core/ticket.js';
 import { SCENARIOS } from '../../core/puzzleScenarios.js';
 import { drillKindLabel } from './drill.js';
 import { chevron } from '../components/glyphs.js';
+import { conceptLabel } from './folio.js';
 
 /**
  * TODAY'S TICKET (D16): the day's review unit, under 30 minutes. A checklist: each item opens the surface that
@@ -32,6 +33,9 @@ export function ticketItemTitle(item: TicketItemRecord, leakOnFile = true): { ti
   if (item.kind === 'spot') {
     const s = SCENARIOS.find((x) => x.id === item.ref);
     return { title: s?.title ?? item.ref, meta: leakOnFile ? 'A spot from your costliest leak' : 'A spot to start with: no leak on file yet' };
+  }
+  if (item.kind === 'teach') {
+    return { title: `Teach Dee again: ${conceptLabel(item.ref)}`, meta: 'Its last contrast set found the rule wrong · rewrite it, then teach it' };
   }
   return { title: item.ref, meta: 'From a newer build' };
 }

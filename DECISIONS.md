@@ -45,6 +45,28 @@ Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone 
 - **Results are applied by the learner's press after day 28.** A trip turns Character and Celebrations off (the
   layer goes off by default, PITCH §2.2); either can be turned back on. The page states the n = 1 limit.
 
+
+## Teach Dee (branch `feat-teach-dee`): contrast sets played from your own rules (2.4)
+Owner decisions in force: the tutor never authors a number, no trait insults, nothing is locked, every new line passes
+Dee's bank lint.
+- **The reading is the learner's, not parsed.** A Folio sentence is free text, so the learner tells Dee how to read it:
+  the variable (a producible contrast axis), the value it applies at, the play there and the play everywhere else
+  (bet or raise / check or call / fold). Dee's first reading is a keyword guess (`suggestReading`) the learner fixes.
+- **The set** (`core/teachDee.ts` `buildTeachSet`) is built on a manifested spot: the base plus up to two neighbours on
+  a second axis, and for each, the spot at the rule's value beside its nearest near-miss on the rule's axis. Each pair
+  differs in exactly the rule's variable (asserted). At most 6 spots. Seeded from the rule and how often it was taught.
+- **The verdict is the grader's:** a play holds up when `gradeSpot` grades it `free` (its close band included). A spot
+  where all three plays hold up has no verdict and never counts against a rule.
+- **Repair detection** (`detectRepair`), in order: untested (no verdict, or none turned on the rule's half), wrong (every
+  applying spot missed), too broad (some missed, some held; names the one other variable that splits them, if one
+  does), no flip (near-misses missed but the rule's play holds on all of them), too narrow, other half, holds.
+- **Commit before feedback:** the learner plays each spot before Dee's play and the verdict show, and names what went
+  wrong before the finding is shown. A rewrite goes through the lexicon (L2 grading, L3 append-only).
+- **Reps:** a finished set pays `REPS_CONTRAST_SET` (25) once, keyed `contrast:<at>:<rule>`, whatever it found. A
+  rewrite pays as a rule sentence. A set that held re-polishes its Folio card.
+- **Ticket:** one `teach` item (3 min) when a rule's newest set asked for a rewrite and no sentence landed after it.
+- **Schema:** `progression.teachDee.sets` is additive, no version bump; an unknown finding is kept and asks for nothing.
+- **Where:** Folio cards (Teach Dee), Train › Leaks (one row above the queue), the Ticket. It mounts under Learn.
 ## The Ghost Rail and Seasons (branch `feat-ghost-rail-seasons`): offline, decisions only (2.5, 2.7)
 Owner decisions in force: D18 (the Ghost Rail allowed: labelled bots and your past weeks, never other people), N1
 (nothing locked), no trait insults, the tutor never authors a number. No schema bump: `progression.rail` and

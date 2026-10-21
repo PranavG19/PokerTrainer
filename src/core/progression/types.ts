@@ -34,6 +34,7 @@ export interface ProgressionState {
   letters: LettersState;
   celebrations: CelebrationsState;
   trial: TrialState;
+  teachDee: TeachDeeState;
 }
 
 /**
@@ -360,8 +361,8 @@ export interface TicketState {
   finishedOn: DayKey | null;
 }
 
-/** Known kinds: 'review' (a due concept), 'drill' (one perception drill), 'spot' (a leak spot). */
-export const TICKET_KINDS = ['review', 'drill', 'spot'] as const;
+/** Known kinds: 'review' (a due concept), 'drill' (one perception drill), 'spot' (a leak spot), 'teach' (a rule to rewrite). */
+export const TICKET_KINDS = ['review', 'drill', 'spot', 'teach'] as const;
 
 export interface TicketItemRecord {
   /** `${kind}:${ref}`, unique within the Ticket. */
@@ -380,6 +381,39 @@ export interface TicketItemRecord {
 export interface FolioState {
   /** Card (concept) id → epoch ms of each re-polish, ascending, bounded by MAX_FOLIO_REVIEWS. */
   polished: Record<string, number[]>;
+}
+
+/**
+ * Teach Dee (src/core/teachDee.ts): every contrast set played from one of the learner's rules, newest last. The
+ * sentences stay where they live (the lexicon and Dee's remembered rules); a rewrite is appended to the lexicon.
+ */
+export interface TeachDeeState {
+  /** Finished sets, ascending by `at`, unique on `at`, bounded by MAX_TAUGHT_SETS. */
+  sets: TaughtSet[];
+}
+
+/** Known findings (teachDee.ts FINDINGS). A newer build's finding is kept and read as one that asks for no rewrite. */
+export const TEACH_FINDINGS = ['holds', 'wrong', 'too-broad', 'too-narrow', 'no-flip', 'other-half', 'untested'] as const;
+
+export interface TaughtSet {
+  /** Epoch ms the set was finished. Its Reps key. */
+  at: number;
+  /** The Folio card (rule) taught. */
+  conceptId: string;
+  /** The sentence as it read when it was taught. */
+  text: string;
+  /** The contrast-manifest concept whose spot the set was built around. */
+  base: string;
+  /** How the learner told Dee to read the rule: the variable, the value it applies at, its play and the other play. */
+  axis: string;
+  value: string;
+  action: string;
+  otherwise: string;
+  /** One of TEACH_FINDINGS, or a newer build's value. */
+  finding: string;
+  /** Spots played, and the ones where Dee's play from the rule did not hold up. */
+  spots: number;
+  misses: number;
 }
 
 /** Counts the habit loop keeps that no other record can rebuild (the hand log is capped and drops grades' bands). */
