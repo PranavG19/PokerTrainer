@@ -54,6 +54,13 @@ import {
   type LettersState,
   type TicketItemRecord,
   type TicketState,
+  type BlockScore,
+  type LossTally,
+  type RailPromotion,
+  type RailState,
+  type RailWeek,
+  type SeasonRecord,
+  type SeasonsState,
 } from './types.js';
 
 /** Two years of counted days: a calendar strip shows weeks, so this is generous. */
@@ -73,6 +80,14 @@ export const MAX_TICKET_ITEMS = 12;
 export const MAX_FOLIO_CARDS = 200;
 /** Polishes per card: the spacing waves need a few, a year of daily polish is generous. */
 export const MAX_FOLIO_REVIEWS = 64;
+/** Two years of Ghost Rail weeks. */
+export const MAX_RAIL_WEEKS = 104;
+/** Deuce to Ace is twelve moves; anything longer is corruption. */
+export const MAX_RAIL_PROMOTIONS = 12;
+/** rail.ts RAIL_TIERS ids, Deuce to Ace, spelled here so persist does not import the module that imports it (a test pins them equal). */
+export const RAIL_TIER_IDS: readonly string[] = ['deuce', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
+/** Seven-week seasons: about eight years. */
+export const MAX_SEASON_RECORDS = 60;
 /** A heads-up hand rarely runs past a dozen actions a side; anything longer is corruption. */
 const MAX_RIVAL_ACTIONS = 40;
 /** Ids and enum-like answers. */
@@ -117,6 +132,9 @@ export function defaultProgression(): ProgressionState {
     ticket: { day: null, items: [], done: [], finishedOn: null },
     folio: { polished: {} },
     tallies: { priceHeld: 0, ticketsFinished: 0, suggestionTakenOn: null },
+    // rail.ts RAIL_TIERS[0]; spelled here so persist does not import the module that imports it.
+    rail: { tier: 'deuce', weeks: [], promotions: [] },
+    seasons: { records: [] },
     letters: { filed: [] },
   };
 }
@@ -167,6 +185,8 @@ export const PROGRESSION_SHAPE = {
   ticket: { day: true, items: true, done: true, finishedOn: true },
   folio: { polished: true },
   tallies: { priceHeld: true, ticketsFinished: true, suggestionTakenOn: true },
+  rail: { tier: true, weeks: true, promotions: true },
+  seasons: { records: true },
   letters: { filed: true },
 } as const;
 
@@ -186,6 +206,8 @@ export function parseProgression(raw: unknown): ProgressionState {
     ticket: section(obj.ticket, d.ticket, parseTicket),
     folio: section(obj.folio, d.folio, parseFolio),
     tallies: section(obj.tallies, d.tallies, parseTallies),
+    rail: section(obj.rail, d.rail, parseRail),
+    seasons: section(obj.seasons, d.seasons, parseSeasons),
     letters: section(obj.letters, d.letters, parseLetters),
   };
 }
@@ -604,6 +626,106 @@ function parseTallies(obj: Record<string, unknown>): TalliesState {
     ticketsFinished: Math.min(MAX_RUN, nonNegativeInt(obj.ticketsFinished)),
     suggestionTakenOn: asDayKey(obj.suggestionTakenOn),
   };
+}
+
+/** A loss tally that cannot be: a negative or non-finite sum, or squares below what the sum allows, is empty. */
+function lossTally(value: unknown): LossTally {
+  const t = asRecord(value);
+  const n = Math.min(MAX_RUN * 100, nonNegativeInt(t.n));
+  const sum = asNumber(t.sum);
+  const sumSq = asNumber(t.sumSq);
+  // Cauchy-Schwarz: n·Σx² ≥ (Σx)². A tally that breaks it was not summed from real losses.
+  if (n === 0 || sum < 0 || sumSq < 0 || n * sumSq + 1e-6 < sum * sum) return { n: 0, sum: 0, sumSq: 0 };
+  return { n, sum, sumSq };
+}
+
+/** The Rail week's fixed count (rail.ts re-exports it as RAIL_WEEK_DECISIONS); a longer stored tally is read at the count, its mean kept. */
+export const RAIL_WEEK_CAP = 40;
+function weekTally(t: LossTally): LossTally {
+  if (t.n <= RAIL_WEEK_CAP) return t;
+  const k = RAIL_WEEK_CAP / t.n;
+  return { n: RAIL_WEEK_CAP, sum: t.sum * k, sumSq: t.sumSq * k };
+}
+
+function graderVersion(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 1;
+}
+
+/**
+ * The Ghost Rail. The tier is kept as written (a newer build's tier survives; rail.ts reads an unknown one as the
+ * lowest and never moves it). Weeks are Mondays, unique, ascending; a promotion is only ever up a known pair.
+ */
+function parseRail(obj: Record<string, unknown>, d: RailState): RailState {
+  const byWeek = new Map<number, RailWeek>();
+  for (const value of asArray(obj.weeks)) {
+    const entry = asRecord(value);
+    const week = asDayKey(entry.week);
+    // A week starts on a Monday (DayKey 0 is a Thursday); anything else is corruption.
+    if (week === null || weekOf(week) !== week || byWeek.has(week)) continue;
+    byWeek.set(week, {
+      week,
+      loss: weekTally(lossTally(entry.loss)),
+      reps: Math.min(MAX_RUN * 100, nonNegativeInt(entry.reps)),
+      grader: graderVersion(entry.grader),
+      mixed: entry.mixed === true,
+      outcome: id(entry.outcome),
+    });
+  }
+  // A move between two tiers this build knows is exactly one step up; a pair naming a newer build's tier is kept as is.
+  // One move per week, ascending.
+  const promotions: RailPromotion[] = [];
+  const known = (t: string): number => RAIL_TIER_IDS.indexOf(t);
+  const candidates: RailPromotion[] = [];
+  for (const value of asArray(obj.promotions)) {
+    const entry = asRecord(value);
+    const week = asDayKey(entry.week);
+    const from = id(entry.from);
+    const to = id(entry.to);
+    if (week === null || from === null || to === null || from === to) continue;
+    if (known(from) >= 0 && known(to) >= 0 && known(to) !== known(from) + 1) continue;
+    candidates.push({ week, from, to });
+  }
+  // Stable by week, so the first move on file for a week wins and a late-settled older week is kept.
+  for (const c of candidates.sort((a, b) => a.week - b.week)) {
+    if (promotions.length > 0 && c.week === promotions[promotions.length - 1].week) continue;
+    promotions.push(c);
+  }
+  const kept = promotions.slice(-MAX_RAIL_PROMOTIONS);
+  // The tier is never below the highest known move on file: corruption must not read as a demotion.
+  const stored = id(obj.tier) ?? d.tier;
+  const lastKnown = kept.reduce<string | null>((top, p) => (known(p.to) > (top === null ? -1 : known(top)) ? p.to : top), null);
+  // An unknown stored tier is a newer build's and is kept.
+  const tier = lastKnown !== null && known(stored) >= 0 && known(stored) < known(lastKnown) ? lastKnown : stored;
+  return {
+    tier,
+    weeks: [...byWeek.values()].sort((a, b) => a.week - b.week).slice(-MAX_RAIL_WEEKS),
+    promotions: kept,
+  };
+}
+
+function blockScore(value: unknown): BlockScore | null {
+  if (!isPlainObject(value)) return null;
+  const at = value.at;
+  const loss = lossTally(value.loss);
+  if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0 || loss.n === 0) return null;
+  return { at, loss, grader: graderVersion(value.grader) };
+}
+
+function parseSeasons(obj: Record<string, unknown>): SeasonsState {
+  const bySeason = new Map<number, SeasonRecord>();
+  for (const value of asArray(obj.records)) {
+    const entry = asRecord(value);
+    const season = entry.season;
+    if (typeof season !== 'number' || !Number.isSafeInteger(season) || bySeason.has(season)) continue;
+    bySeason.set(season, {
+      season,
+      reps: Math.min(MAX_RUN * 100, nonNegativeInt(entry.reps)),
+      grader: graderVersion(entry.grader),
+      baseline: blockScore(entry.baseline),
+      finale: blockScore(entry.finale),
+    });
+  }
+  return { records: [...bySeason.values()].sort((a, b) => a.season - b.season).slice(-MAX_SEASON_RECORDS) };
 }
 
 /** Slots and figures per letter: far more than any letter uses, so a newer build's extra keys still fit. */

@@ -69,7 +69,15 @@ export interface ProfileFacts {
 
 export function renderYouProfile(
   f: ProfileFacts,
-  on: { onEdit: () => void; onOpenFolio: () => void; onOpenProgress: () => void; onOpenTrophies: () => void; onOpenKeepsake: (room: ShelfItem['keepsake']['room']) => void },
+  on: {
+    onEdit: () => void;
+    onOpenFolio: () => void;
+    onOpenProgress: () => void;
+    onOpenTrophies: () => void;
+    onOpenKeepsake: (room: ShelfItem['keepsake']['room']) => void;
+    onOpenRail?: () => void;
+    onOpenSeason?: () => void;
+  },
 ): HTMLElement {
   const root = el('div', 'you-screen you-profile');
   root.dataset.testid = 'you-profile';
@@ -159,7 +167,21 @@ export function renderYouProfile(
   prog.type = 'button';
   prog.dataset.testid = 'tab-progress';
   prog.addEventListener('click', on.onOpenProgress);
-  dec.appendChild(prog);
+  // The Ghost Rail and the Season read the same graded decisions: one click from here, as Progress is.
+  const links = el('div', 'you-links');
+  links.appendChild(prog);
+  for (const [testid, label, open] of [
+    ['you-open-rail', 'Ghost Rail', on.onOpenRail],
+    ['you-open-season', 'Season', on.onOpenSeason],
+  ] as const) {
+    if (!open) continue;
+    const b = el('button', 'pill quiet', label);
+    b.type = 'button';
+    b.dataset.testid = testid;
+    b.addEventListener('click', open);
+    links.appendChild(b);
+  }
+  dec.appendChild(links);
   right.append(sectionHead('Decisions, not results', 'From graded decisions only'), dec);
 
   // What you've built: concepts, depth, habit.
@@ -218,7 +240,34 @@ const MATERIAL: Record<MilestoneFamily, string> = {
   habit: 'Graphite · a habit kept',
 };
 
-export function renderTrophies(views: readonly MilestoneView[], next: readonly MilestoneView[]): HTMLElement {
+/** The Trophy room's way into the Ghost Rail and the Season (2.5, 2.7): one line of this week's facts each. */
+export interface LeagueRows {
+  readonly rail: string;
+  readonly season: string;
+  readonly onRail: () => void;
+  readonly onSeason: () => void;
+}
+
+function leagueGroup(rows: LeagueRows): HTMLElement {
+  const group = el('div', 'g-group trophy-league');
+  group.dataset.testid = 'trophy-league';
+  for (const [testid, title, meta, open] of [
+    ['trophy-rail', 'Ghost Rail', rows.rail, rows.onRail],
+    ['trophy-season', 'Season', rows.season, rows.onSeason],
+  ] as const) {
+    const b = el('button', 'g-row session-card');
+    b.type = 'button';
+    b.dataset.testid = testid;
+    const text = el('span', 'session-card-text');
+    text.append(el('span', 'session-card-title t-head', title), el('span', 'session-card-meta g-caption', meta));
+    b.append(text, chevron());
+    b.addEventListener('click', open);
+    group.appendChild(b);
+  }
+  return group;
+}
+
+export function renderTrophies(views: readonly MilestoneView[], next: readonly MilestoneView[], league?: LeagueRows): HTMLElement {
   const root = el('div', 'you-screen you-trophies');
   root.dataset.testid = 'you-trophies';
   const earned = views.filter((v) => v.earnedOn !== null).sort((a, b) => (b.earnedOn as number) - (a.earnedOn as number));
@@ -280,6 +329,7 @@ export function renderTrophies(views: readonly MilestoneView[], next: readonly M
   }
 
   const left = el('div', 'you-col');
+  if (league) left.appendChild(leagueGroup(league));
   left.appendChild(shelf);
   const right = el('div', 'you-col');
   right.append(detail, sectionHead('Next four', 'What each records, and how close you are'), nextList);

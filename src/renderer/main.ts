@@ -165,7 +165,7 @@ import { SECTIONS, SECTION_GROUP_STARTS, sectionOf, subNavOf, litSubItem, type L
 import { renderSubNav } from './components/subnav.js';
 import { renderPlay } from './screens/play.js';
 import type { TableSize } from '../core/tableSize.js';
-import { renderRivals, renderTrophies, renderYouProfile } from './screens/you.js';
+import { renderRivals, renderTrophies, renderYouProfile, type LeagueRows } from './screens/you.js';
 import { renderStyle } from './screens/style.js';
 import { renderLetters } from './screens/letters.js';
 import { styleRead, ARCHETYPE_STYLE } from '../core/style.js';
@@ -173,6 +173,10 @@ import { draftLetter, fileLetters, type LetterInput } from '../core/letters.js';
 import { weekOf } from '../core/week.js';
 import { milestoneById } from '../core/progression/milestones.js';
 import { renderLocker } from './screens/locker.js';
+import { renderRail } from './screens/rail.js';
+import { renderSeason, type SeasonPane } from './screens/season.js';
+import { railBoard, settleRail } from '../core/progression/rail.js';
+import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
 import { milestoneFacts, masteredIds } from '../core/progression/apply.js';
@@ -194,6 +198,8 @@ const YOU_TITLE: Partial<Record<Leaf, string>> = {
   rivals: 'Rivals',
   locker: 'Locker',
   dee: 'Dee',
+  rail: 'Ghost Rail',
+  season: 'Season',
 };
 
 export interface SpeakResult {
@@ -452,6 +458,10 @@ async function boot(): Promise<void> {
   let rivalOpen: ChapterId | null = null;
   /** The Locker's slot on show; kept across re-renders (an equip, a tab change). */
   let lockerSlot: CosmeticSlot = 'cardBack';
+  /** The Season screen's pane; null = the one the calendar points at (the finale in the finale week). */
+  let seasonPane: SeasonPane | null = null;
+  /** Where the assessment panel returns: Home, or the Season when its finale (or opening block) was taken there. */
+  let assessmentReturn: Leaf = 'home';
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
   let puzzleNext: string | null = null;
@@ -963,6 +973,7 @@ async function boot(): Promise<void> {
     onlineActive = kind === 'online';
     assessmentActive = kind === 'assessment';
     varianceActive = kind === 'variance';
+    assessmentReturn = 'home';
   }
 
   /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
@@ -1697,7 +1708,9 @@ async function boot(): Promise<void> {
           // Done returns to Home, the launcher, as it did before the tables moved under Play.
           onExit: () => {
             assessmentActive = false;
-            go('home');
+            const back = assessmentReturn;
+            assessmentReturn = 'home';
+            go(back);
           },
         }),
       );
@@ -1903,7 +1916,7 @@ async function boot(): Promise<void> {
     if (items === null) return body;
     const study = sectionOf(which) === 'study';
     return renderSubNav({
-      title: study ? 'Study' : YOU_TITLE[litSubItem(which)] ?? 'You',
+      title: study ? 'Study' : YOU_TITLE[which] ?? YOU_TITLE[litSubItem(which)] ?? 'You',
       note: study ? 'Reference tools: nothing here is graded' : which === 'profile' ? 'Everything here stays on this Mac' : undefined,
       items,
       lit: litSubItem(which),
@@ -1921,8 +1934,10 @@ async function boot(): Promise<void> {
     if (which === 'trophies') {
       const facts = milestoneFacts(session, session.progression, SCENARIOS, masteredIds(deriveConcepts(), now()).length);
       const views = milestoneViews(session.progression.milestones, facts);
-      return renderTrophies(views, nextUp(views, 4));
+      return renderTrophies(views, nextUp(views, 4), leagueRows());
     }
+    if (which === 'rail') return renderRail({ rail: settleRail(session.progression.rail, today()), today: today(), onPlay: () => startTable() });
+    if (which === 'season') return renderSeasonTab();
     if (which === 'rivals') return renderRivalsTab();
     if (which === 'locker') return renderLockerTab();
     if (which === 'style') return renderStyleTab();
@@ -2255,6 +2270,8 @@ async function boot(): Promise<void> {
         },
         onOpenProgress: () => go('progress'),
         onOpenTrophies: () => go('trophies'),
+        onOpenRail: () => go('rail'),
+        onOpenSeason: () => go('season'),
         onOpenKeepsake: (room) => openRoom(room),
       },
     );
@@ -2350,6 +2367,45 @@ async function boot(): Promise<void> {
           // The button is disabled once its item is worn, so the keyboard lands on the worn item's tile instead of <body>.
           document.querySelector<HTMLElement>(`[data-testid="locker-item"][data-id="${CSS.escape(itemId)}"]`)?.focus();
         });
+      },
+    });
+  }
+
+  /** The Trophy room's two rows into the Ghost Rail and the Season, with this week's facts. */
+  function leagueRows(): LeagueRows {
+    const d = today();
+    const board = railBoard(settleRail(session.progression.rail, d), d);
+    const v = seasonView(session.progression.seasons, d);
+    const n = board.current.decisions;
+    return {
+      rail: `${board.tier.name} tier · ${n} scored ${n === 1 ? 'decision' : 'decisions'} this week`,
+      season:
+        v.clock.phase === 'finale'
+          ? `Season ${v.clock.season} · the finale week${v.finale ? ', finale taken' : ', the finale is open'}`
+          : `Season ${v.clock.season} · week ${v.clock.week} of ${SEASON_WEEKS} · ${v.steps.filter((x) => x.reached).length} of ${v.steps.length} stamps`,
+      onRail: () => go('rail'),
+      onSeason: () => go('season'),
+    };
+  }
+
+  /** The Season: its free track, the finale (an assessment block in the finale week) and the archive. */
+  function renderSeasonTab(): HTMLElement {
+    const d = today();
+    const p = session.progression;
+    const view = seasonView(p.seasons, d);
+    const sealDays = Object.values(p.seals.earned).map((e) => e.day);
+    return renderSeason({
+      view,
+      archive: seasonArchive(p.seasons, settleRail(p.rail, d), sealDays, d),
+      pane: seasonPane ?? (view.clock.phase === 'finale' ? 'finale' : 'track'),
+      onPane: (pane) => {
+        seasonPane = pane;
+        render();
+      },
+      onTakeBlock: () => {
+        openPanel('assessment');
+        assessmentReturn = 'season';
+        go('play');
       },
     });
   }

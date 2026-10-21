@@ -87,6 +87,7 @@
 [data-felt='night-ink'] { --felt-lit: rgba(26, 42, 92, 0.6); }
 [data-felt='umber'] { --felt-lit: rgba(72, 50, 32, 0.56); }
 [data-felt='chalkboard'] { --felt-lit: rgba(44, 60, 54, 0.66); }
+[data-felt='ghost-rail'] { --felt-lit: rgba(58, 64, 82, 0.58); }
 [data-felt='ballroom'] { --felt-lit: rgba(58, 34, 56, 0.58); }
 
 /* ─── Chip sets: the matte ceramic faces, and the bet they paint ─── */
@@ -116,6 +117,7 @@
 [data-rim='graphite'] { --dee-finish: #6F767E; --dee-finish-o: 1; }
 /* Colour and opacity only: a dash (stroke-dasharray) re-lays out the SVG, so no finish may use one. */
 [data-rim='inlaid'] { --dee-finish: #A8A295; --dee-finish-o: 0.95; }
+[data-rim='season-stamp'] { --dee-finish: #A7B4C2; --dee-finish-o: 0.9; }
 [data-rim='lamplit'] { --dee-finish: #B9A47C; --dee-finish-o: 0.9; }
 .dee .dee-finish {
   stroke: var(--dee-finish);

@@ -102,6 +102,25 @@ function full(): ProgressionState {
     },
     folio: { polished: { 'pot-odds-as-a-price': [1_700_000_000_000, 1_700_100_000_000] } },
     tallies: { priceHeld: 3, ticketsFinished: 9, suggestionTakenOn: day(19603) },
+    rail: {
+      tier: 'three',
+      weeks: [
+        { week: day(19590), loss: { n: 40, sum: 60, sumSq: 200 }, reps: 520, grader: 1, mixed: false, outcome: 'up' },
+        { week: day(19597), loss: { n: 3, sum: 1.5, sumSq: 1.25 }, reps: 40, grader: 1, mixed: false, outcome: null },
+      ],
+      promotions: [{ week: day(19590), from: 'deuce', to: 'three' }],
+    },
+    seasons: {
+      records: [
+        {
+          season: -10,
+          reps: 560,
+          grader: 1,
+          baseline: { at: 1_693_000_000_000, loss: { n: 30, sum: 24, sumSq: 60 }, grader: 1 },
+          finale: null,
+        },
+      ],
+    },
     letters: {
       filed: [
         {

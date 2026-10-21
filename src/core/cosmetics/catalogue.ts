@@ -55,6 +55,7 @@ export const CATALOGUE: readonly CosmeticItem[] = [
   { id: 'felt-night-ink', slot: 'felt', name: 'Night ink', paint: 'night-ink', earn: ms('depth-75') },
   { id: 'felt-umber', slot: 'felt', name: 'Umber', paint: 'umber', earn: ms('concepts-5') },
   { id: 'felt-chalkboard', slot: 'felt', name: 'Chalkboard', paint: 'chalkboard', earn: ms('first-assessment') },
+  { id: 'felt-ghost-rail', slot: 'felt', name: 'Ghost rail', paint: 'ghost-rail', earn: ms('rail-first-move') },
   { id: 'felt-ballroom', slot: 'felt', name: 'Ballroom', paint: 'ballroom', earn: { kind: 'keepsakes', count: 8 } },
   // Chip sets (2.13): de-casino-fied, the bet's two tones.
   { id: 'chips-slate-bone', slot: 'chipSet', name: 'Slate and bone', paint: 'slate-bone', earn: DAY_ONE },
@@ -66,6 +67,8 @@ export const CATALOGUE: readonly CosmeticItem[] = [
   { id: 'rim-smoked', slot: 'deeRim', name: 'Smoked', paint: 'smoked', earn: ms('streak-21') },
   { id: 'rim-graphite', slot: 'deeRim', name: 'Graphite', paint: 'graphite', earn: ms('streak-30') },
   { id: 'rim-inlaid', slot: 'deeRim', name: 'Inlaid', paint: 'inlaid', earn: { kind: 'seals', count: 3 } },
+  // Seasonal: earned by a Season's free track, kept for good once earned (the season itself is archived).
+  { id: 'rim-season-stamp', slot: 'deeRim', name: 'Season stamp', paint: 'season-stamp', earn: ms('season-track') },
   { id: 'rim-lamplit', slot: 'deeRim', name: 'Lamplit', paint: 'lamplit', earn: { kind: 'keepsakes', count: 1 } },
   // Celebrations (2.13): the session-end moment's look, capped at 1600 ms, transform and opacity only.
   { id: 'cele-quiet-underline', slot: 'celebration', name: 'Quiet underline', paint: 'quiet-underline', earn: DAY_ONE },

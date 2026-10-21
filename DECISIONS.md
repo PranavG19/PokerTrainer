@@ -6,12 +6,42 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## The Ghost Rail and Seasons (branch `feat-ghost-rail-seasons`): offline, decisions only (2.5, 2.7)
+Owner decisions in force: D18 (the Ghost Rail allowed: labelled bots and your past weeks, never other people), N1
+(nothing locked), no trait insults, the tutor never authors a number. No schema bump: `progression.rail` and
+`progression.seasons` are new additive keys.
+- **The Rail's number is Depth's**: bb lost per 100 decisions over exactly the decisions `standing.ts` `counts`
+  (contested, sound-math or free), the coach's own `evLossBb`, read as `online/ranked.ts` `rate` reads the online
+  ladder (mean and 95% interval). A week is judged on exactly its first 40 such decisions (Depth's MIN_CONTESTED) and
+  rated only when it has them, so stopping once the number looks good buys nothing. Supersedes: "rated at 40, settled
+  at week end", because the review showed stopping-when-ahead lifted promotion odds from 1.8% to 18%. Chips, pots and
+  results are not inputs.
+- **Deuce to Ace, no demotion.** Each tier's pace-setter is a fictional bot with a fixed published number (Pip 400 down
+  to Quartz 70 bb/100), labelled "Fictional practice bot" everywhere it shows. A week settles the first save after it
+  ends; rated and at or under the pace on the interval's high side moves up one tier. A move is held from the next
+  Monday. The paces are provisional, intuition-set (decision to evaluate).
+- **Through the ledger.** Only an award key new in this save reaches the Rail or a Season, so a stale or replayed
+  save files nothing twice. Above 400 Reps a day, Reps count 0 (VISION §4); decisions still count toward the fixed
+  40. Supersedes: "and that hand's decisions count 0", because at most 40 scored decisions fit under the line on a
+  perfect day, so ordinary weeks would never be rated.
+- **Seasons are seven local weeks from Monday 5 Jan 2026**: six free-track weeks (10 stamps at fixed Reps) and a
+  finale week. The online seasons are UTC months, which do not hold whole local weeks, so only their "one season, one
+  grader" rule is reused: each block and Rail week records `GRADER_VERSION`; two versions are shown, never compared
+  or settled up.
+- **The finale is the delayed test**: the first assessment block of the finale week against the first block of the
+  track weeks, both intervals shown, overlapping intervals called a tie. It pays only the block's own Reps.
+- **Where it lives**: two rows at the top of the Trophy room open You › Ghost Rail and You › Season (Trophies stays
+  lit, from Profile's links too: the sub-nav marks a section, not the path taken); the owner's eight You items are
+  unchanged. Milestones: Off the Rail Floor (felt "Ghost rail"), Five Up, The
+  Delayed Test, Full Track (Dee finish "Season stamp").
+
 ## Cosmetics and the Locker (branch `feat-cosmetics`): receipts, paint only (1.7, 2.13)
 Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic). D4 (Chalk) has no
 owner answer, so this build ships receipts only: no currency, no prices, and the Chalk ledger is never written.
-- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 5 table tints, 4 chip sets, 4 Dee finishes, 4
+- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 7 table tints, 4 chip sets, 6 Dee finishes, 4
   celebrations. Each slot's first item is the day-one default. Every other item is earned by a ratchet the habit loop
-  already keeps: a milestone receipt, 3 Seal receipts, or a story rival unmasked. Never chips, pots or results
+  already keeps: a milestone receipt, 3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season
+  stamp finish are the Ghost Rail's and the Seasons' (below). Never chips, pots or results
   (`cosmetics.test` scans the source and pays a big bankroll nothing).
 - **Owned is a receipt, filed on save** (`syncCosmetics` in `progression/apply.ts`), dated the day the fact first held,
   `chalk: 0`. It is never taken back. Day-one items are never stored, and wearing one clears the slot. An equipped id
