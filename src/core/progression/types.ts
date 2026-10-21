@@ -29,6 +29,8 @@ export interface ProgressionState {
   ticket: TicketState;
   folio: FolioState;
   tallies: TalliesState;
+  rail: RailState;
+  seasons: SeasonsState;
   letters: LettersState;
   celebrations: CelebrationsState;
   trial: TrialState;
@@ -224,6 +226,54 @@ export interface StoryState {
   rivals: Record<string, RivalRecord>;
   /** A chapter chosen over the suggested one, newest last, bounded by MAX_STORY_OVERRIDES (N1: logged, never blocked). */
   overrides: StoryOverride[];
+  /** Boss hands (story/boss.ts) by boss id. Added without a bump: additive. An id this build does not know is kept. */
+  bosses: Record<string, BossRecord>;
+  /** The Masquerade epilogue (story/masquerade.ts). Added without a bump: additive. */
+  masquerade: MasqueradeState;
+}
+
+/** One boss hand's record. Judged on the decisions alone: chips never enter it. */
+export interface BossRecord {
+  /** Times played to the end. */
+  attempts: number;
+  /** The first day it was played clean (every decision right at the first answer), which earns the keepsake. A ratchet. */
+  cleanOn: DayKey | null;
+}
+
+/**
+ * The Masquerade: three masked seats, each a rival's style with a jittered profile. What is kept per seat is only what
+ * the learner saw it do (its actions, never its cards), counted for reads.ts's gates.
+ */
+export interface MasqueradeState {
+  /** Masquerades begun, lifetime; 0 before the first. The current one's jitter is seeded from it. */
+  run: number;
+  /** The current one's seats, in seat order; empty before the first. */
+  seats: MasqueradeSeat[];
+  /** Masquerades with every seat unmasked, lifetime. */
+  completed: number;
+  /** The first day every seat of a Masquerade was unmasked, which earns the keepsake. A ratchet. */
+  completedOn: DayKey | null;
+}
+
+export interface MasqueradeSeat {
+  /** The rival whose style sits behind the mask (a cast.ts RivalId, or a newer build's id, kept). */
+  rival: string;
+  /** Hands it acted in before the flop: the observations behind the "plays" read. */
+  acted: number;
+  /** Of those, the hands it put chips in by choice (a call, bet or raise). */
+  played: number;
+  /** Bets it faced, on any street. */
+  faced: number;
+  /** Of those, the ones it folded to. */
+  folded: number;
+  /** Decisions after the flop with no bet to face. */
+  chances: number;
+  /** Of those, the ones it bet or raised. */
+  bets: number;
+  /** Rival ids the learner named for this seat and that did not fit, oldest first, unique. */
+  missed: string[];
+  /** The day the learner named it right. A ratchet. */
+  unmaskedOn: DayKey | null;
 }
 
 export const CHAPTER_RESULTS = ['met', 'short', 'unjudged'] as const;
@@ -340,6 +390,81 @@ export interface TalliesState {
   ticketsFinished: number;
   /** The day the learner last took the one suggestion (today's ring); null before the first. */
   suggestionTakenOn: DayKey | null;
+}
+
+/**
+ * A running sum of graded decisions' bb loss: enough for the mean and its 95% interval (online/ranked.ts `Tally`).
+ * Only the coach's own `evLossBb` goes in; chips, pots and results never do.
+ */
+export interface LossTally {
+  n: number;
+  sum: number;
+  sumSq: number;
+}
+
+/**
+ * The Ghost Rail (owner D18, src/core/progression/rail.ts): a weekly offline league against labelled, fictional bots
+ * and the learner's own past weeks, never other people. Scored on decision quality; there is no demotion.
+ */
+export interface RailState {
+  /** One of rail.ts RAIL_TIERS ids, or a newer build's (kept, read as the lowest tier, never moved by this build). A ratchet. */
+  tier: string;
+  /** One record per local week with Rail activity, ascending by `week`, unique, bounded by MAX_RAIL_WEEKS. */
+  weeks: RailWeek[];
+  /** Each move up, oldest first, bounded by MAX_RAIL_PROMOTIONS. Never a move down. */
+  promotions: RailPromotion[];
+}
+
+export interface RailWeek {
+  /** The week's Monday (local DayKey). */
+  week: DayKey;
+  /** Contested, sound-math graded decisions (standing.ts `counts`) from hands whose Reps the Rail counted. */
+  loss: LossTally;
+  /** Reps counted for the Rail this week: a day's Reps above rail.ts RAIL_DAILY_REPS count 0. */
+  reps: number;
+  /** The grader version (online/ranked.ts GRADER_VERSION) of the week's first decision. */
+  grader: number;
+  /** A decision graded by another grader version landed in the same week: the week is shown but never settles up. */
+  mixed: boolean;
+  /** How the week settled once it ended: 'up' | 'held' | 'unrated' | 'mixed' (or a newer value, kept); null while open. */
+  outcome: string | null;
+}
+
+export interface RailPromotion {
+  /** The week that earned it. */
+  week: DayKey;
+  /** Tier ids. */
+  from: string;
+  to: string;
+}
+
+/**
+ * Offline Seasons (src/core/progression/season.ts): seven local weeks, six of free track and a finale week whose
+ * delayed test is an assessment block; then the season is archived. Fully offline and local.
+ */
+export interface SeasonsState {
+  /** One record per season with activity, ascending by `season`, unique, bounded by MAX_SEASON_RECORDS. */
+  records: SeasonRecord[];
+}
+
+export interface SeasonRecord {
+  /** The season's number: Season 1 opened on season.ts SEASON_EPOCH. */
+  season: number;
+  /** Reps counted for the season (the Rail's daily rule): what fills the free track. */
+  reps: number;
+  /** The grader version the season opened with. */
+  grader: number;
+  /** The first assessment block of the track weeks: the opening measure; null if none was taken. */
+  baseline: BlockScore | null;
+  /** The first assessment block of the finale week: the delayed test; null until taken. */
+  finale: BlockScore | null;
+}
+
+export interface BlockScore {
+  /** The block's timestamp (every spot of a block shares it). */
+  at: number;
+  loss: LossTally;
+  grader: number;
 }
 
 /**

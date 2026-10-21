@@ -113,8 +113,11 @@ export interface PlayScore {
   readonly contestedPostflop: number;
 }
 
-/** A decision counts toward the score iff it is BOTH eligible (sound-math or free) AND contested (real price). */
-function counts(d: StandingDecision): boolean {
+/**
+ * A decision counts toward the score iff it is BOTH eligible (sound-math or free) AND contested (real price). Exported
+ * so the Ghost Rail (progression/rail.ts) scores exactly the decisions Depth does.
+ */
+export function counts(d: StandingDecision): boolean {
   const eligible =
     (d.principle != null && SOUND_PRINCIPLES.has(d.principle)) ||
     // A free/no-cost decision has a null principle but was a correct play on its merits.

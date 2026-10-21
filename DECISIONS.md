@@ -45,12 +45,42 @@ Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone 
 - **Results are applied by the learner's press after day 28.** A trip turns Character and Celebrations off (the
   layer goes off by default, PITCH §2.2); either can be turned back on. The page states the n = 1 limit.
 
+## The Ghost Rail and Seasons (branch `feat-ghost-rail-seasons`): offline, decisions only (2.5, 2.7)
+Owner decisions in force: D18 (the Ghost Rail allowed: labelled bots and your past weeks, never other people), N1
+(nothing locked), no trait insults, the tutor never authors a number. No schema bump: `progression.rail` and
+`progression.seasons` are new additive keys.
+- **The Rail's number is Depth's**: bb lost per 100 decisions over exactly the decisions `standing.ts` `counts`
+  (contested, sound-math or free), the coach's own `evLossBb`, read as `online/ranked.ts` `rate` reads the online
+  ladder (mean and 95% interval). A week is judged on exactly its first 40 such decisions (Depth's MIN_CONTESTED) and
+  rated only when it has them, so stopping once the number looks good buys nothing. Supersedes: "rated at 40, settled
+  at week end", because the review showed stopping-when-ahead lifted promotion odds from 1.8% to 18%. Chips, pots and
+  results are not inputs.
+- **Deuce to Ace, no demotion.** Each tier's pace-setter is a fictional bot with a fixed published number (Pip 400 down
+  to Quartz 70 bb/100), labelled "Fictional practice bot" everywhere it shows. A week settles the first save after it
+  ends; rated and at or under the pace on the interval's high side moves up one tier. A move is held from the next
+  Monday. The paces are provisional, intuition-set (decision to evaluate).
+- **Through the ledger.** Only an award key new in this save reaches the Rail or a Season, so a stale or replayed
+  save files nothing twice. Above 400 Reps a day, Reps count 0 (VISION §4); decisions still count toward the fixed
+  40. Supersedes: "and that hand's decisions count 0", because at most 40 scored decisions fit under the line on a
+  perfect day, so ordinary weeks would never be rated.
+- **Seasons are seven local weeks from Monday 5 Jan 2026**: six free-track weeks (10 stamps at fixed Reps) and a
+  finale week. The online seasons are UTC months, which do not hold whole local weeks, so only their "one season, one
+  grader" rule is reused: each block and Rail week records `GRADER_VERSION`; two versions are shown, never compared
+  or settled up.
+- **The finale is the delayed test**: the first assessment block of the finale week against the first block of the
+  track weeks, both intervals shown, overlapping intervals called a tie. It pays only the block's own Reps.
+- **Where it lives**: two rows at the top of the Trophy room open You › Ghost Rail and You › Season (Trophies stays
+  lit, from Profile's links too: the sub-nav marks a section, not the path taken); the owner's eight You items are
+  unchanged. Milestones: Off the Rail Floor (felt "Ghost rail"), Five Up, The
+  Delayed Test, Full Track (Dee finish "Season stamp").
+
 ## Cosmetics and the Locker (branch `feat-cosmetics`): receipts, paint only (1.7, 2.13)
 Owner decisions in force: D1 (earn-only cosmetics in scope), N1 (nothing is locked behind a cosmetic). D4 (Chalk) has no
 owner answer, so this build ships receipts only: no currency, no prices, and the Chalk ledger is never written.
-- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 5 table tints, 4 chip sets, 4 Dee finishes, 4
+- **Catalogue** (`src/core/cosmetics/catalogue.ts`): 8 card backs, 7 table tints, 4 chip sets, 6 Dee finishes, 4
   celebrations. Each slot's first item is the day-one default. Every other item is earned by a ratchet the habit loop
-  already keeps: a milestone receipt, 3 Seal receipts, or a story rival unmasked. Never chips, pots or results
+  already keeps: a milestone receipt, 3 Seal receipts, a story rival unmasked, or keepsakes kept. The Ghost rail tint and the Season
+  stamp finish are the Ghost Rail's and the Seasons' (below). Never chips, pots or results
   (`cosmetics.test` scans the source and pays a big bankroll nothing).
 - **Owned is a receipt, filed on save** (`syncCosmetics` in `progression/apply.ts`), dated the day the fact first held,
   `chalk: 0`. It is never taken back. Day-one items are never stored, and wearing one clears the slot. An equipped id
@@ -180,9 +210,11 @@ dossier counts showdowns only), N1 (nothing is locked).
   "a bet that means it"), the Toll Road Diner (Barnaby Tull, `station`, thin value), the Library (Percival Hush,
   `over-folder`, the price of a bluff), the Night Train (Vesper Kade, `lag`, defending against barrels), the Fireworks
   Pier (Juniper Vale, `maniac`, trapping and calling down), the Observatory (Ines Marlow, `tag-reg`, not deviating;
-  always last). The Kitchen Table tutorial and the Masquerade epilogue are not built (the task asks for six venues).
+  always last). Outside the orbit: chapter 0, the Kitchen Table (the tutorial, unnumbered, at the middle of the map), and
+  the Masquerade epilogue (branch `feat-story-extras`, below).
 - **A chapter** is Dee's intro (story lines) → a lesson-dialogue beat (the `dee/dialogue.ts` engine over a chapter
-  script, its numbers from a named lesson example) → 6 hands heads-up against the rival → a debrief. Every beat can be
+  script, its numbers from a named lesson example) → 6 hands heads-up against the rival → a debrief → the last hand (a
+  boss hand, below). Every beat can be
   picked in any order and every venue opened at any time; the stage is only where the chapter picks up.
 - **The goal is decision quality, never chips** (`campaign.ts judgeTable`): judged decisions are postflop ones facing a
   bet plus every turn and river decision (a free flop check, or a preflop fold, proves nothing). Met = at least 3
@@ -209,7 +241,8 @@ dossier counts showdowns only), N1 (nothing is locked).
   read furthest from its balanced baseline (more than 0.15 away), else "the standard line is the read".
 - **Decision quality over time** is one bar per table against the rival (share of judged decisions that cost
   nothing) with the goal line; chips are not on it.
-- **Persistence:** `progression.story {chapters, rivals, overrides}`, additive, no version bump (AGENTS.md recipe).
+- **Persistence:** `progression.story {chapters, rivals, overrides, bosses, masquerade}`, additive, no version bump
+  (AGENTS.md recipe). The Kitchen Table's beats are `chapters.kitchen`.
   Chapter and rival ids, and a result this build does not know, are kept as written. A showdown without two shown cards,
   a full board and seven distinct cards is dropped. Choosing a chapter other than the suggested one is logged in
   `overrides` (bounded), never refused.
@@ -218,7 +251,25 @@ dossier counts showdowns only), N1 (nothing is locked).
 - **Words:** 28 story lines (4 with Dry/Blunt variants) and 6 chapter scripts (13 steps) in `src/core/story/scripts.ts`, linted with Dee's bank lint (shared
   in `tests/unit/deeLint.ts`): the tutor guard once filled, Dee's ban list, `bannedPhrasingIn`, no archetype id, no
   numeral or number word in a template, slots from the vocabulary, STRICT checks on tone variants, every beat running on
-  its lesson example. The lint caught and fixed "win", "once", "Everyone" and a dropped "nothing" in a variant.
+  its lesson example. The lint caught and fixed "win", "once", "Everyone" and a dropped "nothing" in a variant. The same
+  lint covers the Kitchen Table's script, every boss ask, answer, question back, setup and reveal (filled from the
+  engine at the decision), and the Masquerade's lines.
+- **Boss hands** (`boss.ts`): one fixed heads-up hand per room, played through the real engine; the learner answers the
+  asked decisions and the rest is played for them. The right line is the rival's exploit (nit: fold the big river bet;
+  station: value-bet; over-folder: bet with nothing; LAG: call the barrels; maniac: call, never raise; TAG-reg: the
+  standard price call, lost at showdown on purpose). A wrong answer gets a question back and the hand waits; clean =
+  right at every first answer. The rival's cards turn over only at a showdown. Chips appear nowhere in the result.
+- **Keepsakes** (`keepsakes.ts`): eight, one per chapter (lamp, the six rival glyphs, the mask), named for the object and
+  never the rival (one can be kept while its rival is masked). Kept by a clean boss hand, or the mask by a Masquerade
+  fully unmasked. Shown in advance on the Profile shelf; each opens its room. Filed in `dee.keepsakes`. The Locker's
+  rule `keepsakes` earns Dee's rim "Lamplit" (1) and the felt "Ballroom" (all 8), on receipts.
+- **The Masquerade** (`masquerade.ts`, BUILD-PLAN 2.3): three masked seats, three distinct rivals' styles with
+  jittered profiles, seeded per Masquerade. Reads are counts of actions the learner saw, never cards (plays a hand,
+  folds to a bet, bets when nobody has). A read is inked by reads.ts `gates()` read-only: at `MIN_OBSERVATIONS` (20),
+  leaning past R1's 15-point gate against measured baselines (0.30, 0.58, 0.44; a unit test re-measures them). A seat
+  can be named once a read is inked; a name is right when the inked reads fit that style as well as any style does,
+  since two pairs of styles read alike. The seat then shows who it was, by the orbit's mask (D17): name and style
+  only once that rival is unmasked in the orbit too.
 - **Nav:** Story is a 12th tab after Learn. Home gets a story strip as a third launch row; at 900x640 the recent-hands
   list (which already scrolls when Home is short) shows fewer rows.
 

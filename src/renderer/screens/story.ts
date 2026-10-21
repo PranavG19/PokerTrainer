@@ -5,12 +5,14 @@ import { renderCard } from '../components/card.js';
 import { renderDee } from '../components/dee.js';
 import { chevron } from '../components/glyphs.js';
 import { rivalMedallion, venueArt } from '../components/storyArt.js';
-import { commitAnswer, exampleFacts, pendingStep, startDialogue, type DialogueState } from '../../core/dee/dialogue.js';
-import type { Tone } from '../../core/dee/types.js';
+import { bossBeat, button, deeLine, dialogueBeat, el, hash, heading, type StoryDee } from '../components/storyKit.js';
+import { exampleFacts } from '../../core/dee/dialogue.js';
 import { DEE_BANK } from '../../core/dee/bank.js';
 import { lessonById } from '../../core/lessons/index.js';
 import type { ChapterProgress, RivalRecord, ShowdownRecord } from '../../core/progression/types.js';
-import { LEAK_LABELS, VENUES, rivalDisplayName, rivalOf, type ChapterId, type Venue } from '../../core/story/cast.js';
+import { KITCHEN, LEAK_LABELS, MASQUERADE, VENUES, rivalDisplayName, rivalOf, type ChapterId, type Venue } from '../../core/story/cast.js';
+import { bossFor } from '../../core/story/boss.js';
+import { keepsakeFor } from '../../core/story/keepsakes.js';
 import {
   GOAL_FREE_SHARE,
   GOAL_MIN_JUDGED,
@@ -18,7 +20,6 @@ import {
   debriefLine,
   introLines,
   storyLine,
-  type SpokenStoryLine,
   type Stage,
   type TableJudgement,
 } from '../../core/story/campaign.js';
@@ -35,51 +36,15 @@ import { CHAPTER_SCRIPTS } from '../../core/story/scripts.js';
  * number: counts come from core, Dee's words from the story lines, and the goal from campaign.ts.
  */
 
-export interface StoryDee {
-  readonly tone: Tone;
-  readonly character: boolean;
-}
+export type { StoryDee };
 
 const STAGE_LABEL: Readonly<Record<Stage, string>> = {
   intro: 'Dee’s intro',
   lesson: 'The lesson',
   table: 'The table',
   debrief: 'Debrief',
+  boss: 'The last hand',
 };
-
-function hash(value: string): number {
-  let h = 2166136261;
-  for (const ch of value) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-  return h >>> 0;
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, testid?: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  node.className = className;
-  if (testid) node.dataset.testid = testid;
-  return node;
-}
-
-function button(label: string, className: string, testid: string, onClick: () => void): HTMLButtonElement {
-  const b = el('button', className, testid);
-  b.type = 'button';
-  b.textContent = label;
-  b.addEventListener('click', onClick);
-  return b;
-}
-
-/** One Dee line with the mark beside it (hidden, with the mark, when Character is off). */
-function deeLine(line: SpokenStoryLine, testid: string, size: number, by?: string): HTMLElement {
-  const wrap = el('div', 'story-dee', testid);
-  wrap.dataset.lineId = line.lineId;
-  wrap.dataset.pose = line.pose;
-  wrap.appendChild(renderDee(line.pose, size));
-  const body = el('div', 'story-dee-body');
-  body.appendChild(text('p', 'story-dee-say', line.text));
-  if (by) body.appendChild(text('span', 'g-caption', by));
-  wrap.appendChild(body);
-  return wrap;
-}
 
 function statusOf(c: RoutedChapter, unmasked: boolean, next: boolean): string {
   if (next) return 'Suggested next';
@@ -94,8 +59,13 @@ export function renderStoryMap(opts: {
   route: StoryRoute;
   unmasked: (id: ChapterId) => boolean;
   dee: StoryDee;
+  /** Chapter 0 and the epilogue, beside the orbit: what each shows on the map. */
+  kitchen: { readonly kept: boolean; readonly started: boolean };
+  masquerade: { readonly unmasked: number; readonly seats: number; readonly completed: number };
   onOpenChapter: (id: ChapterId) => void;
   onOpenFile: (id: ChapterId) => void;
+  onOpenKitchen: () => void;
+  onOpenMasquerade: () => void;
 }): HTMLElement {
   const { route } = opts;
   const root = el('div', 'story-map', 'story-map');
@@ -108,6 +78,14 @@ export function renderStoryMap(opts: {
   if (opts.dee.character) hub.appendChild(renderDee('rest', 40));
   hub.appendChild(text('div', 't-t3', 'The Long Orbit'));
   hub.appendChild(text('div', 'g-caption story-hub-why', route.why));
+  // Chapter 0 sits at the middle of the table, unnumbered: where every orbit starts.
+  const kitchen = el('button', 'pill quiet sm story-kitchen-open', 'story-kitchen-open');
+  kitchen.type = 'button';
+  kitchen.dataset.kept = String(opts.kitchen.kept);
+  kitchen.textContent = opts.kitchen.kept ? `✓ ${KITCHEN.name}` : opts.kitchen.started ? `Chapter 0 · ${KITCHEN.name}` : `Start here: ${KITCHEN.name}`;
+  kitchen.setAttribute('aria-label', `Chapter 0, ${KITCHEN.name}: the tutorial. ${opts.kitchen.kept ? 'Its keepsake is kept.' : 'Open at any time.'}`);
+  kitchen.addEventListener('click', opts.onOpenKitchen);
+  hub.appendChild(kitchen);
   orbit.appendChild(hub);
 
   const list = el('ol', 'story-seats');
@@ -179,6 +157,24 @@ export function renderStoryMap(opts: {
   );
   side.appendChild(order);
 
+  // The epilogue: replayable, open from the first day like everything else (N1).
+  const masq = el('button', 'g-row story-rival story-masq-open', 'story-masquerade-open');
+  masq.type = 'button';
+  masq.appendChild(venueArt(MASQUERADE.id, 32));
+  const mt = el('span', 'story-rival-text');
+  const m = opts.masquerade;
+  mt.append(
+    text('span', 'story-rival-name', `Epilogue · ${MASQUERADE.name}`),
+    text(
+      'span',
+      'g-caption',
+      m.seats === 0 ? 'Every seat masked. Name them from the reads alone.' : `${m.unmasked} of ${m.seats} masks off${m.completed > 0 ? ` · ${m.completed} finished` : ''}`,
+    ),
+  );
+  masq.append(mt, chevron());
+  masq.addEventListener('click', opts.onOpenMasquerade);
+  side.appendChild(masq);
+
   const go = el('div', 'story-go');
   const cont = button(`Continue: ${v.name}`, 'pill primary lg', 'story-continue', () => opts.onOpenChapter(v.id));
   go.appendChild(cont);
@@ -238,6 +234,10 @@ export interface ChapterOpts {
   onSitDown: () => void;
   onOpenFile: () => void;
   onBack: () => void;
+  /** The room's boss hand: its keepsake is already kept. */
+  bossKept: boolean;
+  /** A boss hand played to the end. */
+  onBossFinish: (clean: boolean) => void;
 }
 
 export function renderChapter(opts: ChapterOpts): HTMLElement {
@@ -250,9 +250,8 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
   const seed = hash(venue.id);
   // Dee's intro already opened the chapter, so the beat skips the bank's generic lesson opener.
   const dialogueOpts = { tone: opts.dee.tone, seed, character: opts.dee.character, bank: DEE_BANK.filter((l) => l.event !== 'lesson-open') };
-  let dialogue: DialogueState = startDialogue(script, facts, dialogueOpts);
-  let picked: string | null = null;
   let lessonDone = opts.progress.lessonDone;
+  let bossKept = opts.bossKept;
   let introSeen = opts.progress.introSeen;
 
   const root = el('div', 'story-chapter', 'story-chapter');
@@ -265,6 +264,37 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
   const file = el('section', 'story-file');
   const beat = el('section', 'story-beat', 'story-beat-panel');
   root.append(file, beat, announcer);
+  const host = { announcer, beat, repaint: () => paint() };
+  const lesson = dialogueBeat({
+    script,
+    facts,
+    dee: opts.dee,
+    seed,
+    bank: dialogueOpts.bank,
+    done: lessonDone,
+    host,
+    onDone: () => {
+      lessonDone = true;
+      opts.onLessonDone();
+    },
+    next: { label: 'On to the table', testid: 'story-to-table', onClick: () => goto('table') },
+  });
+  const boss = bossFor(venue.id);
+  const keepsake = keepsakeFor(venue.id) ?? null;
+  const last = boss
+    ? bossBeat({
+        boss,
+        rivalName: rivalDisplayName(venue, opts.unmasked),
+        keepsake,
+        kept: bossKept,
+        dee: opts.dee,
+        host,
+        onFinish: (clean) => {
+          if (clean) bossKept = true;
+          opts.onBossFinish(clean);
+        },
+      })
+    : null;
 
   function goto(next: Stage, focus = true): void {
     stage = next;
@@ -297,14 +327,16 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
       lesson: lessonDone,
       table: opts.progress.tables > 0 || opts.justPlayed !== null,
       debrief: opts.lastTable !== null || opts.justPlayed !== null,
+      boss: bossKept,
     };
     const captions: Record<Stage, string> = {
       intro: 'A short scene',
       lesson: lessonById(venue.beat.lessonId)?.title ?? 'A lesson',
       table: `${STORY_TABLE_HANDS} hands, heads-up`,
       debrief: opts.progress.beatenOn !== null ? 'Goal met' : 'Judged on decisions',
+      boss: bossKept ? `${keepsake?.name ?? 'Keepsake'} kept` : 'One hand, its exploit the answer',
     };
-    (['intro', 'lesson', 'table', 'debrief'] as const).forEach((s, i) => {
+    (['intro', 'lesson', 'table', 'debrief', 'boss'] as const).forEach((s, i) => {
       const row = el('button', 'g-row story-beat-row', 'story-beat');
       row.type = 'button';
       row.setAttribute('role', 'listitem');
@@ -325,10 +357,13 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
     if (stage === 'intro') go.appendChild(button('Continue: the lesson', 'pill primary lg', 'story-primary', () => goto('lesson')));
     else if (stage === 'lesson') go.appendChild(button('Skip to the table', 'pill quiet', 'story-skip', () => goto('table')));
     else if (stage === 'table') go.appendChild(button(`Sit down · ${STORY_TABLE_HANDS} hands`, 'pill primary lg', 'story-sit', opts.onSitDown));
+    else if (stage === 'boss') go.appendChild(button('Back to the orbit', 'pill quiet', 'story-back-orbit', opts.onBack));
     else {
       const result = opts.justPlayed?.judgement.result ?? opts.lastTable?.result ?? null;
-      if (result === 'met') go.appendChild(button('Back to the orbit', 'pill primary lg', 'story-primary', opts.onBack));
-      else {
+      if (result === 'met') {
+        go.appendChild(button('On to the last hand', 'pill primary lg', 'story-to-boss', () => goto('boss')));
+        go.appendChild(button('Back to the orbit', 'pill quiet', 'story-back-orbit', opts.onBack));
+      } else {
         go.appendChild(button('Play the table again', 'pill primary lg', 'story-sit', opts.onSitDown));
         go.appendChild(button('Back to the orbit', 'pill quiet', 'story-back-orbit', opts.onBack));
       }
@@ -337,16 +372,11 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
     return out;
   }
 
-  function heading(label: string): HTMLElement {
-    const h = text('h3', 't-t3 story-beat-head', label);
-    h.tabIndex = -1;
-    return h;
-  }
-
   function beatNodes(): Node[] {
     if (stage === 'intro') return introNodes();
     if (stage === 'lesson') return lessonNodes();
     if (stage === 'table') return tableNodes();
+    if (stage === 'boss') return last ? last.nodes() : [heading('The last hand')];
     return debriefNodes();
   }
 
@@ -369,66 +399,7 @@ export function renderChapter(opts: ChapterOpts): HTMLElement {
   }
 
   function lessonNodes(): Node[] {
-    const out: Node[] = [heading(lessonById(venue.beat.lessonId)?.title ?? 'The lesson')];
-    const wrap = el('div', 'dee-dialogue story-dialogue', 'dee-dialogue');
-    wrap.dataset.done = String(dialogue.done);
-    const thread = el('ol', 'dee-thread', 'dee-thread');
-    thread.setAttribute('aria-label', opts.dee.character ? 'The lesson, with Dee' : 'The lesson');
-    const lastDee = [...dialogue.thread].reverse().find((t) => t.who === 'dee');
-    // Only the newest few turns: the beat column is short, and the whole thread is in the announcer's history.
-    for (const turn of dialogue.thread.slice(-5)) {
-      const li = el('li', `dee-turn ${turn.who === 'dee' ? 'from-dee' : 'from-you'}`, turn.who === 'dee' ? 'dee-turn' : 'you-turn');
-      const who = text('span', 'dee-who g-caption', turn.who === 'dee' ? (opts.dee.character ? 'Dee' : 'Coach') : turn.right ? 'You' : 'You · not yet');
-      if (turn.who === 'dee') {
-        li.dataset.lineId = turn.lineId;
-        if (opts.dee.character && turn === lastDee) li.appendChild(renderDee(turn.pose, 40));
-      } else li.dataset.right = String(turn.right);
-      const body = el('div', 'dee-turn-body');
-      body.append(who, text('p', 'dee-say', turn.text));
-      li.appendChild(body);
-      thread.appendChild(li);
-    }
-    wrap.appendChild(thread);
-    const pending = pendingStep(script, dialogue, facts);
-    if (pending) {
-      const ask = el('div', 'dee-ask', 'dialogue-ask');
-      const group = el('div', 'dee-options');
-      group.setAttribute('role', 'radiogroup');
-      group.setAttribute('aria-label', 'Your answer');
-      for (const option of pending.options) {
-        const b = button(option.label, 'pill dee-option', 'dialogue-option', () => {
-          picked = option.id;
-          paint();
-          beat.querySelector<HTMLElement>(`[data-option-id="${option.id}"]`)?.focus();
-        });
-        b.dataset.optionId = option.id;
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-checked', String(picked === option.id));
-        b.disabled = option.tried;
-        group.appendChild(b);
-      }
-      const commit = button('Commit', 'pill primary', 'dialogue-commit', () => {
-        if (picked === null) return;
-        const before = dialogue;
-        dialogue = commitAnswer(script, dialogue, facts, picked, dialogueOpts);
-        picked = null;
-        announcer.textContent = dialogue.thread.slice(before.thread.length).filter((t) => t.who === 'dee').map((t) => t.text).join(' ');
-        if (dialogue.done && !lessonDone) {
-          lessonDone = true;
-          opts.onLessonDone();
-        }
-        paint();
-        (beat.querySelector<HTMLElement>('[data-testid="dialogue-option"]:not(:disabled)') ?? beat.querySelector<HTMLElement>('[data-testid="story-to-table"]'))?.focus();
-      });
-      commit.disabled = picked === null;
-      ask.append(group, commit);
-      wrap.appendChild(ask);
-      wrap.appendChild(text('p', 'g-caption dee-ask-note', 'A wrong answer gets a question back, not a grade.'));
-    } else {
-      wrap.appendChild(button('On to the table', 'pill', 'story-to-table', () => goto('table')));
-    }
-    out.push(wrap);
-    return out;
+    return lesson.nodes(lessonById(venue.beat.lessonId)?.title ?? 'The lesson');
   }
 
   function goalNodes(): HTMLElement {

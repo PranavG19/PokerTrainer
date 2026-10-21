@@ -18,7 +18,7 @@ import { conceptStatesFromLog, dueNow, gate, nextDue, type ConceptState } from '
 import type { Scenario } from '../puzzle.js';
 import { puzzleCoverage } from '../standing.js';
 import { currentStreakOn } from './persist.js';
-import { award, keys, repsForDrillRep, repsForHand, repsForRule, repsForSpot, REPS_ASSESSMENT, REPS_PER_PERCEPTION } from './reps.js';
+import { award, keys, repsOn, repsForDrillRep, repsForHand, repsForRule, repsForSpot, REPS_ASSESSMENT, REPS_PER_PERCEPTION } from './reps.js';
 import { countFinished, handsMakeASession, handsOn, type FinishedSession } from './streak.js';
 import { syncSeals } from './seals.js';
 import { syncMilestones, type MilestoneFacts } from './milestones.js';
@@ -26,6 +26,9 @@ import { markDone, ticketFor } from '../ticket.js';
 import { polish } from '../folio.js';
 import type { ProgressionState, TicketState } from './types.js';
 import { syncCosmetics } from '../cosmetics/locker.js';
+import { counts as scoresStanding } from '../standing.js';
+import { countForRail, recordRail, settleRail, type PaidEvent } from './rail.js';
+import { finalesTaken, recordSeasons, tracksFilled, type PaidBlock } from './season.js';
 
 /** Perception answers in one visit that finish the Ticket's drill item (about the warm-up block's length). */
 export const DRILL_ANSWERS = 10;
@@ -86,10 +89,19 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
 
   // ── Reps from the diff ──
   const priorHands = new Set(prev.hands.map((h) => h.playedAt).filter((t): t is number => typeof t === 'number'));
+  // The Ghost Rail scores the decisions of each hand the ledger pays now: Depth's decisions (contested, sound-math).
+  const handLosses = new Map<string, number[]>();
   for (const h of next.hands) {
     if (typeof h.playedAt !== 'number' || priorHands.has(h.playedAt)) continue;
     const effort = (h.decisions ?? []).map((d) => ({ graded: d.verdict !== null, gateAttempts: d.gateAttempts }));
     r = award(r, keys.hand(h.playedAt), repsForHand(effort), ctx.dayOf(h.playedAt));
+    const at = h.playedAt;
+    const scored = (h.decisions ?? []).flatMap((d) =>
+      d.verdict !== null && scoresStanding({ at, evLossBb: d.verdict.evLossBb, principle: d.verdict.principle, toCall: d.toCall, street: d.street })
+        ? [d.verdict.evLossBb]
+        : [],
+    );
+    handLosses.set(keys.hand(at), scored);
   }
 
   const before = gradedConcepts(prev);
@@ -127,7 +139,22 @@ export function applyProgress(prev: SessionState, next: SessionState, extras: Pr
 
   if (extras.spot) r = award(r, keys.spot(extras.spot.id, today), repsForSpot(extras.spot.correct), today);
 
-  p = { ...p, reps: r };
+  // ── The Ghost Rail and the Season: only what the ledger paid in THIS save reaches them ──
+  // A key already on the ledger was paid by an earlier save, so a replayed or stale save files nothing twice.
+  const paidBefore = new Set(p.reps.awards.map((a) => a.key));
+  const paidNow = r.awards.filter((a) => !paidBefore.has(a.key));
+  const events: PaidEvent[] = paidNow.map((a) => ({ day: a.day, reps: a.reps, losses: handLosses.get(a.key) ?? [] }));
+  const counted = countForRail(events, (day) => repsOn(p.reps, day));
+  const blocks: PaidBlock[] = paidNow
+    .filter((a) => a.key.startsWith('assessment:'))
+    .map((a) => {
+      const at = Number(a.key.slice('assessment:'.length));
+      return { at, day: ctx.dayOf(at), losses: next.assessments.filter((x) => x.at === at).map((x) => x.evLossBb) };
+    });
+  const rail = settleRail(recordRail(p.rail, counted), today);
+  const seasons = recordSeasons(p.seasons, counted, blocks);
+
+  p = { ...p, reps: r, rail, seasons };
 
   // ── Tallies, Folio, greeting ──
   let tallies = p.tallies;
@@ -214,6 +241,9 @@ export function milestoneFacts(s: SessionState, p: ProgressionState, scenarios: 
     ticketsFinished: p.tallies.ticketsFinished,
     sureTotal: s.calibration.sureTotal,
     sureRight: s.calibration.sureCorrect,
+    railMoves: p.rail.promotions.length,
+    seasonFinales: finalesTaken(p.seasons),
+    seasonTracks: tracksFilled(p.seasons),
   };
 }
 

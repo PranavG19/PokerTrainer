@@ -1,7 +1,8 @@
 /**
  * The Locker's rules (1.7): what is earned, what is owned, what is equipped. Pure; the caller passes the day.
  *
- * - **Earned** reads only ratchets the habit loop already keeps (milestone receipts, Seal receipts, rivals unmasked),
+ * - **Earned** reads only ratchets the habit loop already keeps (milestone receipts, Seal receipts, rivals unmasked,
+ *   story keepsakes),
  *   so an item, once earned, stays earned: a streak reset or a decayed concept never takes one back.
  * - **Owned** (`cosmetics.owned`) is the receipt of that, filed on save like Seals and milestones, with the fact and
  *   the day the fact first held. Day-one items are the defaults and are never stored.
@@ -16,6 +17,7 @@ import { chalk } from '../units.js';
 import { milestoneById, type MilestoneFacts } from '../progression/milestones.js';
 import { COSMETIC_SLOTS, type CosmeticSlot, type CosmeticsState, type MilestonesState, type SealsState, type StoryState } from '../progression/types.js';
 import { CATALOGUE, defaultItem, itemById, type CosmeticItem } from './catalogue.js';
+import { KEEPSAKES, keepsakeDays } from '../story/keepsakes.js';
 
 export interface EarnContext {
   readonly milestones: MilestonesState;
@@ -83,6 +85,19 @@ export function earnStatus(item: CosmeticItem, ctx: EarnContext): EarnStatus {
         fact: one ? 'Unmasked a regular in the Long Orbit' : `Unmasked ${rule.count} regulars in the Long Orbit`,
         source: one ? 'First unmasked' : `${rule.count} unmasked`,
         progress: day === null ? { value: Math.min(days.length, rule.count), target: rule.count, unit: one ? 'rival' : 'rivals' } : null,
+      };
+    }
+    case 'keepsakes': {
+      const days = keepsakeDays(ctx.story);
+      const day = nthDay(days, rule.count);
+      const one = rule.count === 1;
+      const all = rule.count >= KEEPSAKES.length;
+      return {
+        met: day !== null,
+        day,
+        fact: one ? 'Kept a keepsake from the Long Orbit' : all ? 'Kept every keepsake in the Long Orbit' : `Kept ${rule.count} keepsakes from the Long Orbit`,
+        source: one ? 'First keepsake' : all ? 'Every keepsake' : `${rule.count} keepsakes`,
+        progress: day === null ? { value: Math.min(days.length, rule.count), target: rule.count, unit: one ? 'keepsake' : 'keepsakes' } : null,
       };
     }
   }

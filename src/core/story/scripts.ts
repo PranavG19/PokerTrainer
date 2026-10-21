@@ -15,14 +15,50 @@
 
 import type { DialogueScript } from '../dee/dialogue.js';
 import type { DeePose } from '../dee/types.js';
-import type { ChapterId } from './cast.js';
+import type { ChapterId, KITCHEN } from './cast.js';
 
 /** A non-slot answer a beat may offer (the bank lint allows only these words as option labels). */
-export const WORD_ANSWERS = ['Rarely', 'Often', 'More', 'Fewer', 'Call', 'Raise', 'Standard', 'Special'] as const;
+export const WORD_ANSWERS = ['Rarely', 'Often', 'More', 'Fewer', 'Call', 'Raise', 'Standard', 'Special', 'The price', 'The hand'] as const;
 
 const priceBacks = {
   fold: 'That is the fold a bluff needs. What does the call risk, out of the pot after it?',
   defend: 'That is the share of a range that defends. What does this one call need?',
+};
+
+/** Chapter 0's beat (cast.ts KITCHEN.beat): the price, before anything else. */
+export const KITCHEN_SCRIPT: DialogueScript = {
+  lessonId: 'pot-odds-as-a-price',
+  steps: [
+    {
+      id: 'pot-after',
+      ask: 'A bet of {toCall} lands, and the pot holds {pot}. After a call, what does it hold?',
+      options: [
+        { id: 'after', label: '{potAfterCall}', correct: true },
+        { id: 'with-bet', label: '{pot}', correct: false, back: 'That counts the bet but not the call. What is there after the call goes in?' },
+        { id: 'before', label: '{oldPot}', correct: false, back: 'That is before the bet landed. What is there after the bet and the call?' },
+      ],
+      right: '{potAfterCall}. The call puts {toCall} of it in.',
+    },
+    {
+      id: 'price',
+      ask: 'So the call buys a share of that pot. What share must it take back to break even?',
+      options: [
+        { id: 'price', label: '{callPrice}', correct: true },
+        { id: 'fold', label: '{betFoldShare}', correct: false, back: priceBacks.fold },
+        { id: 'defend', label: '{defendShare}', correct: false, back: priceBacks.defend },
+      ],
+      right: '{callPrice}. That is the price.',
+    },
+    {
+      id: 'first',
+      ask: 'At this table, which is read first: the hand, or the price?',
+      options: [
+        { id: 'price-first', label: 'The price', correct: true },
+        { id: 'hand-first', label: 'The hand', correct: false, back: 'A good-looking hand still has to clear a price. What does the call need first?' },
+      ],
+      right: 'The price. Then the hand, read against it. That is the whole orbit, really.',
+    },
+  ],
 };
 
 export const CHAPTER_SCRIPTS: Readonly<Record<ChapterId, DialogueScript>> = {
@@ -182,7 +218,7 @@ export const CHAPTER_SCRIPTS: Readonly<Record<ChapterId, DialogueScript>> = {
 };
 
 /** Slots a story line may use. Each is filled by the engine from a count or a name, never authored. */
-export const STORY_SLOTS = ['rival', 'focus', 'judged', 'free', 'bigBets', 'bluffs', 'calls', 'thin', 'bets', 'strong'] as const;
+export const STORY_SLOTS = ['rival', 'focus', 'judged', 'free', 'bigBets', 'bluffs', 'calls', 'thin', 'bets', 'strong', 'keepsake', 'needs', 'mask'] as const;
 export type StorySlot = (typeof STORY_SLOTS)[number];
 export type StoryFacts = Partial<Record<StorySlot, string>>;
 
@@ -200,7 +236,15 @@ export type StoryEvent =
   | 'take-strong-high'
   | 'take-strong-low'
   | 'take-baseline'
-  | 'take-none';
+  | 'take-none'
+  | 'kitchen-intro'
+  | 'boss-clean'
+  | 'boss-again'
+  | 'masq-intro'
+  | 'masq-pencil'
+  | 'masq-fit'
+  | 'masq-not-fit'
+  | 'masq-done';
 
 /** Word budget per surface: the intro and debrief sit beside Dee at 40px, the take is one line in a file. */
 export const STORY_WORD_BUDGET: Readonly<Record<StoryEvent, number>> = {
@@ -218,13 +262,21 @@ export const STORY_WORD_BUDGET: Readonly<Record<StoryEvent, number>> = {
   'take-strong-low': 22,
   'take-baseline': 22,
   'take-none': 22,
+  'kitchen-intro': 22,
+  'boss-clean': 22,
+  'boss-again': 22,
+  'masq-intro': 22,
+  'masq-pencil': 22,
+  'masq-fit': 22,
+  'masq-not-fit': 22,
+  'masq-done': 22,
 };
 
 export interface StoryLine {
   readonly id: string;
   readonly event: StoryEvent;
   /** Intro lines belong to one venue; every other line is shared. */
-  readonly venue?: ChapterId;
+  readonly venue?: ChapterId | typeof KITCHEN.id;
   readonly pose: DeePose;
   readonly text: string;
   readonly dry?: string;
@@ -281,4 +333,22 @@ export const STORY_LINES: readonly StoryLine[] = [
   { id: 'story.take.strong-low', event: 'take-strong-low', pose: 'thinking', text: '{strong} of {bets} bets shown held better than one pair. The bets run light.' },
   { id: 'story.take.baseline', event: 'take-baseline', pose: 'rest', text: 'Nothing unusual shown so far. The standard line is the read.' },
   { id: 'story.take.none', event: 'take-none', pose: 'asleep', text: 'Nothing earned yet. Only showdowns count in this file; the rest is guessing.' },
+
+  // Chapter 0: the Kitchen Table.
+  { id: 'story.kitchen.a', event: 'kitchen-intro', pose: 'listening', text: 'The Kitchen Table. Every orbit starts here, under the lamp, with the price.',
+    dry: 'The Kitchen Table. Every orbit starts here, with the price.' },
+  { id: 'story.kitchen.b', event: 'kitchen-intro', pose: 'rest', text: 'Nothing out there is locked. Each room is judged on decisions, and the chips never count.' },
+
+  // A boss hand, played to the end.
+  { id: 'story.boss.clean.a', event: 'boss-clean', pose: 'listening', text: 'Every decision right at the first answer. {keepsake} is kept on the shelf now.',
+    dry: 'Right at every first answer. {keepsake}, on the shelf.' },
+  { id: 'story.boss.again.a', event: 'boss-again', pose: 'thinking', text: 'Right in the end, not at the first answer. The hand deals the same whenever.' },
+
+  // The Masquerade.
+  { id: 'story.masq.intro.a', event: 'masq-intro', pose: 'listening', text: 'The Masquerade. A mask on every seat, and a style behind each. Read them before naming them.' },
+  { id: 'story.masq.pencil.a', event: 'masq-pencil', pose: 'gate', text: 'In pencil for {needs} more hands. The Folio inks nothing it cannot trust yet.' },
+  { id: 'story.masq.fit.a', event: 'masq-fit', pose: 'listening', text: 'The inked reads fit. Behind the {mask} mask: {rival}.',
+    dry: 'The reads fit. Behind the {mask}: {rival}.' },
+  { id: 'story.masq.not-fit.a', event: 'masq-not-fit', pose: 'thinking', text: 'Do the inked reads fit that style? Look again at how often the {mask} plays and folds.' },
+  { id: 'story.masq.done.a', event: 'masq-done', pose: 'rest', text: 'Every mask off, from the reads alone. Noted.' },
 ];

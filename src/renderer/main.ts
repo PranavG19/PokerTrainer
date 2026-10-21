@@ -117,8 +117,21 @@ import { renderProSettings } from './components/proSettings.js';
 import { openDeepLinkConfirm, openUpgradeSheet } from './components/upgradeSheet.js';
 import type { Feature } from '../core/entitlements/features.js';
 import { renderChapter, renderRivalDossier, renderStoryMap, renderStoryStrip } from './screens/story.js';
+import { renderKitchen, renderMasquerade } from './screens/storyRooms.js';
+import { bossFor, bossRecordOf, recordBoss } from '../core/story/boss.js';
+import { shelf as keepsakeShelf, syncKeepsakes } from '../core/story/keepsakes.js';
+import {
+  MASQUERADE_ROUND_HANDS,
+  beginMasquerade,
+  castOf,
+  ensureMasquerade,
+  nameSeat,
+  recordMasqueradeHand,
+  seatReads,
+  type NameResult,
+} from '../core/story/masquerade.js';
 import { buildRoute, tableFor, tableSeed, type StoryRoute } from '../core/story/route.js';
-import { rivalOf, venueById, type ChapterId, type Venue } from '../core/story/cast.js';
+import { KITCHEN, MASQUERADE, RIVALS, rivalOf, venueById, type ChapterId, type RivalId, type StoryRoomId, type Venue } from '../core/story/cast.js';
 import {
   STORY_TABLE_HANDS,
   chapterOf,
@@ -155,7 +168,7 @@ import { SECTIONS, SECTION_GROUP_STARTS, sectionOf, subNavOf, litSubItem, type L
 import { renderSubNav } from './components/subnav.js';
 import { renderPlay } from './screens/play.js';
 import type { TableSize } from '../core/tableSize.js';
-import { renderRivals, renderTrophies, renderYouProfile } from './screens/you.js';
+import { renderRivals, renderTrophies, renderYouProfile, type LeagueRows } from './screens/you.js';
 import { renderStyle } from './screens/style.js';
 import { renderLetters } from './screens/letters.js';
 import { styleRead, ARCHETYPE_STYLE } from '../core/style.js';
@@ -163,6 +176,10 @@ import { draftLetter, fileLetters, type LetterInput } from '../core/letters.js';
 import { weekOf } from '../core/week.js';
 import { milestoneById } from '../core/progression/milestones.js';
 import { renderLocker } from './screens/locker.js';
+import { renderRail } from './screens/rail.js';
+import { renderSeason, type SeasonPane } from './screens/season.js';
+import { railBoard, settleRail } from '../core/progression/rail.js';
+import { seasonArchive, seasonView, SEASON_WEEKS } from '../core/progression/season.js';
 import { equip, paintOf, SLOT_ATTRIBUTE, syncCosmetics, type EarnContext } from '../core/cosmetics/locker.js';
 import { COSMETIC_SLOTS, type CosmeticSlot } from '../core/progression/types.js';
 import { milestoneFacts, masteredIds } from '../core/progression/apply.js';
@@ -184,6 +201,8 @@ const YOU_TITLE: Partial<Record<Leaf, string>> = {
   rivals: 'Rivals',
   locker: 'Locker',
   dee: 'Dee',
+  rail: 'Ghost Rail',
+  season: 'Season',
 };
 
 export interface SpeakResult {
@@ -452,6 +471,10 @@ async function boot(): Promise<void> {
   let lockerSlot: CosmeticSlot = 'cardBack';
   /** Settings shows its column, or the local trial (1.8) in its place. */
   let settingsView: 'main' | 'trial' = 'main';
+  /** The Season screen's pane; null = the one the calendar points at (the finale in the finale week). */
+  let seasonPane: SeasonPane | null = null;
+  /** Where the assessment panel returns: Home, or the Season when its finale (or opening block) was taken there. */
+  let assessmentReturn: Leaf = 'home';
   /** One-shot deep links from a Ticket item into Train's Math and Spots. */
   let drillKindNext: string | null = null;
   let puzzleNext: string | null = null;
@@ -508,7 +531,10 @@ async function boot(): Promise<void> {
     | { at: 'map' }
     | { at: 'chapter'; id: ChapterId; stage: Stage; justPlayed: { judgement: TableJudgement; wasUnmasked: boolean } | null }
     | { at: 'table'; id: ChapterId }
-    | { at: 'dossier'; id: ChapterId } = { at: 'map' };
+    | { at: 'dossier'; id: ChapterId }
+    | { at: 'kitchen'; stage: 'intro' | 'lesson' | 'boss' }
+    | { at: 'masquerade'; said: { seat: number; result: NameResult } | null }
+    | { at: 'masq-table' } = { at: 'map' };
 
   const app = document.getElementById('app');
   if (!app) throw new Error('#app missing');
@@ -750,8 +776,104 @@ async function boot(): Promise<void> {
     return buildRoute(session.hands, session.progression.story);
   }
 
+  /** Every story save also files any keepsake it earned in Dee's memory (story/keepsakes.ts). */
   function saveStory(next: SessionState['progression']['story']): Promise<void> {
-    return saveProgression({ ...session.progression, story: next });
+    return saveProgression(syncKeepsakes({ ...session.progression, story: next }));
+  }
+
+  /** A boss hand played to the end: the attempt, and the first clean day (which keeps the keepsake). */
+  function onBossFinish(room: StoryRoomId, clean: boolean): void {
+    const boss = bossFor(room);
+    if (boss) void saveStory(recordBoss(session.progression.story, boss.id, clean, today()));
+  }
+
+  function bossKept(room: StoryRoomId): boolean {
+    const boss = bossFor(room);
+    return boss ? bossRecordOf(session.progression.story, boss.id).cleanOn !== null : false;
+  }
+
+  /** Open one of the story's rooms on the Story tab: a keepsake opens the hand (or the Masquerade) that earns it. */
+  function openRoom(room: StoryRoomId): void {
+    tab = 'story';
+    if (room === KITCHEN.id) storyView = { at: 'kitchen', stage: 'boss' };
+    else if (room === MASQUERADE.id) return openMasquerade();
+    else storyView = { at: 'chapter', id: room, stage: 'boss', justPlayed: null };
+    render();
+  }
+
+  function unmaskedInOrbit(rival: RivalId): boolean {
+    const venue = VENUES.find((v) => v.rival === rival);
+    return venue ? isUnmasked(session.progression.story, venue) : false;
+  }
+
+  function openMasquerade(): void {
+    const m = session.progression.story.masquerade;
+    const dealt = ensureMasquerade(m);
+    if (dealt !== m) void saveStory({ ...session.progression.story, masquerade: dealt });
+    storyView = { at: 'masquerade', said: null };
+    render();
+  }
+
+  /** The Masquerade's table: three masked seats, their jittered styles, every action counted for the Folio. */
+  function startMasqueradeTable(): void {
+    teardownTable();
+    const m = ensureMasquerade(session.progression.story.masquerade);
+    const hands = m.seats.reduce((n, seat) => Math.max(n, seat.acted), 0);
+    const tseed = (Math.imul(m.run, 7919) ^ Math.imul(hands + 1, 104729) ^ seed) >>> 0;
+    storyView = { at: 'masq-table' };
+    const finish = (): void => {
+      teardownTable();
+      addExtras({ storyTableEnded: true });
+      storyView = { at: 'masquerade', said: null };
+      render();
+    };
+    table = renderTable({
+      seed: tseed,
+      bankroll: session.bankroll,
+      handNumber: session.stats.handsPlayed + 1,
+      handLimit: MASQUERADE_ROUND_HANDS,
+      coachedMode: session.coachedMode,
+      cast: castOf(m).map((c) => {
+        // A seat shows its rival's name only once both the Masquerade and the orbit have unmasked them.
+        const named = c.unmasked && c.rival !== null && unmaskedInOrbit(c.rival);
+        return {
+          name: named && c.rival ? RIVALS[c.rival].short : c.mask,
+          avatar: (named && c.rival ? RIVALS[c.rival].short : c.mask)[0],
+          archetype: c.archetype,
+          profile: c.profile,
+          revealLabel: named && c.rival ? RIVALS[c.rival].style : null,
+        };
+      }),
+      onHandComplete: (r) => void onHandComplete(r),
+      onHandSettled: (hand) => {
+        const story = session.progression.story;
+        // Against the dealt seats even if no save has dealt them yet: a hand is never counted into nothing.
+        const next = recordMasqueradeHand(ensureMasquerade(story.masquerade), hand.villains.map((v) => v.actions));
+        void saveStory({ ...story, masquerade: next });
+      },
+      sittingEnd: {
+        note: 'That is the round. The Folio has the counts: only what each mask did, never its cards.',
+        label: 'Back to the Folio',
+        testid: 'masq-folio-go',
+      },
+      onRebuy: () => void onRebuy(),
+      onGifts: (gifts) => void onGifts(gifts),
+      onPrediction: (outcome, confidence) => void onPrediction(outcome, confidence),
+      onCoachedModeChange: (on) => void onCoachedModeChange(on),
+      onVerdict: (message) => narrate(message),
+      dee: {
+        context: deeContext(),
+        memory: lineMemoryOf(session.progression.dee),
+        onMemory: (memory) => {
+          session = { ...session, progression: withLineMemory(session.progression, memory) };
+        },
+        onPerch: (source, pose) => perch.setPose(source, pose),
+        onActing: (on) => perch.setActing(on),
+      },
+      onPriceHeld: (count) => addExtras({ priceHeld: count }),
+      onSessionOver: () => finish(),
+    });
+    screen.replaceChildren(table.root);
   }
 
   function storyDee(): { tone: DeeContext['tone']; character: boolean } {
@@ -880,6 +1002,7 @@ async function boot(): Promise<void> {
     onlineActive = kind === 'online';
     assessmentActive = kind === 'assessment';
     varianceActive = kind === 'variance';
+    assessmentReturn = 'home';
   }
 
   /** Open a chapter. Choosing one other than the suggested chapter is logged (N1: an override, never a refusal). */
@@ -964,6 +1087,47 @@ async function boot(): Promise<void> {
   function renderStoryTab(): HTMLElement {
     const story = session.progression.story;
     const unmasked = (id: ChapterId): boolean => isUnmasked(session.progression.story, venueById(id) as Venue);
+    const toMap = (): void => {
+      storyView = { at: 'map' };
+      render();
+    };
+    if (storyView.at === 'kitchen') {
+      return renderKitchen({
+        progress: chapterOf(story, KITCHEN.id),
+        stage: storyView.stage,
+        bossKept: bossKept(KITCHEN.id),
+        dee: storyDee(),
+        onStage: (stage) => {
+          storyView = { at: 'kitchen', stage };
+        },
+        onIntroSeen: () => void saveStory(markIntroSeen(session.progression.story, KITCHEN.id)),
+        onLessonDone: () => void saveStory(markLessonDone(session.progression.story, KITCHEN.id)),
+        onBossFinish: (clean) => onBossFinish(KITCHEN.id, clean),
+        onBack: toMap,
+      });
+    }
+    if (storyView.at === 'masquerade' || storyView.at === 'masq-table') {
+      const said = storyView.at === 'masquerade' ? storyView.said : null;
+      const m = ensureMasquerade(story.masquerade);
+      return renderMasquerade({
+        state: m,
+        unmaskedInOrbit,
+        dee: storyDee(),
+        said,
+        onName: (seat, rival) => {
+          const cur = ensureMasquerade(session.progression.story.masquerade);
+          const named = nameSeat(cur, seat, rival, seatReads(cur.seats[seat]), today());
+          storyView = { at: 'masquerade', said: { seat, result: named.result } };
+          void saveStory({ ...session.progression.story, masquerade: named.state }).then(() => render());
+        },
+        onSitDown: () => startMasqueradeTable(),
+        onNewMasquerade: () => {
+          storyView = { at: 'masquerade', said: null };
+          void saveStory({ ...session.progression.story, masquerade: beginMasquerade(session.progression.story.masquerade) }).then(() => render());
+        },
+        onBack: toMap,
+      });
+    }
     if (storyView.at === 'dossier') {
       const venue = venueById(storyView.id) as Venue;
       return renderRivalDossier({
@@ -1014,16 +1178,25 @@ async function boot(): Promise<void> {
           storyView = { at: 'dossier', id: venue.id };
           render();
         },
-        onBack: () => {
-          storyView = { at: 'map' };
-          render();
-        },
+        onBack: toMap,
+        bossKept: bossKept(venue.id),
+        onBossFinish: (clean) => onBossFinish(venue.id, clean),
       });
     }
+    const kitchen = chapterOf(story, KITCHEN.id);
+    const masq = story.masquerade;
     return renderStoryMap({
       route,
       unmasked,
       dee: storyDee(),
+      kitchen: { kept: bossKept(KITCHEN.id), started: kitchen.introSeen },
+      masquerade: { unmasked: masq.seats.filter((s) => s.unmaskedOn !== null).length, seats: masq.seats.length, completed: masq.completed },
+      onOpenKitchen: () => {
+        const p = chapterOf(session.progression.story, KITCHEN.id);
+        storyView = { at: 'kitchen', stage: !p.introSeen ? 'intro' : !p.lessonDone ? 'lesson' : 'boss' };
+        render();
+      },
+      onOpenMasquerade: () => openMasquerade(),
       onOpenChapter: (id) => openChapter(id),
       onOpenFile: (id) => {
         storyView = { at: 'dossier', id };
@@ -1492,7 +1665,7 @@ async function boot(): Promise<void> {
     // Every non-play tab tears the table down: a hand left mounted behind another screen would keep
     // its AI timer running and deal on while nobody is watching it.
     // A chapter table belongs to the Story tab the way a solo table belongs to Play.
-    if (tab === 'story' && storyView.at === 'table' && table) {
+    if (tab === 'story' && (storyView.at === 'table' || storyView.at === 'masq-table') && table) {
       teardownReview();
       screen.replaceChildren(table.root);
       return;
@@ -1501,6 +1674,10 @@ async function boot(): Promise<void> {
     if (storyView.at === 'table' && tab !== 'story') {
       teardownTable();
       storyView = { at: 'chapter', id: storyView.id, stage: 'table', justPlayed: null };
+    }
+    if (storyView.at === 'masq-table' && tab !== 'story') {
+      teardownTable();
+      storyView = { at: 'masquerade', said: null };
     }
     if (tab !== 'play' && tab !== 'home') {
       teardownTable();
@@ -1565,7 +1742,9 @@ async function boot(): Promise<void> {
           // Done returns to Home, the launcher, as it did before the tables moved under Play.
           onExit: () => {
             assessmentActive = false;
-            go('home');
+            const back = assessmentReturn;
+            assessmentReturn = 'home';
+            go(back);
           },
         }),
       );
@@ -1771,7 +1950,7 @@ async function boot(): Promise<void> {
     if (items === null) return body;
     const study = sectionOf(which) === 'study';
     return renderSubNav({
-      title: study ? 'Study' : YOU_TITLE[litSubItem(which)] ?? 'You',
+      title: study ? 'Study' : YOU_TITLE[which] ?? YOU_TITLE[litSubItem(which)] ?? 'You',
       note: study ? 'Reference tools: nothing here is graded' : which === 'profile' ? 'Everything here stays on this Mac' : undefined,
       items,
       lit: litSubItem(which),
@@ -1789,8 +1968,10 @@ async function boot(): Promise<void> {
     if (which === 'trophies') {
       const facts = milestoneFacts(session, session.progression, SCENARIOS, masteredIds(deriveConcepts(), now()).length);
       const views = milestoneViews(session.progression.milestones, facts);
-      return renderTrophies(views, nextUp(views, 4));
+      return renderTrophies(views, nextUp(views, 4), leagueRows());
     }
+    if (which === 'rail') return renderRail({ rail: settleRail(session.progression.rail, today()), today: today(), onPlay: () => startTable() });
+    if (which === 'season') return renderSeasonTab();
     if (which === 'rivals') return renderRivalsTab();
     if (which === 'locker') return renderLockerTab();
     if (which === 'style') return renderStyleTab();
@@ -2168,6 +2349,7 @@ async function boot(): Promise<void> {
         depthLabel: currentStanding(t).label,
         streak: { current: streak.current, best: streak.best },
         repsTotal: p.reps.total,
+        keepsakes: keepsakeShelf(p.story),
       },
       {
         onEdit: () => {
@@ -2181,6 +2363,9 @@ async function boot(): Promise<void> {
         },
         onOpenProgress: () => go('progress'),
         onOpenTrophies: () => go('trophies'),
+        onOpenRail: () => go('rail'),
+        onOpenSeason: () => go('season'),
+        onOpenKeepsake: (room) => openRoom(room),
       },
     );
   }
@@ -2275,6 +2460,45 @@ async function boot(): Promise<void> {
           // The button is disabled once its item is worn, so the keyboard lands on the worn item's tile instead of <body>.
           document.querySelector<HTMLElement>(`[data-testid="locker-item"][data-id="${CSS.escape(itemId)}"]`)?.focus();
         });
+      },
+    });
+  }
+
+  /** The Trophy room's two rows into the Ghost Rail and the Season, with this week's facts. */
+  function leagueRows(): LeagueRows {
+    const d = today();
+    const board = railBoard(settleRail(session.progression.rail, d), d);
+    const v = seasonView(session.progression.seasons, d);
+    const n = board.current.decisions;
+    return {
+      rail: `${board.tier.name} tier · ${n} scored ${n === 1 ? 'decision' : 'decisions'} this week`,
+      season:
+        v.clock.phase === 'finale'
+          ? `Season ${v.clock.season} · the finale week${v.finale ? ', finale taken' : ', the finale is open'}`
+          : `Season ${v.clock.season} · week ${v.clock.week} of ${SEASON_WEEKS} · ${v.steps.filter((x) => x.reached).length} of ${v.steps.length} stamps`,
+      onRail: () => go('rail'),
+      onSeason: () => go('season'),
+    };
+  }
+
+  /** The Season: its free track, the finale (an assessment block in the finale week) and the archive. */
+  function renderSeasonTab(): HTMLElement {
+    const d = today();
+    const p = session.progression;
+    const view = seasonView(p.seasons, d);
+    const sealDays = Object.values(p.seals.earned).map((e) => e.day);
+    return renderSeason({
+      view,
+      archive: seasonArchive(p.seasons, settleRail(p.rail, d), sealDays, d),
+      pane: seasonPane ?? (view.clock.phase === 'finale' ? 'finale' : 'track'),
+      onPane: (pane) => {
+        seasonPane = pane;
+        render();
+      },
+      onTakeBlock: () => {
+        openPanel('assessment');
+        assessmentReturn = 'season';
+        go('play');
       },
     });
   }

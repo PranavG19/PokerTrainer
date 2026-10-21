@@ -27,13 +27,19 @@ describe('navigation: seven sections, the You sub-nav, every old tab folded in (
   });
 
   it('every leaf belongs to one section (Settings to none) and lights the right sub-nav item', () => {
-    const leaves: Leaf[] = ['home', 'play', 'learn', 'story', 'train', ...STUDY_NAV.map((i) => i.leaf), ...YOU_NAV.map((i) => i.leaf), 'progress'];
+    const leaves: Leaf[] = ['home', 'play', 'learn', 'story', 'train', ...STUDY_NAV.map((i) => i.leaf), ...YOU_NAV.map((i) => i.leaf), 'progress', 'rail', 'season'];
     for (const l of leaves) expect(sectionOf(l)).not.toBeNull();
     expect(sectionOf('settings')).toBeNull();
     expect(subNavOf('equity')).toBe(STUDY_NAV);
     expect(subNavOf('progress')).toBe(YOU_NAV);
     expect(subNavOf('home')).toBeNull();
     expect(litSubItem('progress')).toBe('profile');
+    // The Ghost Rail and the Season open from the Trophy room and keep it lit; the owner's eight are unchanged.
+    for (const l of ['rail', 'season'] as const) {
+      expect(sectionOf(l)).toBe('you');
+      expect(subNavOf(l)).toBe(YOU_NAV);
+      expect(litSubItem(l)).toBe('trophies');
+    }
   });
 });
 
