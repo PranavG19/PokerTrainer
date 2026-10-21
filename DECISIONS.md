@@ -6,6 +6,46 @@ Living record. Each line is the current end state.
 - Round 3 is a scored, element-by-element refinement. The rubric and scores are in `SCORECARD.md` and
   `demo/glass/scorecard.html`.
 
+## Settings: Character, Celebrations and the local trial (branch `feat-settings-trial`, 1.8)
+Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone clack behind the sound switch), D15
+(run the trial, four weeks on/off, kill criteria written in advance), no schema bumps (additive fields only).
+- **Rhythm, Pause and wick protection are dropped from 1.8.** D5 made the streak classic with no rest days or
+  freezes, so there is nothing for them to set. Supersedes: BUILD-PLAN 1.8's "Character, Celebrations and Rhythm;
+  Pause", because D5 removed what they controlled.
+- **Character lives in two places, one field.** Settings › Character and You › Dee both write
+  `progression.dee.character` and the new `progression.dee.personality.quiet` (`standard` | `quieter` | `quietest`,
+  unknown → standard). Quieter stretches every cooldown 2× and leaves 3 silent hands after any line; Quietest 3× and 6
+  hands. The session summary is never held back. Both multiply depth quieting (`contextOf`); the words never change.
+- **Celebrations are one new key, `progression.celebrations`** `{ on, motion: 'system' | 'still', sound }`, default
+  `{ true, 'system', true }`. The one reader is `celebrationGate(progression, soundCues, today)` in `core/trial.ts`:
+  `play` (on, and not an off week), `still`, and `sound` (its own switch AND `soundCues`, D13). The document carries
+  `html[data-celebrations="on|off"]` and `html[data-motion="system|still"]`; `styles-cosmetics.css` stills `.moment`
+  and the Locker preview under `still`. **The session-end moment (1.10) reads this gate**; it does not add its own key.
+- **The trial is `progression.trial`** (`core/trial.ts`, Settings › The trial). Weeks run on/off/on/off from the day
+  Start is pressed. In an off week Dee (`characterOn`) and the moment (`celebrationGate`) are off; the switches are
+  never changed. The prediction (12+ characters) and an optional own criterion are written first and locked at Start;
+  activity before the press does not count. One trial per profile: Stop keeps the counts, and a trial in any other
+  status (a newer build's included) is never replaced or deleted.
+- **Metrics are counted from what is already recorded,** incrementally at every save during its week (only activity
+  newer than the week's `through` is added), so the 500-hand log cap can neither shrink nor stall a week: sessions (30 min
+  gaps), late sessions (23:00–04:00), days with 3+ sessions, graded decisions, assessment EV loss, delayed-review
+  accuracy (a drill rep 3+ days after the concept's last one: the app emits no decay probes yet), reps on concepts
+  already mastered, and the Sure rate and accuracy (from the dateless tallies, by week-start and week-end snapshots).
+  A save with nothing new files nothing. A mark past now (a clock put back) is pulled back to now, so at most that
+  one save's activity is lost. Blocks and the baseline are parsed whole: a later field goes in a new key beside
+  them, never inside. While the trial runs the table pools every week; on beside off shows only after day 28 or a
+  stop. Nothing leaves the machine.
+- **Kill criteria (fixed text, `KILL_CRITERIA`):** EV loss on > off by more than 10% (30+ each way); delayed accuracy
+  5+ points lower (20+); Sure rate +10 with Sure accuracy −5 (20+ Sure calls); reps on mastered concepts +10 points
+  (20+); the share of late sessions +10 points with 2+ late (5+ sessions each way); the share of practice days with 3+
+  sessions +20 points with 2+ such days (3+ days each way); over half the on-week "wanted to / had to" answers say
+  "had to" (2+). Rates, not totals, so an on week with more practice never trips by volume alone. Supersedes: raw
+  late/busy totals, because they tripped on exactly the engagement the layer is meant to add. Below a minimum: "too
+  little to say", never a trip. The verdicts are shown only after day 28 (never mid-trial, never for a stopped one).
+- **Results are applied by the learner's press after day 28.** A trip turns Character and Celebrations off (the
+  layer goes off by default, PITCH §2.2); either can be turned back on. The page states the n = 1 limit.
+
+
 ## Teach Dee (branch `feat-teach-dee`): contrast sets played from your own rules (2.4)
 Owner decisions in force: the tutor never authors a number, no trait insults, nothing is locked, every new line passes
 Dee's bank lint.

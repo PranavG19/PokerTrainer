@@ -311,9 +311,10 @@ test.describe('Dee', () => {
       }
     });
     const saved = JSON.parse(fs.readFileSync(path.join(dir, 'offsuit-state.json'), 'utf-8')) as {
-      progression: { dee: { personality: { tone: string; frequency: string }; character: boolean } };
+      progression: { dee: { personality: { tone: string; frequency: string; quiet: string }; character: boolean } };
     };
-    expect(saved.progression.dee.personality).toEqual({ tone: 'blunt', frequency: 'mistakes' });
+    // `quiet` (1.8, the quieter level) is additive and untouched here, so it is the default.
+    expect(saved.progression.dee.personality).toEqual({ tone: 'blunt', frequency: 'mistakes', quiet: 'standard' });
     expect(saved.progression.dee.character).toBe(true);
     // After a restart the choices are still there.
     await withApp({ seed: 42, dir }, async (page) => {

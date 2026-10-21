@@ -7,7 +7,7 @@
 import type { DayKey } from '../localDay.js';
 import { MAX_DEE_SAID, MAX_REMEMBERED_SENTENCES } from '../progression/persist.js';
 import type { DeeMemory, ProgressionState } from '../progression/types.js';
-import { frequencyOf, principleOf, toneOf, type DeeContext, type DeeLineMemory } from './engine.js';
+import { frequencyOf, principleOf, QUIET_SPACING, QUIET_STRETCH, quietOf, toneOf, type DeeContext, type DeeLineMemory, type QuietLevel } from './engine.js';
 import type { Frequency, Principle, Tone } from './types.js';
 
 function withDee(p: ProgressionState, dee: Partial<DeeMemory>): ProgressionState {
@@ -20,6 +20,10 @@ export function setTone(p: ProgressionState, tone: Tone): ProgressionState {
 
 export function setFrequency(p: ProgressionState, frequency: Frequency): ProgressionState {
   return withDee(p, { personality: { ...p.dee.personality, frequency } });
+}
+
+export function setQuiet(p: ProgressionState, quiet: QuietLevel): ProgressionState {
+  return withDee(p, { personality: { ...p.dee.personality, quiet } });
 }
 
 export function setCharacter(p: ProgressionState, character: boolean): ProgressionState {
@@ -84,6 +88,7 @@ export function contextOf(dee: DeeMemory, derived: { biggestLeak: Principle | nu
     character: dee.character,
     rules: rulesByPrinciple(dee),
     biggestLeak: derived.biggestLeak,
-    quietness: derived.quietness,
+    quietness: derived.quietness * QUIET_STRETCH[quietOf(dee.personality.quiet)],
+    spacing: QUIET_SPACING[quietOf(dee.personality.quiet)],
   };
 }

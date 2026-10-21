@@ -5,6 +5,8 @@ import {
   NEW_SITTING,
   handEndEvent,
   isPriceHeld,
+  QUIET_SPACING,
+  QUIET_STRETCH,
   quietnessForDepth,
   recordHandInSitting,
   rememberLine,
@@ -15,7 +17,7 @@ import {
   type DeeContext,
 } from '../../src/core/dee/engine.js';
 import { DEE_BANK } from '../../src/core/dee/bank.js';
-import { contextOf, forgetRules, lineMemoryOf, rememberRule, setCharacter, setFrequency, setTone, withLineMemory } from '../../src/core/dee/memory.js';
+import { contextOf, forgetRules, lineMemoryOf, rememberRule, setCharacter, setFrequency, setQuiet, setTone, withLineMemory } from '../../src/core/dee/memory.js';
 import { defaultProgression, parseProgression, serializeProgression } from '../../src/core/progression/persist.js';
 import { asDayKey } from '../../src/core/localDay.js';
 
@@ -214,6 +216,26 @@ describe('selection: deterministic, specific first, cooldowns, depth quieting', 
     expect(pick(3)).not.toContain(said?.lineId);
   });
 
+  it('the quieter level (1.8): a gap of hands after any line, and longer cooldowns; standard changes nothing', () => {
+    const said = selectLine(event, CTX, FRESH, 5);
+    expect(said).not.toBeNull();
+    let memory = rememberLine(FRESH, said?.lineId ?? '');
+    memory = watchHand(memory);
+    // Standard: another line is free to come one hand later.
+    expect(selectLine(event, { ...CTX, spacing: QUIET_SPACING.standard }, memory, 6)).not.toBeNull();
+    // Quieter: three silent hands must pass after any line, whichever line it was.
+    expect(selectLine(event, { ...CTX, spacing: QUIET_SPACING.quieter }, memory, 6)).toBeNull();
+    for (let i = 0; i < 3; i++) memory = watchHand(memory);
+    expect(selectLine(event, { ...CTX, spacing: QUIET_SPACING.quieter }, memory, 6)).not.toBeNull();
+    expect(selectLine(event, { ...CTX, spacing: QUIET_SPACING.quietest }, memory, 6)).toBeNull();
+    // The profile's level reaches the engine through contextOf, on top of depth quieting.
+    const dee = { ...defaultProgression().dee, personality: { tone: 'warm', frequency: 'normal', quiet: 'quietest' } };
+    expect(contextOf(dee, { biggestLeak: null, quietness: 1.5 })).toMatchObject({ quietness: 1.5 * QUIET_STRETCH.quietest, spacing: QUIET_SPACING.quietest });
+    const unknown = { ...dee, personality: { ...dee.personality, quiet: 'whisper' } };
+    expect(contextOf(unknown, { biggestLeak: null, quietness: 1 })).toMatchObject({ quietness: 1, spacing: 0 });
+    expect(setQuiet(defaultProgression(), 'quieter').dee.personality.quiet).toBe('quieter');
+  });
+
   it('tone changes the words, never the numbers', () => {
     const facts = (t: 'dry' | 'warm' | 'blunt'): string[] => {
       const out = new Set<string>();
@@ -259,12 +281,31 @@ describe('Dee in the profile (progression.dee)', () => {
     expect(p.dee.character).toBe(true);
     expect(p.dee.handsWatched).toBe(0);
     expect(p.dee.said).toEqual([{ lineId: 'ok', at: 0 }]);
-    expect(p.dee.personality).toEqual({ tone: 'sardonic', frequency: 'hourly' });
+    expect(p.dee.personality).toEqual({ tone: 'sardonic', frequency: 'hourly', quiet: 'standard' });
     expect(contextOf(p.dee, { biggestLeak: null, quietness: 1 })).toMatchObject({ tone: 'warm', frequency: 'normal' });
   });
 
   it('a recorded hand count above the lifetime count is clamped, so no line is locked out', () => {
     const p = parseProgression({ dee: { handsWatched: 3, said: [{ lineId: 'ph-1', at: 900 }] } });
     expect(lineMemoryOf(p.dee).said[0].at).toBe(3);
+  });
+});
+
+describe('the quieter level (review round 1, red first)', () => {
+  const event = handEndEvent([decision({ grade: { severity: 'serious', evLossBb: 2.9, principle: 'pot odds', price: { needed: 0.25, had: 0.74 } } })], NEW_SITTING, CTX);
+  it('"three hands between lines" means three silent hands', () => {
+    const said = selectLine(event, CTX, FRESH, 5);
+    let memory = rememberLine(FRESH, said?.lineId ?? '');
+    for (let i = 0; i < 3; i++) memory = watchHand(memory);
+    expect(selectLine(event, { ...CTX, spacing: QUIET_SPACING.quieter }, memory, 6)).toBeNull();
+    memory = watchHand(memory);
+    expect(selectLine(event, { ...CTX, spacing: QUIET_SPACING.quieter }, memory, 6)).not.toBeNull();
+  });
+  it('the session summary is never held back by spacing', () => {
+    const end = sessionEndEvent({ ...NEW_SITTING, hands: 12, mistakes: 1 }, CTX);
+    const memory = rememberLine(FRESH, 'any-line');
+    const plain = selectLine(end, CTX, memory, 3);
+    expect(plain).not.toBeNull();
+    expect(selectLine(end, { ...CTX, spacing: QUIET_SPACING.quietest }, memory, 3)).not.toBeNull();
   });
 });

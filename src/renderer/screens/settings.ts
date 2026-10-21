@@ -1,4 +1,6 @@
 import { attachThumb } from '../components/thumb.js';
+import type { QuietLevel } from '../../core/dee/engine.js';
+import type { CelebrationsState } from '../../core/progression/types.js';
 
 
 /**
@@ -59,6 +61,25 @@ export interface SettingsHandlers {
   onThemeChange: (theme: string) => void;
   /** Open Dee's settings (personality, when Dee speaks, Character). */
   onOpenDee?: () => void;
+  /** Settings › Character (1.8): the same Character switch and quieter level Dee's own screen sets. */
+  onCharacterChange?: (on: boolean) => void;
+  onQuietChange?: (level: QuietLevel) => void;
+  /** Settings › Celebrations (1.8): the session-end moment's switches. */
+  onCelebrationsChange?: (patch: Partial<CelebrationsState>) => void;
+  /** Open the local trial (setup, the running weeks, or the results). */
+  onOpenTrial?: () => void;
+}
+
+/** What Settings › Character, Celebrations and The trial show (1.8). Absent = the sections are not drawn. */
+export interface HabitSettingsView {
+  readonly character: boolean;
+  readonly quiet: string;
+  readonly celebrations: CelebrationsState;
+  /** Off this week: an off week of the local trial hides Dee and the moment whatever the switches say. */
+  readonly offWeek: boolean;
+  /** One line on where the trial stands, and the button's label. */
+  readonly trialLine: string;
+  readonly trialAction: string;
 }
 
 /** T4's diagnostics show "the last few", not the whole history. */
@@ -94,6 +115,8 @@ export function renderSettings(opts: {
   handlers: SettingsHandlers;
   /** Settings → Offsuit Pro (components/proSettings.ts), built by the caller that owns the Pro client. */
   proSection?: HTMLElement;
+  /** Character, Celebrations and the trial (1.8). */
+  habit?: HabitSettingsView;
   /** Your data → export and import (components/profileTransfer.ts), built by the caller that owns the profile. */
   profileTransfer?: HTMLElement;
 }): HTMLElement {
@@ -114,7 +137,11 @@ export function renderSettings(opts: {
   root.appendChild(renderNarration(opts.spokenVerdicts, handlers));
   root.appendChild(renderSoundCues(opts.soundCues, handlers));
   root.appendChild(renderTheme(status.theme, handlers));
-  if (handlers.onOpenDee) root.appendChild(renderDeeLink(handlers.onOpenDee));
+  if (opts.habit !== undefined) {
+    root.appendChild(renderCharacter(opts.habit, handlers));
+    root.appendChild(renderCelebrations(opts.habit, opts.soundCues, handlers));
+    if (handlers.onOpenTrial) root.appendChild(renderTrialEntry(opts.habit, handlers.onOpenTrial));
+  } else if (handlers.onOpenDee) root.appendChild(renderDeeLink(handlers.onOpenDee));
   if (opts.proSection !== undefined) root.appendChild(opts.proSection);
   root.appendChild(renderProfileSection(status, handlers, opts.profileTransfer));
 
@@ -156,6 +183,233 @@ function renderDeeLink(onOpen: () => void): HTMLElement {
   row.append(button, note);
   body.appendChild(row);
   return section('Dee', body);
+}
+
+const QUIET_OPTIONS: readonly { id: QuietLevel; label: string }[] = [
+  { id: 'standard', label: 'Standard' },
+  { id: 'quieter', label: 'Quieter' },
+  { id: 'quietest', label: 'Quietest' },
+];
+
+const QUIET_NOTE: Record<QuietLevel, string> = {
+  standard: 'Dee speaks by its own rules, and less at each certified depth.',
+  quieter: 'Every line waits twice as long to come back, and at least three hands pass between lines.',
+  quietest: 'Every line waits three times as long, and at least six hands pass between lines.',
+};
+
+/**
+ * Character (1.8): Dee on or off, and how much quieter. The same profile fields Dee's own screen sets
+ * (progression.dee.character, personality.quiet), so the two screens can never disagree. Off is an
+ * accessibility choice, never something to unlock.
+ */
+function renderCharacter(view: HabitSettingsView, handlers: SettingsHandlers): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'settings-block g-group settings-rows';
+  body.dataset.testid = 'settings-character';
+
+  body.appendChild(
+    switchRow({
+      testid: 'settings-character-toggle',
+      on: view.character,
+      name: 'Character',
+      note: view.character
+        ? view.offWeek
+          ? 'On, but hidden this week: it is an off week of your trial.'
+          : 'On. Dee greets, perches and says its lines. Off shows a plain dealer button, same verdicts.'
+        : 'Off. A plain dealer button: no eyes and no lines of its own. The coach’s verdicts stay.',
+      onChange: handlers.onCharacterChange,
+    }),
+  );
+
+  const quiet = QUIET_OPTIONS.some((o) => o.id === view.quiet) ? (view.quiet as QuietLevel) : 'standard';
+  body.appendChild(
+    segRow({
+      testid: 'settings-quiet',
+      label: 'How often Dee speaks',
+      options: QUIET_OPTIONS,
+      value: quiet,
+      note: QUIET_NOTE[quiet],
+      noteTestid: 'settings-quiet-note',
+      onChange: handlers.onQuietChange,
+    }),
+  );
+
+  if (handlers.onOpenDee) {
+    const row = document.createElement('div');
+    row.className = 'settings-switch';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pill sm';
+    button.dataset.testid = 'open-dee-settings';
+    button.textContent = 'Dee’s settings';
+    button.addEventListener('click', handlers.onOpenDee);
+    const note = document.createElement('span');
+    note.className = 'settings-note';
+    note.textContent = 'Personality and when Dee speaks, with a live preview.';
+    row.append(button, note);
+    body.appendChild(row);
+  }
+  return section('Character', body);
+}
+
+const MOTION_OPTIONS: readonly { id: 'system' | 'still'; label: string }[] = [
+  { id: 'system', label: 'Follow the Mac' },
+  { id: 'still', label: 'Always still' },
+];
+
+/**
+ * Celebrations (1.8): the session-end moment (1.10) on or off, its motion, and the milestone clack (D13). Separate
+ * from Character (VISION §5). The clack is behind the app's sound switch: with that off it never plays, and the
+ * row says so instead of pretending.
+ */
+function renderCelebrations(view: HabitSettingsView, soundCues: boolean, handlers: SettingsHandlers): HTMLElement {
+  const c = view.celebrations;
+  const body = document.createElement('div');
+  body.className = 'settings-block g-group settings-rows';
+  body.dataset.testid = 'settings-celebrations';
+
+  body.appendChild(
+    switchRow({
+      testid: 'celebrations-toggle',
+      on: c.on,
+      name: 'Celebrations',
+      note: c.on
+        ? view.offWeek
+          ? 'On, but paused this week: it is an off week of your trial.'
+          : 'On. When a session ends, one short moment of plain facts. Never on a verdict, a pot or a win.'
+        : 'Off. A session ends quietly.',
+      onChange: (on) => handlers.onCelebrationsChange?.({ on }),
+    }),
+  );
+
+  const motion = c.motion === 'still' ? 'still' : 'system';
+  body.appendChild(
+    segRow({
+      testid: 'celebrations-motion',
+      label: 'Celebration motion',
+      options: MOTION_OPTIONS,
+      value: motion,
+      note: motion === 'still' ? 'Reduced motion: the words show, still.' : 'Moves unless the Mac’s Reduce motion is on.',
+      noteTestid: 'celebrations-motion-note',
+      onChange: (id) => handlers.onCelebrationsChange?.({ motion: id }),
+      disabled: !c.on,
+    }),
+  );
+
+  const sound = switchRow({
+    testid: 'celebrations-sound-toggle',
+    on: c.sound && soundCues,
+    name: 'Milestone sound',
+    note: !soundCues
+      ? 'Off while “A sound on a mistake” is off: every sound is behind that one switch.'
+      : c.sound
+        ? 'On. One soft clack when a session ends, on this machine only.'
+        : 'Off. Celebrations stay silent.',
+    onChange: (on) => handlers.onCelebrationsChange?.({ sound: on }),
+    disabled: !soundCues || !c.on,
+  });
+  sound.dataset.soundSwitch = String(soundCues);
+  body.appendChild(sound);
+  return section('Celebrations', body);
+}
+
+/** The local trial's entry: where it stands, and the way in (screens/trial.ts). */
+function renderTrialEntry(view: HabitSettingsView, onOpen: () => void): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'settings-block g-group settings-rows';
+  const row = document.createElement('div');
+  row.className = 'settings-switch';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'pill sm';
+  button.dataset.testid = 'open-trial';
+  button.textContent = view.trialAction;
+  button.addEventListener('click', onOpen);
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.dataset.testid = 'trial-line';
+  note.textContent = view.trialLine;
+  row.append(button, note);
+  body.appendChild(row);
+  return section('The trial', body);
+}
+
+/** A settings row with a .g-switch: the note left, the switch right (the narration switch's idiom). */
+function switchRow(o: {
+  testid: string;
+  on: boolean;
+  name: string;
+  note: string;
+  onChange?: (on: boolean) => void;
+  disabled?: boolean;
+}): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-switch';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'g-switch settings-toggle-switch';
+  button.dataset.testid = o.testid;
+  button.setAttribute('role', 'switch');
+  button.setAttribute('aria-checked', String(o.on));
+  button.dataset.on = String(o.on);
+  button.textContent = o.on ? 'On' : 'Off';
+  button.appendChild(switchTrack());
+  button.setAttribute('aria-label', `${o.name}: ${o.on ? 'on' : 'off'}`);
+  button.disabled = o.disabled === true;
+  button.addEventListener('click', () => o.onChange?.(!o.on));
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.dataset.testid = `${o.testid}-note`;
+  const title = document.createElement('b');
+  title.className = 'settings-row-title';
+  title.textContent = o.name;
+  note.append(title, document.createTextNode(` ${o.note}`));
+  wrap.append(button, note);
+  return wrap;
+}
+
+/** A settings row with a segmented control (the theme's idiom: aria-pressed buttons and one sliding thumb). */
+function segRow<T extends string>(o: {
+  testid: string;
+  label: string;
+  options: readonly { id: T; label: string }[];
+  value: T;
+  note: string;
+  noteTestid: string;
+  onChange?: (id: T) => void;
+  disabled?: boolean;
+}): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'settings-switch';
+  const group = document.createElement('div');
+  group.className = 'g-seg g-seg-sm settings-seg';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', o.label);
+  group.dataset.testid = o.testid;
+  group.dataset.value = o.value;
+  for (const option of o.options) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.testid = `${o.testid}-${option.id}`;
+    const active = option.id === o.value;
+    button.setAttribute('aria-pressed', String(active));
+    button.textContent = option.label;
+    button.disabled = o.disabled === true;
+    button.addEventListener('click', () => {
+      if (option.id !== o.value) o.onChange?.(option.id);
+    });
+    group.appendChild(button);
+  }
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.dataset.testid = o.noteTestid;
+  const title = document.createElement('b');
+  title.className = 'settings-row-title';
+  title.textContent = o.label;
+  note.append(title, document.createTextNode(` ${o.note}`));
+  row.append(group, note);
+  attachThumb(group);
+  return row;
 }
 
 function section(label: string, body: HTMLElement): HTMLElement {

@@ -411,3 +411,15 @@
   }
   .locker-moment.is-playing { opacity: 1; }
 }
+/* Settings › Celebrations › Always still (1.8): the same stillness as the Mac's Reduce motion, on request. The
+   session-end moment (1.10, `.moment`) and the Locker's preview of it both read it. */
+html[data-motion='still'] .moment,
+html[data-motion='still'] .moment *,
+html[data-motion='still'] .locker-moment.is-playing,
+html[data-motion='still'] .locker-moment.is-playing .locker-moment-mark,
+html[data-motion='still'] .locker-item:hover .locker-moment-mark,
+html[data-motion='still'] .locker-item:focus-visible .locker-moment-mark {
+  animation: none;
+  transition: none;
+}
+html[data-motion='still'] .locker-moment.is-playing { opacity: 1; }

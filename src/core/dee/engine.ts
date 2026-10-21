@@ -120,8 +120,22 @@ export interface DeeContext {
   readonly rules: Partial<Record<Principle, string>>;
   /** The principle carrying the most EV loss across the profile (session stats leakCostBb), if any. */
   readonly biggestLeak: Principle | null;
-  /** Cooldown stretch per certified depth (VISION §2.2: 1×, 1.5×, 2×, 3×). */
+  /** Cooldown stretch per certified depth (VISION §2.2: 1×, 1.5×, 2×, 3×), times the learner's quieter level. */
   readonly quietness: number;
+  /** Hands that must pass after any line before Dee says another (the quieter level); 0 or absent = none. */
+  readonly spacing?: number;
+}
+
+/**
+ * The learner's quieter level (Settings › Character, 1.8), on top of depth quieting: each level stretches every
+ * cooldown and leaves a gap of hands after any line, so Dee speaks less without ever changing what it says.
+ */
+export const QUIET_STRETCH: Record<QuietLevel, number> = { standard: 1, quieter: 2, quietest: 3 };
+export const QUIET_SPACING: Record<QuietLevel, number> = { standard: 0, quieter: 3, quietest: 6 };
+export type QuietLevel = 'standard' | 'quieter' | 'quietest';
+
+export function quietOf(value: string): QuietLevel {
+  return value === 'quieter' || value === 'quietest' ? value : 'standard';
 }
 
 /** Dee's memory of what it said, in hands watched, so a line is not repeated straight after a restart. */
@@ -315,7 +329,7 @@ export function textFor(line: Line, tone: Tone): string {
  */
 export function selectLine(
   event: DeeEvent | null,
-  ctx: Pick<DeeContext, 'tone' | 'quietness' | 'character'>,
+  ctx: Pick<DeeContext, 'tone' | 'quietness' | 'character' | 'spacing'>,
   memory: DeeLineMemory,
   seed: number,
   bank: readonly Line[] = DEE_BANK,
@@ -323,6 +337,9 @@ export function selectLine(
   if (event === null || !ctx.character) return null;
   const lastSaid = new Map<string, number>();
   for (const s of memory.said) lastSaid.set(s.lineId, Math.max(lastSaid.get(s.lineId) ?? -Infinity, s.at));
+  // The quieter level: `spacing` silent hands after any line. The session summary is the one thing never held back.
+  const spacing = event.kind === 'session-end' ? 0 : (ctx.spacing ?? 0);
+  if (spacing > 0 && memory.said.length > 0 && memory.handsWatched - Math.max(...memory.said.map((s) => s.at)) <= spacing) return null;
   const eligible: { line: Line; text: string }[] = [];
   for (const line of bank) {
     if (line.event !== event.kind || !matchesWhen(line, event)) continue;

@@ -1,43 +1,34 @@
-# Independent review: profile export and import, challenge codes, a local QR (branch feat-profile-export, 2.8)
+# Independent review: Settings — Character, Celebrations and the local trial (branch feat-settings-trial, 1.8)
 
-Two passes by one reviewer agent with no author context, at high effort (untrusted-file import and IPC are a
-security surface). It reviewed read-only and ran typecheck and unit tests only, with no Playwright or app
-launch, because the shared e2e lock governs those.
+Two passes, each by a fresh reviewer agent with no author context. Both reviewed read-only and ran only the typecheck
+and unit tests; Playwright runs go through the shared e2e lock.
 
 | Pass | HEAD | Verdict |
 |---|---|---|
-| 1. Review | 8967797 | **FAIL**: one high, two medium, five low (incl. test gaps) |
-| 2. Re-review | cce2c05 | **PASS**: findings 1 and 3–7 fixed, 2 fixed in substance, 8 partly fixed; no new finding above low |
+| 1. Review | bc5a8bd | **PASS WITH NOTES**: no high findings, no egress, no deletion; 2 medium defects, 1 medium design risk, 10 low |
+| 2. Re-review | 97a5909 | **PASS WITH NOTES**: all 8 fixes correct; 1 medium (the mid-trial table), 6 low, fixed in d58dd62 |
 
 ## Findings and outcomes
 
 | ID | Finding | Outcome |
 |---|---|---|
-| 1 (H) | An import over a profile recovered from `.bakN` copied the torn or missing live file aside, so the profile in use survived only in the rotating backups | Fixed, red first (`store.test`): `store.replaceProfile` copies the file the profile was loaded from (`loadedFrom`) |
-| 2 (M) | The strict check covered top-level types and hand cards only; nested junk (decisions, grades, a string streak) was silently repaired | Fixed, red first (`profileTransfer.test`): every value must come through the parser unchanged, else `bad-field` with its path. Remainder (low, accepted): values the parser keeps as they are (a bankroll of −1e300, depthFloor 1e12, long strings) still import, which is the same exposure as hand-editing the live file |
-| 3 (M) | Unknown keys below the top level were dropped and not counted | Fixed, red first: carried at every level, as a save carries them, and listed in the preview |
-| 4 (L-M) | Busting on a challenge hand offered a rebuy that dealt a second hand | Fixed, red first (`challenge-table.test`, jsdom): a table whose planned hands are played ends the sitting on a bust or sweep too |
-| 5 (L) | Enter in the code field also committed an empty Math answer | Fixed, red first (`profile-export.spec`): the keypress stops at the field |
-| 6 (L) | A swap between stat and read could hang main on a FIFO or read past the cap | Fixed (hardening; the race itself has no red test): one non-blocking descriptor, `fstat`, bounded read (`profileFile.test` covers a FIFO and a directory) |
-| 7 (L) | The app-folder guard on export missed a path in another letter case | Fixed, red first (`profileFile.test` fails with `realpathSync`, passes with `.native`) |
-| 8 (L) | Tests that could pass vacuously | Partly fixed: the receiver now has a real profile, asserted unchanged after a forced save; the code's button is pinned. **Open:** "same hand" compares hole cards and the button, not villains, stacks or board |
-| R2-a (L) | `readBounded` allocates a zero-filled 16 MiB buffer per pick | **Open**: harmless at one pick per click; size it from `fstat` next time the file is touched |
-| R2-b (L) | `exportEnvelope` normalises outside a `try`; an absurdly nested unknown key on disk makes the export say "could not be written" | **Open**: the renderer catches it; nothing is written |
-| R2-c (L) | `challenge-table.test` never destroys the tables it renders | **Open**: test hygiene only |
-
-## Found while fixing
-- With the stricter check, exporting right after a load (before any save) could produce a file this same build
-  refused. Exports are now parser-normalised (red first in `profileTransfer.test`).
-
-## Checked and found fine (both passes)
-- Dialogs are main's: `profile:export`/`importPick` take no arguments, `importConfirm` only `(id, accept)`; the
-  renderer gets base file names. Confirm ids are random, single use, expire after 10 minutes.
-- The licence never comes from a file: export empties entitlements, import is stamped with main's (`stamp`).
-- No stale write-back after an import: saves are refused in main and the renderer until the reload's load.
-- `deleteProfile` removes pre-import copies; the temp sweep covers their `.tmp` files.
-- The Pro hand store (`hand-histories/`) is never read or written.
-- Challenge codes: CRC-16 correct, canonical base32 and varints only, out-of-range values refused.
-- QR encoder: tables, interleave, format and version bits, masks and placement match the standard;
-  `scripts/qr-crosscheck.ts` has Core Image read back 61/61 symbols, versions 1–40.
-- Regression sweep (pass 2): 3,278 profiles on disk written by e2e runs were run through `checkImport`; every
-  refusal was a hand-made or junk fixture, none a profile the app built itself.
+| 1.1 (M) | An older build read a newer build's unknown trial status as "none" and let Start replace the whole trial | Fixed in 97a5909, red first: `startRefusal` reads the raw status and start day |
+| 1.2 (M) | `countBlock` re-ran each concept's whole drill history for every rep, on every save (383 ms at 3,000 × 3,000) | Fixed in 97a5909: counting is incremental from a per-week high-water mark, and only concepts with a new rep are replayed |
+| 1.3 (M, design) | The late-night and busy-day criteria compared raw totals, so more practice in on weeks tripped them | Changed in 97a5909: they compare shares, with minimum samples. Recorded in DECISIONS.md as a decision to evaluate |
+| 1.4 (L) | Taking the max of each field kept a capped log from shrinking a week but also stopped it growing | Fixed in 97a5909, red first (incremental counting) |
+| 1.5 (L) | An empty save filed an empty week, so "weeks with a session" over-counted | Fixed in 97a5909, red first |
+| 1.6 (L) | Practice earlier on the start day, before Start was pressed, counted | Fixed in 97a5909, red first: `startedAt` |
+| 1.7 (L) | Verdicts showed mid-trial, which could bias the remaining weeks, and on a stopped trial, which is never judged | Fixed in 97a5909: verdicts appear only once results are ready or finished |
+| 1.8 (L) | Quieter spacing allowed a line on the Nth hand, and it also silenced the session summary | Fixed in 97a5909, red first: N silent hands; the summary is exempt |
+| 1.9 (L) | An off week that starts while a table is open applies at the next save or table | Open, accepted: the next save or table rebuild applies it |
+| 1.10 (L) | `observeTrial` ran inside `saveState` with no guard | Fixed: wrapped in try/catch; the old counts stand |
+| 1.11 (L) | The baseline kept all seven Calibration fields | Fixed, red first: three fields |
+| 1.12 (L) | a11y: Start's reason was not live; Dee's screen gives no off-week note; aria-pressed vs aria-checked differ between screens | The reason is now `aria-live`. The other two stay open (Settings follows its own theme idiom) |
+| 1.13 (L) | Test gaps (off-week Dee silence at the table, a loose mastered assertion, the 4 am day in e2e) | The mastered assertion is exact; e2e accepts either side of 4 am. The off-week check is by `html[data-character]`, the attribute every Dee mark reads |
+| 2.1 (M) | The running view's on-vs-off table still let the verdict be worked out | Fixed in d58dd62: while running, every week is pooled into one column, and `data-tripped` is set only once results are ready or finished |
+| 2.2 (L) | One save with a fast clock stalled a week until real time caught up | Fixed in d58dd62: a mark past now is filed back at now, so at most one save's activity is lost (test) |
+| 2.3 (L) | Blocks without `through` double-count | e2e fixtures carry `through`. Never shipped: bc5a8bd was not merged |
+| 2.4 (L) | The table showed late and busy totals where the criteria use rates | Fixed: share (n) |
+| 2.5 (L) | Fields inside a block or the baseline can't be carried | Recorded in DECISIONS.md: a later field goes in a new key |
+| 2.6 (L) | Stale header comment | Fixed |
+| 2.7 (L) | No test that a session continues across saves, or that a delayed rep reads history older than the mark | Added (unit) |

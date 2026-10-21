@@ -7,6 +7,7 @@ import { playToShowdown, tableScreen, waitForIdle } from './flow.js';
 import { buildStrategyRequest } from '../../src/main/tutor/requests.js';
 import { promptHash } from '../../src/main/tutor/replayCache.js';
 import { BACKUP_DEPTH, DELETE_CONFIRM_PHRASE, backupPath } from '../../src/core/backup.js';
+import { systemDayKeyOf } from '../../src/core/localDay.js';
 import type { GradePayload, VisibleTable } from '../../src/main/tutor/types.js';
 
 const STATE_FILE = 'offsuit-state.json';
@@ -856,4 +857,225 @@ test.describe('screenshots and layout', () => {
       await close();
     }
   });
+});
+
+/**
+ * 1.8 — Settings › Character, Celebrations and the local trial (core/trial.ts). Character and the quieter level are
+ * the same fields Dee's own screen sets; the milestone sound sits behind the app's sound switch (D13); the trial is
+ * set up with a prediction first, hides the layer in an off week without touching the switches, and its results
+ * turn the layer off when a criterion trips. Everything is counted on this machine.
+ */
+test.describe('1.8 — Character, Celebrations and the local trial', () => {
+  const todayKey = (): number => systemDayKeyOf()(Date.now());
+  const readProfile = (dir: string): Record<string, any> => JSON.parse(fs.readFileSync(statePath(dir), 'utf-8'));
+  const counts = (over: Record<string, number> = {}) => ({
+    activeDays: 5, sessions: 6, lateSessions: 0, busyDays: 0, decisions: 120, assessed: 40, assessedLossBb: 4, delayed: 25, delayedCorrect: 20, reps: 40, repsOnMastered: 4, ...over,
+  });
+  const cal = (n: number) => ({ total: n, sureTotal: Math.floor(n / 2), sureCorrect: Math.floor(n / 3) });
+  /** A trial that started `daysAgo` days ago, with every week counted (late sessions in the on weeks trip one criterion). */
+  function trialProfile(daysAgo: number, onLate = 0): Record<string, unknown> {
+    return {
+      schemaVersion: 2,
+      progression: {
+        trial: {
+          status: 'running',
+          startedOn: todayKey() - daysAgo,
+          prediction: 'With Dee on I practise on more days and my assessment EV loss holds.',
+          ownCriterion: 'I start opening the app only to keep the streak.',
+          baseline: cal(0),
+          blocks: [0, 1, 2, 3].map((i) => ({ calibrationStart: cal(i * 40), calibrationEnd: cal(i * 40 + 40), counts: counts(i % 2 === 0 ? { lateSessions: onLate } : {}), through: Date.now() - 60_000, sessionsByDay: {} })),
+          reports: [{ day: todayKey() - daysAgo + 1, answer: 'wanted' }],
+          finishedOn: null,
+          outcome: null,
+        },
+      },
+    };
+  }
+
+  test('Character and the quieter level persist and agree with Dee’s own screen; Celebrations follow their switches and the sound switch', async () => {
+    const userDataDir = freshUserDataDir();
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await openSettings(page);
+      const character = page.locator('[data-testid="settings-character-toggle"]');
+      await expect(character).toHaveAttribute('aria-checked', 'true');
+      await character.click();
+      await expect(page.locator('[data-testid="settings-character-toggle"]')).toHaveAttribute('aria-checked', 'false');
+      await expect(page.locator('html')).toHaveAttribute('data-character', 'off');
+      await page.locator('[data-testid="settings-quiet-quietest"]').click();
+      await expect(page.locator('[data-testid="settings-quiet"]')).toHaveAttribute('data-value', 'quietest');
+      await expect.poll(() => readProfile(userDataDir).progression?.dee?.personality?.quiet).toBe('quietest');
+      expect(readProfile(userDataDir).progression.dee.character).toBe(false);
+
+      // The same fields on Dee's screen.
+      await page.locator('[data-testid="open-dee-settings"]').click();
+      await expect(page.locator('[data-testid="dee-character-toggle"]')).toHaveAttribute('aria-checked', 'false');
+      await expect(page.locator('[data-testid="dee-quiet"] button[aria-checked="true"]')).toHaveText('Quietest');
+      await page.locator('[data-testid="dee-character-toggle"]').click();
+      await openSettings(page);
+      await expect(page.locator('[data-testid="settings-character-toggle"]')).toHaveAttribute('aria-checked', 'true');
+
+      // Celebrations: on by default; the milestone sound cannot be on while the sound switch is off.
+      await expect(page.locator('html')).toHaveAttribute('data-celebrations', 'on');
+      const sound = page.locator('[data-testid="celebrations-sound-toggle"]');
+      await expect(sound).toBeDisabled();
+      await expect(sound).toHaveAttribute('aria-checked', 'false');
+      await expect(page.locator('[data-testid="celebrations-sound-toggle-note"]')).toContainText('A sound on a mistake');
+      await page.locator('[data-testid="sound-cues-toggle"]').click();
+      await expect(page.locator('[data-testid="celebrations-sound-toggle"]')).toBeEnabled();
+      await expect(page.locator('[data-testid="celebrations-sound-toggle"]')).toHaveAttribute('aria-checked', 'true');
+      await page.locator('[data-testid="celebrations-sound-toggle"]').click();
+      await expect(page.locator('[data-testid="celebrations-sound-toggle"]')).toHaveAttribute('aria-checked', 'false');
+
+      await page.locator('[data-testid="celebrations-motion-still"]').click();
+      await expect(page.locator('html')).toHaveAttribute('data-motion', 'still');
+      await page.locator('[data-testid="celebrations-toggle"]').click();
+      await expect(page.locator('html')).toHaveAttribute('data-celebrations', 'off');
+      await expect(page.locator('[data-testid="celebrations-motion-system"]')).toBeDisabled();
+      await expect.poll(() => readProfile(userDataDir).progression?.celebrations).toEqual({ on: false, motion: 'still', sound: false });
+      // A toggle low on the page keeps the column where it was.
+      expect(await page.locator(settingsScreen).evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+
+    // All of it survives a restart.
+    const again = await launchApp({ seed: 42, userDataDir });
+    try {
+      await again.page.waitForSelector(homeScreen);
+      await expect(again.page.locator('html')).toHaveAttribute('data-celebrations', 'off');
+      await expect(again.page.locator('html')).toHaveAttribute('data-motion', 'still');
+      await openSettings(again.page);
+      await expect(again.page.locator('[data-testid="settings-quiet"]')).toHaveAttribute('data-value', 'quietest');
+    } finally {
+      await again.close();
+    }
+  });
+
+  test('the trial: a prediction first, criteria shown in advance, locked once started, counted locally', async () => {
+    const userDataDir = freshUserDataDir();
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await openSettings(page);
+      await expect(page.locator('[data-testid="trial-line"]')).toContainText('on this Mac only');
+      await page.locator('[data-testid="open-trial"]').click();
+      await expect(page.locator('[data-testid="trial-screen"]')).toHaveAttribute('data-phase', 'none');
+      await expect(page.locator('[data-testid="trial-criterion"]')).toHaveCount(7);
+      const start = page.locator('[data-testid="trial-start"]');
+      await expect(start).toBeDisabled();
+      await page.locator('[data-testid="trial-prediction"]').fill('Dee on');
+      await expect(start).toBeDisabled();
+      await page.locator('[data-testid="trial-prediction"]').fill('With Dee on I practise on more days, and my EV loss holds.');
+      await page.locator('[data-testid="trial-own-criterion"]').fill('I start dreading it.');
+      await expect(start).toBeEnabled();
+      await start.click();
+
+      await expect(page.locator('[data-testid="trial-screen"]')).toHaveAttribute('data-phase', 'running');
+      await expect(page.locator('[data-testid="trial-prediction-locked"]')).toHaveText('With Dee on I practise on more days, and my EV loss holds.');
+      await expect(page.locator('[data-testid="trial-prediction"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="trial-where"]')).toContainText('Day 1 of 28');
+      await expect(page.locator('[data-testid="trial-strip"] [data-current="true"]')).toContainText('Week 1');
+      await page.locator('[data-testid="trial-report-wanted"]').click();
+      await expect(page.locator('[data-testid="trial-report-wanted"]')).toHaveAttribute('aria-pressed', 'true');
+      const saved = readProfile(userDataDir).progression.trial;
+      expect(saved).toMatchObject({ status: 'running', ownCriterion: 'I start dreading it.', reports: [{ day: saved.startedOn, answer: 'wanted' }] });
+      // The app's own day (a run may straddle the 4 am turn).
+      expect([todayKey() - 1, todayKey()]).toContain(saved.startedOn);
+      // Mid-trial the criteria are not judged on screen.
+      await expect(page.locator('[data-testid="trial-verdict"]')).toHaveCount(0);
+
+      // A hand played now is counted in week 1, from the hand log on this machine.
+      await page.locator('[data-testid="trial-back"]').click();
+      await page.click(sel.tabPlay);
+      await page.click(sel.newHand);
+      await playToShowdown(page);
+      await expect.poll(() => readProfile(userDataDir).progression.trial.blocks[0]?.counts?.sessions ?? 0).toBe(1);
+      expect(await assertNoNetwork(page)).toEqual([]);
+    } finally {
+      await close();
+    }
+  });
+
+  test('an off week hides Dee and pauses Celebrations without touching either switch', async () => {
+    const userDataDir = freshUserDataDir();
+    seedState(userDataDir, trialProfile(8));
+    const { page, close } = await launchApp({ seed: 42, userDataDir });
+    try {
+      await page.waitForSelector(homeScreen);
+      await expect(page.locator('html')).toHaveAttribute('data-character', 'off');
+      await expect(page.locator('html')).toHaveAttribute('data-celebrations', 'off');
+      await openSettings(page);
+      await expect(page.locator('[data-testid="settings-character-toggle"]')).toHaveAttribute('aria-checked', 'true');
+      await expect(page.locator('[data-testid="settings-character-toggle-note"]')).toContainText('off week');
+      await expect(page.locator('[data-testid="celebrations-toggle-note"]')).toContainText('off week');
+      await expect(page.locator('[data-testid="trial-line"]')).toContainText('Week 2 of 4: the layer is off');
+    } finally {
+      await close();
+    }
+  });
+
+  for (const [width, height] of [
+    [DEFAULT_WIDTH, DEFAULT_HEIGHT],
+    [MIN_WIDTH, MIN_HEIGHT],
+  ] as const) {
+    test(`results after four weeks: a tripped criterion turns the layer off; every view fits ${width}x${height}`, async () => {
+      const userDataDir = freshUserDataDir();
+      seedState(userDataDir, trialProfile(28, 2));
+      const { app, page, close } = await launchApp({ seed: 42, userDataDir });
+      try {
+        await page.waitForSelector(homeScreen);
+        await useViewport(app, page, width, height);
+        await openSettings(page);
+        await page.locator('[data-testid="settings-character"]').scrollIntoViewIfNeeded();
+        const fits = async (): Promise<void> => {
+          const g = await page.evaluate(() => ({ doc: document.documentElement.scrollHeight, right: Math.max(...[...document.querySelectorAll('.settings-screen *')].map((e) => e.getBoundingClientRect().right)) }));
+          expect(g.doc, 'the document itself scrolls').toBeLessThanOrEqual(height + 1);
+          expect(g.right, 'content hangs past the right edge').toBeLessThanOrEqual(width);
+        };
+        await fits();
+        await shot(page, `settings-habit-${width}x${height}`);
+        await useViewport(app, page, width, height);
+
+        await page.locator('[data-testid="open-trial"]').click();
+        await expect(page.locator('[data-testid="trial-screen"]')).toHaveAttribute('data-phase', 'ready');
+        await expect(page.locator('[data-testid="trial-results"]')).toHaveAttribute('data-tripped', 'true');
+        await expect(page.locator('[data-testid="trial-verdict"][data-id="late-night"]')).toHaveAttribute('data-status', 'tripped');
+        await expect(page.locator('[data-testid="trial-verdict"][data-id="ev-loss"]')).toHaveAttribute('data-status', 'clear');
+        await expect(page.locator('[data-testid="trial-verdict"][data-id="had-to"]')).toHaveAttribute('data-status', 'too-little');
+        await fits();
+        await shot(page, `trial-results-${width}x${height}`);
+        await useViewport(app, page, width, height);
+
+        await page.locator('[data-testid="trial-finish"]').click();
+        await expect(page.locator('[data-testid="trial-screen"]')).toHaveAttribute('data-phase', 'finished');
+        await expect(page.locator('[data-testid="trial-summary"]')).toContainText('turned off');
+        await expect(page.locator('html')).toHaveAttribute('data-character', 'off');
+        await expect(page.locator('html')).toHaveAttribute('data-celebrations', 'off');
+        await expect.poll(() => readProfile(userDataDir).progression.trial.outcome).toBe('off');
+        const p = readProfile(userDataDir).progression;
+        expect(p.dee.character).toBe(false);
+        expect(p.celebrations.on).toBe(false);
+      } finally {
+        await close();
+      }
+    });
+
+    test(`the trial setup fits ${width}x${height}`, async () => {
+      const { app, page, close } = await launchApp({ seed: 42, userDataDir: freshUserDataDir() });
+      try {
+        await page.waitForSelector(homeScreen);
+        await useViewport(app, page, width, height);
+        await openSettings(page);
+        await page.locator('[data-testid="open-trial"]').click();
+        await page.locator('[data-testid="trial-prediction"]').fill('With Dee on I practise on more days, and my EV loss holds.');
+        const doc = await page.evaluate(() => document.documentElement.scrollHeight);
+        expect(doc).toBeLessThanOrEqual(height + 1);
+        await shot(page, `trial-setup-${width}x${height}`);
+      } finally {
+        await close();
+      }
+    });
+  }
 });

@@ -79,7 +79,7 @@ import type { HandsBridge } from './screens/proHands.js';
 import type { IcmBridge } from './screens/proIcm.js';
 import { renderRobustnessScreen } from './screens/robustness.js';
 import { renderReview, renderReviewList, type ReviewHandle } from './screens/review.js';
-import { readOnlyHeadline, renderSettings, type SettingsStatus } from './screens/settings.js';
+import { readOnlyHeadline, renderSettings, type HabitSettingsView, type SettingsStatus } from './screens/settings.js';
 import { renderSpacing } from './screens/spacing.js';
 import { renderTrainScreen, type TrainMode as TrainModeSpec } from './screens/train.js';
 import { conceptStatesFromLog, dueNow, gate, posterior, type ConceptState } from '../core/schedule.js';
@@ -106,9 +106,12 @@ import {
   rememberRule,
   setCharacter,
   setFrequency,
+  setQuiet,
   setTone,
   withLineMemory,
 } from '../core/dee/memory.js';
+import { blockOn, celebrationGate, characterOn, finishTrial, layerOn, motionOf, observeTrial, phaseOf, reportOn, setCelebrations, startTrial, stopTrial } from '../core/trial.js';
+import { renderTrial } from './screens/trial.js';
 import { principleOf, quietnessForDepth, type DeeContext } from '../core/dee/engine.js';
 import { DEPTHS } from '../core/standing.js';
 import { createProClient, type ProBridge } from './pro.js';
@@ -366,7 +369,15 @@ async function boot(): Promise<void> {
       // Nor while an import replaces the profile: this session is the one being replaced, and the app reloads.
       if (replacing) return { saved: false, readOnly: null, failed: 'replacing' };
       const applied = applyProgress(lastSaved, session, takeExtras(), applyContext());
-      session = { ...session, progression: applied.progression };
+      // The local trial (1.8) adds this save's new activity to the week it is in. Nothing leaves the machine.
+      // A fault in the count must never cost a save: keep the trial as it was.
+      let trial = applied.progression.trial;
+      try {
+        trial = observeTrial(trial, session, { today: dayOf()(now()), dayOf: dayOf(), hourOf: (ms) => new Date(ms).getHours(), now: now() });
+      } catch {
+        // Unreachable on parsed data; the old counts stand.
+      }
+      session = { ...session, progression: trial === applied.progression.trial ? applied.progression : { ...applied.progression, trial } };
       // Dee's letters: an ended week is filed on the next save, before the 500-hand cap can cut into it. Read-only
       // profiles file nothing (the store would refuse it, and a letter must not exist only in memory).
       if (settings.profile.readOnly == null) {
@@ -479,6 +490,8 @@ async function boot(): Promise<void> {
   let rivalOpen: ChapterId | null = null;
   /** The Locker's slot on show; kept across re-renders (an equip, a tab change). */
   let lockerSlot: CosmeticSlot = 'cardBack';
+  /** Settings shows its column, or the local trial (1.8) in its place. */
+  let settingsView: 'main' | 'trial' = 'main';
   /** The Season screen's pane; null = the one the calendar points at (the finale in the finale week). */
   let seasonPane: SeasonPane | null = null;
   /** Where the assessment panel returns: Home, or the Season when its finale (or opening block) was taken there. */
@@ -582,6 +595,7 @@ async function boot(): Promise<void> {
     rivalOpen = null;
     // Leaving closes an open answers sheet; what was typed stays in the draft.
     onboardingOpen = false;
+    settingsView = 'main';
     render();
     // Backup count and guard failures move while the learner is elsewhere, so opening Settings re-reads.
     if (leaf === 'settings') void refreshSettings();
@@ -639,9 +653,24 @@ async function boot(): Promise<void> {
   nav.append(renderBrand(), strip, perch.root, settingsButton, navSpacer);
   attachThumb(strip, 'button.tab');
 
+  /**
+   * Character as it applies now: the learner's switch, except in an off week of the local trial (core/trial.ts),
+   * which hides Dee without touching the switch. Computes its own day: paintDee runs before `today` is declared.
+   */
+  function characterNow(): boolean {
+    const p = session.progression;
+    return characterOn(p, systemDayKeyOf(p.streak.boundaryHour)(now()));
+  }
+
   /** Character on/off is one document attribute, so every mark on every screen follows it (styles-dee.css). */
   function paintDee(): void {
-    document.documentElement.dataset.character = session.progression.dee.character ? 'on' : 'off';
+    const root = document.documentElement;
+    root.dataset.character = characterNow() ? 'on' : 'off';
+    // The Celebrations switches (1.8) as attributes the session-end moment and its CSS read (DECISIONS.md, 1.8).
+    const p = session.progression;
+    const gate = celebrationGate(p, session.soundCues, systemDayKeyOf(p.streak.boundaryHour)(now()));
+    root.dataset.celebrations = gate.play ? 'on' : 'off';
+    root.dataset.motion = motionOf(p.celebrations);
     paintCosmetics();
     const streak = session.progression.streak;
     perch.setStreak(currentStreakOn(streak, systemDayKeyOf(streak.boundaryHour)(now())));
@@ -672,7 +701,7 @@ async function boot(): Promise<void> {
       if (cost > 0 && (leak === null || cost > (session.stats.leakCostBb[leak] ?? 0))) leak = principle;
     }
     const depthIndex = Math.max(0, DEPTHS.indexOf(currentStanding(Date.now()).depth));
-    return contextOf(session.progression.dee, {
+    return contextOf({ ...session.progression.dee, character: characterNow() }, {
       biggestLeak: leak === null ? null : principleOf(leak),
       quietness: quietnessForDepth(depthIndex),
     });
@@ -728,7 +757,7 @@ async function boot(): Promise<void> {
     if (chat !== null) return;
     chat = renderDeeChat({
       context: chatContext,
-      character: session.progression.dee.character,
+      character: characterNow(),
       phrase: phrasing?.state === 'installed' && phrasing.enabled ? io.deeChatPhrase : undefined,
       warm: () => void io.deeChatWarm?.(),
       onPerch: (pose) => perch.setPose('chat', pose),
@@ -871,7 +900,7 @@ async function boot(): Promise<void> {
   }
 
   function storyDee(): { tone: DeeContext['tone']; character: boolean } {
-    return { tone: deeContext().tone, character: session.progression.dee.character };
+    return { tone: deeContext().tone, character: characterNow() };
   }
 
   // ── The habit loop: the host's context, Home's pieces, the Ticket and the Folio ─────────────────────
@@ -946,7 +975,7 @@ async function boot(): Promise<void> {
     const topLeak = storyRoute().leaks[0];
     const rules = p.dee.ruleSentences;
     const newest = rules.length > 0 ? rules[rules.length - 1].text : null;
-    const greeting = p.dee.character
+    const greeting = characterNow()
       ? greetingFor({
           day: d,
           hour: localHour(),
@@ -1762,7 +1791,12 @@ async function boot(): Promise<void> {
     if (tab !== 'play' && tab !== 'home') {
       teardownTable();
       teardownReview();
+      // A settings toggle rebuilds its column: keep the column where it was, so a switch low on the page stays in view.
+      const before = screen.querySelector<HTMLElement>('.settings-screen');
+      const kept = before ? { id: before.dataset.testid, top: before.scrollTop } : null;
       screen.replaceChildren(renderTab(tab));
+      const after = screen.querySelector<HTMLElement>('.settings-screen');
+      if (kept !== null && after !== null && after.dataset.testid === kept.id) after.scrollTop = kept.top;
       return;
     }
 
@@ -2142,7 +2176,7 @@ async function boot(): Promise<void> {
         },
         dee: {
           tone: deeContext().tone,
-          character: session.progression.dee.character,
+          character: characterNow(),
           onRule: (lessonId, text) =>
             void saveProgression(rememberRule(session.progression, lessonId, text, systemDayKeyOf()(Date.now()))),
         },
@@ -2166,13 +2200,16 @@ async function boot(): Promise<void> {
           onboardingOpen = true;
           render();
         },
-        context: deeContext(),
+        // The screen shows the switch as set; an off week of the trial hides Dee without changing it.
+        context: { ...deeContext(), character: session.progression.dee.character },
+        quiet: session.progression.dee.personality.quiet,
         rulesRemembered: remembered.length,
         newestRule: remembered.length > 0 ? remembered[remembered.length - 1].text : null,
         handlers: {
           onTone: (tone) => void saveProgression(setTone(session.progression, tone)),
           onFrequency: (frequency) => void saveProgression(setFrequency(session.progression, frequency)),
           onCharacter: (on) => void saveProgression(setCharacter(session.progression, on)),
+          onQuiet: (level) => void saveProgression(setQuiet(session.progression, level)),
           onForgetRules: () => void saveProgression(forgetRules(session.progression)),
         },
       });
@@ -2254,6 +2291,7 @@ async function boot(): Promise<void> {
         },
       });
     }
+    if (which === 'settings' && settingsView === 'trial') return renderTrialView();
     if (which === 'settings') {
       return renderSettings({
         status: settings,
@@ -2266,8 +2304,16 @@ async function boot(): Promise<void> {
           onSoundCuesChange: (on) => void onSoundCuesChange(on),
           onThemeChange: (theme) => void onThemeChange(theme),
           onOpenDee: () => go('dee'),
+          onCharacterChange: (on) => void saveProgression(setCharacter(session.progression, on)).then(render),
+          onQuietChange: (level) => void saveProgression(setQuiet(session.progression, level)).then(render),
+          onCelebrationsChange: (patch) => void saveProgression(setCelebrations(session.progression, patch)).then(render),
+          onOpenTrial: () => {
+            settingsView = 'trial';
+            render();
+          },
         },
         proSection: renderProSettings(pro, { openSheet: openProSheet }),
+        habit: habitSettingsView(),
         profileTransfer: renderProfileTransfer({
           bridge: io,
           current: { hands: session.hands.length, bankroll: session.bankroll },
@@ -2283,6 +2329,53 @@ async function boot(): Promise<void> {
       });
     }
     return renderPlaceholder(which);
+  }
+
+  /** What Settings › Character, Celebrations and The trial show (1.8). */
+  function habitSettingsView(): HabitSettingsView {
+    const p = session.progression;
+    const d = today();
+    const phase = phaseOf(p.trial, d);
+    const b = blockOn(p.trial, d);
+    const trialLine =
+      phase === 'none'
+        ? 'Four weeks, on and off, to see whether Dee and Celebrations help. Counted on this Mac only.'
+        : phase === 'running'
+          ? `Week ${(b ?? 0) + 1} of 4: the layer is ${layerOn(p.trial, d) ? 'on' : 'off'} this week.`
+          : phase === 'ready'
+            ? 'Four weeks are done. The results are ready to read.'
+            : phase === 'stopped'
+              ? 'Stopped early. What was counted is kept.'
+              : 'Finished. The results are kept.';
+    return {
+      character: p.dee.character,
+      quiet: p.dee.personality.quiet,
+      celebrations: p.celebrations,
+      offWeek: !layerOn(p.trial, d),
+      trialLine,
+      trialAction: phase === 'none' ? 'Set up the trial' : phase === 'running' ? 'Open the trial' : 'Read the results',
+    };
+  }
+
+  /** Settings › The trial (1.8): every change is one progression save, then a repaint (an off week hides Dee at once). */
+  function renderTrialView(): HTMLElement {
+    const p = session.progression;
+    const save = (next: SessionState['progression']): void => void saveProgression(next).then(render);
+    return renderTrial({
+      trial: p.trial,
+      today: today(),
+      handlers: {
+        onBack: () => {
+          settingsView = 'main';
+          render();
+        },
+        onStart: (prediction, ownCriterion) =>
+          save(startTrial(session.progression, { prediction, ownCriterion, today: today(), calibration: session.calibration, at: now() })),
+        onStop: () => save(stopTrial(session.progression)),
+        onReport: (answer) => save(reportOn(session.progression, today(), answer)),
+        onFinish: () => save(finishTrial(session.progression, today())),
+      },
+    });
   }
 
   /**
