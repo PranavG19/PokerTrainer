@@ -20,6 +20,15 @@ additive key). The owner answered "We don't need LAN play", then "Keep the club,
 - **Where:** Play › LAN Club. Make a code opens the challenge maker, whose made code can go straight into the
   notebook ("Add to the club notebook", shown only once a club exists), and its Back returns to the club. Playing a
   notebook code marks it played and opens it as the challenge reader would; a hand's end leads back to the club.
+- **Open questions** (low severity, from the last independent review; none blocks the club):
+  - A notebook entry's "From" is cut to 24 (`MAX_MEMBER_NAME`) while the parser keeps member names up to 32, so a
+    hand-edited 25–32 character member name no longer matches its roster entry. [Default: cut "From" to 32.]
+  - `cleanName` collapses spaces before stripping control characters, so a pasted `'a \u0001 b'` keeps a double
+    space and is not caught as a duplicate of `'a b'`. [Default: strip, then collapse.]
+  - `MAX_CLUB_NAME` / `MAX_MEMBER_NAME` copy persist's unexported `MAX_NAME_CHARS` (32); raising one above it would
+    silently bring back the name-does-not-reload bug. [Default: export the bound, or a test that ties them.]
+  - "Add a name" loses focus after each add (the screen repaints), and a duplicate, "You" or a full roster of 24
+    adds nothing with no message. [Default: keep focus and say why nothing was added.]
 
 ## Settings: Character, Celebrations and the local trial (branch `feat-settings-trial`, 1.8)
 Owner decisions in force: D5 (a classic streak, no freezes), D13 (the milestone clack behind the sound switch), D15
