@@ -74,6 +74,9 @@ export function playMoment(opts: { readonly finished: readonly FinishedSession[]
   const started = Date.now();
   const tryShow = (): void => {
     pending = null;
+    // Settings may have turned it off while it waited (or an off week begun): the host paints html[data-celebrations]
+    // from celebrationGate() on every save, so the gate is re-read here without a second reader of the setting.
+    if (document.documentElement.dataset.celebrations === 'off') return;
     if (verdictOnScreen()) {
       if (Date.now() - started < WAIT_MS) pending = window.setTimeout(tryShow, POLL_MS);
       return;

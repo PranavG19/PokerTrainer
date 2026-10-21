@@ -138,7 +138,9 @@ answered 2026-10-20: "build everything you can"). Supersedes: receipts only, bec
   the dock (clear of every seat, rail and control on the table and Train), and is cancelled by a profile delete.
   Under reduced motion the words show still. Whether it plays is Settings' (1.8): the hook asks `celebrationGate()`
   (the Celebrations switch, never in a trial's off week; "Still" motion; the clack needs both sound switches) and reads
-  no setting of its own.
+  no setting of its own. A moment waiting behind a verdict is re-checked when it would show, through the
+  `html[data-celebrations]` attribute the host paints from the gate. The Locker's preview still plays on an explicit
+  press with Celebrations off: it is a preview of the look, not a celebration (it honours Still).
   A soft clack plays only when the sound switch is on; that switch's note now says so. Supersedes: celebrations
   stored and previewed only, because the moment is built. Two celebrations are now priced.
 - **Profile schema while there are no customers (owner):** edit the current version in place and never bump

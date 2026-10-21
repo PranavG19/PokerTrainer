@@ -377,3 +377,29 @@ test('Celebrations motion "Still": the words show without motion even when the M
     await app.close();
   }
 });
+
+test('turning Celebrations off while a moment waits behind a verdict: it never shows', async () => {
+  const app = await launchApp({ userDataDir: profileWithHandsToday(11), env: { OFFSUIT_NOW: String(NOW) } });
+  try {
+    const { page } = app;
+    await page.waitForSelector('[data-testid="home-screen"]');
+    await recordMoments(page);
+    // A verdict holds the moment (the stand-in survives screen changes: it hangs off <body>).
+    await page.evaluate(() => {
+      const v = document.createElement('div');
+      v.id = 'fake-verdict';
+      v.dataset.sheet = 'verdict';
+      document.body.appendChild(v);
+    });
+    await playOneHand(page);
+    await page.click('[data-testid="tab-settings"]');
+    const toggle = page.locator('[data-testid="celebrations-toggle"]');
+    await toggle.click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.celebrations)).toBe('off');
+    await page.evaluate(() => document.getElementById('fake-verdict')?.remove());
+    await page.waitForTimeout(1500);
+    expect(await moments(page)).toHaveLength(0);
+  } finally {
+    await app.close();
+  }
+});
