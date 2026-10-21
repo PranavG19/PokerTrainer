@@ -380,6 +380,12 @@ describe('the progression host pays a finished set once, polishes a rule that he
     expect(s2.progression.reps.total).toBe(2 * REPS_CONTRAST_SET);
   });
 
+  it('a finished set’s Reps reach the Ghost Rail’s week like any other learning Reps', () => {
+    const s0 = emptySession();
+    const s1 = save(s0, withSets(s0, [taught(NOW - 1000, 'r1', 'too-broad')]));
+    expect(s1.progression.rail.weeks.reduce((n, w) => n + w.reps, 0)).toBe(REPS_CONTRAST_SET);
+  });
+
   it('a set that held re-polishes its card at the moment it finished; one that failed does not', () => {
     const s0 = emptySession();
     const held = save(s0, withSets(s0, [taught(NOW - 1000, 'r1', 'holds')]));
